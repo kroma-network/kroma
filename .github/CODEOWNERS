@@ -1,0 +1,15 @@
+# Components
+/components @wemixkanvas/l2-protocol
+/e2e        @wemixkanvas/l2-protocol
+/utils      @wemixkanvas/l2-protocol
+
+# Contracts
+/bindings @wemixkanvas/l2-protocol
+/packages @wemixkanvas/l2-protocol
+
+# Ops
+/.github    @wemixkanvas/devops
+/ops-devnet @wemixkanvas/devops
+
+# Misc
+/specs @wemixkanvas/l2-protocol

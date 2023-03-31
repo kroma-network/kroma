@@ -1,0 +1,16 @@
+syntax = "proto3";
+package proof;
+option go_package = './l2output';
+
+service Proof {
+    rpc Prove (ProofRequest) returns (ProofResponse) {}
+}
+  
+message ProofResponse{
+    bytes final_pair = 1;
+    bytes proof = 2; 
+}
+
+message ProofRequest {
+    string block_number_hex = 1;
+}

@@ -1,0 +1,55 @@
+{
+  "name": "@wemixkanvas/core-utils",
+  "version": "0.1.0",
+  "description": "[Kanvas] Core typescript utilities",
+  "main": "dist/index",
+  "types": "dist/index",
+  "files": [
+    "dist/*"
+  ],
+  "scripts": {
+    "all": "yarn clean && yarn build && yarn test && yarn lint:fix && yarn lint",
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
+    "lint": "yarn lint:fix && yarn lint:check",
+    "lint:check": "eslint . --max-warnings=0",
+    "lint:fix": "yarn lint:check --fix",
+    "pre-commit": "lint-staged",
+    "test": "ts-mocha test/*.spec.ts",
+    "test:coverage": "nyc ts-mocha test/*.spec.ts && nyc merge .nyc_output coverage.json"
+  },
+  "keywords": [
+    "kanvas",
+    "ethereum",
+    "core",
+    "utils"
+  ],
+  "homepage": "https://github.com/wemixkanvas/kanvas/tree/dev/packages/core-utils#readme",
+  "license": "MIT",
+  "author": "Lightscale Inc.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wemixkanvas/kanvas.git"
+  },
+  "dependencies": {
+    "@ethersproject/abi": "^5.7.0",
+    "@ethersproject/abstract-provider": "^5.7.0",
+    "@ethersproject/address": "^5.7.0",
+    "@ethersproject/bignumber": "^5.7.0",
+    "@ethersproject/bytes": "^5.7.0",
+    "@ethersproject/contracts": "^5.7.0",
+    "@ethersproject/constants": "^5.7.0",
+    "@ethersproject/hash": "^5.7.0",
+    "@ethersproject/keccak256": "^5.7.0",
+    "@ethersproject/providers": "^5.7.0",
+    "@ethersproject/rlp": "^5.7.0",
+    "@ethersproject/transactions": "^5.7.0",
+    "@ethersproject/properties": "^5.7.0",
+    "@ethersproject/web": "^5.7.0",
+    "bufio": "^1.0.7",
+    "chai": "^4.3.4"
+  },
+  "devDependencies": {
+    "mocha": "^10.0.0"
+  }
+}

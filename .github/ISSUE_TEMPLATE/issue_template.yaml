@@ -1,0 +1,79 @@
+name: Issue Template
+description: To report any issue, please use this template.
+body:
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      description: What type of issue would you like to report?
+      multiple: false
+      options:
+        - Bug
+        - Build/Install
+        - Performance
+        - Support
+        - Feature Request
+        - Documentation Feature Request
+        - Documentation Bug
+        - Others
+    validations:
+      required: true
+
+  - type: input
+    id: kanvas-version
+    attributes:
+      label: Kanvas Version
+      description:
+      placeholder: e.g., 1.0.1
+    validations:
+      required: true
+  - type: input
+    id: OS
+    attributes:
+      label: OS Platform and Distribution
+      description:
+      placeholder: e.g., Linux Ubuntu 16.04
+    validations:
+      required: false
+  - type: input
+    id: Go
+    attributes:
+      label: Go version
+      description:
+      placeholder: e.g., go1.19.3 linux/amd64(go version)
+    validations:
+      required: false
+  - type: input
+    id: Node
+    attributes:
+      label: Node version
+      description:
+      placeholder: e.g., v16.14.2(node --version)
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Current Behaviour?
+      description: Also tell us, what did you expect to happen?
+      placeholder: Tell us what you see!
+      value: "A bug happened!"
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: code-to-reproduce
+    attributes:
+      label: Standalone code to reproduce the issue
+      description: Provide a reproducible test case that is the bare minimum necessary to generate the problem. If possible, please share a link to Colab/Jupyter/any notebook.
+      placeholder: Tell us what you see!
+      value:
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell
