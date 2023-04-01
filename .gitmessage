@@ -83,8 +83,9 @@ Related: #<issue number>
 #   │       │             └─⫸ Summary in present tense. Not capitalized.
 #   │       │                 No period at the end.
 #   │       │
-#   │       └─⫸ Commit Scope: batcher|chain-ops|contracts|e2e|monitoring|node|
-#   │                         service|signer|validator
+#   │       └─⫸ Commit Scope: batcher|chain-ops|common-ts|contracts|core-utils|
+#   │                         e2e|hardhat-deploy-config|monitoring|node|
+#   │                         service|sdk|signer|validator
 #   │
 #   └─⫸ Commit Type: build|chore|ci|docs|feat|fix|perf|refac|test
 # ```

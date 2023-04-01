@@ -1,0 +1,14 @@
+ignores: [
+  "@babel/eslint-parser",
+  "@typescript-eslint/eslint-plugin",
+  "@typescript-eslint/parser",
+  "chai",
+  "eslint-config-prettier",
+  "eslint-plugin-import",
+  "eslint-plugin-jsdoc",
+  "eslint-plugin-prefer-arrow",
+  "eslint-plugin-prettier",
+  "eslint-plugin-unicorn",
+  "eslint-plugin-react",
+  "typedoc"
+]
