@@ -1,0 +1,58 @@
+{
+  "name": "@wemixkanvas/sdk",
+  "version": "0.1.0",
+  "description": "[Kanvas] Tools for working with Kanvas",
+  "main": "dist/index",
+  "types": "dist/index",
+  "files": [
+    "dist/*",
+    "src/*"
+  ],
+  "scripts": {
+    "all": "yarn clean && yarn build && yarn test && yarn lint:fix && yarn lint",
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
+    "lint": "yarn lint:fix && yarn lint:check",
+    "lint:check": "eslint . --max-warnings=0",
+    "lint:fix": "yarn lint:check --fix",
+    "pre-commit": "lint-staged",
+    "test": "hardhat test",
+    "test:coverage": "nyc hardhat test && nyc merge .nyc_output coverage.json",
+    "autogen:docs": "typedoc --out docs src/index.ts"
+  },
+  "keywords": [
+    "kanvas",
+    "ethereum",
+    "sdk"
+  ],
+  "homepage": "https://github.com/wemixkanvas/kanvas/tree/dev/packages/sdk#readme",
+  "license": "MIT",
+  "author": "Lightscale Inc.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wemixkanvas/kanvas.git"
+  },
+  "devDependencies": {
+    "@ethersproject/abstract-provider": "^5.7.0",
+    "@ethersproject/abstract-signer": "^5.7.0",
+    "@ethersproject/transactions": "^5.7.0",
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "chai-as-promised": "^7.1.1",
+    "ethereum-waffle": "^3.4.0",
+    "ethers": "^5.7.0",
+    "hardhat": "^2.9.6",
+    "hardhat-deploy": "^0.11.4",
+    "mocha": "^10.0.0",
+    "nyc": "^15.1.0",
+    "typedoc": "^0.22.13"
+  },
+  "dependencies": {
+    "@wemixkanvas/contracts": "0.1.0",
+    "@wemixkanvas/core-utils": "0.1.0",
+    "lodash": "^4.17.21"
+  },
+  "peerDependencies": {
+    "ethers": "^5"
+  }
+}
