@@ -169,6 +169,8 @@ blockLoop:
 
 		tx, err := b.batchSubmitter.CreateSubmitTx(txdata.Bytes())
 		if err != nil {
+			// record it as a failed TX to resubmit the transaction.
+			b.batchSubmitter.recordFailedTx(txdata.ID(), err)
 			return fmt.Errorf("failed to create batch submit transaction: %w", err)
 		}
 		b.l.Info("creating batch submit tx", "to", tx.To, "from", b.cfg.From)
