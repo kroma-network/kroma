@@ -130,7 +130,6 @@ func (v *Validator) loop() {
 			}
 		case <-v.ctx.Done():
 			return
-		default:
 		}
 	}
 }
