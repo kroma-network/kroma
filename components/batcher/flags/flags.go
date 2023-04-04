@@ -72,12 +72,6 @@ var (
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "RESUBMISSION_TIMEOUT"),
 	}
-	BatchInboxAddressFlag = cli.StringFlag{
-		Name:     "proposer-batch-inbox-address",
-		Usage:    "L1 Address to receive batch transactions",
-		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "BATCH_INBOX_ADDRESS"),
-	}
 
 	/* Optional flags */
 
@@ -138,7 +132,6 @@ var requiredFlags = []cli.Flag{
 	NumConfirmationsFlag,
 	SafeAbortNonceTooLowCountFlag,
 	ResubmissionTimeoutFlag,
-	BatchInboxAddressFlag,
 }
 
 var optionalFlags = []cli.Flag{

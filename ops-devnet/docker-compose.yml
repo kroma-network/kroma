@@ -112,7 +112,6 @@ services:
       VALIDATOR_PPROF_ENABLED: "true"
       VALIDATOR_METRICS_ENABLED: "true"
       VALIDATOR_ALLOW_NON_FINALIZED: "true"
-      VALIDATOR_PROVER_GRPC: "${PROVER_GRPC}"
       VALIDATOR_CHALLENGER_DISABLED: "true"
 
   kanvas-challenger:
@@ -165,7 +164,6 @@ services:
       BATCHER_RESUBMISSION_TIMEOUT: 30s
       BATCHER_MNEMONIC: test test test test test test test test test test test junk
       BATCHER_HD_PATH: "m/44'/60'/0'/0/2"
-      BATCHER_BATCH_INBOX_ADDRESS: "${PROPOSER_BATCH_INBOX_ADDRESS}"
       BATCHER_LOG_TERMINAL: "true"
       BATCHER_PPROF_ENABLED: "true"
       BATCHER_METRICS_ENABLED: "true"

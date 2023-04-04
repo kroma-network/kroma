@@ -2,6 +2,7 @@ package validator
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -175,6 +176,10 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 	signer, fromAddress, err := kcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, cfg.HDPath, cfg.SignerConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	if !cfg.ChallengerDisabled && len(cfg.ProverGrpc) == 0 {
+		return nil, errors.New("ProverGrpc is required but given empty")
 	}
 
 	var fetcher ProofFetcher

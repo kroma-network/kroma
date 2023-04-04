@@ -74,7 +74,7 @@ var (
 	ProverGrpcFlag = cli.StringFlag{
 		Name:     "prover-grpc-url",
 		Usage:    "gRPC URL for kanvas-prover.",
-		Required: true,
+		Required: false,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "PROVER_GRPC"),
 	}
 
