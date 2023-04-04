@@ -1,6 +1,6 @@
+VERSION := $(shell git describe --tags --abbrev=0 --match v* 2> /dev/null || git rev-parse --short HEAD)
 GIT_COMMIT := $(shell git rev-parse HEAD)
 GIT_DATE := $(shell git show -s --format='%ct')
-VERSION := v0.1.0
 
 LD_FLAGS_ARGS +=-X main.Version=$(VERSION)
 LD_FLAGS_ARGS +=-X main.GitCommit=$(GIT_COMMIT)
