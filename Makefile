@@ -1,10 +1,8 @@
-VERSION := $(shell git describe --tags --abbrev=0 --match v* 2> /dev/null || git rev-parse --short HEAD)
-GIT_COMMIT := $(shell git rev-parse HEAD)
-GIT_DATE := $(shell git show -s --format='%ct')
+VERSION := $(shell git describe --tags --abbrev=0 --match v* 2> /dev/null || echo 'v0.0.0')
+GIT_COMMIT := $(shell git rev-parse --short=8 HEAD)
 
 LD_FLAGS_ARGS +=-X main.Version=$(VERSION)
-LD_FLAGS_ARGS +=-X main.GitCommit=$(GIT_COMMIT)
-LD_FLAGS_ARGS +=-X main.GitDate=$(GIT_DATE)
+LD_FLAGS_ARGS +=-X main.Meta=$(GIT_COMMIT)
 LD_FLAGS := -ldflags "$(LD_FLAGS_ARGS)"
 
 build:

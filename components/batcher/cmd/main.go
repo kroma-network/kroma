@@ -7,15 +7,14 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
 
-	batcher "github.com/wemixkanvas/kanvas/components/batcher"
+	"github.com/wemixkanvas/kanvas/components/batcher"
 	"github.com/wemixkanvas/kanvas/components/batcher/flags"
 	klog "github.com/wemixkanvas/kanvas/utils/service/log"
 )
 
 var (
-	Version   = ""
-	GitCommit = ""
-	GitDate   = ""
+	Version = ""
+	Meta    = ""
 )
 
 func main() {
@@ -23,7 +22,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Flags = flags.Flags
-	app.Version = fmt.Sprintf("%s-%s-%s", Version, GitCommit, GitDate)
+	app.Version = fmt.Sprintf("%s-%s", Version, Meta)
 	app.Name = "kanvas-batcher"
 	app.Usage = "Batch Submitter Service"
 	app.Description = "Service for generating and submitting L2 tx batches " +
