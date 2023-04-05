@@ -25,6 +25,11 @@ import (
 )
 
 var (
+	Version = ""
+	Meta    = ""
+)
+
+var (
 	snapshot   = flag.String("snapshot", "", "path to snapshot log")
 	listenAddr = flag.String("addr", "", "listen address of webserver")
 	refresh    = flag.Duration("refresh", 10*time.Second, "snapshot refresh rate")
@@ -98,6 +103,7 @@ func main() {
 	log.Root().SetHandler(
 		log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stdout, log.TerminalFormat(true))),
 	)
+	log.Info("Starting stateviz...", "version", fmt.Sprintf("%s-%s", Version, Meta))
 
 	if *snapshot == "" {
 		log.Crit("missing required -snapshot flag")

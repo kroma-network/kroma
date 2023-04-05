@@ -13,9 +13,8 @@ import (
 )
 
 var (
-	Version   = ""
-	GitCommit = ""
-	GitDate   = ""
+	Version = ""
+	Meta    = ""
 )
 
 func main() {
@@ -23,7 +22,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Flags = flags.Flags
-	app.Version = fmt.Sprintf("%s-%s-%s", Version, GitCommit, GitDate)
+	app.Version = fmt.Sprintf("%s-%s", Version, Meta)
 	app.Name = "validator"
 	app.Usage = "L2Output Submitter"
 	app.Description = "Service for generating and submitting L2 Output checkpoints to the L2OutputOracle contract"

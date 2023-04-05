@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -26,23 +27,19 @@ import (
 )
 
 var (
-	GitCommit = ""
-	GitDate   = ""
+	Version = ""
+	Meta    = ""
 )
 
 // VersionWithMeta holds the textual version string including the metadata.
 var VersionWithMeta = func() string {
-	v := version.Version
-	if GitCommit != "" {
-		v += "-" + GitCommit[:8]
+	if Version != "" {
+		version.Version = Version
 	}
-	if GitDate != "" {
-		v += "-" + GitDate
+	if Meta != "" {
+		version.Meta = Meta
 	}
-	if version.Meta != "" {
-		v += "-" + version.Meta
-	}
-	return v
+	return fmt.Sprintf("%s-%s", version.Version, version.Meta)
 }()
 
 func main() {
