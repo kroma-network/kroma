@@ -701,7 +701,7 @@ construct [payload attributes][payload-attr].
 [system-config]: glossary.md#system-configuration
 
 This term refers to the collection of dynamically configurable rollup parameters maintained
-by the [`SystemConfig`](./system_config.md) contract on [L1] and read by the [L2 derivation][derivation] process.
+by the [`SystemConfig`](./system-config.md) contract on [L1] and read by the [L2 derivation][derivation] process.
 These parameters enable keys to be rotated regularly and external cost parameters to be adjusted
 without the network upgrade overhead of a hardfork.
 
