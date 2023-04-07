@@ -2,9 +2,9 @@
 
 <!-- All glossary references in this file. -->
 
-[g-block]: glossary#block
-[g-l1]: glossary#l1
-[g-l2]: glossary#l2
+[g-block]: glossary.md#block
+[g-l1]: glossary.md#layer-1-l1
+[g-l2]: glossary.md#layer-2-l2
 [g-validator]: glossary.md#validator
 
 # Batch Submitter

@@ -2,8 +2,8 @@
 
 <!-- All glossary references in this file. -->
 
-[g-l1]: glossary#l1
-[g-l2]: glossary#l2
+[g-l1]: glossary.md#layer-1-l1
+[g-l2]: glossary.md#layer-2-l2
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
