@@ -12,6 +12,7 @@ volumes:
 
 services:
   l1:
+    pid: host # allow debugging
     image: ethereum/client-go:v1.10.22
     ports:
       - "8545:8545"
@@ -28,6 +29,7 @@ services:
       - "/entrypoint.sh"
 
   l2:
+    pid: host # allow debugging
     image: wemixkanvas/geth:dev-6ec404a78abc
     ports:
       - "9545:8545"
@@ -45,6 +47,7 @@ services:
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
 
   kanvas-node:
+    pid: host # allow debugging
     depends_on:
       - l1
       - l2
@@ -86,6 +89,7 @@ services:
       - kanvas_log:/kanvas_log
 
   kanvas-validator:
+    pid: host # allow debugging
     depends_on:
       - l1
       - l2
@@ -115,6 +119,7 @@ services:
       VALIDATOR_CHALLENGER_DISABLED: "true"
 
   kanvas-challenger:
+    pid: host # allow debugging
     depends_on:
       - l1
       - l2
@@ -138,6 +143,7 @@ services:
       VALIDATOR_OUTPUT_SUBMITTER_DISABLED: "true"
 
   kanvas-batcher:
+    pid: host # allow debugging
     depends_on:
       - l1
       - l2
@@ -169,6 +175,7 @@ services:
       BATCHER_METRICS_ENABLED: "true"
 
   stateviz:
+    pid: host # allow debugging
     build:
       context: ..
       target: "kanvas-stateviz"
