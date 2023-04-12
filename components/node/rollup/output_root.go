@@ -9,12 +9,12 @@ import (
 	"github.com/wemixkanvas/kanvas/components/node/eth"
 )
 
-var NilProof = errors.New("Output root proof is nil")
+var ErrNilProof = errors.New("output root proof is nil")
 
 // ComputeL2OutputRoot computes the L2 output root by hashing an output root proof.
 func ComputeL2OutputRoot(proofElements *bindings.TypesOutputRootProof) (eth.Bytes32, error) {
 	if proofElements == nil {
-		return eth.Bytes32{}, NilProof
+		return eth.Bytes32{}, ErrNilProof
 	}
 
 	digest := crypto.Keccak256Hash(
