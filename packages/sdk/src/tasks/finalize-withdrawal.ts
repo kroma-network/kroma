@@ -12,7 +12,7 @@ import {
   DEFAULT_L2_CONTRACT_ADDRESSES,
   MessageStatus,
   ContractsLike,
-} from '../src'
+} from '../'
 
 task('finalize-withdrawal', 'Finalize a withdrawal')
   .addParam(

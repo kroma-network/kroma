@@ -14,7 +14,7 @@ import {
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
   MessageStatus,
-} from '../src'
+} from '../'
 
 const deployWETH9 = async (
   hre: HardhatRuntimeEnvironment,

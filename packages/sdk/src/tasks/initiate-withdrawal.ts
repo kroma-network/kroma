@@ -10,7 +10,7 @@ import {
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
   ContractsLike,
-} from '../src'
+} from '../'
 
 const { formatEther } = utils
 
