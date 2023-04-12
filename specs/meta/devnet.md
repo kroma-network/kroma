@@ -6,6 +6,7 @@
 **Table of Contents**
 
 - [Local Devnet Setup](#local-devnet-setup)
+  - [Debugging VS Code](#debugging-vs-code)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -51,3 +52,17 @@ The batch submitter uses the account below to submit batches to L1:
 
 - Address: `0xde3829a23df1479438622a08a116e8eb3f620bb5`
 - Private key: `bf7604d9d3a1c7748642b1b7b05c2bd219c9faa91458b370f85e5a40f3b03af7`
+
+## Debugging VS Code
+
+We added a debugging configuration called 'Attach to devnet process' to .vscode/launch.json. Therefore, on Linux, you
+can use VS Code to attach to the devnet process and perform debugging as shown in the figure below.
+
+![vscode_debug](../asset/../assets/vscode_debug.png)
+
+You might need to disable linux ptrace protection.
+
+```shell
+> sudo su
+> echo 0 > /proc/sys/kernel/yama/ptrace_scope
+```

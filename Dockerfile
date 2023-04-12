@@ -13,22 +13,45 @@ COPY ./.git /app/.git
 WORKDIR /app
 RUN make build
 
+FROM alpine:3.17 as runner
+
+RUN addgroup user && \
+    adduser -G user -s /bin/sh -h /home/user -D user
+
+USER user
+WORKDIR /home/user/
+
+FROM alpine:3.17 as runner-with-kanvas-log
+
+RUN addgroup user && \
+    adduser -G user -s /bin/sh -h /home/user -D user
+
+RUN mkdir /kanvas_log/ && \
+    chown user:user /kanvas_log
+
+USER user
+WORKDIR /home/user/
+
 # Node
-FROM alpine:3.17 as kanvas-node
+FROM runner-with-kanvas-log as kanvas-node
 COPY --from=builder /app/bin/kanvas-node /usr/local/bin
+
 ENTRYPOINT ["kanvas-node"]
 
 # Stateviz
-FROM alpine:3.17 as kanvas-stateviz
+FROM runner-with-kanvas-log as kanvas-stateviz
 COPY --from=builder /app/bin/kanvas-stateviz /usr/local/bin
+
 CMD ["kanvas-stateviz"]
 
 # Batcher
-FROM alpine:3.17 as kanvas-batcher
+FROM runner as kanvas-batcher
 COPY --from=builder /app/bin/kanvas-batcher /usr/local/bin
+
 ENTRYPOINT ["kanvas-batcher"]
 
 # Validator
-FROM alpine:3.17 as kanvas-validator
+FROM runner as kanvas-validator
 COPY --from=builder /app/bin/kanvas-validator /usr/local/bin
+
 ENTRYPOINT ["kanvas-validator"]

@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach to devnet process",
+      "type": "go",
+      "request": "attach",
+      "mode": "local",
+      "processId": "${command:pickGoProcess}",
+      "substitutePath": [
+        {
+          "from":"${workspaceFolder}",
+          "to": "/app"
+        },
+        {
+          "from": "${env:GOPATH}",
+          "to": "/go"
+        }
+      ]
+    },
+  ]
+}
