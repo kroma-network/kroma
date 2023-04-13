@@ -62,12 +62,19 @@ func hashWithdrawal(nonce *big.Int, sender common.Address, target common.Address
 }
 
 // hashOutputRootProof hashes an output root proof.
-func hashOutputRootProof(version common.Hash, stateRoot common.Hash, messagePasserStorageRoot common.Hash, latestBlockHash common.Hash) (common.Hash, error) {
+func hashOutputRootProof(
+	version common.Hash,
+	stateRoot common.Hash,
+	messagePasserStorageRoot common.Hash,
+	blockHash common.Hash,
+	nextBlockHash common.Hash,
+) (common.Hash, error) {
 	hash, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
 		Version:                  version,
 		StateRoot:                stateRoot,
 		MessagePasserStorageRoot: messagePasserStorageRoot,
-		LatestBlockhash:          latestBlockHash,
+		BlockHash:                blockHash,
+		NextBlockHash:            nextBlockHash,
 	})
 	if err != nil {
 		return common.Hash{}, err

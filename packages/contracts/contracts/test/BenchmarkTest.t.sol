@@ -64,10 +64,11 @@ contract GasBenchMark_KanvasPortal is Portal_Initializer {
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({
-            version: bytes32(uint256(0)),
+            version: bytes32(uint256(1)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
-            latestBlockhash: bytes32(uint256(0))
+            blockHash: bytes32(uint256(0)),
+            nextBlockHash: bytes32(uint256(0))
         });
         _submittedBlockNumber = oracle.nextBlockNumber();
         _submittedOutputIndex = oracle.nextOutputIndex();

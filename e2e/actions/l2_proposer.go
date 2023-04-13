@@ -155,3 +155,11 @@ func (p *L2Proposer) ActBuildToL1HeadExclUnsafe(t Testing) {
 		p.ActL2EndBlock(t)
 	}
 }
+
+func (p *L2Proposer) ActBuildL2ToBlue(t Testing) {
+	require.NotNil(t, p.rollupCfg.BlueTime, "cannot activate Blue when it is not scheduled")
+	for p.L2Unsafe().Time < *p.rollupCfg.BlueTime {
+		p.ActL2StartBlock(t)
+		p.ActL2EndBlock(t)
+	}
+}

@@ -16,6 +16,7 @@ import (
 	zkt "github.com/wemixkanvas/zktrie/types"
 
 	"github.com/wemixkanvas/kanvas/bindings/predeploys"
+	"github.com/wemixkanvas/kanvas/components/node/rollup"
 	"github.com/wemixkanvas/kanvas/utils/chain-ops/crossdomain"
 )
 
@@ -224,10 +225,11 @@ func main() {
 		version := common.HexToHash(args[1])
 		stateRoot := common.HexToHash(args[2])
 		messagePasserStorageRoot := common.HexToHash(args[3])
-		latestBlockHash := common.HexToHash(args[4])
+		blockHash := common.HexToHash(args[4])
+		nextBlockHash := common.HexToHash(args[5])
 
 		// Hash the output root proof
-		hash, err := hashOutputRootProof(version, stateRoot, messagePasserStorageRoot, latestBlockHash)
+		hash, err := hashOutputRootProof(version, stateRoot, messagePasserStorageRoot, blockHash, nextBlockHash)
 		checkErr(err, "Error hashing output root proof")
 
 		// Pack hash
@@ -297,7 +299,7 @@ func main() {
 		checkErr(state.Prove(key_s.Bytes(), 0, &proof), "Error getting proof")
 
 		// Get the output root
-		outputRoot, err := hashOutputRootProof(common.Hash{}, world.Hash(), state.Hash(), common.Hash{})
+		outputRoot, err := hashOutputRootProof(rollup.V1, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
 		checkErr(err, "Error hashing output root proof")
 
 		// Pack the output

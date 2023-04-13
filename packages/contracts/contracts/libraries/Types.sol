@@ -28,13 +28,15 @@ library Types {
      * @custom:field version                  Version of the output root.
      * @custom:field stateRoot                Root of the state trie at the block of this output.
      * @custom:field messagePasserStorageRoot Root of the message passer storage trie.
-     * @custom:field latestBlockhash          Hash of the block this output was generated from.
+     * @custom:field blockHash                Hash of the block this output was generated from.
+     * @custom:field nextBlockHash            Hash of the next block.
      */
     struct OutputRootProof {
         bytes32 version;
         bytes32 stateRoot;
         bytes32 messagePasserStorageRoot;
-        bytes32 latestBlockhash;
+        bytes32 blockHash;
+        bytes32 nextBlockHash;
     }
 
     /**

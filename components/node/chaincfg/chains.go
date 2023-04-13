@@ -37,6 +37,7 @@ var Sepolia = rollup.Config{
 	BatchInboxAddress:      common.HexToAddress("0xbac0000000000000000000000000000000000003"),
 	DepositContractAddress: common.HexToAddress("0x9c818e93c0884f75f48d93a9bdb2e994f8d77b86"),
 	L1SystemConfigAddress:  common.HexToAddress("0x472f1b9ea60e3ec09bc84b45b381d502a2ab51f6"),
+	BlueTime:               u64Ptr(1683693240), // GMT: Wednesday, May 10, 2023 4:34:00 AM
 }
 
 var NetworksByName = map[string]rollup.Config{
@@ -66,4 +67,8 @@ func GetRollupConfig(name string) (rollup.Config, error) {
 	}
 
 	return network, nil
+}
+
+func u64Ptr(v uint64) *uint64 {
+	return &v
 }

@@ -26,6 +26,7 @@ import (
 
 	"github.com/wemixkanvas/kanvas/bindings/bindings"
 	"github.com/wemixkanvas/kanvas/bindings/predeploys"
+	"github.com/wemixkanvas/kanvas/components/node/rollup"
 	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
 	"github.com/wemixkanvas/kanvas/components/node/testutils/fuzzerutils"
 	"github.com/wemixkanvas/kanvas/components/node/withdrawals"
@@ -547,7 +548,8 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			receiptCl := ethclient.NewClient(rpcClient)
 
 			// Now create the withdrawal
-			params, err := withdrawals.ProveWithdrawalParameters(context.Background(), proofCl, receiptCl, tx.Hash(), header, l2OutputOracle)
+			version := rollup.L2OutputRootVersion(sys.RollupConfig, header.Time)
+			params, err := withdrawals.ProveWithdrawalParameters(context.Background(), version, proofCl, receiptCl, tx.Hash(), header, l2OutputOracle)
 			require.Nil(t, err)
 
 			// Obtain our withdrawal parameters

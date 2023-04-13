@@ -18,6 +18,7 @@ import (
 
 	"github.com/wemixkanvas/kanvas/bindings/bindings"
 	"github.com/wemixkanvas/kanvas/bindings/predeploys"
+	"github.com/wemixkanvas/kanvas/components/node/rollup"
 	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
 	"github.com/wemixkanvas/kanvas/components/node/withdrawals"
 	"github.com/wemixkanvas/kanvas/e2e/e2eutils"
@@ -273,8 +274,9 @@ type L2User struct {
 // CrossLayerUser represents the same user account on L1 and L2,
 // and provides actions to make cross-layer transactions.
 type CrossLayerUser struct {
-	L1 L1User
-	L2 L2User
+	L1           L1User
+	L2           L2User
+	rollupConfig *rollup.Config
 
 	// track the last deposit, to easily chain together deposit actions
 	lastL1DepositTxHash common.Hash
@@ -282,7 +284,7 @@ type CrossLayerUser struct {
 	lastL2WithdrawalTxHash common.Hash
 }
 
-func NewCrossLayerUser(log log.Logger, priv *ecdsa.PrivateKey, rng *rand.Rand) *CrossLayerUser {
+func NewCrossLayerUser(log log.Logger, priv *ecdsa.PrivateKey, rng *rand.Rand, rollupConfig *rollup.Config) *CrossLayerUser {
 	addr := crypto.PubkeyToAddress(priv.PublicKey)
 	return &CrossLayerUser{
 		L1: L1User{
@@ -301,6 +303,7 @@ func NewCrossLayerUser(log log.Logger, priv *ecdsa.PrivateKey, rng *rand.Rand) *
 				address: addr,
 			},
 		},
+		rollupConfig: rollupConfig,
 	}
 }
 
@@ -409,7 +412,8 @@ func (s *CrossLayerUser) ProveWithdrawal(t Testing, l2TxHash common.Hash) common
 	// We generate a proof for the latest L2 output, which shouldn't require archive-node data if it's recent enough.
 	header, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), l2OutputBlockNr)
 	require.NoError(t, err)
-	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
+	version := rollup.L2OutputRootVersion(s.rollupConfig, header.Time)
+	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
 	require.NoError(t, err)
 
 	// Create the prove tx
@@ -480,7 +484,8 @@ func (s *CrossLayerUser) CompleteWithdrawal(t Testing, l2TxHash common.Hash) com
 	// params for the `WithdrawalTransaction` type generated in the bindings.
 	header, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), l2OutputBlockNr)
 	require.NoError(t, err)
-	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
+	version := rollup.L2OutputRootVersion(s.rollupConfig, header.Time)
+	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
 	require.NoError(t, err)
 
 	// Create the withdrawal tx

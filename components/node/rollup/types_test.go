@@ -3,6 +3,7 @@ package rollup
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/wemixkanvas/kanvas/components/node/eth"
 )
@@ -133,6 +135,65 @@ func TestCheckL1BlockRefByNumber(t *testing.T) {
 	mockClient.Hash = common.Hash{0x00}
 	err = config.CheckL1GenesisBlockHash(context.TODO(), &mockClient)
 	assert.Error(t, err)
+}
+
+// TestRandomConfigDescription tests that the description works for different variations of a random rollup config.
+func TestRandomConfigDescription(t *testing.T) {
+	t.Run("named L2", func(t *testing.T) {
+		config := randConfig()
+		out := config.Description(map[string]string{config.L2ChainID.String(): "foobar chain"})
+		require.Contains(t, out, "foobar chain")
+	})
+	t.Run("named L1", func(t *testing.T) {
+		config := randConfig()
+		config.L1ChainID = big.NewInt(5)
+		out := config.Description(map[string]string{config.L2ChainID.String(): "foobar chain"})
+		require.Contains(t, out, "goerli")
+	})
+	t.Run("unnamed", func(t *testing.T) {
+		config := randConfig()
+		out := config.Description(nil)
+		require.Contains(t, out, "(unknown L1)")
+		require.Contains(t, out, "(unknown L2)")
+	})
+	t.Run("blue unset", func(t *testing.T) {
+		config := randConfig()
+		config.BlueTime = nil
+		out := config.Description(nil)
+		require.Contains(t, out, "Blue: (not configured)")
+	})
+	t.Run("blue genesis", func(t *testing.T) {
+		config := randConfig()
+		config.BlueTime = new(uint64)
+		out := config.Description(nil)
+		require.Contains(t, out, "Blue: @ genesis")
+	})
+	t.Run("blue date", func(t *testing.T) {
+		config := randConfig()
+		x := uint64(1677119335)
+		config.BlueTime = &x
+		out := config.Description(nil)
+		// Don't check human-readable part of the date, it's timezone-dependent.
+		// Don't make this test fail only in Australia :')
+		require.Contains(t, out, fmt.Sprintf("Blue: @ %d ~ ", x))
+	})
+}
+
+// TestBlueActivation tests the activation condition of the Blue upgrade.
+func TestBlueActivation(t *testing.T) {
+	config := randConfig()
+	config.BlueTime = nil
+	require.False(t, config.IsBlue(0), "false if nil time, even if checking 0")
+	require.False(t, config.IsBlue(123456), "false if nil time")
+	config.BlueTime = new(uint64)
+	require.True(t, config.IsBlue(0), "true at zero")
+	require.True(t, config.IsBlue(123456), "true for any")
+	x := uint64(123)
+	config.BlueTime = &x
+	require.False(t, config.IsBlue(0))
+	require.False(t, config.IsBlue(122))
+	require.True(t, config.IsBlue(123))
+	require.True(t, config.IsBlue(124))
 }
 
 type mockL2Client struct {

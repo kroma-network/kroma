@@ -146,7 +146,7 @@ type ProvenWithdrawalParameters struct {
 // ProveWithdrawalParameters queries L1 & L2 to generate all withdrawal parameters and proof necessary to prove a withdrawal on L1.
 // The header provided is very important. It should be a block (timestamp) for which there is a submitted output in the L2 Output Oracle
 // contract. If not, the withdrawal will fail as it the storage proof cannot be verified if there is no submitted state root.
-func ProveWithdrawalParameters(ctx context.Context, proofCl ProofClient, l2ReceiptCl ReceiptClient, txHash common.Hash, header *types.Header, l2OutputOracleContract *bindings.L2OutputOracleCaller) (ProvenWithdrawalParameters, error) {
+func ProveWithdrawalParameters(ctx context.Context, version [32]byte, proofCl ProofClient, l2ReceiptCl ReceiptClient, txHash common.Hash, header *types.Header, l2OutputOracleContract *bindings.L2OutputOracleCaller) (ProvenWithdrawalParameters, error) {
 	// Transaction receipt
 	receipt, err := l2ReceiptCl.TransactionReceipt(ctx, txHash)
 	if err != nil {
@@ -160,7 +160,7 @@ func ProveWithdrawalParameters(ctx context.Context, proofCl ProofClient, l2Recei
 	// Generate then verify the withdrawal proof
 	withdrawalHash, err := WithdrawalHash(ev)
 	if !bytes.Equal(withdrawalHash[:], ev.WithdrawalHash[:]) {
-		return ProvenWithdrawalParameters{}, errors.New("Computed withdrawal hash incorrectly")
+		return ProvenWithdrawalParameters{}, errors.New("computed withdrawal hash incorrectly")
 	}
 	if err != nil {
 		return ProvenWithdrawalParameters{}, err
@@ -200,10 +200,12 @@ func ProveWithdrawalParameters(ctx context.Context, proofCl ProofClient, l2Recei
 		L2OutputIndex: l2OutputIndex,
 		Data:          ev.Data,
 		OutputRootProof: bindings.TypesOutputRootProof{
-			Version:                  [32]byte{}, // Empty for version 1
+			Version:                  version,
 			StateRoot:                header.Root,
 			MessagePasserStorageRoot: p.StorageHash,
-			LatestBlockhash:          header.Hash(),
+			BlockHash:                header.Hash(),
+			// TODO(chokobole): use an actual block hash
+			NextBlockHash: common.Hash{},
 		},
 		WithdrawalProof: trieNodes,
 	}, nil

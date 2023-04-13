@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 import { FixedPointMathLib } from "@rari-capital/solmate/src/utils/FixedPointMathLib.sol";
 
@@ -24,6 +25,23 @@ library Arithmetic {
         int256 _max
     ) internal pure returns (int256) {
         return SignedMath.min(SignedMath.max(_value, _min), _max);
+    }
+
+    /**
+     * @notice Clamps a value between a minimum and maximum.
+     *
+     * @param _value The value to clamp.
+     * @param _min   The minimum value.
+     * @param _max   The maximum value.
+     *
+     * @return The clamped value.
+     */
+    function clamp(
+        uint256 _value,
+        uint256 _min,
+        uint256 _max
+    ) internal pure returns (uint256) {
+        return Math.min(Math.max(_value, _min), _max);
     }
 
     /**

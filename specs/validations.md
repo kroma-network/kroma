@@ -13,6 +13,8 @@
 
 - [Submitting L2 Output Commitments](#submitting-l2-output-commitments)
 - [L2 Output Commitment Construction](#l2-output-commitment-construction)
+  - [Output Payload(Version 0)](#output-payloadversion-0)
+  - [Output Payload(Version 1)](#output-payloadversion-1)
 - [The L2 Output Oracle Contract](#the-l2-output-oracle-contract)
   - [Configuration](#configuration)
 - [Security Considerations](#security-considerations)
@@ -62,20 +64,21 @@ where:
 
 2. `payload` (`bytes`) is a byte string of arbitrary length.
 
-In the initial version of the output commitment construction, the version is `bytes32(0)`, and the payload is defined
-as:
+### Output Payload(Version 0)
+
+The version 0 payload is defined as:
 
 ```pseudocode
-payload = state_root || withdrawal_storage_root || latest_block_hash
+payload = state_root || withdrawal_storage_root || block_hash
 ```
 
 where:
 
-1. The `latest_block_hash` (`bytes32`) is the block hash for the latest [L2][g-l2] block.
+1. The `block_hash` (`bytes32`) is the block hash for the [L2][g-l2] block that the output is generated from.
 
 2. The `state_root` (`bytes32`) is the [ZK-Trie][g-zktrie] root of all execution-layer accounts.
    This value is frequently used and thus elevated closer to the L2 output root, which removes the need to prove its
-   inclusion in the pre-image of the `latest_block_hash`. This reduces the merkle proof depth and cost of accessing the
+   inclusion in the pre-image of the `block_hash`. This reduces the merkle proof depth and cost of accessing the
    L2 state root on L1.
 
 3. The `withdrawal_storage_root` (`bytes32`) elevates the ZK Trie root of the
@@ -83,6 +86,18 @@ where:
   [ZKT][g-zktrie] proof for a withdrawal against the state root (proving first the storage root of the
   L2toL1MessagePasser against the state root, then the withdrawal against that storage root), we can prove against the
   L2toL1MessagePasser's storage root directly, thus reducing the verification cost of withdrawals on L1.
+
+### Output Payload(Version 1)
+
+The version 1 payload is defined as:
+
+```pseudocode
+payload = state_root || withdrawal_storage_root || block_hash || next_block_hash
+```
+
+where:
+
+1. The `next_block_hash` (`bytes32`) is the next block hash for the block that is next to the `block_hash`.
 
 ## The L2 Output Oracle Contract
 

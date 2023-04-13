@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
+import { Arithmetic } from "../libraries/Arithmetic.sol";
 import { Encoding } from "../libraries/Encoding.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { Types } from "../libraries/Types.sol";
@@ -74,22 +75,26 @@ contract Hashing_hashOutputRootProof_Test is CommonTest {
         bytes32 _version,
         bytes32 _stateRoot,
         bytes32 _messagePasserStorageRoot,
-        bytes32 _latestBlockhash
+        bytes32 _blockHash,
+        bytes32 _nextBlockHash
     ) external {
+        _version = bytes32(Arithmetic.clamp(uint256(_version), 0, MAX_OUTPUT_ROOT_PROOF_VERSION));
         assertEq(
             Hashing.hashOutputRootProof(
                 Types.OutputRootProof({
                     version: _version,
                     stateRoot: _stateRoot,
                     messagePasserStorageRoot: _messagePasserStorageRoot,
-                    latestBlockhash: _latestBlockhash
+                    blockHash: _blockHash,
+                    nextBlockHash: _nextBlockHash
                 })
             ),
             ffi.hashOutputRootProof(
                 _version,
                 _stateRoot,
                 _messagePasserStorageRoot,
-                _latestBlockhash
+                _blockHash,
+                _nextBlockHash
             )
         );
     }
