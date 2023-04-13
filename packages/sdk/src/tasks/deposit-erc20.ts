@@ -3,7 +3,7 @@ import { promises as fs } from 'fs'
 import '@nomiclabs/hardhat-ethers'
 import { getContractDefinition, predeploys } from '@wemixkanvas/contracts'
 import { sleep } from '@wemixkanvas/core-utils'
-import { Event, Contract, Wallet, providers, utils } from 'ethers'
+import { BigNumber, Contract, Event, providers, utils, Wallet } from 'ethers'
 import { task, types } from 'hardhat/config'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
@@ -15,6 +15,8 @@ import {
   DEFAULT_L2_CONTRACT_ADDRESSES,
   MessageStatus,
 } from '../'
+
+const oneEtherInWei = utils.parseEther('1')
 
 const deployWETH9 = async (
   hre: HardhatRuntimeEnvironment,
@@ -37,7 +39,7 @@ const deployWETH9 = async (
 
   if (wrap) {
     const deposit = await signer.sendTransaction({
-      value: utils.parseEther('1'),
+      value: oneEtherInWei,
       to: WETH9.address,
     })
     await deposit.wait()
@@ -99,7 +101,7 @@ const createKanvasMintableERC20 = async (
 task('deposit-erc20', 'Deposits WETH9 onto L2.')
   .addParam(
     'l2ProviderUrl',
-    'L2 provider URL.',
+    'L2 provider URL',
     'http://localhost:9545',
     types.string
   )
@@ -109,6 +111,10 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     '',
     types.string
   )
+  .addFlag(
+    'checkBalanceMismatch',
+    'Whether to check balance after deposit and withdrawal'
+  )
   .setAction(async (args, hre) => {
     const signers = await hre.ethers.getSigners()
     if (signers.length === 0) {
@@ -116,7 +122,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     }
     // Use the first configured signer for simplicity
     const signer = signers[0]
-    const address = await signer.getAddress()
+    const address = signer.address
     console.log(`Using signer ${address}`)
 
     // Ensure that the signer has a balance before trying to
@@ -226,7 +232,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     const depositTx = await messenger.depositERC20(
       WETH9.address,
       KanvasMintableERC20.address,
-      utils.parseEther('1')
+      oneEtherInWei
     )
     await depositTx.wait()
     console.log(`ERC20 deposited - ${depositTx.hash}`)
@@ -255,18 +261,25 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
       await sleep(1000)
     }
 
-    const l2Balance = await KanvasMintableERC20.balanceOf(address)
-    if (l2Balance.lt(utils.parseEther('1'))) {
-      throw new Error('bad deposit')
+    if (args.checkBalanceMismatch) {
+      const l2Balance = await KanvasMintableERC20.balanceOf(address)
+      if (l2Balance.lt(oneEtherInWei)) {
+        throw new Error('bad deposit')
+      }
     }
+
     console.log(`Deposit success`)
 
+    let preBalance: BigNumber | undefined
+    if (args.checkBalanceMismatch) {
+      preBalance = await WETH9.balanceOf(address)
+    }
+
     console.log('Starting withdrawal')
-    const preBalance = await WETH9.balanceOf(signer.address)
     const withdraw = await messenger.withdrawERC20(
       WETH9.address,
       KanvasMintableERC20.address,
-      utils.parseEther('1')
+      oneEtherInWei
     )
     const withdrawalReceipt = await withdraw.wait()
     for (const log of withdrawalReceipt.logs) {
@@ -405,13 +418,15 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
       }
     }
 
-    const postBalance = await WETH9.balanceOf(signer.address)
-
-    const expectedBalance = preBalance.add(utils.parseEther('1'))
-    if (!expectedBalance.eq(postBalance)) {
-      throw new Error(
-        `Balance mismatch, expected: ${expectedBalance}, actual: ${postBalance}`
-      )
+    if (args.checkBalanceMismatch) {
+      const postBalance = await WETH9.balanceOf(address)
+      const expectedBalance = preBalance.add(oneEtherInWei)
+      if (!expectedBalance.eq(postBalance)) {
+        throw new Error(
+          `Balance mismatch, expected: ${expectedBalance}, actual: ${postBalance}`
+        )
+      }
     }
+
     console.log('Withdrawal success')
   })

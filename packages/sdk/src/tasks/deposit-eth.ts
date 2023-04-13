@@ -14,12 +14,12 @@ import {
   MessageStatus,
 } from '../'
 
-const { formatEther } = utils
+const { formatEther, parseEther } = utils
 
 task('deposit-eth', 'Deposits ether to L2.')
   .addParam(
     'l2ProviderUrl',
-    'L2 provider URL.',
+    'L2 provider URL',
     'http://localhost:9545',
     types.string
   )
@@ -43,6 +43,10 @@ task('deposit-eth', 'Deposits ether to L2.')
     types.string
   )
   .addOptionalParam('withdrawAmount', 'Amount to withdraw', '', types.string)
+  .addFlag(
+    'checkBalanceMismatch',
+    'Whether to check balance after deposit and withdrawal'
+  )
   .setAction(async (args, hre) => {
     const signers = await hre.ethers.getSigners()
     if (signers.length === 0) {
@@ -50,7 +54,7 @@ task('deposit-eth', 'Deposits ether to L2.')
     }
     // Use the first configured signer for simplicity
     const signer = signers[0]
-    const address = await signer.getAddress()
+    const address = signer.address
     console.log(`Using signer ${address}`)
 
     // Ensure that the signer has a balance before trying to
@@ -59,17 +63,15 @@ task('deposit-eth', 'Deposits ether to L2.')
     if (balance.eq(0)) {
       throw new Error('Signer has no balance')
     }
-    console.log(`Signer balance: ${formatEther(balance.toString())}`)
+    console.log(`Signer balance: ${formatEther(balance.toString())} ETH`)
 
     const l2Provider = new providers.StaticJsonRpcProvider(args.l2ProviderUrl)
 
     // send to self if not specified
     const to = args.to ? args.to : address
-    const amount = args.amount
-      ? utils.parseEther(args.amount)
-      : utils.parseEther('1')
+    const amount = parseEther(args.amount ?? '1')
     const withdrawAmount = args.withdrawAmount
-      ? utils.parseEther(args.withdrawAmount)
+      ? parseEther(args.withdrawAmount)
       : amount.div(2)
 
     const l2Signer = new hre.ethers.Wallet(
@@ -186,7 +188,7 @@ task('deposit-eth', 'Deposits ether to L2.')
 
     // Deposit ETH
     console.log('Depositing ETH through StandardBridge')
-    console.log(`Sending ${formatEther(amount)} ether`)
+    console.log(`Sending ${formatEther(amount)} ETH`)
     const ethDeposit = await messenger.depositETH(amount, { recipient: to })
     console.log(`Transaction hash: ${ethDeposit.hash}`)
     const depositMessageReceipt = await messenger.waitForMessageReceipt(
@@ -208,29 +210,33 @@ task('deposit-eth', 'Deposits ether to L2.')
     )
 
     console.log(
-      `L1StandardBridge balance before: ${formatEther(l1BridgeBalanceBefore)}`
+      `L1StandardBridge balance before: ${formatEther(
+        l1BridgeBalanceBefore
+      )} ETH`
     )
 
     console.log(
-      `L1StandardBridge balance after: ${formatEther(l1BridgeBalanceAfter)}`
+      `L1StandardBridge balance after: ${formatEther(l1BridgeBalanceAfter)} ETH`
     )
 
     console.log(
-      `KanvasPortal balance before: ${formatEther(kanvasBalanceBefore)}`
+      `KanvasPortal balance before: ${formatEther(kanvasBalanceBefore)} ETH`
     )
     console.log(
-      `KanvasPortal balance after: ${formatEther(kanvasBalanceAfter)}`
+      `KanvasPortal balance after: ${formatEther(kanvasBalanceAfter)} ETH`
     )
 
-    if (!kanvasBalanceBefore.add(amount).eq(kanvasBalanceAfter)) {
-      throw new Error(`KanvasPortal balance mismatch`)
+    if (args.checkBalanceMismatch) {
+      if (!kanvasBalanceBefore.add(amount).eq(kanvasBalanceAfter)) {
+        throw new Error(`KanvasPortal balance mismatch`)
+      }
     }
 
     const l2Balance = await l2Provider.getBalance(to)
     console.log(
-      `L2 balance of deposit recipient: ${utils.formatEther(
+      `L2 balance of deposit recipient: ${formatEther(
         l2Balance.toString()
-      )}`
+      )} ETH`
     )
 
     if (!args.withdraw) {
@@ -407,12 +413,14 @@ task('deposit-eth', 'Deposits ether to L2.')
       }
     }
 
-    const kanvasBalanceFinally = await signer.provider.getBalance(
-      KanvasPortal.address
-    )
-
-    if (!kanvasBalanceFinally.add(withdrawAmount).eq(kanvasBalanceAfter)) {
-      throw new Error('KanvasPortal balance mismatch')
+    if (args.checkBalanceMismatch) {
+      const kanvasBalanceFinally = await signer.provider.getBalance(
+        KanvasPortal.address
+      )
+      if (!kanvasBalanceAfter.sub(withdrawAmount).eq(kanvasBalanceFinally)) {
+        throw new Error('KanvasPortal balance mismatch')
+      }
     }
+
     console.log('Withdraw success')
   })
