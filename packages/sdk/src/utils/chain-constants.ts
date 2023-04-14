@@ -34,7 +34,7 @@ export const DEFAULT_L2_CONTRACT_ADDRESSES: L2ContractsLike = {
 }
 
 /**
- * Mapping of L1 chain IDs to the appropriate contract addresses for the deployments to the
+ * Mapping of L2 chain IDs to the appropriate contract addresses for the deployments to the
  * given network. Simplifies the process of getting the correct contract addresses for a given
  * contract name.
  */
