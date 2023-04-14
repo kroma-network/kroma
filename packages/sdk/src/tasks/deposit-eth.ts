@@ -1,7 +1,6 @@
 import { promises as fs } from 'fs'
 
 import '@nomiclabs/hardhat-ethers'
-import { predeploys, getContractDefinition } from '@wemixkanvas/contracts'
 import { providers, utils } from 'ethers'
 import { task, types } from 'hardhat/config'
 import 'hardhat-deploy'
@@ -13,6 +12,7 @@ import {
   DEFAULT_L2_CONTRACT_ADDRESSES,
   MessageStatus,
   assert,
+  getAllContracts,
 } from '../'
 
 const { formatEther, parseEther } = utils
@@ -112,60 +112,13 @@ task('deposit-eth', 'Deposits ether to L2.')
       }
     }
 
-    const Artifact__L2ToL1MessagePasser = await getContractDefinition(
-      'L2ToL1MessagePasser'
-    )
-
-    const Artifact__L2CrossDomainMessenger = await getContractDefinition(
-      'L2CrossDomainMessenger'
-    )
-
-    const Artifact__L2StandardBridge = await getContractDefinition(
-      'L2StandardBridge'
-    )
-
-    const Artifact__KanvasPortal = await getContractDefinition('KanvasPortal')
-
-    const Artifact__L1CrossDomainMessenger = await getContractDefinition(
-      'L1CrossDomainMessenger'
-    )
-
-    const Artifact__L1StandardBridge = await getContractDefinition(
-      'L1StandardBridge'
-    )
-
-    const KanvasPortal = new hre.ethers.Contract(
-      contractAddrs.l1.KanvasPortal,
-      Artifact__KanvasPortal.abi,
-      signer
-    )
-
-    const L1CrossDomainMessenger = new hre.ethers.Contract(
-      contractAddrs.l1.L1CrossDomainMessenger,
-      Artifact__L1CrossDomainMessenger.abi,
-      signer
-    )
-
-    const L1StandardBridge = new hre.ethers.Contract(
-      contractAddrs.l1.L1StandardBridge,
-      Artifact__L1StandardBridge.abi,
-      signer
-    )
-
-    const L2ToL1MessagePasser = new hre.ethers.Contract(
-      predeploys.L2ToL1MessagePasser,
-      Artifact__L2ToL1MessagePasser.abi
-    )
-
-    const L2CrossDomainMessenger = new hre.ethers.Contract(
-      predeploys.L2CrossDomainMessenger,
-      Artifact__L2CrossDomainMessenger.abi
-    )
-
-    const L2StandardBridge = new hre.ethers.Contract(
-      predeploys.L2StandardBridge,
-      Artifact__L2StandardBridge.abi
-    )
+    const {
+      l1: { KanvasPortal, L1CrossDomainMessenger, L1StandardBridge },
+      l2: { L2CrossDomainMessenger, L2StandardBridge, L2ToL1MessagePasser },
+    } = getAllContracts(l2ChainId, {
+      l1SignerOrProvider: signer,
+      overrides: contractAddrs,
+    })
 
     const messenger = new CrossChainMessenger({
       l1SignerOrProvider: signer,
