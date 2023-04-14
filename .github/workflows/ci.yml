@@ -66,6 +66,8 @@ jobs:
         run: yarn build
 
       - name: Run Tests
+        env:
+          E2E_DISABLE_PARALLEL: true
         run: make test
 
       - name: Docker Image Name

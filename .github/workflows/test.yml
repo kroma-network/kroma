@@ -56,4 +56,6 @@ jobs:
         run: yarn build
 
       - name: Run tests
+        env:
+          E2E_DISABLE_PARALLEL: true
         run: make test
