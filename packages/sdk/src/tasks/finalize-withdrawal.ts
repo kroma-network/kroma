@@ -13,6 +13,7 @@ import {
   DEFAULT_L2_CONTRACT_ADDRESSES,
   MessageStatus,
   ContractsLike,
+  assert,
 } from '../'
 
 task('finalize-withdrawal', 'Finalize a withdrawal')
@@ -36,14 +37,10 @@ task('finalize-withdrawal', 'Finalize a withdrawal')
   )
   .setAction(async (args, hre: HardhatRuntimeEnvironment) => {
     const txHash = args.transactionHash
-    if (txHash === '') {
-      throw new Error('No tx hash')
-    }
+    assert(txHash !== '', 'No tx hash')
 
     const signers = await hre.ethers.getSigners()
-    if (signers.length === 0) {
-      throw new Error('No configured signers')
-    }
+    assert(signers.length > 0, 'No configured signers')
     const signer = signers[0]
     const address = signer.address
     console.log(`Using signer: ${address}`)

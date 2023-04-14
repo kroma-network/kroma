@@ -10,6 +10,7 @@ import {
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
   ContractsLike,
+  assert,
 } from '../'
 
 const { formatEther, parseEther } = utils
@@ -36,9 +37,7 @@ task('initiate-withdrawal', 'Initiate a withdrawal.')
   )
   .setAction(async (args, hre) => {
     const signers = await hre.ethers.getSigners()
-    if (signers.length === 0) {
-      throw new Error('No configured signers')
-    }
+    assert(signers.length > 0, 'No configured signers')
     // Use the first configured signer for simplicity
     const signer = signers[0]
     const address = signer.address
@@ -47,9 +46,7 @@ task('initiate-withdrawal', 'Initiate a withdrawal.')
     // Ensure that the signer has a balance before trying to
     // do anything
     const balance = await signer.getBalance()
-    if (balance.eq(0)) {
-      throw new Error('Signer has no balance')
-    }
+    assert(balance.gt(0), 'Signer has no balance')
     console.log(`Signer balance: ${formatEther(balance.toString())} ETH`)
 
     // send to self if not specified

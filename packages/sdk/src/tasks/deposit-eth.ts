@@ -12,6 +12,7 @@ import {
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
   MessageStatus,
+  assert,
 } from '../'
 
 const { formatEther, parseEther } = utils
@@ -49,9 +50,7 @@ task('deposit-eth', 'Deposits ether to L2.')
   )
   .setAction(async (args, hre) => {
     const signers = await hre.ethers.getSigners()
-    if (signers.length === 0) {
-      throw new Error('No configured signers')
-    }
+    assert(signers.length > 0, 'No configured signers')
     // Use the first configured signer for simplicity
     const signer = signers[0]
     const address = signer.address
@@ -60,9 +59,7 @@ task('deposit-eth', 'Deposits ether to L2.')
     // Ensure that the signer has a balance before trying to
     // do anything
     const balance = await signer.getBalance()
-    if (balance.eq(0)) {
-      throw new Error('Signer has no balance')
-    }
+    assert(balance.gt(0), 'Singer has no balance')
     console.log(`Signer balance: ${formatEther(balance.toString())} ETH`)
 
     const l2Provider = new providers.StaticJsonRpcProvider(args.l2ProviderUrl)
@@ -194,9 +191,7 @@ task('deposit-eth', 'Deposits ether to L2.')
     const depositMessageReceipt = await messenger.waitForMessageReceipt(
       ethDeposit
     )
-    if (depositMessageReceipt.receiptStatus !== 1) {
-      throw new Error('deposit failed')
-    }
+    assert(depositMessageReceipt.receiptStatus === 1, 'deposit failed')
     console.log(
       `Deposit complete - included in block ${depositMessageReceipt.transactionReceipt.blockNumber}`
     )
@@ -227,9 +222,10 @@ task('deposit-eth', 'Deposits ether to L2.')
     )
 
     if (args.checkBalanceMismatch) {
-      if (!kanvasBalanceBefore.add(amount).eq(kanvasBalanceAfter)) {
-        throw new Error(`KanvasPortal balance mismatch`)
-      }
+      assert(
+        kanvasBalanceBefore.add(amount).eq(kanvasBalanceAfter),
+        'KanvasPortal balance mismatch'
+      )
     }
 
     const l2Balance = await l2Provider.getBalance(to)
@@ -309,9 +305,10 @@ task('deposit-eth', 'Deposits ether to L2.')
     const ethProve = await messenger.proveMessage(ethWithdrawReceipt)
     console.log(`Transaction hash: ${ethProve.hash}`)
     const ethProveReceipt = await ethProve.wait()
-    if (ethProveReceipt.status !== 1) {
-      throw new Error('Prove withdrawal transaction reverted')
-    }
+    assert(
+      ethProveReceipt.status === 1,
+      'Prove withdrawal transaction reverted'
+    )
     console.log('Successfully proved withdrawal')
 
     const ethProveBlock = await hre.ethers.provider.getBlock(
@@ -350,9 +347,7 @@ task('deposit-eth', 'Deposits ether to L2.')
     const ethFinalize = await messenger.finalizeMessage(ethWithdrawReceipt)
     console.log(`Transaction hash: ${ethFinalize.hash}`)
     const ethFinalizeReceipt = await ethFinalize.wait()
-    if (ethFinalizeReceipt.status !== 1) {
-      throw new Error('Finalize withdrawal reverted')
-    }
+    assert(ethFinalizeReceipt.status === 1, 'Finalize withdrawal reverted')
 
     console.log(
       `ETH withdrawal complete - included in block ${ethFinalizeReceipt.blockNumber}`
@@ -366,21 +361,17 @@ task('deposit-eth', 'Deposits ether to L2.')
             console.log(parsed.name)
             console.log(parsed.args)
             console.log()
-            if (
-              parsed.name !== 'ETHBridgeFinalized' &&
-              parsed.name !== 'ETHWithdrawalFinalized'
-            ) {
-              throw new Error('Wrong event name from L1StandardBridge')
-            }
-            if (!parsed.args.amount.eq(withdrawAmount)) {
-              throw new Error('Wrong amount in event')
-            }
-            if (parsed.args.from !== address) {
-              throw new Error('Wrong to in event')
-            }
-            if (parsed.args.to !== address) {
-              throw new Error('Wrong from in event')
-            }
+            assert(
+              parsed.name === 'ETHBridgeFinalized' ||
+                parsed.name === 'ETHWithdrawalFinalized',
+              'Wrong event name from L1StandardBridge'
+            )
+            assert(
+              parsed.args.amount.eq(withdrawAmount),
+              'Wrong amount in event'
+            )
+            assert(parsed.args.from === address, 'Wrong to in event')
+            assert(parsed.args.to === address, 'Wrong from in event')
             break
           }
           case L1CrossDomainMessenger.address: {
@@ -388,9 +379,10 @@ task('deposit-eth', 'Deposits ether to L2.')
             console.log(parsed.name)
             console.log(parsed.args)
             console.log()
-            if (parsed.name !== 'RelayedMessage') {
-              throw new Error('Wrong event from L1CrossDomainMessenger')
-            }
+            assert(
+              parsed.name === 'RelayedMessage',
+              'Wrong event from L1CrossDomainMessenger'
+            )
             break
           }
           case KanvasPortal.address: {
@@ -400,9 +392,7 @@ task('deposit-eth', 'Deposits ether to L2.')
             console.log()
             // TODO: remove this if check
             if (parsed.name === 'WithdrawalFinalized') {
-              if (parsed.args.success !== true) {
-                throw new Error('Unsuccessful withdrawal call')
-              }
+              assert(parsed.args.success, 'Unsuccessful withdrawal call')
             }
             break
           }
@@ -417,9 +407,10 @@ task('deposit-eth', 'Deposits ether to L2.')
       const kanvasBalanceFinally = await signer.provider.getBalance(
         KanvasPortal.address
       )
-      if (!kanvasBalanceAfter.sub(withdrawAmount).eq(kanvasBalanceFinally)) {
-        throw new Error('KanvasPortal balance mismatch')
-      }
+      assert(
+        kanvasBalanceAfter.sub(withdrawAmount).eq(kanvasBalanceFinally),
+        'KanvasPortal balance mismatch'
+      )
     }
 
     console.log('Withdraw success')
