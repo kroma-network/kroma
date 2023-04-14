@@ -12,7 +12,7 @@ import {
   ContractsLike,
 } from '../'
 
-const { formatEther } = utils
+const { formatEther, parseEther } = utils
 
 task('initiate-withdrawal', 'Initiate a withdrawal.')
   .addOptionalParam('to', 'Recipient of the ether', '', types.string)
@@ -22,7 +22,12 @@ task('initiate-withdrawal', 'Initiate a withdrawal.')
     '',
     types.string
   )
-  .addParam('l1Url', 'L1 HTTP URL', 'http://localhost:8545', types.string)
+  .addParam(
+    'l1ProviderUrl',
+    'L1 Provider URL',
+    'http://localhost:8545',
+    types.string
+  )
   .addOptionalParam(
     'l1ContractsJsonPath',
     'Path to a JSON with L1 contract addresses in it',
@@ -36,7 +41,7 @@ task('initiate-withdrawal', 'Initiate a withdrawal.')
     }
     // Use the first configured signer for simplicity
     const signer = signers[0]
-    const address = await signer.getAddress()
+    const address = signer.address
     console.log(`Using signer ${address}`)
 
     // Ensure that the signer has a balance before trying to
@@ -45,13 +50,11 @@ task('initiate-withdrawal', 'Initiate a withdrawal.')
     if (balance.eq(0)) {
       throw new Error('Signer has no balance')
     }
-    console.log(`Signer balance: ${formatEther(balance.toString())}`)
+    console.log(`Signer balance: ${formatEther(balance.toString())} ETH`)
 
     // send to self if not specified
     const to = args.to ? args.to : address
-    const amount = args.amount
-      ? utils.parseEther(args.amount)
-      : utils.parseEther('1')
+    const amount = parseEther(args.amount ?? '1')
 
     const chainId = await signer.getChainId()
     let contractAddrs = CONTRACT_ADDRESSES[chainId]
@@ -89,7 +92,7 @@ task('initiate-withdrawal', 'Initiate a withdrawal.')
       }
     }
 
-    const l1Provider = new providers.StaticJsonRpcProvider(args.l1Url)
+    const l1Provider = new providers.StaticJsonRpcProvider(args.l1ProviderUrl)
     const l1Signer = new Wallet(hre.network.config.accounts[0], l1Provider)
 
     const messenger = new CrossChainMessenger({

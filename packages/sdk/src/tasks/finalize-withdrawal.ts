@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs'
 
+import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import '@nomiclabs/hardhat-ethers'
 import { providers, Wallet } from 'ethers'
 import { task, types } from 'hardhat/config'
@@ -21,7 +22,12 @@ task('finalize-withdrawal', 'Finalize a withdrawal')
     '',
     types.string
   )
-  .addParam('l2Url', 'L2 HTTP URL', 'http://localhost:9545', types.string)
+  .addParam(
+    'l2ProviderUrl',
+    'L2 provider URL',
+    'http://localhost:9545',
+    types.string
+  )
   .addOptionalParam(
     'l1ContractsJsonPath',
     'Path to a JSON with L1 contract addresses in it',
@@ -31,7 +37,7 @@ task('finalize-withdrawal', 'Finalize a withdrawal')
   .setAction(async (args, hre: HardhatRuntimeEnvironment) => {
     const txHash = args.transactionHash
     if (txHash === '') {
-      console.log('No tx hash')
+      throw new Error('No tx hash')
     }
 
     const signers = await hre.ethers.getSigners()
@@ -39,10 +45,10 @@ task('finalize-withdrawal', 'Finalize a withdrawal')
       throw new Error('No configured signers')
     }
     const signer = signers[0]
-    const address = await signer.getAddress()
+    const address = signer.address
     console.log(`Using signer: ${address}`)
 
-    const l2Provider = new providers.StaticJsonRpcProvider(args.l2Url)
+    const l2Provider = new providers.StaticJsonRpcProvider(args.l2ProviderUrl)
     const l2Signer = new Wallet(hre.network.config.accounts[0], l2Provider)
 
     const l2ChainId = await l2Signer.getChainId()
@@ -89,52 +95,76 @@ task('finalize-withdrawal', 'Finalize a withdrawal')
       contracts: contractAddrs,
     })
 
-    console.log('Waiting to be able to prove withdrawal')
-
     let receipt = await l2Provider.getTransactionReceipt(txHash)
 
-    const proveInterval = setInterval(async () => {
-      const currentStatus = await messenger.getMessageStatus(receipt)
-      console.log(
-        `Message status: ${
-          MessageStatus[currentStatus]
-        } (${await messenger.getLatestBlockNumber()} / ${receipt.blockNumber})`
-      )
-    }, 3000)
-
-    try {
-      await messenger.waitForMessageStatus(
-        receipt,
-        MessageStatus.READY_TO_PROVE
-      )
-    } finally {
-      clearInterval(proveInterval)
+    const currentStatus = await messenger.getMessageStatus(receipt)
+    if (currentStatus === MessageStatus.RELAYED) {
+      console.log('Withdrawal already proven and finalized')
+      return
     }
 
-    const proveTx = await messenger.proveMessage(txHash)
-    const proveReceipt = await proveTx.wait()
-    console.log('Prove receipt', proveReceipt)
+    if (currentStatus > MessageStatus.READY_TO_PROVE) {
+      console.log('Withdrawal already proven')
+    } else {
+      console.log('Waiting to be able to prove withdrawal')
 
-    const proveBlock = await hre.ethers.provider.getBlock(
-      proveReceipt.blockHash
-    )
-    const finalizationPeriodSeconds =
-      await messenger.getChallengePeriodSeconds()
+      const proveInterval = setInterval(async () => {
+        const currentProveStatus = await messenger.getMessageStatus(receipt)
+        console.log(
+          `Message status: ${
+            MessageStatus[currentProveStatus]
+          } (${await messenger.getLatestBlockNumber()} / ${
+            receipt.blockNumber
+          })`
+        )
+      }, 3000)
 
-    console.log(`Withdrawal proven at ${proveBlock.timestamp}`)
-    console.log(`Finalization period is ${finalizationPeriodSeconds} seconds`)
+      try {
+        await messenger.waitForMessageStatus(
+          receipt,
+          MessageStatus.READY_TO_PROVE
+        )
+      } finally {
+        clearInterval(proveInterval)
+      }
 
-    const proveBlockFinalizedSeconds =
-      proveBlock.timestamp + finalizationPeriodSeconds
-    console.log(
-      `Waiting to be able to finalize withdrawal until ${proveBlockFinalizedSeconds}`
-    )
+      let proveReceipt: TransactionReceipt | undefined
+      try {
+        const proveTx = await messenger.proveMessage(txHash)
+        proveReceipt = await proveTx.wait()
+        console.log('Prove receipt', proveReceipt)
+      } catch (e) {
+        console.error(
+          'If you run this script on testnet, in most case, this happens when relayer has proven the transaction already.'
+        )
+        console.error(`Error occurred during proving withdrawal: ${e}`)
+      }
+
+      if (proveReceipt) {
+        const proveBlock = await hre.ethers.provider.getBlock(
+          proveReceipt.blockHash
+        )
+        const finalizationPeriodSeconds =
+          await messenger.getChallengePeriodSeconds()
+
+        console.log(`Withdrawal proven at ${proveBlock.timestamp}`)
+        console.log(
+          `Finalization period is ${finalizationPeriodSeconds} seconds`
+        )
+
+        const proveBlockFinalizedSeconds =
+          proveBlock.timestamp + finalizationPeriodSeconds
+        console.log(
+          `Waiting to be able to finalize withdrawal until ${proveBlockFinalizedSeconds}`
+        )
+      }
+    }
 
     const finalizeInterval = setInterval(async () => {
-      const currentStatus = await messenger.getMessageStatus(txHash)
+      const currentFinalizeStatus = await messenger.getMessageStatus(txHash)
       const lastBlock = await hre.ethers.provider.getBlock(-1)
       console.log(
-        `Message status: ${MessageStatus[currentStatus]} (${lastBlock.number}:${lastBlock.timestamp})`
+        `Message status: ${MessageStatus[currentFinalizeStatus]} (${lastBlock.number}:${lastBlock.timestamp})`
       )
     }, 3000)
 
@@ -147,8 +177,15 @@ task('finalize-withdrawal', 'Finalize a withdrawal')
       clearInterval(finalizeInterval)
     }
 
-    const tx = await messenger.finalizeMessage(txHash)
-    receipt = await tx.wait()
-    console.log(receipt)
+    try {
+      const tx = await messenger.finalizeMessage(txHash)
+      receipt = await tx.wait()
+      console.log(receipt)
+    } catch (e) {
+      console.error(
+        'If you run this script on testnet, in most case, this happens when relayer has finalized the transaction already.'
+      )
+      console.error(`Error occurred during finalizing withdrawal: ${e}`)
+    }
     console.log('Finalized withdrawal')
   })

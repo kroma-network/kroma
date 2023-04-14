@@ -1,9 +1,13 @@
+import dotenv from 'dotenv'
 import '@nomiclabs/hardhat-ethers'
 import '@nomiclabs/hardhat-waffle'
 import { HardhatUserConfig } from 'hardhat/types'
 import 'hardhat-deploy'
 
 import './src/tasks'
+
+// Load environment variables
+dotenv.config()
 
 const config: HardhatUserConfig = {
   solidity: {
