@@ -8,12 +8,12 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
 
 import {
+  assert,
+  ContractsLike,
   CONTRACT_ADDRESSES,
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
   MessageStatus,
-  ContractsLike,
-  assert,
 } from '../'
 
 task('finalize-withdrawal', 'Finalize a withdrawal')

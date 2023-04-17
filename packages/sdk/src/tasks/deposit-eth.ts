@@ -6,13 +6,13 @@ import { task, types } from 'hardhat/config'
 import 'hardhat-deploy'
 
 import {
-  CONTRACT_ADDRESSES,
+  assert,
   ContractsLike,
+  CONTRACT_ADDRESSES,
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
-  MessageStatus,
-  assert,
   getAllContracts,
+  MessageStatus,
 } from '../'
 
 const { formatEther, parseEther } = utils

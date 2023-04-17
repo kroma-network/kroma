@@ -9,13 +9,13 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
 
 import {
+  assert,
   CONTRACT_ADDRESSES,
   ContractsLike,
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
-  MessageStatus,
-  assert,
   getAllContracts,
+  MessageStatus,
 } from '../'
 
 const oneEtherInWei = utils.parseEther('1')
