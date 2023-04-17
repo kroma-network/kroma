@@ -3,18 +3,22 @@ import { promises as fs } from 'fs'
 import '@nomiclabs/hardhat-ethers'
 import { getContractDefinition, predeploys } from '@wemixkanvas/contracts'
 import { sleep } from '@wemixkanvas/core-utils'
-import { Event, Contract, Wallet, providers, utils } from 'ethers'
+import { BigNumber, Contract, Event, providers, utils, Wallet } from 'ethers'
 import { task, types } from 'hardhat/config'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
 
 import {
+  assert,
   CONTRACT_ADDRESSES,
   ContractsLike,
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
+  getAllContracts,
   MessageStatus,
-} from '../src'
+} from '../'
+
+const oneEtherInWei = utils.parseEther('1')
 
 const deployWETH9 = async (
   hre: HardhatRuntimeEnvironment,
@@ -37,7 +41,7 @@ const deployWETH9 = async (
 
   if (wrap) {
     const deposit = await signer.sendTransaction({
-      value: utils.parseEther('1'),
+      value: oneEtherInWei,
       to: WETH9.address,
     })
     await deposit.wait()
@@ -78,9 +82,7 @@ const createKanvasMintableERC20 = async (
     (e: Event) => e.event === 'KanvasMintableERC20Created'
   )
 
-  if (!event) {
-    throw new Error('Unable to find KanvasMintableERC20Created event')
-  }
+  assert(event, 'Unable to find KanvasMintableERC20Created event')
 
   const l2WethAddress = event.args.localToken
   console.log(`Deployed to ${l2WethAddress}`)
@@ -99,7 +101,7 @@ const createKanvasMintableERC20 = async (
 task('deposit-erc20', 'Deposits WETH9 onto L2.')
   .addParam(
     'l2ProviderUrl',
-    'L2 provider URL.',
+    'L2 provider URL',
     'http://localhost:9545',
     types.string
   )
@@ -109,22 +111,22 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     '',
     types.string
   )
+  .addFlag(
+    'checkBalanceMismatch',
+    'Whether to check balance after deposit and withdrawal'
+  )
   .setAction(async (args, hre) => {
     const signers = await hre.ethers.getSigners()
-    if (signers.length === 0) {
-      throw new Error('No configured signers')
-    }
+    assert(signers.length > 0, 'No configured signers')
     // Use the first configured signer for simplicity
     const signer = signers[0]
-    const address = await signer.getAddress()
+    const address = signer.address
     console.log(`Using signer ${address}`)
 
     // Ensure that the signer has a balance before trying to
     // do anything
     const balance = await signer.getBalance()
-    if (balance.eq(0)) {
-      throw new Error('Signer has no balance')
-    }
+    assert(balance.gt(0), 'Signer has no balance')
 
     const l2Provider = new providers.StaticJsonRpcProvider(args.l2ProviderUrl)
 
@@ -143,60 +145,13 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
       } as ContractsLike
     }
 
-    const Artifact__L2ToL1MessagePasser = await getContractDefinition(
-      'L2ToL1MessagePasser'
-    )
-
-    const Artifact__L2CrossDomainMessenger = await getContractDefinition(
-      'L2CrossDomainMessenger'
-    )
-
-    const Artifact__L2StandardBridge = await getContractDefinition(
-      'L2StandardBridge'
-    )
-
-    const Artifact__KanvasPortal = await getContractDefinition('KanvasPortal')
-
-    const Artifact__L1CrossDomainMessenger = await getContractDefinition(
-      'L1CrossDomainMessenger'
-    )
-
-    const Artifact__L1StandardBridge = await getContractDefinition(
-      'L1StandardBridge'
-    )
-
-    const KanvasPortal = new hre.ethers.Contract(
-      contractAddrs.l1.KanvasPortal,
-      Artifact__KanvasPortal.abi,
-      signer
-    )
-
-    const L1CrossDomainMessenger = new hre.ethers.Contract(
-      contractAddrs.l1.L1CrossDomainMessenger,
-      Artifact__L1CrossDomainMessenger.abi,
-      signer
-    )
-
-    const L1StandardBridge = new hre.ethers.Contract(
-      contractAddrs.l1.L1StandardBridge,
-      Artifact__L1StandardBridge.abi,
-      signer
-    )
-
-    const L2ToL1MessagePasser = new hre.ethers.Contract(
-      predeploys.L2ToL1MessagePasser,
-      Artifact__L2ToL1MessagePasser.abi
-    )
-
-    const L2CrossDomainMessenger = new hre.ethers.Contract(
-      predeploys.L2CrossDomainMessenger,
-      Artifact__L2CrossDomainMessenger.abi
-    )
-
-    const L2StandardBridge = new hre.ethers.Contract(
-      predeploys.L2StandardBridge,
-      Artifact__L2StandardBridge.abi
-    )
+    const {
+      l1: { KanvasPortal, L1CrossDomainMessenger, L1StandardBridge },
+      l2: { L2CrossDomainMessenger, L2StandardBridge, L2ToL1MessagePasser },
+    } = getAllContracts(l2ChainId, {
+      l1SignerOrProvider: signer,
+      overrides: contractAddrs,
+    })
 
     const messenger = new CrossChainMessenger({
       l1SignerOrProvider: signer,
@@ -226,7 +181,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     const depositTx = await messenger.depositERC20(
       WETH9.address,
       KanvasMintableERC20.address,
-      utils.parseEther('1')
+      oneEtherInWei
     )
     await depositTx.wait()
     console.log(`ERC20 deposited - ${depositTx.hash}`)
@@ -255,18 +210,23 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
       await sleep(1000)
     }
 
-    const l2Balance = await KanvasMintableERC20.balanceOf(address)
-    if (l2Balance.lt(utils.parseEther('1'))) {
-      throw new Error('bad deposit')
+    if (args.checkBalanceMismatch) {
+      const l2Balance = await KanvasMintableERC20.balanceOf(address)
+      assert(l2Balance.gte(oneEtherInWei), 'bad deposit')
     }
+
     console.log(`Deposit success`)
 
+    let preBalance: BigNumber | undefined
+    if (args.checkBalanceMismatch) {
+      preBalance = await WETH9.balanceOf(address)
+    }
+
     console.log('Starting withdrawal')
-    const preBalance = await WETH9.balanceOf(signer.address)
     const withdraw = await messenger.withdrawERC20(
       WETH9.address,
       KanvasMintableERC20.address,
-      utils.parseEther('1')
+      oneEtherInWei
     )
     const withdrawalReceipt = await withdraw.wait()
     for (const log of withdrawalReceipt.logs) {
@@ -319,9 +279,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     const prove = await messenger.proveMessage(withdraw)
     const proveReceipt = await prove.wait()
     console.log(proveReceipt)
-    if (proveReceipt.status !== 1) {
-      throw new Error('Prove withdrawal transaction reverted')
-    }
+    assert(proveReceipt.status === 1, 'Prove withdrawal transaction reverted')
 
     const proveBlock = await hre.ethers.provider.getBlock(
       proveReceipt.blockHash
@@ -405,13 +363,14 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
       }
     }
 
-    const postBalance = await WETH9.balanceOf(signer.address)
-
-    const expectedBalance = preBalance.add(utils.parseEther('1'))
-    if (!expectedBalance.eq(postBalance)) {
-      throw new Error(
+    if (args.checkBalanceMismatch) {
+      const postBalance = await WETH9.balanceOf(address)
+      const expectedBalance = preBalance.add(oneEtherInWei)
+      assert(
+        expectedBalance.eq(postBalance),
         `Balance mismatch, expected: ${expectedBalance}, actual: ${postBalance}`
       )
     }
+
     console.log('Withdrawal success')
   })

@@ -1,3 +1,4 @@
+export * from './assert'
 export * from './chain-constants'
 export * from './coercion'
 export * from './contracts'
