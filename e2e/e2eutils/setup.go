@@ -215,6 +215,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		BatchInboxAddress:      deployConf.BatchInboxAddress,
 		DepositContractAddress: predeploys.DevKanvasPortalAddr,
 		L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
+		BlueTime:               deployConf.BlueTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 	}
 
 	deploymentsL1 := DeploymentsL1{

@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -11,6 +12,12 @@ import (
 	"github.com/wemixkanvas/kanvas/components/node/testlog"
 	"github.com/wemixkanvas/kanvas/e2e/e2eutils"
 )
+
+type blueScheduledTest struct {
+	name         string
+	blueTime     *hexutil.Uint64
+	activateBlue bool
+}
 
 // TestCrossLayerUser tests that common actions of the CrossLayerUser actor work:
 // - transact on L1
@@ -20,9 +27,28 @@ import (
 // - prove tx on L1
 // - wait 1 week + 1 second
 // - finalize withdrawal on L1
-func TestCrossLayerUser(gt *testing.T) {
+func TestCrossLayerUser(t *testing.T) {
+	zeroTime := hexutil.Uint64(0)
+	futureTime := hexutil.Uint64(20)
+	farFutureTime := hexutil.Uint64(2000)
+	tests := []blueScheduledTest{
+		{name: "NoBlue", blueTime: nil, activateBlue: false},
+		{name: "NotYetBlue", blueTime: &farFutureTime, activateBlue: false},
+		{name: "BlueAtGenesis", blueTime: &zeroTime, activateBlue: true},
+		{name: "BlueAfterGenesis", blueTime: &futureTime, activateBlue: true},
+	}
+	for _, test := range tests {
+		test := test // Use a fixed reference as the tests run in parallel
+		t.Run(test.name, func(gt *testing.T) {
+			runCrossLayerUserTest(gt, test)
+		})
+	}
+}
+
+func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
+	dp.DeployConfig.L2GenesisBlueTimeOffset = test.blueTime
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 
@@ -60,7 +86,7 @@ func TestCrossLayerUser(gt *testing.T) {
 		Bindings:       NewL2Bindings(t, l2Cl, l2ProofCl),
 	}
 
-	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(1234)))
+	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(1234)), sd.RollupCfg)
 	alice.L1.SetUserEnv(l1UserEnv)
 	alice.L2.SetUserEnv(l2UserEnv)
 
@@ -68,6 +94,10 @@ func TestCrossLayerUser(gt *testing.T) {
 	proposer.ActL2StartBlock(t)
 	proposer.ActL2EndBlock(t)
 
+	if test.activateBlue {
+		// advance L2 enough to activate blue fork
+		proposer.ActBuildL2ToBlue(t)
+	}
 	// regular L2 tx, in new L2 block
 	alice.L2.ActResetTxOpts(t)
 	alice.L2.ActSetTxToAddr(&dp.Addresses.Bob)(t)

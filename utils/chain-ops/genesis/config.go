@@ -69,6 +69,9 @@ type DeployConfig struct {
 	L2GenesisBlockParentHash    common.Hash    `json:"l2GenesisBlockParentHash"`
 	L2GenesisBlockBaseFeePerGas *hexutil.Big   `json:"l2GenesisBlockBaseFeePerGas"`
 
+	// Seconds after genesis block that Blue hard fork activates. 0 to activate at genesis. Nil to disable blue
+	L2GenesisBlueTimeOffset *hexutil.Uint64 `json:"l2GenesisBlueTimeOffset,omitempty"`
+
 	ColosseumChallengeTimeout uint64 `json:"colosseumChallengeTimeout"`
 	ColosseumSegmentsLengths  string `json:"colosseumSegmentsLengths"`
 
@@ -282,6 +285,17 @@ func (d *DeployConfig) InitDeveloperDeployedAddresses() error {
 	return nil
 }
 
+func (d *DeployConfig) BlueTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisBlueTimeOffset == nil {
+		return nil
+	}
+	v := uint64(0)
+	if offset := *d.L2GenesisBlueTimeOffset; offset > 0 {
+		v = genesisTime + uint64(offset)
+	}
+	return &v
+}
+
 // RollupConfig converts a DeployConfig to a rollup.Config
 func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHash common.Hash, l2GenesisBlockNumber uint64) (*rollup.Config, error) {
 	if d.KanvasPortalProxy == (common.Address{}) {
@@ -318,6 +332,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		BatchInboxAddress:      d.BatchInboxAddress,
 		DepositContractAddress: d.KanvasPortalProxy,
 		L1SystemConfigAddress:  d.SystemConfigProxy,
+		BlueTime:               d.BlueTime(l1StartBlock.Time()),
 	}, nil
 }
 

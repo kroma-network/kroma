@@ -351,7 +351,7 @@ func TestDeepReorg(gt *testing.T) {
 		AddressCorpora: addresses,
 		Bindings:       NewL2Bindings(t, l2Client, propEngine.GethClient()),
 	}
-	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(0xa57b)))
+	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(0xa57b)), sd.RollupCfg)
 	alice.L2.SetUserEnv(l2UserEnv)
 
 	// Run one iteration of the L2 derivation pipeline
@@ -684,7 +684,7 @@ func TestConflictingL2Blocks(gt *testing.T) {
 		AddressCorpora: addresses,
 		Bindings:       NewL2Bindings(t, l2Cl, altPropEng.GethClient()),
 	}
-	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(1234)))
+	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(1234)), sd.RollupCfg)
 	alice.L2.SetUserEnv(l2UserEnv)
 
 	proposer.ActL2PipelineFull(t)

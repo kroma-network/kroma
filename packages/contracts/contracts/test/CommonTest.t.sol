@@ -41,6 +41,8 @@ contract CommonTest is Test {
     bytes32 nonZeroHash = keccak256(abi.encode("NON_ZERO"));
     bytes NON_ZERO_DATA = hex"0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000";
 
+    uint256 constant MAX_OUTPUT_ROOT_PROOF_VERSION = 1;
+
     event TransactionDeposited(
         address indexed from,
         address indexed to,
@@ -522,15 +524,17 @@ contract FFIInterface is Test {
         bytes32 _version,
         bytes32 _stateRoot,
         bytes32 _messagePasserStorageRoot,
-        bytes32 _latestBlockhash
+        bytes32 _blockhash,
+        bytes32 _nextBlockhash
     ) external returns (bytes32) {
-        string[] memory cmds = new string[](6);
+        string[] memory cmds = new string[](7);
         cmds[0] = "scripts/differential-testing/differential-testing";
         cmds[1] = "hashOutputRootProof";
         cmds[2] = Strings.toHexString(uint256(_version));
         cmds[3] = Strings.toHexString(uint256(_stateRoot));
         cmds[4] = Strings.toHexString(uint256(_messagePasserStorageRoot));
-        cmds[5] = Strings.toHexString(uint256(_latestBlockhash));
+        cmds[5] = Strings.toHexString(uint256(_blockhash));
+        cmds[6] = Strings.toHexString(uint256(_nextBlockhash));
 
         bytes memory result = vm.ffi(cmds);
         return abi.decode(result, (bytes32));

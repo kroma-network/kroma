@@ -379,10 +379,11 @@ contract KanvasPortal_FinalizeWithdrawal_Test is Portal_Initializer {
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({
-            version: bytes32(uint256(0)),
+            version: bytes32(uint256(1)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
-            latestBlockhash: bytes32(uint256(0))
+            blockHash: bytes32(uint256(0)),
+            nextBlockHash: bytes32(uint256(0))
         });
         _submittedBlockNumber = oracle.nextBlockNumber();
         _submittedOutputIndex = oracle.nextOutputIndex();
@@ -447,8 +448,8 @@ contract KanvasPortal_FinalizeWithdrawal_Test is Portal_Initializer {
     // Test: proveWithdrawalTransaction reverts if the outputRootProof does not match the output root
     function test_proveWithdrawalTransaction_onInvalidOutputRootProof_reverts() external {
         // Modify the version to invalidate the withdrawal proof.
-        _outputRootProof.version = bytes32(uint256(1));
-        vm.expectRevert("KanvasPortal: invalid output root proof");
+        _outputRootProof.version = bytes32(uint256(2));
+        vm.expectRevert("Hashing: unknown output root proof version");
         portal.proveWithdrawalTransaction(
             _defaultTx,
             _submittedOutputIndex,
@@ -866,10 +867,11 @@ contract KanvasPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         (bytes32 stateRoot, bytes32 storageRoot, , , bytes[] memory withdrawalProof) = ffi
             .getProveWithdrawalTransactionInputs(insufficientGasTx);
         Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
-            version: bytes32(0),
+            version: bytes32(uint256(1)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            latestBlockhash: bytes32(0)
+            blockHash: bytes32(uint256(0)),
+            nextBlockHash: bytes32(uint256(0))
         });
 
         vm.mockCall(
@@ -916,10 +918,11 @@ contract KanvasPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             bytes[] memory withdrawalProof
         ) = ffi.getProveWithdrawalTransactionInputs(_testTx);
         Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
-            version: bytes32(0),
+            version: bytes32(uint256(1)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            latestBlockhash: bytes32(0)
+            blockHash: bytes32(uint256(0)),
+            nextBlockHash: bytes32(uint256(0))
         });
 
         // Setup the Oracle to return the outputRoot we want as well as a finalized timestamp.
@@ -987,10 +990,11 @@ contract KanvasPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         ) = ffi.getProveWithdrawalTransactionInputs(_tx);
 
         Types.OutputRootProof memory proof = Types.OutputRootProof({
-            version: bytes32(uint256(0)),
+            version: bytes32(uint256(1)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            latestBlockhash: bytes32(uint256(0))
+            blockhash: bytes32(uint256(0)),
+            nextBlockHash: bytes32(uint256(0))
         });
 
         // Ensure the values returned from ffi are correct

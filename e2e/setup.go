@@ -350,6 +350,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			BatchInboxAddress:      cfg.DeployConfig.BatchInboxAddress,
 			DepositContractAddress: predeploys.DevKanvasPortalAddr,
 			L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
+			BlueTime:               cfg.DeployConfig.BlueTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 		}
 	}
 	defaultConfig := makeRollupConfig()

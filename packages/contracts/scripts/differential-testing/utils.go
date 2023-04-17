@@ -14,7 +14,7 @@ import (
 	"github.com/wemixkanvas/kanvas/utils/chain-ops/crossdomain"
 )
 
-var UnknownNonceVersion = errors.New("Unknown nonce version")
+var ErrUnknownNonceVersion = errors.New("unknown nonce version")
 
 // checkOk checks if ok is false, and panics if so.
 // Shorthand to ease go's god awful error handling
@@ -42,7 +42,7 @@ func encodeCrossDomainMessage(nonce *big.Int, sender common.Address, target comm
 		// Encode cross domain message V0
 		encoded, err = crossdomain.EncodeCrossDomainMessageV0(nonce, sender, target, value, gasLimit, data)
 	} else {
-		return nil, UnknownNonceVersion
+		return nil, ErrUnknownNonceVersion
 	}
 
 	return encoded, err
@@ -62,12 +62,19 @@ func hashWithdrawal(nonce *big.Int, sender common.Address, target common.Address
 }
 
 // hashOutputRootProof hashes an output root proof.
-func hashOutputRootProof(version common.Hash, stateRoot common.Hash, messagePasserStorageRoot common.Hash, latestBlockHash common.Hash) (common.Hash, error) {
+func hashOutputRootProof(
+	version common.Hash,
+	stateRoot common.Hash,
+	messagePasserStorageRoot common.Hash,
+	blockHash common.Hash,
+	nextBlockHash common.Hash,
+) (common.Hash, error) {
 	hash, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
 		Version:                  version,
 		StateRoot:                stateRoot,
 		MessagePasserStorageRoot: messagePasserStorageRoot,
-		LatestBlockhash:          latestBlockHash,
+		BlockHash:                blockHash,
+		NextBlockHash:            nextBlockHash,
 	})
 	if err != nil {
 		return common.Hash{}, err

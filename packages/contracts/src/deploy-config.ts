@@ -146,6 +146,7 @@ interface OptionalL2DeployConfig {
   l2GenesisBlockGasUsed: string
   l2GenesisBlockParentHash: string
   l2GenesisBlockBaseFeePerGas: string
+  l2GenesisBlueTimeOffset: string
   gasPriceOracleOverhead: number
   gasPriceOracleScalar: number
   colosseumChallengeTimeout: number

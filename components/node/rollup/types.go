@@ -69,6 +69,10 @@ type Config struct {
 	// Required to identify the L2 network and create p2p signatures unique for this chain.
 	L2ChainID *big.Int `json:"l2_chain_id"`
 
+	// BlueTime sets the activation time of the Blue network-upgrade.
+	// Active if BlueTime != nil && L2 block timestamp >= *BlueTime, inactive otherwise.
+	BlueTime *uint64 `json:"blue_time,omitempty"`
+
 	// Note: below addresses are part of the block-derivation process,
 	// and required to be the same network-wide to stay in consensus.
 
@@ -231,6 +235,11 @@ func (c *Config) L1Signer() types.Signer {
 	return types.NewLondonSigner(c.L1ChainID)
 }
 
+// IsBlue returns true if the Blue hardfork is active at or past the given timestamp.
+func (c *Config) IsBlue(timestamp uint64) bool {
+	return c.BlueTime != nil && timestamp >= *c.BlueTime
+}
+
 // Description outputs a banner describing the important parts of rollup configuration in a human-readable form.
 // Optionally provide a mapping of L2 chain IDs to network names to label the L2 chain with if not unknown.
 // The config should be config.Check()-ed before creating a description.
@@ -255,6 +264,9 @@ func (c *Config) Description(l2Chains map[string]string) string {
 	banner += fmt.Sprintf("  L2 starting time: %d ~ %s\n", c.Genesis.L2Time, fmtTime(c.Genesis.L2Time))
 	banner += fmt.Sprintf("  L2 block: %s %d\n", c.Genesis.L2.Hash, c.Genesis.L2.Number)
 	banner += fmt.Sprintf("  L1 block: %s %d\n", c.Genesis.L1.Hash, c.Genesis.L1.Number)
+	// Report the upgrade configuration
+	banner += "Kanvas Network Upgrades (timestamp based):\n"
+	banner += fmt.Sprintf("  - Blue: %s\n", fmtForkTimeOrUnset(c.BlueTime))
 	return banner
 }
 
@@ -277,7 +289,7 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 	log.Info("Rollup Config", "l2_chain_id", c.L2ChainID, "l2_network", networkL2, "l1_chain_id", c.L1ChainID,
 		"l1_network", networkL1, "l2_start_time", c.Genesis.L2Time, "l2_block_hash", c.Genesis.L2.Hash.String(),
 		"l2_block_number", c.Genesis.L2.Number, "l1_block_hash", c.Genesis.L1.Hash.String(),
-		"l1_block_number", c.Genesis.L1.Number)
+		"l1_block_number", c.Genesis.L1.Number, "blue_time", fmtForkTimeOrUnset(c.BlueTime))
 }
 
 func fmtForkTimeOrUnset(v *uint64) string {

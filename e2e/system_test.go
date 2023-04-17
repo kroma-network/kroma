@@ -30,6 +30,7 @@ import (
 	"github.com/wemixkanvas/kanvas/components/node/eth"
 	rollupNode "github.com/wemixkanvas/kanvas/components/node/node"
 	"github.com/wemixkanvas/kanvas/components/node/p2p"
+	"github.com/wemixkanvas/kanvas/components/node/rollup"
 	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
 	"github.com/wemixkanvas/kanvas/components/node/rollup/driver"
 	"github.com/wemixkanvas/kanvas/components/node/sources"
@@ -1130,7 +1131,7 @@ func TestWithdrawals(t *testing.T) {
 	oracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
 	require.Nil(t, err)
 
-	params, err := withdrawals.ProveWithdrawalParameters(context.Background(), proofCl, receiptCl, tx.Hash(), header, oracle)
+	params, err := withdrawals.ProveWithdrawalParameters(context.Background(), rollup.L2OutputRootVersion(sys.RollupConfig, header.Time), proofCl, receiptCl, tx.Hash(), header, oracle)
 	require.Nil(t, err)
 
 	portal, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, l1Client)
