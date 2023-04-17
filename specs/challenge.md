@@ -25,8 +25,8 @@
 
 ## Overview
 
-When a [challenger][g-validator] detects that submitted [L2 output root][g-l2-output] contains an invalid state
-transitions. It starts a challenge process by triggering [Colosseum contract](#colosseum-contract). This involves the
+When a [challenger][g-validator] detects that a submitted [L2 output root][g-l2-output] contains invalid state
+transition, it starts a challenge process by triggering the [Colosseum contract](#colosseum-contract). This involves the
 asserter and the challenger by force and continues until one of either wins. At this moment, only a single
 challenge process can exist. In other words, another challenger can't initiate a challenge if the existing challenge is
 in progress.
@@ -71,23 +71,23 @@ interface Colosseum {
 
 ## Bisection
 
-At this moment, it takes a long time to generate proof for state transition of even a single block.
-To resolve this problem, we adopt a way so called `interactive fault proof`.
+At this moment, it takes a long time to generate a proof for the state transition of even a single block.
+To resolve this problem, we adopt an `interactive fault proof`.
 Unlike other implementations bisecting until both parties find a single step of instruction to execute, we bisect
-until the challenger finds a single step of block to prove fault-ness.
+until the challenger finds a single step of block to prove faultiness.
 The basic idea is derived from [Arbitrum Nitro](https://github.com/OffchainLabs/nitro).
 
-**NOTE:** Someday if the proof generation becomes fast, this process can be removed.
+**NOTE:** Someday if proof generation gets faster, this process can be removed.
 
-In conclusion, we have two requirements. One is bisecting to find a single block, the other is the last turn should be
-challenger's turn. By making use of the fact that [L2 output root][g-l2-output] is always submitted at every 1800
+In conclusion, we have two requirements. One is bisecting to find a single block, the other is that the last turn must be
+the challenger's turn. By making use of the fact that [L2 output root][g-l2-output] is always submitted at every 1800
 [L2][g-l2] blocks, for example, we can decompose 1800 into 45 and 40. We let the challenger submit 46(45 + 1) segments
 and the asserter do 41(40 + 1). The reason why the challenger submits more than the asserter is to prevent challenge
 abusing. As a result, after one interaction between parties, [ZK fault proof][g-zk-fault-proof] can be ready to be
 verified on [L1][g-l1]. In reality, 1800 blocks are segmented using `SEGMENTS_LENGTHS`.
 
 Here we give a simple example with a small number to show you how it works. Let's say there are 11 blocks and the 3rd
-block is the block a challenger want to argue against and this number is decomposed into 5 and 2. Also, let's assume
+block is the block a challenger wants to argue against and this number is decomposed into 5 and 2. Also, let's assume
 that both of them agree the state transitions to the 2nd block.
 
 | Turn       | Action          | Segment Start | Segment Length | Segments        | Condition          |
@@ -127,12 +127,12 @@ the previous segments. In this way, both parties are able to agree with a single
 11. At `ASSERTER_TIMEOUT` state, if the challenger doesn't close the challenge timely, the state goes to
     `CHALLENGER_TIMEOUT`.
 
-**Note:** `CHALLENGER_TIMEOUT` state is treated specially. It is regarded as `CHALLENGER_FAIL` state because there's no
+**Note:** The `CHALLENGER_TIMEOUT` state is treated specially. It is regarded as the `CHALLENGER_FAIL` state because there's no
 motivation for the asserter to step further.
 
 ## Process
 
-We want the validator role to be decentralized. Like how PoS mechanism works, to achieve this,
+We want the validator role to be decentralized, like how the PoS mechanism works. To achieve this,
 the validator needs to stake more than `MINIMUM_STAKE` at every output submission. A Validator can deposit stakes
 at once for convenience. The qualified validator now obtain the right to submit output.
 
@@ -141,12 +141,12 @@ If outputs are submitted at the same time, only the first output is accepted. If
 
 Even though the output is challenged, validators still are able to submit output if the asserted output is thought to be
 valid. If the asserted output turns out to be invalid, all the proceeding outputs are deleted but the stakes on them
-remains untouched. This is because it's impossible to determine whether submitted outputs are invalid without challenge
+remains untouched. This is because it's impossible to determine whether submitted outputs are invalid without a challenge
 game.
 
-We'll show the example. Let's say `MINIMUM_STAKE` is 100.
+Here's an example: Suppose `MINIMUM_STAKE` is 100.
 
-1. At time `t`, alice, bob, and carol are registered as validators and they submitted outputs like followings.
+1. At time `t`, alice, bob, and carol are registered as validators and they submitted outputs like the following:
 
   | Name       | Output | Challenge | Stake | Lock                     |
   |------------|--------|-----------|-------|--------------------------|
