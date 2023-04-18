@@ -1,11 +1,11 @@
 import { getAddress } from '@ethersproject/address'
 import { BigNumber, BigNumberish } from '@ethersproject/bignumber'
 import {
-  arrayify,
   BytesLike,
+  arrayify,
+  hexConcat,
   hexDataSlice,
   stripZeros,
-  hexConcat,
   zeroPad,
 } from '@ethersproject/bytes'
 import { Zero } from '@ethersproject/constants'

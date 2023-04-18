@@ -2,7 +2,7 @@ import './setup'
 
 import { BigNumber } from '@ethersproject/bignumber'
 
-import { zeroesAndOnes, calldataCost } from '../src'
+import { calldataCost, zeroesAndOnes } from '../src'
 
 describe('Fees', () => {
   it('should count zeros and ones', () => {

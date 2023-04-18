@@ -1,6 +1,6 @@
 /* Imports: External */
 import { BigNumber } from '@ethersproject/bignumber'
-import { isHexString, hexZeroPad } from '@ethersproject/bytes'
+import { hexZeroPad, isHexString } from '@ethersproject/bytes'
 
 /**
  * Removes "0x" from start of a string if it exists.
