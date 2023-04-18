@@ -5,7 +5,14 @@ module.exports = {
     es6: true,
   },
   ignorePatterns: ['dist', 'coverage', 'packages/contracts/hardhat'],
-  extends: ['plugin:prettier/recommended'],
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:import/recommended',
+    'plugin:import/typescript',
+    'plugin:prettier/recommended',
+    'prettier',
+  ],
   parser: '@babel/eslint-parser',
   parserOptions: {
     es6: true,
@@ -14,12 +21,14 @@ module.exports = {
     requireConfigFile: false,
   },
   plugins: [
+    '@typescript-eslint',
     'eslint-plugin-import',
-    'eslint-plugin-unicorn',
     'eslint-plugin-jsdoc',
     'eslint-plugin-prefer-arrow',
     'eslint-plugin-react',
-    '@typescript-eslint',
+    'eslint-plugin-unicorn',
+    'import',
+    'prettier',
   ],
   overrides: [
     {
@@ -88,6 +97,37 @@ module.exports = {
     },
   ],
   rules: {
+    'sort-imports': [
+      'error',
+      {
+        ignoreCase: false, // default
+        ignoreDeclarationSort: true, // don't want to sort import lines, use eslint-plugin-import instead
+        ignoreMemberSort: false, // default
+        memberSyntaxSortOrder: ['none', 'all', 'multiple', 'single'], // default
+        allowSeparatedGroups: true,
+      },
+    ],
+    'import/no-unresolved': 'error',
+    'import/order': [
+      'error',
+      {
+        groups: [
+          'builtin', // Built-in imports (come from NodeJS native) go first
+          'external', // <- External imports
+          'internal', // <- Absolute imports
+          ['sibling', 'parent'], // <- Relative imports, the sibling and parent types they can be mingled together
+          'index', // <- index imports
+          'unknown', // <- unknown
+        ],
+        'newlines-between': 'always',
+        alphabetize: {
+          /* sort in ascending order. Options: ["ignore", "asc", "desc"] */
+          order: 'asc',
+          /* ignore case. Options: [true, false] */
+          caseInsensitive: true,
+        },
+      },
+    ],
     'prettier/prettier': 'warn',
     'arrow-parens': ['off', 'always'],
     'brace-style': ['off', 'off'],
@@ -103,13 +143,6 @@ module.exports = {
     'id-match': 'off',
     'import/no-extraneous-dependencies': ['error'],
     'import/no-internal-modules': 'off',
-    'import/order': [
-      'error',
-      {
-        groups: ['builtin', 'external', 'internal'],
-        'newlines-between': 'always',
-      },
-    ],
     indent: 'off',
     'jsdoc/check-alignment': 'error',
     'jsdoc/check-indentation': 'error',
@@ -184,5 +217,12 @@ module.exports = {
     'unicorn/prefer-ternary': 'off',
     'use-isnan': 'error',
     'valid-typeof': 'off',
+  },
+  settings: {
+    'import/resolver': {
+      typescript: {
+        project: './tsconfig.json',
+      },
+    },
   },
 }
