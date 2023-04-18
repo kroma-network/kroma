@@ -10,18 +10,18 @@ import { Signer } from '@ethersproject/abstract-signer'
 import { predeploys } from '@wemixkanvas/contracts'
 import {
   CrossChainMessageProof,
+  OutputData,
   encodeCrossDomainMessageV0,
   hashCrossDomainMessage,
-  OutputData,
   sleep,
   toRpcHexString,
 } from '@wemixkanvas/core-utils'
 import {
   BigNumber,
   CallOverrides,
-  ethers,
   Overrides,
   PayableOverrides,
+  ethers,
 } from 'ethers'
 
 import {
@@ -48,8 +48,8 @@ import { StandardBridge } from './standard-bridge'
 import {
   CHAIN_BLOCK_TIMES,
   CONTRACT_ADDRESSES,
-  DeepPartial,
   DEPOSIT_CONFIRMATION_BLOCKS,
+  DeepPartial,
   getAllContracts,
   hashLowLevelMessage,
   makeStateTrieProof,

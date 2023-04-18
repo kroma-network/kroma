@@ -2,18 +2,18 @@ import { promises as fs } from 'fs'
 
 import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import '@nomiclabs/hardhat-ethers'
-import { providers, Wallet } from 'ethers'
+import { Wallet, providers } from 'ethers'
 import { task, types } from 'hardhat/config'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
 
 import {
-  assert,
-  ContractsLike,
   CONTRACT_ADDRESSES,
+  ContractsLike,
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
   MessageStatus,
+  assert,
 } from '../'
 
 task('finalize-withdrawal', 'Finalize a withdrawal')

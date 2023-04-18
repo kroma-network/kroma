@@ -1,12 +1,11 @@
 import { Provider, TransactionRequest } from '@ethersproject/abstract-provider'
 import { serialize } from '@ethersproject/transactions'
 import { getContractInterface, predeploys } from '@wemixkanvas/contracts'
-import { Contract, BigNumber } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
 import cloneDeep from 'lodash/cloneDeep'
 
-import { L2Provider, ProviderLike, NumberLike } from './interfaces'
-import { toProvider, toNumber, toBigNumber } from './utils'
-import { assert } from './utils/assert'
+import { L2Provider, NumberLike, ProviderLike } from './interfaces'
+import { assert, toBigNumber, toNumber, toProvider } from './utils'
 
 type ProviderTypeIsWrong = any
 

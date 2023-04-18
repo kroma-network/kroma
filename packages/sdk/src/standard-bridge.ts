@@ -10,18 +10,18 @@ import {
   BigNumber,
   CallOverrides,
   Contract,
-  ethers,
   Overrides,
   PayableOverrides,
   Signer,
+  ethers,
 } from 'ethers'
 
 import { CrossChainMessenger } from './cross-chain-messenger'
 import {
   AddressLike,
+  ERC20BridgeMessage,
   MessageDirection,
   NumberLike,
-  ERC20BridgeMessage,
 } from './interfaces'
 import { toAddress } from './utils'
 

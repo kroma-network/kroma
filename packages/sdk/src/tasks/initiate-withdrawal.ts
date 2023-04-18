@@ -1,16 +1,16 @@
 import { promises as fs } from 'fs'
 
 import '@nomiclabs/hardhat-ethers'
-import { providers, utils, Wallet } from 'ethers'
+import { Wallet, providers, utils } from 'ethers'
 import { task, types } from 'hardhat/config'
 import 'hardhat-deploy'
 
 import {
-  assert,
-  ContractsLike,
   CONTRACT_ADDRESSES,
+  ContractsLike,
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
+  assert,
 } from '../'
 
 const { formatEther, parseEther } = utils

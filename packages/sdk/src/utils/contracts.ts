@@ -1,5 +1,5 @@
 import { getContractInterface } from '@wemixkanvas/contracts'
-import { ethers, Contract } from 'ethers'
+import { Contract, ethers } from 'ethers'
 
 import {
   AddressLike,
