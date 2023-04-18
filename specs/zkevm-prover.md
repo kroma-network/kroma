@@ -23,8 +23,8 @@
 
 ## Overview
 
-Prover produces a so called [ZK fault proof][g-zk-fault-proof] that states a [state][g-state] transition from `S` to
-`S'` is valid. It sounds like there's no big differences from validity proof. That's true. But the point is this is used
+A Prover produces a [ZK fault proof][g-zk-fault-proof] that states that a [state][g-state] transition from `S` to
+`S'` is valid. It sounds like there are no big differences from validity proofs. That's true. But the point is this is used
 to prove the state transition `S` to `S''` is wrong by showing a valid state transition `S` to `S'`.
 
 ## zkEVM Proof
@@ -32,7 +32,7 @@ to prove the state transition `S` to `S''` is wrong by showing a valid state tra
 See [zkevm-circuits](https://github.com/wemixkanvas/zkevm-circuits) and
 [zkevm-specs](https://github.com/wemixkanvas/zkevm-specs) for details.
 
-zkEVM proof is a proof that proves the relation between public input and witness. This proof can be verified by
+zkEVM proof is a proof that proves the relation between public input and witness. This proof can be verified by the
 [ZK Verifier contract](#the-zk-verifier-contract).
 
 Public input and witness are followings:
@@ -70,8 +70,8 @@ See [kanvas-prover](https://github.com/wemixkanvas/kanvas-prover) for details.
 
 ## RPC
 
-Currently, to request a proof generation, validator needs to communicate via [gRPC](https://grpc.io/). A validator acts
-as a client and prover acts as a server. Because proof generation takes too long, it must wait for `FETCHING_TIMEOUT`
+Currently, to request a proof generation, a validator needs to communicate via [gRPC](https://grpc.io/). A validator acts
+as a client and prover acts as a server. Because proof generation takes time, it must wait for `FETCHING_TIMEOUT`
 seconds.
 
 ### Protobuf
