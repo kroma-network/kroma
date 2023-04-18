@@ -25,10 +25,10 @@
 
 ## Overview
 
-When a [challenger][g-validator] detects that submitted [L2 output root][g-l2-output] contains an invalid state
-transitions. It starts a challenge process by triggering [Colosseum contract](#colosseum-contract). This involves the
-asserter and the challenger by force and continues until one of either wins. At this moment, only a single
-challenge process can exist. In other words, another challenger can't initiate a challenge if the existing challenge is
+When a [challenger][g-validator] detects that a submitted [L2 output root][g-l2-output] contains an invalid state
+transition, it starts a challenge process by triggering the [Colosseum contract](#colosseum-contract). This involves the
+asserter and the challenger by force and continues until either one wins. At this moment, only a single
+challenge process can exist. In other words, another challenger can't initiate a challenge if an existing challenge is
 in progress.
 
 ## Colosseum Contract
@@ -71,13 +71,13 @@ interface Colosseum {
 
 ## Bisection
 
-At this moment, it takes a long time to generate proof for state transition of even a single block.
-To resolve this problem, we adopt a way so called `interactive fault proof`.
+At this moment, it takes a long time to generate a proof for state transition of even a single block.
+To resolve this problem, we adopt an `interactive fault proof`.
 Unlike other implementations bisecting until both parties find a single step of instruction to execute, we bisect
 until the challenger finds a single step of block to prove fault-ness.
 The basic idea is derived from [Arbitrum Nitro](https://github.com/OffchainLabs/nitro).
 
-**NOTE:** Someday if the proof generation becomes fast, this process can be removed.
+**NOTE:** Someday if the proof generation becomes fast, this process will be removed.
 
 In conclusion, we have two requirements. One is bisecting to find a single block, the other is the last turn should be
 challenger's turn. By making use of the fact that [L2 output root][g-l2-output] is always submitted at every 1800
@@ -132,21 +132,21 @@ motivation for the asserter to step further.
 
 ## Process
 
-We want the validator role to be decentralized. Like how PoS mechanism works, to achieve this,
+We want the validator role to be decentralized. Like how the PoS mechanism works, to achieve this,
 the validator needs to stake more than `MINIMUM_STAKE` at every output submission. A Validator can deposit stakes
 at once for convenience. The qualified validator now obtain the right to submit output.
 
 If outputs are submitted at the same time, only the first output is accepted. If no one submits during
 `SUBMISSION_TIMEOUT`, [trusted validator][g-trusted-validator] will submit an output.
 
-Even though the output is challenged, validators still are able to submit output if the asserted output is thought to be
+Even though the output is challenged, validators still are able to submit an output if the asserted output is thought to be
 valid. If the asserted output turns out to be invalid, all the proceeding outputs are deleted but the stakes on them
-remains untouched. This is because it's impossible to determine whether submitted outputs are invalid without challenge
+remain untouched. This is because it's impossible to determine whether submitted outputs are invalid without a challenge
 game.
 
-We'll show the example. Let's say `MINIMUM_STAKE` is 100.
+We'll show an example. Let's say `MINIMUM_STAKE` is 100.
 
-1. At time `t`, alice, bob, and carol are registered as validators and they submitted outputs like followings.
+1. At time `t`, alice, bob, and carol are registered as validators and they submitted outputs like following:
 
   | Name       | Output | Challenge | Stake | Lock                     |
   |------------|--------|-----------|-------|--------------------------|
@@ -158,7 +158,7 @@ We'll show the example. Let's say `MINIMUM_STAKE` is 100.
   **NOTE:** `O_number` denotes the output at specific block `number`. `L_t` denotes "the stake should be locked
   until time `t`".
 
-2. At `t + 3 hours 30 minutes`, david initiates a challenge to output at 5400.
+2. At `t + 3 hours 30 minutes`, david initiates a challenge to the output at 5400.
 
   | Name       | Output | Challenge | Stake | Lock                          |
   |------------|--------|-----------|-------|-------------------------------|
