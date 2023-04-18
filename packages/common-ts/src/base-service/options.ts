@@ -1,6 +1,6 @@
-import { ValidatorSpec, Spec } from 'envalid'
+import { Spec, ValidatorSpec } from 'envalid'
 
-import { LogLevel } from '../common/logger'
+import { LogLevel } from '../common'
 import { validators } from './validators'
 
 /**

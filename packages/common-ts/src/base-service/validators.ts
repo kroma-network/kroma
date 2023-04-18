@@ -1,15 +1,15 @@
 import { Provider } from '@ethersproject/abstract-provider'
 import { Signer } from '@ethersproject/abstract-signer'
 import {
-  str,
   bool,
-  num,
   email,
   host,
-  port,
-  url,
   json,
   makeValidator,
+  num,
+  port,
+  str,
+  url,
 } from 'envalid'
 import { ethers } from 'ethers'
 
