@@ -3,7 +3,7 @@ import request from 'supertest'
 import chai = require('chai')
 const expect = chai.expect
 
-import { Logger, LegacyMetrics, createMetricsServer } from '../src'
+import { LegacyMetrics, Logger, createMetricsServer } from '../src'
 
 describe('Metrics', () => {
   it('should serve metrics', async () => {

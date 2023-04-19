@@ -1,7 +1,7 @@
 import { getAddress } from '@ethersproject/address'
 import { BigNumber } from '@ethersproject/bignumber'
 
-import { remove0x, add0x } from './hex-strings'
+import { add0x, remove0x } from './hex-strings'
 
 /**
  * Converts an ethers BigNumber into an equivalent Ethereum address representation.

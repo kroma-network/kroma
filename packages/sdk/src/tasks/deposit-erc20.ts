@@ -3,19 +3,19 @@ import { promises as fs } from 'fs'
 import '@nomiclabs/hardhat-ethers'
 import { getContractDefinition, predeploys } from '@wemixkanvas/contracts'
 import { sleep } from '@wemixkanvas/core-utils'
-import { BigNumber, Contract, Event, providers, utils, Wallet } from 'ethers'
+import { BigNumber, Contract, Event, Wallet, providers, utils } from 'ethers'
 import { task, types } from 'hardhat/config'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
 
 import {
-  assert,
   CONTRACT_ADDRESSES,
   ContractsLike,
   CrossChainMessenger,
   DEFAULT_L2_CONTRACT_ADDRESSES,
-  getAllContracts,
   MessageStatus,
+  assert,
+  getAllContracts,
 } from '../'
 
 const oneEtherInWei = utils.parseEther('1')
@@ -187,7 +187,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     console.log(`ERC20 deposited - ${depositTx.hash}`)
 
     // Deposit might get reorged, wait 30s and also log for reorgs.
-    let prevBlockHash: string = ''
+    let prevBlockHash = ''
     for (let i = 0; i < 30; i++) {
       const messageReceipt = await messenger.waitForMessageReceipt(depositTx)
       if (messageReceipt.receiptStatus !== 1) {

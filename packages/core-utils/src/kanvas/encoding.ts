@@ -1,5 +1,5 @@
 import { Interface } from '@ethersproject/abi'
-import { BigNumberish, BigNumber } from '@ethersproject/bignumber'
+import { BigNumber, BigNumberish } from '@ethersproject/bignumber'
 
 const iface = new Interface([
   'function relayMessage(uint256,address,address,uint256,uint256,bytes)',

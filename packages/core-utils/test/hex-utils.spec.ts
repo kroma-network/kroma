@@ -3,15 +3,15 @@ import { BigNumber } from '@ethersproject/bignumber'
 /* Imports: Internal */
 import { expect } from './setup'
 import {
-  toRpcHexString,
-  remove0x,
   add0x,
-  fromHexString,
-  toHexString,
-  padHexString,
-  encodeHex,
-  hexStringEquals,
   bytes32ify,
+  encodeHex,
+  fromHexString,
+  hexStringEquals,
+  padHexString,
+  remove0x,
+  toHexString,
+  toRpcHexString,
 } from '../src'
 
 describe('remove0x', () => {

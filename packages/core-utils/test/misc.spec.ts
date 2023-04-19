@@ -1,6 +1,6 @@
 /* Imports: Internal */
 import { expect } from './setup'
-import { sleep, clone, reqenv, getenv } from '../src'
+import { clone, getenv, reqenv, sleep } from '../src'
 
 describe('sleep', async () => {
   it('should return wait input amount of ms', async () => {

@@ -3,9 +3,9 @@
  */
 
 import {
+  FallbackProvider as EthersFallbackProvider,
   Provider,
   StaticJsonRpcProvider,
-  FallbackProvider as EthersFallbackProvider,
 } from '@ethersproject/providers'
 import { ConnectionInfo } from '@ethersproject/web'
 

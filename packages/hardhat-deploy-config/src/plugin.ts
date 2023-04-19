@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 import { ethers } from 'ethers'
-import { extendEnvironment, extendConfig } from 'hardhat/config'
+import { extendConfig, extendEnvironment } from 'hardhat/config'
 import {
   HardhatConfig,
   HardhatRuntimeEnvironment,

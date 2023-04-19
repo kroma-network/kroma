@@ -1,6 +1,6 @@
 import {
-  Gauge as PGauge,
   Counter as PCounter,
+  Gauge as PGauge,
   Histogram as PHistogram,
   Summary as PSummary,
 } from 'prom-client'

@@ -11,7 +11,7 @@ import snakeCase from 'lodash/snakeCase'
 import morgan from 'morgan'
 import prometheus, { Registry } from 'prom-client'
 
-import { Logger } from '../common/logger'
+import { Logger } from '../common'
 import {
   Metrics,
   MetricsSpec,
@@ -22,8 +22,8 @@ import {
   Options,
   OptionsSpec,
   StandardOptions,
-  stdOptionsSpec,
   getPublicOptions,
+  stdOptionsSpec,
 } from './options'
 import { ExpressRouter } from './router'
 

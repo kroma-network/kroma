@@ -1,6 +1,5 @@
 /* Imports: Internal */
-import { Logger } from '../common/logger'
-import { LegacyMetrics } from '../common/metrics'
+import { LegacyMetrics, Logger } from '../common'
 
 type OptionSettings<TOptions> = {
   [P in keyof TOptions]?: {
