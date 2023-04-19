@@ -323,10 +323,8 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		{
 			Name: "KromaPortal",
 			Args: []interface{}{
-				predeploys.DevL2OutputOracleAddr,
 				config.PortalGuardian,
 				true, // _paused
-				predeploys.DevZKMerkleTrieAddr,
 			},
 		},
 		{
@@ -371,33 +369,33 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		_, tx, _, err = bindings.DeploySystemConfig(
 			opts,
 			backend,
-			deployment.Args[0].(common.Address),
-			deployment.Args[1].(*big.Int),
-			deployment.Args[2].(*big.Int),
-			deployment.Args[3].(common.Hash),
-			deployment.Args[4].(uint64),
-			deployment.Args[5].(common.Address),
+			/* owner= */ deployment.Args[0].(common.Address),
+			/* overhead= */ deployment.Args[1].(*big.Int),
+			/* scalar= */ deployment.Args[2].(*big.Int),
+			/* batcherHash= */ deployment.Args[3].(common.Hash),
+			/* gasLimit= */ deployment.Args[4].(uint64),
+			/* unsafeBlockSigner= */ deployment.Args[5].(common.Address),
 		)
 	case "L2OutputOracle":
 		_, tx, _, err = bindings.DeployL2OutputOracle(
 			opts,
 			backend,
-			deployment.Args[0].(*big.Int),
-			deployment.Args[1].(*big.Int),
-			deployment.Args[2].(*big.Int),
-			deployment.Args[3].(*big.Int),
-			deployment.Args[4].(common.Address),
-			deployment.Args[5].(common.Address),
-			deployment.Args[6].(*big.Int),
+			/* submissionInterval= */ deployment.Args[0].(*big.Int),
+			/* l2BlockTime= */ deployment.Args[1].(*big.Int),
+			/* startingBlockNumber= */ deployment.Args[2].(*big.Int),
+			/* startingTimestamp= */ deployment.Args[3].(*big.Int),
+			/* validator= */ deployment.Args[4].(common.Address),
+			/* challenger= */ deployment.Args[5].(common.Address),
+			/* finalizationPeriodSeconds= */ deployment.Args[6].(*big.Int),
 		)
 	case "KromaPortal":
 		_, tx, _, err = bindings.DeployKromaPortal(
 			opts,
 			backend,
-			deployment.Args[0].(common.Address),
-			deployment.Args[1].(common.Address),
-			deployment.Args[2].(bool),
-			deployment.Args[3].(common.Address),
+			predeploys.DevL2OutputOracleAddr,
+			/* guardian= */ deployment.Args[0].(common.Address),
+			/* paused= */ deployment.Args[1].(bool),
+			predeploys.DevZKMerkleTrieAddr,
 		)
 	case "Colosseum":
 		_, tx, _, err = bindings.DeployColosseum(
@@ -405,9 +403,9 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			backend,
 			predeploys.DevL2OutputOracleAddr,
 			predeploys.DevZKVerifierAddr,
-			deployment.Args[0].(*big.Int),
-			deployment.Args[1].(*big.Int),
-			deployment.Args[2].([]*big.Int),
+			/* submissionInterval= */ deployment.Args[0].(*big.Int),
+			/* challengeTimeout= */ deployment.Args[1].(*big.Int),
+			/* segmentsLengths= */ deployment.Args[2].([]*big.Int),
 		)
 	case "L1CrossDomainMessenger":
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(
@@ -431,7 +429,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		_, tx, _, err = bindings.DeployProxyAdmin(
 			opts,
 			backend,
-			common.Address{},
+			/* owner= */ common.Address{},
 		)
 	case "WETH9":
 		_, tx, _, err = bindings.DeployWETH9(
