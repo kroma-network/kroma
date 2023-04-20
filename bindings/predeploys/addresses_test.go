@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/stretchr/testify/require"
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
 )
 
 func TestGethAddresses(t *testing.T) {
@@ -17,7 +17,7 @@ func TestGethAddresses(t *testing.T) {
 }
 
 // TestL1BlockSlots ensures that the storage layout of the L1Block
-// contract matches the hardcoded values in `kanvas-geth`.
+// contract matches the hardcoded values in `kroma-geth`.
 func TestL1BlockSlots(t *testing.T) {
 	layout, err := bindings.GetStorageLayout("L1Block")
 	require.NoError(t, err)

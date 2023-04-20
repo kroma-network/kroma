@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
 )
 
 var (

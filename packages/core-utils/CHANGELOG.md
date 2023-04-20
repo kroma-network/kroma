@@ -1,1 +1,1 @@
-# @wemixkanvas/core-utils
+# @kroma-network/core-utils

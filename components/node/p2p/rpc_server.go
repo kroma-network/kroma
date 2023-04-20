@@ -21,7 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/metrics"
 )
 
 // TODO: dynamic peering
@@ -143,7 +143,7 @@ func dumpPeer(id peer.ID, nw network.Network, pstore peerstore.Peerstore, connMg
 		info.Direction = c.Stat().Direction
 		break
 	}
-	if dat, err := pstore.Get(id, "kanvasChainID"); err == nil {
+	if dat, err := pstore.Get(id, "kromaChainID"); err == nil {
 		chID, ok := dat.(uint64)
 		if ok {
 			info.ChainID = chID

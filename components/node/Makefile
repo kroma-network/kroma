@@ -4,15 +4,15 @@ VERSION := v0.1.0
 
 LDFLAGSSTRING +=-X main.GitCommit=$(GITCOMMIT)
 LDFLAGSSTRING +=-X main.GitDate=$(GITDATE)
-LDFLAGSSTRING +=-X github.com/wemixkanvas/kanvas/node/version.Version=$(VERSION)
-LDFLAGSSTRING +=-X github.com/wemixkanvas/kanvas/node/version.Meta=$(VERSION_META)
+LDFLAGSSTRING +=-X github.com/kroma-network/kroma/node/version.Version=$(VERSION)
+LDFLAGSSTRING +=-X github.com/kroma-network/kroma/node/version.Meta=$(VERSION_META)
 LDFLAGS := -ldflags "$(LDFLAGSSTRING)"
 
 build:
-	env GO111MODULE=on go build -v $(LDFLAGS) -o ./bin/kanvas-node ./cmd/main.go
+	env GO111MODULE=on go build -v $(LDFLAGS) -o ./bin/kroma-node ./cmd/main.go
 
 clean:
-	rm bin/kanvas-node
+	rm bin/kroma-node
 
 test:
 	go test -v ./...

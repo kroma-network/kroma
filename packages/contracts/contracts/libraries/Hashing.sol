@@ -6,7 +6,7 @@ import { Types } from "./Types.sol";
 
 /**
  * @title Hashing
- * @notice Hashing handles Kanvas's various different hashing schemes.
+ * @notice Hashing handles Kroma's various different hashing schemes.
  */
 library Hashing {
     /**

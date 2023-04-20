@@ -37,7 +37,7 @@ with a bond at stake if the proof is wrong.
 The validator's role is to construct and submit output roots, which are commitments made on a configurable interval,
 to the `L2OutputOracle` contract running on L1. It does this by running the [validator](../components/validator/),
 a service which periodically queries the rollup node's
-[`kanvas_outputAtBlock` rpc method](./rollup-node.md#l2-output-rpc-method) for the latest output root derived
+[`kroma_outputAtBlock` rpc method](./rollup-node.md#l2-output-rpc-method) for the latest output root derived
 from the latest [finalized](rollup-node.md#finalization-guarantees) L1 block. The construction of this output root is
 described [below](#l2-output-commitment-construction).
 

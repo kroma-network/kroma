@@ -1,6 +1,6 @@
 import './deposits'
 import './rekey'
-import './check-kanvas-node'
+import './check-kroma-node'
 import './watch'
 import './forge-verify'
 import './validate-spacers'

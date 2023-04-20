@@ -3,8 +3,8 @@ package rpc
 import (
 	"github.com/urfave/cli"
 
-	kservice "github.com/wemixkanvas/kanvas/utils/service"
-	krpc "github.com/wemixkanvas/kanvas/utils/service/rpc"
+	kservice "github.com/kroma-network/kroma/utils/service"
+	krpc "github.com/kroma-network/kroma/utils/service/rpc"
 )
 
 const (

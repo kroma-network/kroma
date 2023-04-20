@@ -7,9 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
 
-	validator "github.com/wemixkanvas/kanvas/components/validator"
-	"github.com/wemixkanvas/kanvas/components/validator/flags"
-	klog "github.com/wemixkanvas/kanvas/utils/service/log"
+	validator "github.com/kroma-network/kroma/components/validator"
+	"github.com/kroma-network/kroma/components/validator/flags"
+	klog "github.com/kroma-network/kroma/utils/service/log"
 )
 
 var (

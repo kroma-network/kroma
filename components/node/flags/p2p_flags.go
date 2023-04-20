@@ -5,7 +5,7 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/wemixkanvas/kanvas/components/node/p2p"
+	"github.com/kroma-network/kroma/components/node/p2p"
 )
 
 func p2pEnv(v string) string {
@@ -57,7 +57,7 @@ var (
 		Usage: "Read the hex-encoded 32-byte private key for the peer ID from this txt file. Created if not already exists." +
 			"Important to persist to keep the same network identity after restarting, maintaining the previous advertised identity.",
 		Required:  false,
-		Value:     "kanvas_node_p2p_priv.txt",
+		Value:     "kroma_node_p2p_priv.txt",
 		EnvVar:    p2pEnv("PRIV_PATH"),
 		TakesFile: true,
 	}
@@ -173,10 +173,10 @@ var (
 	}
 	UserAgent = cli.StringFlag{
 		Name:     "p2p.useragent",
-		Usage:    "User-agent string to share via LibP2P identify. If empty it defaults to 'kanvas'.",
+		Usage:    "User-agent string to share via LibP2P identify. If empty it defaults to 'kroma'.",
 		Hidden:   true,
 		Required: false,
-		Value:    "kanvas",
+		Value:    "kroma",
 		EnvVar:   p2pEnv("AGENT"),
 	}
 	TimeoutNegotiation = cli.DurationFlag{
@@ -210,7 +210,7 @@ var (
 			"Warning: a copy of the priv network key of the local peer will be persisted here.", // TODO: bad design of libp2p, maybe we can avoid this from happening
 		Required:  false,
 		TakesFile: true,
-		Value:     "kanvas_node_peerstore_db",
+		Value:     "kroma_node_peerstore_db",
 		EnvVar:    p2pEnv("PEERSTORE_PATH"),
 	}
 	DiscoveryPath = cli.StringFlag{
@@ -218,7 +218,7 @@ var (
 		Usage:     "Discovered ENRs are persisted in a database to recover from a restart without having to bootstrap the discovery process again. Set to 'memory' to never persist the peerstore.",
 		Required:  false,
 		TakesFile: true,
-		Value:     "kanvas_node_discovery_db",
+		Value:     "kroma_node_discovery_db",
 		EnvVar:    p2pEnv("DISCOVERY_PATH"),
 	}
 	ProposerP2PKeyFlag = cli.StringFlag{

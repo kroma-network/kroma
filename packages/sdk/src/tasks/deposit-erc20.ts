@@ -1,8 +1,8 @@
 import { promises as fs } from 'fs'
 
+import { getContractDefinition, predeploys } from '@kroma-network/contracts'
+import { sleep } from '@kroma-network/core-utils'
 import '@nomiclabs/hardhat-ethers'
-import { getContractDefinition, predeploys } from '@wemixkanvas/contracts'
-import { sleep } from '@wemixkanvas/core-utils'
 import { BigNumber, Contract, Event, Wallet, providers, utils } from 'ethers'
 import { task, types } from 'hardhat/config'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -50,28 +50,28 @@ const deployWETH9 = async (
   return WETH9
 }
 
-const createKanvasMintableERC20 = async (
+const createKromaMintableERC20 = async (
   L1ERC20: Contract,
   l2Signer: Wallet
 ): Promise<Contract> => {
-  const Artifact__KanvasMintableERC20Token = await getContractDefinition(
-    'KanvasMintableERC20'
+  const Artifact__KromaMintableERC20Token = await getContractDefinition(
+    'KromaMintableERC20'
   )
 
-  const Artifact__KanvasMintableERC20TokenFactory = await getContractDefinition(
-    'KanvasMintableERC20Factory'
+  const Artifact__KromaMintableERC20TokenFactory = await getContractDefinition(
+    'KromaMintableERC20Factory'
   )
 
-  const KanvasMintableERC20TokenFactory = new Contract(
-    predeploys.KanvasMintableERC20Factory,
-    Artifact__KanvasMintableERC20TokenFactory.abi,
+  const KromaMintableERC20TokenFactory = new Contract(
+    predeploys.KromaMintableERC20Factory,
+    Artifact__KromaMintableERC20TokenFactory.abi,
     l2Signer
   )
 
   const name = await L1ERC20.name()
   const symbol = await L1ERC20.symbol()
 
-  const tx = await KanvasMintableERC20TokenFactory.createKanvasMintableERC20(
+  const tx = await KromaMintableERC20TokenFactory.createKromaMintableERC20(
     L1ERC20.address,
     `L2 ${name}`,
     `L2-${symbol}`
@@ -79,17 +79,17 @@ const createKanvasMintableERC20 = async (
 
   const receipt = await tx.wait()
   const event = receipt.events.find(
-    (e: Event) => e.event === 'KanvasMintableERC20Created'
+    (e: Event) => e.event === 'KromaMintableERC20Created'
   )
 
-  assert(event, 'Unable to find KanvasMintableERC20Created event')
+  assert(event, 'Unable to find KromaMintableERC20Created event')
 
   const l2WethAddress = event.args.localToken
   console.log(`Deployed to ${l2WethAddress}`)
 
   return new Contract(
     l2WethAddress,
-    Artifact__KanvasMintableERC20Token.abi,
+    Artifact__KromaMintableERC20Token.abi,
     l2Signer
   )
 }
@@ -146,7 +146,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     }
 
     const {
-      l1: { KanvasPortal, L1CrossDomainMessenger, L1StandardBridge },
+      l1: { KromaPortal, L1CrossDomainMessenger, L1StandardBridge },
       l2: { L2CrossDomainMessenger, L2StandardBridge, L2ToL1MessagePasser },
     } = getAllContracts(l2ChainId, {
       l1SignerOrProvider: signer,
@@ -166,12 +166,12 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     console.log(`Deployed to ${WETH9.address}`)
 
     console.log('Creating L2 WETH9')
-    const KanvasMintableERC20 = await createKanvasMintableERC20(WETH9, l2Signer)
+    const KromaMintableERC20 = await createKromaMintableERC20(WETH9, l2Signer)
 
     console.log(`Approving WETH9 for deposit`)
     const approvalTx = await messenger.approveERC20(
       WETH9.address,
-      KanvasMintableERC20.address,
+      KromaMintableERC20.address,
       hre.ethers.constants.MaxUint256
     )
     await approvalTx.wait()
@@ -180,7 +180,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     console.log('Depositing WETH9 to L2')
     const depositTx = await messenger.depositERC20(
       WETH9.address,
-      KanvasMintableERC20.address,
+      KromaMintableERC20.address,
       oneEtherInWei
     )
     await depositTx.wait()
@@ -211,7 +211,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     }
 
     if (args.checkBalanceMismatch) {
-      const l2Balance = await KanvasMintableERC20.balanceOf(address)
+      const l2Balance = await KromaMintableERC20.balanceOf(address)
       assert(l2Balance.gte(oneEtherInWei), 'bad deposit')
     }
 
@@ -225,7 +225,7 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
     console.log('Starting withdrawal')
     const withdraw = await messenger.withdrawERC20(
       WETH9.address,
-      KanvasMintableERC20.address,
+      KromaMintableERC20.address,
       oneEtherInWei
     )
     const withdrawalReceipt = await withdraw.wait()
@@ -324,9 +324,9 @@ task('deposit-erc20', 'Deposits WETH9 onto L2.')
 
     for (const log of finalizeReceipt.logs) {
       switch (log.address) {
-        case KanvasPortal.address: {
-          const parsed = KanvasPortal.interface.parseLog(log)
-          console.log(`Log ${parsed.name} from KanvasPortal (${log.address})`)
+        case KromaPortal.address: {
+          const parsed = KromaPortal.interface.parseLog(log)
+          console.log(`Log ${parsed.name} from KromaPortal (${log.address})`)
           console.log(parsed.args)
           console.log()
           break

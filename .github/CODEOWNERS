@@ -1,15 +1,15 @@
 # Components
-/components @wemixkanvas/l2-protocol
-/e2e        @wemixkanvas/l2-protocol
-/utils      @wemixkanvas/l2-protocol
+/components @kroma-network/l2-protocol
+/e2e        @kroma-network/l2-protocol
+/utils      @kroma-network/l2-protocol
 
 # Contracts
-/bindings @wemixkanvas/l2-protocol
-/packages @wemixkanvas/l2-protocol
+/bindings @kroma-network/l2-protocol
+/packages @kroma-network/l2-protocol
 
 # Ops
-/.github    @wemixkanvas/devops
-/ops-devnet @wemixkanvas/devops
+/.github    @kroma-network/devops
+/ops-devnet @kroma-network/devops
 
 # Misc
-/specs @wemixkanvas/l2-protocol
+/specs @kroma-network/l2-protocol

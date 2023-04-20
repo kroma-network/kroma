@@ -1,4 +1,4 @@
-# Kanvas Overview
+# Kroma Overview
 
 <!-- All glossary references in this file. -->
 
@@ -29,7 +29,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-This document is a high-level technical overview of the Kanvas protocol. It aims to explain how the protocol works in
+This document is a high-level technical overview of the Kroma protocol. It aims to explain how the protocol works in
 an informal manner, and direct readers to other parts of the specification so that they may learn more.
 
 This document assumes you've read the [introduction](./introduction.md).
@@ -58,8 +58,8 @@ This document assumes you've read the [introduction](./introduction.md).
 
 ### L1 Components
 
-- **KanvasPortal**: A feed of L2 transactions which originated as smart contract calls in the L1 state.
-  - The `KanvasPortal` contract emits `TransactionDeposited` events, which the rollup driver reads in order to process
+- **KromaPortal**: A feed of L2 transactions which originated as smart contract calls in the L1 state.
+  - The `KromaPortal` contract emits `TransactionDeposited` events, which the rollup driver reads in order to process
 deposits.
   - Deposits are guaranteed to be reflected in the L2 [state][g-state] within the _proposing window_.
   - Beware that _transactions_ are deposited, not tokens. However deposited transactions are a key part of implementing
@@ -83,7 +83,7 @@ token deposits (tokens are locked on L1, then minted on L2 via a deposited trans
   - Handles L1 reorgs.
   - Distributes unsubmitted blocks to other rollup nodes.
 - **Execution Engine (EE)**:
-  - A vanilla Geth node with minor modifications to support Kanvas.
+  - A vanilla Geth node with minor modifications to support Kroma.
   - Maintains L2 state.
   - Sync state to other L2 nodes for fast onboarding.
   - Serves the Engine API to the rollup node.
@@ -102,7 +102,7 @@ token deposits (tokens are locked on L1, then minted on L2 via a deposited trans
 
 - [Execution Engine](./exec-engine.md)
 
-Since the EE uses Geth under the hood, Kanvas uses Geth's built-in peer-to-peer network and transaction pool to
+Since the EE uses Geth under the hood, Kroma uses Geth's built-in peer-to-peer network and transaction pool to
 propagate transactions. The same network can also be used to propagate submitted blocks and support snap-sync.
 
 Unsubmitted blocks, however, are propagated using a separate peer-to-peer network of Rollup Nodes. This is optional,
@@ -120,8 +120,8 @@ The below diagram illustrates how the proposer and validators fit together:
 
 - [Deposits](./deposits.md)
 
-Kanvas supports two types of deposits: user deposits, and L1 attributes deposits. To perform a user deposit, users
-call the `depositTransaction` method on the `KanvasPortal` contract. This in turn emits `TransactionDeposited` events,
+Kroma supports two types of deposits: user deposits, and L1 attributes deposits. To perform a user deposit, users
+call the `depositTransaction` method on the `KromaPortal` contract. This in turn emits `TransactionDeposited` events,
 which the rollup node reads during block derivation.
 
 L1 attributes deposits are used to register L1 block attributes (number, timestamp, etc.) on L2 via a call to the L1
@@ -137,13 +137,13 @@ Both deposit types are represented by a single custom [EIP-2718] transaction typ
 #### Overview
 
 The rollup chain can be deterministically derived given an L1 Ethereum chain. The fact that the entire rollup chain can
-be derived based on L1 blocks is _what makes Kanvas a rollup_. This process can be represented as:
+be derived based on L1 blocks is _what makes Kroma a rollup_. This process can be represented as:
 
 ```text
 derive_rollup_chain(l1_blockchain) -> rollup_blockchain
 ```
 
-Kanvas's block derivation function is designed such that it:
+Kroma's block derivation function is designed such that it:
 
 - Requires no state other than what is easily accessible using L1 and L2 execution engine APIs.
 - Supports proposer and proposer consensus.

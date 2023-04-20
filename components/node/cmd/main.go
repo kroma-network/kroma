@@ -12,18 +12,18 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
 
-	knode "github.com/wemixkanvas/kanvas/components/node"
-	"github.com/wemixkanvas/kanvas/components/node/chaincfg"
-	"github.com/wemixkanvas/kanvas/components/node/cmd/doc"
-	"github.com/wemixkanvas/kanvas/components/node/cmd/genesis"
-	"github.com/wemixkanvas/kanvas/components/node/cmd/p2p"
-	"github.com/wemixkanvas/kanvas/components/node/flags"
-	"github.com/wemixkanvas/kanvas/components/node/heartbeat"
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
-	"github.com/wemixkanvas/kanvas/components/node/node"
-	"github.com/wemixkanvas/kanvas/components/node/version"
-	klog "github.com/wemixkanvas/kanvas/utils/service/log"
-	kpprof "github.com/wemixkanvas/kanvas/utils/service/pprof"
+	knode "github.com/kroma-network/kroma/components/node"
+	"github.com/kroma-network/kroma/components/node/chaincfg"
+	"github.com/kroma-network/kroma/components/node/cmd/doc"
+	"github.com/kroma-network/kroma/components/node/cmd/genesis"
+	"github.com/kroma-network/kroma/components/node/cmd/p2p"
+	"github.com/kroma-network/kroma/components/node/flags"
+	"github.com/kroma-network/kroma/components/node/heartbeat"
+	"github.com/kroma-network/kroma/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/node"
+	"github.com/kroma-network/kroma/components/node/version"
+	klog "github.com/kroma-network/kroma/utils/service/log"
+	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 )
 
 var (
@@ -50,9 +50,9 @@ func main() {
 	app := cli.NewApp()
 	app.Version = VersionWithMeta
 	app.Flags = flags.Flags
-	app.Name = "kanvas-node"
-	app.Usage = "Kanvas Rollup Node"
-	app.Description = "The Kanvas Rollup Node derives L2 block inputs from L1 data and drives an external L2 Execution Engine to build a L2 chain."
+	app.Name = "kroma-node"
+	app.Usage = "Kroma Rollup Node"
+	app.Description = "The Kroma Rollup Node derives L2 block inputs from L1 data and drives an external L2 Execution Engine to build a L2 chain."
 	app.Action = RollupNodeMain
 	app.Commands = []cli.Command{
 		{

@@ -1,7 +1,7 @@
 {
-  "name": "@wemixkanvas/hardhat-deploy-config",
+  "name": "@kroma-network/hardhat-deploy-config",
   "version": "0.1.0",
-  "description": "[Kanvas] Hardhat deploy configuration plugin",
+  "description": "[Kroma] Hardhat deploy configuration plugin",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "files": [
@@ -17,19 +17,19 @@
     "lint:check": "eslint . --max-warnings=0"
   },
   "keywords": [
-    "wemixkanvas",
+    "config",
+    "deploy",
     "ethereum",
     "hardhat",
-    "deploy",
-    "config",
+    "kroma",
     "plugin"
   ],
-  "homepage": "https://github.com/wemixkanvas/kanvas/tree/dev/packages/hardhat-deploy-config#readme",
+  "homepage": "https://github.com/kroma-network/kroma/tree/dev/packages/hardhat-deploy-config#readme",
   "license": "MIT",
   "author": "Lightscale Inc.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wemixkanvas/kanvas.git"
+    "url": "https://github.com/kroma-network/kroma.git"
   },
   "devDependencies": {
     "ethers": "^5.7.0",

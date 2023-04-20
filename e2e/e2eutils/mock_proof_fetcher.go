@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	chal "github.com/wemixkanvas/kanvas/components/validator/challenge"
+	"github.com/kroma-network/kroma/components/node/eth"
+	chal "github.com/kroma-network/kroma/components/validator/challenge"
 )
 
 type Fetcher struct {

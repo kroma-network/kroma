@@ -1,6 +1,6 @@
 import { Provider, TransactionRequest } from '@ethersproject/abstract-provider'
 import { serialize } from '@ethersproject/transactions'
-import { getContractInterface, predeploys } from '@wemixkanvas/contracts'
+import { getContractInterface, predeploys } from '@kroma-network/contracts'
 import { BigNumber, Contract } from 'ethers'
 import cloneDeep from 'lodash/cloneDeep'
 
@@ -157,8 +157,8 @@ export const isL2Provider = <TProvider extends Provider>(
 }
 
 /**
- * Returns an provider wrapped as a Kanvas L2 provider. Adds a few extra helper functions to
- * simplify the process of estimating the gas usage for a transaction on Kanvas. Returns a COPY
+ * Returns an provider wrapped as a Kroma L2 provider. Adds a few extra helper functions to
+ * simplify the process of estimating the gas usage for a transaction on Kroma. Returns a COPY
  * of the original provider.
  *
  * @param provider Provider to wrap into an L2 provider.
@@ -183,7 +183,7 @@ export const asL2Provider = <TProvider extends Provider>(
   const formatter = (l2Provider as ProviderTypeIsWrong).formatter
   assert(formatter, `provider.formatter must be defined`)
 
-  // Modify the block formatter to return the output root. Not strictly related to Kanvas, just a
+  // Modify the block formatter to return the output root. Not strictly related to Kroma, just a
   // generally useful thing that really should've been on the Ethers block object to begin with.
   // TODO: Maybe we should make a PR to add this to the Ethers library?
   const ogBlockFormatter = formatter.block.bind(formatter)

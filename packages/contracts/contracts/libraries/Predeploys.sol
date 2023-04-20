@@ -59,14 +59,14 @@ library Predeploys {
     address internal constant L2_ERC721_BRIDGE = 0x420000000000000000000000000000000000000A;
 
     /**
-     * @notice Address of the KanvasMintableERC20Factory predeploy.
+     * @notice Address of the KromaMintableERC20Factory predeploy.
      */
-    address internal constant KANVAS_MINTABLE_ERC20_FACTORY =
+    address internal constant KROMA_MINTABLE_ERC20_FACTORY =
         0x420000000000000000000000000000000000000B;
 
     /**
-     * @notice Address of the KanvasMintableERC721Factory predeploy.
+     * @notice Address of the KromaMintableERC721Factory predeploy.
      */
-    address internal constant KANVAS_MINTABLE_ERC721_FACTORY =
+    address internal constant KROMA_MINTABLE_ERC721_FACTORY =
         0x420000000000000000000000000000000000000c;
 }

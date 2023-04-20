@@ -5,7 +5,7 @@ import { stdStorage, StdStorage } from "forge-std/Test.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import { Predeploys } from "../libraries/Predeploys.sol";
-import { KanvasPortal } from "../L1/KanvasPortal.sol";
+import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L2StandardBridge } from "../L2/L2StandardBridge.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
 import { StandardBridge } from "../universal/StandardBridge.sol";
@@ -70,7 +70,7 @@ contract PreBridgeETH is Bridge_Initializer {
     function _preBridgeETH() internal {
         assertEq(address(portal).balance, 0);
         uint256 nonce = L1Messenger.messageNonce();
-        uint256 version = 0; // Internal constant in the KanvasPortal: DEPOSIT_VERSION
+        uint256 version = 0; // Internal constant in the KromaPortal: DEPOSIT_VERSION
         address l1MessengerAliased = AddressAliasHelper.applyL1ToL2Alias(address(L1Messenger));
 
         bytes memory message = abi.encodeWithSelector(
@@ -113,7 +113,7 @@ contract PreBridgeETH is Bridge_Initializer {
             address(portal),
             500,
             abi.encodeWithSelector(
-                KanvasPortal.depositTransaction.selector,
+                KromaPortal.depositTransaction.selector,
                 address(L2Messenger),
                 500,
                 baseGas,
@@ -133,7 +133,7 @@ contract PreBridgeETH is Bridge_Initializer {
         vm.expectEmit(true, true, true, true, address(L1Bridge));
         emit ETHBridgeInitiated(alice, alice, 500, hex"dead");
 
-        // KanvasPortal emits a TransactionDeposited event on `depositTransaction` call
+        // KromaPortal emits a TransactionDeposited event on `depositTransaction` call
         vm.expectEmit(true, true, true, true, address(portal));
         emit TransactionDeposited(l1MessengerAliased, address(L2Messenger), version, opaqueData);
 
@@ -148,9 +148,9 @@ contract PreBridgeETH is Bridge_Initializer {
 contract L1StandardBridge_BridgeETH_Test is PreBridgeETH {
     // BridgeETH
     // - emits ETHBridgeInitiated
-    // - calls kanvasPortal.depositTransaction
+    // - calls kromaPortal.depositTransaction
     // - only EOA
-    // - ETH ends up in the kanvasPortal
+    // - ETH ends up in the kromaPortal
     function test_bridgeETH_succeeds() external {
         _preBridgeETH();
         L1Bridge.bridgeETH{ value: 500 }(50000, hex"dead");
@@ -173,7 +173,7 @@ contract PreBridgeETHTo is Bridge_Initializer {
     function _preBridgeETHTo() internal {
         assertEq(address(portal).balance, 0);
         uint256 nonce = L1Messenger.messageNonce();
-        uint256 version = 0; // Internal constant in the KanvasPortal: DEPOSIT_VERSION
+        uint256 version = 0; // Internal constant in the KromaPortal: DEPOSIT_VERSION
         address l1MessengerAliased = AddressAliasHelper.applyL1ToL2Alias(address(L1Messenger));
 
         vm.expectCall(
@@ -216,7 +216,7 @@ contract PreBridgeETHTo is Bridge_Initializer {
         vm.expectCall(
             address(portal),
             abi.encodeWithSelector(
-                KanvasPortal.depositTransaction.selector,
+                KromaPortal.depositTransaction.selector,
                 address(L2Messenger),
                 600,
                 baseGas,
@@ -236,7 +236,7 @@ contract PreBridgeETHTo is Bridge_Initializer {
         vm.expectEmit(true, true, true, true, address(L1Bridge));
         emit ETHBridgeInitiated(alice, bob, 600, hex"dead");
 
-        // KanvasPortal emits a TransactionDeposited event on `depositTransaction` call
+        // KromaPortal emits a TransactionDeposited event on `depositTransaction` call
         vm.expectEmit(true, true, true, true, address(portal));
         emit TransactionDeposited(l1MessengerAliased, address(L2Messenger), version, opaqueData);
 
@@ -252,9 +252,9 @@ contract PreBridgeETHTo is Bridge_Initializer {
 contract L1StandardBridge_BridgeETHTo_Test is PreBridgeETHTo {
     // BridgeETHTo
     // - emits ETHBridgeInitiated
-    // - calls kanvasPortal.depositTransaction
+    // - calls kromaPortal.depositTransaction
     // - only EOA
-    // - ETH ends up in the kanvasPortal
+    // - ETH ends up in the kromaPortal
     function test_bridgeETHTo_succeeds() external {
         _preBridgeETHTo();
         L1Bridge.bridgeETHTo{ value: 600 }(bob, 60000, hex"dead");
@@ -269,11 +269,11 @@ contract L1StandardBridge_BridgeERC20_Test is Bridge_Initializer {
 
     // bridgeERC20
     // - updates bridge.deposits
-    // - calls kanvasPortal.depositTransaction
+    // - calls kromaPortal.depositTransaction
     // - only callable by EOA
     function test_bridgeERC20_succeeds() external {
         uint256 nonce = L1Messenger.messageNonce();
-        uint256 version = 0; // Internal constant in the KanvasPortal: DEPOSIT_VERSION
+        uint256 version = 0; // Internal constant in the KromaPortal: DEPOSIT_VERSION
         address l1MessengerAliased = AddressAliasHelper.applyL1ToL2Alias(address(L1Messenger));
 
         // Deal Alice's ERC20 State
@@ -322,7 +322,7 @@ contract L1StandardBridge_BridgeERC20_Test is Bridge_Initializer {
         vm.expectCall(
             address(portal),
             abi.encodeWithSelector(
-                KanvasPortal.depositTransaction.selector,
+                KromaPortal.depositTransaction.selector,
                 address(L2Messenger),
                 0,
                 baseGas,
@@ -343,7 +343,7 @@ contract L1StandardBridge_BridgeERC20_Test is Bridge_Initializer {
         vm.expectEmit(true, true, true, true, address(L1Bridge));
         emit ERC20BridgeInitiated(address(L1Token), address(L2Token), alice, alice, 100, hex"");
 
-        // KanvasPortal emits a TransactionDeposited event on `depositTransaction` call
+        // KromaPortal emits a TransactionDeposited event on `depositTransaction` call
         vm.expectEmit(true, true, true, true, address(portal));
         emit TransactionDeposited(l1MessengerAliased, address(L2Messenger), version, opaqueData);
 
@@ -371,11 +371,11 @@ contract L1StandardBridge_BridgeERC20_TestFail is Bridge_Initializer {
 contract L1StandardBridge_BridgeERC20To_Test is Bridge_Initializer {
     // bridgeERC20To
     // - updates bridge.deposits
-    // - calls kanvasPortal.depositTransaction
+    // - calls kromaPortal.depositTransaction
     // - callable by a contract
     function test_bridgeERC20To_succeeds() external {
         uint256 nonce = L1Messenger.messageNonce();
-        uint256 version = 0; // Internal constant in the KanvasPortal: DEPOSIT_VERSION
+        uint256 version = 0; // Internal constant in the KromaPortal: DEPOSIT_VERSION
         address l1MessengerAliased = AddressAliasHelper.applyL1ToL2Alias(address(L1Messenger));
 
         bytes memory message = abi.encodeWithSelector(
@@ -413,7 +413,7 @@ contract L1StandardBridge_BridgeERC20To_Test is Bridge_Initializer {
         vm.expectCall(
             address(portal),
             abi.encodeWithSelector(
-                KanvasPortal.depositTransaction.selector,
+                KromaPortal.depositTransaction.selector,
                 address(L2Messenger),
                 0,
                 baseGas,
@@ -434,7 +434,7 @@ contract L1StandardBridge_BridgeERC20To_Test is Bridge_Initializer {
         vm.expectEmit(true, true, true, true, address(L1Bridge));
         emit ERC20BridgeInitiated(address(L1Token), address(L2Token), alice, bob, 1000, hex"");
 
-        // KanvasPortal emits a TransactionDeposited event on `depositTransaction` call
+        // KromaPortal emits a TransactionDeposited event on `depositTransaction` call
         vm.expectEmit(true, true, true, true, address(portal));
         emit TransactionDeposited(l1MessengerAliased, address(L2Messenger), version, opaqueData);
 

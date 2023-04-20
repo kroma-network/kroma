@@ -1,11 +1,11 @@
+import { KromaNodeProvider, sleep } from '@kroma-network/core-utils'
 import '@nomiclabs/hardhat-ethers'
-import { KanvasNodeProvider, sleep } from '@wemixkanvas/core-utils'
 import { task, types } from 'hardhat/config'
 import 'hardhat-deploy'
 
 import { predeploys } from '../src'
 
-task('watch', 'Watch an Kanvas System')
+task('watch', 'Watch a Kroma System')
   .addParam(
     'l1ProviderUrl',
     'L1 provider URL.',
@@ -19,8 +19,8 @@ task('watch', 'Watch an Kanvas System')
     types.string
   )
   .addParam(
-    'kanvasNodeProviderUrl',
-    'kanvas-node provider URL',
+    'kromaNodeProviderUrl',
+    'kroma-node provider URL',
     'http://localhost:7545',
     types.string
   )
@@ -42,28 +42,28 @@ task('watch', 'Watch an Kanvas System')
     console.log('Deployed Contracts')
     console.table(contracts)
 
-    const kanvasNodeProvider = new KanvasNodeProvider(
-      args.kanvasNodeProviderUrl
+    const kromaNodeProvider = new KromaNodeProvider(
+      args.kromaNodeProviderUrl
     )
-    const kanvasNodeConfig = await kanvasNodeProvider.rollupConfig()
-    console.log('kanvas-node config')
+    const kromaNodeConfig = await kromaNodeProvider.rollupConfig()
+    console.log('kroma-node config')
     console.table({
-      'layer-one-hash': kanvasNodeConfig.genesis.l1.hash,
-      'layer-one-number': kanvasNodeConfig.genesis.l1.number,
-      'layer-two-hash': kanvasNodeConfig.genesis.l2.hash,
-      'layer-two-number': kanvasNodeConfig.genesis.l2.number,
-      'layer-two-time': kanvasNodeConfig.genesis.l2_time,
-      'block-time': kanvasNodeConfig.block_time,
-      'max-proposer-drift': kanvasNodeConfig.max_proposer_drift,
-      'proposer-window-size': kanvasNodeConfig.proposer_window_size,
-      'channel-timeout': kanvasNodeConfig.channel_timeout,
-      'l1-chain-id': kanvasNodeConfig.l1_chain_id,
-      'l2-chain-id': kanvasNodeConfig.l2_chain_id,
-      'p2p-proposer-address': kanvasNodeConfig.p2p_proposer_address,
-      'fee-recipient-address': kanvasNodeConfig.fee_recipient_address,
-      'batch-inbox-address': kanvasNodeConfig.batch_inbox_address,
-      'batch-sender-address': kanvasNodeConfig.batch_sender_address,
-      'deposit-contract-address': kanvasNodeConfig.deposit_contract_address,
+      'layer-one-hash': kromaNodeConfig.genesis.l1.hash,
+      'layer-one-number': kromaNodeConfig.genesis.l1.number,
+      'layer-two-hash': kromaNodeConfig.genesis.l2.hash,
+      'layer-two-number': kromaNodeConfig.genesis.l2.number,
+      'layer-two-time': kromaNodeConfig.genesis.l2_time,
+      'block-time': kromaNodeConfig.block_time,
+      'max-proposer-drift': kromaNodeConfig.max_proposer_drift,
+      'proposer-window-size': kromaNodeConfig.proposer_window_size,
+      'channel-timeout': kromaNodeConfig.channel_timeout,
+      'l1-chain-id': kromaNodeConfig.l1_chain_id,
+      'l2-chain-id': kromaNodeConfig.l2_chain_id,
+      'p2p-proposer-address': kromaNodeConfig.p2p_proposer_address,
+      'fee-recipient-address': kromaNodeConfig.fee_recipient_address,
+      'batch-inbox-address': kromaNodeConfig.batch_inbox_address,
+      'batch-sender-address': kromaNodeConfig.batch_sender_address,
+      'deposit-contract-address': kromaNodeConfig.deposit_contract_address,
     })
 
     const Deployment__L2OutputOracle = await hre.deployments.get(
@@ -99,9 +99,9 @@ task('watch', 'Watch an Kanvas System')
         const from = utils.getAddress(txn.from)
         const isBatchSender =
           utils.getAddress(txn.from) ===
-          utils.getAddress(kanvasNodeConfig.batch_sender_address)
+          utils.getAddress(kromaNodeConfig.batch_sender_address)
         const isBatchInbox =
-          to === utils.getAddress(kanvasNodeConfig.batch_inbox_address)
+          to === utils.getAddress(kromaNodeConfig.batch_inbox_address)
 
         const isOutputOracle =
           to === utils.getAddress(L2OutputOracle.address) &&

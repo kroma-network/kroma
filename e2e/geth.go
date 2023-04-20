@@ -23,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
 
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
 )
 
 const timeoutMultiplier = 10

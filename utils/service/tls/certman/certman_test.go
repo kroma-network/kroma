@@ -12,7 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/utils/service/tls/certman"
+	"github.com/kroma-network/kroma/utils/service/tls/certman"
 )
 
 func TestValidPair(t *testing.T) {

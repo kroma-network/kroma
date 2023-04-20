@@ -9,7 +9,7 @@ import { Types } from "../libraries/Types.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { L2ToL1MessagePasser } from "../L2/L2ToL1MessagePasser.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
-import { KanvasMintableERC20 } from "../universal/KanvasMintableERC20.sol";
+import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { StandardBridge } from "../universal/StandardBridge.sol";
 import { Bridge_Initializer } from "./CommonTest.t.sol";
 
@@ -104,7 +104,7 @@ contract PreBridgeERC20 is Bridge_Initializer {
         // The L2Bridge should burn the tokens
         vm.expectCall(
             address(L2Token),
-            abi.encodeWithSelector(KanvasMintableERC20.burn.selector, alice, 100)
+            abi.encodeWithSelector(KromaMintableERC20.burn.selector, alice, 100)
         );
 
         vm.expectEmit(true, true, true, true);
@@ -231,7 +231,7 @@ contract PreBridgeERC20To is Bridge_Initializer {
         // The L2Bridge should burn the tokens
         vm.expectCall(
             address(L2Token),
-            abi.encodeWithSelector(KanvasMintableERC20.burn.selector, alice, 100)
+            abi.encodeWithSelector(KromaMintableERC20.burn.selector, alice, 100)
         );
 
         vm.prank(alice, alice);
@@ -264,7 +264,7 @@ contract L2StandardBridge_Bridge_Test is Bridge_Initializer {
 
         vm.expectCall(
             address(L2Token),
-            abi.encodeWithSelector(KanvasMintableERC20.mint.selector, alice, 100)
+            abi.encodeWithSelector(KromaMintableERC20.mint.selector, alice, 100)
         );
 
         vm.expectEmit(true, true, true, true, address(L2Bridge));

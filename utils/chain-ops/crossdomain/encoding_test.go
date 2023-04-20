@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/crossdomain"
+	"github.com/kroma-network/kroma/utils/chain-ops/crossdomain"
 )
 
 func FuzzVersionedNonce(f *testing.F) {

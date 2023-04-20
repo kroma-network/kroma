@@ -18,8 +18,8 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli"
 
-	"github.com/wemixkanvas/kanvas/components/node/flags"
-	"github.com/wemixkanvas/kanvas/components/node/p2p"
+	"github.com/kroma-network/kroma/components/node/flags"
+	"github.com/kroma-network/kroma/components/node/p2p"
 )
 
 func NewConfig(ctx *cli.Context, blockTime uint64) (*p2p.Config, error) {
@@ -180,7 +180,7 @@ func loadDiscoveryOpts(conf *p2p.Config, ctx *cli.Context) error {
 
 	dbPath := ctx.GlobalString(flags.DiscoveryPath.Name)
 	if dbPath == "" {
-		dbPath = "kanvas_node_discovery_db"
+		dbPath = "kroma_node_discovery_db"
 	}
 	if dbPath == "memory" {
 		dbPath = ""

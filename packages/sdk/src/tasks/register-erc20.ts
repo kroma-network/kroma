@@ -1,5 +1,5 @@
+import { getContractDefinition, predeploys } from '@kroma-network/contracts'
 import '@nomiclabs/hardhat-ethers'
-import { getContractDefinition, predeploys } from '@wemixkanvas/contracts'
 import { task, types } from 'hardhat/config'
 import 'hardhat-deploy'
 
@@ -16,16 +16,16 @@ task('register-erc20', 'Register ERC20 onto L2.')
       args.l1Url
     )
 
-    const Artifact__KanvasMintableERC20 = await getContractDefinition(
-      'KanvasMintableERC20'
+    const Artifact__KromaMintableERC20 = await getContractDefinition(
+      'KromaMintableERC20'
     )
-    const Artifact__KanvasMintableERC20Factory = await getContractDefinition(
-      'KanvasMintableERC20Factory'
+    const Artifact__KromaMintableERC20Factory = await getContractDefinition(
+      'KromaMintableERC20Factory'
     )
 
     // get token info
     let l1Token = await hre.ethers.getContractAt(
-      Artifact__KanvasMintableERC20.abi,
+      Artifact__KromaMintableERC20.abi,
       args.l1Token
     )
     l1Token = l1Token.connect(l1Provider)
@@ -35,10 +35,10 @@ task('register-erc20', 'Register ERC20 onto L2.')
     console.log(`Target token: ${tokenName} (${tokenSymbol})`)
 
     const factory = await hre.ethers.getContractAt(
-      Artifact__KanvasMintableERC20Factory.abi,
-      predeploys.KanvasMintableERC20Factory
+      Artifact__KromaMintableERC20Factory.abi,
+      predeploys.KromaMintableERC20Factory
     )
-    const tx = await factory.createKanvasMintableERC20(
+    const tx = await factory.createKromaMintableERC20(
       l1Token.address,
       tokenName,
       tokenSymbol
@@ -46,7 +46,7 @@ task('register-erc20', 'Register ERC20 onto L2.')
     console.log('Transaction sent: ' + tx.hash)
     const receipt = await tx.wait()
     const createdEvent = receipt.events.find(
-      (x) => x.event === 'KanvasMintableERC20Created'
+      (x) => x.event === 'KromaMintableERC20Created'
     )
     if (createdEvent) {
       console.log(

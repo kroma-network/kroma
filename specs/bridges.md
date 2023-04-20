@@ -110,9 +110,9 @@ interface StandardBridge {
 ## Token Depositing
 
 The `bridgeERC20` function is used to send a token from one domain to another
-domain. An `KanvasMintableERC20` token contract must exist on the remote
+domain. An `KromaMintableERC20` token contract must exist on the remote
 domain to be able to deposit tokens to that domain. One of these tokens can be
-deployed using the `KanvasMintableERC20Factory` contract.
+deployed using the `KromaMintableERC20Factory` contract.
 
 ## Upgradeability
 

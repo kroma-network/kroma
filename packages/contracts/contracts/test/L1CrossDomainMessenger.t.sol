@@ -6,7 +6,7 @@ pragma solidity 0.8.15;
 import { Encoding } from "../libraries/Encoding.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
-import { KanvasPortal } from "../L1/KanvasPortal.sol";
+import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
@@ -28,11 +28,11 @@ contract L1CrossDomainMessenger_Test is Messenger_Initializer {
 
     // sendMessage: should be able to send a single message
     function test_sendMessage_succeeds() external {
-        // deposit transaction on the kanvas portal should be called
+        // deposit transaction on the kroma portal should be called
         vm.expectCall(
             address(portal),
             abi.encodeWithSelector(
-                KanvasPortal.depositTransaction.selector,
+                KromaPortal.depositTransaction.selector,
                 Predeploys.L2_CROSS_DOMAIN_MESSENGER,
                 0,
                 L1Messenger.baseGas(hex"ff", 100),
@@ -158,7 +158,7 @@ contract L1CrossDomainMessenger_Test is Messenger_Initializer {
 
     // relayMessage: should revert if attempting to relay a message sent to an L1 system contract
     function test_relayMessage_toSystemContract_reverts() external {
-        // set the target to be the KanvasPortal
+        // set the target to be the KromaPortal
         address target = address(portal);
         address sender = Predeploys.L2_CROSS_DOMAIN_MESSENGER;
         bytes memory message = hex"1111";

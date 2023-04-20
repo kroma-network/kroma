@@ -13,7 +13,7 @@ contract Colosseum is Initializable, Semver {
     /**
      * @notice enum of challenge status.
      *
-     * See the https://github.com/wemixkanvas/kanvas/blob/dev/specs/challenge.md#state-diagram for more details.
+     * See the https://github.com/kroma-network/kroma/blob/dev/specs/challenge.md#state-diagram for more details.
      *
      * Belows are possible state transitions at current implementation.
      * TODO: add PROOF_VERIFIED state.

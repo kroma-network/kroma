@@ -6,7 +6,7 @@ package bindings
 import (
 	"encoding/json"
 
-	"github.com/wemixkanvas/kanvas/bindings/solc"
+	"github.com/kroma-network/kroma/bindings/solc"
 )
 
 const ProxyStorageLayoutJSON = "{\"storage\":null,\"types\":{}}"

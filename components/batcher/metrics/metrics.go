@@ -8,12 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	kmetrics "github.com/wemixkanvas/kanvas/utils/service/metrics"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
 )
 
-const Namespace = "kanvas_batcher"
+const Namespace = "kroma_batcher"
 
 type Metricer interface {
 	RecordInfo(version string)
@@ -91,7 +91,7 @@ func NewMetrics(procName string) *Metrics {
 		Up: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
 			Name:      "up",
-			Help:      "1 if the kanvas-batcher has finished starting up",
+			Help:      "1 if the kroma-batcher has finished starting up",
 		}),
 
 		ChannelEvs: kmetrics.NewEventVec(factory, ns, "channel", "Channel", []string{"stage"}),
@@ -157,7 +157,7 @@ func (m *Metrics) StartBalanceMetrics(ctx context.Context,
 }
 
 // RecordInfo sets a pseudo-metric that contains versioning and
-// config info for the kanvas-batcher.
+// config info for the kroma-batcher.
 func (m *Metrics) RecordInfo(version string) {
 	m.Info.WithLabelValues(version).Set(1)
 }

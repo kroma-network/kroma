@@ -5,18 +5,18 @@ import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC16
 
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
 import { ERC721Bridge } from "../universal/ERC721Bridge.sol";
-import { IKanvasMintableERC721 } from "../universal/IKanvasMintableERC721.sol";
+import { IKromaMintableERC721 } from "../universal/IKromaMintableERC721.sol";
 import { Semver } from "../universal/Semver.sol";
 
 /**
  * @title L2ERC721Bridge
  * @notice The L2 ERC721 bridge is a contract which works together with the L1 ERC721 bridge to
- *         make it possible to transfer ERC721 tokens from Ethereum to Kanvas. This contract
+ *         make it possible to transfer ERC721 tokens from Ethereum to Kroma. This contract
  *         acts as a minter for new tokens when it hears about deposits into the L1 ERC721 bridge.
  *         This contract also acts as a burner for tokens being withdrawn.
- *         **WARNING**: Do not bridge an ERC721 that was originally deployed on Kanvas. This
+ *         **WARNING**: Do not bridge an ERC721 that was originally deployed on Kroma. This
  *         bridge ONLY supports ERC721s originally deployed on Ethereum. Users will need to
- *         wait for the one-week challenge period to elapse before their Kanvas-native NFT
+ *         wait for the one-week challenge period to elapse before their Kroma-native NFT
  *         can be refunded on L2.
  */
 contract L2ERC721Bridge is ERC721Bridge, Semver {
@@ -57,18 +57,18 @@ contract L2ERC721Bridge is ERC721Bridge, Semver {
         // Note that supportsInterface makes a callback to the _localToken address which is user
         // provided.
         require(
-            ERC165Checker.supportsInterface(_localToken, type(IKanvasMintableERC721).interfaceId),
+            ERC165Checker.supportsInterface(_localToken, type(IKromaMintableERC721).interfaceId),
             "L2ERC721Bridge: local token interface is not compliant"
         );
 
         require(
-            _remoteToken == IKanvasMintableERC721(_localToken).REMOTE_TOKEN(),
-            "L2ERC721Bridge: wrong remote token for Kanvas Mintable ERC721 local token"
+            _remoteToken == IKromaMintableERC721(_localToken).REMOTE_TOKEN(),
+            "L2ERC721Bridge: wrong remote token for Kroma Mintable ERC721 local token"
         );
 
         // When a deposit is finalized, we give the NFT with the same tokenId to the account
         // on L2. Note that safeMint makes a callback to the _to address which is user provided.
-        IKanvasMintableERC721(_localToken).safeMint(_to, _tokenId);
+        IKromaMintableERC721(_localToken).safeMint(_to, _tokenId);
 
         // slither-disable-next-line reentrancy-events
         emit ERC721BridgeFinalized(_localToken, _remoteToken, _from, _to, _tokenId, _extraData);
@@ -90,13 +90,13 @@ contract L2ERC721Bridge is ERC721Bridge, Semver {
 
         // Check that the withdrawal is being initiated by the NFT owner
         require(
-            _from == IKanvasMintableERC721(_localToken).ownerOf(_tokenId),
+            _from == IKromaMintableERC721(_localToken).ownerOf(_tokenId),
             "L2ERC721Bridge: Withdrawal is not being initiated by NFT owner"
         );
 
         // Construct calldata for l1ERC721Bridge.finalizeBridgeERC721(_to, _tokenId)
         // slither-disable-next-line reentrancy-events
-        address remoteToken = IKanvasMintableERC721(_localToken).REMOTE_TOKEN();
+        address remoteToken = IKromaMintableERC721(_localToken).REMOTE_TOKEN();
         require(
             remoteToken == _remoteToken,
             "L2ERC721Bridge: remote token does not match given value"
@@ -105,7 +105,7 @@ contract L2ERC721Bridge is ERC721Bridge, Semver {
         // When a withdrawal is initiated, we burn the withdrawer's NFT to prevent subsequent L2
         // usage
         // slither-disable-next-line reentrancy-events
-        IKanvasMintableERC721(_localToken).burn(_from, _tokenId);
+        IKromaMintableERC721(_localToken).burn(_from, _tokenId);
 
         bytes memory message = abi.encodeWithSelector(
             L1ERC721Bridge.finalizeBridgeERC721.selector,

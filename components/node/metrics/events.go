@@ -6,7 +6,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/wemixkanvas/kanvas/utils/service/metrics"
+	"github.com/kroma-network/kroma/utils/service/metrics"
 )
 
 type EventMetrics struct {

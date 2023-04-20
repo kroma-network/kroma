@@ -1,4 +1,4 @@
-import { hashWithdrawal } from '@wemixkanvas/core-utils'
+import { hashWithdrawal } from '@kroma-network/core-utils'
 
 import { LowLevelMessage } from '../interfaces'
 

@@ -19,7 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/trie"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/eth"
 )
 
 // L2EngineAPI wraps an engine actor, and implements the RPC backend required to serve the engine API.
@@ -196,8 +196,8 @@ func (ea *L2EngineAPI) ForkchoiceUpdatedV1(ctx context.Context, state *eth.Forkc
 		// If the specified head matches with our local head, do nothing and keep
 		// generating the payload. It's a special corner case that a few slots are
 		// missing and we are requested to generate the payload in slot.
-	} else if ea.l2Chain.Config().Kanvas == nil { // minor L2Engine API divergence: allow validators to reorg their own chain
-		panic("engine not configured as kanvas engine")
+	} else if ea.l2Chain.Config().Kroma == nil { // minor L2Engine API divergence: allow validators to reorg their own chain
+		panic("engine not configured as kroma engine")
 	}
 
 	// If the beacon client also advertised a finalized block, mark the local

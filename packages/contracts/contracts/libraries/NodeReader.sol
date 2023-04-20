@@ -8,7 +8,7 @@ pragma solidity ^0.8.0;
 library NodeReader {
     /**
      * @notice Node types.
-     *         See https://github.com/wemixkanvas/zktrie/blob/main/types/README.md.
+     *         See https://github.com/kroma-network/zktrie/blob/main/types/README.md.
      *
      * @custom:value MIDDLE Represents a middle node.
      * @custom:value LEAF   Represents a leaf node.
@@ -24,7 +24,7 @@ library NodeReader {
 
     /**
      * @notice Struct representing a Node.
-     *         See https://github.com/wemixkanvas/zktrie/blob/main/types/README.md.
+     *         See https://github.com/kroma-network/zktrie/blob/main/types/README.md.
      */
     struct Node {
         NodeType nodeType;

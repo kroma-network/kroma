@@ -20,9 +20,9 @@ body:
       required: true
 
   - type: input
-    id: kanvas-version
+    id: kroma-version
     attributes:
-      label: Kanvas Version
+      label: Kroma Version
       description:
       placeholder: e.g., 1.0.1
     validations:

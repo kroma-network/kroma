@@ -16,30 +16,30 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	"github.com/wemixkanvas/kanvas/components/node/withdrawals"
-	"github.com/wemixkanvas/kanvas/e2e/e2eutils"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/withdrawals"
+	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
 type L1Bindings struct {
 	// contract bindings
-	KanvasPortal *bindings.KanvasPortal
+	KromaPortal *bindings.KromaPortal
 
 	L2OutputOracle *bindings.L2OutputOracle
 }
 
 func NewL1Bindings(t Testing, l1Cl *ethclient.Client, deployments *e2eutils.DeploymentsL1) *L1Bindings {
-	kanvasPortal, err := bindings.NewKanvasPortal(deployments.KanvasPortalProxy, l1Cl)
+	kromaPortal, err := bindings.NewKromaPortal(deployments.KromaPortalProxy, l1Cl)
 	require.NoError(t, err)
 
 	l2OutputOracle, err := bindings.NewL2OutputOracle(deployments.L2OutputOracleProxy, l1Cl)
 	require.NoError(t, err)
 
 	return &L1Bindings{
-		KanvasPortal:   kanvasPortal,
+		KromaPortal:    kromaPortal,
 		L2OutputOracle: l2OutputOracle,
 	}
 }
@@ -330,7 +330,7 @@ func (s *CrossLayerUser) ActDeposit(t Testing) {
 		depositGas = gas
 	}
 
-	tx, err := s.L1.env.Bindings.KanvasPortal.DepositTransaction(&s.L1.txOpts, toAddr, depositTransferValue, depositGas, isCreation, s.L2.txCallData)
+	tx, err := s.L1.env.Bindings.KromaPortal.DepositTransaction(&s.L1.txOpts, toAddr, depositTransferValue, depositGas, isCreation, s.L2.txCallData)
 	require.NoError(t, err, "failed to create deposit tx")
 
 	// Send the actual tx (since tx opts don't send by default)
@@ -422,7 +422,7 @@ func (s *CrossLayerUser) ProveWithdrawal(t Testing, l2TxHash common.Hash) common
 	require.NoError(t, err)
 
 	// Create the prove tx
-	tx, err := s.L1.env.Bindings.KanvasPortal.ProveWithdrawalTransaction(
+	tx, err := s.L1.env.Bindings.KromaPortal.ProveWithdrawalTransaction(
 		&s.L1.txOpts,
 		bindings.TypesWithdrawalTransaction{
 			Nonce:    params.Nonce,
@@ -499,7 +499,7 @@ func (s *CrossLayerUser) CompleteWithdrawal(t Testing, l2TxHash common.Hash) com
 	require.NoError(t, err)
 
 	// Create the withdrawal tx
-	tx, err := s.L1.env.Bindings.KanvasPortal.FinalizeWithdrawalTransaction(
+	tx, err := s.L1.env.Bindings.KromaPortal.FinalizeWithdrawalTransaction(
 		&s.L1.txOpts,
 		bindings.TypesWithdrawalTransaction{
 			Nonce:    params.Nonce,

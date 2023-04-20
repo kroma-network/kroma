@@ -15,7 +15,7 @@ interface RequiredDeployConfig {
   finalSystemOwner?: string
 
   /**
-   * Address that is deployed as the GUARDIAN in the KanvasPortal. Has the
+   * Address that is deployed as the GUARDIAN in the KromaPortal. Has the
    * ability to pause withdrawals.
    */
   portalGuardian: string

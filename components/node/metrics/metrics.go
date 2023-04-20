@@ -1,4 +1,4 @@
-// Package metrics provides a set of metrics for the kanvas-node.
+// Package metrics provides a set of metrics for the kroma-node.
 package metrics
 
 import (
@@ -20,13 +20,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	khttp "github.com/wemixkanvas/kanvas/components/node/http"
-	"github.com/wemixkanvas/kanvas/utils/service/metrics"
+	"github.com/kroma-network/kroma/components/node/eth"
+	khttp "github.com/kroma-network/kroma/components/node/http"
+	"github.com/kroma-network/kroma/utils/service/metrics"
 )
 
 const (
-	Namespace = "kanvas_node"
+	Namespace = "kroma_node"
 
 	RPCServerSubsystem = "rpc_server"
 	RPCClientSubsystem = "rpc_client"
@@ -67,7 +67,7 @@ type Metricer interface {
 	RecordPeerScoring(peerID peer.ID, score float64)
 }
 
-// Metrics tracks all the metrics for the kanvas-node.
+// Metrics tracks all the metrics for the kroma-node.
 type Metrics struct {
 	Info *prometheus.GaugeVec
 	Up   prometheus.Gauge
@@ -149,7 +149,7 @@ func NewMetrics(procName string) *Metrics {
 		Up: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
 			Name:      "up",
-			Help:      "1 if the kanvas-node has finished starting up",
+			Help:      "1 if the kroma-node has finished starting up",
 		}),
 
 		RPCServerRequestsTotal: factory.NewCounterVec(prometheus.CounterOpts{
@@ -173,7 +173,7 @@ func NewMetrics(procName string) *Metrics {
 			Namespace: ns,
 			Subsystem: RPCClientSubsystem,
 			Name:      "requests_total",
-			Help:      "Total RPC requests initiated by the kanvas-node's RPC client",
+			Help:      "Total RPC requests initiated by the kroma-node's RPC client",
 		}, []string{
 			"method",
 		}),
@@ -190,7 +190,7 @@ func NewMetrics(procName string) *Metrics {
 			Namespace: ns,
 			Subsystem: RPCClientSubsystem,
 			Name:      "responses_total",
-			Help:      "Total RPC request responses received by the kanvas-node's RPC client",
+			Help:      "Total RPC request responses received by the kroma-node's RPC client",
 		}, []string{
 			"method",
 			"error",
@@ -349,7 +349,7 @@ func NewMetrics(procName string) *Metrics {
 }
 
 // RecordInfo sets a pseudo-metric that contains versioning and
-// config info for the kanvas-node.
+// config info for the kroma-node.
 func (m *Metrics) RecordInfo(version string) {
 	m.Info.WithLabelValues(version).Set(1)
 }
@@ -361,7 +361,7 @@ func (m *Metrics) RecordUp() {
 }
 
 // RecordRPCServerRequest is a helper method to record an incoming RPC
-// call to the kanvas-node's RPC server. It bumps the requests metric,
+// call to the kroma-node's RPC server. It bumps the requests metric,
 // and tracks how long it takes to serve a response.
 func (m *Metrics) RecordRPCServerRequest(method string) func() {
 	m.RPCServerRequestsTotal.WithLabelValues(method).Inc()

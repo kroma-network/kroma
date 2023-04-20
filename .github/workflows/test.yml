@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-          token: ${{ secrets.KANVAS_GITHUB_TOKEN }}
+          token: ${{ secrets.KROMA_GITHUB_TOKEN }}
 
       - name: Setup Go 1.19
         uses: actions/setup-go@v4

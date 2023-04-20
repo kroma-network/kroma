@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/wemixkanvas/kanvas/bindings/solc"
+	"github.com/kroma-network/kroma/bindings/solc"
 )
 
 // EncodeStorageKeyValue encodes the key value pair that is stored in state

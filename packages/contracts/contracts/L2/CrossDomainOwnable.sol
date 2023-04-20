@@ -10,7 +10,7 @@ import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
  * @notice This contract extends the OpenZeppelin `Ownable` contract for L2 contracts to be owned
  *         by contracts on L1. Note that this contract is only safe to be used if the
  *         CrossDomainMessenger system is bypassed and the caller on L1 is calling the
- *         KanvasPortal directly.
+ *         KromaPortal directly.
  */
 abstract contract CrossDomainOwnable is Ownable {
     /**

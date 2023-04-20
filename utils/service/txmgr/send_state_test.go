@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/utils/service/txmgr"
+	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 const testSafeAbortNonceTooLowCount = 3

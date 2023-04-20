@@ -1,1 +1,1 @@
-# @wemixkanvas/contracts
+# @kroma-network/contracts

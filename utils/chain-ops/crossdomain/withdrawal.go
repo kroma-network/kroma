@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/bindings"
 )
 
 var (

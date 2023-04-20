@@ -5,8 +5,8 @@ import (
 
 	"github.com/urfave/cli"
 
-	kservice "github.com/wemixkanvas/kanvas/utils/service"
-	ktls "github.com/wemixkanvas/kanvas/utils/service/tls"
+	kservice "github.com/kroma-network/kroma/utils/service"
+	ktls "github.com/kroma-network/kroma/utils/service/tls"
 )
 
 const (

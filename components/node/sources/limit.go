@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/wemixkanvas/kanvas/components/node/client"
+	"github.com/kroma-network/kroma/components/node/client"
 )
 
 type limitClient struct {

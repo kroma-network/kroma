@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli"
 
-	"github.com/wemixkanvas/kanvas/bindings/hardhat"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/genesis"
+	"github.com/kroma-network/kroma/bindings/hardhat"
+	"github.com/kroma-network/kroma/utils/chain-ops/genesis"
 )
 
 var Subcommands = cli.Commands{

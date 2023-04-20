@@ -21,37 +21,37 @@ RUN addgroup user && \
 USER user
 WORKDIR /home/user/
 
-FROM alpine:3.17 as runner-with-kanvas-log
+FROM alpine:3.17 as runner-with-kroma-log
 
 RUN addgroup user && \
     adduser -G user -s /bin/sh -h /home/user -D user
 
-RUN mkdir /kanvas_log/ && \
-    chown user:user /kanvas_log
+RUN mkdir /kroma_log/ && \
+    chown user:user /kroma_log
 
 USER user
 WORKDIR /home/user/
 
 # Node
-FROM runner-with-kanvas-log as kanvas-node
-COPY --from=builder /app/bin/kanvas-node /usr/local/bin
+FROM runner-with-kroma-log as kroma-node
+COPY --from=builder /app/bin/kroma-node /usr/local/bin
 
-ENTRYPOINT ["kanvas-node"]
+ENTRYPOINT ["kroma-node"]
 
 # Stateviz
-FROM runner-with-kanvas-log as kanvas-stateviz
-COPY --from=builder /app/bin/kanvas-stateviz /usr/local/bin
+FROM runner-with-kroma-log as kroma-stateviz
+COPY --from=builder /app/bin/kroma-stateviz /usr/local/bin
 
-CMD ["kanvas-stateviz"]
+CMD ["kroma-stateviz"]
 
 # Batcher
-FROM runner as kanvas-batcher
-COPY --from=builder /app/bin/kanvas-batcher /usr/local/bin
+FROM runner as kroma-batcher
+COPY --from=builder /app/bin/kroma-batcher /usr/local/bin
 
-ENTRYPOINT ["kanvas-batcher"]
+ENTRYPOINT ["kroma-batcher"]
 
 # Validator
-FROM runner as kanvas-validator
-COPY --from=builder /app/bin/kanvas-validator /usr/local/bin
+FROM runner as kroma-validator
+COPY --from=builder /app/bin/kroma-validator /usr/local/bin
 
-ENTRYPOINT ["kanvas-validator"]
+ENTRYPOINT ["kroma-validator"]

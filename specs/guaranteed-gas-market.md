@@ -117,7 +117,7 @@ to be marked with the payable selector. This won't be possible for many existing
 this is quite wasteful. As such, we will provide two options to buy L2 gas:
 
 1. Burn L1 Gas
-2. Send ETH to the Kanvas Portal (Not yet supported)
+2. Send ETH to the Kroma Portal (Not yet supported)
 
 The payable version (Option 2) will likely have discount applied to it (or conversely, #1 has a
 premium applied to it).

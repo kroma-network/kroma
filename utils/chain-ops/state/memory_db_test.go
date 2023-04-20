@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/state"
+	"github.com/kroma-network/kroma/utils/chain-ops/state"
 )
 
 func TestAddBalance(t *testing.T) {

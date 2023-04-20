@@ -21,7 +21,7 @@ more specific terms to differentiate:
   withdrawal.
 
 Withdrawals are initiated on L2 via a call to the Message Passer predeploy contract, which records the important
-properties of the message in its storage. Withdrawals are finalized on L1 via a call to the `KanvasPortal`
+properties of the message in its storage. Withdrawals are finalized on L1 via a call to the `KromaPortal`
 contract, which proves the inclusion of this withdrawal message.
 
 In this way, withdrawals are different from [deposits][g-deposits] which make use of a special transaction type in the
@@ -37,7 +37,7 @@ finalization.
   - [On L1](#on-l1)
 - [The L2ToL1MessagePasser Contract](#the-l2tol1messagepasser-contract)
   - [Addresses are not Aliased on Withdrawals](#addresses-are-not-aliased-on-withdrawals)
-- [The Kanvas Portal Contract](#the-kanvas-portal-contract)
+- [The Kroma Portal Contract](#the-kroma-portal-contract)
 - [Withdrawal Verification and Finalization](#withdrawal-verification-and-finalization)
 - [Security Considerations](#security-considerations)
   - [Key Properties of Withdrawal Verification](#key-properties-of-withdrawal-verification)
@@ -58,19 +58,19 @@ This is a very simple contract that stores the hash of the withdrawal data.
 
 ### On L1
 
-1. A [relayer][g-relayer] submits the required inputs to the `KanvasPortal` contract. The relayer need
+1. A [relayer][g-relayer] submits the required inputs to the `KromaPortal` contract. The relayer need
    not be the same entity which initiated the withdrawal on L2.
    These inputs include the withdrawal transaction data, inclusion proofs, and a block number. The block number
    must be one for which an L2 output root exists, which commits to the withdrawal as registered on L2.
-2. The `KanvasPortal` contract retrieves the output root for the given block number from the `L2OutputOracle`'s
+2. The `KromaPortal` contract retrieves the output root for the given block number from the `L2OutputOracle`'s
    `getL2OutputAfter()` function, and performs the remainder of the verification process internally.
 3. If proof verification fails, the call reverts. Otherwise the hash is recorded to prevent it from being re-proven.
    Note that the withdrawal can be proven more than once if the corresponding output root changes.
 4. After the withdrawal is proven, it enters a 7 day challenge period, allowing time for other network participants
    to challenge the integrity of the corresponding output root.
 5. Once the challenge period has passed, a relayer submits the withdrawal transaction once again to the
-   `KanvasPortal` contract. Again, the relayer need not be the same entity which initiated the withdrawal on L2.
-6. The `KanvasPortal` contract receives the withdrawal transaction data and verifies that the withdrawal has
+   `KromaPortal` contract. Again, the relayer need not be the same entity which initiated the withdrawal on L2.
+6. The `KromaPortal` contract receives the withdrawal transaction data and verifies that the withdrawal has
    both been proven and passed the challenge period.
 7. If the requirements are not met, the call reverts. Otherwise the call is forwarded, and the hash is recorded to
    prevent it from being replayed.
@@ -121,16 +121,16 @@ of withdrawals, which do not modify the sender's address. The difference is that
 
 - on L2, the deposit sender's address is returned by the `CALLER` opcode, meaning a contract cannot easily tell if the
   call originated on L1 or L2, whereas
-- on L1, the withdrawal sender's address is accessed by calling the `l2Sender()` function on the `KanvasPortal`
+- on L1, the withdrawal sender's address is accessed by calling the `l2Sender()` function on the `KromaPortal`
   contract.
 
 Calling `l2Sender()` removes any ambiguity about which domain the call originated from. Still, developers will need to
 recognize that having the same address does not imply that a contract on L2 will behave the same as a contract on L1.
 
-## The Kanvas Portal Contract
+## The Kroma Portal Contract
 
-The Kanvas Portal serves as both the entry and exit point to the Kanvas L2. It is a contract which inherits from
-the [KanvasPortal](./deposits.md#deposit-contract) contract, and in addition provides the following interface for
+The Kroma Portal serves as both the entry and exit point to the Kroma L2. It is a contract which inherits from
+the [KromaPortal](./deposits.md#deposit-contract) contract, and in addition provides the following interface for
 withdrawals:
 
 - `Types.WithdrawalTransaction` type
@@ -158,7 +158,7 @@ withdrawals:
   ```
 
 ```solidity
-interface KanvasPortal {
+interface KromaPortal {
     event WithdrawalFinalized(bytes32 indexed withdrawalHash, bool success);
 
     function l2Sender() returns(address) external;

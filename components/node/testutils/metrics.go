@@ -1,6 +1,6 @@
 package testutils
 
-import "github.com/wemixkanvas/kanvas/components/node/eth"
+import "github.com/kroma-network/kroma/components/node/eth"
 
 // TestDerivationMetrics implements the metrics used in the derivation pipeline as no-op operations.
 // Optionally a test may hook into the metrics

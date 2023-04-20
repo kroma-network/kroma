@@ -29,8 +29,8 @@ to prove the state transition `S` to `S''` is wrong by showing a valid state tra
 
 ## zkEVM Proof
 
-See [zkevm-circuits](https://github.com/wemixkanvas/zkevm-circuits) and
-[zkevm-specs](https://github.com/wemixkanvas/zkevm-specs) for details.
+See [zkevm-circuits](https://github.com/kroma-network/zkevm-circuits) and
+[zkevm-specs](https://github.com/kroma-network/zkevm-specs) for details.
 
 zkEVM proof is a proof that proves the relation between public input and witness. This proof can be verified by the
 [ZK Verifier contract](#the-zk-verifier-contract).
@@ -49,7 +49,7 @@ Public input and witness are followings:
 
 > These relations are changed soon after [super circuit] integration.
 
-[super circuit]: https://github.com/wemixkanvas/zkevm-specs/blob/dev/specs/super_circuit.png
+[super circuit]: https://github.com/kroma-network/zkevm-specs/blob/dev/specs/super_circuit.png
 
 ## the ZK Verifier Contract
 
@@ -66,7 +66,7 @@ interface ZKVerifier {
 
 ## Implementation
 
-See [kanvas-prover](https://github.com/wemixkanvas/kanvas-prover) for details.
+See [kroma-prover](https://github.com/kroma-network/kroma-prover) for details.
 
 ## RPC
 
@@ -76,7 +76,7 @@ seconds.
 
 ### Protobuf
 
-See [kanvas-grpc-proto](https://github.com/wemixkanvas/kanvas-grpc-proto) for details.
+See [prover-grpc-proto](https://github.com/kroma-network/prover-grpc-proto) for details.
 
 ## Summary of Definitions
 

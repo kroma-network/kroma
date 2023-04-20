@@ -129,7 +129,7 @@ func FuzzTrie(variant string) {
 	fmt.Print(testCase.AbiEncode())
 }
 
-// Generate a random test case for Kanvas's MerkleTrie verifier.
+// Generate a random test case for Kroma's MerkleTrie verifier.
 func genTrieTestCase(selectEmptyKey bool) trieTestCase {
 	// Create an empty merkle trie
 	memdb := rawdb.NewMemoryDatabase()
@@ -189,7 +189,7 @@ func genTrieTestCase(selectEmptyKey bool) trieTestCase {
 	return testCase
 }
 
-// Represents a test case for Kanvas's `MerkleTrie.sol`
+// Represents a test case for Kroma's `MerkleTrie.sol`
 type trieTestCase struct {
 	Root  common.Hash
 	Key   []byte

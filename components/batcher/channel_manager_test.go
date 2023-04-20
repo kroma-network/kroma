@@ -12,11 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/batcher/metrics"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	derivetest "github.com/wemixkanvas/kanvas/components/node/rollup/derive/test"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
+	"github.com/kroma-network/kroma/components/batcher/metrics"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	derivetest "github.com/kroma-network/kroma/components/node/rollup/derive/test"
+	"github.com/kroma-network/kroma/components/node/testlog"
 )
 
 // TestPendingChannelTimeout tests that the channel manager

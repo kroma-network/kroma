@@ -5,8 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
 )
 
 // confDepth is an util that wraps the L1 input fetcher used in the pipeline,

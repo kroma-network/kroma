@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	khttp "github.com/wemixkanvas/kanvas/components/node/http"
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
-	"github.com/wemixkanvas/kanvas/components/node/p2p"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
+	khttp "github.com/kroma-network/kroma/components/node/http"
+	"github.com/kroma-network/kroma/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/p2p"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/sources"
 )
 
 type rpcServer struct {
@@ -35,7 +35,7 @@ func newRPCServer(ctx context.Context, rpcCfg *RPCConfig, rollupCfg *rollup.Conf
 	r := &rpcServer{
 		endpoint: endpoint,
 		apis: []rpc.API{{
-			Namespace:     "kanvas",
+			Namespace:     "kroma",
 			Service:       api,
 			Public:        true,
 			Authenticated: false,
@@ -73,9 +73,9 @@ func (s *rpcServer) Start() error {
 	}
 
 	// The CORS and VHosts arguments below must be set in order for
-	// other services to connect to the kanvas-node. VHosts in particular
+	// other services to connect to the kroma-node. VHosts in particular
 	// defaults to localhost, which will prevent containers from
-	// calling into the kanvas-node without an "invalid host" error.
+	// calling into the kroma-node without an "invalid host" error.
 	nodeHandler := node.NewHTTPHandlerStack(srv, []string{"*"}, []string{"*"}, nil)
 
 	mux := http.NewServeMux()

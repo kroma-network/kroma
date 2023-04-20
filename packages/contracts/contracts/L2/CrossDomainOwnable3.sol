@@ -10,7 +10,7 @@ import { L2CrossDomainMessenger } from "./L2CrossDomainMessenger.sol";
  * @title CrossDomainOwnable3
  * @notice This contract extends the OpenZeppelin `Ownable` contract for L2 contracts to be owned
  *         by contracts on either L1 or L2. Note that this contract is meant to be used with systems
- *         that use the CrossDomainMessenger system. It will not work if the KanvasPortal is
+ *         that use the CrossDomainMessenger system. It will not work if the KromaPortal is
  *         used directly.
  */
 abstract contract CrossDomainOwnable3 is Ownable {

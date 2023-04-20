@@ -1,6 +1,6 @@
 // Package sources exports a number of clients used to access ethereum chain data.
 //
-// There are a number of these exported clients used by the kanvas-node:
+// There are a number of these exported clients used by the kroma-node:
 // [L1Client] wraps an RPC client to retrieve L1 ethereum data.
 // [L2Client] wraps an RPC client to retrieve L2 ethereum data.
 // [RollupClient] wraps an RPC client to retrieve rollup data.
@@ -20,9 +20,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/sources/caching"
+	"github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/sources/caching"
 )
 
 type EthClientConfig struct {

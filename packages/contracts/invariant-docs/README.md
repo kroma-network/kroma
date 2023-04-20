@@ -11,7 +11,7 @@ This directory contains documentation for all defined invariant tests within `co
 - [CrossDomainMessenger](./CrossDomainMessenger.md)
 - [Encoding](./Encoding.md)
 - [Hashing](./Hashing.md)
-- [KanvasPortal](./KanvasPortal.md)
+- [KromaPortal](./KromaPortal.md)
 - [L2OutputOracle](./L2OutputOracle.md)
 - [ResourceMetering](./ResourceMetering.md)
 - [SystemConfig](./SystemConfig.md)

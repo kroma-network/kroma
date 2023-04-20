@@ -42,19 +42,19 @@
 | l2Outputs           | struct Types.CheckpointOutput[] | 3    | 0      | 32    | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
 
 =======================
-➡ contracts/L1/KanvasPortal.sol:KanvasPortal
+➡ contracts/L1/KromaPortal.sol:KromaPortal
 =======================
 
-| Name                 | Type                                                     | Slot | Offset | Bytes | Contract                                   |
-|----------------------|----------------------------------------------------------|------|--------|-------|--------------------------------------------|
-| _initialized         | uint8                                                    | 0    | 0      | 1     | contracts/L1/KanvasPortal.sol:KanvasPortal |
-| _initializing        | bool                                                     | 0    | 1      | 1     | contracts/L1/KanvasPortal.sol:KanvasPortal |
-| params               | struct ResourceMetering.ResourceParams                   | 1    | 0      | 32    | contracts/L1/KanvasPortal.sol:KanvasPortal |
-| __gap                | uint256[48]                                              | 2    | 0      | 1536  | contracts/L1/KanvasPortal.sol:KanvasPortal |
-| l2Sender             | address                                                  | 50   | 0      | 20    | contracts/L1/KanvasPortal.sol:KanvasPortal |
-| finalizedWithdrawals | mapping(bytes32 => bool)                                 | 51   | 0      | 32    | contracts/L1/KanvasPortal.sol:KanvasPortal |
-| provenWithdrawals    | mapping(bytes32 => struct KanvasPortal.ProvenWithdrawal) | 52   | 0      | 32    | contracts/L1/KanvasPortal.sol:KanvasPortal |
-| paused               | bool                                                     | 53   | 0      | 1     | contracts/L1/KanvasPortal.sol:KanvasPortal |
+| Name                 | Type                                                    | Slot | Offset | Bytes | Contract                                 |
+|----------------------|---------------------------------------------------------|------|--------|-------|------------------------------------------|
+| _initialized         | uint8                                                   | 0    | 0      | 1     | contracts/L1/KromaPortal.sol:KromaPortal |
+| _initializing        | bool                                                    | 0    | 1      | 1     | contracts/L1/KromaPortal.sol:KromaPortal |
+| params               | struct ResourceMetering.ResourceParams                  | 1    | 0      | 32    | contracts/L1/KromaPortal.sol:KromaPortal |
+| __gap                | uint256[48]                                             | 2    | 0      | 1536  | contracts/L1/KromaPortal.sol:KromaPortal |
+| l2Sender             | address                                                 | 50   | 0      | 20    | contracts/L1/KromaPortal.sol:KromaPortal |
+| finalizedWithdrawals | mapping(bytes32 => bool)                                | 51   | 0      | 32    | contracts/L1/KromaPortal.sol:KromaPortal |
+| provenWithdrawals    | mapping(bytes32 => struct KromaPortal.ProvenWithdrawal) | 52   | 0      | 32    | contracts/L1/KromaPortal.sol:KromaPortal |
+| paused               | bool                                                    | 53   | 0      | 1     | contracts/L1/KromaPortal.sol:KromaPortal |
 
 =======================
 ➡ contracts/L1/SystemConfig.sol:SystemConfig
@@ -175,19 +175,19 @@
 |------|------|------|--------|-------|----------|
 
 =======================
-➡ contracts/universal/KanvasMintableERC20.sol:KanvasMintableERC20
+➡ contracts/universal/KromaMintableERC20.sol:KromaMintableERC20
 =======================
 
-| Name         | Type                                            | Slot | Offset | Bytes | Contract                                                        |
-|--------------|-------------------------------------------------|------|--------|-------|-----------------------------------------------------------------|
-| _balances    | mapping(address => uint256)                     | 0    | 0      | 32    | contracts/universal/KanvasMintableERC20.sol:KanvasMintableERC20 |
-| _allowances  | mapping(address => mapping(address => uint256)) | 1    | 0      | 32    | contracts/universal/KanvasMintableERC20.sol:KanvasMintableERC20 |
-| _totalSupply | uint256                                         | 2    | 0      | 32    | contracts/universal/KanvasMintableERC20.sol:KanvasMintableERC20 |
-| _name        | string                                          | 3    | 0      | 32    | contracts/universal/KanvasMintableERC20.sol:KanvasMintableERC20 |
-| _symbol      | string                                          | 4    | 0      | 32    | contracts/universal/KanvasMintableERC20.sol:KanvasMintableERC20 |
+| Name         | Type                                            | Slot | Offset | Bytes | Contract                                                      |
+|--------------|-------------------------------------------------|------|--------|-------|---------------------------------------------------------------|
+| _balances    | mapping(address => uint256)                     | 0    | 0      | 32    | contracts/universal/KromaMintableERC20.sol:KromaMintableERC20 |
+| _allowances  | mapping(address => mapping(address => uint256)) | 1    | 0      | 32    | contracts/universal/KromaMintableERC20.sol:KromaMintableERC20 |
+| _totalSupply | uint256                                         | 2    | 0      | 32    | contracts/universal/KromaMintableERC20.sol:KromaMintableERC20 |
+| _name        | string                                          | 3    | 0      | 32    | contracts/universal/KromaMintableERC20.sol:KromaMintableERC20 |
+| _symbol      | string                                          | 4    | 0      | 32    | contracts/universal/KromaMintableERC20.sol:KromaMintableERC20 |
 
 =======================
-➡ contracts/universal/KanvasMintableERC20Factory.sol:KanvasMintableERC20Factory
+➡ contracts/universal/KromaMintableERC20Factory.sol:KromaMintableERC20Factory
 =======================
 
 | Name | Type | Slot | Offset | Bytes | Contract |

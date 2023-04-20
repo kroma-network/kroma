@@ -11,7 +11,7 @@ import { BigNumber, Contract } from 'ethers'
  */
 export enum L1ChainID {
   SEPOLIA = 11155111,
-  KANVAS_EASEL = 7789,
+  KROMA_EASEL = 7789,
   LOCAL_DEVNET = 900,
 }
 
@@ -19,16 +19,16 @@ export enum L1ChainID {
  * L2 network chain IDs
  */
 export enum L2ChainID {
-  KANVAS_AQUA = 2357,
-  KANVAS_SAIL = 7790,
-  KANVAS_LOCAL_DEVNET = 901,
+  KROMA_SEPOLIA = 2357,
+  KROMA_SAIL = 7790,
+  KROMA_LOCAL_DEVNET = 901,
 }
 
 /**
  * L1 contract references.
  */
 export interface L1Contracts {
-  KanvasPortal: Contract
+  KromaPortal: Contract
   L1CrossDomainMessenger: Contract
   L1StandardBridge: Contract
   L2OutputOracle: Contract
@@ -45,7 +45,7 @@ export interface L2Contracts {
 }
 
 /**
- * Represents Kanvas contracts, assumed to be connected to their appropriate
+ * Represents Kroma contracts, assumed to be connected to their appropriate
  * providers and addresses.
  */
 export interface Contracts {
@@ -225,7 +225,7 @@ export interface MessageReceipt {
 }
 
 /**
- * ProvenWithdrawal in KanvasPortal
+ * ProvenWithdrawal in KromaPortal
  */
 export interface ProvenWithdrawal {
   outputRoot: string

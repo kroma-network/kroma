@@ -117,7 +117,7 @@ To derive the whole L2 chain from scratch, we simply start with the L2 genesis s
 first epoch, then process all proposing windows in order. Refer to the [Architecture section][architecture] for more
 information on how we implement this in practice.
 
-Each epoch may contain a variable number of L2 blocks (one every `l2_block_time`, 2s on Kanvas), at the discretion of
+Each epoch may contain a variable number of L2 blocks (one every `l2_block_time`, 2s on Kroma), at the discretion of
 [the proposer][g-proposer], but subject to the following constraints for each block:
 
 - `min_l2_timestamp <= block.timestamp <= max_l2_timestamp`, where
@@ -126,7 +126,7 @@ Each epoch may contain a variable number of L2 blocks (one every `l2_block_time`
     - This ensures that the L2 timestamp is not behind the L1 origin timestamp.
   - `block.timestamp = prev_l2_timestamp + l2_block_time`
     - `prev_l2_timestamp` is the timestamp of the last L2 block of the previous epoch
-    - `l2_block_time` is a configurable parameter of the time between L2 blocks (on Kanvas, 2s)
+    - `l2_block_time` is a configurable parameter of the time between L2 blocks (on Kroma, 2s)
   - `max_l2_timestamp = max(l1_timestamp + max_proposer_drift, min_l2_timestamp + l2_block_time)`
     - `l1_timestamp` is the timestamp of the L1 block associated with the L2 block's epoch
     - `max_proposer_drift` is the most a proposer is allowed to get ahead of L1

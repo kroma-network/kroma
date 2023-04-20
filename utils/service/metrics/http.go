@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/wemixkanvas/kanvas/utils/service/httputil"
+	"github.com/kroma-network/kroma/utils/service/httputil"
 )
 
 var httpLabels = []string{

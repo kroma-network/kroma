@@ -6,9 +6,9 @@ import (
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
-	"github.com/wemixkanvas/kanvas/components/node/testutils/fuzzerutils"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/testutils"
+	"github.com/kroma-network/kroma/components/node/testutils/fuzzerutils"
 )
 
 // FuzzParseL1InfoDepositTxDataValid is a fuzz test built from TestParseL1InfoDepositTxData, which constructs random

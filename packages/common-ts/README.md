@@ -1,5 +1,5 @@
-# @wemixkanvas/common-ts
+# @kroma-network/common-ts
 
 ## What is this?
 
-`@wemixkanvas/common-ts` contains useful tools for logging, metrics, and other Node stuff.
+`@kroma-network/common-ts` contains useful tools for logging, metrics, and other Node stuff.

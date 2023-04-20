@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/wemixkanvas/kanvas/bindings/solc"
+	"github.com/kroma-network/kroma/bindings/solc"
 )
 
 var layouts = make(map[string]*solc.StorageLayout)

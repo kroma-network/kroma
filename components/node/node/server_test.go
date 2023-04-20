@@ -13,14 +13,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	rpcclient "github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
-	"github.com/wemixkanvas/kanvas/components/node/version"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	rpcclient "github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/testlog"
+	"github.com/kroma-network/kroma/components/node/testutils"
+	"github.com/kroma-network/kroma/components/node/version"
 )
 
 func TestOutputAtBlock(t *testing.T) {
@@ -149,7 +149,7 @@ func TestOutputAtBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	var out *eth.OutputResponse
-	err = client.CallContext(context.Background(), &out, "kanvas_outputAtBlock", "0xdcdc89")
+	err = client.CallContext(context.Background(), &out, "kroma_outputAtBlock", "0xdcdc89")
 	require.NoError(t, err)
 
 	require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000000", out.Version.String())
@@ -181,7 +181,7 @@ func TestVersion(t *testing.T) {
 	assert.NoError(t, err)
 
 	var out string
-	err = client.CallContext(context.Background(), &out, "kanvas_version")
+	err = client.CallContext(context.Background(), &out, "kroma_version")
 	assert.NoError(t, err)
 	assert.Equal(t, version.Version+"-"+version.Meta, out)
 }
@@ -223,7 +223,7 @@ func TestSyncStatus(t *testing.T) {
 	assert.NoError(t, err)
 
 	var out *eth.SyncStatus
-	err = client.CallContext(context.Background(), &out, "kanvas_syncStatus")
+	err = client.CallContext(context.Background(), &out, "kroma_syncStatus")
 	assert.NoError(t, err)
 	assert.Equal(t, status, out)
 }

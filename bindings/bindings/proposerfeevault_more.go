@@ -6,10 +6,10 @@ package bindings
 import (
 	"encoding/json"
 
-	"github.com/wemixkanvas/kanvas/bindings/solc"
+	"github.com/kroma-network/kroma/bindings/solc"
 )
 
-const ProposerFeeVaultStorageLayoutJSON = "{\"storage\":null,\"types\":{}}"
+const ProposerFeeVaultStorageLayoutJSON = "{\"storage\":[{\"astId\":1000,\"contract\":\"contracts/L2/ProposerFeeVault.sol:ProposerFeeVault\",\"label\":\"totalProcessed\",\"offset\":0,\"slot\":\"0\",\"type\":\"t_uint256\"}],\"types\":{\"t_uint256\":{\"encoding\":\"inplace\",\"label\":\"uint256\",\"numberOfBytes\":\"32\"}}}"
 
 var ProposerFeeVaultStorageLayout = new(solc.StorageLayout)
 

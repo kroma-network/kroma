@@ -16,9 +16,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/testutils"
 )
 
 var (
@@ -26,7 +26,7 @@ var (
 	addr                   = common.Address{0x42, 0xff}
 	opts, _                = bind.NewKeyedTransactorWithChainID(pk, common.Big1)
 	from                   = crypto.PubkeyToAddress(pk.PublicKey)
-	portalContract, _      = bindings.NewKanvasPortal(addr, nil)
+	portalContract, _      = bindings.NewKromaPortal(addr, nil)
 	l1BlockInfoContract, _ = bindings.NewL1Block(addr, nil)
 )
 
@@ -141,7 +141,7 @@ var (
 // EncodeDepositOpaqueDataV0 performs ABI encoding to create the opaque data field of the deposit event.
 func EncodeDepositOpaqueDataV0(t *testing.T, mint *big.Int, value *big.Int, gasLimit uint64, isCreation bool, data []byte) []byte {
 	t.Helper()
-	// in KanvasPortal.sol:
+	// in KromaPortal.sol:
 	// bytes memory opaqueData = abi.encodePacked(msg.value, _value, _gasLimit, _isCreation, _data);
 	// Geth does not support abi.encodePacked, so we emulate it here by slicing of the padding from the individual elements
 	// See https://github.com/ethereum/go-ethereum/issues/22257
@@ -220,7 +220,7 @@ func FuzzUnmarshallLogEvent(f *testing.F) {
 			t.Fatal(err)
 		}
 		state.SetBalance(from, BytesToBigInt([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}))
-		state.SetCode(addr, common.FromHex(bindings.KanvasPortalDeployedBin))
+		state.SetCode(addr, common.FromHex(bindings.KromaPortalDeployedBin))
 		_, err = state.Commit(false)
 		if err != nil {
 			t.Fatal(err)
@@ -259,7 +259,7 @@ func FuzzUnmarshallLogEvent(f *testing.F) {
 		}
 		opaqueData := EncodeDepositOpaqueDataV0(t, depMint, dep.Value, dep.Gas, dep.To == nil, dep.Data)
 
-		reconstructed := &bindings.KanvasPortalTransactionDeposited{
+		reconstructed := &bindings.KromaPortalTransactionDeposited{
 			From:       dep.From,
 			Version:    common.Big0,
 			OpaqueData: opaqueData,
@@ -275,7 +275,7 @@ func FuzzUnmarshallLogEvent(f *testing.F) {
 
 		opaqueData = EncodeDepositOpaqueDataV0(t, mint, value, l2GasLimit, isCreation, data)
 
-		inputArgs := &bindings.KanvasPortalTransactionDeposited{
+		inputArgs := &bindings.KromaPortalTransactionDeposited{
 			From:       from,
 			To:         to,
 			Version:    common.Big0,

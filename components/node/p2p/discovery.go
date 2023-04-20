@@ -25,7 +25,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
 // force to use the new chainhash module, and not the legacy chainhash package btcd module
@@ -73,7 +73,7 @@ func (conf *Config) Discovery(log log.Logger, rollupCfg *rollup.Config, tcpPort 
 	} else {
 		return nil, nil, fmt.Errorf("no TCP port to put in discovery record")
 	}
-	dat := KanvasStackENRData{
+	dat := KromaStackENRData{
 		chainID: rollupCfg.L2ChainID.Uint64(),
 		version: 0,
 	}
@@ -165,18 +165,18 @@ func enrToAddrInfo(r *enode.Node) (*peer.AddrInfo, *crypto.Secp256k1PublicKey, e
 	}, pub, nil
 }
 
-// The discovery ENRs are just key-value lists, and we filter them by records tagged with the "kanvas-stack" key,
+// The discovery ENRs are just key-value lists, and we filter them by records tagged with the "kroma-stack" key,
 // and then check the chain ID and version.
-type KanvasStackENRData struct {
+type KromaStackENRData struct {
 	chainID uint64
 	version uint64
 }
 
-func (o *KanvasStackENRData) ENRKey() string {
-	return "kanvas-stack"
+func (o *KromaStackENRData) ENRKey() string {
+	return "kroma-stack"
 }
 
-func (o *KanvasStackENRData) EncodeRLP(w io.Writer) error {
+func (o *KromaStackENRData) EncodeRLP(w io.Writer) error {
 	out := make([]byte, 2*binary.MaxVarintLen64)
 	offset := binary.PutUvarint(out, o.chainID)
 	offset += binary.PutUvarint(out[offset:], o.version)
@@ -185,13 +185,13 @@ func (o *KanvasStackENRData) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, out)
 }
 
-func (o *KanvasStackENRData) DecodeRLP(s *rlp.Stream) error {
+func (o *KromaStackENRData) DecodeRLP(s *rlp.Stream) error {
 	b, err := s.Bytes()
 	if err != nil {
 		return fmt.Errorf("failed to decode outer ENR entry: %w", err)
 	}
 	// We don't check the byte length: the below readers are limited, and the ENR itself has size limits.
-	// Future "kanvas-stack" entries may contain additional data, and will be tagged with a newer version etc.
+	// Future "kroma-stack" entries may contain additional data, and will be tagged with a newer version etc.
 	r := bytes.NewReader(b)
 	chainID, err := binary.ReadUvarint(r)
 	if err != nil {
@@ -206,15 +206,15 @@ func (o *KanvasStackENRData) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-var _ enr.Entry = (*KanvasStackENRData)(nil)
+var _ enr.Entry = (*KromaStackENRData)(nil)
 
 func FilterEnodes(log log.Logger, cfg *rollup.Config) func(node *enode.Node) bool {
 	return func(node *enode.Node) bool {
-		var dat KanvasStackENRData
+		var dat KromaStackENRData
 		err := node.Load(&dat)
 		// if the entry does not exist, or if it is invalid, then ignore the node
 		if err != nil {
-			log.Trace("discovered node record has no kanvas-stack info", "node", node.ID(), "err", err)
+			log.Trace("discovered node record has no kroma-stack info", "node", node.ID(), "err", err)
 			return false
 		}
 		// check chain ID matches
@@ -345,7 +345,7 @@ func (n *NodeP2P) DiscoveryProcess(ctx context.Context, log log.Logger, cfg *rol
 			log.Info("stopped peer discovery")
 			return // no ctx error, expected close
 		case found := <-randomNodesCh:
-			var dat KanvasStackENRData
+			var dat KromaStackENRData
 			if err := found.Load(&dat); err != nil { // we already filtered on chain ID and version
 				continue
 			}
@@ -360,7 +360,7 @@ func (n *NodeP2P) DiscoveryProcess(ctx context.Context, log log.Logger, cfg *rol
 			// Tag the peer, we'd rather have the connection manager prune away old peers,
 			// or peers on different chains, or anyone we have not seen via discovery.
 			// There is no tag score decay yet, so just set it to 42.
-			n.ConnectionManager().TagPeer(info.ID, fmt.Sprintf("kanvas-stack-%d-%d", dat.chainID, dat.version), 42)
+			n.ConnectionManager().TagPeer(info.ID, fmt.Sprintf("kroma-stack-%d-%d", dat.chainID, dat.version), 42)
 			log.Debug("discovered peer", "peer", info.ID, "nodeID", found.ID(), "addr", info.Addrs[0])
 		case <-connectTicker.C:
 			connected := n.Host().Network().Peers()

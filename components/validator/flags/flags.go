@@ -5,12 +5,12 @@ import (
 
 	"github.com/urfave/cli"
 
-	kservice "github.com/wemixkanvas/kanvas/utils/service"
-	klog "github.com/wemixkanvas/kanvas/utils/service/log"
-	kmetrics "github.com/wemixkanvas/kanvas/utils/service/metrics"
-	kpprof "github.com/wemixkanvas/kanvas/utils/service/pprof"
-	krpc "github.com/wemixkanvas/kanvas/utils/service/rpc"
-	ksigner "github.com/wemixkanvas/kanvas/utils/signer/client"
+	kservice "github.com/kroma-network/kroma/utils/service"
+	klog "github.com/kroma-network/kroma/utils/service/log"
+	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
+	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
+	krpc "github.com/kroma-network/kroma/utils/service/rpc"
+	ksigner "github.com/kroma-network/kroma/utils/signer/client"
 )
 
 const envVarPrefix = "VALIDATOR"
@@ -73,7 +73,7 @@ var (
 	}
 	ProverGrpcFlag = cli.StringFlag{
 		Name:     "prover-grpc-url",
-		Usage:    "gRPC URL for kanvas-prover.",
+		Usage:    "gRPC URL for kroma-prover.",
 		Required: false,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "PROVER_GRPC"),
 	}

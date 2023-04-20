@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/batcher"
+	"github.com/kroma-network/kroma/components/batcher"
 )
 
 // TestInputThreshold tests the [ChannelConfig.InputThreshold]

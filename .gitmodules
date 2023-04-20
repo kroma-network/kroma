@@ -1,4 +1,4 @@
-[submodule "components/validator/challenge/kanvas-grpc-proto"]
-	path = components/validator/challenge/kanvas-grpc-proto
-	url = https://github.com/wemixkanvas/kanvas-grpc-proto
-	branch = kanvas
+[submodule "components/validator/challenge/prover-grpc-proto"]
+	path = components/validator/challenge/prover-grpc-proto
+	url = https://github.com/kroma-network/prover-grpc-proto
+	branch = main

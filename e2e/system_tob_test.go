@@ -24,13 +24,13 @@ import (
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	"github.com/wemixkanvas/kanvas/components/node/testutils/fuzzerutils"
-	"github.com/wemixkanvas/kanvas/components/node/withdrawals"
-	"github.com/wemixkanvas/kanvas/e2e/e2eutils"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/testutils/fuzzerutils"
+	"github.com/kroma-network/kroma/components/node/withdrawals"
+	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
 // TestGasPriceOracleFeeUpdates checks that the gas price oracle cannot be locked by mis-configuring parameters.
@@ -263,7 +263,7 @@ func TestMixedDepositValidity(t *testing.T) {
 	txTimeoutDuration := 10 * time.Duration(cfg.DeployConfig.L1BlockTime) * time.Second
 
 	// Bind to the deposit contract
-	depositContract, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, l1Client)
+	depositContract, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
 	require.NoError(t, err)
 
 	// Create a struct used to track our transactors and their transactions sent.
@@ -444,7 +444,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			txTimeoutDuration := 10 * time.Duration(cfg.DeployConfig.L1BlockTime) * time.Second
 
 			// Bind to the deposit contract
-			depositContract, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, l1Client)
+			depositContract, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
 			_ = depositContract
 			require.NoError(t, err)
 
@@ -530,7 +530,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 
 			// Wait for the finalization period, then we can finalize this withdrawal.
 			ctx, cancel = context.WithTimeout(context.Background(), 40*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second*timeoutMultiplier)
-			blockNumber, err := withdrawals.WaitForFinalizationPeriod(ctx, l1Client, predeploys.DevKanvasPortalAddr, receipt.BlockNumber)
+			blockNumber, err := withdrawals.WaitForFinalizationPeriod(ctx, l1Client, predeploys.DevKromaPortalAddr, receipt.BlockNumber)
 			cancel()
 			require.Nil(t, err)
 
@@ -670,7 +670,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 				// Wait for finalization and then create the Finalized Withdrawal Transaction
 				ctx, cancel = context.WithTimeout(context.Background(), 45*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 				defer cancel()
-				_, err = withdrawals.WaitForFinalizationPeriod(ctx, l1Client, predeploys.DevKanvasPortalAddr, header.Number)
+				_, err = withdrawals.WaitForFinalizationPeriod(ctx, l1Client, predeploys.DevKromaPortalAddr, header.Number)
 				require.Nil(t, err)
 
 				// Finalize withdrawal

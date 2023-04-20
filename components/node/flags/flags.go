@@ -7,9 +7,9 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/wemixkanvas/kanvas/components/node/chaincfg"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	klog "github.com/wemixkanvas/kanvas/utils/service/log"
+	"github.com/kroma-network/kroma/components/node/chaincfg"
+	"github.com/kroma-network/kroma/components/node/sources"
+	klog "github.com/kroma-network/kroma/utils/service/log"
 )
 
 // Flags
@@ -167,7 +167,7 @@ var (
 		Name:   "heartbeat.url",
 		Usage:  "Sets the URL to heartbeat to",
 		EnvVar: prefixEnvVar("HEARTBEAT_URL"),
-		Value:  "https://heartbeat.kanvas-main.io",
+		Value:  "https://heartbeat.kroma-main.io",
 	}
 	BackupL2UnsafeSyncRPC = cli.StringFlag{
 		Name:     "l2.backup-unsafe-sync-rpc",

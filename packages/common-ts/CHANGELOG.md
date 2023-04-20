@@ -1,1 +1,1 @@
-# @wemixkanvas/common-ts
+# @kroma-network/common-ts

@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/wemixkanvas/kanvas/e2e/e2eutils"
+	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
 var enableParallelTesting bool = true

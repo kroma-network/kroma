@@ -8,7 +8,7 @@ import { Hashing } from "../../libraries/Hashing.sol";
 import { Predeploys } from "../../libraries/Predeploys.sol";
 import { Types } from "../../libraries/Types.sol";
 import { L1CrossDomainMessenger } from "../../L1/L1CrossDomainMessenger.sol";
-import { KanvasPortal } from "../../L1/KanvasPortal.sol";
+import { KromaPortal } from "../../L1/KromaPortal.sol";
 import { Messenger_Initializer } from "../CommonTest.t.sol";
 
 contract RelayActor is StdUtils {
@@ -19,12 +19,12 @@ contract RelayActor is StdUtils {
     bytes32[] public hashes;
     bool public reverted = false;
 
-    KanvasPortal portal;
+    KromaPortal portal;
     L1CrossDomainMessenger xdm;
     Vm vm;
 
     constructor(
-        KanvasPortal _portal,
+        KromaPortal _portal,
         L1CrossDomainMessenger _xdm,
         Vm _vm
     ) {
@@ -60,7 +60,7 @@ contract RelayActor is StdUtils {
             _message
         );
 
-        // Act as the kanvas portal and call `relayMessage` on the `L1CrossDomainMessenger` with
+        // Act as the kroma portal and call `relayMessage` on the `L1CrossDomainMessenger` with
         // the outer min gas limit.
         vm.startPrank(address(portal));
         vm.expectCall(target, _message);
@@ -90,7 +90,7 @@ contract XDM_MinGasLimits is Messenger_Initializer {
     RelayActor actor;
 
     function setUp() public virtual override {
-        // Set up the `L1CrossDomainMessenger` and `KanvasPortal` contracts.
+        // Set up the `L1CrossDomainMessenger` and `KromaPortal` contracts.
         super.setUp();
 
         // Deploy a relay actor
@@ -111,7 +111,7 @@ contract XDM_MinGasLimits is Messenger_Initializer {
      *
      * There are two minimum gas limits here:
      *
-     * - The outer min gas limit is for the call from the `KanvasPortal` to the
+     * - The outer min gas limit is for the call from the `KromaPortal` to the
      * `L1CrossDomainMessenger`,  and it can be retrieved by calling the xdm's `baseGas` function
      * with the `message` and inner limit.
      *

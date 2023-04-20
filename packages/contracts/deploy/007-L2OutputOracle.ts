@@ -1,5 +1,5 @@
+import '@kroma-network/hardhat-deploy-config'
 import '@nomiclabs/hardhat-ethers'
-import '@wemixkanvas/hardhat-deploy-config'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
 import {

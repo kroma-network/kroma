@@ -1,5 +1,5 @@
+import { DepositTx } from '@kroma-network/core-utils'
 import '@nomiclabs/hardhat-ethers'
-import { DepositTx } from '@wemixkanvas/core-utils'
 import dotenv from 'dotenv'
 import { Event, providers, utils, Wallet } from 'ethers'
 import { task, types } from 'hardhat/config'
@@ -34,10 +34,10 @@ task('deposit', 'Deposits funds onto L2.')
   )
   .setAction(async (args, hre) => {
     const { l1ProviderUrl, l2ProviderUrl, to, amountEth, privateKey } = args
-    const proxy = await hre.deployments.get('KanvasPortalProxy')
+    const proxy = await hre.deployments.get('KromaPortalProxy')
 
-    const KanvasPortal = await hre.ethers.getContractAt(
-      'KanvasPortal',
+    const KromaPortal = await hre.ethers.getContractAt(
+      'KromaPortal',
       proxy.address
     )
 
@@ -66,7 +66,7 @@ task('deposit', 'Deposits funds onto L2.')
     console.log(`${to} has ${utils.formatEther(preL2Balance)} ETH on L2`)
 
     // Below adds 0.01 ETH to account for gas.
-    const tx = await KanvasPortal.depositTransaction(
+    const tx = await KromaPortal.depositTransaction(
       to,
       amountWei,
       '3000000',

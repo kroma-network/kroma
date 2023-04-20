@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
-	ksigner "github.com/wemixkanvas/kanvas/utils/signer/client"
+	ksigner "github.com/kroma-network/kroma/utils/signer/client"
 )
 
 func PrivateKeySignerFn(key *ecdsa.PrivateKey, chainID *big.Int) bind.SignerFn {

@@ -4,8 +4,8 @@ import {
   TransactionRequest,
   TransactionResponse,
 } from '@ethersproject/abstract-provider'
-import { getContractInterface } from '@wemixkanvas/contracts'
-import { hexStringEquals } from '@wemixkanvas/core-utils'
+import { getContractInterface } from '@kroma-network/contracts'
+import { hexStringEquals } from '@kroma-network/core-utils'
 import {
   BigNumber,
   CallOverrides,
@@ -182,7 +182,7 @@ export class StandardBridge {
     try {
       const contract = new Contract(
         toAddress(l2Token),
-        getContractInterface('KanvasMintableERC20'),
+        getContractInterface('KromaMintableERC20'),
         this.messenger.l2Provider
       )
 
@@ -234,7 +234,7 @@ export class StandardBridge {
 
     const token = new Contract(
       toAddress(l1Token),
-      getContractInterface('KanvasMintableERC20'), // Any ERC20 will do
+      getContractInterface('KromaMintableERC20'), // Any ERC20 will do
       this.messenger.l1Provider
     )
 
@@ -409,7 +409,7 @@ export class StandardBridge {
 
       const token = new Contract(
         toAddress(l1Token),
-        getContractInterface('KanvasMintableERC20'), // Any ERC20 will do
+        getContractInterface('KromaMintableERC20'), // Any ERC20 will do
         this.messenger.l1Provider
       )
 

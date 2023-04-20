@@ -6,10 +6,10 @@ import (
 	"math"
 	"time"
 
-	"github.com/wemixkanvas/kanvas/components/node/p2p"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/driver"
-	kpprof "github.com/wemixkanvas/kanvas/utils/service/pprof"
+	"github.com/kroma-network/kroma/components/node/p2p"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/driver"
+	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 )
 
 type Config struct {

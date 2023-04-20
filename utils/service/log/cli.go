@@ -9,7 +9,7 @@ import (
 	"github.com/urfave/cli"
 	"golang.org/x/term"
 
-	kservice "github.com/wemixkanvas/kanvas/utils/service"
+	kservice "github.com/kroma-network/kroma/utils/service"
 )
 
 const (

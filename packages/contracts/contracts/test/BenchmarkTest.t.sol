@@ -9,7 +9,7 @@ import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
 import "./CommonTest.t.sol";
 
-// Free function for setting the prevBaseFee param in the KanvasPortal.
+// Free function for setting the prevBaseFee param in the KromaPortal.
 function setPrevBaseFee(
     Vm _vm,
     address _portal,
@@ -32,7 +32,7 @@ contract SetPrevBaseFee_Test is Portal_Initializer {
 // so that they are nothing more than the call we want measure the gas cost of.
 // In order to achieve this we make no assertions, and handle everything else in the setUp()
 // function.
-contract GasBenchMark_KanvasPortal is Portal_Initializer {
+contract GasBenchMark_KromaPortal is Portal_Initializer {
     uint128 internal INITIAL_BASE_FEE;
 
     // Reusable default values for a test withdrawal

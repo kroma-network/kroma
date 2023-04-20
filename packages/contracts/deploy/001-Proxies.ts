@@ -4,12 +4,12 @@ import { deployProxy, getDeploymentAddress } from '../src/deploy-utils'
 
 const PROXY_NAMES = [
   'SystemConfigProxy',
-  'KanvasPortalProxy',
+  'KromaPortalProxy',
   'L2OutputOracleProxy',
   'L1CrossDomainMessengerProxy',
   'L1StandardBridgeProxy',
   'L1ERC721BridgeProxy',
-  'KanvasMintableERC20FactoryProxy',
+  'KromaMintableERC20FactoryProxy',
   'ColosseumProxy',
 ]
 

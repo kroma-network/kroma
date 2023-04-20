@@ -5,7 +5,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	ma "github.com/multiformats/go-multiaddr"
 
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/metrics"
 )
 
 type NotificationsMetricer interface {

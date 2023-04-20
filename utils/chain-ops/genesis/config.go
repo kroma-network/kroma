@@ -15,12 +15,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/wemixkanvas/kanvas/bindings/hardhat"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/immutables"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/state"
+	"github.com/kroma-network/kroma/bindings/hardhat"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/utils/chain-ops/immutables"
+	"github.com/kroma-network/kroma/utils/chain-ops/state"
 )
 
 var (
@@ -28,7 +28,7 @@ var (
 	ErrInvalidImmutablesConfig = errors.New("invalid immutables config")
 )
 
-// DeployConfig represents the deployment configuration for Kanvas
+// DeployConfig represents the deployment configuration for Kroma
 type DeployConfig struct {
 	L1StartingBlockTag *MarshalableRPCBlockNumberOrHash `json:"l1StartingBlockTag"`
 	L1ChainID          uint64                           `json:"l1ChainID"`
@@ -79,7 +79,7 @@ type DeployConfig struct {
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
 	// Owner of the system on L1
 	FinalSystemOwner common.Address `json:"finalSystemOwner"`
-	// GUARDIAN account in the KanvasPortal
+	// GUARDIAN account in the KromaPortal
 	PortalGuardian common.Address `json:"portalGuardian"`
 	// L1 recipient of fees accumulated in the BaseFeeVault
 	BaseFeeVaultRecipient common.Address `json:"baseFeeVaultRecipient"`
@@ -95,8 +95,8 @@ type DeployConfig struct {
 	L1ERC721BridgeProxy common.Address `json:"l1ERC721BridgeProxy"`
 	// SystemConfig proxy address on L1
 	SystemConfigProxy common.Address `json:"systemConfigProxy"`
-	// KanvasPortal proxy address on L1
-	KanvasPortalProxy common.Address `json:"kanvasPortalProxy"`
+	// KromaPortal proxy address on L1
+	KromaPortalProxy common.Address `json:"kromaPortalProxy"`
 	// Colosseum proxy address on L1
 	ColosseumProxy common.Address `json:"colosseumProxy"`
 	// The initial value of the gas overhead
@@ -192,8 +192,8 @@ func (d *DeployConfig) Check() error {
 	if d.SystemConfigProxy == (common.Address{}) {
 		return fmt.Errorf("%w: SystemConfigProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.KanvasPortalProxy == (common.Address{}) {
-		return fmt.Errorf("%w: KanvasPortalProxy cannot be address(0)", ErrInvalidDeployConfig)
+	if d.KromaPortalProxy == (common.Address{}) {
+		return fmt.Errorf("%w: KromaPortalProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.ColosseumProxy == (common.Address{}) {
 		return fmt.Errorf("%w: ColosseumProxy cannot be address(0)", ErrInvalidDeployConfig)
@@ -258,12 +258,12 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 		d.SystemConfigProxy = systemConfigProxyDeployment.Address
 	}
 
-	if d.KanvasPortalProxy == (common.Address{}) {
-		kanvasPortalProxyDeployment, err := hh.GetDeployment("KanvasPortalProxy")
+	if d.KromaPortalProxy == (common.Address{}) {
+		kromaPortalProxyDeployment, err := hh.GetDeployment("KromaPortalProxy")
 		if err != nil {
 			return err
 		}
-		d.KanvasPortalProxy = kanvasPortalProxyDeployment.Address
+		d.KromaPortalProxy = kromaPortalProxyDeployment.Address
 	}
 
 	if d.ColosseumProxy == (common.Address{}) {
@@ -282,7 +282,7 @@ func (d *DeployConfig) InitDeveloperDeployedAddresses() error {
 	d.L1StandardBridgeProxy = predeploys.DevL1StandardBridgeAddr
 	d.L1CrossDomainMessengerProxy = predeploys.DevL1CrossDomainMessengerAddr
 	d.L1ERC721BridgeProxy = predeploys.DevL1ERC721BridgeAddr
-	d.KanvasPortalProxy = predeploys.DevKanvasPortalAddr
+	d.KromaPortalProxy = predeploys.DevKromaPortalAddr
 	d.ColosseumProxy = predeploys.DevColosseumAddr
 	d.SystemConfigProxy = predeploys.DevSystemConfigAddr
 	return nil
@@ -301,8 +301,8 @@ func (d *DeployConfig) BlueTime(genesisTime uint64) *uint64 {
 
 // RollupConfig converts a DeployConfig to a rollup.Config
 func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHash common.Hash, l2GenesisBlockNumber uint64) (*rollup.Config, error) {
-	if d.KanvasPortalProxy == (common.Address{}) {
-		return nil, errors.New("KanvasPortalProxy cannot be address(0)")
+	if d.KromaPortalProxy == (common.Address{}) {
+		return nil, errors.New("KromaPortalProxy cannot be address(0)")
 	}
 	if d.SystemConfigProxy == (common.Address{}) {
 		return nil, errors.New("SystemConfigProxy cannot be address(0)")
@@ -333,7 +333,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		L1ChainID:              new(big.Int).SetUint64(d.L1ChainID),
 		L2ChainID:              new(big.Int).SetUint64(d.L2ChainID),
 		BatchInboxAddress:      d.BatchInboxAddress,
-		DepositContractAddress: d.KanvasPortalProxy,
+		DepositContractAddress: d.KromaPortalProxy,
 		L1SystemConfigAddress:  d.SystemConfigProxy,
 		BlueTime:               d.BlueTime(l1StartBlock.Time()),
 	}, nil
@@ -396,7 +396,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.
 		"messenger":   predeploys.L2CrossDomainMessengerAddr,
 		"otherBridge": config.L1ERC721BridgeProxy,
 	}
-	immutable["KanvasMintableERC721Factory"] = immutables.ImmutableValues{
+	immutable["KromaMintableERC721Factory"] = immutables.ImmutableValues{
 		"bridge":        predeploys.L2ERC721BridgeAddr,
 		"remoteChainId": new(big.Int).SetUint64(config.L1ChainID),
 	}

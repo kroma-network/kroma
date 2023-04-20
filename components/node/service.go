@@ -13,14 +13,14 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
 
-	"github.com/wemixkanvas/kanvas/components/node/chaincfg"
-	"github.com/wemixkanvas/kanvas/components/node/flags"
-	"github.com/wemixkanvas/kanvas/components/node/node"
-	p2pcli "github.com/wemixkanvas/kanvas/components/node/p2p/cli"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/driver"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	kpprof "github.com/wemixkanvas/kanvas/utils/service/pprof"
+	"github.com/kroma-network/kroma/components/node/chaincfg"
+	"github.com/kroma-network/kroma/components/node/flags"
+	"github.com/kroma-network/kroma/components/node/node"
+	p2pcli "github.com/kroma-network/kroma/components/node/p2p/cli"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/driver"
+	"github.com/kroma-network/kroma/components/node/sources"
+	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 )
 
 // NewConfig creates a Config from the provided flags or environment variables.

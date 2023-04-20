@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/testlog"
 )
 
 // TestERC20BridgeDeposits tests the the L1StandardBridge bridge ERC20
@@ -61,17 +61,17 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	// Deploy L2 WETH9
 	l2Opts, err := bind.NewKeyedTransactorWithChainID(sys.cfg.Secrets.Alice, cfg.L2ChainIDBig())
 	require.NoError(t, err)
-	kanvasMintableTokenFactory, err := bindings.NewKanvasMintableERC20Factory(predeploys.KanvasMintableERC20FactoryAddr, l2Client)
+	kromaMintableTokenFactory, err := bindings.NewKromaMintableERC20Factory(predeploys.KromaMintableERC20FactoryAddr, l2Client)
 	require.NoError(t, err)
-	tx, err = kanvasMintableTokenFactory.CreateKanvasMintableERC20(l2Opts, weth9Address, "L2-WETH", "L2-WETH")
+	tx, err = kromaMintableTokenFactory.CreateKromaMintableERC20(l2Opts, weth9Address, "L2-WETH", "L2-WETH")
 	require.NoError(t, err)
 	_, err = waitForTransaction(tx.Hash(), l2Client, 3*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
 	require.NoError(t, err)
 
 	// Get the deployment event to have access to the L2 WETH9 address
-	it, err := kanvasMintableTokenFactory.FilterKanvasMintableERC20Created(&bind.FilterOpts{Start: 0}, nil, nil)
+	it, err := kromaMintableTokenFactory.FilterKromaMintableERC20Created(&bind.FilterOpts{Start: 0}, nil, nil)
 	require.NoError(t, err)
-	var event *bindings.KanvasMintableERC20FactoryKanvasMintableERC20Created
+	var event *bindings.KromaMintableERC20FactoryKromaMintableERC20Created
 	for it.Next() {
 		event = it.Event
 	}
@@ -94,12 +94,12 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	t.Log("Deposit through L1StandardBridge", "gas used", depositReceipt.GasUsed)
 
 	// compute the deposit transaction hash + poll for it
-	portal, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, l1Client)
+	portal, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
 	require.NoError(t, err)
 
 	depIt, err := portal.FilterTransactionDeposited(&bind.FilterOpts{Start: 0}, nil, nil, nil)
 	require.NoError(t, err)
-	var depositEvent *bindings.KanvasPortalTransactionDeposited
+	var depositEvent *bindings.KromaPortalTransactionDeposited
 	for depIt.Next() {
 		depositEvent = depIt.Event
 	}
@@ -111,11 +111,11 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure that the deposit went through
-	kanvasMintableToken, err := bindings.NewKanvasMintableERC20(event.LocalToken, l2Client)
+	kromaMintableToken, err := bindings.NewKromaMintableERC20(event.LocalToken, l2Client)
 	require.NoError(t, err)
 
 	// Should have balance on L2
-	l2Balance, err := kanvasMintableToken.BalanceOf(&bind.CallOpts{}, opts.From)
+	l2Balance, err := kromaMintableToken.BalanceOf(&bind.CallOpts{}, opts.From)
 	require.NoError(t, err)
 	require.Equal(t, l2Balance, big.NewInt(100))
 }

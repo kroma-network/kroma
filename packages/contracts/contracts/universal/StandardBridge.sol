@@ -8,8 +8,8 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 
 import { SafeCall } from "../libraries/SafeCall.sol";
 import { CrossDomainMessenger } from "./CrossDomainMessenger.sol";
-import { IKanvasMintableERC20 } from "./IKanvasMintableERC20.sol";
-import { KanvasMintableERC20 } from "./KanvasMintableERC20.sol";
+import { IKromaMintableERC20 } from "./IKromaMintableERC20.sol";
+import { KromaMintableERC20 } from "./KromaMintableERC20.sol";
 
 /**
  * @custom:upgradeable
@@ -305,13 +305,13 @@ abstract contract StandardBridge {
         uint256 _amount,
         bytes calldata _extraData
     ) public onlyOtherBridge {
-        if (_isKanvasMintableERC20(_localToken)) {
+        if (_isKromaMintableERC20(_localToken)) {
             require(
                 _isCorrectTokenPair(_localToken, _remoteToken),
-                "StandardBridge: wrong remote token for Kanvas Mintable ERC20 local token"
+                "StandardBridge: wrong remote token for Kroma Mintable ERC20 local token"
             );
 
-            KanvasMintableERC20(_localToken).mint(_to, _amount);
+            KromaMintableERC20(_localToken).mint(_to, _amount);
         } else {
             deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] - _amount;
             IERC20(_localToken).safeTransfer(_to, _amount);
@@ -379,13 +379,13 @@ abstract contract StandardBridge {
         uint32 _minGasLimit,
         bytes memory _extraData
     ) internal {
-        if (_isKanvasMintableERC20(_localToken)) {
+        if (_isKromaMintableERC20(_localToken)) {
             require(
                 _isCorrectTokenPair(_localToken, _remoteToken),
-                "StandardBridge: wrong remote token for Kanvas Mintable ERC20 local token"
+                "StandardBridge: wrong remote token for Kroma Mintable ERC20 local token"
             );
 
-            KanvasMintableERC20(_localToken).burn(_from, _amount);
+            KromaMintableERC20(_localToken).burn(_from, _amount);
         } else {
             IERC20(_localToken).safeTransferFrom(_from, address(this), _amount);
             deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] + _amount;
@@ -412,30 +412,30 @@ abstract contract StandardBridge {
     }
 
     /**
-     * @notice Checks if a given address is an KanvasMintableERC20. Not perfect, but good enough.
+     * @notice Checks if a given address is a KromaMintableERC20. Not perfect, but good enough.
      *         Just the way we like it.
      *
      * @param _token Address of the token to check.
      *
-     * @return True if the token is an KanvasMintableERC20.
+     * @return True if the token is a KromaMintableERC20.
      */
-    function _isKanvasMintableERC20(address _token) internal view returns (bool) {
-        return ERC165Checker.supportsInterface(_token, type(IKanvasMintableERC20).interfaceId);
+    function _isKromaMintableERC20(address _token) internal view returns (bool) {
+        return ERC165Checker.supportsInterface(_token, type(IKromaMintableERC20).interfaceId);
     }
 
     /**
-     * @notice Checks if the "other token" is the correct pair token for the KanvasMintableERC20.
+     * @notice Checks if the "other token" is the correct pair token for the KromaMintableERC20.
      *
-     * @param _mintableToken KanvasMintableERC20 to check against.
+     * @param _mintableToken KromaMintableERC20 to check against.
      * @param _otherToken    Pair token to check.
      *
-     * @return True if the other token is the correct pair token for the KanvasMintableERC20.
+     * @return True if the other token is the correct pair token for the KromaMintableERC20.
      */
     function _isCorrectTokenPair(address _mintableToken, address _otherToken)
         internal
         view
         returns (bool)
     {
-        return _otherToken == KanvasMintableERC20(_mintableToken).REMOTE_TOKEN();
+        return _otherToken == KromaMintableERC20(_mintableToken).REMOTE_TOKEN();
     }
 }

@@ -1,7 +1,7 @@
 <!-- DOCTOC SKIP -->
-# Kanvas specs
+# Kroma specs
 
-This directory contains the plain english specs for Kanvas, a minimal optimistic rollup protocol
+This directory contains the plain english specs for Kroma, a minimal optimistic rollup protocol
 that maintains 1:1 compatibility with Ethereum.
 
 ## Specification Contents
@@ -47,7 +47,7 @@ Our aim is to design a protocol specification that is:
   systems team consuming the spec is also key!
 - **Secure:** This is self-evident.
   User’s assets are at stake. Every component of the system must be incredibly secure.
-- **Decentralizable:** Kanvas must be designed to avail itself of the security and
+- **Decentralizable:** Kroma must be designed to avail itself of the security and
   censorship-resistant guarantees achieved by a decentralized system.
   Currently centralized components of the system should have a clear path towards decentralization.
   Already decentralized components of the system should be protected and preserved.

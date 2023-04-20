@@ -16,8 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	ktls "github.com/wemixkanvas/kanvas/utils/service/tls"
-	"github.com/wemixkanvas/kanvas/utils/service/tls/certman"
+	ktls "github.com/kroma-network/kroma/utils/service/tls"
+	"github.com/kroma-network/kroma/utils/service/tls/certman"
 )
 
 type SignerClient struct {

@@ -3,7 +3,7 @@ package genesis
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
+	"github.com/kroma-network/kroma/bindings/predeploys"
 )
 
 type StorageCheckMap = map[common.Hash]common.Hash
@@ -30,13 +30,13 @@ var (
 			AdminSlot:          common.HexToHash("0x0000000000000000000000004200000000000000000000000000000000000018"),
 			ImplementationSlot: common.HexToHash("0x000000000000000000000000c0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d30007"),
 		},
-		predeploys.L2StandardBridgeAddr:           eip1967Slots(predeploys.L2StandardBridgeAddr),
-		predeploys.ProposerFeeVaultAddr:           eip1967Slots(predeploys.ProposerFeeVaultAddr),
-		predeploys.KanvasMintableERC20FactoryAddr: eip1967Slots(predeploys.KanvasMintableERC20FactoryAddr),
-		predeploys.GasPriceOracleAddr:             eip1967Slots(predeploys.GasPriceOracleAddr),
+		predeploys.L2StandardBridgeAddr:          eip1967Slots(predeploys.L2StandardBridgeAddr),
+		predeploys.ProposerFeeVaultAddr:          eip1967Slots(predeploys.ProposerFeeVaultAddr),
+		predeploys.KromaMintableERC20FactoryAddr: eip1967Slots(predeploys.KromaMintableERC20FactoryAddr),
+		predeploys.GasPriceOracleAddr:            eip1967Slots(predeploys.GasPriceOracleAddr),
 		//predeploys.L1BlockAddr:                       eip1967Slots(predeploys.L1BlockAddr),
-		predeploys.L2ERC721BridgeAddr:              eip1967Slots(predeploys.L2ERC721BridgeAddr),
-		predeploys.KanvasMintableERC721FactoryAddr: eip1967Slots(predeploys.KanvasMintableERC721FactoryAddr),
+		predeploys.L2ERC721BridgeAddr:             eip1967Slots(predeploys.L2ERC721BridgeAddr),
+		predeploys.KromaMintableERC721FactoryAddr: eip1967Slots(predeploys.KromaMintableERC721FactoryAddr),
 		// ProxyAdmin is not a proxy, and only has the _owner slot set.
 		predeploys.ProxyAdminAddr: {
 			// Slot 0x00 (0) is _owner. Requires custom check, so set to a garbage value

@@ -1,6 +1,6 @@
-# Kanvas Smart Contracts
+# Kroma Smart Contracts
 
-This package contains the smart contracts that compose the on-chain component of Kanvas.
+This package contains the smart contracts that compose the on-chain component of Kroma.
 You can find detailed specifications for the contracts contained within this package [here](../../specs).
 
 ## Contracts Overview
@@ -10,15 +10,15 @@ You can find detailed specifications for the contracts contained within this pac
 | Name                                                                                     | Proxy Type                                                              | Description                                                                                         |
 | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | [`L1CrossDomainMessenger`](../../specs/messengers.md)                                    | [`Proxy`](./contracts/universal/Proxy.sol) |
- High-level interface for sending messages to and receiving messages from Kanvas                   |
+ High-level interface for sending messages to and receiving messages from Kroma                   |
 | [`L1StandardBridge`](../../specs/bridges.md)                                             | [`Proxy`](./contracts/universal/Proxy.sol) |
- Standardized system for transfering ERC20 tokens to/from Kanvas                                   |
+ Standardized system for transfering ERC20 tokens to/from Kroma                                   |
 | [`L2OutputOracle`](../../specs/validations.md#l2-output-oracle-smart-contract)             | [`Proxy`](./contracts/universal/Proxy.sol) |
- Stores commitments to the state of Kanvas which can be used by contracts on L1 to access L2 state |
-| [`KanvasPortal`](../../specs/deposits.md#deposit-contract)                               | [`Proxy`](./contracts/universal/Proxy.sol) |
+ Stores commitments to the state of Kroma which can be used by contracts on L1 to access L2 state |
+| [`KromaPortal`](../../specs/deposits.md#deposit-contract)                               | [`Proxy`](./contracts/universal/Proxy.sol) |
 Low-level message passing interface                                                                 |
-| [`KanvasMintableERC20Factory`](../../specs/predeploys.md#KanvasMintableerc20factory)     | [`Proxy`](./contracts/universal/Proxy.sol) |
-Deploys standard `KanvasMintableERC20` tokens that are compatible with either `StandardBridge`    |
+| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory)     | [`Proxy`](./contracts/universal/Proxy.sol) |
+Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge`    |
 | [`ProxyAdmin`](../../specs/TODO)                                                         | -                                           |
 Contract that can upgrade L1 contracts                                                              |
 
@@ -32,7 +32,7 @@ Contract that can upgrade L1 contracts                                          
 | [`L2StandardBridge`](../../specs/predeploys.md#l2standardbridge)                         | [`Proxy`](./contracts/universal/Proxy.sol) | Standardized system for transferring ERC20 tokens to/from L1                                        |
 | [`L2ToL1MessagePasser`](../../specs/predeploys.md#l2tol1messagepasser)                   | [`Proxy`](./contracts/universal/Proxy.sol) | Low-level message passing interface                                                              |
 | [`ProposerFeeVault`](../../specs/predeploys.md#proposerfeevault)                       | [`Proxy`](./contracts/universal/Proxy.sol) | Vault for L2 transaction fees                                                                       |
-| [`KanvasMintableERC20Factory`](../../specs/predeploys.md#KanvasMintableerc20factory)     | [`Proxy`](./contracts/universal/Proxy.sol) | Deploys standard `KanvasMintableERC20` tokens that are compatible with either `StandardBridge` |
+| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory)     | [`Proxy`](./contracts/universal/Proxy.sol) | Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge` |
 | [`L2ProxyAdmin`](../../specs/TODO)                                                       | -                                          | Contract that can upgrade L2 contracts when sent a transaction from L1                               |
 
 ## Installation
@@ -40,7 +40,7 @@ Contract that can upgrade L1 contracts                                          
 We export contract ABIs, contract source code, and contract deployment information for this package via `npm`:
 
 ```shell
-> npm install @wemixkanvas/contracts
+> npm install @kroma-network/contracts
 ```
 
 ## Development

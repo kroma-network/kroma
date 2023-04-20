@@ -13,7 +13,7 @@ contracts=(
   contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger
   contracts/L1/L1StandardBridge.sol:L1StandardBridge
   contracts/L1/L2OutputOracle.sol:L2OutputOracle
-  contracts/L1/KanvasPortal.sol:KanvasPortal
+  contracts/L1/KromaPortal.sol:KromaPortal
   contracts/L1/SystemConfig.sol:SystemConfig
   contracts/L2/L1Block.sol:L1Block
   contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger
@@ -25,8 +25,8 @@ contracts=(
   contracts/vendor/WETH9.sol:WETH9
   contracts/universal/ProxyAdmin.sol:ProxyAdmin
   contracts/universal/Proxy.sol:Proxy
-  contracts/universal/KanvasMintableERC20.sol:KanvasMintableERC20
-  contracts/universal/KanvasMintableERC20Factory.sol:KanvasMintableERC20Factory
+  contracts/universal/KromaMintableERC20.sol:KromaMintableERC20
+  contracts/universal/KromaMintableERC20Factory.sol:KromaMintableERC20Factory
 )
 
 dir=$(dirname "$0")

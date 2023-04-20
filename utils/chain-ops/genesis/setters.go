@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/immutables"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/state"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/utils/chain-ops/immutables"
+	"github.com/kroma-network/kroma/utils/chain-ops/state"
 )
 
 // UntouchableCodeHashes contains code hashes of all the contracts
@@ -132,7 +132,7 @@ func setProxies(db vm.StateDB, proxyAdminAddr common.Address, namespace *big.Int
 // and configure the proxies to point to the implementations. It also sets
 // the appropriate storage values for each contract at the proxy address.
 func SetImplementations(db vm.StateDB, storage state.StorageConfig, immutable immutables.ImmutableConfig, zktrie bool) error {
-	deployResults, err := immutables.BuildKanvas(immutable, zktrie)
+	deployResults, err := immutables.BuildKroma(immutable, zktrie)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func SetImplementations(db vm.StateDB, storage state.StorageConfig, immutable im
 }
 
 func SetDevOnlyL2Implementations(db vm.StateDB, storage state.StorageConfig, immutable immutables.ImmutableConfig, zktrie bool) error {
-	deployResults, err := immutables.BuildKanvas(immutable, zktrie)
+	deployResults, err := immutables.BuildKroma(immutable, zktrie)
 	if err != nil {
 		return err
 	}

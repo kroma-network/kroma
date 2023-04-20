@@ -12,7 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/metrics"
 
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
 // Prepared provides a p2p host and discv5 service that is already set up.
@@ -47,7 +47,7 @@ func (p *Prepared) Host(log log.Logger, reporter metrics.Reporter) (host.Host, e
 // Discovery creates a disc-v5 service. Returns nil, nil, nil if discovery is disabled.
 func (p *Prepared) Discovery(log log.Logger, rollupCfg *rollup.Config, tcpPort uint16) (*enode.LocalNode, *discover.UDPv5, error) {
 	if p.LocalNode != nil {
-		dat := KanvasStackENRData{
+		dat := KromaStackENRData{
 			chainID: rollupCfg.L2ChainID.Uint64(),
 			version: 0,
 		}
