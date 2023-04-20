@@ -708,7 +708,7 @@ func TestSystemMockAltSync(t *testing.T) {
 		role: "proposer",
 		action: func(sCfg *SystemConfig, system *System) {
 			rpc, _ := system.Nodes["proposer"].Attach() // never errors
-			cfg.Nodes["syncer"].L2Sync = &rollupNode.L2SyncRPCConfig{
+			cfg.Nodes["syncer"].L2Sync = &rollupNode.PreparedL2SyncEndpoint{
 				Rpc: client.NewBaseRPCClient(rpc),
 			}
 		},
