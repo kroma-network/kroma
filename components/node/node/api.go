@@ -25,7 +25,7 @@ type l2EthClient interface {
 
 type driverClient interface {
 	SyncStatus(ctx context.Context) (*eth.SyncStatus, error)
-	BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error)
+	BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error)
 	ResetDerivationPipeline(context.Context) error
 	StartProposer(ctx context.Context, blockHash common.Hash) error
 	StopProposer(context.Context) (common.Hash, error)
@@ -88,7 +88,7 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 	recordDur := n.m.RecordRPCServerRequest("kanvas_outputAtBlock")
 	defer recordDur()
 
-	ref, status, err := n.dr.BlockRefWithStatus(ctx, uint64(number))
+	ref, nextRef, status, err := n.dr.BlockRefsWithStatus(ctx, uint64(number))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 block ref with sync status: %w", err)
 	}
@@ -117,17 +117,18 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 	var l2OutputRootVersion eth.Bytes32
 	var l2OutputRoot eth.Bytes32
 	if n.config.IsBlue(head.Time()) {
+		l2OutputRootVersion = rollup.V1
 		l2OutputRoot, err = rollup.ComputeL2OutputRootV1(&bindings.TypesOutputRootProof{
-			Version:                  rollup.V1,
+			Version:                  l2OutputRootVersion,
 			StateRoot:                head.Root(),
 			MessagePasserStorageRoot: proof.StorageHash,
 			BlockHash:                head.Hash(),
-			// TODO(chokobole): use an actual block hash
-			NextBlockHash: common.Hash{},
+			NextBlockHash:            nextRef.Hash,
 		})
 	} else {
+		l2OutputRootVersion = rollup.V0
 		l2OutputRoot, err = rollup.ComputeL2OutputRootV0(&bindings.TypesOutputRootProof{
-			Version:                  rollup.V0,
+			Version:                  l2OutputRootVersion,
 			StateRoot:                head.Root(),
 			MessagePasserStorageRoot: proof.StorageHash,
 			BlockHash:                head.Hash(),
@@ -143,6 +144,7 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 		Version:               l2OutputRootVersion,
 		OutputRoot:            l2OutputRoot,
 		BlockRef:              ref,
+		NextBlockRef:          nextRef,
 		WithdrawalStorageRoot: proof.StorageHash,
 		StateRoot:             head.Root(),
 		Status:                status,

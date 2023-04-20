@@ -139,18 +139,33 @@ func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	proposer.ActL2EndBlock(t)
 	alice.ActCheckStartWithdrawal(true)(t)
 
-	// build a L1 block and more L2 blocks,
-	// to ensure the L2 withdrawal is old enough to be able to get into a checkpoint output on L1
-	miner.ActEmptyBlock(t)
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	// NOTE(chokobole): After the Blue hard fork, it is necessary to wait for one finalized
+	// (or safe if AllowNonFinalized config is set) block to pass after each submission interval
+	// before submitting the output root.
+	// For example, if the submission interval is set to 1800 blocks, before the Blue hard fork,
+	// the output root could be submitted at 1800 finalized blocks. However, after the update,
+	// the output root can only be submitted at 1801 finalized blocks.
+	// In fact, the following code is designed to create one or more finalized L2 blocks
+	// in order to pass the test after the Blue hard fork.
+	// If Proto Dank Sharding is introduced, the below code fix may no longer be necessary.
+	loopCount := 1
+	if test.activateBlue {
+		loopCount = 2
+	}
+	for i := 0; i < loopCount; i++ {
+		// build a L1 block and more L2 blocks,
+		// to ensure the L2 withdrawal is old enough to be able to get into a checkpoint output on L1
+		miner.ActEmptyBlock(t)
+		proposer.ActL1HeadSignal(t)
+		proposer.ActBuildToL1Head(t)
 
-	// submit everything to L1
-	batcher.ActSubmitAll(t)
-	// include batch on L1
-	miner.ActL1StartBlock(12)(t)
-	miner.ActL1IncludeTx(dp.Addresses.Batcher)(t)
-	miner.ActL1EndBlock(t)
+		// submit everything to L1
+		batcher.ActSubmitAll(t)
+		// include batch on L1
+		miner.ActL1StartBlock(12)(t)
+		miner.ActL1IncludeTx(dp.Addresses.Batcher)(t)
+		miner.ActL1EndBlock(t)
+	}
 
 	// derive from L1, blocks will now become safe to submit
 	proposer.ActL2PipelineFull(t)

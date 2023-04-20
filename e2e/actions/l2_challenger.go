@@ -39,6 +39,9 @@ func NewL2Challenger(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient
 	chainID, err := l1.ChainID(t.Ctx())
 	require.NoError(t, err)
 
+	rollupConfig, err := rollupCl.RollupConfig(t.Ctx())
+	require.NoError(t, err)
+
 	validatorCfg := validator.Config{
 		L2OutputOracleAddr: cfg.OutputOracleAddr,
 		ColosseumAddr:      cfg.ColosseumAddr,
@@ -53,6 +56,7 @@ func NewL2Challenger(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient
 		},
 		L1Client:          l1,
 		RollupClient:      rollupCl,
+		RollupConfig:      rollupConfig,
 		AllowNonFinalized: cfg.AllowNonFinalized,
 		From:              from,
 		SignerFn:          signer(chainID),

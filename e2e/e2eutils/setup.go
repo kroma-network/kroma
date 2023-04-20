@@ -95,6 +95,8 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L2GenesisBlockParentHash:    common.Hash{},
 		L2GenesisBlockBaseFeePerGas: uint64ToBig(1000_000_000),
 
+		L2GenesisBlueTimeOffset: new(hexutil.Uint64),
+
 		ColosseumChallengeTimeout: 120,
 		ColosseumSegmentsLengths:  "3,4",
 

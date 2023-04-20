@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
 
+	"github.com/wemixkanvas/kanvas/components/node/rollup"
 	"github.com/wemixkanvas/kanvas/components/node/sources"
 	chal "github.com/wemixkanvas/kanvas/components/validator/challenge"
 	"github.com/wemixkanvas/kanvas/components/validator/flags"
@@ -32,6 +33,7 @@ type Config struct {
 	TxManagerConfig         txmgr.Config
 	L1Client                *ethclient.Client
 	RollupClient            *sources.RollupClient
+	RollupConfig            *rollup.Config
 	AllowNonFinalized       bool
 	OutputSubmitterDisabled bool
 	ChallengerDisabled      bool
@@ -207,6 +209,11 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 		return nil, err
 	}
 
+	rollupConfig, err := rollupClient.RollupConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	txMgrCfg := txmgr.Config{
 		ResubmissionTimeout:       cfg.ResubmissionTimeout,
 		ReceiptQueryInterval:      time.Second,
@@ -223,6 +230,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 		TxManagerConfig:         txMgrCfg,
 		L1Client:                l1Client,
 		RollupClient:            rollupClient,
+		RollupConfig:            rollupConfig,
 		AllowNonFinalized:       cfg.AllowNonFinalized,
 		OutputSubmitterDisabled: cfg.OutputSubmitterDisabled,
 		ChallengerDisabled:      cfg.ChallengerDisabled,

@@ -99,9 +99,13 @@ type l2SyncerBackend struct {
 	syncer *L2Syncer
 }
 
-func (s *l2SyncerBackend) BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error) {
+func (s *l2SyncerBackend) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error) {
 	ref, err := s.syncer.eng.L2BlockRefByNumber(ctx, num)
-	return ref, s.syncer.SyncStatus(), err
+	nextRef := eth.L2BlockRef{}
+	if err == nil && s.syncer.rollupCfg.IsBlueBlock(num) {
+		nextRef, err = s.syncer.eng.L2BlockRefByNumber(ctx, num+1)
+	}
+	return ref, nextRef, s.syncer.SyncStatus(), err
 }
 
 func (s *l2SyncerBackend) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {

@@ -1122,6 +1122,14 @@ func TestWithdrawals(t *testing.T) {
 	header, err = l2Sync.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 	require.Nil(t, err)
 
+	var nextHeader *types.Header = nil
+	if sys.RollupConfig.IsBlue(header.Time) {
+		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
+		nextHeader, err = l2Sync.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber+1))
+		defer cancel()
+		require.Nil(t, err)
+	}
+
 	rpcClient, err := rpc.Dial(sys.Nodes["syncer"].WSEndpoint())
 	require.Nil(t, err)
 	proofCl := gethclient.New(rpcClient)
@@ -1131,7 +1139,7 @@ func TestWithdrawals(t *testing.T) {
 	oracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
 	require.Nil(t, err)
 
-	params, err := withdrawals.ProveWithdrawalParameters(context.Background(), rollup.L2OutputRootVersion(sys.RollupConfig, header.Time), proofCl, receiptCl, tx.Hash(), header, oracle)
+	params, err := withdrawals.ProveWithdrawalParameters(context.Background(), rollup.L2OutputRootVersion(sys.RollupConfig, header.Time), proofCl, receiptCl, tx.Hash(), header, nextHeader, oracle)
 	require.Nil(t, err)
 
 	portal, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, l1Client)
