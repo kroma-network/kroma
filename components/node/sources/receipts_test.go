@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -86,6 +87,7 @@ func (e *methodNotFoundError) Error() string {
 type ReceiptsTestCase struct {
 	name         string
 	providerKind RPCProviderKind
+	staticMethod bool
 	setup        func(t *testing.T) (*rpcBlock, []ReceiptsRequest)
 }
 
@@ -143,6 +145,10 @@ func (tc *ReceiptsTestCase) Run(t *testing.T) {
 		TrustRPC:              false,
 		MustBePostMerge:       false,
 		RPCProviderKind:       tc.providerKind,
+		MethodResetDuration:   time.Minute,
+	}
+	if tc.staticMethod { // if static, instantly reset, for fast clock-independent testing
+		testCfg.MethodResetDuration = 0
 	}
 	logger := testlog.Logger(t, log.LvlError)
 	ethCl, err := NewEthClient(client.NewBaseRPCClient(cl), logger, nil, testCfg)
@@ -226,6 +232,12 @@ func TestEthClient_FetchReceipts(t *testing.T) {
 			name:         "alchemy",
 			providerKind: RPCKindAlchemy,
 			setup:        fallbackCase(30, AlchemyGetTransactionReceipts),
+		},
+		{
+			name:         "alchemy sticky",
+			providerKind: RPCKindAlchemy,
+			staticMethod: true,
+			setup:        fallbackCase(30, AlchemyGetTransactionReceipts, AlchemyGetTransactionReceipts),
 		},
 		{
 			name:         "alchemy fallback 1",

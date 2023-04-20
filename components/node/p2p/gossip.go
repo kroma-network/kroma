@@ -54,6 +54,7 @@ type GossipSetupConfigurables interface {
 	TopicScoringParams() *pubsub.TopicScoreParams
 	BanPeers() bool
 	ConfigureGossip(params *pubsub.GossipSubParams) []pubsub.Option
+	PeerBandScorer() *BandScoreThresholds
 }
 
 type GossipRuntimeConfig interface {
@@ -63,7 +64,8 @@ type GossipRuntimeConfig interface {
 //go:generate mockery --name GossipMetricer
 type GossipMetricer interface {
 	RecordGossipEvent(evType int32)
-	RecordPeerScoring(peerID peer.ID, score float64)
+	// Peer Scoring Metric Funcs
+	SetPeerScores(map[string]float64)
 }
 
 func blocksTopicV1(cfg *rollup.Config) string {
@@ -335,23 +337,15 @@ func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 }
 
 func verifyBlockSignature(log log.Logger, cfg *rollup.Config, runCfg GossipRuntimeConfig, id peer.ID, signatureBytes []byte, payloadBytes []byte) pubsub.ValidationResult {
-	return verifyBlockSignatureWithHasher(log, cfg, runCfg, id, signatureBytes, payloadBytes, BlockSigningHash)
-}
-
-func verifyBlockSignatureWithHasher(log log.Logger, cfg *rollup.Config, runCfg GossipRuntimeConfig, id peer.ID, signatureBytes []byte, payloadBytes []byte, hasher func(cfg *rollup.Config, payloadBytes []byte) (common.Hash, error)) pubsub.ValidationResult {
-	signingHash, err := hasher(cfg, payloadBytes)
+	signingHash, err := BlockSigningHash(cfg, payloadBytes)
 	if err != nil {
-		if log != nil {
-			log.Warn("failed to compute block signing hash", "err", err, "peer", id)
-		}
+		log.Warn("failed to compute block signing hash", "err", err, "peer", id)
 		return pubsub.ValidationReject
 	}
 
 	pub, err := crypto.SigToPub(signingHash[:], signatureBytes)
 	if err != nil {
-		if log != nil {
-			log.Warn("invalid block signature", "err", err, "peer", id)
-		}
+		log.Warn("invalid block signature", "err", err, "peer", id)
 		return pubsub.ValidationReject
 	}
 	addr := crypto.PubkeyToAddress(*pub)
@@ -362,14 +356,10 @@ func verifyBlockSignatureWithHasher(log log.Logger, cfg *rollup.Config, runCfg G
 	// This means we may drop old payloads upon key rotation,
 	// but this can be recovered from like any other missed unsafe payload.
 	if expected := runCfg.P2PProposerAddress(); expected == (common.Address{}) {
-		if log != nil {
-			log.Warn("no configured p2p sequencer address, ignoring gossiped block", "peer", id, "addr", addr)
-		}
+		log.Warn("no configured p2p sequencer address, ignoring gossiped block", "peer", id, "addr", addr)
 		return pubsub.ValidationIgnore
 	} else if addr != expected {
-		if log != nil {
-			log.Warn("unexpected block author", "err", err, "peer", id, "addr", addr, "expected", expected)
-		}
+		log.Warn("unexpected block author", "err", err, "peer", id, "addr", addr, "expected", expected)
 		return pubsub.ValidationReject
 	}
 	return pubsub.ValidationAccept
