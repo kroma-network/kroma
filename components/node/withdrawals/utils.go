@@ -146,7 +146,16 @@ type ProvenWithdrawalParameters struct {
 // ProveWithdrawalParameters queries L1 & L2 to generate all withdrawal parameters and proof necessary to prove a withdrawal on L1.
 // The header provided is very important. It should be a block (timestamp) for which there is a submitted output in the L2 Output Oracle
 // contract. If not, the withdrawal will fail as it the storage proof cannot be verified if there is no submitted state root.
-func ProveWithdrawalParameters(ctx context.Context, version [32]byte, proofCl ProofClient, l2ReceiptCl ReceiptClient, txHash common.Hash, header *types.Header, l2OutputOracleContract *bindings.L2OutputOracleCaller) (ProvenWithdrawalParameters, error) {
+func ProveWithdrawalParameters(
+	ctx context.Context,
+	version [32]byte,
+	proofCl ProofClient,
+	l2ReceiptCl ReceiptClient,
+	txHash common.Hash,
+	header *types.Header,
+	nextHeader *types.Header,
+	l2OutputOracleContract *bindings.L2OutputOracleCaller,
+) (ProvenWithdrawalParameters, error) {
 	// Transaction receipt
 	receipt, err := l2ReceiptCl.TransactionReceipt(ctx, txHash)
 	if err != nil {
@@ -191,6 +200,10 @@ func ProveWithdrawalParameters(ctx context.Context, version [32]byte, proofCl Pr
 		trieNodes[i] = common.FromHex(s)
 	}
 
+	var nextBlockHash common.Hash
+	if nextHeader != nil {
+		nextBlockHash = nextHeader.Hash()
+	}
 	return ProvenWithdrawalParameters{
 		Nonce:         ev.Nonce,
 		Sender:        ev.Sender,
@@ -204,8 +217,7 @@ func ProveWithdrawalParameters(ctx context.Context, version [32]byte, proofCl Pr
 			StateRoot:                header.Root,
 			MessagePasserStorageRoot: p.StorageHash,
 			BlockHash:                header.Hash(),
-			// TODO(chokobole): use an actual block hash
-			NextBlockHash: common.Hash{},
+			NextBlockHash:            nextBlockHash,
 		},
 		WithdrawalProof: trieNodes,
 	}, nil

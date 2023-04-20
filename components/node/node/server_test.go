@@ -51,6 +51,30 @@ func TestOutputAtBlock(t *testing.T) {
 	err := json.Unmarshal([]byte(headerTestData), &header)
 	assert.NoError(t, err)
 
+	nextHeaderTestData := `
+	{
+		"parentHash": "0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524",
+		"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+		"miner": "0x1ad91ee08f21be3de0ba2ba6918e714da6b45836",
+		"stateRoot": "0x7e578eef6c29b40bd7d833909b56dbc8743c3b4d601f06735ee8d1da3138d866",
+		"transactionsRoot": "0xad26c4617a2d7102fb9e4dded0d548ac7ff1b4156a362be2d8479762721865c9",
+		"receiptsRoot": "0x0884e71b114adb9f35a94b657e016d7045ab052e8a780378ad526c9cd68753b4",
+		"logsBloom": "0xef72609768820e0d908ac658ecddd80348e49fa0f9c5892e61d1a85e1418ef6b04df43488ec193811018760ac0b98dc8bbb49050693db9346bd7095238ef29118ecc5ae4162af9be4843ce2ba4cde9f062050a1bd0dc5a816803dc63d9c2c80373c008c2a2bad7122f1cf4a5f801dc51c6209a70cf386e80c125651c00cae0d1c5c42155c0b230705fcc1c5925ea04365d1eaca1c1a0198d866624d9ae9d98702b35f9ab37f179353657c1c799180f51c185e3122802c0b4a5c50dc8030009c31354e2670ab490d42818ed200d3f145c463c465fa83b267818d8275b446f2a777afbe309369105c222e4142a108188da04a0a72188ea80db8809eda30013f53d",
+		"difficulty": "0x2ef18c26c911cf",
+		"number": "0xdcdc8a",
+		"gasLimit": "0x1c9c380",
+		"gasUsed": "0xf12736",
+		"timestamp": "0x62419998",
+		"extraData": "0x486976656f6e2065752d6865617679",
+		"mixHash": "0xa712d4971865e2b28155010e8780412553fffd3789184107b277c1728556b7c2",
+		"nonce": "0x9dd63d9254cbc0ed",
+		"baseFeePerGas": "0x52625d6ba",
+		"hash": "0xd8ba3ba971d6e48414275202316b983cd48516b7a9292dc4208980a02bddba19"
+	}`
+	var nextHeader types.Header
+	err = json.Unmarshal([]byte(nextHeaderTestData), &nextHeader)
+	assert.NoError(t, err)
+
 	resultTestData := `
 	{
 		"address": "0x00000000219ab540356cbb839cbe05303d7705fa",
@@ -101,12 +125,20 @@ func TestOutputAtBlock(t *testing.T) {
 		L1Origin:       eth.BlockID{},
 		SequenceNumber: 0,
 	}
+	nextRef := eth.L2BlockRef{
+		Hash:           nextHeader.Hash(),
+		Number:         nextHeader.Number.Uint64(),
+		ParentHash:     nextHeader.ParentHash,
+		Time:           nextHeader.Time,
+		L1Origin:       eth.BlockID{},
+		SequenceNumber: 0,
+	}
 	l2Client.ExpectInfoByHash(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), info, nil)
 	l2Client.ExpectGetProof(predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, "0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524", &result, nil)
 
 	drClient := &mockDriverClient{}
 	status := randomSyncStatus(rand.New(rand.NewSource(123)))
-	drClient.ExpectBlockRefWithStatus(0xdcdc89, ref, status, nil)
+	drClient.ExpectBlockRefsWithStatus(0xdcdc89, ref, nextRef, status, nil)
 
 	server, err := newRPCServer(context.Background(), rpcCfg, rollupCfg, l2Client, drClient, log, "0.0", metrics.NoopMetrics)
 	require.NoError(t, err)
@@ -200,13 +232,13 @@ type mockDriverClient struct {
 	mock.Mock
 }
 
-func (c *mockDriverClient) ExpectBlockRefWithStatus(num uint64, ref eth.L2BlockRef, status *eth.SyncStatus, err error) {
-	c.Mock.On("BlockRefWithStatus", num).Return(ref, status, &err)
+func (c *mockDriverClient) ExpectBlockRefsWithStatus(num uint64, ref, nextRef eth.L2BlockRef, status *eth.SyncStatus, err error) {
+	c.Mock.On("BlockRefsWithStatus", num).Return(ref, nextRef, status, &err)
 }
 
-func (c *mockDriverClient) BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error) {
-	m := c.Mock.MethodCalled("BlockRefWithStatus", num)
-	return m[0].(eth.L2BlockRef), m[1].(*eth.SyncStatus), *m[2].(*error)
+func (c *mockDriverClient) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error) {
+	m := c.Mock.MethodCalled("BlockRefsWithStatus", num)
+	return m[0].(eth.L2BlockRef), m[1].(eth.L2BlockRef), m[2].(*eth.SyncStatus), *m[3].(*error)
 }
 
 func (c *mockDriverClient) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {

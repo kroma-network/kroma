@@ -415,19 +415,23 @@ func (s *Driver) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
 	}
 }
 
-// BlockRefWithStatus blocks the driver event loop and captures the syncing status,
-// along with an L2 block reference by number consistent with that same status.
+// BlockRefsWithStatus blocks the driver event loop and captures the syncing status,
+// along with L2 blocks reference by number and number plus 1 consistent with that same status.
 // If the event loop is too busy and the context expires, a context error is returned.
-func (s *Driver) BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error) {
+func (s *Driver) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error) {
 	wait := make(chan struct{})
 	select {
 	case s.stateReq <- wait:
 		resp := s.syncStatus()
 		ref, err := s.l2.L2BlockRefByNumber(ctx, num)
+		nextRef := eth.L2BlockRef{}
+		if err == nil && s.config.IsBlueBlock(num) {
+			nextRef, err = s.l2.L2BlockRefByNumber(ctx, num+1)
+		}
 		<-wait
-		return ref, resp, err
+		return ref, nextRef, resp, err
 	case <-ctx.Done():
-		return eth.L2BlockRef{}, nil, ctx.Err()
+		return eth.L2BlockRef{}, eth.L2BlockRef{}, nil, ctx.Err()
 	}
 }
 

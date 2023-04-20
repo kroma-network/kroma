@@ -91,6 +91,8 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		L2GenesisBlockParentHash:    common.Hash{},
 		L2GenesisBlockBaseFeePerGas: uint642big(7),
 
+		L2GenesisBlueTimeOffset: new(hexutil.Uint64),
+
 		ColosseumChallengeTimeout: 120,
 		ColosseumSegmentsLengths:  "3,3",
 

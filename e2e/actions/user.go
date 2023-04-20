@@ -412,8 +412,13 @@ func (s *CrossLayerUser) ProveWithdrawal(t Testing, l2TxHash common.Hash) common
 	// We generate a proof for the latest L2 output, which shouldn't require archive-node data if it's recent enough.
 	header, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), l2OutputBlockNr)
 	require.NoError(t, err)
+	var nextHeader *types.Header
+	if s.rollupConfig.IsBlueBlock(l2OutputBlockNr.Uint64()) {
+		nextHeader, err = s.L2.env.EthCl.HeaderByNumber(t.Ctx(), new(big.Int).Add(l2OutputBlockNr, common.Big1))
+		require.NoError(t, err)
+	}
 	version := rollup.L2OutputRootVersion(s.rollupConfig, header.Time)
-	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
+	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, nextHeader, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
 	require.NoError(t, err)
 
 	// Create the prove tx
@@ -484,8 +489,13 @@ func (s *CrossLayerUser) CompleteWithdrawal(t Testing, l2TxHash common.Hash) com
 	// params for the `WithdrawalTransaction` type generated in the bindings.
 	header, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), l2OutputBlockNr)
 	require.NoError(t, err)
+	var nextHeader *types.Header
+	if s.rollupConfig.IsBlue(header.Time) {
+		nextHeader, err = s.L2.env.EthCl.HeaderByNumber(t.Ctx(), new(big.Int).Add(l2OutputBlockNr, common.Big1))
+		require.NoError(t, err)
+	}
 	version := rollup.L2OutputRootVersion(s.rollupConfig, header.Time)
-	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
+	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, nextHeader, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
 	require.NoError(t, err)
 
 	// Create the withdrawal tx

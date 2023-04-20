@@ -216,6 +216,9 @@ func (d *DeployConfig) Check() error {
 	if len(strings.Split(d.ColosseumSegmentsLengths, ","))%2 > 0 {
 		return fmt.Errorf("%w: ColosseumSegmentsLengths length cannot be an odd number", ErrInvalidDeployConfig)
 	}
+	if d.L2GenesisBlueTimeOffset != nil && uint64(*d.L2GenesisBlueTimeOffset)%d.L2OutputOracleSubmissionInterval != 0 {
+		return fmt.Errorf("%w: L2 genesis blue time offset should be a multiple of l2 output oracle submission interval", ErrInvalidDeployConfig)
+	}
 	return nil
 }
 

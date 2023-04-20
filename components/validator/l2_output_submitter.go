@@ -6,6 +6,7 @@ import (
 	"math/big"
 	_ "net/http/pprof"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -64,8 +65,14 @@ func (l *L2OutputSubmitter) FetchNextOutputInfo(ctx context.Context) (*eth.Outpu
 	} else {
 		currentBlockNumber = new(big.Int).SetUint64(status.FinalizedL2.Number)
 	}
+	var nextBlockNumber *big.Int
+	if l.cfg.RollupConfig.IsBlueBlock(nextCheckpointBlock.Uint64()) {
+		nextBlockNumber = new(big.Int).Add(nextCheckpointBlock, common.Big1)
+	} else {
+		nextBlockNumber = nextCheckpointBlock
+	}
 	// Ensure that we do not submit a block in the future
-	if currentBlockNumber.Cmp(nextCheckpointBlock) < 0 {
+	if currentBlockNumber.Cmp(nextBlockNumber) < 0 {
 		l.log.Info("validator submission interval has not elapsed", "currentBlockNumber", currentBlockNumber, "nextBlockNumber", nextCheckpointBlock)
 		return nil, false, nil
 	}
