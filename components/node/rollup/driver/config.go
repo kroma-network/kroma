@@ -16,4 +16,8 @@ type Config struct {
 
 	// ProposerStopped is false when the driver should propose new blocks.
 	ProposerStopped bool `json:"proposer_stopped"`
+
+	// ProposerMaxSafeLag is the maximum number of L2 blocks for restricting the distance between L2 safe and unsafe.
+	// Disabled if 0.
+	ProposerMaxSafeLag uint64 `json:"proposer_max_safe_lag"`
 }
