@@ -117,8 +117,9 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 	var l2OutputRootVersion eth.Bytes32
 	var l2OutputRoot eth.Bytes32
 	if n.config.IsBlue(head.Time()) {
+		l2OutputRootVersion = rollup.V1
 		l2OutputRoot, err = rollup.ComputeL2OutputRootV1(&bindings.TypesOutputRootProof{
-			Version:                  rollup.V1,
+			Version:                  l2OutputRootVersion,
 			StateRoot:                head.Root(),
 			MessagePasserStorageRoot: proof.StorageHash,
 			BlockHash:                head.Hash(),
@@ -126,8 +127,9 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 			NextBlockHash: common.Hash{},
 		})
 	} else {
+		l2OutputRootVersion = rollup.V0
 		l2OutputRoot, err = rollup.ComputeL2OutputRootV0(&bindings.TypesOutputRootProof{
-			Version:                  rollup.V0,
+			Version:                  l2OutputRootVersion,
 			StateRoot:                head.Root(),
 			MessagePasserStorageRoot: proof.StorageHash,
 			BlockHash:                head.Hash(),

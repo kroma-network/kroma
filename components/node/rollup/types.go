@@ -235,9 +235,18 @@ func (c *Config) L1Signer() types.Signer {
 	return types.NewLondonSigner(c.L1ChainID)
 }
 
+func (c *Config) ComputeTimestamp(blockNum uint64) uint64 {
+	return c.Genesis.L2Time + blockNum*c.BlockTime
+}
+
 // IsBlue returns true if the Blue hardfork is active at or past the given timestamp.
 func (c *Config) IsBlue(timestamp uint64) bool {
 	return c.BlueTime != nil && timestamp >= *c.BlueTime
+}
+
+// IsBlueBlock returns true if the Blue hardfork is active at or past the given blockNum.
+func (c *Config) IsBlueBlock(blockNum uint64) bool {
+	return c.IsBlue(c.ComputeTimestamp(blockNum))
 }
 
 // Description outputs a banner describing the important parts of rollup configuration in a human-readable form.

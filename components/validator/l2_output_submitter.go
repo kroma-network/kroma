@@ -5,27 +5,23 @@ import (
 	"errors"
 	"math/big"
 	_ "net/http/pprof"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/wemixkanvas/kanvas/bindings/bindings"
 	"github.com/wemixkanvas/kanvas/components/node/eth"
+	"github.com/wemixkanvas/kanvas/components/node/rollup"
 	"github.com/wemixkanvas/kanvas/utils"
 )
 
-var supportedL2OutputVersion = eth.Bytes32{}
-
 // L2OutputSubmitter is responsible for submitting outputs
 type L2OutputSubmitter struct {
-	wg   sync.WaitGroup
 	done chan struct{}
 	log  log.Logger
 	cfg  Config
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx context.Context
 
 	l2ooContract *bindings.L2OutputOracle
 }
@@ -79,9 +75,9 @@ func (l *L2OutputSubmitter) FetchNextOutputInfo(ctx context.Context) (*eth.Outpu
 		l.log.Error("failed to fetch output at block %d: %w", nextCheckpointBlock, err)
 		return nil, false, err
 	}
-	if output.Version != supportedL2OutputVersion {
-		l.log.Error("unsupported l2 output version: %s", output.Version)
-		return nil, false, errors.New("unsupported l2 output version")
+	if output.Version != rollup.L2OutputRootVersion(l.cfg.RollupConfig, l.cfg.RollupConfig.ComputeTimestamp(nextCheckpointBlock.Uint64())) {
+		l.log.Error("l2 output version is not matched: %s", output.Version)
+		return nil, false, errors.New("mismatched l2 output version")
 	}
 	if output.BlockRef.Number != nextCheckpointBlock.Uint64() { // sanity check, e.g. in case of bad RPC caching
 		l.log.Error("invalid blockNumber", "next", nextCheckpointBlock, "output", output.BlockRef.Number)
