@@ -20,8 +20,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	khttp "github.com/wemixkanvas/kanvas/components/node/http"
+	"github.com/kroma-network/kroma/components/node/eth"
+	khttp "github.com/kroma-network/kroma/components/node/http"
 )
 
 var (

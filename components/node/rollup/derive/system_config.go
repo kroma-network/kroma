@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
 var (

@@ -1,8 +1,8 @@
-# @wemixkanvas/core-utils
+# @kroma-network/core-utils
 
 ## What is this?
 
-`@wemixkanvas/core-utils` contains the Kanvas core utilities.
+`@kroma-network/core-utils` contains the Kroma core utilities.
 
 ## Getting started
 
@@ -29,7 +29,7 @@ Use the following commands to build, use, test, and lint:
 locally.
 
 ```typescript
-import { TxGasLimit } from '@wemixkanvas/core-utils'
+import { TxGasLimit } from '@kroma-network/core-utils'
 import { JsonRpcProvider } from 'ethers'
 
 const L2Provider = new JsonRpcProvider(L2_JSON_RPC_URL)

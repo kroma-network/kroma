@@ -5,7 +5,7 @@ import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
 import { L2ERC721Bridge } from "../L2/L2ERC721Bridge.sol";
-import { KanvasMintableERC721 } from "../universal/KanvasMintableERC721.sol";
+import { KromaMintableERC721 } from "../universal/KromaMintableERC721.sol";
 import { Messenger_Initializer } from "./CommonTest.t.sol";
 
 contract TestERC721 is ERC721 {
@@ -16,9 +16,9 @@ contract TestERC721 is ERC721 {
     }
 }
 
-contract TestMintableERC721 is KanvasMintableERC721 {
+contract TestMintableERC721 is KromaMintableERC721 {
     constructor(address _bridge, address _remoteToken)
-        KanvasMintableERC721(_bridge, 1, _remoteToken, "Test", "TST")
+        KromaMintableERC721(_bridge, 1, _remoteToken, "Test", "TST")
     {}
 
     function mint(address to, uint256 tokenId) public {
@@ -286,7 +286,7 @@ contract L2ERC721Bridge_Test is Messenger_Initializer {
         bridge.bridgeERC721(address(nonCompliantToken), address(0x01), tokenId, 1234, hex"5678");
 
         // Attempt to finalize the withdrawal. Should revert because the token does not claim
-        // to be compliant with the `IKanvasMintableERC721` interface.
+        // to be compliant with the `IKromaMintableERC721` interface.
         vm.mockCall(
             address(L2Messenger),
             abi.encodeWithSelector(L2Messenger.xDomainMessageSender.selector),

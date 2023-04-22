@@ -4,11 +4,11 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/state"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/utils/chain-ops/state"
 )
 
-// BuildL2DeveloperGenesis will build the developer Kanvas Genesis
+// BuildL2DeveloperGenesis will build the developer Kroma Genesis
 // Block. Suitable for devnets.
 func BuildL2DeveloperGenesis(config *DeployConfig, l1StartBlock *types.Block, zktrie bool) (*core.Genesis, error) {
 	genspec, err := NewL2Genesis(config, l1StartBlock, zktrie)

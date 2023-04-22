@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/eth"
 )
 
 type RefMetricer interface {
@@ -35,10 +35,10 @@ var _ RefMetricer = (*RefMetrics)(nil)
 
 // MakeRefMetrics returns a new RefMetrics, initializing its prometheus fields
 // using factory. It is supposed to be used inside the constructors of metrics
-// structs for any kanvas service after the full namespace and factory have been
+// structs for any kroma service after the full namespace and factory have been
 // setup.
 //
-// ns is the fully qualified namespace, e.g. "kanvas_node_default".
+// ns is the fully qualified namespace, e.g. "kroma_node_default".
 func MakeRefMetrics(ns string, factory Factory) RefMetrics {
 	return RefMetrics{
 		RefsNumber: factory.NewGaugeVec(prometheus.GaugeOpts{

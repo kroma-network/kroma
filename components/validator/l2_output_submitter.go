@@ -10,10 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/utils"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/utils"
 )
 
 // L2OutputSubmitter is responsible for submitting outputs

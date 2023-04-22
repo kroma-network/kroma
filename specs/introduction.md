@@ -26,7 +26,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-Kanvas is an _EVM equivalent_, _optimistic rollup_ protocol designed to _scale Ethereum_ while remaining maximally
+Kroma is an _EVM equivalent_, _optimistic rollup_ protocol designed to _scale Ethereum_ while remaining maximally
 compatible with existing Ethereum infrastructure. This document provides an overview of the protocol to provide context
 for the rest of the specification.
 
@@ -92,7 +92,7 @@ anywhere.
 
 ### 🎶 All together now 🎶
 
-**Kanvas is an _EVM equivalent_, _optimistic rollup_ protocol designed to _scale Ethereum_.**
+**Kroma is an _EVM equivalent_, _optimistic rollup_ protocol designed to _scale Ethereum_.**
 
 ## Protocol Guarantees
 
@@ -114,7 +114,7 @@ liveness, availability, and validity.
 
 ## Network Participants
 
-There are three actors in Kanvas: users, proposers, and validators.
+There are three actors in Kroma: users, proposers, and validators.
 
 ![Network Overview](./assets/network-participants-overview.svg)
 
@@ -168,7 +168,7 @@ provide context when diving into any particular component specification.
 
 Users will often begin their L2 journey by depositing ETH from L1.
 Once they have ETH to pay fees, they'll start sending transactions on L2.
-The following diagram demonstrates this interaction and all key Kanvas components which are or should be utilized:
+The following diagram demonstrates this interaction and all key Kroma components which are or should be utilized:
 
 ![Diagram of Depositing and Sending Transactions](./assets/proposer-handling-deposits-and-transactions.svg)
 
@@ -189,5 +189,5 @@ normal transactions on L2, but then completed using a transaction on L1 after th
 
 Links to components mentioned in this diagram:
 
-- [Kanvas Portal](./deposits.md#deposit-contract)
+- [Kroma Portal](./deposits.md#deposit-contract)
 - [L2 Output Oracle](./validations.md#l2-output-oracle-smart-contract)

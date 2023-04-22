@@ -14,9 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	klog "github.com/wemixkanvas/kanvas/utils/service/log"
-	kmetrics "github.com/wemixkanvas/kanvas/utils/service/metrics"
-	optls "github.com/wemixkanvas/kanvas/utils/service/tls"
+	klog "github.com/kroma-network/kroma/utils/service/log"
+	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
+	optls "github.com/kroma-network/kroma/utils/service/tls"
 )
 
 var wildcardHosts = []string{"*"}

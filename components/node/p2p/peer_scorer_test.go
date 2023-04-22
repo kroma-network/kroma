@@ -8,9 +8,9 @@ import (
 	peer "github.com/libp2p/go-libp2p/core/peer"
 	suite "github.com/stretchr/testify/suite"
 
-	p2p "github.com/wemixkanvas/kanvas/components/node/p2p"
-	p2pMocks "github.com/wemixkanvas/kanvas/components/node/p2p/mocks"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
+	p2p "github.com/kroma-network/kroma/components/node/p2p"
+	p2pMocks "github.com/kroma-network/kroma/components/node/p2p/mocks"
+	"github.com/kroma-network/kroma/components/node/testlog"
 )
 
 // PeerScorerTestSuite tests peer parameterization.

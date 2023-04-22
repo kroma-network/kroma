@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
+	"github.com/kroma-network/kroma/bindings/predeploys"
 )
 
 const defaultL2GasLimit = 15_000_000
@@ -32,7 +32,7 @@ func NewL2Genesis(config *DeployConfig, block *types.Block, zktrie bool) (*core.
 		eip1559Elasticity = 10
 	}
 
-	kanvasChainConfig := params.ChainConfig{
+	kromaChainConfig := params.ChainConfig{
 		ChainID:                       new(big.Int).SetUint64(config.L2ChainID),
 		HomesteadBlock:                big.NewInt(0),
 		DAOForkBlock:                  nil,
@@ -53,7 +53,7 @@ func NewL2Genesis(config *DeployConfig, block *types.Block, zktrie bool) (*core.
 		MergeNetsplitBlock:            big.NewInt(0),
 		TerminalTotalDifficulty:       big.NewInt(0),
 		TerminalTotalDifficultyPassed: true,
-		Kanvas: &params.KanvasConfig{
+		Kroma: &params.KromaConfig{
 			EIP1559Denominator: eip1559Denom,
 			EIP1559Elasticity:  eip1559Elasticity,
 		},
@@ -74,7 +74,7 @@ func NewL2Genesis(config *DeployConfig, block *types.Block, zktrie bool) (*core.
 	}
 
 	return &core.Genesis{
-		Config:     &kanvasChainConfig,
+		Config:     &kromaChainConfig,
 		Nonce:      uint64(config.L2GenesisBlockNonce),
 		Timestamp:  block.Time(),
 		ExtraData:  []byte{},

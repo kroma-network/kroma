@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 
-	t "github.com/wemixkanvas/kanvas/packages/contracts/test-case-generator/trie"
+	t "github.com/kroma-network/kroma/packages/contracts/test-case-generator/trie"
 )
 
 // Mode enum

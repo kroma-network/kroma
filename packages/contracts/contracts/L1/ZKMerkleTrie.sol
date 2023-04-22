@@ -22,7 +22,7 @@ contract ZKMerkleTrie is ZKTrieHasher {
 
     /**
      * @notice Magic hash which indicates
-     *         See https://github.com/wemixkanvas/zktrie/blob/main/trie/zk_trie_proof.go.
+     *         See https://github.com/kroma-network/zktrie/blob/main/trie/zk_trie_proof.go.
      */
     bytes32 private constant MAGIC_SMT_BYTES_HASH =
         keccak256(

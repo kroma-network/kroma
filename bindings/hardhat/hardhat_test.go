@@ -3,7 +3,7 @@ package hardhat_test
 import (
 	"testing"
 
-	"github.com/wemixkanvas/kanvas/bindings/hardhat"
+	"github.com/kroma-network/kroma/bindings/hardhat"
 
 	"github.com/stretchr/testify/require"
 )
@@ -105,7 +105,7 @@ func TestHardhatGetArtifact(t *testing.T) {
 	t.Parallel()
 
 	hh, err := hardhat.New(
-		"goerli",
+		"sepolia",
 		[]string{"testdata/artifacts"},
 		[]string{"testdata/deployments"},
 	)
@@ -120,7 +120,7 @@ func TestHardhatGetBuildInfo(t *testing.T) {
 	t.Parallel()
 
 	hh, err := hardhat.New(
-		"goerli",
+		"sepolia",
 		[]string{"testdata/artifacts"},
 		[]string{"testdata/deployments"},
 	)
@@ -135,13 +135,13 @@ func TestHardhatGetDeployments(t *testing.T) {
 	t.Parallel()
 
 	hh, err := hardhat.New(
-		"goerli",
+		"sepolia",
 		[]string{"testdata/artifacts"},
 		[]string{"testdata/deployments"},
 	)
 	require.Nil(t, err)
 
-	deployment, err := hh.GetDeployment("KanvasPortal")
+	deployment, err := hh.GetDeployment("KromaPortal")
 	require.Nil(t, err)
 	require.NotNil(t, deployment)
 }
@@ -164,7 +164,7 @@ func TestHardhatGetStorageLayout(t *testing.T) {
 	t.Parallel()
 
 	hh, err := hardhat.New(
-		"goerli",
+		"sepolia",
 		[]string{"testdata/artifacts"},
 		[]string{"testdata/deployments"},
 	)

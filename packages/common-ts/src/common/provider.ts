@@ -1,5 +1,5 @@
 import { Provider } from '@ethersproject/abstract-provider'
-import { sleep } from '@wemixkanvas/core-utils'
+import { sleep } from '@kroma-network/core-utils'
 
 import { Logger } from './logger'
 

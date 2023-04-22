@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/utils/service/metrics"
-	"github.com/wemixkanvas/kanvas/utils/service/pprof"
-	krpc "github.com/wemixkanvas/kanvas/utils/service/rpc"
+	"github.com/kroma-network/kroma/utils/service/metrics"
+	"github.com/kroma-network/kroma/utils/service/pprof"
+	krpc "github.com/kroma-network/kroma/utils/service/rpc"
 )
 
 // NOTE(pangssu): MaybeStartPprof requires cancelable context to stop http server

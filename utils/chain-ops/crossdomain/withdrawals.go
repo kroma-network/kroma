@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
 )
 
 // A PendingWithdrawal represents a withdrawal that has

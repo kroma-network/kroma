@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
+	"github.com/kroma-network/kroma/bindings/predeploys"
 )
 
 func TestWriteDefaultJWT(t *testing.T) {
@@ -32,6 +32,6 @@ func TestSetup(t *testing.T) {
 	require.Contains(t, sd.L2Cfg.Alloc, dp.Addresses.Alice)
 	require.Equal(t, sd.L2Cfg.Alloc[dp.Addresses.Alice].Balance, Ether(1e12))
 
-	require.Contains(t, sd.L1Cfg.Alloc, predeploys.DevKanvasPortalAddr)
+	require.Contains(t, sd.L1Cfg.Alloc, predeploys.DevKromaPortalAddr)
 	require.Contains(t, sd.L2Cfg.Alloc, predeploys.L1BlockAddr)
 }

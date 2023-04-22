@@ -21,7 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/net/conngater"
 	cmgr "github.com/libp2p/go-libp2p/p2p/net/connmgr"
 
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
 // TODO(chokobole): fill the default bootnodes.

@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/eth"
 )
 
 func RandomBool(rng *rand.Rand) bool {

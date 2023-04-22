@@ -16,8 +16,8 @@ import (
 	p2pmetrics "github.com/libp2p/go-libp2p/core/metrics"
 	ma "github.com/multiformats/go-multiaddr"
 
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
 // NodeP2P is a p2p node, which can be used to gossip messages.

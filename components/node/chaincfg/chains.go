@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
 var Sepolia = rollup.Config{

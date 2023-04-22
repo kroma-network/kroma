@@ -9,8 +9,8 @@ import (
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
-	"github.com/wemixkanvas/kanvas/components/node/testutils/fuzzerutils"
+	"github.com/kroma-network/kroma/components/node/testutils"
+	"github.com/kroma-network/kroma/components/node/testutils/fuzzerutils"
 )
 
 // fuzzReceipts is similar to makeReceipts except it uses the fuzzer to populate DepositTx fields.

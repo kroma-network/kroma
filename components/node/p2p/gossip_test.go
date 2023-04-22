@@ -13,10 +13,10 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
-	"github.com/wemixkanvas/kanvas/e2e/e2eutils"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/testlog"
+	"github.com/kroma-network/kroma/components/node/testutils"
+	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
 func TestGuardGossipValidator(t *testing.T) {

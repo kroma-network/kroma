@@ -9,8 +9,8 @@ import (
 	gn "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
+	"github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/sources"
 )
 
 type L2EndpointSetup interface {

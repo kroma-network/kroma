@@ -14,9 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/solc"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/state"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/state/testdata"
+	"github.com/kroma-network/kroma/bindings/solc"
+	"github.com/kroma-network/kroma/utils/chain-ops/state"
+	"github.com/kroma-network/kroma/utils/chain-ops/state/testdata"
 )
 
 var (

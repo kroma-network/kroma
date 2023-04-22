@@ -65,18 +65,18 @@ export interface Genesis {
 }
 
 /**
- * Represents the chain config for an Kanvas chain
+ * Represents the chain config for a Kroma chain
  */
-export interface KanvasChainConfig extends ChainConfig {
-  kanvas: {
+export interface KromaChainConfig extends ChainConfig {
+  kroma: {
     baseFeeRecipient: string
     l1FeeRecipient: string
   }
 }
 
 /**
- * Represents the Genesis file format for an Kanvas chain
+ * Represents the Genesis file format for a Kroma chain
  */
-export interface KanvasGenesis extends Genesis {
-  config: KanvasChainConfig
+export interface KromaGenesis extends Genesis {
+  config: KromaChainConfig
 }

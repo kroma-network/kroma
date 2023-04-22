@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	validator "github.com/wemixkanvas/kanvas/components/validator"
-	kcrypto "github.com/wemixkanvas/kanvas/utils/service/crypto"
-	"github.com/wemixkanvas/kanvas/utils/service/txmgr"
+	"github.com/kroma-network/kroma/components/node/sources"
+	validator "github.com/kroma-network/kroma/components/validator"
+	kcrypto "github.com/kroma-network/kroma/utils/service/crypto"
+	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 type ValidatorCfg struct {

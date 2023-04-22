@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/eth"
 )
 
 // A Channel is a set of batches that are split into at least one, but possibly multiple frames.

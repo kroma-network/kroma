@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
+	"github.com/kroma-network/kroma/bindings/predeploys"
 )
 
 func TestWipePredeployStorage(t *testing.T) {

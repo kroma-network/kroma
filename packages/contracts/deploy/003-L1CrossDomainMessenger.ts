@@ -7,20 +7,20 @@ import {
 } from '../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const KanvasPortalProxy = await getContractFromArtifact(
+  const KromaPortalProxy = await getContractFromArtifact(
     hre,
-    'KanvasPortalProxy'
+    'KromaPortalProxy'
   )
 
   await deploy(hre, 'L1CrossDomainMessenger', {
-    args: [KanvasPortalProxy.address],
+    args: [KromaPortalProxy.address],
     isProxyImpl: true,
     initArgs: [],
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,
         'PORTAL',
-        KanvasPortalProxy.address
+        KromaPortalProxy.address
       )
     },
   })

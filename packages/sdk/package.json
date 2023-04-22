@@ -1,7 +1,7 @@
 {
-  "name": "@wemixkanvas/sdk",
+  "name": "@kroma-network/sdk",
   "version": "0.1.0",
-  "description": "[Kanvas] Tools for working with Kanvas",
+  "description": "[Kroma] Tools for working with Kroma",
   "main": "dist/index",
   "types": "dist/index",
   "files": [
@@ -21,16 +21,16 @@
     "autogen:docs": "typedoc --out docs src/index.ts"
   },
   "keywords": [
-    "kanvas",
     "ethereum",
+    "kroma",
     "sdk"
   ],
-  "homepage": "https://github.com/wemixkanvas/kanvas/tree/dev/packages/sdk#readme",
+  "homepage": "https://github.com/kroma-network/kroma/tree/dev/packages/sdk#readme",
   "license": "MIT",
   "author": "Lightscale Inc.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wemixkanvas/kanvas.git"
+    "url": "https://github.com/kroma-network/kroma.git"
   },
   "devDependencies": {
     "@ethersproject/abstract-provider": "^5.7.0",
@@ -48,8 +48,8 @@
     "typedoc": "^0.22.13"
   },
   "dependencies": {
-    "@wemixkanvas/contracts": "0.1.0",
-    "@wemixkanvas/core-utils": "0.1.0",
+    "@kroma-network/contracts": "0.1.0",
+    "@kroma-network/core-utils": "0.1.0",
     "lodash": "^4.17.21"
   },
   "peerDependencies": {

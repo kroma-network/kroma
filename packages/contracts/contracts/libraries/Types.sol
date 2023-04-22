@@ -3,7 +3,7 @@ pragma solidity ^0.8.9;
 
 /**
  * @title Types
- * @notice Contains various types used throughout the Kanvas contract system.
+ * @notice Contains various types used throughout the Kroma contract system.
  */
 library Types {
     /**

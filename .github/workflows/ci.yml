@@ -16,10 +16,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     outputs:
-      kanvas-node: ${{ steps.packages.outputs.kanvas-node }}
-      kanvas-validator: ${{ steps.packages.outputs.kanvas-validator }}
-      kanvas-batcher: ${{ steps.packages.outputs.kanvas-batcher }}
-      kanvas-stateviz: ${{ steps.packages.outputs.kanvas-stateviz }}
+      kroma-node: ${{ steps.packages.outputs.kroma-node }}
+      kroma-validator: ${{ steps.packages.outputs.kroma-validator }}
+      kroma-batcher: ${{ steps.packages.outputs.kroma-batcher }}
+      kroma-stateviz: ${{ steps.packages.outputs.kroma-stateviz }}
       docker-tag: ${{ steps.docker-image-name.outputs.docker-tag }}
 
     steps:
@@ -28,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-          token: ${{ secrets.KANVAS_GITHUB_TOKEN }}
+          token: ${{ secrets.KROMA_GITHUB_TOKEN }}
 
       - name: Setup Go 1.19
         uses: actions/setup-go@v4
@@ -80,8 +80,8 @@ jobs:
             echo ::set-output name=docker-tag::${GITHUB_REF#refs/tags/}
           fi
 
-  kanvas-node:
-    name: Kanvas Node Version ${{ needs.prepare.outputs.docker-tag }}
+  kroma-node:
+    name: Kroma Node Version ${{ needs.prepare.outputs.docker-tag }}
     needs: prepare
     runs-on: ubuntu-latest
     steps:
@@ -90,7 +90,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-          token: ${{ secrets.KANVAS_GITHUB_TOKEN }}
+          token: ${{ secrets.KROMA_GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -101,18 +101,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Publish kanvas Node
+      - name: Publish kroma Node
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
-          target: kanvas-node
+          target: kroma-node
           push: true
-          tags: wemixkanvas/node:${{ needs.prepare.outputs.docker-tag }}
+          tags: kroma-network/node:${{ needs.prepare.outputs.docker-tag }}
 
-  kanvas-validator:
-    name: Kanvas Validator Version ${{ needs.prepare.outputs.docker-tag }}
+  kroma-validator:
+    name: Kroma Validator Version ${{ needs.prepare.outputs.docker-tag }}
     needs: prepare
     runs-on: ubuntu-latest
     steps:
@@ -121,7 +121,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-          token: ${{ secrets.KANVAS_GITHUB_TOKEN }}
+          token: ${{ secrets.KROMA_GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -132,18 +132,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Publish kanvas Node
+      - name: Publish kroma Node
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
-          target: kanvas-validator
+          target: kroma-validator
           push: true
-          tags: wemixkanvas/validator:${{ needs.prepare.outputs.docker-tag }}
+          tags: kroma-network/validator:${{ needs.prepare.outputs.docker-tag }}
 
-  kanvas-batcher:
-    name: Kanvas Batcher Version ${{ needs.prepare.outputs.docker-tag }}
+  kroma-batcher:
+    name: Kroma Batcher Version ${{ needs.prepare.outputs.docker-tag }}
     needs: prepare
     runs-on: ubuntu-latest
     steps:
@@ -152,7 +152,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-          token: ${{ secrets.KANVAS_GITHUB_TOKEN }}
+          token: ${{ secrets.KROMA_GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -163,14 +163,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Publish kanvas Node
+      - name: Publish kroma Node
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
-          target: kanvas-batcher
+          target: kroma-batcher
           push: true
-          tags: wemixkanvas/batcher:${{ needs.prepare.outputs.docker-tag }}
+          tags: kroma-network/batcher:${{ needs.prepare.outputs.docker-tag }}
 
 

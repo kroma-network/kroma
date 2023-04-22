@@ -3,7 +3,7 @@ package metrics
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/wemixkanvas/kanvas/utils/service/metrics"
+	"github.com/kroma-network/kroma/utils/service/metrics"
 )
 
 // CacheMetrics implements the Metrics interface in the caching package,

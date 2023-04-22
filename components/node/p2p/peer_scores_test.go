@@ -16,9 +16,9 @@ import (
 	mock "github.com/stretchr/testify/mock"
 	suite "github.com/stretchr/testify/suite"
 
-	p2p "github.com/wemixkanvas/kanvas/components/node/p2p"
-	p2pMocks "github.com/wemixkanvas/kanvas/components/node/p2p/mocks"
-	testlog "github.com/wemixkanvas/kanvas/components/node/testlog"
+	p2p "github.com/kroma-network/kroma/components/node/p2p"
+	p2pMocks "github.com/kroma-network/kroma/components/node/p2p/mocks"
+	testlog "github.com/kroma-network/kroma/components/node/testlog"
 )
 
 // PeerScoresTestSuite tests peer parameterization.

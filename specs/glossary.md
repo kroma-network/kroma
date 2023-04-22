@@ -95,13 +95,13 @@
 
 [l1]: glossary.md#layer-1-L1
 
-Refers to the Ethereum blockchain, used in contrast to [layer 2][l2], which refers to Kanvas.
+Refers to the Ethereum blockchain, used in contrast to [layer 2][l2], which refers to Kroma.
 
 ## Layer 2 (L2)
 
 [l2]: glossary.md#layer-2-L2
 
-Refers to the Kanvas blockchain (specified in this repository), used in contrast to [layer 1][l1], which
+Refers to the Kroma blockchain (specified in this repository), used in contrast to [layer 1][l1], which
 refers to the Ethereum blockchain.
 
 ## Block
@@ -200,7 +200,7 @@ generation by avoiding [Keccak][keccak] and [RLP encoding][rlp]. To accomplish t
 the path and concatenates leaf values in bytes.
 
 [rlp]: https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
-[zkt-details]: https://github.com/wemixkanvas/zktrie
+[zkt-details]: https://github.com/kroma-network/zktrie
 
 ## Chain Re-Organization
 
@@ -389,7 +389,7 @@ A validating epoch is a sequential range of [L2] [blocks][block] where needs to 
 
 Each epoch is identified by an epoch number, which is incremented by 1.
 
-Epochs have fixed size, which can be different in every networks. In Kanvas mainnet, it will be fixed to `1800` blocks,
+Epochs have fixed size, which can be different in every networks. In Kroma mainnet, it will be fixed to `1800` blocks,
 identical to 1 hour.
 
 ## SUBMISSION TIMEOUT
@@ -558,7 +558,7 @@ The finalization period is necessary to afford sufficient time for [validators][
 [data-availability]: glossary.md#data-availability
 
 Data availability is the guarantee that some data will be "available" (i.e. _retrievable_) during a reasonably long time
-window. In Kanvas's case, the data in question are [proposer batches][proposer-batch] that [validators][validator]
+window. In Kroma's case, the data in question are [proposer batches][proposer-batch] that [validators][validator]
 needs in order to verify the proposer's work and validate the [L2] chain.
 
 The [finalization period][finalization-period] should be taken as the lower bound on the availability window, since

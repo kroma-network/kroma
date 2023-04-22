@@ -16,9 +16,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
-	kcrypto "github.com/wemixkanvas/kanvas/utils/service/crypto"
+	"github.com/kroma-network/kroma/components/node/testlog"
+	"github.com/kroma-network/kroma/components/node/testutils"
+	kcrypto "github.com/kroma-network/kroma/utils/service/crypto"
 )
 
 // testHarness houses the necessary resources to test the SimpleTxManager.

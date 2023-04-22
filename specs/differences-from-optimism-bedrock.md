@@ -25,18 +25,18 @@
 
 ### Overview
 
-Kanvas is composed of 3 nodes: `proposer`, `validator` and `vanilla`.  The following are components that
+Kroma is composed of 3 nodes: `proposer`, `validator` and `vanilla`.  The following are components that
 are used to run each node:
 
 | Node        | Components                                                                          |
 |-------------|-------------------------------------------------------------------------------------|
-| `proposer`  | `L2 EL client` + `L2 CL client` + `kanvas-batcher`                                  |
-| `validator` | `L2 EL client` + `L2 CL client` + `kanvas-validator` + (optionally `kanvas-prover`) |
+| `proposer`  | `L2 EL client` + `L2 CL client` + `kroma-batcher`                                   |
+| `validator` | `L2 EL client` + `L2 CL client` + `kroma-validator` + (optionally `kroma-prover`)   |
 | `vanilla`   | `L2 EL client` + `L2 CL client`                                                     |
 
-`kanvas-prover` is only needed when `kanvas-validator` is turned on with `challenger` mode.
+`kroma-prover` is only needed when `kroma-validator` is turned on with `challenger` mode.
 
-**NOTE:** Here `L2 EE client` means `kanvas-geth` and `L2 CL client` means `kanvas-node`. `L2 EE client` can
+**NOTE:** Here `L2 EE client` means `kroma-geth` and `L2 CL client` means `kroma-node`. `L2 EE client` can
 be expanded to other clients for pragmatic decentralization.
 
 ### Sequencer -> Proposer
@@ -60,7 +60,7 @@ without a hard fork or huge changes. Thus, you might face an unexpected result w
 `eth_getProof`.
 
 Additionally, to produce a zkEVM proof, geth should return so called `execution trace` via JSON-RPC
-`kanvas_getBlockTraceByNumberOrHash` which provides zkEVM prover with data as a witness.
+`kroma_getBlockTraceByNumberOrHash` which provides zkEVM prover with data as a witness.
 
 [scroll]: https://scroll.io/
 
@@ -68,6 +68,6 @@ Additionally, to produce a zkEVM proof, geth should return so called `execution 
 
 ### ZK fault proof
 
-Instead of [cannon], Kanvas uses zkEVM for [ZK fault proof][g-zk-fault-proof].
+Instead of [cannon], Kroma uses zkEVM for [ZK fault proof][g-zk-fault-proof].
 
 [cannon]: https://github.com/ethereum-optimism/cannon

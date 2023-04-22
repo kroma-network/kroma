@@ -19,8 +19,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
 const (
@@ -67,7 +67,7 @@ type GossipMetricer interface {
 }
 
 func blocksTopicV1(cfg *rollup.Config) string {
-	return fmt.Sprintf("/kanvas/%s/0/blocks", cfg.L2ChainID.String())
+	return fmt.Sprintf("/kroma/%s/0/blocks", cfg.L2ChainID.String())
 }
 
 // BuildSubscriptionFilter builds a simple subscription filter,

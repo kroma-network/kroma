@@ -1,6 +1,6 @@
 # Batch Decoding Tool
 
-The batch decoding tool is a utility to aid in debugging the batch submitter & the kanvas-node
+The batch decoding tool is a utility to aid in debugging the batch submitter & the kroma-node
 by looking at what batches were submitted on L1.
 
 ## Design Philosophy

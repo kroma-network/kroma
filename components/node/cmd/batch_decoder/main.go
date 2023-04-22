@@ -11,15 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli"
 
-	"github.com/wemixkanvas/kanvas/components/node/cmd/batch_decoder/fetch"
-	"github.com/wemixkanvas/kanvas/components/node/cmd/batch_decoder/reassemble"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/cmd/batch_decoder/fetch"
+	"github.com/kroma-network/kroma/components/node/cmd/batch_decoder/reassemble"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
 )
 
 func main() {
 	app := cli.NewApp()
 	app.Name = "batch-decoder"
-	app.Usage = "Kanvas Batch Decoding Utility"
+	app.Usage = "Kroma Batch Decoding Utility"
 	app.Commands = []cli.Command{
 		{
 			Name:  "fetch",

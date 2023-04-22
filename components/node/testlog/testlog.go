@@ -30,7 +30,7 @@ import (
 var useColorInTestLog bool = true
 
 func init() {
-	if os.Getenv("KANVAS_TESTLOG_DISABLE_COLOR") == "true" {
+	if os.Getenv("KROMA_TESTLOG_DISABLE_COLOR") == "true" {
 		useColorInTestLog = false
 	}
 }

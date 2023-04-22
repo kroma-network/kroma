@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/ethereum/go-ethereum/trie"
 
-	zktrie "github.com/wemixkanvas/zktrie/trie"
-	zkt "github.com/wemixkanvas/zktrie/types"
+	zktrie "github.com/kroma-network/zktrie/trie"
+	zkt "github.com/kroma-network/zktrie/types"
 )
 
 var magicHash = []byte("THIS IS THE MAGIC INDEX FOR ZKTRIE")

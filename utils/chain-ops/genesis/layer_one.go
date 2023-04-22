@@ -16,10 +16,10 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/deployer"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/state"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/utils/chain-ops/deployer"
+	"github.com/kroma-network/kroma/utils/chain-ops/state"
 )
 
 var proxies = []string{
@@ -27,8 +27,8 @@ var proxies = []string{
 	"L2OutputOracleProxy",
 	"L1CrossDomainMessengerProxy",
 	"L1StandardBridgeProxy",
-	"KanvasPortalProxy",
-	"KanvasMintableERC20FactoryProxy",
+	"KromaPortalProxy",
+	"KromaMintableERC20FactoryProxy",
 	"ColosseumProxy",
 }
 
@@ -138,19 +138,19 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		return nil, err
 	}
 
-	portalABI, err := bindings.KanvasPortalMetaData.GetAbi()
+	portalABI, err := bindings.KromaPortalMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
 	data, err = portalABI.Pack("initialize", false)
 	if err != nil {
-		return nil, fmt.Errorf("cannot abi encode initialize for KanvasPortal: %w", err)
+		return nil, fmt.Errorf("cannot abi encode initialize for KromaPortal: %w", err)
 	}
 	if _, err := upgradeProxy(
 		backend,
 		opts,
-		depsByName["KanvasPortalProxy"].Address,
-		depsByName["KanvasPortal"].Address,
+		depsByName["KromaPortalProxy"].Address,
+		depsByName["KromaPortal"].Address,
 		data,
 	); err != nil {
 		return nil, err
@@ -187,8 +187,8 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 	if lastUpgradeTx, err = upgradeProxy(
 		backend,
 		opts,
-		depsByName["KanvasMintableERC20FactoryProxy"].Address,
-		depsByName["KanvasMintableERC20Factory"].Address,
+		depsByName["KromaMintableERC20FactoryProxy"].Address,
+		depsByName["KromaMintableERC20Factory"].Address,
 		nil,
 	); err != nil {
 		return nil, err
@@ -263,7 +263,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 			key := common.BytesToHash(st.GetKey(iter.Key))
 			value := common.BytesToHash(data)
 
-			if depAddr == predeploys.DevKanvasPortalAddr && key == portalMeteringSlot {
+			if depAddr == predeploys.DevKromaPortalAddr && key == portalMeteringSlot {
 				// We need to manually set the block number in the resource
 				// metering storage slot to zero. Otherwise, deposits will
 				// revert.
@@ -321,7 +321,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			Name: "ZKVerifier",
 		},
 		{
-			Name: "KanvasPortal",
+			Name: "KromaPortal",
 			Args: []interface{}{
 				predeploys.DevL2OutputOracleAddr,
 				config.PortalGuardian,
@@ -347,7 +347,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			Name: "L1ERC721Bridge",
 		},
 		{
-			Name: "KanvasMintableERC20Factory",
+			Name: "KromaMintableERC20Factory",
 		},
 		{
 			Name: "ProxyAdmin",
@@ -390,8 +390,8 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			deployment.Args[5].(common.Address),
 			deployment.Args[6].(*big.Int),
 		)
-	case "KanvasPortal":
-		_, tx, _, err = bindings.DeployKanvasPortal(
+	case "KromaPortal":
+		_, tx, _, err = bindings.DeployKromaPortal(
 			opts,
 			backend,
 			deployment.Args[0].(common.Address),
@@ -413,7 +413,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(
 			opts,
 			backend,
-			predeploys.DevKanvasPortalAddr,
+			predeploys.DevKromaPortalAddr,
 		)
 	case "L1StandardBridge":
 		_, tx, _, err = bindings.DeployL1StandardBridge(
@@ -421,8 +421,8 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			backend,
 			predeploys.DevL1CrossDomainMessengerAddr,
 		)
-	case "KanvasMintableERC20Factory":
-		_, tx, _, err = bindings.DeployKanvasMintableERC20Factory(
+	case "KromaMintableERC20Factory":
+		_, tx, _, err = bindings.DeployKromaMintableERC20Factory(
 			opts,
 			backend,
 			predeploys.DevL1StandardBridgeAddr,

@@ -93,8 +93,8 @@ task('deposit-eth', 'Deposits ether to L2.')
         'L1StandardBridgeProxy'
       )
 
-      const Deployment__KanvasPortal = await hre.deployments.get(
-        'KanvasPortalProxy'
+      const Deployment__KromaPortal = await hre.deployments.get(
+        'KromaPortalProxy'
       )
 
       const Deployment__L2OutputOracle = await hre.deployments.get(
@@ -105,7 +105,7 @@ task('deposit-eth', 'Deposits ether to L2.')
         l1: {
           L1CrossDomainMessenger: Deployment__L1CrossDomainMessenger,
           L1StandardBridge: Deployment__L1StandardBridge,
-          KanvasPortal: Deployment__KanvasPortal.address,
+          KromaPortal: Deployment__KromaPortal.address,
           L2OutputOracle: Deployment__L2OutputOracle.address,
         },
         l2: DEFAULT_L2_CONTRACT_ADDRESSES,
@@ -113,7 +113,7 @@ task('deposit-eth', 'Deposits ether to L2.')
     }
 
     const {
-      l1: { KanvasPortal, L1CrossDomainMessenger, L1StandardBridge },
+      l1: { KromaPortal, L1CrossDomainMessenger, L1StandardBridge },
       l2: { L2CrossDomainMessenger, L2StandardBridge, L2ToL1MessagePasser },
     } = getAllContracts(l2ChainId, {
       l1SignerOrProvider: signer,
@@ -128,8 +128,8 @@ task('deposit-eth', 'Deposits ether to L2.')
       contracts: contractAddrs,
     })
 
-    const kanvasBalanceBefore = await signer.provider.getBalance(
-      KanvasPortal.address
+    const kromaBalanceBefore = await signer.provider.getBalance(
+      KromaPortal.address
     )
 
     const l1BridgeBalanceBefore = await signer.provider.getBalance(
@@ -149,8 +149,8 @@ task('deposit-eth', 'Deposits ether to L2.')
       `Deposit complete - included in block ${depositMessageReceipt.transactionReceipt.blockNumber}`
     )
 
-    const kanvasBalanceAfter = await signer.provider.getBalance(
-      KanvasPortal.address
+    const kromaBalanceAfter = await signer.provider.getBalance(
+      KromaPortal.address
     )
 
     const l1BridgeBalanceAfter = await signer.provider.getBalance(
@@ -168,16 +168,16 @@ task('deposit-eth', 'Deposits ether to L2.')
     )
 
     console.log(
-      `KanvasPortal balance before: ${formatEther(kanvasBalanceBefore)} ETH`
+      `KromaPortal balance before: ${formatEther(kromaBalanceBefore)} ETH`
     )
     console.log(
-      `KanvasPortal balance after: ${formatEther(kanvasBalanceAfter)} ETH`
+      `KromaPortal balance after: ${formatEther(kromaBalanceAfter)} ETH`
     )
 
     if (args.checkBalanceMismatch) {
       assert(
-        kanvasBalanceBefore.add(amount).eq(kanvasBalanceAfter),
-        'KanvasPortal balance mismatch'
+        kromaBalanceBefore.add(amount).eq(kromaBalanceAfter),
+        'KromaPortal balance mismatch'
       )
     }
 
@@ -338,8 +338,8 @@ task('deposit-eth', 'Deposits ether to L2.')
             )
             break
           }
-          case KanvasPortal.address: {
-            const parsed = KanvasPortal.interface.parseLog(log)
+          case KromaPortal.address: {
+            const parsed = KromaPortal.interface.parseLog(log)
             console.log(parsed.name)
             console.log(parsed.args)
             console.log()
@@ -357,12 +357,12 @@ task('deposit-eth', 'Deposits ether to L2.')
     }
 
     if (args.checkBalanceMismatch) {
-      const kanvasBalanceFinally = await signer.provider.getBalance(
-        KanvasPortal.address
+      const kromaBalanceFinally = await signer.provider.getBalance(
+        KromaPortal.address
       )
       assert(
-        kanvasBalanceAfter.sub(withdrawAmount).eq(kanvasBalanceFinally),
-        'KanvasPortal balance mismatch'
+        kromaBalanceAfter.sub(withdrawAmount).eq(kromaBalanceFinally),
+        'KromaPortal balance mismatch'
       )
     }
 

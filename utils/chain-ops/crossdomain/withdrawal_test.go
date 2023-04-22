@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/crossdomain"
+	"github.com/kroma-network/kroma/utils/chain-ops/crossdomain"
 )
 
 // FuzzEncodeDecodeWithdrawal will fuzz encoding and decoding of a Withdrawal

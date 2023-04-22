@@ -24,10 +24,10 @@ import (
 	"github.com/stretchr/testify/require"
 	slices "golang.org/x/exp/slices"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/testlog"
+	"github.com/kroma-network/kroma/components/node/testutils"
 )
 
 func TestingConfig(t *testing.T) *Config {
@@ -47,7 +47,7 @@ func TestingConfig(t *testing.T) *Config {
 		PeersHi:             10,
 		PeersGrace:          time.Second * 10,
 		NAT:                 false,
-		UserAgent:           "kanvas-testing",
+		UserAgent:           "kroma-testing",
 		TimeoutNegotiation:  time.Second * 2,
 		TimeoutAccept:       time.Second * 2,
 		TimeoutDial:         time.Second * 2,
@@ -106,7 +106,7 @@ func TestP2PFull(t *testing.T) {
 		PeersHi:             10,
 		PeersGrace:          time.Second * 10,
 		NAT:                 false,
-		UserAgent:           "kanvas-testing",
+		UserAgent:           "kroma-testing",
 		TimeoutNegotiation:  time.Second * 2,
 		TimeoutAccept:       time.Second * 2,
 		TimeoutDial:         time.Second * 2,
@@ -254,7 +254,7 @@ func TestDiscovery(t *testing.T) {
 		PeersHi:             10,
 		PeersGrace:          time.Second * 10,
 		NAT:                 false,
-		UserAgent:           "kanvas-testing",
+		UserAgent:           "kroma-testing",
 		TimeoutNegotiation:  time.Second * 2,
 		TimeoutAccept:       time.Second * 2,
 		TimeoutDial:         time.Second * 2,
@@ -316,7 +316,7 @@ func TestDiscovery(t *testing.T) {
 	// It should only be a matter of time for them to connect, if they discover each other via A.
 	timeout := time.After(time.Second * 60)
 	var peersOfB []peer.ID
-	// B should be connected to the bootnode (A) it used (it's a valid kanvas node to connect to here)
+	// B should be connected to the bootnode (A) it used (it's a valid kroma node to connect to here)
 	// C should also be connected, although this one might take more time to discover
 	for !slices.Contains(peersOfB, hostA.ID()) || !slices.Contains(peersOfB, hostC.ID()) {
 		select {

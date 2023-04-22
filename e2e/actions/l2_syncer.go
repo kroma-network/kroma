@@ -11,14 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/node"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/driver"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
+	"github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/node"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/rollup/driver"
+	"github.com/kroma-network/kroma/components/node/sources"
+	"github.com/kroma-network/kroma/components/node/testutils"
 )
 
 // L2Syncer is an actor that functions like a rollup node,
@@ -78,7 +78,7 @@ func NewL2Syncer(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, cfg 
 	backend := &l2SyncerBackend{syncer: rollupNode}
 	apis := []rpc.API{
 		{
-			Namespace:     "kanvas",
+			Namespace:     "kroma",
 			Service:       node.NewNodeAPI(cfg, eng, backend, log, m),
 			Public:        true,
 			Authenticated: false,

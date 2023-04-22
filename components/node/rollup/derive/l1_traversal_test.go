@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/testlog"
+	"github.com/kroma-network/kroma/components/node/testutils"
 )
 
 // TestL1TraversalNext tests that the `Next` function only returns

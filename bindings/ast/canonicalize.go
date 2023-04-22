@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wemixkanvas/kanvas/bindings/solc"
+	"github.com/kroma-network/kroma/bindings/solc"
 )
 
 var remapTypeRe = regexp.MustCompile(`^(t_[\w_]+\([\w]+\))([\d]+)(_[\w]+)?$`)

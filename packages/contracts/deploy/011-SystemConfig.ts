@@ -1,4 +1,4 @@
-import '@wemixkanvas/hardhat-deploy-config'
+import '@kroma-network/hardhat-deploy-config'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
 import { assertContractVariable, deploy } from '../src/deploy-utils'

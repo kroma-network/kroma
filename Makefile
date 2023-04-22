@@ -6,10 +6,10 @@ LD_FLAGS_ARGS +=-X main.Meta=$(GIT_COMMIT)
 LD_FLAGS := -ldflags "$(LD_FLAGS_ARGS)"
 
 build:
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kanvas-node ./components/node/cmd/main.go
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kanvas-stateviz ./components/node/cmd/stateviz/main.go
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kanvas-batcher ./components/batcher/cmd/main.go
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kanvas-validator ./components/validator/cmd/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-node ./components/node/cmd/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-stateviz ./components/node/cmd/stateviz/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-batcher ./components/batcher/cmd/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-validator ./components/validator/cmd/main.go
 .PHONY: build
 
 clean:

@@ -19,14 +19,14 @@
 - [L1FeeVault](#l1feevault)
 - [ProposerFeeVault](#proposerfeevault)
 - [L2StandardBridge](#l2standardbridge)
-- [KanvasMintableERC20Factory](#kanvasmintableerc20factory)
-- [KanvasMintableERC721Factory](#kanvasmintableerc721factory)
+- [KromaMintableERC20Factory](#kromamintableerc20factory)
+- [KromaMintableERC721Factory](#kromamintableerc721factory)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Overview
 
-[Predeployed smart contracts][g-predeployed-contract-predeploy] exist on Kanvas
+[Predeployed smart contracts][g-predeployed-contract-predeploy] exist on Kroma
 at predetermined addresses in the genesis state. They are  similar to precompiles but instead run
 directly in the EVM instead of running  native code outside of the EVM.
 
@@ -50,8 +50,8 @@ Proxies are set at each possible predeploy address except for the `ProxyAdmin` a
 | ProposerFeeVault              | 0x4200000000000000000000000000000000000008 | Yes     |
 | L2StandardBridge              | 0x4200000000000000000000000000000000000009 | Yes     |
 | L2ERC721Bridge                | 0x420000000000000000000000000000000000000A | Yes     |
-| KanvasMintableERC20Factory    | 0x420000000000000000000000000000000000000B | Yes     |
-| KanvasMintableERC721Factory   | 0x420000000000000000000000000000000000000C | Yes     |
+| KromaMintableERC20Factory    | 0x420000000000000000000000000000000000000B | Yes     |
+| KromaMintableERC721Factory   | 0x420000000000000000000000000000000000000C | Yes     |
 
 ## ProxyAdmin
 
@@ -69,9 +69,9 @@ have the ability to upgrade any of the other predeploy contracts.
 
 Address: `0x4200000000000000000000000000000000000001`
 
-`WETH9` is the standard implementation of Wrapped Ether on Kanvas. It is a
+`WETH9` is the standard implementation of Wrapped Ether on Kroma. It is a
 commonly used contract and is placed as a predeploy so that it is at a
-deterministic address across Kanvas based networks.
+deterministic address across Kroma based networks.
 
 ## L1Block
 
@@ -191,33 +191,33 @@ To withdraw a token from L2 to L1, the user will burn the token on L2 and the
 `L2StandardBridge` will send a message to the `L1StandardBridge` which will
 unlock the underlying token and transfer it to the specified account.
 
-The `KanvasMintableERC20Factory` can be used to create an ERC20 token contract
+The `KromaMintableERC20Factory` can be used to create an ERC20 token contract
 on a remote domain that maps to an ERC20 token contract on the local domain
 where tokens can be deposited to the remote domain. It deploys an
-`KanvasMintableERC20` which has the interface that works with the
+`KromaMintableERC20` which has the interface that works with the
 `StandardBridge`.
 
 This contract can also be deployed on L1 to allow for L2 native tokens to be
 withdrawn to L1.
 
-## KanvasMintableERC20Factory
+## KromaMintableERC20Factory
 
-[Implementation](../packages/contracts/contracts/universal/KanvasMintableERC20Factory.sol)
+[Implementation](../packages/contracts/contracts/universal/KromaMintableERC20Factory.sol)
 
 Address: `0x420000000000000000000000000000000000000B`
 
-The `KanvasMintableERC20Factory` is responsible for creating ERC20 contracts on L2 that can be
+The `KromaMintableERC20Factory` is responsible for creating ERC20 contracts on L2 that can be
 used for depositing native L1 tokens into. These ERC20 contracts can be created permisionlessly
 and implement the interface required by the `StandardBridge` to just work with deposits and withdrawals.
 
-Each ERC20 contract that is created by the `KanvasMintableERC20Factory` allows for the `L2StandardBridge` to mint
+Each ERC20 contract that is created by the `KromaMintableERC20Factory` allows for the `L2StandardBridge` to mint
 and burn tokens, depending on if the user is depositing from L1 to L2 or withdrawing from L2 to L1.
 
-## KanvasMintableERC721Factory
+## KromaMintableERC721Factory
 
-[Implementation](../packages/contracts/contracts/universal/KanvasMintableERC721Factory.sol)
+[Implementation](../packages/contracts/contracts/universal/KromaMintableERC721Factory.sol)
 
 Address: `0x4200000000000000000000000000000000000017`
 
-The `KanvasMintableERC721Factory` is responsible for creating ERC721 contracts on L2 that can be used for
+The `KromaMintableERC721Factory` is responsible for creating ERC721 contracts on L2 that can be used for
 depositing native L1 NFTs into.

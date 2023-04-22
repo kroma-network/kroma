@@ -8,10 +8,10 @@ bindings: basefee-vault-bindings \
 		colosseum-bindings \
 		erc20-bindings \
 		gas-price-oracle-bindings \
-		kanvas-mintable-erc20-bindings \
-		kanvas-mintable-erc20-factory-bindings \
-		kanvas-mintable-erc721-factory-bindings \
-		kanvas-portal-bindings \
+		kroma-mintable-erc20-bindings \
+		kroma-mintable-erc20-factory-bindings \
+		kroma-mintable-erc721-factory-bindings \
+		kroma-portal-bindings \
 		l1-cross-domain-messenger-bindings \
 		l1-erc721-bridge-bindings \
 		l1-fee-vault-bindings \
@@ -44,9 +44,9 @@ more:
 		-out ./bindings \
 		-contracts \
 		Colosseum,\
-KanvasMintableERC20Factory,\
-KanvasMintableERC721Factory,\
-KanvasPortal,\
+KromaMintableERC20Factory,\
+KromaMintableERC721Factory,\
+KromaPortal,\
 L1Block,\
 L1CrossDomainMessenger,\
 L2CrossDomainMessenger,\
@@ -81,17 +81,17 @@ erc20-bindings: compile
 gas-price-oracle-bindings: compile
 	bash ./gen_bindings.sh contracts/L2/GasPriceOracle.sol:GasPriceOracle $(pkg)
 
-kanvas-mintable-erc20-bindings: compile
-	bash ./gen_bindings.sh contracts/universal/KanvasMintableERC20.sol:KanvasMintableERC20 $(pkg)
+kroma-mintable-erc20-bindings: compile
+	bash ./gen_bindings.sh contracts/universal/KromaMintableERC20.sol:KromaMintableERC20 $(pkg)
 
-kanvas-mintable-erc20-factory-bindings: compile
-	bash ./gen_bindings.sh contracts/universal/KanvasMintableERC20Factory.sol:KanvasMintableERC20Factory $(pkg)
+kroma-mintable-erc20-factory-bindings: compile
+	bash ./gen_bindings.sh contracts/universal/KromaMintableERC20Factory.sol:KromaMintableERC20Factory $(pkg)
 
-kanvas-mintable-erc721-factory-bindings: compile
-	bash ./gen_bindings.sh contracts/universal/KanvasMintableERC721Factory.sol:KanvasMintableERC721Factory $(pkg)
+kroma-mintable-erc721-factory-bindings: compile
+	bash ./gen_bindings.sh contracts/universal/KromaMintableERC721Factory.sol:KromaMintableERC721Factory $(pkg)
 
-kanvas-portal-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/KanvasPortal.sol:KanvasPortal $(pkg)
+kroma-portal-bindings: compile
+	bash ./gen_bindings.sh contracts/L1/KromaPortal.sol:KromaPortal $(pkg)
 
 l1-cross-domain-messenger-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger $(pkg)

@@ -6,9 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
 )
 
 type EngineMetrics interface {

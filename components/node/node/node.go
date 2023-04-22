@@ -12,15 +12,15 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	"github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
-	"github.com/wemixkanvas/kanvas/components/node/p2p"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/driver"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
+	"github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/p2p"
+	"github.com/kroma-network/kroma/components/node/rollup/driver"
+	"github.com/kroma-network/kroma/components/node/sources"
 )
 
-type KanvasNode struct {
+type KromaNode struct {
 	log        log.Logger
 	appVersion string
 	metrics    *metrics.Metrics
@@ -44,15 +44,15 @@ type KanvasNode struct {
 	resourcesClose context.CancelFunc
 }
 
-// The KanvasNode handles incoming gossip
-var _ p2p.GossipIn = (*KanvasNode)(nil)
+// The KromaNode handles incoming gossip
+var _ p2p.GossipIn = (*KromaNode)(nil)
 
-func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logger, appVersion string, m *metrics.Metrics) (*KanvasNode, error) {
+func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logger, appVersion string, m *metrics.Metrics) (*KromaNode, error) {
 	if err := cfg.Check(); err != nil {
 		return nil, err
 	}
 
-	n := &KanvasNode{
+	n := &KromaNode{
 		log:        log,
 		appVersion: appVersion,
 		metrics:    m,
@@ -72,7 +72,7 @@ func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logge
 	return n, nil
 }
 
-func (n *KanvasNode) init(ctx context.Context, cfg *Config, snapshotLog log.Logger) error {
+func (n *KromaNode) init(ctx context.Context, cfg *Config, snapshotLog log.Logger) error {
 	if err := n.initTracer(ctx, cfg); err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (n *KanvasNode) init(ctx context.Context, cfg *Config, snapshotLog log.Logg
 	return nil
 }
 
-func (n *KanvasNode) initTracer(ctx context.Context, cfg *Config) error {
+func (n *KromaNode) initTracer(ctx context.Context, cfg *Config) error {
 	if cfg.Tracer != nil {
 		n.tracer = cfg.Tracer
 	} else {
@@ -110,7 +110,7 @@ func (n *KanvasNode) initTracer(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KanvasNode) initL1(ctx context.Context, cfg *Config) error {
+func (n *KromaNode) initL1(ctx context.Context, cfg *Config) error {
 	l1Node, trustRPC, rpcProvKind, err := cfg.L1.Setup(ctx, n.log)
 	if err != nil {
 		return fmt.Errorf("failed to get L1 RPC client: %w", err)
@@ -151,7 +151,7 @@ func (n *KanvasNode) initL1(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KanvasNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
+func (n *KromaNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 	// attempt to load runtime config, repeat N times
 	n.runCfg = NewRuntimeConfig(n.log, n.l1Source, &cfg.Rollup)
 
@@ -178,7 +178,7 @@ func (n *KanvasNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 	return errors.New("failed to load runtime configuration repeatedly")
 }
 
-func (n *KanvasNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger) error {
+func (n *KromaNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger) error {
 	rpcClient, err := cfg.L2.Setup(ctx, n.log)
 	if err != nil {
 		return fmt.Errorf("failed to setup L2 execution-engine RPC client: %w", err)
@@ -222,7 +222,7 @@ func (n *KanvasNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Lo
 	return nil
 }
 
-func (n *KanvasNode) initRPCServer(ctx context.Context, cfg *Config) error {
+func (n *KromaNode) initRPCServer(ctx context.Context, cfg *Config) error {
 	server, err := newRPCServer(ctx, &cfg.RPC, &cfg.Rollup, n.l2Source.L2Client, n.l2Driver, n.log, n.appVersion, n.metrics)
 	if err != nil {
 		return err
@@ -242,7 +242,7 @@ func (n *KanvasNode) initRPCServer(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KanvasNode) initMetricsServer(ctx context.Context, cfg *Config) error {
+func (n *KromaNode) initMetricsServer(ctx context.Context, cfg *Config) error {
 	if !cfg.Metrics.Enabled {
 		n.log.Info("metrics disabled")
 		return nil
@@ -256,7 +256,7 @@ func (n *KanvasNode) initMetricsServer(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KanvasNode) initP2P(ctx context.Context, cfg *Config) error {
+func (n *KromaNode) initP2P(ctx context.Context, cfg *Config) error {
 	if cfg.P2P != nil {
 		p2pNode, err := p2p.NewNodeP2P(n.resourcesCtx, &cfg.Rollup, n.log, cfg.P2P, n, n.runCfg, n.metrics)
 		if err != nil || p2pNode == nil {
@@ -270,7 +270,7 @@ func (n *KanvasNode) initP2P(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KanvasNode) initP2PSigner(ctx context.Context, cfg *Config) error {
+func (n *KromaNode) initP2PSigner(ctx context.Context, cfg *Config) error {
 	// the p2p signer setup is optional
 	if cfg.P2PSigner == nil {
 		return nil
@@ -281,7 +281,7 @@ func (n *KanvasNode) initP2PSigner(ctx context.Context, cfg *Config) error {
 	return err
 }
 
-func (n *KanvasNode) Start(ctx context.Context) error {
+func (n *KromaNode) Start(ctx context.Context) error {
 	n.log.Info("Starting execution engine driver")
 
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine
@@ -301,7 +301,7 @@ func (n *KanvasNode) Start(ctx context.Context) error {
 	return nil
 }
 
-func (n *KanvasNode) OnNewL1Head(ctx context.Context, sig eth.L1BlockRef) {
+func (n *KromaNode) OnNewL1Head(ctx context.Context, sig eth.L1BlockRef) {
 	n.tracer.OnNewL1Head(ctx, sig)
 
 	if n.l2Driver == nil {
@@ -315,7 +315,7 @@ func (n *KanvasNode) OnNewL1Head(ctx context.Context, sig eth.L1BlockRef) {
 	}
 }
 
-func (n *KanvasNode) OnNewL1Safe(ctx context.Context, sig eth.L1BlockRef) {
+func (n *KromaNode) OnNewL1Safe(ctx context.Context, sig eth.L1BlockRef) {
 	if n.l2Driver == nil {
 		return
 	}
@@ -327,7 +327,7 @@ func (n *KanvasNode) OnNewL1Safe(ctx context.Context, sig eth.L1BlockRef) {
 	}
 }
 
-func (n *KanvasNode) OnNewL1Finalized(ctx context.Context, sig eth.L1BlockRef) {
+func (n *KromaNode) OnNewL1Finalized(ctx context.Context, sig eth.L1BlockRef) {
 	if n.l2Driver == nil {
 		return
 	}
@@ -339,7 +339,7 @@ func (n *KanvasNode) OnNewL1Finalized(ctx context.Context, sig eth.L1BlockRef) {
 	}
 }
 
-func (n *KanvasNode) PublishL2Payload(ctx context.Context, payload *eth.ExecutionPayload) error {
+func (n *KromaNode) PublishL2Payload(ctx context.Context, payload *eth.ExecutionPayload) error {
 	n.tracer.OnPublishL2Payload(ctx, payload)
 
 	// publish to p2p, if we are running p2p at all
@@ -354,7 +354,7 @@ func (n *KanvasNode) PublishL2Payload(ctx context.Context, payload *eth.Executio
 	return nil
 }
 
-func (n *KanvasNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload) error {
+func (n *KromaNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload) error {
 	// ignore if it's from ourselves
 	if n.p2pNode != nil && from == n.p2pNode.Host().ID() {
 		return nil
@@ -374,12 +374,12 @@ func (n *KanvasNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, payloa
 	return nil
 }
 
-func (n *KanvasNode) P2P() p2p.Node {
+func (n *KromaNode) P2P() p2p.Node {
 	return n.p2pNode
 }
 
 // Close closes all resources.
-func (n *KanvasNode) Close() error {
+func (n *KromaNode) Close() error {
 	var result *multierror.Error
 
 	if n.server != nil {
@@ -431,10 +431,10 @@ func (n *KanvasNode) Close() error {
 	return result.ErrorOrNil()
 }
 
-func (n *KanvasNode) ListenAddr() string {
+func (n *KromaNode) ListenAddr() string {
 	return n.server.listenAddr.String()
 }
 
-func (n *KanvasNode) HTTPEndpoint() string {
+func (n *KromaNode) HTTPEndpoint() string {
 	return fmt.Sprintf("http://%s", n.ListenAddr())
 }

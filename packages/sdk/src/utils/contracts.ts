@@ -1,4 +1,4 @@
-import { getContractInterface } from '@wemixkanvas/contracts'
+import { getContractInterface } from '@kroma-network/contracts'
 import { Contract, ethers } from 'ethers'
 
 import {
@@ -80,7 +80,7 @@ export const getAllContracts = (
     l1: {
       L1CrossDomainMessenger: undefined,
       L1StandardBridge: undefined,
-      KanvasPortal: undefined,
+      KromaPortal: undefined,
       L2OutputOracle: undefined,
     },
     l2: DEFAULT_L2_CONTRACT_ADDRESSES,

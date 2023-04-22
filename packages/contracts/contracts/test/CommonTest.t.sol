@@ -11,7 +11,7 @@ import { CodeDeployer } from "../libraries/CodeDeployer.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
-import { KanvasPortal } from "../L1/KanvasPortal.sol";
+import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
 import { L1StandardBridge } from "../L1/L1StandardBridge.sol";
@@ -22,9 +22,9 @@ import { L2CrossDomainMessenger } from "../L2/L2CrossDomainMessenger.sol";
 import { L2ERC721Bridge } from "../L2/L2ERC721Bridge.sol";
 import { L2ToL1MessagePasser } from "../L2/L2ToL1MessagePasser.sol";
 import { L2StandardBridge } from "../L2/L2StandardBridge.sol";
-import { KanvasMintableERC20 } from "../universal/KanvasMintableERC20.sol";
-import { KanvasMintableERC20Factory } from "../universal/KanvasMintableERC20Factory.sol";
-import { KanvasMintableERC721Factory } from "../universal/KanvasMintableERC721Factory.sol";
+import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
+import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
+import { KromaMintableERC721Factory } from "../universal/KromaMintableERC721Factory.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 
@@ -168,8 +168,8 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
     ZKMerkleTrie zkMerkleTrie;
 
     // Test target
-    KanvasPortal portalImpl;
-    KanvasPortal portal;
+    KromaPortal portalImpl;
+    KromaPortal portal;
 
     event WithdrawalFinalized(bytes32 indexed withdrawalHash, bool success);
     event WithdrawalProven(
@@ -183,15 +183,15 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
 
         zkMerkleTrie = new ZKMerkleTrie(deployPoseidon2());
 
-        portalImpl = new KanvasPortal({ _l2Oracle: oracle, _guardian: guardian, _paused: true, _zkMerkleTrie: zkMerkleTrie });
+        portalImpl = new KromaPortal({ _l2Oracle: oracle, _guardian: guardian, _paused: true, _zkMerkleTrie: zkMerkleTrie });
         Proxy proxy = new Proxy(multisig);
         vm.prank(multisig);
         proxy.upgradeToAndCall(
             address(portalImpl),
-            abi.encodeWithSelector(KanvasPortal.initialize.selector, false)
+            abi.encodeWithSelector(KromaPortal.initialize.selector, false)
         );
-        portal = KanvasPortal(payable(address(proxy)));
-        vm.label(address(portal), "KanvasPortal");
+        portal = KromaPortal(payable(address(proxy)));
+        vm.label(address(portal), "KromaPortal");
     }
 }
 
@@ -271,14 +271,14 @@ contract Messenger_Initializer is Portal_Initializer {
 contract Bridge_Initializer is Messenger_Initializer {
     L1StandardBridge L1Bridge;
     L2StandardBridge L2Bridge;
-    KanvasMintableERC20Factory L2TokenFactory;
-    KanvasMintableERC20Factory L1TokenFactory;
+    KromaMintableERC20Factory L2TokenFactory;
+    KromaMintableERC20Factory L1TokenFactory;
     ERC20 L1Token;
     ERC20 BadL1Token;
-    KanvasMintableERC20 L2Token;
+    KromaMintableERC20 L2Token;
     ERC20 NativeL2Token;
     ERC20 BadL2Token;
-    KanvasMintableERC20 RemoteL1Token;
+    KromaMintableERC20 RemoteL1Token;
 
     event DepositFailed(
         address indexed l1Token,
@@ -315,7 +315,7 @@ contract Bridge_Initializer is Messenger_Initializer {
         super.setUp();
 
         vm.label(Predeploys.L2_STANDARD_BRIDGE, "L2StandardBridge");
-        vm.label(Predeploys.KANVAS_MINTABLE_ERC20_FACTORY, "KanvasMintableERC20Factory");
+        vm.label(Predeploys.KROMA_MINTABLE_ERC20_FACTORY, "KromaMintableERC20Factory");
 
         // Deploy the L1 bridge and initialize it with the address of the
         // L1CrossDomainMessenger
@@ -336,25 +336,25 @@ contract Bridge_Initializer is Messenger_Initializer {
         L2Bridge = L2StandardBridge(payable(Predeploys.L2_STANDARD_BRIDGE));
 
         // Set up the L2 mintable token factory
-        KanvasMintableERC20Factory factory = new KanvasMintableERC20Factory(
+        KromaMintableERC20Factory factory = new KromaMintableERC20Factory(
             Predeploys.L2_STANDARD_BRIDGE
         );
-        vm.etch(Predeploys.KANVAS_MINTABLE_ERC20_FACTORY, address(factory).code);
-        L2TokenFactory = KanvasMintableERC20Factory(Predeploys.KANVAS_MINTABLE_ERC20_FACTORY);
+        vm.etch(Predeploys.KROMA_MINTABLE_ERC20_FACTORY, address(factory).code);
+        L2TokenFactory = KromaMintableERC20Factory(Predeploys.KROMA_MINTABLE_ERC20_FACTORY);
 
         L1Token = new ERC20("Native L1 Token", "L1T");
 
         // Deploy the L2 ERC20 now
-        L2Token = KanvasMintableERC20(
-            L2TokenFactory.createKanvasMintableERC20(
+        L2Token = KromaMintableERC20(
+            L2TokenFactory.createKromaMintableERC20(
                 address(L1Token),
                 string(abi.encodePacked("L2-", L1Token.name())),
                 string(abi.encodePacked("L2-", L1Token.symbol()))
             )
         );
 
-        BadL2Token = KanvasMintableERC20(
-            L2TokenFactory.createKanvasMintableERC20(
+        BadL2Token = KromaMintableERC20(
+            L2TokenFactory.createKromaMintableERC20(
                 address(1),
                 string(abi.encodePacked("L2-", L1Token.name())),
                 string(abi.encodePacked("L2-", L1Token.symbol()))
@@ -362,18 +362,18 @@ contract Bridge_Initializer is Messenger_Initializer {
         );
 
         NativeL2Token = new ERC20("Native L2 Token", "L2T");
-        L1TokenFactory = new KanvasMintableERC20Factory(address(L1Bridge));
+        L1TokenFactory = new KromaMintableERC20Factory(address(L1Bridge));
 
-        RemoteL1Token = KanvasMintableERC20(
-            L1TokenFactory.createKanvasMintableERC20(
+        RemoteL1Token = KromaMintableERC20(
+            L1TokenFactory.createKromaMintableERC20(
                 address(NativeL2Token),
                 string(abi.encodePacked("L1-", NativeL2Token.name())),
                 string(abi.encodePacked("L1-", NativeL2Token.symbol()))
             )
         );
 
-        BadL1Token = KanvasMintableERC20(
-            L1TokenFactory.createKanvasMintableERC20(
+        BadL1Token = KromaMintableERC20(
+            L1TokenFactory.createKromaMintableERC20(
                 address(1),
                 string(abi.encodePacked("L1-", NativeL2Token.name())),
                 string(abi.encodePacked("L1-", NativeL2Token.symbol()))

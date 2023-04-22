@@ -5,9 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
 type RollupClient struct {
@@ -20,24 +20,24 @@ func NewRollupClient(rpc client.RPC) *RollupClient {
 
 func (r *RollupClient) OutputAtBlock(ctx context.Context, blockNum uint64) (*eth.OutputResponse, error) {
 	var output *eth.OutputResponse
-	err := r.rpc.CallContext(ctx, &output, "kanvas_outputAtBlock", hexutil.Uint64(blockNum))
+	err := r.rpc.CallContext(ctx, &output, "kroma_outputAtBlock", hexutil.Uint64(blockNum))
 	return output, err
 }
 
 func (r *RollupClient) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
 	var output *eth.SyncStatus
-	err := r.rpc.CallContext(ctx, &output, "kanvas_syncStatus")
+	err := r.rpc.CallContext(ctx, &output, "kroma_syncStatus")
 	return output, err
 }
 
 func (r *RollupClient) RollupConfig(ctx context.Context) (*rollup.Config, error) {
 	var output *rollup.Config
-	err := r.rpc.CallContext(ctx, &output, "kanvas_rollupConfig")
+	err := r.rpc.CallContext(ctx, &output, "kroma_rollupConfig")
 	return output, err
 }
 
 func (r *RollupClient) Version(ctx context.Context) (string, error) {
 	var output string
-	err := r.rpc.CallContext(ctx, &output, "kanvas_version")
+	err := r.rpc.CallContext(ctx, &output, "kroma_version")
 	return output, err
 }

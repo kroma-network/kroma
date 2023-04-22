@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
+	"github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/testutils"
 )
 
 type MockL2RPC struct {
@@ -32,10 +32,10 @@ func (m *MockL2RPC) Close() {
 }
 
 func (m *MockL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	if method == "kanvas_outputAtBlock" {
+	if method == "kroma_outputAtBlock" {
 		blockNumber := args[0].(hexutil.Uint64)
 
-		m.rpc.CallContext(ctx, &result, "kanvas_outputAtBlock", blockNumber)
+		m.rpc.CallContext(ctx, &result, "kroma_outputAtBlock", blockNumber)
 
 		if m.segStart == nil || uint64(blockNumber) != m.segStart.Uint64() {
 			rng := rand.New(rand.NewSource(int64(blockNumber)))

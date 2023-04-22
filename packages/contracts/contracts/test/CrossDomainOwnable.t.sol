@@ -62,7 +62,7 @@ contract CrossDomainOwnableThroughPortal_Test is Portal_Initializer {
             _data: abi.encodeWithSelector(XDomainSetter.set.selector, 1)
         });
 
-        // Simulate the operation of the `kanvas-node` by parsing data
+        // Simulate the operation of the `kroma-node` by parsing data
         // from logs
         VmSafe.Log[] memory logs = vm.getRecordedLogs();
         // Only 1 log emitted

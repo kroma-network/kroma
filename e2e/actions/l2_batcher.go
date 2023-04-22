@@ -16,9 +16,9 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
 )
 
 type SyncStatusAPI interface {
@@ -47,9 +47,9 @@ type BatcherCfg struct {
 
 // L2Batcher buffers and submits L2 batches to L1.
 //
-// TODO: note the batcher shares little logic/state with actual kanvas-batcher,
+// TODO: note the batcher shares little logic/state with actual kroma-batcher,
 // tests should only use this actor to build batch contents for rollup node actors to consume,
-// until the kanvas-batcher is refactored and can be covered better.
+// until the kroma-batcher is refactored and can be covered better.
 type L2Batcher struct {
 	log log.Logger
 

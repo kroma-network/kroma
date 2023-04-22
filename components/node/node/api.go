@@ -9,11 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/version"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/version"
 )
 
 type l2EthClient interface {
@@ -85,7 +85,7 @@ func NewNodeAPI(config *rollup.Config, l2Client l2EthClient, dr driverClient, lo
 }
 
 func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
-	recordDur := n.m.RecordRPCServerRequest("kanvas_outputAtBlock")
+	recordDur := n.m.RecordRPCServerRequest("kroma_outputAtBlock")
 	defer recordDur()
 
 	ref, nextRef, status, err := n.dr.BlockRefsWithStatus(ctx, uint64(number))
@@ -152,19 +152,19 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 }
 
 func (n *nodeAPI) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
-	recordDur := n.m.RecordRPCServerRequest("kanvas_syncStatus")
+	recordDur := n.m.RecordRPCServerRequest("kroma_syncStatus")
 	defer recordDur()
 	return n.dr.SyncStatus(ctx)
 }
 
 func (n *nodeAPI) RollupConfig(_ context.Context) (*rollup.Config, error) {
-	recordDur := n.m.RecordRPCServerRequest("kanvas_rollupConfig")
+	recordDur := n.m.RecordRPCServerRequest("kroma_rollupConfig")
 	defer recordDur()
 	return n.config, nil
 }
 
 func (n *nodeAPI) Version(ctx context.Context) (string, error) {
-	recordDur := n.m.RecordRPCServerRequest("kanvas_version")
+	recordDur := n.m.RecordRPCServerRequest("kroma_version")
 	defer recordDur()
 	return version.Version + "-" + version.Meta, nil
 }

@@ -65,8 +65,8 @@ task('finalize-withdrawal', 'Finalize a withdrawal')
         'L1StandardBridgeProxy'
       )
 
-      const Deployment__KanvasPortal = await hre.deployments.get(
-        'KanvasPortalProxy'
+      const Deployment__KromaPortal = await hre.deployments.get(
+        'KromaPortalProxy'
       )
 
       const Deployment__L2OutputOracle = await hre.deployments.get(
@@ -77,7 +77,7 @@ task('finalize-withdrawal', 'Finalize a withdrawal')
         l1: {
           L1CrossDomainMessenger: Deployment__L1CrossDomainMessenger,
           L1StandardBridge: Deployment__L1StandardBridge,
-          KanvasPortal: Deployment__KanvasPortal.address,
+          KromaPortal: Deployment__KromaPortal.address,
           L2OutputOracle: Deployment__L2OutputOracle.address,
         },
         l2: DEFAULT_L2_CONTRACT_ADDRESSES,

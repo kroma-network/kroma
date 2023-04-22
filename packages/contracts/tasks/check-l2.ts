@@ -258,25 +258,25 @@ const check = {
     await checkProxy(hre, 'ProposerFeeVault', signer.provider)
     await assertProxy(hre, 'ProposerFeeVault', signer.provider)
   },
-  // KanvasMintableERC20Factory
+  // KromaMintableERC20Factory
   // - check version
-  KanvasMintableERC20Factory: async (
+  KromaMintableERC20Factory: async (
     hre: HardhatRuntimeEnvironment,
     signer: Signer
   ) => {
-    const KanvasMintableERC20Factory = await hre.ethers.getContractAt(
-      'KanvasMintableERC20Factory',
-      predeploys.KanvasMintableERC20Factory,
+    const KromaMintableERC20Factory = await hre.ethers.getContractAt(
+      'KromaMintableERC20Factory',
+      predeploys.KromaMintableERC20Factory,
       signer
     )
 
-    await assertSemver(KanvasMintableERC20Factory, 'KanvasMintableERC20Factory')
+    await assertSemver(KromaMintableERC20Factory, 'KromaMintableERC20Factory')
 
-    const BRIDGE = await KanvasMintableERC20Factory.BRIDGE()
+    const BRIDGE = await KromaMintableERC20Factory.BRIDGE()
     assert(BRIDGE !== hre.ethers.constants.AddressZero)
 
-    await checkProxy(hre, 'KanvasMintableERC20Factory', signer.provider)
-    await assertProxy(hre, 'KanvasMintableERC20Factory', signer.provider)
+    await checkProxy(hre, 'KromaMintableERC20Factory', signer.provider)
+    await assertProxy(hre, 'KromaMintableERC20Factory', signer.provider)
   },
   // L1Block
   // - check version
@@ -337,33 +337,33 @@ const check = {
     await checkProxy(hre, 'L2ERC721Bridge', signer.provider)
     await assertProxy(hre, 'L2ERC721Bridge', signer.provider)
   },
-  // KanvasMintableERC721Factory
+  // KromaMintableERC721Factory
   // - check version
-  KanvasMintableERC721Factory: async (
+  KromaMintableERC721Factory: async (
     hre: HardhatRuntimeEnvironment,
     signer: Signer
   ) => {
-    const KanvasMintableERC721Factory = await hre.ethers.getContractAt(
-      'KanvasMintableERC721Factory',
-      predeploys.KanvasMintableERC721Factory,
+    const KromaMintableERC721Factory = await hre.ethers.getContractAt(
+      'KromaMintableERC721Factory',
+      predeploys.KromaMintableERC721Factory,
       signer
     )
 
     await assertSemver(
-      KanvasMintableERC721Factory,
-      'KanvasMintableERC721Factory'
+      KromaMintableERC721Factory,
+      'KromaMintableERC721Factory'
     )
 
-    const BRIDGE = await KanvasMintableERC721Factory.BRIDGE()
+    const BRIDGE = await KromaMintableERC721Factory.BRIDGE()
     assert(BRIDGE !== hre.ethers.constants.AddressZero)
     console.log(`  - BRIDGE: ${BRIDGE}`)
 
-    const REMOTE_CHAIN_ID = await KanvasMintableERC721Factory.REMOTE_CHAIN_ID()
+    const REMOTE_CHAIN_ID = await KromaMintableERC721Factory.REMOTE_CHAIN_ID()
     assert(REMOTE_CHAIN_ID !== 0)
     console.log(`  - REMOTE_CHAIN_ID: ${REMOTE_CHAIN_ID}`)
 
-    await checkProxy(hre, 'KanvasMintableERC721Factory', signer.provider)
-    await assertProxy(hre, 'KanvasMintableERC721Factory', signer.provider)
+    await checkProxy(hre, 'KromaMintableERC721Factory', signer.provider)
+    await assertProxy(hre, 'KromaMintableERC721Factory', signer.provider)
   },
   // ProxyAdmin
   // - check owner

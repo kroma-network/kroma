@@ -1,9 +1,9 @@
 package metrics
 
 import (
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	kmetrics "github.com/wemixkanvas/kanvas/utils/service/metrics"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
 )
 
 type noopMetrics struct{ kmetrics.NoopRefMetrics }

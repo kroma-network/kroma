@@ -24,18 +24,18 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	rollupNode "github.com/wemixkanvas/kanvas/components/node/node"
-	"github.com/wemixkanvas/kanvas/components/node/p2p"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/driver"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
-	"github.com/wemixkanvas/kanvas/components/node/withdrawals"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/eth"
+	rollupNode "github.com/kroma-network/kroma/components/node/node"
+	"github.com/kroma-network/kroma/components/node/p2p"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/rollup/driver"
+	"github.com/kroma-network/kroma/components/node/sources"
+	"github.com/kroma-network/kroma/components/node/testlog"
+	"github.com/kroma-network/kroma/components/node/withdrawals"
 )
 
 var enableParallelTesting bool = true
@@ -165,7 +165,7 @@ func TestSystemE2E(t *testing.T) {
 	fromAddr := sys.cfg.Secrets.Addresses().Alice
 
 	// Find deposit contract
-	depositContract, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, l1Client)
+	depositContract, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
 	require.Nil(t, err)
 
 	// Create signer
@@ -413,7 +413,7 @@ func TestMintOnRevertedDeposit(t *testing.T) {
 	l2Syncer := sys.Clients["syncer"]
 
 	// Find deposit contract
-	depositContract, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, l1Client)
+	depositContract, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
 	require.Nil(t, err)
 	l1Node := sys.Nodes["l1"]
 
@@ -1025,7 +1025,7 @@ func TestWithdrawals(t *testing.T) {
 	fromAddr := crypto.PubkeyToAddress(ethPrivKey.PublicKey)
 
 	// Find deposit contract
-	depositContract, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, l1Client)
+	depositContract, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
 	require.Nil(t, err)
 
 	// Create L1 signer
@@ -1114,7 +1114,7 @@ func TestWithdrawals(t *testing.T) {
 	// Get l2BlockNumber for proof generation
 	ctx, cancel = context.WithTimeout(context.Background(), 40*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second*timeoutMultiplier)
 	defer cancel()
-	blockNumber, err := withdrawals.WaitForFinalizationPeriod(ctx, l1Client, predeploys.DevKanvasPortalAddr, receipt.BlockNumber)
+	blockNumber, err := withdrawals.WaitForFinalizationPeriod(ctx, l1Client, predeploys.DevKromaPortalAddr, receipt.BlockNumber)
 	require.Nil(t, err)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
@@ -1142,7 +1142,7 @@ func TestWithdrawals(t *testing.T) {
 	params, err := withdrawals.ProveWithdrawalParameters(context.Background(), rollup.L2OutputRootVersion(sys.RollupConfig, header.Time), proofCl, receiptCl, tx.Hash(), header, nextHeader, oracle)
 	require.Nil(t, err)
 
-	portal, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, l1Client)
+	portal, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
 	require.Nil(t, err)
 
 	opts.Value = nil
@@ -1172,7 +1172,7 @@ func TestWithdrawals(t *testing.T) {
 	// Wait for finalization and then create the Finalized Withdrawal Transaction
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	defer cancel()
-	_, err = withdrawals.WaitForFinalizationPeriod(ctx, l1Client, predeploys.DevKanvasPortalAddr, header.Number)
+	_, err = withdrawals.WaitForFinalizationPeriod(ctx, l1Client, predeploys.DevKromaPortalAddr, header.Number)
 	require.Nil(t, err)
 
 	// Finalize withdrawal
@@ -1222,7 +1222,7 @@ func TestFees(t *testing.T) {
 	}
 
 	cfg := DefaultSystemConfig(t)
-	// TODO: after we have the system config contract and new kanvas-geth L1 cost utils,
+	// TODO: after we have the system config contract and new kroma-geth L1 cost utils,
 	// we can pull in l1 costs into every e2e test and account for it in assertions easily etc.
 	cfg.DeployConfig.GasPriceOracleOverhead = 2100
 	cfg.DeployConfig.GasPriceOracleScalar = 1000_000

@@ -12,12 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	validator "github.com/wemixkanvas/kanvas/components/validator"
-	chal "github.com/wemixkanvas/kanvas/components/validator/challenge"
-	"github.com/wemixkanvas/kanvas/e2e/e2eutils"
-	kcrypto "github.com/wemixkanvas/kanvas/utils/service/crypto"
-	"github.com/wemixkanvas/kanvas/utils/service/txmgr"
+	"github.com/kroma-network/kroma/components/node/sources"
+	validator "github.com/kroma-network/kroma/components/validator"
+	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	"github.com/kroma-network/kroma/e2e/e2eutils"
+	kcrypto "github.com/kroma-network/kroma/utils/service/crypto"
+	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 type L2Challenger struct {

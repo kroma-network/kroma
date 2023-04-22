@@ -16,8 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
 )
 
 var MessagePassedTopic = crypto.Keccak256Hash([]byte("MessagePassed(uint256,address,address,uint256,uint256,bytes,bytes32)"))
@@ -30,7 +30,7 @@ func WaitForFinalizationPeriod(ctx context.Context, client *ethclient.Client, po
 	l2BlockNumber = new(big.Int).Set(l2BlockNumber) // Don't clobber caller owned l2BlockNumber
 	opts := &bind.CallOpts{Context: ctx}
 
-	portal, err := bindings.NewKanvasPortalCaller(portalAddr, client)
+	portal, err := bindings.NewKromaPortalCaller(portalAddr, client)
 	if err != nil {
 		return 0, err
 	}

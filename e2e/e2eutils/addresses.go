@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/crossdomain"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/utils/chain-ops/crossdomain"
 )
 
 func collectAllocAddrs(alloc core.GenesisAlloc) []common.Address {

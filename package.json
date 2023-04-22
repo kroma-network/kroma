@@ -1,5 +1,5 @@
 {
-  "name": "kanvas",
+  "name": "kroma",
   "version": "0.1.0",
   "author": "Lightscale Inc.",
   "license": "MIT",
@@ -8,12 +8,12 @@
       "packages/*"
     ],
     "nohoist": [
-      "**/typechain/*",
       "**/@typechain/*",
-      "@wemixkanvas/contracts/ds-test",
-      "@wemixkanvas/contracts/forge-std",
-      "@wemixkanvas/contracts/@rari-capital/solmate",
       "**/@openzeppelin/*",
+      "**/typechain/*",
+      "@kroma-network/contracts/@rari-capital/solmate",
+      "@kroma-network/contracts/ds-test",
+      "@kroma-network/contracts/forge-std",
       "forta-agent"
     ]
   },

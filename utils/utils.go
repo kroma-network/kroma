@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	"github.com/wemixkanvas/kanvas/utils/service/crypto"
-	"github.com/wemixkanvas/kanvas/utils/service/txmgr"
+	"github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/sources"
+	"github.com/kroma-network/kroma/utils/service/crypto"
+	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 const (

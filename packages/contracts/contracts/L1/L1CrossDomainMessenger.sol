@@ -4,7 +4,7 @@ pragma solidity 0.8.15;
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
 import { Semver } from "../universal/Semver.sol";
-import { KanvasPortal } from "./KanvasPortal.sol";
+import { KromaPortal } from "./KromaPortal.sol";
 
 /**
  * @custom:proxied
@@ -15,16 +15,16 @@ import { KanvasPortal } from "./KanvasPortal.sol";
  */
 contract L1CrossDomainMessenger is CrossDomainMessenger, Semver {
     /**
-     * @notice Address of the KanvasPortal.
+     * @notice Address of the KromaPortal.
      */
-    KanvasPortal public immutable PORTAL;
+    KromaPortal public immutable PORTAL;
 
     /**
      * @custom:semver 0.1.0
      *
-     * @param _portal Address of the KanvasPortal contract on this network.
+     * @param _portal Address of the KromaPortal contract on this network.
      */
-    constructor(KanvasPortal _portal)
+    constructor(KromaPortal _portal)
         Semver(0, 1, 0)
         CrossDomainMessenger(Predeploys.L2_CROSS_DOMAIN_MESSENGER)
     {

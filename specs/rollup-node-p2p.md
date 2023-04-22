@@ -79,15 +79,15 @@ Common representations of network identity:
 
 #### Structure
 
-The [Ethereum Node Record (ENR)][enr] for an Kanvas rollup node must contain the following values, identified by unique
+The [Ethereum Node Record (ENR)][enr] for a Kroma rollup node must contain the following values, identified by unique
 keys:
 
 - An IPv4 address (`ip` field) and/or IPv6 address (`ip6` field).
 - A TCP port (`tcp` field) representing the local [libp2p] listening port.
 - A UDP port (`udp` field) representing the local [discv5] listening port.
-- An KanvasStack (`kanvas-stack` field) L2 network identifier
+- A KromaStack (`kroma-stack` field) L2 network identifier
 
-The `kanvas-stack` value is encoded as a single RLP `bytes` value, the concatenation of:
+The `kroma-stack` value is encoded as a single RLP `bytes` value, the concatenation of:
 
 - chain ID (`unsigned varint`)
 - fork ID (`unsigned varint`)
@@ -96,13 +96,13 @@ Note that DiscV5 is a shared [DHT (Distributed Hash Table)][dht]: the L1 consens
 as well as testnet nodes, and even external IOT nodes, all communicate records in this large common DHT.
 This makes it more difficult to censor the discovery of node records.
 
-The discovery process in Kanvas is a pipeline of node records:
+The discovery process in Kroma is a pipeline of node records:
 
 1. Fill the table with `FINDNODES` if necessary (Performed by Discv5 library)
 2. Pull additional records with searches to random Node IDs if necessary
    (e.g. iterate [`RandomNodes()`][discv5-random-nodes] in Go implementation)
 3. Pull records from the DiscV5 module when looking for peers
-4. Check if the record contains the `kanvas-stack` entry, verify it matches the chain ID and current or
+4. Check if the record contains the `kroma-stack` entry, verify it matches the chain ID and current or
    future fork number
 5. If not already connected, and not recently disconnected or put on deny-list, attempt to dial.
 
@@ -226,7 +226,7 @@ Notable differences from L1 consensus (Eth2):
 #### Topic configuration
 
 Topics have string identifiers and are communicated with messages and subscriptions.
-`/kanvas/chain_id/hardfork_version/Name`
+`/kroma/chain_id/hardfork_version/Name`
 
 - `chain_id`: replace with decimal representation of chain ID
 - `hardfork_version`: replace with decimal representation of hardfork, starting at `0`

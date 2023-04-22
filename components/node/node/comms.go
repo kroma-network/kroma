@@ -5,10 +5,10 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/eth"
 )
 
-// Tracer configures the KanvasNode to share events
+// Tracer configures the KromaNode to share events
 type Tracer interface {
 	OnNewL1Head(ctx context.Context, sig eth.L1BlockRef)
 	OnUnsafeL2Payload(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload)

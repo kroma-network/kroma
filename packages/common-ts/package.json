@@ -1,7 +1,7 @@
 {
-  "name": "@wemixkanvas/common-ts",
+  "name": "@kroma-network/common-ts",
   "version": "0.1.0",
-  "description": "[Kanvas] Advanced typescript tooling used by various services",
+  "description": "[Kroma] Advanced typescript tooling used by various services",
   "main": "dist/index",
   "types": "dist/index",
   "files": [
@@ -20,20 +20,20 @@
     "test:coverage": "echo 'no coverage'"
   },
   "keywords": [
-    "kanvas",
     "ethereum",
     "common",
+    "kroma",
     "typescript"
   ],
-  "homepage": "https://github.com/wemixkanvas/kanvas/tree/dev/packages/common-ts#readme",
+  "homepage": "https://github.com/kroma-network/kroma/tree/dev/packages/common-ts#readme",
   "license": "MIT",
   "author": "Lightscale Inc.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wemixkanvas/kanvas.git"
+    "url": "https://github.com/kroma-network/kroma.git"
   },
   "dependencies": {
-    "@wemixkanvas/core-utils": "0.1.0",
+    "@kroma-network/core-utils": "0.1.0",
     "@sentry/node": "^6.3.1",
     "bcfg": "^0.1.7",
     "body-parser": "^1.20.0",

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kroma-network/kroma/components/node/testutils"
 	"github.com/stretchr/testify/require"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
 )
 
 func FuzzFrameUnmarshalBinary(f *testing.F) {

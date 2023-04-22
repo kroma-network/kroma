@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/urfave/cli"
 
-	"github.com/wemixkanvas/kanvas/components/node/flags"
-	"github.com/wemixkanvas/kanvas/components/node/p2p"
+	"github.com/kroma-network/kroma/components/node/flags"
+	"github.com/kroma-network/kroma/components/node/p2p"
 )
 
 // TODO: implement remote signer setup (config to authenticated endpoint)

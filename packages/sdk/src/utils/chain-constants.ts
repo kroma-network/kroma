@@ -1,4 +1,4 @@
-import { predeploys } from '@wemixkanvas/contracts'
+import { predeploys } from '@kroma-network/contracts'
 
 import {
   ContractsLike,
@@ -10,16 +10,16 @@ import {
 export const DEPOSIT_CONFIRMATION_BLOCKS: {
   [ChainID in L2ChainID]: number
 } = {
-  [L2ChainID.KANVAS_AQUA]: 64 as const, // 2 epoch, 1 epoch = 32 slot
-  [L2ChainID.KANVAS_SAIL]: 2 as const,
-  [L2ChainID.KANVAS_LOCAL_DEVNET]: 2 as const,
+  [L2ChainID.KROMA_SEPOLIA]: 64 as const, // 2 epoch, 1 epoch = 32 slot
+  [L2ChainID.KROMA_SAIL]: 2 as const,
+  [L2ChainID.KROMA_LOCAL_DEVNET]: 2 as const,
 }
 
 export const CHAIN_BLOCK_TIMES: {
   [ChainID in L1ChainID]: number
 } = {
   [L1ChainID.SEPOLIA]: 12 as const,
-  [L1ChainID.KANVAS_EASEL]: 5 as const,
+  [L1ChainID.KROMA_EASEL]: 5 as const,
   [L1ChainID.LOCAL_DEVNET]: 3 as const,
 }
 
@@ -41,9 +41,9 @@ export const DEFAULT_L2_CONTRACT_ADDRESSES: L2ContractsLike = {
 export const CONTRACT_ADDRESSES: {
   [ChainID in L2ChainID]: ContractsLike
 } = {
-  [L2ChainID.KANVAS_AQUA]: {
+  [L2ChainID.KROMA_SEPOLIA]: {
     l1: {
-      KanvasPortal: '0x9C818e93C0884f75f48d93a9BDB2E994f8d77b86' as const,
+      KromaPortal: '0x9C818e93C0884f75f48d93a9BDB2E994f8d77b86' as const,
       L1CrossDomainMessenger:
         '0x6B6985865e71F0D6B7F8FA6915511b6AE72F778B' as const,
       L1StandardBridge: '0x972C765Ed4C7301d17828D1999BF24d17dAd9230' as const,
@@ -51,9 +51,9 @@ export const CONTRACT_ADDRESSES: {
     },
     l2: DEFAULT_L2_CONTRACT_ADDRESSES,
   },
-  [L2ChainID.KANVAS_SAIL]: {
+  [L2ChainID.KROMA_SAIL]: {
     l1: {
-      KanvasPortal: '0xA199e7ab96BF9DF52C52eb7BAb5572789a726d33' as const,
+      KromaPortal: '0xA199e7ab96BF9DF52C52eb7BAb5572789a726d33' as const,
       L1CrossDomainMessenger:
         '0x8233369E29653b70E50E93d1276a50B8f2122a01' as const,
       L1StandardBridge: '0x6B99600daD0a1998337357696827381D122825F3' as const,
@@ -61,9 +61,9 @@ export const CONTRACT_ADDRESSES: {
     },
     l2: DEFAULT_L2_CONTRACT_ADDRESSES,
   },
-  [L2ChainID.KANVAS_LOCAL_DEVNET]: {
+  [L2ChainID.KROMA_LOCAL_DEVNET]: {
     l1: {
-      KanvasPortal: '0x6900000000000000000000000000000000000003' as const,
+      KromaPortal: '0x6900000000000000000000000000000000000003' as const,
       L1CrossDomainMessenger:
         '0x6900000000000000000000000000000000000006' as const,
       L1StandardBridge: '0x6900000000000000000000000000000000000007' as const,

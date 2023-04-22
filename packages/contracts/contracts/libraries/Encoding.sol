@@ -7,7 +7,7 @@ import { RLPWriter } from "./rlp/RLPWriter.sol";
 
 /**
  * @title Encoding
- * @notice Encoding handles Kanvas's various different encoding schemes.
+ * @notice Encoding handles Kroma's various different encoding schemes.
  */
 library Encoding {
     /**

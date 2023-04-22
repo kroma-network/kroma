@@ -7,7 +7,7 @@ import (
 	"net/http/pprof"
 	"strconv"
 
-	"github.com/wemixkanvas/kanvas/utils/service/httputil"
+	"github.com/kroma-network/kroma/utils/service/httputil"
 )
 
 func ListenAndServe(ctx context.Context, hostname string, port int) error {

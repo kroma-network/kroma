@@ -11,12 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
 
-	"github.com/wemixkanvas/kanvas/components/batcher/metrics"
-	"github.com/wemixkanvas/kanvas/utils"
-	"github.com/wemixkanvas/kanvas/utils/monitoring"
-	klog "github.com/wemixkanvas/kanvas/utils/service/log"
-	krpc "github.com/wemixkanvas/kanvas/utils/service/rpc"
-	"github.com/wemixkanvas/kanvas/utils/service/txmgr"
+	"github.com/kroma-network/kroma/components/batcher/metrics"
+	"github.com/kroma-network/kroma/utils"
+	"github.com/kroma-network/kroma/utils/monitoring"
+	klog "github.com/kroma-network/kroma/utils/service/log"
+	krpc "github.com/kroma-network/kroma/utils/service/rpc"
+	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 // Main is the entrypoint into the Batch Submitter.

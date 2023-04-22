@@ -11,7 +11,7 @@
 # 4. Start L2, inserting the compiled contract artifacts into the genesis.
 # 5. Get the genesis hashes and timestamps from L1/L2.
 # 6. Generate the rollup driver's config using the genesis hashes and the
-#    timestamps recovered in step 4 as well as the address of the KanvasPortal
+#    timestamps recovered in step 4 as well as the address of the KromaPortal
 #    contract deployed in step 3.
 # 7. Start the rollup driver.
 # 8. Start the L2 output submitter.
@@ -32,7 +32,7 @@ set -eu
 L1_URL="http://localhost:8545"
 L2_URL="http://localhost:9545"
 
-KANVAS_NODE="$PWD/components/node"
+KROMA_NODE="$PWD/components/node"
 CONTRACTS="$PWD/packages/contracts"
 NETWORK=devnetL1
 DEVNET="$PWD/.devnet"
@@ -68,7 +68,7 @@ if [ ! -f "$DEVNET/done" ]; then
   cat "$CONTRACTS/deploy-config/devnetL1.json" | jq -r ".l1GenesisBlockTimestamp = \"$TIMESTAMP\"" > /tmp/devnet-deploy-config.json
 
   (
-    cd "$KANVAS_NODE"
+    cd "$KROMA_NODE"
     go run cmd/main.go genesis devnet \
         --deploy-config /tmp/devnet-deploy-config.json \
         --outfile.l1 $DEVNET/genesis-l1.json \
@@ -104,7 +104,7 @@ COLOSSEUM_ADDRESS="0x690000000000000000000000000000000000000D"
   echo "Bringing up devnet..."
   L2OO_ADDRESS="$L2OO_ADDRESS" \
       COLOSSEUM_ADDRESS="$COLOSSEUM_ADDRESS" \
-      docker compose up -d kanvas-node kanvas-validator kanvas-batcher kanvas-challenger
+      docker compose up -d kroma-node kroma-validator kroma-batcher kroma-challenger
 
   echo "Bringing up stateviz webserver..."
   docker compose up -d stateviz

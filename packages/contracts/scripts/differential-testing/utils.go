@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/crossdomain"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/utils/chain-ops/crossdomain"
 )
 
 var ErrUnknownNonceVersion = errors.New("unknown nonce version")

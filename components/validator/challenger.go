@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	chal "github.com/wemixkanvas/kanvas/components/validator/challenge"
-	"github.com/wemixkanvas/kanvas/utils"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/components/node/eth"
+	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	"github.com/kroma-network/kroma/utils"
 )
 
 var OutputsPerWeek = big.NewInt(24 * 7)

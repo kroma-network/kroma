@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/utils/service/httputil"
+	"github.com/kroma-network/kroma/utils/service/httputil"
 )
 
 func NewLoggingMiddleware(lgr log.Logger, next http.Handler) http.Handler {

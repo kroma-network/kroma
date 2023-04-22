@@ -7,7 +7,7 @@ import {
   TransactionResponse,
 } from '@ethersproject/abstract-provider'
 import { Signer } from '@ethersproject/abstract-signer'
-import { predeploys } from '@wemixkanvas/contracts'
+import { predeploys } from '@kroma-network/contracts'
 import {
   CrossChainMessageProof,
   OutputData,
@@ -15,7 +15,7 @@ import {
   hashCrossDomainMessage,
   sleep,
   toRpcHexString,
-} from '@wemixkanvas/core-utils'
+} from '@kroma-network/core-utils'
 import {
   BigNumber,
   CallOverrides,
@@ -494,7 +494,7 @@ export class CrossChainMessenger {
 
         // Attempt to fetch the proven withdrawal.
         const provenWithdrawal =
-          await this.contracts.l1.KanvasPortal.provenWithdrawals(
+          await this.contracts.l1.KromaPortal.provenWithdrawals(
             hashLowLevelMessage(withdrawal)
           )
 
@@ -845,7 +845,7 @@ export class CrossChainMessenger {
   }
 
   /**
-   * Queries the KanvasPortal contract's `provenWithdrawals` mapping
+   * Queries the KromaPortal contract's `provenWithdrawals` mapping
    * for a ProvenWithdrawal that matches the passed withdrawalHash
    *
    * @returns A ProvenWithdrawal object
@@ -853,7 +853,7 @@ export class CrossChainMessenger {
   public async getProvenWithdrawal(
     withdrawalHash: string
   ): Promise<ProvenWithdrawal> {
-    return this.contracts.l1.KanvasPortal.provenWithdrawals(withdrawalHash)
+    return this.contracts.l1.KromaPortal.provenWithdrawals(withdrawalHash)
   }
 
   /**
@@ -1312,7 +1312,7 @@ export class CrossChainMessenger {
 
       const withdrawal = await this.toLowLevelMessage(resolved)
       const proof = await this.getMessageProof(resolved)
-      return this.contracts.l1.KanvasPortal.populateTransaction.proveWithdrawalTransaction(
+      return this.contracts.l1.KromaPortal.populateTransaction.proveWithdrawalTransaction(
         [
           withdrawal.messageNonce,
           withdrawal.sender,
@@ -1355,7 +1355,7 @@ export class CrossChainMessenger {
       }
 
       const withdrawal = await this.toLowLevelMessage(resolved)
-      return this.contracts.l1.KanvasPortal.populateTransaction.finalizeWithdrawalTransaction(
+      return this.contracts.l1.KromaPortal.populateTransaction.finalizeWithdrawalTransaction(
         [
           withdrawal.messageNonce,
           withdrawal.sender,

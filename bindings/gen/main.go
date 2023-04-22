@@ -9,8 +9,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/wemixkanvas/kanvas/bindings/ast"
-	"github.com/wemixkanvas/kanvas/bindings/hardhat"
+	"github.com/kroma-network/kroma/bindings/ast"
+	"github.com/kroma-network/kroma/bindings/hardhat"
 )
 
 type flags struct {
@@ -104,7 +104,7 @@ package {{.Package}}
 import (
 	"encoding/json"
 
-	"github.com/wemixkanvas/kanvas/bindings/solc"
+	"github.com/kroma-network/kroma/bindings/solc"
 )
 
 const {{.Name}}StorageLayoutJSON = "{{.StorageLayout}}"

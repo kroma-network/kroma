@@ -11,10 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	genesis2 "github.com/wemixkanvas/kanvas/utils/chain-ops/genesis"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	genesis2 "github.com/kroma-network/kroma/utils/chain-ops/genesis"
 )
 
 var testingJWTSecret = [32]byte{123}
@@ -136,7 +136,7 @@ type DeploymentsL1 struct {
 	L1StandardBridgeProxy       common.Address
 	L2OutputOracleProxy         common.Address
 	ColosseumProxy              common.Address
-	KanvasPortalProxy           common.Address
+	KromaPortalProxy            common.Address
 	SystemConfigProxy           common.Address
 }
 
@@ -215,7 +215,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		L1ChainID:              new(big.Int).SetUint64(deployConf.L1ChainID),
 		L2ChainID:              new(big.Int).SetUint64(deployConf.L2ChainID),
 		BatchInboxAddress:      deployConf.BatchInboxAddress,
-		DepositContractAddress: predeploys.DevKanvasPortalAddr,
+		DepositContractAddress: predeploys.DevKromaPortalAddr,
 		L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
 		BlueTime:               deployConf.BlueTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 	}
@@ -225,7 +225,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		L1StandardBridgeProxy:       predeploys.DevL1StandardBridgeAddr,
 		L2OutputOracleProxy:         predeploys.DevL2OutputOracleAddr,
 		ColosseumProxy:              predeploys.DevColosseumAddr,
-		KanvasPortalProxy:           predeploys.DevKanvasPortalAddr,
+		KromaPortalProxy:            predeploys.DevKromaPortalAddr,
 		SystemConfigProxy:           predeploys.DevSystemConfigAddr,
 	}
 

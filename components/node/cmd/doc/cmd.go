@@ -9,7 +9,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
 
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/metrics"
 )
 
 var Subcommands = cli.Commands{

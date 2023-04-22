@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/crossdomain"
+	"github.com/kroma-network/kroma/utils/chain-ops/crossdomain"
 )
 
 func FuzzAliasing(f *testing.F) {

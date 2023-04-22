@@ -12,9 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/wemixkanvas/kanvas/components/batcher/metrics"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/utils"
+	"github.com/kroma-network/kroma/components/batcher/metrics"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/utils"
 )
 
 const networkTimeout = 2 * time.Second // How long a single network request can take. TODO: put in a config somewhere
@@ -115,7 +115,7 @@ func (b *BatchSubmitter) calculateL2BlockRangeToStore(ctx context.Context) (eth.
 	}
 
 	// Check last stored to see if it needs to be set on startup OR set if is lagged behind.
-	// It lagging implies that the kanvas-node processed some batches that where submitted prior to the current instance of the kanvas-batcher being alive.
+	// It lagging implies that the kroma-node processed some batches that where submitted prior to the current instance of the kroma-batcher being alive.
 	if b.lastStoredBlock == (eth.BlockID{}) {
 		b.log.Info("Starting batch-submitter work at safe-head", "safe", syncStatus.SafeL2)
 		b.lastStoredBlock = syncStatus.SafeL2.ID()

@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/metrics"
 )
 
 type Client interface {

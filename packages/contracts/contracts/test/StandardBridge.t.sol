@@ -3,7 +3,7 @@ pragma solidity 0.8.15;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import { KanvasMintableERC20 } from "../universal/KanvasMintableERC20.sol";
+import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { StandardBridge } from "../universal/StandardBridge.sol";
 import { CommonTest } from "./CommonTest.t.sol";
 
@@ -17,8 +17,8 @@ contract StandardBridgeTester is StandardBridge {
         StandardBridge(_messenger, _otherBridge)
     {}
 
-    function isKanvasMintableERC20(address _token) external view returns (bool) {
-        return _isKanvasMintableERC20(_token);
+    function isKromaMintableERC20(address _token) external view returns (bool) {
+        return _isKromaMintableERC20(_token);
     }
 
     function isCorrectTokenPair(address _mintableToken, address _otherToken)
@@ -39,7 +39,7 @@ contract StandardBridgeTester is StandardBridge {
  */
 contract StandardBridge_Stateless_Test is CommonTest {
     StandardBridgeTester internal bridge;
-    KanvasMintableERC20 internal mintable;
+    KromaMintableERC20 internal mintable;
     ERC20 internal erc20;
 
     function setUp() public override {
@@ -50,7 +50,7 @@ contract StandardBridge_Stateless_Test is CommonTest {
             _otherBridge: payable(address(0))
         });
 
-        mintable = new KanvasMintableERC20({
+        mintable = new KromaMintableERC20({
             _bridge: address(0),
             _remoteToken: address(0),
             _name: "Stonks",
@@ -61,19 +61,19 @@ contract StandardBridge_Stateless_Test is CommonTest {
     }
 
     /**
-     * @notice Test coverage for identifying KanvasMintableERC20 tokens.
+     * @notice Test coverage for identifying KromaMintableERC20 tokens.
      *         This function should return true for
-     *         KanvasMintableERC20 tokens and false for any accounts that
+     *         KromaMintableERC20 tokens and false for any accounts that
      *         do not implement the interface.
      */
-    function test_isKanvasMintableERC20_succeeds() external {
+    function test_isKromaMintableERC20_succeeds() external {
         // Both the modern and legacy mintable tokens should return true
-        assertTrue(bridge.isKanvasMintableERC20(address(mintable)));
+        assertTrue(bridge.isKromaMintableERC20(address(mintable)));
         // A regular ERC20 should return false
-        assertFalse(bridge.isKanvasMintableERC20(address(erc20)));
+        assertFalse(bridge.isKromaMintableERC20(address(erc20)));
         // Non existent contracts should return false and not revert
         assertEq(address(0x20).code.length, 0);
-        assertFalse(bridge.isKanvasMintableERC20(address(0x20)));
+        assertFalse(bridge.isKromaMintableERC20(address(0x20)));
     }
 
     /**

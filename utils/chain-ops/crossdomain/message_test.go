@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/crossdomain"
+	"github.com/kroma-network/kroma/utils/chain-ops/crossdomain"
 )
 
 // TestEncode tests the encoding of a CrossDomainMessage. The assertion was

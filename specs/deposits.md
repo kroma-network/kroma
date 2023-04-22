@@ -41,7 +41,7 @@ with the authorization and validation conditions on L2.
 - [User-Deposited Transactions](#user-deposited-transactions)
   - [Deposit Contract](#deposit-contract)
     - [Address Aliasing](#address-aliasing)
-    - [Deposit Contract Implementation: Kanvas Portal](#deposit-contract-implementation-kanvas-portal)
+    - [Deposit Contract Implementation: Kroma Portal](#deposit-contract-implementation-kroma-portal)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -345,8 +345,8 @@ contract on L1 has the same address as a contract on L2 but doesn't have the sam
 for EOAs because they're guaranteed to have the same "code" (i.e. no code at all). This also makes
 it possible for users to interact with contracts on L2 even when the [Proposer][g-proposer] is down.
 
-#### Deposit Contract Implementation: Kanvas Portal
+#### Deposit Contract Implementation: Kroma Portal
 
-A reference implementation of the deposit contract can be found in [KanvasPortal.sol].
+A reference implementation of the deposit contract can be found in [KromaPortal.sol].
 
-[KanvasPortal.sol]: ../packages/contracts/contracts/L1/KanvasPortal.sol
+[KromaPortal.sol]: ../packages/contracts/contracts/L1/KromaPortal.sol

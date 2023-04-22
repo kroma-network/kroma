@@ -1,1 +1,1 @@
-# @wemixkanvas/sdk
+# @kroma-network/sdk

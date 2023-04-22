@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/eth"
 )
 
 func randConfig() *Config {

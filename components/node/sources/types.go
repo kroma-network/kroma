@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/eth"
 )
 
 type BatchCallContextFn func(ctx context.Context, b []rpc.BatchElem) error

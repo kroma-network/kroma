@@ -1,19 +1,19 @@
-# @wemixkanvas/sdk
+# @kroma-network/sdk
 
-The `@wemixkanvas/sdk` package provides a set of tools for interacting with Kanvas.
+The `@kroma-network/sdk` package provides a set of tools for interacting with Kroma.
 
 ## Installation
 
 ```shell
-> npm install @wemixkanvas/sdk
+> npm install @kroma-network/sdk
 ```
 
 ## Using the SDK
 
 ### CrossChainMessenger
 
-The [`CrossChainMessenger`] class simplifies the process of moving assets and data between Ethereum and Kanvas.
-You can use this class to, for example, initiate a withdrawal of ERC20 tokens from Kanvas back to Ethereum, accurately
+The [`CrossChainMessenger`] class simplifies the process of moving assets and data between Ethereum and Kroma.
+You can use this class to, for example, initiate a withdrawal of ERC20 tokens from Kroma back to Ethereum, accurately
 track when the withdrawal is ready to be finalized on Ethereum, and execute the finalization transaction after
 the challenge period has elapsed.
 The `CrossChainMessenger` can handle deposits and withdrawals of ETH and any ERC20-compatible token.
@@ -23,8 +23,8 @@ The `CrossChainMessenger` automatically connects to all relevant contracts so co
 
 ### L2Provider and related utilities
 
-The Kanvas SDK includes [various utilities] for handling Kanvas's [transaction fee model].
-For instance, [`estimateTotalGasCost`] will estimate the total cost (in wei) to send at transaction on Kanvas including
+The Kroma SDK includes [various utilities] for handling Kroma's [transaction fee model].
+For instance, [`estimateTotalGasCost`] will estimate the total cost (in wei) to send at transaction on Kroma including
 both the L2 execution cost and the L1 data cost. You can also use the [`asL2Provider`] function to wrap an ethers
 Provider object into an `L2Provider` which will have all of these helper functions attached.
 

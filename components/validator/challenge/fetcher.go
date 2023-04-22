@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	pb "github.com/wemixkanvas/kanvas/components/validator/challenge/kanvas-grpc-proto"
+	"github.com/kroma-network/kroma/components/node/eth"
+	pb "github.com/kroma-network/kroma/components/validator/challenge/prover-grpc-proto"
 )
 
 type Fetcher struct {

@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/eth"
 )
 
 var (
@@ -269,12 +269,12 @@ func (c *Config) Description(l2Chains map[string]string) string {
 	banner += fmt.Sprintf("L2 Chain ID: %v (%s)\n", c.L2ChainID, networkL2)
 	banner += fmt.Sprintf("L1 Chain ID: %v (%s)\n", c.L1ChainID, networkL1)
 	// Report the genesis configuration
-	banner += "Kanvas starting point:\n"
+	banner += "Kroma starting point:\n"
 	banner += fmt.Sprintf("  L2 starting time: %d ~ %s\n", c.Genesis.L2Time, fmtTime(c.Genesis.L2Time))
 	banner += fmt.Sprintf("  L2 block: %s %d\n", c.Genesis.L2.Hash, c.Genesis.L2.Number)
 	banner += fmt.Sprintf("  L1 block: %s %d\n", c.Genesis.L1.Hash, c.Genesis.L1.Number)
 	// Report the upgrade configuration
-	banner += "Kanvas Network Upgrades (timestamp based):\n"
+	banner += "Kroma Network Upgrades (timestamp based):\n"
 	banner += fmt.Sprintf("  - Blue: %s\n", fmtForkTimeOrUnset(c.BlueTime))
 	return banner
 }

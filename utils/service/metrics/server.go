@@ -9,7 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/wemixkanvas/kanvas/utils/service/httputil"
+	"github.com/kroma-network/kroma/utils/service/httputil"
 )
 
 func ListenAndServe(ctx context.Context, r *prometheus.Registry, hostname string, port int) error {

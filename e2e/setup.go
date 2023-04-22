@@ -23,22 +23,22 @@ import (
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	batcher "github.com/wemixkanvas/kanvas/components/batcher"
-	batchermetrics "github.com/wemixkanvas/kanvas/components/batcher/metrics"
-	"github.com/wemixkanvas/kanvas/components/node/chaincfg"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
-	rollupNode "github.com/wemixkanvas/kanvas/components/node/node"
-	"github.com/wemixkanvas/kanvas/components/node/p2p"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/driver"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
-	validator "github.com/wemixkanvas/kanvas/components/validator"
-	"github.com/wemixkanvas/kanvas/e2e/e2eutils"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/genesis"
-	klog "github.com/wemixkanvas/kanvas/utils/service/log"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	batcher "github.com/kroma-network/kroma/components/batcher"
+	batchermetrics "github.com/kroma-network/kroma/components/batcher/metrics"
+	"github.com/kroma-network/kroma/components/node/chaincfg"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/metrics"
+	rollupNode "github.com/kroma-network/kroma/components/node/node"
+	"github.com/kroma-network/kroma/components/node/p2p"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/driver"
+	"github.com/kroma-network/kroma/components/node/sources"
+	"github.com/kroma-network/kroma/components/node/testlog"
+	validator "github.com/kroma-network/kroma/components/validator"
+	"github.com/kroma-network/kroma/e2e/e2eutils"
+	"github.com/kroma-network/kroma/utils/chain-ops/genesis"
+	klog "github.com/kroma-network/kroma/utils/service/log"
 )
 
 var (
@@ -208,7 +208,7 @@ type System struct {
 	Nodes       map[string]*node.Node
 	Backends    map[string]*geth_eth.Ethereum
 	Clients     map[string]*ethclient.Client
-	RollupNodes map[string]*rollupNode.KanvasNode
+	RollupNodes map[string]*rollupNode.KromaNode
 	Validator   *validator.Validator
 	Batcher     *batcher.Batcher
 	Mocknet     mocknet.Mocknet
@@ -273,7 +273,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		Nodes:       make(map[string]*node.Node),
 		Backends:    make(map[string]*geth_eth.Ethereum),
 		Clients:     make(map[string]*ethclient.Client),
-		RollupNodes: make(map[string]*rollupNode.KanvasNode),
+		RollupNodes: make(map[string]*rollupNode.KromaNode),
 	}
 	didErrAfterStart := false
 	defer func() {
@@ -350,7 +350,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			L1ChainID:              cfg.L1ChainIDBig(),
 			L2ChainID:              cfg.L2ChainIDBig(),
 			BatchInboxAddress:      cfg.DeployConfig.BatchInboxAddress,
-			DepositContractAddress: predeploys.DevKanvasPortalAddr,
+			DepositContractAddress: predeploys.DevKromaPortalAddr,
 			L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
 			BlueTime:               cfg.DeployConfig.BlueTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 		}

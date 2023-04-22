@@ -1,7 +1,7 @@
 {
-  "name": "@wemixkanvas/core-utils",
+  "name": "@kroma-network/core-utils",
   "version": "0.1.0",
-  "description": "[Kanvas] Core typescript utilities",
+  "description": "[Kroma] Core typescript utilities",
   "main": "dist/index",
   "types": "dist/index",
   "files": [
@@ -19,17 +19,17 @@
     "test:coverage": "nyc ts-mocha test/*.spec.ts && nyc merge .nyc_output coverage.json"
   },
   "keywords": [
-    "kanvas",
-    "ethereum",
     "core",
+    "ethereum",
+    "kroma",
     "utils"
   ],
-  "homepage": "https://github.com/wemixkanvas/kanvas/tree/dev/packages/core-utils#readme",
+  "homepage": "https://github.com/kroma-network/kroma/tree/dev/packages/core-utils#readme",
   "license": "MIT",
   "author": "Lightscale Inc.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wemixkanvas/kanvas.git"
+    "url": "https://github.com/kroma-network/kroma.git"
   },
   "dependencies": {
     "@ethersproject/abi": "^5.7.0",

@@ -1,1 +1,1 @@
-# @wemixkanvas/hardhat-deploy-config
+# @kroma-network/hardhat-deploy-config

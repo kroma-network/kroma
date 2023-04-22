@@ -15,9 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/bindings/predeploys"
-	"github.com/wemixkanvas/kanvas/utils/chain-ops/deployer"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/bindings/predeploys"
+	"github.com/kroma-network/kroma/utils/chain-ops/deployer"
 )
 
 func TestBuildL1DeveloperGenesis(t *testing.T) {
@@ -39,7 +39,7 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 
 	oracle, err := bindings.NewL2OutputOracle(predeploys.DevL2OutputOracleAddr, sim)
 	require.NoError(t, err)
-	portal, err := bindings.NewKanvasPortal(predeploys.DevKanvasPortalAddr, sim)
+	portal, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, sim)
 	require.NoError(t, err)
 
 	validator, err := oracle.VALIDATOR(callOpts)
@@ -67,7 +67,7 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	require.NoError(t, err)
 	portalAddr, err := msgr.PORTAL(callOpts)
 	require.NoError(t, err)
-	require.Equal(t, predeploys.DevKanvasPortalAddr, portalAddr)
+	require.Equal(t, predeploys.DevKromaPortalAddr, portalAddr)
 
 	bridge, err := bindings.NewL1StandardBridge(predeploys.DevL1StandardBridgeAddr, sim)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, predeploys.L2StandardBridgeAddr, otherBridge)
 
-	factory, err := bindings.NewKanvasMintableERC20(predeploys.DevKanvasMintableERC20FactoryAddr, sim)
+	factory, err := bindings.NewKromaMintableERC20(predeploys.DevKromaMintableERC20FactoryAddr, sim)
 	require.NoError(t, err)
 	bridgeAddr, err := factory.BRIDGE(callOpts)
 	require.NoError(t, err)

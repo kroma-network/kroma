@@ -1,4 +1,4 @@
-module github.com/wemixkanvas/kanvas
+module github.com/kroma-network/kroma
 
 go 1.19
 
@@ -17,6 +17,7 @@ require (
 	github.com/holiman/uint256 v1.2.0
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-ds-leveldb v0.5.0
+	github.com/kroma-network/zktrie v0.5.1-0.20230420142222-950ce7a8ce84
 	github.com/libp2p/go-libp2p v0.25.1
 	github.com/libp2p/go-libp2p-pubsub v0.9.0
 	github.com/libp2p/go-libp2p-testing v0.12.0
@@ -26,7 +27,6 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/stretchr/testify v1.8.1
 	github.com/urfave/cli v1.22.12
-	github.com/wemixkanvas/zktrie v0.5.1-0.20230321054600-5ce3ec3166f9
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
 	golang.org/x/sync v0.1.0
 	golang.org/x/term v0.4.0
@@ -183,4 +183,4 @@ require (
 	nhooyr.io/websocket v1.8.7 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.11.2 => github.com/wemixkanvas/go-ethereum v0.0.0-20230328053528-9aff2c076802
+replace github.com/ethereum/go-ethereum v1.11.2 => github.com/kroma-network/go-ethereum v0.0.0-20230420150551-eb4d010901f6

@@ -13,10 +13,10 @@ const ORDERED_FILE_NAMES = [
   'L1CrossDomainMessenger',
   'L1StandardBridge',
   'L1ERC721Bridge',
-  'KanvasMintableERC20Factory',
+  'KromaMintableERC20Factory',
   'L2OutputOracle',
   'Colosseum',
-  'KanvasPortal',
+  'KromaPortal',
   'SystemConfig',
 ]
 

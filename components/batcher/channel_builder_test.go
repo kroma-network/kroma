@@ -14,10 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	dtest "github.com/wemixkanvas/kanvas/components/node/rollup/derive/test"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	dtest "github.com/kroma-network/kroma/components/node/rollup/derive/test"
 )
 
 var defaultTestChannelConfig = ChannelConfig{

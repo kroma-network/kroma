@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	kcrypto "github.com/wemixkanvas/kanvas/utils/service/crypto"
+	kcrypto "github.com/kroma-network/kroma/utils/service/crypto"
 )
 
 // Geth defaults the priceBump to 10

@@ -19,11 +19,11 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/client"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	"github.com/wemixkanvas/kanvas/components/node/testutils"
+	"github.com/kroma-network/kroma/components/node/client"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/sources"
+	"github.com/kroma-network/kroma/components/node/testutils"
 )
 
 // L2Engine is an in-memory implementation of the Engine API,
@@ -112,7 +112,7 @@ func NewL2Engine(t Testing, log log.Logger, genesis *core.Genesis, rollupGenesis
 			Authenticated: true,
 		},
 	})
-	require.NoError(t, n.Start(), "failed to start L2 kanvas-geth node")
+	require.NoError(t, n.Start(), "failed to start L2 kroma-geth node")
 
 	return eng
 }

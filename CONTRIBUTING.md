@@ -1,4 +1,4 @@
-# Kanvas contributing guide
+# Kroma contributing guide
 
 🎈 Thanks for your help improving the project! We are so happy to have you!
 
@@ -7,15 +7,15 @@
 There are plenty of ways to contribute, in particular we appreciate support in the following areas:
 
 - Reporting issues. For security issues see
-  [Security policy](https://github.com/wemixkanvas/.github/blob/main/SECURITY.md).
+  [Security policy](https://github.com/kroma-network/.github/blob/main/SECURITY.md).
 - Fixing and responding to existing issues. You can start off with those tagged
-  ["good first issue"](https://github.com/wemixkanvas/kanvas/contribute)
+  ["good first issue"](https://github.com/kroma-network/kroma/contribute)
   which are meant as introductory issues for external contributors.
-- Join [Kanvas Discord](https://discord.gg/wemixkanvas) and answer the questions.
+- Join [Kroma Discord](https://discord.gg/kroma) and answer the questions.
 - Get involved in the protocol design process by proposing changes or new features or write parts of the spec yourself
   in the [specs](./specs).
 
-Note that we have a [Code of Conduct](https://github.com/wemixkanvas/.github/blob/main/CODE_OF_CONDUCT.md),
+Note that we have a [Code of Conduct](https://github.com/kroma-network/.github/blob/main/CODE_OF_CONDUCT.md),
 please follow it in all your interactions with the project.
 
 ## Workflow for Pull Requests
@@ -87,8 +87,8 @@ You'll need the following:
 Clone the repository and open it:
 
 ```shell
-> git clone git@github.com:wemixkanvas/kanvas.git
-> cd kanvas
+> git clone git@github.com:kroma-network/kroma.git
+> cd kroma
 ```
 
 ### Install the Correct Version of NodeJS

@@ -7,11 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/metrics"
-	"github.com/wemixkanvas/kanvas/components/node/rollup"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/derive"
-	"github.com/wemixkanvas/kanvas/components/node/rollup/driver"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/metrics"
+	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/rollup/driver"
 )
 
 // MockL1OriginSelector is a shim to override the origin as proposer, so we can force it to stay on an older origin.

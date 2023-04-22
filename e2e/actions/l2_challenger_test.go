@@ -8,12 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/wemixkanvas/kanvas/bindings/bindings"
-	"github.com/wemixkanvas/kanvas/components/node/eth"
-	"github.com/wemixkanvas/kanvas/components/node/sources"
-	"github.com/wemixkanvas/kanvas/components/node/testlog"
-	chal "github.com/wemixkanvas/kanvas/components/validator/challenge"
-	"github.com/wemixkanvas/kanvas/e2e/e2eutils"
+	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/sources"
+	"github.com/kroma-network/kroma/components/node/testlog"
+	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
 func TestChallenger(gt *testing.T) {

@@ -7,7 +7,7 @@ version: '3.4'
 volumes:
   l1_data:
   l2_data:
-  kanvas_log:
+  kroma_log:
 
 
 services:
@@ -30,7 +30,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: wemixkanvas/geth:dev-6ec404a78abc
+    image: kroma-network/geth:dev-6ec404a78abc
     ports:
       - "9545:8545"
       - "9546:8546"
@@ -46,15 +46,15 @@ services:
       - "/entrypoint.sh"
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
 
-  kanvas-node:
+  kroma-node:
     pid: host # allow debugging
     depends_on:
       - l1
       - l2
-    image: "wemixkanvas/kanvas-node"
+    image: "kroma-network/kroma-node"
     build:
       context: ..
-      target: "kanvas-node"
+      target: "kroma-node"
     environment:
       NODE_L1_ETH_RPC: ws://l1:8546
       NODE_L2_ENGINE_RPC: http://l2:8551
@@ -63,7 +63,7 @@ services:
       NODE_RPC_ADDR: 0.0.0.0
       NODE_RPC_PORT: 8545
       NODE_RPC_ENABLE_ADMIN: true
-      NODE_SNAPSHOT_LOG: /kanvas_log/snapshot.log
+      NODE_SNAPSHOT_LOG: /kroma_log/snapshot.log
       NODE_PROPOSER_ENABLED: true
       NODE_PROPOSER_L1_CONFS: 0
       NODE_SYNCER_L1_CONFS: 0
@@ -86,24 +86,24 @@ services:
       - "${PWD}/p2p-node-key.txt:/config/p2p-node-key.txt"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
       - "${PWD}/../.devnet/rollup.json:/rollup.json"
-      - kanvas_log:/kanvas_log
+      - kroma_log:/kroma_log
 
-  kanvas-validator:
+  kroma-validator:
     pid: host # allow debugging
     depends_on:
       - l1
       - l2
-      - kanvas-node
-    image: "wemixkanvas/kanvas-validator"
+      - kroma-node
+    image: "kroma-network/kroma-validator"
     build:
       context: ..
-      target: "kanvas-validator"
+      target: "kroma-validator"
     ports:
       - "6062:6060"
       - "7302:7300"
     environment:
       VALIDATOR_L1_ETH_RPC: http://l1:8545
-      VALIDATOR_ROLLUP_RPC: http://kanvas-node:8545
+      VALIDATOR_ROLLUP_RPC: http://kroma-node:8545
       VALIDATOR_POLL_INTERVAL: 1s
       VALIDATOR_NUM_CONFIRMATIONS: 1
       VALIDATOR_SAFE_ABORT_NONCE_TOO_LOW_COUNT: 3
@@ -118,18 +118,18 @@ services:
       VALIDATOR_ALLOW_NON_FINALIZED: "true"
       VALIDATOR_CHALLENGER_DISABLED: "true"
 
-  kanvas-challenger:
+  kroma-challenger:
     pid: host # allow debugging
     depends_on:
       - l1
       - l2
-      - kanvas-node
+      - kroma-node
     build:
       context: ..
-      target: "kanvas-validator"
+      target: "kroma-validator"
     environment:
       VALIDATOR_L1_ETH_RPC: http://l1:8545
-      VALIDATOR_ROLLUP_RPC: http://kanvas-node:8545
+      VALIDATOR_ROLLUP_RPC: http://kroma-node:8545
       VALIDATOR_POLL_INTERVAL: 1s
       VALIDATOR_NUM_CONFIRMATIONS: 1
       VALIDATOR_SAFE_ABORT_NONCE_TOO_LOW_COUNT: 3
@@ -142,23 +142,23 @@ services:
       VALIDATOR_PROVER_GRPC: "${PROVER_GRPC}"
       VALIDATOR_OUTPUT_SUBMITTER_DISABLED: "true"
 
-  kanvas-batcher:
+  kroma-batcher:
     pid: host # allow debugging
     depends_on:
       - l1
       - l2
-      - kanvas-node
-    image: "wemixkanvas/kanvas-batcher"
+      - kroma-node
+    image: "kroma-network/kroma-batcher"
     build:
       context: ..
-      target: "kanvas-batcher"
+      target: "kroma-batcher"
     ports:
       - "6061:6060"
       - "7301:7300"
     environment:
       BATCHER_L1_ETH_RPC: http://l1:8545
       BATCHER_L2_ETH_RPC: http://l2:8545
-      BATCHER_ROLLUP_RPC: http://kanvas-node:8545
+      BATCHER_ROLLUP_RPC: http://kroma-node:8545
       BATCHER_MAX_L1_TX_SIZE_BYTES: 120000
       BATCHER_TARGET_L1_TX_SIZE_BYTES: 624
       BATCHER_TARGET_NUM_FRAMES: 1
@@ -178,14 +178,14 @@ services:
     pid: host # allow debugging
     build:
       context: ..
-      target: "kanvas-stateviz"
-    image: "wemixkanvas/stateviz"
+      target: "kroma-stateviz"
+    image: "kroma-network/stateviz"
     command:
-      - kanvas-stateviz
+      - kroma-stateviz
       - -addr=0.0.0.0:8080
-      - -snapshot=/kanvas_log/snapshot.log
+      - -snapshot=/kroma_log/snapshot.log
       - -refresh=10s
     ports:
       - "9090:8080"
     volumes:
-      - kanvas_log:/kanvas_log:ro
+      - kroma_log:/kroma_log:ro

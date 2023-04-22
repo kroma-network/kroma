@@ -9,7 +9,7 @@ import { Semver } from "../universal/Semver.sol";
 
 /**
  * @title SystemConfig
- * @notice The SystemConfig contract is used to manage configuration of an Kanvas network. All
+ * @notice The SystemConfig contract is used to manage configuration of a Kroma network. All
  *         configuration is stored on L1 and picked up by L2 as part of the derviation of the L2
  *         chain.
  */
@@ -38,13 +38,13 @@ contract SystemConfig is OwnableUpgradeable, Semver {
     /**
      * @notice Storage slot that the unsafe block signer is stored at. Storing it at this
      *         deterministic storage slot allows for decoupling the storage layout from the way
-     *         that `solc` lays out storage. The `kanvas-node` uses a storage proof to fetch this value.
+     *         that `solc` lays out storage. The `kroma-node` uses a storage proof to fetch this value.
      */
     bytes32 public constant UNSAFE_BLOCK_SIGNER_SLOT = keccak256("systemconfig.unsafeblocksigner");
 
     /**
      * @notice Minimum gas limit. This should not be lower than the maximum deposit gas resource
-     *         limit in the ResourceMetering contract used by KanvasPortal, to ensure the L2
+     *         limit in the ResourceMetering contract used by KromaPortal, to ensure the L2
      *         block always has sufficient gas to process deposits.
      */
     uint64 public constant MINIMUM_GAS_LIMIT = 8_000_000;

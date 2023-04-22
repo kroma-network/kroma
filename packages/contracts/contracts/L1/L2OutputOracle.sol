@@ -10,7 +10,7 @@ import { Semver } from "../universal/Semver.sol";
  * @custom:proxied
  * @title L2OutputOracle
  * @notice The L2OutputOracle contains an array of L2 state outputs, where each output is a
- *         commitment to the state of the L2 chain. Other contracts like the KanvasPortal use
+ *         commitment to the state of the L2 chain. Other contracts like the KromaPortal use
  *         these outputs to verify information about the state of L2.
  */
 contract L2OutputOracle is Initializable, Semver {
