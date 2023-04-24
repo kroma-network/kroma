@@ -203,10 +203,10 @@ func (b *Server) Start() error {
 	}
 }
 
-func (b *Server) Stop() {
+func (b *Server) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = b.httpServer.Shutdown(ctx)
+	return b.httpServer.Shutdown(ctx)
 }
 
 type HealthzResponse struct {
