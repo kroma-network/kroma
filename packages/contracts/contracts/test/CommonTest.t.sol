@@ -409,6 +409,10 @@ contract ERC721Bridge_Initializer is Messenger_Initializer {
 }
 
 contract Colosseum_Initializer is L2OutputOracle_Initializer {
+    uint256 immutable CHAIN_ID = 901;
+    bytes32 immutable DUMMY_HASH = hex"8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9";
+    uint256 immutable MAX_TXS = 25;
+
     // Test target
     Colosseum colosseumImpl;
     Colosseum colosseum;
@@ -440,6 +444,9 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
             zkVerifier,
             submissionInterval,
             timeout,
+            CHAIN_ID,
+            DUMMY_HASH,
+            MAX_TXS,
             segmentsLengths
         );
         vm.prank(multisig);

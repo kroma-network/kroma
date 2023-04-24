@@ -43,6 +43,9 @@ type DeployConfig struct {
 	BatchInboxAddress         common.Address `json:"batchInboxAddress"`
 	BatchSenderAddress        common.Address `json:"batchSenderAddress"`
 
+	DummyHash common.Hash `json:"dummyHash"`
+	MaxTxs    uint64      `json:"maxTxs"`
+
 	L2OutputOracleSubmissionInterval uint64         `json:"l2OutputOracleSubmissionInterval"`
 	L2OutputOracleStartingTimestamp  int            `json:"l2OutputOracleStartingTimestamp"`
 	L2OutputOracleValidator          common.Address `json:"l2OutputOracleValidator"`
@@ -149,6 +152,12 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.BatchSenderAddress == (common.Address{}) {
 		return fmt.Errorf("%w: BatchSenderAddress cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.DummyHash == (common.Hash{}) {
+		return fmt.Errorf("%w: DummyHash cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.MaxTxs == 0 {
+		return fmt.Errorf("%w: MaxTxs cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleSubmissionInterval == 0 {
 		return fmt.Errorf("%w: L2OutputOracleSubmissionInterval cannot be 0", ErrInvalidDeployConfig)

@@ -106,17 +106,7 @@ func TestOutputAtBlock(t *testing.T) {
 	}
 
 	l2Client := &testutils.MockL2Client{}
-	info := &testutils.MockBlockInfo{
-		InfoHash:        header.Hash(),
-		InfoParentHash:  header.ParentHash,
-		InfoCoinbase:    header.Coinbase,
-		InfoRoot:        header.Root,
-		InfoNum:         header.Number.Uint64(),
-		InfoTime:        header.Time,
-		InfoMixDigest:   header.MixDigest,
-		InfoBaseFee:     header.BaseFee,
-		InfoReceiptRoot: header.ReceiptHash,
-	}
+	info := testutils.NewMockBlockInfoWithHeader(&header)
 	ref := eth.L2BlockRef{
 		Hash:           header.Hash(),
 		Number:         header.Number.Uint64(),
@@ -133,7 +123,7 @@ func TestOutputAtBlock(t *testing.T) {
 		L1Origin:       eth.BlockID{},
 		SequenceNumber: 0,
 	}
-	l2Client.ExpectInfoByHash(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), info, nil)
+	l2Client.ExpectInfoByHash(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), &info, nil)
 	l2Client.ExpectGetProof(predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, "0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524", &result, nil)
 
 	drClient := &mockDriverClient{}
@@ -149,7 +139,7 @@ func TestOutputAtBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	var out *eth.OutputResponse
-	err = client.CallContext(context.Background(), &out, "kroma_outputAtBlock", "0xdcdc89")
+	err = client.CallContext(context.Background(), &out, "kroma_outputAtBlock", "0xdcdc89", false)
 	require.NoError(t, err)
 
 	require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000000", out.Version.String())

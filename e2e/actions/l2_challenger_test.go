@@ -84,6 +84,13 @@ func TestChallenger(gt *testing.T) {
 	}
 
 	require.Equal(t, proposer.SyncStatus().UnsafeL2, proposer.SyncStatus().FinalizedL2)
+
+	outputOracleContract, err := bindings.NewL2OutputOracle(sd.DeploymentsL1.L2OutputOracleProxy, miner.EthClient())
+	require.NoError(t, err)
+
+	lastValidBlockNumber, err := outputOracleContract.NextBlockNumber(nil)
+	require.NoError(t, err)
+	mockRPC.SetLastValidBlockNumber(lastValidBlockNumber.Uint64())
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// and submit it to L1
@@ -97,9 +104,6 @@ func TestChallenger(gt *testing.T) {
 	}
 
 	// check that L1 stored the expected output root
-	outputOracleContract, err := bindings.NewL2OutputOracle(sd.DeploymentsL1.L2OutputOracleProxy, miner.EthClient())
-	require.NoError(t, err)
-
 	// NOTE(chokobole): Comment these 2 lines because of the reason above about the Blue hard fork.
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
 	// block := proposer.SyncStatus().FinalizedL2
@@ -111,7 +115,7 @@ func TestChallenger(gt *testing.T) {
 	block, err := propEngine.EthClient().BlockByNumber(t.Ctx(), blockNum)
 	require.NoError(t, err)
 	require.Less(t, block.Time(), outputOnL1.Timestamp.Uint64(), "output is registered with L1 timestamp of L2 tx output submission, past L2 block")
-	outputComputed, err := proposer.RollupClient().OutputAtBlock(t.Ctx(), blockNum.Uint64())
+	outputComputed, err := proposer.RollupClient().OutputAtBlock(t.Ctx(), blockNum.Uint64(), false)
 	require.NoError(t, err)
 	require.NotEqual(t, eth.Bytes32(outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
@@ -145,10 +149,6 @@ interaction:
 			// call bisect by challenger
 			txHash = challenger.ActBisect(t)
 		case chal.StatusAsserterTurn:
-			sender = dp.Addresses.Validator
-			challenge, err := colosseumContract.GetChallengeInProgress(nil)
-			require.NoError(t, err)
-			mockRPC.SetSegmentStart(challenge.SegStart)
 			// call bisect by validator
 			txHash = asserter.ActBisect(t)
 		case chal.StatusAsserterTimeout:

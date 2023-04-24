@@ -2,7 +2,6 @@ package e2eutils
 
 import (
 	"context"
-	"math/big"
 	"math/rand"
 
 	"github.com/ethereum/go-ethereum"
@@ -15,16 +14,17 @@ import (
 )
 
 type MockL2RPC struct {
-	rpc      client.RPC
-	segStart *big.Int
+	rpc                  client.RPC
+	lastValidBlockNumber *hexutil.Uint64
 }
 
 func NewRPC(rpc client.RPC) *MockL2RPC {
 	return &MockL2RPC{rpc: rpc}
 }
 
-func (m *MockL2RPC) SetSegmentStart(start *big.Int) {
-	m.segStart = start
+func (m *MockL2RPC) SetLastValidBlockNumber(lastValidBlockNumber uint64) {
+	m.lastValidBlockNumber = new(hexutil.Uint64)
+	*m.lastValidBlockNumber = hexutil.Uint64(lastValidBlockNumber)
 }
 
 func (m *MockL2RPC) Close() {
@@ -34,12 +34,13 @@ func (m *MockL2RPC) Close() {
 func (m *MockL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	if method == "kroma_outputAtBlock" {
 		blockNumber := args[0].(hexutil.Uint64)
+		includeNextBlock := args[1].(bool)
 
-		err := m.rpc.CallContext(ctx, &result, "kroma_outputAtBlock", blockNumber)
+		err := m.rpc.CallContext(ctx, &result, "kroma_outputAtBlock", blockNumber, includeNextBlock)
 		if err != nil {
 			return err
 		}
-		if m.segStart == nil || uint64(blockNumber) != m.segStart.Uint64() {
+		if m.lastValidBlockNumber != nil && *m.lastValidBlockNumber < blockNumber {
 			rng := rand.New(rand.NewSource(int64(blockNumber)))
 
 			s := result.(**eth.OutputResponse)

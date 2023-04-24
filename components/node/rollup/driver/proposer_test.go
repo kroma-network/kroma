@@ -242,15 +242,21 @@ func TestProposerChaosMonkey(t *testing.T) {
 			seqNr = 0
 		}
 		l1Info := &testutils.MockBlockInfo{
-			InfoHash:        epoch.Hash,
-			InfoParentHash:  mockL1Hash(epoch.Number - 1),
-			InfoCoinbase:    common.Address{},
-			InfoRoot:        common.Hash{},
-			InfoNum:         epoch.Number,
-			InfoTime:        l1Times[epoch],
-			InfoMixDigest:   [32]byte{},
-			InfoBaseFee:     big.NewInt(1234),
-			InfoReceiptRoot: common.Hash{},
+			InfoHash:             epoch.Hash,
+			InfoParentHash:       mockL1Hash(epoch.Number - 1),
+			InfoCoinbase:         common.Address{},
+			InfoRoot:             common.Hash{},
+			InfoNum:              epoch.Number,
+			InfoTime:             l1Times[epoch],
+			InfoMixDigest:        [32]byte{},
+			InfoBaseFee:          big.NewInt(1234),
+			InfoTransactionsRoot: common.Hash{},
+			InfoReceiptRoot:      common.Hash{},
+			InfoWithdrawalsRoot:  nil,
+			InfoGasUsed:          0,
+			InfoGasLimit:         0,
+			InfoBloom:            types.Bloom{},
+			InfoExtra:            []byte{},
 		}
 		infoDep, err := derive.L1InfoDepositBytes(seqNr, l1Info, cfg.Genesis.SystemConfig)
 		require.NoError(t, err)

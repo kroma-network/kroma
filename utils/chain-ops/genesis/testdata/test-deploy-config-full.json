@@ -9,6 +9,8 @@
   "p2pProposerAddress": "0x0000000000000000000000000000000000000000",
   "batchInboxAddress": "0x42000000000000000000000000000000000000ff",
   "batchSenderAddress": "0x0000000000000000000000000000000000000000",
+  "dummyHash": "0x8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9",
+  "maxTxs": 25,
   "l2OutputOracleSubmissionInterval": 6,
   "l2OutputOracleStartingTimestamp": -1,
   "l2OutputOracleValidator": "0x7770000000000000000000000000000000000001",

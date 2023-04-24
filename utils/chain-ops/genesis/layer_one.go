@@ -332,6 +332,9 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			Args: []interface{}{
 				uint642Big(config.L2OutputOracleSubmissionInterval),
 				uint642Big(config.ColosseumChallengeTimeout),
+				uint642Big(config.L2ChainID),
+				config.DummyHash,
+				uint642Big(config.MaxTxs),
 				parseSegsLengthsConfig(config.ColosseumSegmentsLengths),
 			},
 		},
@@ -405,7 +408,10 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			predeploys.DevZKVerifierAddr,
 			/* submissionInterval= */ deployment.Args[0].(*big.Int),
 			/* challengeTimeout= */ deployment.Args[1].(*big.Int),
-			/* segmentsLengths= */ deployment.Args[2].([]*big.Int),
+			/* chainId= */ deployment.Args[2].(*big.Int),
+			/* dummyHash= */ deployment.Args[3].(common.Hash),
+			/* maxTxs= */ deployment.Args[4].(*big.Int),
+			/* segmentsLengths= */ deployment.Args[5].([]*big.Int),
 		)
 	case "L1CrossDomainMessenger":
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(

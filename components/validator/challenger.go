@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,13 +24,11 @@ type ProofFetcher interface {
 }
 
 type Challenger struct {
-	wg   sync.WaitGroup
 	done chan struct{}
 	log  log.Logger
 	cfg  Config
 
 	ctx      context.Context
-	cancel   context.CancelFunc
 	callOpts *bind.CallOpts
 	txOpts   *bind.TransactOpts
 
@@ -89,13 +86,14 @@ func (c *Challenger) GetChallengeInProgress() (bindings.TypesChallenge, error) {
 	return c.colosseumContract.GetChallengeInProgress(c.callOpts)
 }
 
-func (c *Challenger) OutputAtBlockSafe(blockNumber uint64) (*eth.OutputResponse, error) {
-	output, err := c.cfg.RollupClient.OutputAtBlock(c.ctx, blockNumber)
+func (c *Challenger) OutputAtBlockSafe(blockNumber uint64, includeNextBlock bool) (*eth.OutputResponse, error) {
+	output, err := c.cfg.RollupClient.OutputAtBlock(c.ctx, blockNumber, includeNextBlock)
 	if err != nil {
 		return nil, err
 	}
 
 	if blockNumber == 0 {
+		// TODO(chokobole): Enable dispute resolution including genesis output root.
 		output.OutputRoot = eth.Bytes32{}
 	}
 
@@ -122,7 +120,8 @@ func (c *Challenger) GetInvalidOutputRange() (*OutputRange, error) {
 	if c.checkpoint == nil {
 		waitingOutputs := new(big.Int).Div(c.finalizationPeriodSeconds, c.submissionInterval)
 		if latestOutputIndex.Cmp(waitingOutputs) == -1 {
-			c.checkpoint = common.Big0
+			// TODO(chokobole): Enable dispute resolution including genesis output root.
+			c.checkpoint = common.Big1
 		} else if waitingOutputs.Cmp(common.Big0) == 0 {
 			c.checkpoint = latestOutputIndex
 			return nil, nil
@@ -137,7 +136,7 @@ func (c *Challenger) GetInvalidOutputRange() (*OutputRange, error) {
 			return nil, err
 		}
 
-		knownOutput, err := c.OutputAtBlockSafe(output.L2BlockNumber.Uint64())
+		knownOutput, err := c.OutputAtBlockSafe(output.L2BlockNumber.Uint64(), false)
 		if err != nil {
 			return nil, err
 		}
@@ -262,12 +261,13 @@ func (c *Challenger) BuildSegments(turn, segStart, segSize uint64) (*chal.Segmen
 	segments := chal.NewEmptySegments(segStart, segSize, sections.Uint64())
 
 	for i, blockNumber := range segments.BlockNumbers() {
+		// TODO(chokobole): Enable dispute resolution including genesis output root.
 		if blockNumber == 0 {
 			segments.SetHashValue(0, eth.Bytes32{})
 			continue
 		}
 
-		output, err := c.OutputAtBlockSafe(blockNumber)
+		output, err := c.OutputAtBlockSafe(blockNumber, false)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get output %d: %w", blockNumber, err)
 		}
@@ -280,7 +280,7 @@ func (c *Challenger) BuildSegments(turn, segStart, segSize uint64) (*chal.Segmen
 
 func (c *Challenger) selectFaultPosition(segments *chal.Segments) (*big.Int, error) {
 	for i, blockNumber := range segments.BlockNumbers() {
-		output, err := c.OutputAtBlockSafe(blockNumber)
+		output, err := c.OutputAtBlockSafe(blockNumber, false)
 		if err != nil {
 			return nil, err
 		}
@@ -356,24 +356,42 @@ func (c *Challenger) ProveFault() (*types.Transaction, error) {
 		return nil, err
 	}
 
-	blockNumber := challenge.SegStart.Uint64() + position.Uint64() + 1
-	output, err := c.OutputAtBlockSafe(blockNumber)
+	blockNumber := challenge.SegStart.Uint64() + position.Uint64()
+	srcOutput, err := c.OutputAtBlockSafe(blockNumber, true)
 	if err != nil {
 		return nil, err
 	}
 
-	fetchResult, err := c.fetcher.FetchProofAndPair(output.BlockRef)
+	dstOutput, err := c.OutputAtBlockSafe(blockNumber+1, false)
+	if err != nil {
+		return nil, err
+	}
+
+	fetchResult, err := c.fetcher.FetchProofAndPair(dstOutput.BlockRef)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"%w: blockNumber: %d, blockHash: %s",
-			err, output.BlockRef.Number, output.BlockRef.Hash,
+			err, dstOutput.BlockRef.Number, dstOutput.BlockRef.Hash,
 		)
+	}
+
+	publicInput, err := srcOutput.ToPublicInput(c.cfg.RollupConfig.L2ChainID)
+	if err != nil {
+		return nil, err
+	}
+
+	blockHeaderRLP, err := srcOutput.ToBlockHeaderRLP()
+	if err != nil {
+		return nil, err
 	}
 
 	return c.colosseumContract.ProveFault(
 		c.txOpts,
 		position,
-		output.OutputRoot,
+		srcOutput.ToOutputRootProof(),
+		dstOutput.ToOutputRootProof(),
+		publicInput,
+		blockHeaderRLP,
 		fetchResult.Proof,
 		fetchResult.Pair,
 	)
