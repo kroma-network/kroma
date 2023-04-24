@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
@@ -16,12 +15,10 @@ import (
 	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/utils"
-	kcrypto "github.com/kroma-network/kroma/utils/service/crypto"
 	klog "github.com/kroma-network/kroma/utils/service/log"
 	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
 	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 	"github.com/kroma-network/kroma/utils/service/txmgr"
-	ksigner "github.com/kroma-network/kroma/utils/signer/client"
 )
 
 type Config struct {
@@ -30,13 +27,12 @@ type Config struct {
 	L1Client     *ethclient.Client
 	L2Client     *ethclient.Client
 	RollupClient *sources.RollupClient
+	TxManager    txmgr.TxManager
 
-	PollInterval time.Duration
-	From         common.Address
+	NetworkTimeout time.Duration
+	PollInterval   time.Duration
 
-	TxManagerConfig txmgr.Config
-
-	// RollupConfig is queried at startup
+	// Rollup config is queried at startup
 	Rollup *rollup.Config
 
 	// Channel builder parameters
@@ -55,8 +51,6 @@ func (c *Config) Check() error {
 }
 
 type CLIConfig struct {
-	/* Required Params */
-
 	// L1EthRpc is the HTTP provider URL for L1.
 	L1EthRpc string
 
@@ -70,8 +64,6 @@ type CLIConfig struct {
 	// channel open. This allows to more eagerly send batcher transactions
 	// during times of low L2 transaction volume. Note that the effective
 	// L1-block distance between batcher transactions is then MaxChannelDuration
-	// + NumConfirmations because the batcher waits for NumConfirmations blocks
-	// after sending a batcher tx and only then starts a new channel.
 	//
 	// If 0, duration checks are disabled.
 	MaxChannelDuration uint64
@@ -84,34 +76,6 @@ type CLIConfig struct {
 	// PollInterval is the delay between querying L2 for more transaction
 	// and creating a new batch.
 	PollInterval time.Duration
-
-	// NumConfirmations is the number of confirmations which we will wait after
-	// appending new batches.
-	NumConfirmations uint64
-
-	// SafeAbortNonceTooLowCount is the number of ErrNonceTooLowObservations
-	// required to give up on a tx at a particular nonce without receiving
-	// confirmation.
-	SafeAbortNonceTooLowCount uint64
-
-	// ResubmissionTimeout is time we will wait before resubmitting a
-	// transaction.
-	ResubmissionTimeout time.Duration
-
-	// Mnemonic is the HD seed used to derive the wallet private keys for
-	// the batcher.
-	Mnemonic string
-
-	// HDPath is the derivation path used to obtain the private key for
-	// the batcher.
-	HDPath string
-
-	// PrivateKey is the private key used for the batcher.
-	PrivateKey string
-
-	RPCConfig rpc.CLIConfig
-
-	/* Optional Params */
 
 	// MaxL1TxSize is the maximum size of a batch tx submitted to L1.
 	MaxL1TxSize uint64
@@ -126,14 +90,11 @@ type CLIConfig struct {
 	// compression algorithm.
 	ApproxComprRatio float64
 
-	LogConfig klog.CLIConfig
-
+	TxMgrConfig   txmgr.CLIConfig
+	RPCConfig     rpc.CLIConfig
+	LogConfig     klog.CLIConfig
 	MetricsConfig kmetrics.CLIConfig
-
-	PprofConfig kpprof.CLIConfig
-
-	// SignerConfig contains the client config for signer service
-	SignerConfig ksigner.CLIConfig
+	PprofConfig   kpprof.CLIConfig
 }
 
 func (c CLIConfig) Check() error {
@@ -149,7 +110,7 @@ func (c CLIConfig) Check() error {
 	if err := c.PprofConfig.Check(); err != nil {
 		return err
 	}
-	if err := c.SignerConfig.Check(); err != nil {
+	if err := c.TxMgrConfig.Check(); err != nil {
 		return err
 	}
 	return nil
@@ -158,42 +119,32 @@ func (c CLIConfig) Check() error {
 // NewCLIConfig parses the CLIConfig from the provided flags or environment variables.
 func NewCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
-		/* Required Flags */
-		L1EthRpc:                  ctx.GlobalString(flags.L1EthRpcFlag.Name),
-		L2EthRpc:                  ctx.GlobalString(flags.L2EthRpcFlag.Name),
-		RollupRpc:                 ctx.GlobalString(flags.RollupRpcFlag.Name),
-		SubSafetyMargin:           ctx.GlobalUint64(flags.SubSafetyMarginFlag.Name),
-		PollInterval:              ctx.GlobalDuration(flags.PollIntervalFlag.Name),
-		NumConfirmations:          ctx.GlobalUint64(flags.NumConfirmationsFlag.Name),
-		SafeAbortNonceTooLowCount: ctx.GlobalUint64(flags.SafeAbortNonceTooLowCountFlag.Name),
-		ResubmissionTimeout:       ctx.GlobalDuration(flags.ResubmissionTimeoutFlag.Name),
+		// Required Flags
+		L1EthRpc:        ctx.GlobalString(flags.L1EthRpcFlag.Name),
+		L2EthRpc:        ctx.GlobalString(flags.L2EthRpcFlag.Name),
+		RollupRpc:       ctx.GlobalString(flags.RollupRpcFlag.Name),
+		SubSafetyMargin: ctx.GlobalUint64(flags.SubSafetyMarginFlag.Name),
+		PollInterval:    ctx.GlobalDuration(flags.PollIntervalFlag.Name),
 
-		/* Optional Flags */
+		// Optional Flags
 		MaxChannelDuration: ctx.GlobalUint64(flags.MaxChannelDurationFlag.Name),
 		MaxL1TxSize:        ctx.GlobalUint64(flags.MaxL1TxSizeBytesFlag.Name),
 		TargetL1TxSize:     ctx.GlobalUint64(flags.TargetL1TxSizeBytesFlag.Name),
 		TargetNumFrames:    ctx.GlobalInt(flags.TargetNumFramesFlag.Name),
 		ApproxComprRatio:   ctx.GlobalFloat64(flags.ApproxComprRatioFlag.Name),
-		Mnemonic:           ctx.GlobalString(flags.MnemonicFlag.Name),
-		HDPath:             ctx.GlobalString(flags.HDPathFlag.Name),
-		PrivateKey:         ctx.GlobalString(flags.PrivateKeyFlag.Name),
+		TxMgrConfig:        txmgr.ReadCLIConfig(ctx),
 		RPCConfig:          rpc.ReadCLIConfig(ctx),
 		LogConfig:          klog.ReadCLIConfig(ctx),
 		MetricsConfig:      kmetrics.ReadCLIConfig(ctx),
 		PprofConfig:        kpprof.ReadCLIConfig(ctx),
-		SignerConfig:       ksigner.ReadCLIConfig(ctx),
 	}
 }
 
 // NewBatcherConfig creates a batcher config with given the CLIConfig
 func NewBatcherConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Config, error) {
-	signer, fromAddress, err := kcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, cfg.HDPath, cfg.SignerConfig)
-	if err != nil {
-		return nil, err
-	}
+	ctx := context.Background()
 
 	// Connect to L1 and L2 providers. Perform these last since they are the most expensive.
-	ctx := context.Background()
 	l1Client, err := utils.DialEthClientWithTimeout(ctx, cfg.L1EthRpc)
 	if err != nil {
 		return nil, err
@@ -214,25 +165,21 @@ func NewBatcherConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Config,
 		return nil, fmt.Errorf("querying rollup config: %w", err)
 	}
 
-	txMgrCfg := txmgr.Config{
-		ResubmissionTimeout:       cfg.ResubmissionTimeout,
-		ReceiptQueryInterval:      time.Second,
-		NumConfirmations:          cfg.NumConfirmations,
-		SafeAbortNonceTooLowCount: cfg.SafeAbortNonceTooLowCount,
-		From:                      fromAddress,
-		Signer:                    signer(rcfg.L1ChainID),
+	txManager, err := txmgr.NewSimpleTxManager("batcher", l, m, cfg.TxMgrConfig)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Config{
-		log:             l,
-		metr:            m,
-		L1Client:        l1Client,
-		L2Client:        l2Client,
-		RollupClient:    rollupClient,
-		PollInterval:    cfg.PollInterval,
-		TxManagerConfig: txMgrCfg,
-		From:            fromAddress,
-		Rollup:          rcfg,
+		log:            l,
+		metr:           m,
+		L1Client:       l1Client,
+		L2Client:       l2Client,
+		RollupClient:   rollupClient,
+		PollInterval:   cfg.PollInterval,
+		NetworkTimeout: cfg.TxMgrConfig.NetworkTimeout,
+		TxManager:      txManager,
+		Rollup:         rcfg,
 		Channel: ChannelConfig{
 			ProposerWindowSize: rcfg.ProposerWindowSize,
 			ChannelTimeout:     rcfg.ChannelTimeout,

@@ -43,7 +43,7 @@ type SignerFactory func(chainID *big.Int) SignerFn
 
 // SignerFactoryFromConfig considers three ways that signers are created & then creates single factory from those config options.
 // It can either take a remote signer (via ksigner.CLIConfig) or it can be provided either a mnemonic + derivation path or a private key.
-// It prefers the remote signer, then the mnemonic or private key (only one of which can be provided).
+// It prefers the remote signer, to the mnemonic or private key (only one of which can be provided).
 func SignerFactoryFromConfig(l log.Logger, privateKey, mnemonic, hdPath string, signerConfig ksigner.CLIConfig) (SignerFactory, common.Address, error) {
 	var signer SignerFactory
 	var fromAddress common.Address

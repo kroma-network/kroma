@@ -32,7 +32,7 @@ func MaybeStartMetrics(ctx context.Context, cfg metrics.CLIConfig, l log.Logger,
 		l.Info("starting metrics server", "addr", cfg.ListenAddr, "port", cfg.ListenPort)
 		go func() {
 			if err := metrics.ListenAndServe(ctx, registry, cfg.ListenAddr, cfg.ListenPort); err != nil {
-				l.Error("failed to start metrics server", err)
+				l.Error("failed to start metrics server", "err", err)
 			}
 		}()
 
