@@ -4,9 +4,13 @@ import (
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/rollup/derive"
 	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
+	txmetrics "github.com/kroma-network/kroma/utils/service/txmgr/metrics"
 )
 
-type noopMetrics struct{ kmetrics.NoopRefMetrics }
+type noopMetrics struct {
+	kmetrics.NoopRefMetrics
+	txmetrics.NoopTxMetrics
+}
 
 var NoopMetrics Metricer = new(noopMetrics)
 

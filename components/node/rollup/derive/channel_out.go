@@ -15,9 +15,11 @@ import (
 	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
-var ErrMaxFrameSizeTooSmall = errors.New("maxSize is too small to fit the fixed frame overhead")
-var ErrNotDepositTx = errors.New("first transaction in block is not a deposit tx")
-var ErrTooManyRLPBytes = errors.New("batch would cause RLP bytes to go over limit")
+var (
+	ErrMaxFrameSizeTooSmall = errors.New("maxSize is too small to fit the fixed frame overhead")
+	ErrNotDepositTx         = errors.New("first transaction in block is not a deposit tx")
+	ErrTooManyRLPBytes      = errors.New("batch would cause RLP bytes to go over limit")
+)
 
 // FrameV0OverHeadSize is the absolute minimum size of a frame.
 // This is the fixed overhead frame size, calculated as specified

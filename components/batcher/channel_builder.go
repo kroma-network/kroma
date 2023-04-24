@@ -13,14 +13,13 @@ import (
 )
 
 var (
-	ErrZeroMaxFrameSize      = errors.New("max frame size cannot be zero")
-	ErrSmallMaxFrameSize     = errors.New("max frame size cannot be less than 23")
 	ErrInvalidChannelTimeout = errors.New("channel timeout is less than the safety margin")
 	ErrInputTargetReached    = errors.New("target amount of input data reached")
 	ErrMaxFrameIndex         = errors.New("max frame index reached (uint16)")
 	ErrMaxDurationReached    = errors.New("max channel duration reached")
 	ErrChannelTimeoutClose   = errors.New("close to channel timeout")
 	ErrProposerWindowClose   = errors.New("close to proposer window timeout")
+	ErrTerminated            = errors.New("channel terminated")
 )
 
 type ChannelFullError struct {
@@ -84,15 +83,15 @@ func (cc *ChannelConfig) Check() error {
 	// will infinitely loop when trying to create frames in the
 	// [channelBuilder.OutputFrames] function.
 	if cc.MaxFrameSize == 0 {
-		return ErrZeroMaxFrameSize
+		return errors.New("max frame size cannot be zero")
 	}
 
-	// If the [MaxFrameSize] is set to < 23, the channel out
-	// will underflow the maxSize variable in the [derive.ChannelOut].
+	// If the [MaxFrameSize] is less than [FrameV0OverHeadSize], the channel
+	// out will underflow the maxSize variable in the [derive.ChannelOut].
 	// Since it is of type uint64, it will wrap around to a very large
 	// number, making the frame size extremely large.
-	if cc.MaxFrameSize < 23 {
-		return ErrSmallMaxFrameSize
+	if cc.MaxFrameSize < derive.FrameV0OverHeadSize {
+		return fmt.Errorf("max frame size %d is less than the minimum 23", cc.MaxFrameSize)
 	}
 
 	return nil
@@ -310,16 +309,17 @@ func (c *channelBuilder) IsFull() bool {
 // FullErr returns the reason why the channel is full. If not full yet, it
 // returns nil.
 //
-// It returns a ChannelFullError wrapping one of six possible reasons for the
-// channel being full:
+// It returns a ChannelFullError wrapping one of the following possible reasons
+// for the channel being full:
 //   - ErrInputTargetReached if the target amount of input data has been reached,
 //   - derive.MaxRLPBytesPerChannel if the general maximum amount of input data
 //     would have been exceeded by the latest AddBlock call,
 //   - ErrMaxFrameIndex if the maximum number of frames has been generated
 //     (uint16),
-//   - ErrMaxDurationReached if the max channel duration got reached.
-//   - ErrChannelTimeoutClose if the consensus channel timeout got too close.
-//   - ErrProposerWindowClose if the end of the proposer window got too close.
+//   - ErrMaxDurationReached if the max channel duration got reached,
+//   - ErrChannelTimeoutClose if the consensus channel timeout got too close,
+//   - ErrProposerWindowClose if the end of the proposer window got too close,
+//   - ErrTerminated if the channel was explicitly terminated.
 func (c *channelBuilder) FullErr() error {
 	return c.fullErr
 }
@@ -403,6 +403,14 @@ func (c *channelBuilder) outputFrame() error {
 	c.frames = append(c.frames, frame)
 	c.outputBytes += len(frame.data)
 	return err // possibly io.EOF (last frame)
+}
+
+// Close immediately marks the channel as full with an ErrTerminated
+// if the channel is not already full.
+func (c *channelBuilder) Close() {
+	if !c.IsFull() {
+		c.setFullErr(ErrTerminated)
+	}
 }
 
 // HasFrame returns whether there's any available frame. If true, it can be
