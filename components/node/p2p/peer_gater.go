@@ -40,36 +40,36 @@ func NewPeerGater(connGater ConnectionGater, log log.Logger, banEnabled bool) Pe
 }
 
 // IsBlocked returns true if the given [peer.ID] is blocked.
-func (s *gater) IsBlocked(peerID peer.ID) bool {
-	return s.blockedMap[peerID]
+func (g *gater) IsBlocked(peerID peer.ID) bool {
+	return g.blockedMap[peerID]
 }
 
 // setBlocked sets the blocked status of the given [peer.ID].
-func (s *gater) setBlocked(peerID peer.ID, blocked bool) {
-	s.blockedMap[peerID] = blocked
+func (g *gater) setBlocked(peerID peer.ID, blocked bool) {
+	g.blockedMap[peerID] = blocked
 }
 
 // Update handles a peer score update and blocks/unblocks the peer if necessary.
-func (s *gater) Update(id peer.ID, score float64) {
+func (g *gater) Update(id peer.ID, score float64) {
 	// Check if the peer score is below the threshold
 	// If so, we need to block the peer
-	isAlreadyBlocked := s.IsBlocked(id)
-	if score < PeerScoreThreshold && s.banEnabled && !isAlreadyBlocked {
-		s.log.Warn("peer blocking enabled, blocking peer", "id", id.String(), "score", score)
-		err := s.connGater.BlockPeer(id)
+	isAlreadyBlocked := g.IsBlocked(id)
+	if score < PeerScoreThreshold && g.banEnabled && !isAlreadyBlocked {
+		g.log.Warn("peer blocking enabled, blocking peer", "id", id.String(), "score", score)
+		err := g.connGater.BlockPeer(id)
 		if err != nil {
-			s.log.Warn("connection gater failed to block peer", id.String(), "err", err)
+			g.log.Warn("connection gater failed to block peer", id.String(), "err", err)
 		}
 		// Set the peer as blocked in the blocked map
-		s.setBlocked(id, true)
+		g.setBlocked(id, true)
 	}
 	// Unblock peers whose score has recovered to an acceptable level
 	if (score > PeerScoreThreshold) && isAlreadyBlocked {
-		err := s.connGater.UnblockPeer(id)
+		err := g.connGater.UnblockPeer(id)
 		if err != nil {
-			s.log.Warn("connection gater failed to unblock peer", id.String(), "err", err)
+			g.log.Warn("connection gater failed to unblock peer", id.String(), "err", err)
 		}
 		// Set the peer as unblocked in the blocked map
-		s.setBlocked(id, false)
+		g.setBlocked(id, false)
 	}
 }
