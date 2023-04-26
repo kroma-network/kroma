@@ -19,8 +19,6 @@ import (
 	"github.com/kroma-network/kroma/utils"
 )
 
-var OutputsPerWeek = big.NewInt(24 * 7)
-
 type ProofFetcher interface {
 	FetchProofAndPair(blockRef eth.L2BlockRef) (*chal.ProofAndPair, error)
 	Close() error
@@ -40,9 +38,10 @@ type Challenger struct {
 	l2ooContract      *bindings.L2OutputOracle
 	colosseumContract *bindings.Colosseum
 
-	fetcher            ProofFetcher
-	submissionInterval *big.Int
-	checkpoint         *big.Int
+	fetcher                   ProofFetcher
+	submissionInterval        *big.Int
+	finalizationPeriodSeconds *big.Int
+	checkpoint                *big.Int
 }
 
 func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, error) {
@@ -60,6 +59,11 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, 
 		return nil, fmt.Errorf("failed to get submission interval: %w", err)
 	}
 
+	finalizationPeriodSeconds, err := l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get finalization period seconds: %w", err)
+	}
+
 	return &Challenger{
 		done:     make(chan struct{}),
 		log:      l,
@@ -71,8 +75,9 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, 
 		l2ooContract:      l2ooContract,
 		colosseumContract: colosseumContract,
 
-		fetcher:            cfg.ProofFetcher,
-		submissionInterval: submissionInterval,
+		fetcher:                   cfg.ProofFetcher,
+		submissionInterval:        submissionInterval,
+		finalizationPeriodSeconds: finalizationPeriodSeconds,
 	}, nil
 }
 
@@ -115,10 +120,14 @@ func (c *Challenger) GetInvalidOutputRange() (*OutputRange, error) {
 	latestOutputIndex := new(big.Int).Sub(nextOutputIndex, common.Big1)
 
 	if c.checkpoint == nil {
-		if latestOutputIndex.Cmp(OutputsPerWeek) == -1 {
-			c.checkpoint = new(big.Int)
+		waitingOutputs := new(big.Int).Div(c.finalizationPeriodSeconds, c.submissionInterval)
+		if latestOutputIndex.Cmp(waitingOutputs) == -1 {
+			c.checkpoint = common.Big0
+		} else if waitingOutputs.Cmp(common.Big0) == 0 {
+			c.checkpoint = latestOutputIndex
+			return nil, nil
 		} else {
-			c.checkpoint = new(big.Int).Sub(latestOutputIndex, OutputsPerWeek)
+			c.checkpoint = new(big.Int).Mod(latestOutputIndex, waitingOutputs)
 		}
 	}
 
