@@ -6,8 +6,9 @@ import (
 	"path"
 	"testing"
 
-	"github.com/kroma-network/kroma/bindings/solc"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kroma-network/kroma/bindings/solc"
 )
 
 type astIDTest struct {

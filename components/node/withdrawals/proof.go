@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/poseidon"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/ethereum/go-ethereum/trie"
-
 	zktrie "github.com/kroma-network/zktrie/trie"
 	zkt "github.com/kroma-network/zktrie/types"
 )
