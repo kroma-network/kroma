@@ -99,6 +99,8 @@ where:
 
 1. The `next_block_hash` (`bytes32`) is the next block hash for the block that is next to the `block_hash`.
 
+Starting from version 1, the height of the block where the output is submitted has been delayed by one.
+
 ## The L2 Output Oracle Contract
 
 L2 blocks are produced at a constant rate of `L2_BLOCK_TIME` (2 seconds).
@@ -126,7 +128,7 @@ interface L2OutputOracle {
 The `startingBlockNumber` must be at least the number of the first recorded L2 block.
 The `startingTimestamp` MUST be the same as the timestamp of the first recorded L2 block.
 
-The first `outputRoot` submitted will thus be at height `startingBlockNumber + SUBMISSION_INTERVAL`
+The first `outputRoot` submitted will thus be at height `startingBlockNumber + SUBMISSION_INTERVAL`.
 
 ## Security Considerations
 

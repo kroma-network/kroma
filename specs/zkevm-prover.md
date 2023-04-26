@@ -2,7 +2,6 @@
 
 <!-- All glossary references in this file. -->
 
-[g-l2-output]: glossary.md#l2-output-root
 [g-state]: glossary.md#state
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 
@@ -37,15 +36,77 @@ zkEVM proof is a proof that proves the relation between public input and witness
 
 Public input and witness are followings:
 
-- Public input
-  - `TODO`: given from calldata.
-  - `previous state root`: [L2 output root][g-l2-output] is recorded in
-    [L2OutputOracle.sol](../packages/contracts/contracts/L1/L2OutputOracle.sol) and retrieved state root by submitting
-    preimage of L2 output.
-  - `state root`: same as above.
-- Witness
-  - `transactions`: L2 transactions.
-  - `states`: L2 states that comprises state root.
+- Public input: the single hash needed by `PublicInputCircuit`. You can compute it like below:
+
+  ```ts
+  import { DataOptions, hexlify } from '@ethersproject/bytes';
+  import { Wallet } from 'ethers';
+  import { keccak256 } from 'ethers/lib/utils';
+
+  function strip0x(str: string): string {
+    if (str.startsWith('0x')) {
+      return str.slice(2);
+    }
+    return str;
+  }
+
+  function toFixedBuffer(
+    value: string | number,
+    length,
+    padding = '0',
+  ): Buffer {
+    const options: DataOptions = {
+      hexPad: 'left',
+    };
+    return hexToBuffer(
+      strip0x(hexlify(value, options)).padStart(length * 2, padding),
+    );
+  }
+
+  function getDummyTxHash(chainId: number): Promise<string> {
+    const sk = hex.toFixedBuffer(1, 32);
+    const signer = new Wallet(sk);
+    const rlp = await signer.signTransaction({
+      nonce: 0,
+      gasLimit: 0,
+      gasPrice: 0,
+      value: 0,
+      data: '0x',
+      chainId,
+    });
+    return keccak256(rlp);
+  }
+
+  function computePublicInput(block: RPCBlock, chainId: number): {
+    const maxTxs = 25;
+
+    const buf = Buffer.concat([
+      toFixedBuffer(block.miner, 20),
+      toFixedBuffer(block.timestamp, 8),
+      toFixedBuffer(block.number, 8),
+      toFixedBuffer(block.difficulty, 32),
+      toFixedBuffer(block.gasLimit, 8),
+      toFixedBuffer(block.baseFeePerGas!, 32),
+      toFixedBuffer(chainId, 32),
+      toFixedBuffer(block.transactions.length, 32),
+      toFixedBuffer(prevStateRoot, 32),
+      toFixedBuffer(block.stateRoot, 32),
+      Buffer.concat(
+        block.transactions.map((txHash: string) => {
+            return toFixedBuffer(txHash, 32);
+        }),
+      ),
+      Buffer.concat(
+        Array(maxTxs - block.transactions.length).fill(
+          toFixedBuffer(await getDummyTxHash(chainId), 32),
+        ),
+      ),
+    ]);
+    return keccak256(buf);
+  }
+  ```
+
+- Witness: TODO
 
 > These relations are changed soon after [super circuit] integration.
 
