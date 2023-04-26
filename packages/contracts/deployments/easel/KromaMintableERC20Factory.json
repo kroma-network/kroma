@@ -178,3 +178,4 @@
     "notice": "KromaMintableERC20Factory is a factory contract that generates KromaMintableERC20         contracts on the network it's deployed to. Simplifies the deployment process for users         who may be less familiar with deploying smart contracts. Designed to be backwards         compatible with the older StandardL2ERC20Factory contract."
   }
 }
+
