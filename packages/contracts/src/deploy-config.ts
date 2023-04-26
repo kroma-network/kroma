@@ -83,6 +83,17 @@ interface RequiredDeployConfig {
   batchSenderAddress: string
 
   /**
+   * Dummy hash to be used to compute ZK fault proof as a padding if
+   * the number of transaction is less than maximum number of transactions.
+   */
+  dummyHash: string
+
+  /**
+   * Maximum the number of transaction are allowed in a block.
+   */
+  maxTxs: string
+
+  /**
    * Output Oracle submission interval in L2 blocks.
    */
   l2OutputOracleSubmissionInterval: number
@@ -207,6 +218,14 @@ export const deployConfigSpec: {
   },
   batchSenderAddress: {
     type: 'address',
+  },
+  dummyHash: {
+    type: 'string', // bytes32
+    default: ethers.constants.HashZero,
+  },
+  maxTxs: {
+    type: 'number',
+    default: 0,
   },
   l2OutputOracleSubmissionInterval: {
     type: 'number',

@@ -77,7 +77,7 @@ func (l *L2OutputSubmitter) FetchNextOutputInfo(ctx context.Context) (*eth.Outpu
 		return nil, false, nil
 	}
 
-	output, err := l.cfg.RollupClient.OutputAtBlock(ctx, nextCheckpointBlock.Uint64())
+	output, err := l.cfg.RollupClient.OutputAtBlock(ctx, nextCheckpointBlock.Uint64(), false)
 	if err != nil {
 		l.log.Error("failed to fetch output at block %d: %w", nextCheckpointBlock, err)
 		return nil, false, err

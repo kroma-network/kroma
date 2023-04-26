@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
+import { Hashing } from "../libraries/Hashing.sol";
 import { Types } from "../libraries/Types.sol";
 import { Semver } from "../universal/Semver.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
@@ -65,6 +66,35 @@ contract Colosseum is Initializable, Semver {
     uint256 public immutable L2_ORACLE_SUBMISSION_INTERVAL;
 
     /**
+     * @notice The chain id.
+     */
+    uint256 public immutable CHAIN_ID;
+
+    /**
+     * @notice The dummy transaction hash. This is used to pad if the
+     *         number of transactions is less than MAX_TXS. This is same as:
+     *         unsignedTx = {
+     *           nonce: 0,
+     *           gasLimit: 0,
+     *           gasPrice: 0,
+     *           value: 0,
+     *           data: '0x',
+     *           chainId: CHAIN_ID,
+     *         }
+     *         signature = sign(unsignedTx, 0x1)
+     *         dummyHash = keccak256(rlp({
+     *           ...unsignedTx,
+     *           signature,
+     *         }))
+     */
+    bytes32 public immutable DUMMY_HASH;
+
+    /**
+     * @notice The maximum number of transactions
+     */
+    uint256 public immutable MAX_TXS;
+
+    /**
      * @notice Length of segment array for each turn.
      */
     mapping(uint256 => uint256) internal segmentsLengths;
@@ -95,7 +125,10 @@ contract Colosseum is Initializable, Semver {
      *
      * @param _l2Oracle                  Address of the L2OutputOracle contract.
      * @param _zkVerifier                Address of the ZKVerifier contract.
+     * @param _submissionInterval        Interval in blocks at which checkpoints must be submitted.
      * @param _challengeTimeout          Timeout seconds for the challenge.
+     * @param _chainId                   Chain ID.
+     * @param _dummyHash                 Dummy hash.
      * @param _segmentsLengths           Lengths of segments.
      */
     constructor(
@@ -103,12 +136,18 @@ contract Colosseum is Initializable, Semver {
         ZKVerifier _zkVerifier,
         uint256 _submissionInterval,
         uint256 _challengeTimeout,
+        uint256 _chainId,
+        bytes32 _dummyHash,
+        uint256 _maxTxs,
         uint256[] memory _segmentsLengths
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2Oracle;
         ZK_VERIFIER = _zkVerifier;
         CHALLENGE_TIMEOUT = _challengeTimeout;
         L2_ORACLE_SUBMISSION_INTERVAL = _submissionInterval;
+        CHAIN_ID = _chainId;
+        DUMMY_HASH = _dummyHash;
+        MAX_TXS = _maxTxs;
         initialize(_segmentsLengths);
     }
 
@@ -127,6 +166,7 @@ contract Colosseum is Initializable, Semver {
         Types.CheckpointOutput memory targetOutput = L2_ORACLE.getL2Output(_outputIndex);
         require(targetOutput.l2BlockNumber != 0, "Colosseum: output not found");
         Types.CheckpointOutput memory prevOutput;
+        // TODO(chokobole): Enable dispute resolution including genesis output root.
         if (_outputIndex > 0) {
             prevOutput = L2_ORACLE.getL2Output(_outputIndex - 1);
         }
@@ -184,7 +224,10 @@ contract Colosseum is Initializable, Semver {
 
     function proveFault(
         uint256 _pos,
-        bytes32 _outputRoot,
+        Types.OutputRootProof calldata _srcOutputRootProof,
+        Types.OutputRootProof calldata _dstOutputRootProof,
+        Types.PublicInput calldata _publicInput,
+        Types.BlockHeaderRLP calldata _rlps,
         uint256[] calldata _proof,
         uint256[] calldata _pair
     ) external payable {
@@ -192,10 +235,46 @@ contract Colosseum is Initializable, Semver {
         Types.Challenge storage challenge = challenges[challengeId];
         _validateTurn(challenge, ValidateTurnMode.PROOF);
 
+        bytes32 srcOutputRoot = Hashing.hashOutputRootProof(_srcOutputRootProof);
         require(
-            challenge.segments[_pos + 1] != _outputRoot,
-            "Colosseum: the last segment must not be matched"
+            challenge.segments[_pos] == srcOutputRoot,
+            "Colosseum: the source segment must be matched"
         );
+
+        bytes32 dstOutputRoot = Hashing.hashOutputRootProof(_dstOutputRootProof);
+        require(
+            challenge.segments[_pos + 1] != dstOutputRoot,
+            "Colosseum: the destination segment must not be matched"
+        );
+
+        require(
+            _srcOutputRootProof.nextBlockHash == _dstOutputRootProof.blockHash,
+            "Colosseum: the block hash must be matched"
+        );
+
+        bytes32 blockHash = Hashing.hashBlockHeader(_publicInput, _rlps);
+        require(
+            _srcOutputRootProof.nextBlockHash == blockHash,
+            "Colosseum: the block hash must be matched"
+        );
+
+        bytes32[] memory dummyHashes;
+        if (_publicInput.txHashes.length < MAX_TXS) {
+            dummyHashes = Hashing.generateDummyHashes(
+                DUMMY_HASH,
+                MAX_TXS - _publicInput.txHashes.length
+            );
+        }
+
+        // TODO(chokobole): check transaction root hash
+        // TODO(chokobole): use this public input hash require(_proof[4] == _publicInputHash);
+        bytes32 _publicInputHash = Hashing.hashPublicInput(
+            _srcOutputRootProof.stateRoot,
+            _publicInput,
+            CHAIN_ID,
+            dummyHashes
+        );
+
         require(ZK_VERIFIER.verify(_proof, _pair), "Colosseum: invalid proof");
 
         L2_ORACLE.deleteL2Outputs(challenge.outputIndex);

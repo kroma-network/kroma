@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
@@ -18,6 +19,7 @@ import (
 
 type l2EthClient interface {
 	InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error)
+	InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error)
 	// GetProof returns a proof of the account, it may return a nil result without error if the address was not found.
 	// Optionally keys of the account storage trie can be specified to include with corresponding values in the proof.
 	GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error)
@@ -84,7 +86,7 @@ func NewNodeAPI(config *rollup.Config, l2Client l2EthClient, dr driverClient, lo
 	}
 }
 
-func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
+func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64, includeNextBlock bool) (*eth.OutputResponse, error) {
 	recordDur := n.m.RecordRPCServerRequest("kroma_outputAtBlock")
 	defer recordDur()
 
@@ -140,6 +142,17 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 		return nil, err
 	}
 
+	var nextBlock *types.Header
+	var nextTxs types.Transactions
+	if includeNextBlock {
+		var nextHead eth.BlockInfo
+		nextHead, nextTxs, err = n.client.InfoAndTxsByHash(ctx, nextRef.Hash)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get L2 block by hash %s: %w", nextRef, err)
+		}
+		nextBlock = nextHead.Header()
+	}
+
 	return &eth.OutputResponse{
 		Version:               l2OutputRootVersion,
 		OutputRoot:            l2OutputRoot,
@@ -148,6 +161,8 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 		WithdrawalStorageRoot: proof.StorageHash,
 		StateRoot:             head.Root(),
 		Status:                status,
+		NextBlock:             nextBlock,
+		NextTransactions:      nextTxs,
 	}, nil
 }
 

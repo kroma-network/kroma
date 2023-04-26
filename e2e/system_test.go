@@ -123,7 +123,7 @@ func TestL2OutputSubmitter(t *testing.T) {
 			// finalized.
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			l2Output, err := rollupClient.OutputAtBlock(ctx, l2ooBlockNumber.Uint64())
+			l2Output, err := rollupClient.OutputAtBlock(ctx, l2ooBlockNumber.Uint64(), false)
 			require.Nil(t, err)
 			require.Equal(t, l2Output.OutputRoot[:], committedL2Output.OutputRoot[:])
 			break

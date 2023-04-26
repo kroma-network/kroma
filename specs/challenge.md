@@ -17,6 +17,7 @@
 - [Bisection](#bisection)
 - [State Diagram](#state-diagram)
 - [Process](#process)
+- [Public Input Verification](#public-input-verification)
 - [Upgradeability](#upgradeability)
 - [Summary of Definitions](#summary-of-definitions)
   - [Constants](#constants)
@@ -57,7 +58,10 @@ interface Colosseum {
 
   function proveFault(
     uint256 _pos,
-    bytes32 _outputRoot,
+    Types.OutputRootProof calldata _srcOutputRootProof,
+    Types.OutputRootProof calldata _dstOutputRootProof,
+    Types.PublicInput calldata _publicInput,
+    Types.BlockHeaderRLP calldata _rlps,
     uint256[] calldata _proof,
     uint256[] calldata _pair
   ) external payable;
@@ -200,6 +204,21 @@ We'll show an example. Let's say `MINIMUM_STAKE` is 100.
   | carol      | O_7200 | N         | 100   | L_{t + 7 days + 3 hours}      |
   | emma       | O_9000 | N         | 100   | L_{t + 7 days + 4 hours}      |
 
+## Public Input Verification
+
+The following verification process applies to output version 1 and later:
+
+The `_proof[4]` contains the [public input](./zkevm-prover.md#zkevm-proof), which must be processed before
+verification by [ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract) can be performed.
+
+1. Check whether `_srcOutputRootProof` is the preimage of the first output root of the segment.
+2. Check whether `_dstOutputRootProof` is the preimage of the next output root of the segment.
+3. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the `blockHash` in `_dstOutputRootProof`.
+4. Verify that the `blockHash` in `_srcOutputRootProof` matches the block hash derived from `_publicInput` and `_rlps`.
+5. Verify that the `transactionsRoot` in `_publicInput` matches the transaction root derived from the transaction
+   hashes.
+6. If the transaction hash in `_publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
+
 ## Upgradeability
 
 Colosseum should be behind upgradable proxies.
@@ -208,10 +227,13 @@ Colosseum should be behind upgradable proxies.
 
 ### Constants
 
-| Name                       | Value         | Unit              |
-|----------------------------|---------------|-------------------|
-| `MINIMUM_STAKE`            | TBD           | gwei              |
-| `INTERACTION_TIMEOUT`      | TBD           | seconds           |
-| `PROOF_TIMEOUT`            | TBD           | seconds           |
-| `PROOF_CORRECTION_TIMEOUT` | TBD           | seconds           |
-| `SEGMENTS_LENGTHS`         | [9, 6, 10, 6] | array of integers |
+| Name                       | Value                                                              | Unit              |
+|----------------------------|--------------------------------------------------------------------|-------------------|
+| `MINIMUM_STAKE`            | TBD                                                                | gwei              |
+| `INTERACTION_TIMEOUT`      | TBD                                                                | seconds           |
+| `PROOF_TIMEOUT`            | TBD                                                                | seconds           |
+| `PROOF_CORRECTION_TIMEOUT` | TBD                                                                | seconds           |
+| `SEGMENTS_LENGTHS`         | [9, 6, 10, 6]                                                      | array of integers |
+| `MAX_TXS`                  | 25                                                                 | uint256           |
+| `DUMMY_HASH`(sepolia)      | 0xe3c0fb45c84ee6608b3ee3a7016c505f46ff23736038a4344abf62156e2b21be | bytes32           |
+| `DUMMY_HASH`(easel)        | 0xec42d5de5b086e5922e6b0b65ff579305bca5681eed40133209c86cfbc2c7d48 | bytes32           |

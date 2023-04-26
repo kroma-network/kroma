@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
@@ -944,16 +945,21 @@ func TestBlockBuildingRace(t *testing.T) {
 
 	// Now allow the building to complete
 	a1InfoTx, err := L1InfoDepositBytes(refA1.SequenceNumber, &testutils.MockBlockInfo{
-		InfoHash:        refA.Hash,
-		InfoParentHash:  refA.ParentHash,
-		InfoCoinbase:    common.Address{},
-		InfoRoot:        common.Hash{},
-		InfoNum:         refA.Number,
-		InfoTime:        refA.Time,
-		InfoMixDigest:   [32]byte{},
-		InfoBaseFee:     big.NewInt(7),
-		InfoReceiptRoot: common.Hash{},
-		InfoGasUsed:     0,
+		InfoHash:             refA.Hash,
+		InfoParentHash:       refA.ParentHash,
+		InfoCoinbase:         common.Address{},
+		InfoRoot:             common.Hash{},
+		InfoNum:              refA.Number,
+		InfoTime:             refA.Time,
+		InfoMixDigest:        [32]byte{},
+		InfoBaseFee:          big.NewInt(7),
+		InfoTransactionsRoot: common.Hash{},
+		InfoReceiptRoot:      common.Hash{},
+		InfoWithdrawalsRoot:  nil,
+		InfoGasUsed:          0,
+		InfoGasLimit:         0,
+		InfoBloom:            types.Bloom{},
+		InfoExtra:            []byte{},
 	}, cfg.Genesis.SystemConfig)
 
 	require.NoError(t, err)

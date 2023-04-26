@@ -12,6 +12,8 @@
   "p2pProposerAddress": "0xab04a11826a7568ab0285cf6a197d47a00f7f4a1",
   "batchInboxAddress": "0xbac0000000000000000000000000000000000003",
   "batchSenderAddress": "0xf1d8505e40e3f3dc57c104df7ad4e19b8f9d4165",
+  "dummyHash": "0xe3c0fb45c84ee6608b3ee3a7016c505f46ff23736038a4344abf62156e2b21be",
+  "maxTxs": 25,
   "baseFeeVaultRecipient": "0x007e70a098bae84a9e1a96465aeee5af4cdc30e8",
   "l1FeeVaultRecipient": "0x007e70a098bae84a9e1a96465aeee5af4cdc30e8",
   "proposerFeeVaultRecipient": "0x007e70a098bae84a9e1a96465aeee5af4cdc30e8",

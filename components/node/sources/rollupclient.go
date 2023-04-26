@@ -18,9 +18,9 @@ func NewRollupClient(rpc client.RPC) *RollupClient {
 	return &RollupClient{rpc}
 }
 
-func (r *RollupClient) OutputAtBlock(ctx context.Context, blockNum uint64) (*eth.OutputResponse, error) {
+func (r *RollupClient) OutputAtBlock(ctx context.Context, blockNum uint64, includeNextBlock bool) (*eth.OutputResponse, error) {
 	var output *eth.OutputResponse
-	err := r.rpc.CallContext(ctx, &output, "kroma_outputAtBlock", hexutil.Uint64(blockNum))
+	err := r.rpc.CallContext(ctx, &output, "kroma_outputAtBlock", hexutil.Uint64(blockNum), includeNextBlock)
 	return output, err
 }
 
