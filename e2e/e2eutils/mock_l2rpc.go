@@ -35,8 +35,10 @@ func (m *MockL2RPC) CallContext(ctx context.Context, result interface{}, method 
 	if method == "kroma_outputAtBlock" {
 		blockNumber := args[0].(hexutil.Uint64)
 
-		m.rpc.CallContext(ctx, &result, "kroma_outputAtBlock", blockNumber)
-
+		err := m.rpc.CallContext(ctx, &result, "kroma_outputAtBlock", blockNumber)
+		if err != nil {
+			return err
+		}
 		if m.segStart == nil || uint64(blockNumber) != m.segStart.Uint64() {
 			rng := rand.New(rand.NewSource(int64(blockNumber)))
 
