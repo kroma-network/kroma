@@ -109,7 +109,7 @@ jobs:
           platforms: linux/arm64,linux/amd64
           target: kroma-node
           push: true
-          tags: kroma-network/node:${{ needs.prepare.outputs.docker-tag }}
+          tags: kromanetwork/node:${{ needs.prepare.outputs.docker-tag }}
 
   kroma-validator:
     name: Kroma Validator Version ${{ needs.prepare.outputs.docker-tag }}
@@ -140,7 +140,7 @@ jobs:
           platforms: linux/arm64,linux/amd64
           target: kroma-validator
           push: true
-          tags: kroma-network/validator:${{ needs.prepare.outputs.docker-tag }}
+          tags: kromanetwork/validator:${{ needs.prepare.outputs.docker-tag }}
 
   kroma-batcher:
     name: Kroma Batcher Version ${{ needs.prepare.outputs.docker-tag }}
@@ -171,6 +171,6 @@ jobs:
           platforms: linux/arm64,linux/amd64
           target: kroma-batcher
           push: true
-          tags: kroma-network/batcher:${{ needs.prepare.outputs.docker-tag }}
+          tags: kromanetwork/batcher:${{ needs.prepare.outputs.docker-tag }}
 
 

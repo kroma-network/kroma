@@ -30,7 +30,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kroma-network/geth:dev-6ec404a78abc
+    image: kromanetwork/geth:dev
     ports:
       - "9545:8545"
       - "9546:8546"
@@ -51,7 +51,7 @@ services:
     depends_on:
       - l1
       - l2
-    image: "kroma-network/kroma-node"
+    image: "kromanetwork/node"
     build:
       context: ..
       target: "kroma-node"
@@ -94,7 +94,7 @@ services:
       - l1
       - l2
       - kroma-node
-    image: "kroma-network/kroma-validator"
+    image: "kromanetwork/validator"
     build:
       context: ..
       target: "kroma-validator"
@@ -148,7 +148,7 @@ services:
       - l1
       - l2
       - kroma-node
-    image: "kroma-network/kroma-batcher"
+    image: "kromanetwork/batcher"
     build:
       context: ..
       target: "kroma-batcher"
@@ -179,7 +179,7 @@ services:
     build:
       context: ..
       target: "kroma-stateviz"
-    image: "kroma-network/stateviz"
+    image: "kromanetwork/stateviz"
     command:
       - kroma-stateviz
       - -addr=0.0.0.0:8080
