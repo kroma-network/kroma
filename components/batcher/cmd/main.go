@@ -25,7 +25,7 @@ func main() {
 	app.Version = fmt.Sprintf("%s-%s", Version, Meta)
 	app.Name = "kroma-batcher"
 	app.Usage = "Batcher Service"
-	app.Description = "Service for generating and submitting L2 tx batches to L1"
+	app.Description = "Service for generating and submitting L2 tx batches to L1."
 
 	app.Action = curryMain(Version)
 	err := app.Run(os.Args)

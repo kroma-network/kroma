@@ -83,8 +83,6 @@ var (
 		Value:  1.0,
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "APPROX_COMPR_RATIO"),
 	}
-	// Legacy Flags
-	HDPathFlag = txmgr.BatcherHDPathFlag
 )
 
 var requiredFlags = []cli.Flag{

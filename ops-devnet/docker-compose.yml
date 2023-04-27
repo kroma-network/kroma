@@ -119,6 +119,7 @@ services:
       VALIDATOR_METRICS_ENABLED: "true"
       VALIDATOR_ALLOW_NON_FINALIZED: "true"
       VALIDATOR_CHALLENGER_DISABLED: "true"
+      VALIDATOR_TXMGR_TX_SEND_TIMEOUT: 600s
 
   kroma-challenger:
     pid: host # allow debugging
@@ -143,6 +144,7 @@ services:
       VALIDATOR_COLOSSEUM_ADDRESS: "${COLOSSEUM_ADDRESS}"
       VALIDATOR_PROVER_GRPC: "${PROVER_GRPC}"
       VALIDATOR_OUTPUT_SUBMITTER_DISABLED: "true"
+      VALIDATOR_TXMGR_TX_SEND_TIMEOUT: 600s
 
   kroma-batcher:
     pid: host # allow debugging
@@ -175,6 +177,7 @@ services:
       BATCHER_LOG_TERMINAL: "true"
       BATCHER_PPROF_ENABLED: "true"
       BATCHER_METRICS_ENABLED: "true"
+      BATCHER_TXMGR_TX_SEND_TIMEOUT: 600s
 
   stateviz:
     pid: host # allow debugging

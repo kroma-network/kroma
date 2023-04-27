@@ -41,7 +41,7 @@ func Main(version string, cliCtx *cli.Context) error {
 	defer cancel()
 
 	monitoring.MaybeStartPprof(ctx, cliCfg.PprofConfig, l)
-	monitoring.MaybeStartMetrics(ctx, cliCfg.MetricsConfig, l, batcherCfg.L1Client, batcherCfg.TxManager.From())
+	monitoring.MaybeStartMetrics(ctx, cliCfg.MetricsConfig, l, m, batcherCfg.L1Client, batcherCfg.TxManager.From())
 	server, err := monitoring.StartRPC(cliCfg.RPCConfig.ToServiceCLIConfig(), version, krpc.WithLogger(l))
 	if err != nil {
 		return err
