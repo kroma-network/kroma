@@ -34,21 +34,6 @@ const (
 	ReceiptQueryIntervalFlagName      = "txmgr.receipt-query-interval"
 )
 
-var (
-	BatcherHDPathFlag = cli.StringFlag{
-		Name: "batcher-hd-path",
-		Usage: "DEPRECATED: The HD path used to derive the batcher wallet from the " +
-			"mnemonic. The mnemonic flag must also be set.",
-		EnvVar: "BATCHER_HD_PATH",
-	}
-	ValidatorHDPathFlag = cli.StringFlag{
-		Name: "validator-hd-path",
-		Usage: "DEPRECATED: The HD path used to derive the validator wallet from the " +
-			"mnemonic. The mnemonic flag must also be set.",
-		EnvVar: "VALIDATOR_HD_PATH",
-	}
-)
-
 func CLIFlags(envPrefix string) []cli.Flag {
 	return append([]cli.Flag{
 		cli.StringFlag{
@@ -61,8 +46,6 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			Usage:  "The HD path used to derive the proposer wallet from the mnemonic. The mnemonic flag must also be set.",
 			EnvVar: kservice.PrefixEnvVar(envPrefix, "HD_PATH"),
 		},
-		BatcherHDPathFlag,
-		ValidatorHDPathFlag,
 		cli.StringFlag{
 			Name:   "private-key",
 			Usage:  "The private key to use with the service. Must not be used with mnemonic.",
@@ -117,8 +100,6 @@ type CLIConfig struct {
 	L1RPCURL                  string
 	Mnemonic                  string
 	HDPath                    string
-	BatcherHDPath             string
-	ValidatorHDPath           string
 	PrivateKey                string
 	SignerCLIConfig           client.CLIConfig
 	NumConfirmations          uint64
@@ -163,8 +144,6 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		L1RPCURL:                  ctx.GlobalString(L1RPCFlagName),
 		Mnemonic:                  ctx.GlobalString(MnemonicFlagName),
 		HDPath:                    ctx.GlobalString(HDPathFlagName),
-		BatcherHDPath:             ctx.GlobalString(BatcherHDPathFlag.Name),
-		ValidatorHDPath:           ctx.GlobalString(ValidatorHDPathFlag.Name),
 		PrivateKey:                ctx.GlobalString(PrivateKeyFlagName),
 		SignerCLIConfig:           client.ReadCLIConfig(ctx),
 		NumConfirmations:          ctx.GlobalUint64(NumConfirmationsFlagName),
@@ -196,15 +175,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		return Config{}, fmt.Errorf("could not dial fetch L1 chain ID: %w", err)
 	}
 
-	// Allow backwards compatible ways of specifying the HD path
-	hdPath := cfg.HDPath
-	if hdPath == "" && cfg.BatcherHDPath != "" {
-		hdPath = cfg.BatcherHDPath
-	} else if hdPath == "" && cfg.ValidatorHDPath != "" {
-		hdPath = cfg.ValidatorHDPath
-	}
-
-	signerFactory, from, err := kcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
+	signerFactory, from, err := kcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, cfg.HDPath, cfg.SignerCLIConfig)
 	if err != nil {
 		return Config{}, fmt.Errorf("could not init signer: %w", err)
 	}
