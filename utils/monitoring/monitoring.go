@@ -13,6 +13,11 @@ import (
 	krpc "github.com/kroma-network/kroma/utils/service/rpc"
 )
 
+type metricer interface {
+	Serve(context.Context, string, int) error
+	StartBalanceMetrics(context.Context, log.Logger, *ethclient.Client, common.Address)
+}
+
 // NOTE(pangssu): MaybeStartPprof requires cancelable context to stop http server
 func MaybeStartPprof(ctx context.Context, cfg pprof.CLIConfig, l log.Logger) {
 	if cfg.Enabled {
@@ -26,17 +31,15 @@ func MaybeStartPprof(ctx context.Context, cfg pprof.CLIConfig, l log.Logger) {
 }
 
 // NOTE(pangssu): MaybeStartMetrics requires cancelable context to stop http server
-func MaybeStartMetrics(ctx context.Context, cfg metrics.CLIConfig, l log.Logger, l1 *ethclient.Client, wallet common.Address) {
+func MaybeStartMetrics(ctx context.Context, cfg metrics.CLIConfig, l log.Logger, m metricer, l1 *ethclient.Client, wallet common.Address) {
 	if cfg.Enabled {
-		registry := metrics.NewRegistry()
 		l.Info("starting metrics server", "addr", cfg.ListenAddr, "port", cfg.ListenPort)
 		go func() {
-			if err := metrics.ListenAndServe(ctx, registry, cfg.ListenAddr, cfg.ListenPort); err != nil {
+			if err := m.Serve(ctx, cfg.ListenAddr, cfg.ListenPort); err != nil {
 				l.Error("failed to start metrics server", "err", err)
 			}
 		}()
-
-		metrics.LaunchBalanceMetrics(ctx, l, registry, "", l1, wallet)
+		m.StartBalanceMetrics(ctx, l, l1, wallet)
 	}
 }
 

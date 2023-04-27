@@ -1,6 +1,11 @@
 package metrics
 
 import (
+	"context"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/kroma-network/kroma/components/node/eth"
@@ -142,6 +147,16 @@ func NewMetrics(procName string) *Metrics {
 
 		BatcherTxEvs: kmetrics.NewEventVec(factory, ns, "batcher_tx", "BatcherTx", []string{"stage"}),
 	}
+}
+
+func (m *Metrics) Serve(ctx context.Context, host string, port int) error {
+	return kmetrics.ListenAndServe(ctx, m.registry, host, port)
+}
+
+func (m *Metrics) StartBalanceMetrics(ctx context.Context,
+	l log.Logger, client *ethclient.Client, account common.Address,
+) {
+	kmetrics.LaunchBalanceMetrics(ctx, l, m.registry, m.ns, client, account)
 }
 
 func (m *Metrics) Document() []kmetrics.DocumentedMetric {

@@ -43,7 +43,7 @@ func newTestHarnessWithConfig(t *testing.T, cfg Config) *testHarness {
 	mgr := &SimpleTxManager{
 		chainID: cfg.ChainID,
 		name:    "TEST",
-		cfg:     cfg,
+		Config:  cfg,
 		backend: cfg.Backend,
 		l:       testlog.Logger(t, log.LvlCrit),
 		metr:    &metrics.NoopTxMetrics{},
@@ -680,7 +680,7 @@ func TestWaitMinedReturnsReceiptAfterFailure(t *testing.T) {
 	var borkedBackend failingBackend
 
 	mgr := &SimpleTxManager{
-		cfg: Config{
+		Config: Config{
 			ResubmissionTimeout:       time.Second,
 			ReceiptQueryInterval:      50 * time.Millisecond,
 			NumConfirmations:          1,
@@ -712,7 +712,7 @@ func doGasPriceIncrease(t *testing.T, txTipCap, txFeeCap, newTip, newBaseFee int
 	}
 
 	mgr := &SimpleTxManager{
-		cfg: Config{
+		Config: Config{
 			ResubmissionTimeout:       time.Second,
 			ReceiptQueryInterval:      50 * time.Millisecond,
 			NumConfirmations:          1,
@@ -816,7 +816,7 @@ func TestIncreaseGasPriceNotExponential(t *testing.T) {
 	feeCap := calcGasFeeCap(borkedBackend.baseFee, borkedBackend.gasTip)
 
 	mgr := &SimpleTxManager{
-		cfg: Config{
+		Config: Config{
 			ResubmissionTimeout:       time.Second,
 			ReceiptQueryInterval:      50 * time.Millisecond,
 			NumConfirmations:          1,

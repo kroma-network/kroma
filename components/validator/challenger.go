@@ -24,18 +24,16 @@ type ProofFetcher interface {
 }
 
 type Challenger struct {
-	done chan struct{}
-	log  log.Logger
-	cfg  Config
+	log log.Logger
+	cfg Config
+	ctx context.Context
 
-	ctx      context.Context
 	callOpts *bind.CallOpts
 	txOpts   *bind.TransactOpts
 
 	l2ooContract      *bindings.L2OutputOracle
 	colosseumContract *bindings.Colosseum
 
-	fetcher                   ProofFetcher
 	submissionInterval        *big.Int
 	finalizationPeriodSeconds *big.Int
 	checkpoint                *big.Int
@@ -51,28 +49,27 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, 
 		return nil, err
 	}
 
-	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(ctx))
+	callOpts := utils.NewSimpleCallOpts(ctx)
+	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(callOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get submission interval: %w", err)
 	}
-
-	finalizationPeriodSeconds, err := l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(ctx))
+	finalizationPeriodSeconds, err := l2ooContract.FINALIZATIONPERIODSECONDS(callOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get finalization period seconds: %w", err)
 	}
 
 	return &Challenger{
-		done:     make(chan struct{}),
-		log:      l,
-		ctx:      ctx,
-		cfg:      cfg,
-		callOpts: utils.NewCallOptsWithSender(ctx, cfg.From),
-		txOpts:   utils.NewSimpleTxOpts(ctx, cfg.From, cfg.SignerFn),
+		log: l,
+		cfg: cfg,
+		ctx: ctx,
+
+		callOpts: utils.NewCallOptsWithSender(ctx, cfg.TxManager.From()),
+		txOpts:   utils.NewSimpleTxOpts(ctx, cfg.TxManager.From(), cfg.TxManager.Signer),
 
 		l2ooContract:      l2ooContract,
 		colosseumContract: colosseumContract,
 
-		fetcher:                   cfg.ProofFetcher,
 		submissionInterval:        submissionInterval,
 		finalizationPeriodSeconds: finalizationPeriodSeconds,
 	}, nil
@@ -87,7 +84,9 @@ func (c *Challenger) GetChallengeInProgress() (bindings.TypesChallenge, error) {
 }
 
 func (c *Challenger) OutputAtBlockSafe(blockNumber uint64, includeNextBlock bool) (*eth.OutputResponse, error) {
-	output, err := c.cfg.RollupClient.OutputAtBlock(c.ctx, blockNumber, includeNextBlock)
+	ctx, cancel := context.WithTimeout(c.ctx, c.cfg.NetworkTimeout)
+	defer cancel()
+	output, err := c.cfg.RollupClient.OutputAtBlock(ctx, blockNumber, includeNextBlock)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +240,7 @@ func (c *Challenger) DetermineChallengeTx() (*types.Transaction, error) {
 }
 
 func (c *Challenger) IsRelatedChallenge() (bool, error) {
-	return c.colosseumContract.IsChallengeRelated(c.callOpts, c.cfg.From)
+	return c.colosseumContract.IsChallengeRelated(c.callOpts, c.cfg.TxManager.From())
 }
 
 func (c *Challenger) GetStatusInProgress() (uint8, error) {
@@ -367,7 +366,7 @@ func (c *Challenger) ProveFault() (*types.Transaction, error) {
 		return nil, err
 	}
 
-	fetchResult, err := c.fetcher.FetchProofAndPair(dstOutput.BlockRef)
+	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(dstOutput.BlockRef)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"%w: blockNumber: %d, blockHash: %s",

@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
 
+	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
 	"github.com/kroma-network/kroma/utils/monitoring"
 	klog "github.com/kroma-network/kroma/utils/service/log"
@@ -26,10 +26,12 @@ func Main(version string, cliCtx *cli.Context) error {
 	}
 
 	l := klog.NewLogger(cliCfg.LogConfig)
+	m := metrics.NewMetrics("default")
 	l.Info("initializing Validator")
 
-	validatorCfg, err := NewValidatorConfig(cliCfg, l)
+	validatorCfg, err := NewValidatorConfig(cliCfg, l, m)
 	if err != nil {
+		l.Error("Unable to create validator config", "err", err)
 		return err
 	}
 
@@ -37,14 +39,21 @@ func Main(version string, cliCtx *cli.Context) error {
 	defer cancel()
 
 	monitoring.MaybeStartPprof(ctx, cliCfg.PprofConfig, l)
-	monitoring.MaybeStartMetrics(ctx, cliCfg.MetricsConfig, l, validatorCfg.L1Client, validatorCfg.From)
+	monitoring.MaybeStartMetrics(ctx, cliCfg.MetricsConfig, l, m, validatorCfg.L1Client, validatorCfg.TxManager.From())
 	server, err := monitoring.StartRPC(cliCfg.RPCConfig, version, krpc.WithLogger(l))
 	if err != nil {
 		return err
 	}
-	defer server.Stop()
+	defer func() {
+		if err = server.Stop(); err != nil {
+			l.Error("Error shutting down http server: %w", err)
+		}
+	}()
 
-	validator, err := NewValidator(ctx, *validatorCfg, l)
+	m.RecordInfo(version)
+	m.RecordUp()
+
+	validator, err := NewValidator(ctx, *validatorCfg, l, m)
 	if err != nil {
 		return err
 	}
@@ -57,21 +66,27 @@ func Main(version string, cliCtx *cli.Context) error {
 }
 
 type Validator struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	cfg        Config
 	l          log.Logger
+	metr       metrics.Metricer
 	l2os       *L2OutputSubmitter
 	challenger *Challenger
-	txMgr      txmgr.TxManager
 
 	wg sync.WaitGroup
 }
 
-func NewValidator(parentCtx context.Context, cfg Config, l log.Logger) (*Validator, error) {
+func NewValidator(parentCtx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Validator, error) {
+	// Validate the validator config
+	if err := cfg.Check(); err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithCancel(parentCtx)
 
-	l2OutputSubmitter, err := NewL2OutputSubmitter(ctx, cfg, l)
+	l2OutputSubmitter, err := NewL2OutputSubmitter(cfg, l)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -90,7 +105,7 @@ func NewValidator(parentCtx context.Context, cfg Config, l log.Logger) (*Validat
 		l:          l,
 		l2os:       l2OutputSubmitter,
 		challenger: challenger,
-		txMgr:      txmgr.NewSimpleTxManager("validator", l, cfg.TxManagerConfig, cfg.L1Client),
+		metr:       m,
 	}, nil
 }
 
@@ -101,6 +116,7 @@ func (v *Validator) Start() {
 }
 
 func (v *Validator) Stop() {
+	v.l.Info("stopping Validator")
 	if v.cfg.ProofFetcher != nil {
 		if err := v.cfg.ProofFetcher.Close(); err != nil {
 			v.l.Error("cannot close grpc connection: %w", err)
@@ -135,10 +151,8 @@ func (v *Validator) loop() {
 }
 
 func (v *Validator) submitL2Output() error {
-	cCtx, cancel := context.WithTimeout(v.ctx, 3*time.Minute)
-	defer cancel()
-
-	output, shouldSubmit, err := v.l2os.FetchNextOutputInfo(cCtx)
+	ctx := v.ctx
+	output, shouldSubmit, err := v.l2os.FetchNextOutputInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch next output: %w", err)
 	}
@@ -146,13 +160,21 @@ func (v *Validator) submitL2Output() error {
 		return nil
 	}
 
-	tx, err := v.l2os.CreateSubmitL2OutputTx(cCtx, output)
+	data, err := v.l2os.SubmitL2OutputTxData(output)
 	if err != nil {
-		return fmt.Errorf("failed to create submit l2 output transaction: %w", err)
+		return fmt.Errorf("failed to create submit l2 output transaction data: %w", err)
 	}
-	if err := v.SendTransaction(cCtx, tx); err != nil {
+
+	txCandidate := txmgr.TxCandidate{
+		TxData:   data,
+		To:       &v.cfg.L2OutputOracleAddr,
+		GasLimit: 0,
+	}
+
+	if err := v.sendTransaction(ctx, txCandidate); err != nil {
 		return fmt.Errorf("failed to send submit l2 output transaction: %w", err)
 	}
+	v.metr.RecordL2OutputSubmitted(output.BlockRef)
 
 	return nil
 }
@@ -167,29 +189,25 @@ func (v *Validator) submitChallengeTx() error {
 		return nil
 	}
 
-	if err := v.SendTransaction(v.ctx, tx); err != nil {
+	txCandidate := txmgr.TxCandidate{
+		TxData:   tx.Data(),
+		To:       tx.To(),
+		GasLimit: 0,
+	}
+
+	if err := v.sendTransaction(v.ctx, txCandidate); err != nil {
 		return fmt.Errorf("failed to send challenge transaction: %w", err)
 	}
 
 	return nil
 }
 
-// SendTransaction sends a transaction through the transaction manager which handles automatic
-// price bumping.
-// It also hardcodes a timeout of 100s.
-func (v *Validator) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	// Wait until one of our submitted transactions confirms. If no
-	// receipt is received it's likely our gas price was too low.
-	cCtx, cancel := context.WithTimeout(ctx, 100*time.Second)
-	defer cancel()
-	v.l.Info("validator sending transaction", "tx", tx.Hash())
-	receipt, err := v.txMgr.Send(cCtx, tx)
+// sendTransaction creates & sends transactions through the underlying transaction manager.
+func (v *Validator) sendTransaction(ctx context.Context, txCandidate txmgr.TxCandidate) error {
+	receipt, err := v.cfg.TxManager.Send(ctx, txCandidate)
 	if err != nil {
-		v.l.Error("validator unable to publish tx", "err", err)
 		return err
 	}
-
-	// The transaction was successfully submitted
 	v.l.Info("validator tx successfully published", "tx_hash", receipt.TxHash)
 	return nil
 }

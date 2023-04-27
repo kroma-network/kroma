@@ -6,8 +6,8 @@ import (
 	"math/big"
 	_ "net/http/pprof"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
@@ -18,46 +18,54 @@ import (
 
 // L2OutputSubmitter is responsible for submitting outputs
 type L2OutputSubmitter struct {
-	done chan struct{}
-	log  log.Logger
-	cfg  Config
+	log log.Logger
+	cfg Config
 
-	ctx context.Context
-
-	l2ooContract *bindings.L2OutputOracle
+	l2ooContract *bindings.L2OutputOracleCaller
+	l2ooABI      *abi.ABI
 }
 
-// NewL2OutputSubmitter creates a new L2 Output Submitter
-func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger) (*L2OutputSubmitter, error) {
-	l2ooContract, err := bindings.NewL2OutputOracle(cfg.L2OutputOracleAddr, cfg.L1Client)
+// NewL2OutputSubmitter creates a new L2OutputSubmitter
+func NewL2OutputSubmitter(cfg Config, l log.Logger) (*L2OutputSubmitter, error) {
+	l2ooContract, err := bindings.NewL2OutputOracleCaller(cfg.L2OutputOracleAddr, cfg.L1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	parsed, err := bindings.L2OutputOracleMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
 
 	return &L2OutputSubmitter{
-		done:         make(chan struct{}),
 		log:          l,
 		cfg:          cfg,
-		ctx:          ctx,
 		l2ooContract: l2ooContract,
+		l2ooABI:      parsed,
 	}, nil
 }
 
 // FetchNextOutputInfo gets the block number of the next output.
 // It returns: the next block number, if the output should be made, error
 func (l *L2OutputSubmitter) FetchNextOutputInfo(ctx context.Context) (*eth.OutputResponse, bool, error) {
-	callOpts := utils.NewCallOptsWithSender(ctx, l.cfg.From)
+	nextBlockCtx, cancelNextBlockCtx := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cancelNextBlockCtx()
+	callOpts := utils.NewCallOptsWithSender(nextBlockCtx, l.cfg.TxManager.From())
 	nextCheckpointBlock, err := l.l2ooContract.NextBlockNumber(callOpts)
 	if err != nil {
 		l.log.Error("validator unable to get next block number", "err", err)
 		return nil, false, err
 	}
+
 	// Fetch the current L2 heads
-	status, err := l.cfg.RollupClient.SyncStatus(ctx)
+	syncStatusCtx, cancelSyncStatusCtx := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cancelSyncStatusCtx()
+	status, err := l.cfg.RollupClient.SyncStatus(syncStatusCtx)
 	if err != nil {
 		l.log.Error("validator unable to get sync status", "err", err)
 		return nil, false, err
 	}
+
 	// Use either the finalized or safe head depending on the config. Finalized head is default & safer.
 	var currentBlockNumber *big.Int
 	if l.cfg.AllowNonFinalized {
@@ -77,17 +85,23 @@ func (l *L2OutputSubmitter) FetchNextOutputInfo(ctx context.Context) (*eth.Outpu
 		return nil, false, nil
 	}
 
-	output, err := l.cfg.RollupClient.OutputAtBlock(ctx, nextCheckpointBlock.Uint64(), false)
+	return l.fetchOutput(ctx, nextCheckpointBlock)
+}
+
+func (l *L2OutputSubmitter) fetchOutput(ctx context.Context, block *big.Int) (*eth.OutputResponse, bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cancel()
+	output, err := l.cfg.RollupClient.OutputAtBlock(ctx, block.Uint64(), false)
 	if err != nil {
-		l.log.Error("failed to fetch output at block %d: %w", nextCheckpointBlock, err)
+		l.log.Error("failed to fetch output at block %d: %w", block, err)
 		return nil, false, err
 	}
-	if output.Version != rollup.L2OutputRootVersion(l.cfg.RollupConfig, l.cfg.RollupConfig.ComputeTimestamp(nextCheckpointBlock.Uint64())) {
+	if output.Version != rollup.L2OutputRootVersion(l.cfg.RollupConfig, l.cfg.RollupConfig.ComputeTimestamp(block.Uint64())) {
 		l.log.Error("l2 output version is not matched: %s", output.Version)
 		return nil, false, errors.New("mismatched l2 output version")
 	}
-	if output.BlockRef.Number != nextCheckpointBlock.Uint64() { // sanity check, e.g. in case of bad RPC caching
-		l.log.Error("invalid blockNumber", "next", nextCheckpointBlock, "output", output.BlockRef.Number)
+	if output.BlockRef.Number != block.Uint64() { // sanity check, e.g. in case of bad RPC caching
+		l.log.Error("invalid blockNumber", "next", block, "output", output.BlockRef.Number)
 		return nil, false, errors.New("invalid blockNumber")
 	}
 
@@ -103,20 +117,16 @@ func (l *L2OutputSubmitter) FetchNextOutputInfo(ctx context.Context) (*eth.Outpu
 	return output, true, nil
 }
 
-// CreateSubmitL2OutputTx transforms an output response into a signed submit l2 output transaction.
-// It does not send the transaction to the transaction pool.
-func (l *L2OutputSubmitter) CreateSubmitL2OutputTx(ctx context.Context, output *eth.OutputResponse) (*types.Transaction, error) {
-	opts := utils.NewSimpleTxOpts(ctx, l.cfg.From, l.cfg.SignerFn)
+// SubmitL2OutputTxData creates the transaction data for the submitL2Output function
+func (l *L2OutputSubmitter) SubmitL2OutputTxData(output *eth.OutputResponse) ([]byte, error) {
+	return submitL2OutputTxData(l.l2ooABI, output)
+}
 
-	tx, err := l.l2ooContract.SubmitL2Output(
-		opts,
+func submitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse) ([]byte, error) {
+	return abi.Pack(
+		"submitL2Output",
 		output.OutputRoot,
 		new(big.Int).SetUint64(output.BlockRef.Number),
 		output.Status.CurrentL1.Hash,
 		new(big.Int).SetUint64(output.Status.CurrentL1.Number))
-	if err != nil {
-		l.log.Error("failed to create the CreateOutputTx transaction", "err", err)
-		return nil, err
-	}
-	return tx, nil
 }
