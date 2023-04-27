@@ -81,7 +81,7 @@ func NewL2Genesis(config *DeployConfig, block *types.Block, zktrie bool) (*core.
 		GasLimit:   uint64(gasLimit),
 		Difficulty: difficulty.ToInt(),
 		Mixhash:    config.L2GenesisBlockMixHash,
-		Coinbase:   predeploys.ProposerFeeVaultAddr,
+		Coinbase:   predeploys.ValidatorRewardVaultAddr,
 		Number:     uint64(config.L2GenesisBlockNumber),
 		GasUsed:    uint64(config.L2GenesisBlockGasUsed),
 		ParentHash: config.L2GenesisBlockParentHash,

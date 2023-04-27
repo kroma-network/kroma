@@ -6,11 +6,11 @@ import { Semver } from "../universal/Semver.sol";
 
 /**
  * @custom:proxied
- * @custom:predeploy 0x4200000000000000000000000000000000000007
- * @title L1FeeVault
- * @notice The L1FeeVault accumulates the L1 portion of the transaction fees.
+ * @custom:predeploy 0x4200000000000000000000000000000000000006
+ * @title ProtocolVault
+ * @notice The ProtocolVault accumulates transaction fees to fund network operation.
  */
-contract L1FeeVault is FeeVault, Semver {
+contract ProtocolVault is FeeVault, Semver {
     /**
      * @custom:semver 0.1.0
      *

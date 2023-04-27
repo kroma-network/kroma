@@ -70,7 +70,7 @@ func TestAttributesQueue(t *testing.T) {
 	attrs := eth.PayloadAttributes{
 		Timestamp:             eth.Uint64Quantity(safeHead.Time + cfg.BlockTime),
 		PrevRandao:            eth.Bytes32(l1Info.InfoMixDigest),
-		SuggestedFeeRecipient: predeploys.ProposerFeeVaultAddr,
+		SuggestedFeeRecipient: predeploys.ValidatorRewardVaultAddr,
 		Transactions:          []eth.Data{l1InfoTx, eth.Data("foobar"), eth.Data("example")},
 		NoTxPool:              true,
 		GasLimit:              (*eth.Uint64Quantity)(&expectedL1Cfg.GasLimit),

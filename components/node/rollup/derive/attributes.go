@@ -112,7 +112,7 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	return &eth.PayloadAttributes{
 		Timestamp:             hexutil.Uint64(nextL2Time),
 		PrevRandao:            eth.Bytes32(l1Info.MixDigest()),
-		SuggestedFeeRecipient: predeploys.ProposerFeeVaultAddr,
+		SuggestedFeeRecipient: predeploys.ValidatorRewardVaultAddr,
 		Transactions:          txs,
 		NoTxPool:              true,
 		GasLimit:              (*eth.Uint64Quantity)(&sysConfig.GasLimit),
