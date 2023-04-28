@@ -52,3 +52,10 @@ devnet-clean:
 	docker image ls 'ops-devnet*' --format='{{.Repository}}' | xargs -r docker rmi
 	docker volume ls --filter name=ops-devnet --format='{{.Name}}' | xargs -r docker volume rm
 .PHONY: devnet-clean
+
+update-geth:
+	@ETH_GETH=$$(go list -m -f '{{.Path}}@{{.Version}}' github.com/ethereum/go-ethereum); \
+	KROMA_GETH=$$(go list -m -f '{{.Path}}@{{.Version}}' github.com/kroma-network/go-ethereum@dev); \
+	go mod edit -replace $$ETH_GETH=$$KROMA_GETH
+	@go mod tidy
+.PHONY: update-geth
