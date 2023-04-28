@@ -183,4 +183,4 @@ require (
 	nhooyr.io/websocket v1.8.7 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.11.2 => github.com/kroma-network/go-ethereum v0.0.0-20230426115107-4ff8440deb98
+replace github.com/ethereum/go-ethereum v1.11.2 => github.com/kroma-network/go-ethereum v0.0.0-20230427202423-30bd4ef5e1d2
