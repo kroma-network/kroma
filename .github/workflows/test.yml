@@ -8,10 +8,7 @@ on:
 jobs:
   test:
     name: Run tests
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: self-hosted
     steps:
       - name: Check out code
         uses: actions/checkout@v3
