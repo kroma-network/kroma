@@ -10,10 +10,7 @@ on:
 jobs:
   prepare:
     name: Run CI
-    strategy:
-      matrix:
-        os: [ ubuntu-latest ]
-    runs-on: ${{ matrix.os }}
+    runs-on: self-hosted
 
     outputs:
       kroma-node: ${{ steps.packages.outputs.kroma-node }}
