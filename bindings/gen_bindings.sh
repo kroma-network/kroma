@@ -49,3 +49,9 @@ abigen \
 	--pkg ${PACKAGE} \
 	--type ${TYPE} \
 	--out ./${PACKAGE}/${TYPE_LOWER}.go
+
+# Run Types extractor
+go run ./extractor/main.go \
+  --dir ./${PACKAGE} \
+  --name ${TYPE_LOWER}.go \
+  --pkg ${PACKAGE}
