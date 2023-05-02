@@ -1310,12 +1310,12 @@ func TestFees(t *testing.T) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	validatorRewardVaultStartBalance, err := l2Prop.BalanceAt(ctx, header.Coinbase, safeAddBig(header.Number, big.NewInt(-1)))
+	validatorRewardVaultStartBalance, err := l2Prop.BalanceAt(ctx, predeploys.ValidatorRewardVaultAddr, safeAddBig(header.Number, big.NewInt(-1)))
 	require.Nil(t, err)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	validatorRewardVaultEndBalance, err := l2Prop.BalanceAt(ctx, header.Coinbase, header.Number)
+	validatorRewardVaultEndBalance, err := l2Prop.BalanceAt(ctx, predeploys.ValidatorRewardVaultAddr, header.Number)
 	require.Nil(t, err)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
