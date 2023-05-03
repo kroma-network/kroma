@@ -97,7 +97,7 @@ func TestL2Proposer_ProposerDrift(gt *testing.T) {
 	// We passed the proposer drift: we can still keep the old origin, but can't include any txs
 	proposer.ActL2KeepL1Origin(t)
 	proposer.ActL2StartBlock(t)
-	require.True(t, engine.l2ForceEmpty, "engine should not be allowed to include anything after proposer drift is surpassed")
+	require.True(t, engine.engineApi.ForcedEmpty(), "engine should not be allowed to include anything after proposer drift is surpassed")
 }
 
 // This tests a chain halt where the proposer would build an unsafe L2 block with a L1 origin

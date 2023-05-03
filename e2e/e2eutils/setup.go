@@ -23,7 +23,7 @@ var testingJWTSecret = [32]byte{123}
 func WriteDefaultJWT(t TestingBase) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -79,7 +79,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L1GenesisBlockNonce:         0,
 		CliqueSignerAddress:         common.Address{}, // proof of stake, no clique
 		L1GenesisBlockTimestamp:     hexutil.Uint64(time.Now().Unix()),
-		L1GenesisBlockGasLimit:      15_000_000,
+		L1GenesisBlockGasLimit:      30_000_000,
 		L1GenesisBlockDifficulty:    uint64ToBig(1),
 		L1GenesisBlockMixHash:       common.Hash{},
 		L1GenesisBlockCoinbase:      common.Address{},
@@ -90,7 +90,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		FinalizationPeriodSeconds:   12,
 
 		L2GenesisBlockNonce:         0,
-		L2GenesisBlockGasLimit:      15_000_000,
+		L2GenesisBlockGasLimit:      30_000_000,
 		L2GenesisBlockDifficulty:    uint64ToBig(0),
 		L2GenesisBlockMixHash:       common.Hash{},
 		L2GenesisBlockNumber:        0,

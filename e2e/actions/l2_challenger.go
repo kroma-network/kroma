@@ -46,21 +46,18 @@ func NewL2Challenger(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient
 		L2OutputOracleAddr: cfg.OutputOracleAddr,
 		ColosseumAddr:      cfg.ColosseumAddr,
 		PollInterval:       time.Second,
-		TxManagerConfig: txmgr.Config{
-			ResubmissionTimeout:       5 * time.Second,
-			ReceiptQueryInterval:      time.Second,
-			NumConfirmations:          1,
-			SafeAbortNonceTooLowCount: 4,
-			From:                      from,
-			Signer:                    signer(chainID),
+		NetworkTimeout:     time.Second,
+		L1Client:           l1,
+		RollupClient:       rollupCl,
+		RollupConfig:       rollupConfig,
+		AllowNonFinalized:  cfg.AllowNonFinalized,
+		ProofFetcher:       e2eutils.NewFetcher(log),
+		TxManager: &txmgr.SimpleTxManager{
+			Config: txmgr.Config{
+				From:   from,
+				Signer: signer(chainID),
+			},
 		},
-		L1Client:          l1,
-		RollupClient:      rollupCl,
-		RollupConfig:      rollupConfig,
-		AllowNonFinalized: cfg.AllowNonFinalized,
-		From:              from,
-		SignerFn:          signer(chainID),
-		ProofFetcher:      e2eutils.NewFetcher(log),
 	}
 
 	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log)
@@ -70,7 +67,7 @@ func NewL2Challenger(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient
 		log:        log,
 		l1:         l1,
 		challenger: challenger,
-		address:    crypto.PubkeyToAddress(cfg.ValidatorKey.PublicKey),
+		address:    from,
 	}
 }
 
