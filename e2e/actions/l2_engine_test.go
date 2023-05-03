@@ -126,7 +126,7 @@ func TestL2EngineAPIBlockBuilding(gt *testing.T) {
 		}, &eth.PayloadAttributes{
 			Timestamp:             eth.Uint64Quantity(parent.Time()) + 2,
 			PrevRandao:            eth.Bytes32{},
-			SuggestedFeeRecipient: common.Address{'C'},
+			SuggestedFeeRecipient: common.Address{},
 			Transactions:          nil,
 			NoTxPool:              false,
 			GasLimit:              (*eth.Uint64Quantity)(&sd.RollupCfg.Genesis.SystemConfig.GasLimit),
@@ -185,4 +185,16 @@ func TestL2EngineAPIFail(gt *testing.T) {
 	head, err := l2Cl.InfoByLabel(t.Ctx(), eth.Unsafe)
 	require.NoError(t, err)
 	require.Equal(gt, sd.L2Cfg.ToBlock().Hash(), head.Hash(), "expecting engine to start at genesis")
+}
+
+func TestEngineAPITests(t *testing.T) {
+	RunEngineAPITests(t, func() EngineBackend {
+		jwtPath := e2eutils.WriteDefaultJWT(t)
+		dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
+		sd := e2eutils.Setup(t, dp, defaultAlloc)
+		n, _, apiBackend := newBackend(t, sd.L2Cfg, jwtPath, nil)
+		err := n.Start()
+		require.NoError(t, err)
+		return apiBackend
+	})
 }
