@@ -342,6 +342,12 @@ contract Colosseum is Initializable, Semver {
             "Colosseum: the block hash must be matched"
         );
 
+        // TODO(chokobole): check withdrawal storage root of _dstOutputRootProof against state root of _dstOutputRootProof.
+        require(
+            _publicInput.stateRoot == _dstOutputRootProof.stateRoot,
+            "Colosseum: the state root must be matched"
+        );
+
         // TODO(pangssu): waiting for the new Verifier.sol to complete.
         // require(ZK_VERIFIER.verify(_proof, _pair), "Colosseum: invalid proof");
 
