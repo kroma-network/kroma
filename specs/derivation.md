@@ -39,7 +39,6 @@
 [g-unsafe-l2-block]: glossary.md#unsafe-l2-block
 [g-unsafe-sync]: glossary.md#unsafe-sync
 [g-user-deposited]: glossary.md#user-deposited-transaction
-[g-validator]: glossary.md#validator
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -280,9 +279,7 @@ As for the comment on "security types", it explains the classification of blocks
 
 - [Unsafe L2 blocks][g-unsafe-l2-block]:
 - [Safe L2 blocks][g-safe-l2-block]:
-- Finalized L2 blocks: currently the same as the safe L2 block, but could be changed in the future to refer to block
-  that have been derived from [finalized][g-finalized-l2-head] L1 data, or alternatively, from L1 blacks that are older
-  than the [challenge period].
+- Finalized L2 blocks: refer to block that have been derived from [finalized][g-finalized-l2-head] L1 data.
 
 These security levels map to the `headBlockHash`, `safeBlockHash` and `finalizedBlockHash` values transmitted when
 interacting with the [execution-engine API][exec-engine].
@@ -296,7 +293,7 @@ Batcher transactions are encoded as `version_byte ++ rollup_payload` (where `++`
 | 0              | `frame ...` (one or more frames, concatenated) |
 
 Unknown versions make the batcher transaction invalid (it must be ignored by the rollup node).
-All frames in a batcher transaction must be parseable. If any one frame fails to parse, the all frames in the
+All frames in a batcher transaction must be parsable. If any one frame fails to parse, the all frames in the
 transaction are rejected.
 
 Batch transactions are authenticated by verifying that the `to` address of the transaction matches the batch inbox
