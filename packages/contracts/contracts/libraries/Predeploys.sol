@@ -34,19 +34,19 @@ library Predeploys {
     address internal constant GAS_PRICE_ORACLE = 0x4200000000000000000000000000000000000005;
 
     /**
-     * @notice Address of the BaseFeeVault predeploy.
+     * @notice Address of the ProtocolVault predeploy.
      */
-    address internal constant BASE_FEE_VAULT = 0x4200000000000000000000000000000000000006;
+    address internal constant PROTOCOL_VAULT = 0x4200000000000000000000000000000000000006;
 
     /**
-     * @notice Address of the L1FeeVault predeploy.
+     * @notice Address of the ProposerRewardVault predeploy.
      */
-    address internal constant L1_FEE_VAULT = 0x4200000000000000000000000000000000000007;
+    address internal constant PROPOSER_REWARD_VAULT = 0x4200000000000000000000000000000000000007;
 
     /**
-     * @notice Address of the ProposerFeeWallet predeploy.
+     * @notice Address of the ValidatorRewardVault predeploy.
      */
-    address internal constant PROPOSER_FEE_WALLET = 0x4200000000000000000000000000000000000008;
+    address internal constant VALIDATOR_REWARD_VAULT = 0x4200000000000000000000000000000000000008;
 
     /**
      * @notice Address of the L2StandardBridge predeploy.

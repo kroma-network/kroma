@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kroma-network/kroma/bindings/predeploys"
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/node/testutils"
@@ -121,7 +120,7 @@ func TestPreparePayloadAttributes(t *testing.T) {
 		require.NotNil(t, attrs)
 		require.Equal(t, l2Parent.Time+cfg.BlockTime, uint64(attrs.Timestamp))
 		require.Equal(t, eth.Bytes32(l1Info.InfoMixDigest), attrs.PrevRandao)
-		require.Equal(t, predeploys.ProposerFeeVaultAddr, attrs.SuggestedFeeRecipient)
+		require.Equal(t, common.Address{}, attrs.SuggestedFeeRecipient)
 		require.Equal(t, 1, len(attrs.Transactions))
 		require.Equal(t, l1InfoTx, []byte(attrs.Transactions[0]))
 		require.True(t, attrs.NoTxPool)
@@ -161,7 +160,7 @@ func TestPreparePayloadAttributes(t *testing.T) {
 		require.NotNil(t, attrs)
 		require.Equal(t, l2Parent.Time+cfg.BlockTime, uint64(attrs.Timestamp))
 		require.Equal(t, eth.Bytes32(l1Info.InfoMixDigest), attrs.PrevRandao)
-		require.Equal(t, predeploys.ProposerFeeVaultAddr, attrs.SuggestedFeeRecipient)
+		require.Equal(t, common.Address{}, attrs.SuggestedFeeRecipient)
 		require.Equal(t, len(l2Txs), len(attrs.Transactions), "Expected txs to equal l1 info tx + user deposit txs")
 		require.Equal(t, l2Txs, attrs.Transactions)
 		require.True(t, attrs.NoTxPool)
@@ -189,7 +188,7 @@ func TestPreparePayloadAttributes(t *testing.T) {
 		require.NotNil(t, attrs)
 		require.Equal(t, l2Parent.Time+cfg.BlockTime, uint64(attrs.Timestamp))
 		require.Equal(t, eth.Bytes32(l1Info.InfoMixDigest), attrs.PrevRandao)
-		require.Equal(t, predeploys.ProposerFeeVaultAddr, attrs.SuggestedFeeRecipient)
+		require.Equal(t, common.Address{}, attrs.SuggestedFeeRecipient)
 		require.Equal(t, 1, len(attrs.Transactions))
 		require.Equal(t, l1InfoTx, []byte(attrs.Transactions[0]))
 		require.True(t, attrs.NoTxPool)

@@ -923,7 +923,8 @@ follows:
 
 - `timestamp` is set to the batch's timestamp.
 - `random` is set to the `prev_randao` L1 block attribute.
-- `suggestedFeeRecipient` is set to the Proposer Fee Vault address. See [Fee Vaults] specification.
+- `suggestedFeeRecipient` is set to the zero address because the transaction fee is distributed to the fee vaults.
+  See [Fee Vaults] specification.
 - `transactions` is the array of the derived transactions: deposited transactions and sequenced transactions, all
   encoded with [EIP-2718].
 - `noTxPool` is set to `true`, to use the exact above `transactions` list when constructing the block.

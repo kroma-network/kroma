@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kroma-network/kroma/bindings/predeploys"
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/node/testlog"
@@ -70,7 +69,7 @@ func TestAttributesQueue(t *testing.T) {
 	attrs := eth.PayloadAttributes{
 		Timestamp:             eth.Uint64Quantity(safeHead.Time + cfg.BlockTime),
 		PrevRandao:            eth.Bytes32(l1Info.InfoMixDigest),
-		SuggestedFeeRecipient: predeploys.ProposerFeeVaultAddr,
+		SuggestedFeeRecipient: common.Address{},
 		Transactions:          []eth.Data{l1InfoTx, eth.Data("foobar"), eth.Data("example")},
 		NoTxPool:              true,
 		GasLimit:              (*eth.Uint64Quantity)(&expectedL1Cfg.GasLimit),

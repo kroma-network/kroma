@@ -2,20 +2,20 @@
 pragma solidity 0.8.15;
 
 import { Predeploys } from "../libraries/Predeploys.sol";
-import { ProposerFeeVault } from "../L2/ProposerFeeVault.sol";
+import { ValidatorRewardVault } from "../L2/ValidatorRewardVault.sol";
 import { StandardBridge } from "../universal/StandardBridge.sol";
 import { Bridge_Initializer } from "./CommonTest.t.sol";
 
-contract ProposerFeeVault_Test is Bridge_Initializer {
-    ProposerFeeVault vault = ProposerFeeVault(payable(Predeploys.PROPOSER_FEE_WALLET));
+contract ValidatorRewardVault_Test is Bridge_Initializer {
+    ValidatorRewardVault vault = ValidatorRewardVault(payable(Predeploys.VALIDATOR_REWARD_VAULT));
     address constant recipient = address(256);
 
     event Withdrawal(uint256 value, address to, address from);
 
     function setUp() public override {
         super.setUp();
-        vm.etch(Predeploys.PROPOSER_FEE_WALLET, address(new ProposerFeeVault(recipient)).code);
-        vm.label(Predeploys.PROPOSER_FEE_WALLET, "ProposerFeeVault");
+        vm.etch(Predeploys.VALIDATOR_REWARD_VAULT, address(new ValidatorRewardVault(recipient)).code);
+        vm.label(Predeploys.VALIDATOR_REWARD_VAULT, "ValidatorRewardVault");
     }
 
     function test_minWithdrawalAmount_succeeds() external {
@@ -52,7 +52,7 @@ contract ProposerFeeVault_Test is Bridge_Initializer {
         // No ether has been withdrawn yet
         assertEq(vault.totalProcessed(), 0);
 
-        vm.expectEmit(true, true, true, true, address(Predeploys.PROPOSER_FEE_WALLET));
+        vm.expectEmit(true, true, true, true, address(Predeploys.VALIDATOR_REWARD_VAULT));
         emit Withdrawal(address(vault).balance, vault.RECIPIENT(), address(this));
 
         // The entire vault's balance is withdrawn

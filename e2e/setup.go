@@ -102,9 +102,9 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		GasPriceOracleOverhead: 2100,
 		GasPriceOracleScalar:   1_000_000,
 
-		ProposerFeeVaultRecipient: common.Address{19: 1},
-		BaseFeeVaultRecipient:     common.Address{19: 2},
-		L1FeeVaultRecipient:       common.Address{19: 3},
+		ValidatorRewardVaultRecipient: common.Address{19: 1},
+		ProtocolVaultRecipient:        common.Address{19: 2},
+		ProposerRewardVaultRecipient:  common.Address{19: 3},
 
 		DeploymentWaitConfirmations: 1,
 

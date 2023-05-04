@@ -10,7 +10,7 @@ task('rekey', 'Generates a new set of keys for a test network').setAction(
       'deployer',
       'validator',
       'proxyAdminOwner',
-      'kromaBaseFeeRecipient',
+      'protocolFundRecipient',
       'kromaL1FeeRecipient',
       'p2pProposerAddress',
       'batchSenderAddress',

@@ -24,16 +24,16 @@ Contract that can upgrade L1 contracts                                          
 
 ### Contracts deployed to L2
 
-| Name                                                                                     | Proxy Type                                 | Description                                                                                      |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| [`GasPriceOracle`](../../specs/predeploys.md#gaspriceoracle)                             | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L2 gas price configuration values                                                             |
-| [`L1Block`](../../specs/predeploys.md#l1block)                                           | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L1 block context information (e.g., latest known L1 block hash)                                 |
-| [`L2CrossDomainMessenger`](../../specs/predeploys.md#l2crossdomainmessenger)             | [`Proxy`](./contracts/universal/Proxy.sol) | High-level interface for sending messages to and receiving messages from L1                       |
-| [`L2StandardBridge`](../../specs/predeploys.md#l2standardbridge)                         | [`Proxy`](./contracts/universal/Proxy.sol) | Standardized system for transferring ERC20 tokens to/from L1                                        |
-| [`L2ToL1MessagePasser`](../../specs/predeploys.md#l2tol1messagepasser)                   | [`Proxy`](./contracts/universal/Proxy.sol) | Low-level message passing interface                                                              |
-| [`ProposerFeeVault`](../../specs/predeploys.md#proposerfeevault)                       | [`Proxy`](./contracts/universal/Proxy.sol) | Vault for L2 transaction fees                                                                       |
-| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory)     | [`Proxy`](./contracts/universal/Proxy.sol) | Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge` |
-| [`L2ProxyAdmin`](../../specs/TODO)                                                       | -                                          | Contract that can upgrade L2 contracts when sent a transaction from L1                               |
+| Name                                                                               | Proxy Type                                 | Description                                                                                   |
+|------------------------------------------------------------------------------------|--------------------------------------------|-----------------------------------------------------------------------------------------------|
+| [`GasPriceOracle`](../../specs/predeploys.md#gaspriceoracle)                       | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L2 gas price configuration values                                                      |
+| [`L1Block`](../../specs/predeploys.md#l1block)                                     | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L1 block context information (e.g., latest known L1 block hash)                        |
+| [`L2CrossDomainMessenger`](../../specs/predeploys.md#l2crossdomainmessenger)       | [`Proxy`](./contracts/universal/Proxy.sol) | High-level interface for sending messages to and receiving messages from L1                   |
+| [`L2StandardBridge`](../../specs/predeploys.md#l2standardbridge)                   | [`Proxy`](./contracts/universal/Proxy.sol) | Standardized system for transferring ERC20 tokens to/from L1                                  |
+| [`L2ToL1MessagePasser`](../../specs/predeploys.md#l2tol1messagepasser)             | [`Proxy`](./contracts/universal/Proxy.sol) | Low-level message passing interface                                                           |
+| [`ValidatorRewardVault`](../../specs/predeploys.md#validatorrewardvault)           | [`Proxy`](./contracts/universal/Proxy.sol) | Vault for L2 transaction fees                                                                 |
+| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory) | [`Proxy`](./contracts/universal/Proxy.sol) | Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge` |
+| [`L2ProxyAdmin`](../../specs/TODO)                                                 | -                                          | Contract that can upgrade L2 contracts when sent a transaction from L1                        |
 
 ## Installation
 

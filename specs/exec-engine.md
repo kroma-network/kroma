@@ -8,9 +8,8 @@
   - [Deposited transaction boundaries](#deposited-transaction-boundaries)
 - [Fees](#fees)
   - [Fee Vaults](#fee-vaults)
-  - [Priority fees (Proposer Fee Vault)](#priority-fees-proposer-fee-vault)
-  - [Base fees (Base Fee Vault)](#base-fees-base-fee-vault)
-  - [L1-Cost fees (L1 Fee Vault)](#l1-cost-fees-l1-fee-vault)
+  - [Transaction Fees](#transaction-fees)
+  - [Proposer Reward (Proposer Reward Vault)](#proposer-reward-proposer-reward-vault)
 - [Engine API](#engine-api)
   - [`engine_forkchoiceUpdatedV1`](#engine_forkchoiceupdatedv1)
     - [Extended PayloadAttributesV1](#extended-payloadattributesv1)
@@ -53,8 +52,8 @@ Deposited transactions MUST never be consumed from the transaction pool.
 
 ## Fees
 
-Sequenced transactions (i.e. not applicable to deposits) are charged with 3 types of fees:
-priority fees, base fees, and L1-cost fees.
+Sequenced transactions (i.e. not applicable to deposits) are charged with 2 types of fees:
+transaction fees(priority fees + base fees), and proposer reward.
 
 ### Fee Vaults
 
@@ -64,29 +63,30 @@ fee payments are not registered as internal EVM calls, and thus distinguished be
 These are hardcoded addresses, pointing at pre-deployed proxy contracts.
 The proxies are backed by vault contract deployments, based on `FeeVault`, to route vault funds to L1 securely.
 
-| Vault Name          | Predeploy                                                |
-|---------------------|----------------------------------------------------------|
-| Proposer Fee Vault | [`ProposerFeeVault`](./predeploys.md#ProposerFeeVault) |
-| Base Fee Vault      | [`BaseFeeVault`](./predeploys.md#BaseFeeVault)           |
-| L1 Fee Vault        | [`L1FeeVault`](./predeploys.md#L1FeeVault)               |
+| Vault Name             | Predeploy                                                      |
+|------------------------|----------------------------------------------------------------|
+| Validator Reward Vault | [`ValidatorRewardVault`](./predeploys.md#ValidatorRewardVault) |
+| Protocol Vault         | [`ProtocolVault`](./predeploys.md#ProtocolVault)               |
+| Proposer Reward Vault  | [`ProposerRewardVault`](./predeploys.md#ProposerRewardVault)   |
 
-### Priority fees (Proposer Fee Vault)
+### Transaction Fees
 
-Priority fees follow the [eip-1559] specification, and are collected by the fee-recipient of the L2 block.
-The block fee-recipient (a.k.a. coinbase address) is set to the Proposer Fee Vault address.
+Transaction fees in Kroma are different from [eip-1559] specification.
+The Base Fee is not burned, and there is no distinction between Base Fee and Priority Fee.
+The transaction fee is distributed to two vaults, Validator Reward Vault and Protocol Fee.
 
-### Base fees (Base Fee Vault)
+- Validator Reward Vault: `(baseFee + priorityFee) * ValidatorRewardRatio)`
+- Protocol Vault: `(baseFee + priorityFee) * (1 - ValidatorRewardRatio)`
 
-Base fees largely follow the [eip-1559] specification, with the exception that base fees are not burned,
-but add up to the Base Fee Vault ETH account balance.
+`ValidatorRewardRatio` value is recorded in the [`L1Block`](./predeploys.md#L1block) contract.
 
-### L1-Cost fees (L1 Fee Vault)
+### Proposer Reward (Proposer Reward Vault)
 
 The protocol funds batch-submission of sequenced L2 transactions by charging L2 users an additional fee
 based on the estimated batch-submission costs.
-This fee is charged from the L2 transaction-sender ETH balance, and collected into the L1 Fee Vault.
+This fee is charged from the L2 transaction-sender ETH balance, and collected into the Proposer Reward Vault.
 
-The exact L1 cost function to determine the L1-cost fee component of a L2 transaction is calculated as:
+The exact L1 cost function to determine the L1-cost fee component of an L2 transaction is calculated as:
 `(rollupDataGas + l1FeeOverhead) * l1Basefee * l1FeeScalar / 1000000`
 (big-int computation, result in Wei and `uint256` range)
 Where:

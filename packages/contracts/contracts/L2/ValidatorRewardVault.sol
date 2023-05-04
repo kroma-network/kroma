@@ -7,11 +7,10 @@ import { Semver } from "../universal/Semver.sol";
 /**
  * @custom:proxied
  * @custom:predeploy 0x4200000000000000000000000000000000000008
- * @title ProposerFeeVault
- * @notice The ProposerFeeVault is the contract that holds any fees paid to the Sequencer during
- *         transaction processing and block production.
+ * @title ValidatorRewardVault
+ * @notice The ValidatorRewardVault accumulates transaction fees and pays rewards to validators.
  */
-contract ProposerFeeVault is FeeVault, Semver {
+contract ValidatorRewardVault is FeeVault, Semver {
     /**
      * @custom:semver 0.1.0
      *

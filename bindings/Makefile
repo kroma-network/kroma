@@ -53,7 +53,7 @@ L2CrossDomainMessenger,\
 L2ERC721Bridge,\
 L2StandardBridge,\
 L2ToL1MessagePasser,\
-ProposerFeeVault,\
+ValidatorRewardVault,\
 Proxy,\
 ProxyAdmin,\
 SystemConfig,\
@@ -70,7 +70,7 @@ test:
 	go test ./...
 
 basefee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/BaseFeeVault.sol:BaseFeeVault $(pkg)
+	bash ./gen_bindings.sh contracts/L2/ProtocolVault.sol:ProtocolVault $(pkg)
 
 colosseum-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/Colosseum.sol:Colosseum $(pkg)
@@ -100,7 +100,7 @@ l1-erc721-bridge-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/L1ERC721Bridge.sol:L1ERC721Bridge $(pkg)
 
 l1-fee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/L1FeeVault.sol:L1FeeVault $(pkg)
+	bash ./gen_bindings.sh contracts/L2/ProposerRewardVault.sol:ProposerRewardVault $(pkg)
 
 l1-standard-bridge-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/L1StandardBridge.sol:L1StandardBridge $(pkg)
@@ -124,7 +124,7 @@ l2-to-l1-message-passer-bindings: compile
 	bash ./gen_bindings.sh contracts/L2/L2ToL1MessagePasser.sol:L2ToL1MessagePasser $(pkg)
 
 proposer-fee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/ProposerFeeVault.sol:ProposerFeeVault $(pkg)
+	bash ./gen_bindings.sh contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault $(pkg)
 
 proxy-admin-bindings: compile
 	bash ./gen_bindings.sh contracts/universal/ProxyAdmin.sol:ProxyAdmin $(pkg)

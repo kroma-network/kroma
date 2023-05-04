@@ -590,6 +590,12 @@ func L1InfoFromState(ctx context.Context, contract *bindings.L1Block, l2Number *
 	}
 	out.BatcherAddr = common.BytesToAddress(batcherHash[:])
 
+	vRewardRatio, err := contract.ValidatorRewardRatio(&opts)
+	if err != nil {
+		return derive.L1BlockInfo{}, fmt.Errorf("failed to get validator reward ratio: %w", err)
+	}
+	out.ValidatorRewardRatio = eth.Bytes32(common.BigToHash(vRewardRatio))
+
 	return out, nil
 }
 
@@ -937,14 +943,15 @@ func TestL1InfoContract(t *testing.T) {
 		require.Nil(t, err)
 
 		l1blocks[h] = derive.L1BlockInfo{
-			Number:         b.NumberU64(),
-			Time:           b.Time(),
-			BaseFee:        b.BaseFee(),
-			BlockHash:      h,
-			SequenceNumber: 0, // ignored, will be overwritten
-			BatcherAddr:    sys.RollupConfig.Genesis.SystemConfig.BatcherAddr,
-			L1FeeOverhead:  sys.RollupConfig.Genesis.SystemConfig.Overhead,
-			L1FeeScalar:    sys.RollupConfig.Genesis.SystemConfig.Scalar,
+			Number:               b.NumberU64(),
+			Time:                 b.Time(),
+			BaseFee:              b.BaseFee(),
+			BlockHash:            h,
+			SequenceNumber:       0, // ignored, will be overwritten
+			BatcherAddr:          sys.RollupConfig.Genesis.SystemConfig.BatcherAddr,
+			L1FeeOverhead:        sys.RollupConfig.Genesis.SystemConfig.Overhead,
+			L1FeeScalar:          sys.RollupConfig.Genesis.SystemConfig.Scalar,
+			ValidatorRewardRatio: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(derive.CalcValidatorRewardRatio()))),
 		}
 
 		h = b.ParentHash()
@@ -1253,16 +1260,16 @@ func TestFees(t *testing.T) {
 	require.Equal(t, decimals.Uint64(), uint64(6), "wrong gpo decimals")
 	require.Equal(t, scalar.Uint64(), uint64(1_000_000), "wrong gpo scalar")
 
-	// BaseFee Recipient
+	// Check balances of ProtocolVault
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	baseFeeRecipientStartBalance, err := l2Prop.BalanceAt(ctx, predeploys.BaseFeeVaultAddr, nil)
+	protocolVaultStartBalance, err := l2Prop.BalanceAt(ctx, predeploys.ProtocolVaultAddr, nil)
 	require.Nil(t, err)
 
-	// L1Fee Recipient
+	// Check balances of ProposerRewardVault
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	l1FeeRecipientStartBalance, err := l2Prop.BalanceAt(ctx, predeploys.L1FeeVaultAddr, nil)
+	proposerRewardVaultStartBalance, err := l2Prop.BalanceAt(ctx, predeploys.ProposerRewardVaultAddr, nil)
 	require.Nil(t, err)
 
 	// Simple transfer from signer to random account
@@ -1303,12 +1310,12 @@ func TestFees(t *testing.T) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	coinbaseStartBalance, err := l2Prop.BalanceAt(ctx, header.Coinbase, safeAddBig(header.Number, big.NewInt(-1)))
+	validatorRewardVaultStartBalance, err := l2Prop.BalanceAt(ctx, predeploys.ValidatorRewardVaultAddr, safeAddBig(header.Number, big.NewInt(-1)))
 	require.Nil(t, err)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	coinbaseEndBalance, err := l2Prop.BalanceAt(ctx, header.Coinbase, header.Number)
+	validatorRewardVaultEndBalance, err := l2Prop.BalanceAt(ctx, predeploys.ValidatorRewardVaultAddr, header.Number)
 	require.Nil(t, err)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
@@ -1318,7 +1325,7 @@ func TestFees(t *testing.T) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	baseFeeRecipientEndBalance, err := l2Prop.BalanceAt(ctx, predeploys.BaseFeeVaultAddr, header.Number)
+	protocolVaultEndBalance, err := l2Prop.BalanceAt(ctx, predeploys.ProtocolVaultAddr, header.Number)
 	require.Nil(t, err)
 
 	l1Header, err := sys.Clients["l1"].HeaderByNumber(ctx, nil)
@@ -1326,23 +1333,39 @@ func TestFees(t *testing.T) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	l1FeeRecipientEndBalance, err := l2Prop.BalanceAt(ctx, predeploys.L1FeeVaultAddr, header.Number)
+	proposerRewardVaultEndBalance, err := l2Prop.BalanceAt(ctx, predeploys.ProposerRewardVaultAddr, header.Number)
 	require.Nil(t, err)
 
-	// Diff fee recipient + coinbase balances
-	baseFeeRecipientDiff := new(big.Int).Sub(baseFeeRecipientEndBalance, baseFeeRecipientStartBalance)
-	l1FeeRecipientDiff := new(big.Int).Sub(l1FeeRecipientEndBalance, l1FeeRecipientStartBalance)
-	coinbaseDiff := new(big.Int).Sub(coinbaseEndBalance, coinbaseStartBalance)
+	// Diff fee recipients balances
+	protocolVaultDiff := new(big.Int).Sub(protocolVaultEndBalance, protocolVaultStartBalance)
+	proposerRewardVaultDiff := new(big.Int).Sub(proposerRewardVaultEndBalance, proposerRewardVaultStartBalance)
+	validatorRewardVaultDiff := new(big.Int).Sub(validatorRewardVaultEndBalance, validatorRewardVaultStartBalance)
 
-	// Tally L2 Fee
-	l2Fee := gasTip.Mul(gasTip, new(big.Int).SetUint64(receipt.GasUsed))
-	require.Equal(t, l2Fee, coinbaseDiff, "l2 fee mismatch")
+	// get a validator reward ratio from L1Block contract
+	l1BlockContract, err := bindings.NewL1Block(predeploys.L1BlockAddr, l2Prop)
+	require.Nil(t, err)
 
-	// Tally BaseFee
-	baseFee := new(big.Int).Mul(header.BaseFee, new(big.Int).SetUint64(receipt.GasUsed))
-	require.Equal(t, baseFee, baseFeeRecipientDiff, "base fee fee mismatch")
+	vRewardRatio, err := l1BlockContract.ValidatorRewardRatio(&bind.CallOpts{})
+	require.Nil(t, err, "reading vRewardRatio")
+	require.True(t, vRewardRatio.Uint64() > 0, "wrong l1block vRewardRatio")
 
-	// Tally L1 Fee
+	gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
+	fee := new(big.Int)
+	fee.Mul(gasUsed, header.BaseFee)
+	fee.Add(fee, new(big.Int).Mul(gasTip, gasUsed))
+
+	R := big.NewRat(vRewardRatio.Int64(), 10000)
+	reward := new(big.Int).Mul(fee, R.Num())
+	reward.Div(reward, R.Denom())
+
+	// Tally Validator reward
+	require.Equal(t, reward, validatorRewardVaultDiff, "validator reward mismatch")
+
+	// Tally Protocol fund
+	protocolFee := new(big.Int).Sub(fee, reward)
+	require.Equal(t, protocolFee, protocolVaultDiff, "protocol fund mismatch")
+
+	// Tally proposer reward
 	bytes, err := tx.MarshalBinary()
 	require.Nil(t, err)
 	l1GasUsed := calcL1GasUsed(bytes, overhead)
@@ -1351,16 +1374,16 @@ func TestFees(t *testing.T) {
 	l1Fee = l1Fee.Mul(l1Fee, scalar)
 	l1Fee = l1Fee.Div(l1Fee, divisor)
 
-	require.Equal(t, l1Fee, l1FeeRecipientDiff, "l1 fee mismatch")
+	require.Equal(t, l1Fee, proposerRewardVaultDiff, "proposer reward mismatch")
 
-	// Tally L1 fee against GasPriceOracle
+	// Tally Proposer reward against GasPriceOracle
 	gpoL1Fee, err := gpoContract.GetL1Fee(&bind.CallOpts{}, bytes)
 	require.Nil(t, err)
-	require.Equal(t, l1Fee, gpoL1Fee, "l1 fee mismatch")
+	require.Equal(t, l1Fee, gpoL1Fee, "proposer reward mismatch")
 
 	// Calculate total fee
-	baseFeeRecipientDiff.Add(baseFeeRecipientDiff, coinbaseDiff)
-	totalFee := new(big.Int).Add(baseFeeRecipientDiff, l1FeeRecipientDiff)
+	protocolVaultDiff.Add(protocolVaultDiff, validatorRewardVaultDiff)
+	totalFee := new(big.Int).Add(protocolVaultDiff, proposerRewardVaultDiff)
 	balanceDiff := new(big.Int).Sub(startBalance, endBalance)
 	balanceDiff.Sub(balanceDiff, transferAmount)
 	require.Equal(t, balanceDiff, totalFee, "balances should add up")

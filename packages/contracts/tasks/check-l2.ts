@@ -236,27 +236,27 @@ const check = {
     await checkProxy(hre, 'L2StandardBridge', signer.provider)
     await assertProxy(hre, 'L2StandardBridge', signer.provider)
   },
-  // ProposerFeeVault
+  // ValidatorRewardVault
   // - check version
   // - check RECIPIENT
-  ProposerFeeVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
-    const ProposerFeeVault = await hre.ethers.getContractAt(
-      'ProposerFeeVault',
-      predeploys.ProposerFeeVault,
+  ValidatorRewardVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+    const ValidatorRewardVault = await hre.ethers.getContractAt(
+      'ValidatorRewardVault',
+      predeploys.ValidatorRewardVault,
       signer
     )
 
-    await assertSemver(ProposerFeeVault, 'ProposerFeeVault')
+    await assertSemver(ValidatorRewardVault, 'ValidatorRewardVault')
 
-    const RECIPIENT = await ProposerFeeVault.RECIPIENT()
+    const RECIPIENT = await ValidatorRewardVault.RECIPIENT()
     assert(RECIPIENT !== hre.ethers.constants.AddressZero)
     yell(`  - RECIPIENT: ${RECIPIENT}`)
 
-    const MIN_WITHDRAWAL_AMOUNT = await ProposerFeeVault.MIN_WITHDRAWAL_AMOUNT()
+    const MIN_WITHDRAWAL_AMOUNT = await ValidatorRewardVault.MIN_WITHDRAWAL_AMOUNT()
     console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
 
-    await checkProxy(hre, 'ProposerFeeVault', signer.provider)
-    await assertProxy(hre, 'ProposerFeeVault', signer.provider)
+    await checkProxy(hre, 'ValidatorRewardVault', signer.provider)
+    await assertProxy(hre, 'ValidatorRewardVault', signer.provider)
   },
   // KromaMintableERC20Factory
   // - check version
@@ -381,51 +381,51 @@ const check = {
     await checkProxy(hre, 'ProxyAdmin', signer.provider)
     await assertProxy(hre, 'ProxyAdmin', signer.provider)
   },
-  // BaseFeeVault
+  // ProtocolVault
   // - check version
   // - check MIN_WITHDRAWAL_AMOUNT
   // - check RECIPIENT
-  BaseFeeVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
-    const BaseFeeVault = await hre.ethers.getContractAt(
-      'BaseFeeVault',
-      predeploys.BaseFeeVault,
+  ProtocolVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+    const ProtocolVault = await hre.ethers.getContractAt(
+      'ProtocolVault',
+      predeploys.ProtocolVault,
       signer
     )
 
-    await assertSemver(BaseFeeVault, 'BaseFeeVault')
+    await assertSemver(ProtocolVault, 'ProtocolVault')
 
-    const MIN_WITHDRAWAL_AMOUNT = await BaseFeeVault.MIN_WITHDRAWAL_AMOUNT()
+    const MIN_WITHDRAWAL_AMOUNT = await ProtocolVault.MIN_WITHDRAWAL_AMOUNT()
     console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
 
-    const RECIPIENT = await BaseFeeVault.RECIPIENT()
+    const RECIPIENT = await ProtocolVault.RECIPIENT()
     assert(RECIPIENT !== hre.ethers.constants.AddressZero)
     yell(`  - RECIPIENT: ${RECIPIENT}`)
 
-    await checkProxy(hre, 'BaseFeeVault', signer.provider)
-    await assertProxy(hre, 'BaseFeeVault', signer.provider)
+    await checkProxy(hre, 'ProtocolVault', signer.provider)
+    await assertProxy(hre, 'ProtocolVault', signer.provider)
   },
-  // L1FeeVault
+  // ProposerRewardVault
   // - check version
   // - check MIN_WITHDRAWAL_AMOUNT
   // - check RECIPIENT
-  L1FeeVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
-    const L1FeeVault = await hre.ethers.getContractAt(
-      'L1FeeVault',
-      predeploys.L1FeeVault,
+  ProposerRewardVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+    const ProposerRewardVault = await hre.ethers.getContractAt(
+      'ProposerRewardVault',
+      predeploys.ProposerRewardVault,
       signer
     )
 
-    await assertSemver(L1FeeVault, 'L1FeeVault')
+    await assertSemver(ProposerRewardVault, 'ProposerRewardVault')
 
-    const MIN_WITHDRAWAL_AMOUNT = await L1FeeVault.MIN_WITHDRAWAL_AMOUNT()
+    const MIN_WITHDRAWAL_AMOUNT = await ProposerRewardVault.MIN_WITHDRAWAL_AMOUNT()
     console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
 
-    const RECIPIENT = await L1FeeVault.RECIPIENT()
+    const RECIPIENT = await ProposerRewardVault.RECIPIENT()
     assert(RECIPIENT !== hre.ethers.constants.AddressZero)
     yell(`  - RECIPIENT: ${RECIPIENT}`)
 
-    await checkProxy(hre, 'L1FeeVault', signer.provider)
-    await assertProxy(hre, 'L1FeeVault', signer.provider)
+    await checkProxy(hre, 'ProposerRewardVault', signer.provider)
+    await assertProxy(hre, 'ProposerRewardVault', signer.provider)
   },
   // L2ToL1MessagePasser
   // - check version

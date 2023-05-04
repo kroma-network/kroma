@@ -124,28 +124,28 @@
 | msgNonce     | uint240                  | 1    | 0      | 30    | contracts/L2/L2ToL1MessagePasser.sol:L2ToL1MessagePasser |
 
 =======================
-➡ contracts/L2/ProposerFeeVault.sol:ProposerFeeVault
+➡ contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault
 =======================
 
 | Name           | Type    | Slot | Offset | Bytes | Contract                                           |
 |----------------|---------|------|--------|-------|----------------------------------------------------|
-| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ProposerFeeVault.sol:ProposerFeeVault |
+| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
 
 =======================
-➡ contracts/L2/BaseFeeVault.sol:BaseFeeVault
+➡ contracts/L2/ProtocolVault.sol:ProtocolVault
 =======================
 
 | Name           | Type    | Slot | Offset | Bytes | Contract                                   |
 |----------------|---------|------|--------|-------|--------------------------------------------|
-| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/BaseFeeVault.sol:BaseFeeVault |
+| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ProtocolVault.sol:ProtocolVault |
 
 =======================
-➡ contracts/L2/L1FeeVault.sol:L1FeeVault
+➡ contracts/L2/ProposerRewardVault.sol:ProposerRewardVault
 =======================
 
 | Name           | Type    | Slot | Offset | Bytes | Contract                               |
 |----------------|---------|------|--------|-------|----------------------------------------|
-| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/L1FeeVault.sol:L1FeeVault |
+| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ProposerRewardVault.sol:ProposerRewardVault |
 
 =======================
 ➡ contracts/vendor/WETH9.sol:WETH9
