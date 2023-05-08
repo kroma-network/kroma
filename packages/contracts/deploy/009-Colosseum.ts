@@ -47,6 +47,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['Colosseum', 'ZKVerifier', 'setup']
+deployFn.tags = ['Colosseum', 'ZKVerifier', 'setup', 'l1']
 
 export default deployFn

@@ -25,6 +25,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['KromaMintableERC20Factory', 'setup']
+deployFn.tags = ['KromaMintableERC20Factory', 'setup', 'l1']
 
 export default deployFn

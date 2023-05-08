@@ -91,7 +91,7 @@ interface RequiredDeployConfig {
   /**
    * Maximum the number of transaction are allowed in a block.
    */
-  maxTxs: string
+  maxTxs: number
 
   /**
    * Output Oracle submission interval in L2 blocks.
@@ -126,6 +126,26 @@ interface RequiredDeployConfig {
    * A value represented by a comma-separated string like `9,6,5,6`
    */
   colosseumSegmentsLengths: string
+
+  /**
+   * Owner of the ProxyAdmin contract.
+   */
+  proxyAdminOwner: string
+
+  /**
+   * L1 recipient of fees accumulated in the ProtocolVault.
+   */
+  protocolVaultRecipient: string
+
+  /**
+   * L1 recipient of fees accumulated in the ProposerRewardVault.
+   */
+  ProposerRewardVaultRecipient: string
+
+  /**
+   * L1 recipient of fees accumulated in the ValidatorRewardVault.
+   */
+  validatorRewardVaultRecipient: string
 }
 
 /**
@@ -158,6 +178,9 @@ interface OptionalL2DeployConfig {
   l2GenesisBlockParentHash: string
   l2GenesisBlockBaseFeePerGas: string
   l2GenesisBlueTimeOffset: string
+  l2GenesisBlockCoinbase: string
+  eip1559Denominator: number
+  eip1559Elasticity: number
   gasPriceOracleOverhead: number
   gasPriceOracleScalar: number
   colosseumChallengeTimeout: number
@@ -243,6 +266,18 @@ export const deployConfigSpec: {
   finalizationPeriodSeconds: {
     type: 'number',
     default: 2,
+  },
+  proxyAdminOwner: {
+    type: 'address',
+  },
+  protocolVaultRecipient: {
+    type: 'address',
+  },
+  ProposerRewardVaultRecipient: {
+    type: 'address',
+  },
+  validatorRewardVaultRecipient: {
+    type: 'address',
   },
   cliqueSignerAddress: {
     type: 'address',

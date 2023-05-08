@@ -6,9 +6,9 @@ import { sleep } from '@kroma-network/core-utils'
 import '@kroma-network/hardhat-deploy-config'
 import '@nomiclabs/hardhat-ethers'
 import { Contract, ethers } from 'ethers'
+import { ArtifactData } from 'hardhat-deploy/dist/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
-import { ArtifactData } from 'hardhat-deploy/dist/types'
 
 const IMPLEMENTATION_SLOT =
   '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
@@ -57,12 +57,20 @@ export const deploy = async (
     return null
   }
 
+  // Wrap in a try/catch in case there is not a deployConfig for the current network.
+  let numDeployConfirmations: number
+  try {
+    numDeployConfirmations = hre.deployConfig.numDeployConfirmations
+  } catch (e) {
+    numDeployConfirmations = 1
+  }
+
   const result = await hre.deployments.deploy(name, {
     contract: opts.contract,
     from: deployer,
     args: opts.args,
     log: true,
-    waitConfirmations: hre.deployConfig.numDeployConfirmations,
+    waitConfirmations: numDeployConfirmations,
   })
 
   console.log(`deployed ${name} at ${result.address}`)
@@ -77,7 +85,7 @@ export const deploy = async (
 
   // Create the contract object to return.
   const created = asAdvancedContract({
-    confirmations: hre.deployConfig.numDeployConfirmations,
+    confirmations: numDeployConfirmations,
     contract: new Contract(
       result.address,
       result.abi,
@@ -175,7 +183,6 @@ export const asAdvancedContract = (opts: {
   // Now reset Object.defineProperty
   Object.defineProperty = def
 
-  // Override each function call to also `.wait()` so as to simplify the deploy scripts' syntax.
   for (const fnName of Object.keys(contract.functions)) {
     const fn = contract[fnName].bind(contract)
     ;(contract as any)[fnName] = async (...args: any) => {
@@ -255,8 +262,15 @@ export const getContractFromArtifact = async (
     }
   }
 
+  let numDeployConfirmations: number
+  try {
+    numDeployConfirmations = hre.deployConfig.numDeployConfirmations
+  } catch (e) {
+    numDeployConfirmations = 1
+  }
+
   return asAdvancedContract({
-    confirmations: hre.deployConfig.numDeployConfirmations,
+    confirmations: numDeployConfirmations,
     contract: new hre.ethers.Contract(
       artifact.address,
       iface,

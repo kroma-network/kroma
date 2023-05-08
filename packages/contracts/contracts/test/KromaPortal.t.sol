@@ -5,6 +5,7 @@ import { stdError } from "forge-std/Test.sol";
 
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
+import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { Types } from "../libraries/Types.sol";
 import { Proxy } from "../universal/Proxy.sol";
@@ -1039,10 +1040,11 @@ contract KromaPortalUpgradeable_Test is Portal_Initializer {
     }
 
     function test_params_initValuesOnProxy_succeeds() external {
-        (uint128 prevBaseFee, uint64 prevBoughtGas, uint64 prevBlockNum) = KromaPortal(
-            payable(address(proxy))
-        ).params();
-        assertEq(prevBaseFee, portalImpl.INITIAL_BASE_FEE());
+        KromaPortal p = KromaPortal(payable(address(proxy)));
+        (uint128 prevBaseFee, uint64 prevBoughtGas, uint64 prevBlockNum) = p.params();
+        ResourceMetering.ResourceConfig memory rcfg = systemConfig.resourceConfig();
+
+        assertEq(prevBaseFee, rcfg.minimumBaseFee);
         assertEq(prevBoughtGas, 0);
         assertEq(prevBlockNum, initialBlockNum);
     }
