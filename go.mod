@@ -7,7 +7,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0
 	github.com/ethereum-optimism/go-ethereum-hdwallet v0.1.3
-	github.com/ethereum/go-ethereum v1.11.2
+	github.com/ethereum/go-ethereum v1.11.5
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.9
@@ -72,6 +72,7 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
 	github.com/golang/mock v1.6.0 // indirect
@@ -83,7 +84,6 @@ require (
 	github.com/graph-gophers/graphql-go v1.3.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-bexpr v0.1.11 // indirect
-	github.com/holiman/big v0.0.0-20221017200358-a027dc42d04e // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/iden3/go-iden3-crypto v0.0.13 // indirect
@@ -141,7 +141,6 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.39.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
-	github.com/prometheus/tsdb v0.10.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-18 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
@@ -183,4 +182,4 @@ require (
 	nhooyr.io/websocket v1.8.7 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.11.2 => github.com/kroma-network/go-ethereum v0.0.0-20230502143901-e237931a63ce
+replace github.com/ethereum/go-ethereum v1.11.5 => github.com/kroma-network/go-ethereum v0.0.0-20230510092457-20e23d92c5e4

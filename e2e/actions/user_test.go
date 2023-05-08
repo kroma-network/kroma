@@ -125,7 +125,7 @@ func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	proposer.ActL1HeadSignal(t)
 
 	// sync proposer build enough blocks to adopt latest L1 origin
-	for proposer.SyncStatus().UnsafeL2.L1Origin.Number < miner.l1Chain.CurrentBlock().NumberU64() {
+	for proposer.SyncStatus().UnsafeL2.L1Origin.Number < miner.l1Chain.CurrentBlock().Number.Uint64() {
 		proposer.ActL2StartBlock(t)
 		proposer.ActL2EndBlock(t)
 	}

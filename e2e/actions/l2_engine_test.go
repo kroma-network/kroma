@@ -106,17 +106,17 @@ func TestL2EngineAPIBlockBuilding(gt *testing.T) {
 		ChainID:   sd.L2Cfg.Config.ChainID,
 		Nonce:     0,
 		GasTipCap: big.NewInt(2 * params.GWei),
-		GasFeeCap: new(big.Int).Add(engine.l2Chain.CurrentBlock().BaseFee(), big.NewInt(2*params.GWei)),
+		GasFeeCap: new(big.Int).Add(engine.l2Chain.CurrentBlock().BaseFee, big.NewInt(2*params.GWei)),
 		Gas:       params.TxGas,
 		To:        &dp.Addresses.Bob,
 		Value:     e2eutils.Ether(2),
 	})
 	require.NoError(gt, cl.SendTransaction(t.Ctx(), tx))
 
-	buildBlock := func(includeAlice bool) {
+	l2Cl, err := sources.NewEngineClient(engine.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
+	require.NoError(t, err)
+	buildBlock := func(includeAlice bool, l2Cl *sources.EngineClient) {
 		parent := engine.l2Chain.CurrentBlock()
-		l2Cl, err := sources.NewEngineClient(engine.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
-		require.NoError(t, err)
 
 		// Now let's ask the engine to build a block
 		fcRes, err := l2Cl.ForkchoiceUpdate(t.Ctx(), &eth.ForkchoiceState{
@@ -124,7 +124,7 @@ func TestL2EngineAPIBlockBuilding(gt *testing.T) {
 			SafeBlockHash:      genesisBlock.Hash(),
 			FinalizedBlockHash: genesisBlock.Hash(),
 		}, &eth.PayloadAttributes{
-			Timestamp:             eth.Uint64Quantity(parent.Time()) + 2,
+			Timestamp:             eth.Uint64Quantity(parent.Time) + 2,
 			PrevRandao:            eth.Bytes32{},
 			SuggestedFeeRecipient: common.Address{},
 			Transactions:          nil,
@@ -159,13 +159,19 @@ func TestL2EngineAPIBlockBuilding(gt *testing.T) {
 		require.Equal(t, fcRes.PayloadStatus.Status, eth.ExecutionValid)
 		require.Equal(t, payload.BlockHash, engine.l2Chain.CurrentBlock().Hash(), "now payload is canonical")
 	}
-	buildBlock(false)
-	require.Zero(t, engine.l2Chain.CurrentBlock().Transactions().Len(), "no tx included")
-	buildBlock(true)
-	require.Equal(gt, 1, engine.l2Chain.CurrentBlock().Transactions().Len(), "tx from alice is included")
-	buildBlock(false)
-	require.Zero(t, engine.l2Chain.CurrentBlock().Transactions().Len(), "no tx included")
-	require.Equal(t, uint64(3), engine.l2Chain.CurrentBlock().NumberU64(), "built 3 blocks")
+	buildBlock(false, l2Cl)
+	_, txs, err := l2Cl.InfoAndTxsByHash(t.Ctx(), engine.l2Chain.CurrentBlock().Hash())
+	require.NoError(t, err)
+	require.Zero(t, txs.Len(), "no tx included")
+	buildBlock(true, l2Cl)
+	_, txs, err = l2Cl.InfoAndTxsByHash(t.Ctx(), engine.l2Chain.CurrentBlock().Hash())
+	require.NoError(t, err)
+	require.Equal(gt, 1, txs.Len(), "tx from alice is included")
+	buildBlock(false, l2Cl)
+	_, txs, err = l2Cl.InfoAndTxsByHash(t.Ctx(), engine.l2Chain.CurrentBlock().Hash())
+	require.NoError(t, err)
+	require.Zero(t, txs.Len(), "no tx included")
+	require.Equal(t, uint64(3), engine.l2Chain.CurrentBlock().Number.Uint64(), "built 3 blocks")
 }
 
 func TestL2EngineAPIFail(gt *testing.T) {

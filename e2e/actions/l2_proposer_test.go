@@ -54,7 +54,7 @@ func TestL2Proposer_ProposerDrift(gt *testing.T) {
 			ChainID:   sd.L2Cfg.Config.ChainID,
 			Nonce:     n,
 			GasTipCap: big.NewInt(2 * params.GWei),
-			GasFeeCap: new(big.Int).Add(miner.l1Chain.CurrentBlock().BaseFee(), big.NewInt(2*params.GWei)),
+			GasFeeCap: new(big.Int).Add(miner.l1Chain.CurrentBlock().BaseFee, big.NewInt(2*params.GWei)),
 			Gas:       params.TxGas,
 			To:        &dp.Addresses.Bob,
 			Value:     e2eutils.Ether(2),
@@ -75,7 +75,7 @@ func TestL2Proposer_ProposerDrift(gt *testing.T) {
 	origin := miner.l1Chain.CurrentBlock()
 
 	// L2 makes blocks to catch up
-	for proposer.SyncStatus().UnsafeL2.Time+sd.RollupCfg.BlockTime < origin.Time() {
+	for proposer.SyncStatus().UnsafeL2.Time+sd.RollupCfg.BlockTime < origin.Time {
 		makeL2BlockWithAliceTx()
 		require.Equal(t, uint64(0), proposer.SyncStatus().UnsafeL2.L1Origin.Number, "no L1 origin change before time matches")
 	}
@@ -88,7 +88,7 @@ func TestL2Proposer_ProposerDrift(gt *testing.T) {
 	proposer.ActL1HeadSignal(t)
 
 	// Make blocks up till the proposer drift is about to surpass, but keep the old L1 origin
-	for proposer.SyncStatus().UnsafeL2.Time+sd.RollupCfg.BlockTime <= origin.Time()+sd.RollupCfg.MaxProposerDrift {
+	for proposer.SyncStatus().UnsafeL2.Time+sd.RollupCfg.BlockTime <= origin.Time+sd.RollupCfg.MaxProposerDrift {
 		proposer.ActL2KeepL1Origin(t)
 		makeL2BlockWithAliceTx()
 		require.Equal(t, uint64(1), proposer.SyncStatus().UnsafeL2.L1Origin.Number, "expected to keep old L1 origin")

@@ -48,7 +48,7 @@ func TestBatcher(gt *testing.T) {
 		ChainID:   sd.L2Cfg.Config.ChainID,
 		Nonce:     n,
 		GasTipCap: big.NewInt(2 * params.GWei),
-		GasFeeCap: new(big.Int).Add(miner.l1Chain.CurrentBlock().BaseFee(), big.NewInt(2*params.GWei)),
+		GasFeeCap: new(big.Int).Add(miner.l1Chain.CurrentBlock().BaseFee, big.NewInt(2*params.GWei)),
 		Gas:       params.TxGas,
 		To:        &dp.Addresses.Bob,
 		Value:     e2eutils.Ether(2),
@@ -73,7 +73,10 @@ func TestBatcher(gt *testing.T) {
 	miner.ActL1IncludeTx(dp.Addresses.Batcher)(t)
 	miner.ActL1EndBlock(t)
 	bl := miner.l1Chain.CurrentBlock()
-	log.Info("bl", "txs", len(bl.Transactions()))
+	l1Cl := miner.L1Client(t, sd.RollupCfg)
+	_, txs, err := l1Cl.InfoAndTxsByHash(t.Ctx(), bl.Hash())
+	require.NoError(t, err)
+	log.Info("bl", "txs", len(txs))
 
 	// Now make enough L1 blocks that the syncer will have to derive a L2 block
 	// It will also eagerly derive the block from the batcher
@@ -437,7 +440,7 @@ func TestBigL2Txs(gt *testing.T) {
 		}
 		proposer.ActL1HeadSignal(t)
 		proposer.ActL2StartBlock(t)
-		baseFee := engine.l2Chain.CurrentBlock().BaseFee() // this will go quite high, since so many consecutive blocks are filled at capacity.
+		baseFee := engine.l2Chain.CurrentBlock().BaseFee // this will go quite high, since so many consecutive blocks are filled at capacity.
 		// fill the block with large L2 txs from alice
 		for n := aliceNonce; ; n++ {
 			require.NoError(t, err)
