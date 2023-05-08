@@ -60,32 +60,34 @@
 ➡ contracts/L1/SystemConfig.sol:SystemConfig
 =======================
 
-| Name          | Type        | Slot | Offset | Bytes | Contract                                   |
-|---------------|-------------|------|--------|-------|--------------------------------------------|
-| _initialized  | uint8       | 0    | 0      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
-| _initializing | bool        | 0    | 1      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
-| __gap         | uint256[50] | 1    | 0      | 1600  | contracts/L1/SystemConfig.sol:SystemConfig |
-| _owner        | address     | 51   | 0      | 20    | contracts/L1/SystemConfig.sol:SystemConfig |
-| __gap         | uint256[49] | 52   | 0      | 1568  | contracts/L1/SystemConfig.sol:SystemConfig |
-| overhead      | uint256     | 101  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
-| scalar        | uint256     | 102  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
-| batcherHash   | bytes32     | 103  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
-| gasLimit      | uint64      | 104  | 0      | 8     | contracts/L1/SystemConfig.sol:SystemConfig |
+| Name            | Type                                   | Slot | Offset | Bytes | Contract                                   |
+|-----------------|----------------------------------------|------|--------|-------|--------------------------------------------|
+| _initialized    | uint8                                  | 0    | 0      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
+| _initializing   | bool                                   | 0    | 1      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
+| __gap           | uint256[50]                            | 1    | 0      | 1600  | contracts/L1/SystemConfig.sol:SystemConfig |
+| _owner          | address                                | 51   | 0      | 20    | contracts/L1/SystemConfig.sol:SystemConfig |
+| __gap           | uint256[49]                            | 52   | 0      | 1568  | contracts/L1/SystemConfig.sol:SystemConfig |
+| overhead        | uint256                                | 101  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| scalar          | uint256                                | 102  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| batcherHash     | bytes32                                | 103  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| gasLimit        | uint64                                 | 104  | 0      | 8     | contracts/L1/SystemConfig.sol:SystemConfig |
+| _resourceConfig | struct ResourceMetering.ResourceConfig | 105  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
 
 =======================
 ➡ contracts/L2/L1Block.sol:L1Block
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                         |
-|----------------|---------|------|--------|-------|----------------------------------|
-| number         | uint64  | 0    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
-| timestamp      | uint64  | 0    | 8      | 8     | contracts/L2/L1Block.sol:L1Block |
-| basefee        | uint256 | 1    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| hash           | bytes32 | 2    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| sequenceNumber | uint64  | 3    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
-| batcherHash    | bytes32 | 4    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| l1FeeOverhead  | uint256 | 5    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| l1FeeScalar    | uint256 | 6    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| Name                 | Type    | Slot | Offset | Bytes | Contract                         |
+|----------------------|---------|------|--------|-------|----------------------------------|
+| number               | uint64  | 0    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
+| timestamp            | uint64  | 0    | 8      | 8     | contracts/L2/L1Block.sol:L1Block |
+| basefee              | uint256 | 1    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| hash                 | bytes32 | 2    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| sequenceNumber       | uint64  | 3    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
+| batcherHash          | bytes32 | 4    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| l1FeeOverhead        | uint256 | 5    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| l1FeeScalar          | uint256 | 6    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| validatorRewardRatio | uint256 | 7    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 
 =======================
 ➡ contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger
@@ -127,24 +129,24 @@
 ➡ contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                                           |
-|----------------|---------|------|--------|-------|----------------------------------------------------|
+| Name           | Type    | Slot | Offset | Bytes | Contract                                                   |
+|----------------|---------|------|--------|-------|------------------------------------------------------------|
 | totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
 
 =======================
 ➡ contracts/L2/ProtocolVault.sol:ProtocolVault
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                                   |
-|----------------|---------|------|--------|-------|--------------------------------------------|
+| Name           | Type    | Slot | Offset | Bytes | Contract                                     |
+|----------------|---------|------|--------|-------|----------------------------------------------|
 | totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ProtocolVault.sol:ProtocolVault |
 
 =======================
 ➡ contracts/L2/ProposerRewardVault.sol:ProposerRewardVault
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                               |
-|----------------|---------|------|--------|-------|----------------------------------------|
+| Name           | Type    | Slot | Offset | Bytes | Contract                                                 |
+|----------------|---------|------|--------|-------|----------------------------------------------------------|
 | totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ProposerRewardVault.sol:ProposerRewardVault |
 
 =======================

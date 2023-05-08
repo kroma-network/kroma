@@ -1,14 +1,14 @@
-import * as path from 'path'
 import * as fs from 'fs'
+import * as path from 'path'
 
 import { ethers } from 'ethers'
 import { extendConfig, extendEnvironment } from 'hardhat/config'
+import { lazyFunction, lazyObject } from 'hardhat/plugins'
 import {
   HardhatConfig,
   HardhatRuntimeEnvironment,
   HardhatUserConfig,
 } from 'hardhat/types'
-import { lazyObject } from 'hardhat/plugins'
 
 // From: https://github.com/wighawag/hardhat-deploy/blob/master/src/index.ts#L63-L76
 const normalizePath = (
@@ -26,10 +26,13 @@ const normalizePath = (
   return userPath
 }
 
-export const loadDeployConfig = (hre: HardhatRuntimeEnvironment): any => {
+const getDeployConfig = (
+  dir: string,
+  network: string
+): { [key: string]: any } => {
   let config: any
   try {
-    const base = `${hre.config.paths.deployConfig}/${hre.network.name}`
+    const base = `${dir}/${network}`
     if (fs.existsSync(`${base}.ts`)) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       config = require(`${base}.ts`).default
@@ -41,18 +44,24 @@ export const loadDeployConfig = (hre: HardhatRuntimeEnvironment): any => {
     }
   } catch (err) {
     throw new Error(
-      `error while loading deploy config for network: ${hre.network.name}, ${err}`
+      `error while loading deploy config for network: ${network}, ${err}`
     )
   }
+  return config
+}
 
-  return new Proxy(parseDeployConfig(hre, config), {
+export const loadDeployConfig = (hre: HardhatRuntimeEnvironment): any => {
+  const paths = hre.config.paths.deployConfig
+  const conf = getDeployConfig(paths, hre.network.name)
+  const spec = parseDeployConfig(hre, conf)
+
+  return new Proxy(spec, {
     get: (target, prop) => {
-      if (target.hasOwnProperty(prop)) {
+      if (Object.prototype.hasOwnProperty.call(target, prop)) {
         return target[prop]
       }
 
-      // Explicitly throw if the property is not found since I can't yet figure out a good way to
-      // handle the necessary typings.
+      // Explicitly throw if the property is not found
       throw new Error(
         `property does not exist in deploy config: ${String(prop)}`
       )
@@ -114,4 +123,8 @@ extendConfig(
 
 extendEnvironment((hre) => {
   hre.deployConfig = lazyObject(() => loadDeployConfig(hre))
+  hre.getDeployConfig = lazyFunction(() => {
+    const paths = hre.config.paths.deployConfig
+    return (network: string) => getDeployConfig(paths, network)
+  })
 })

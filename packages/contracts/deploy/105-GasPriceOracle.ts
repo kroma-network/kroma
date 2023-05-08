@@ -1,18 +1,18 @@
+import '@kroma-network/hardhat-deploy-config'
+import '@nomiclabs/hardhat-ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
 import { assertContractVariable, deploy } from '../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const { deployer } = await hre.getNamedAccounts()
-
-  await deploy(hre, 'ProxyAdmin', {
-    args: [deployer],
+  await deploy(hre, 'GasPriceOracle', {
+    args: [],
     postDeployAction: async (contract) => {
-      await assertContractVariable(contract, 'owner', deployer)
+      await assertContractVariable(contract, 'DECIMALS', 6)
     },
   })
 }
 
-deployFn.tags = ['ProxyAdmin', 'setup', 'l1']
+deployFn.tags = ['GasPriceOracle', 'l2']
 
 export default deployFn

@@ -1,7 +1,7 @@
 import assert from 'assert'
 
 import '@nomiclabs/hardhat-ethers'
-import { Contract, providers, Signer, Wallet } from 'ethers'
+import { Contract, Signer, Wallet, providers } from 'ethers'
 import { task, types } from 'hardhat/config'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
@@ -349,10 +349,7 @@ const check = {
       signer
     )
 
-    await assertSemver(
-      KromaMintableERC721Factory,
-      'KromaMintableERC721Factory'
-    )
+    await assertSemver(KromaMintableERC721Factory, 'KromaMintableERC721Factory')
 
     const BRIDGE = await KromaMintableERC721Factory.BRIDGE()
     assert(BRIDGE !== hre.ethers.constants.AddressZero)

@@ -7,21 +7,24 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { Test, StdUtils } from "forge-std/Test.sol";
 
-import { CodeDeployer } from "../libraries/CodeDeployer.sol";
-import { Predeploys } from "../libraries/Predeploys.sol";
-import { Types } from "../libraries/Types.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
 import { L1StandardBridge } from "../L1/L1StandardBridge.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
+import { ResourceMetering } from "../L1/ResourceMetering.sol";
+import { SystemConfig } from "../L1/SystemConfig.sol";
 import { ZKMerkleTrie } from "../L1/ZKMerkleTrie.sol";
 import { ZKVerifier } from "../L1/ZKVerifier.sol";
 import { L2CrossDomainMessenger } from "../L2/L2CrossDomainMessenger.sol";
 import { L2ERC721Bridge } from "../L2/L2ERC721Bridge.sol";
-import { L2ToL1MessagePasser } from "../L2/L2ToL1MessagePasser.sol";
 import { L2StandardBridge } from "../L2/L2StandardBridge.sol";
+import { L2ToL1MessagePasser } from "../L2/L2ToL1MessagePasser.sol";
+import { CodeDeployer } from "../libraries/CodeDeployer.sol";
+import { Constants } from "../libraries/Constants.sol";
+import { Predeploys } from "../libraries/Predeploys.sol";
+import { Types } from "../libraries/Types.sol";
 import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
 import { KromaMintableERC721Factory } from "../universal/KromaMintableERC721Factory.sol";
@@ -170,6 +173,7 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
     // Test target
     KromaPortal portalImpl;
     KromaPortal portal;
+    SystemConfig systemConfig;
 
     event WithdrawalFinalized(bytes32 indexed withdrawalHash, bool success);
     event WithdrawalProven(
@@ -181,9 +185,27 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
     function setUp() public virtual override {
         super.setUp();
 
+        ResourceMetering.ResourceConfig memory config = Constants.DEFAULT_RESOURCE_CONFIG();
+
+        systemConfig = new SystemConfig({
+            _owner: address(1),
+            _overhead: 0,
+            _scalar: 10000,
+            _batcherHash: bytes32(0),
+            _gasLimit: 30_000_000,
+            _unsafeBlockSigner: address(0),
+            _config: config
+        });
+
         zkMerkleTrie = new ZKMerkleTrie(deployPoseidon2());
 
-        portalImpl = new KromaPortal({ _l2Oracle: oracle, _guardian: guardian, _paused: true, _zkMerkleTrie: zkMerkleTrie });
+        portalImpl = new KromaPortal({
+            _l2Oracle: oracle,
+            _guardian: guardian,
+            _paused: true,
+            _config: systemConfig,
+            _zkMerkleTrie: zkMerkleTrie
+        });
         Proxy proxy = new Proxy(multisig);
         vm.prank(multisig);
         proxy.upgradeToAndCall(
@@ -410,7 +432,8 @@ contract ERC721Bridge_Initializer is Messenger_Initializer {
 
 contract Colosseum_Initializer is L2OutputOracle_Initializer {
     uint256 immutable CHAIN_ID = 901;
-    bytes32 immutable DUMMY_HASH = hex"8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9";
+    bytes32 immutable DUMMY_HASH =
+        hex"8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9";
     uint256 immutable MAX_TXS = 25;
 
     // Test target
@@ -624,15 +647,9 @@ contract FFIInterface is Test {
         return abi.decode(result, (uint256, uint256));
     }
 
-    function getMerkleTrieFuzzCase(string memory variant)
-        external
-        returns (
-            bytes32,
-            bytes memory,
-            bytes memory,
-            bytes[] memory
-        )
-    {
+    function getMerkleTrieFuzzCase(
+        string memory variant
+    ) external returns (bytes32, bytes memory, bytes memory, bytes[] memory) {
         string[] memory cmds = new string[](5);
         cmds[0] = "./test-case-generator/fuzz";
         cmds[1] = "-m";

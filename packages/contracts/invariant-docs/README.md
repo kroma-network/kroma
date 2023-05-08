@@ -14,6 +14,7 @@ This directory contains documentation for all defined invariant tests within `co
 - [KromaPortal](./KromaPortal.md)
 - [L2OutputOracle](./L2OutputOracle.md)
 - [ResourceMetering](./ResourceMetering.md)
+- [SafeCall](./SafeCall.md)
 - [SystemConfig](./SystemConfig.md)
 <!-- END autoTOC -->
 

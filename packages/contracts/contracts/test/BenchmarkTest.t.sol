@@ -33,8 +33,6 @@ contract SetPrevBaseFee_Test is Portal_Initializer {
 // In order to achieve this we make no assertions, and handle everything else in the setUp()
 // function.
 contract GasBenchMark_KromaPortal is Portal_Initializer {
-    uint128 internal INITIAL_BASE_FEE;
-
     // Reusable default values for a test withdrawal
     Types.WithdrawalTransaction _defaultTx;
 
@@ -88,8 +86,6 @@ contract GasBenchMark_KromaPortal is Portal_Initializer {
                 1
         );
 
-        INITIAL_BASE_FEE = portal.INITIAL_BASE_FEE();
-
         // Fund the portal so that we can withdraw ETH.
         vm.deal(address(portal), 0xFFFFFFFF);
     }
@@ -105,7 +101,7 @@ contract GasBenchMark_KromaPortal is Portal_Initializer {
     }
 
     function test_depositTransaction_benchmark_1() external {
-        setPrevBaseFee(vm, address(portal), INITIAL_BASE_FEE);
+        setPrevBaseFee(vm, address(portal), 1 gwei);
         portal.depositTransaction{ value: NON_ZERO_VALUE }(
             NON_ZERO_ADDRESS,
             ZERO_VALUE,
@@ -126,16 +122,9 @@ contract GasBenchMark_KromaPortal is Portal_Initializer {
 }
 
 contract GasBenchMark_L1CrossDomainMessenger is Messenger_Initializer {
-    uint128 internal INITIAL_BASE_FEE;
-
-    function setUp() public virtual override {
-        super.setUp();
-        INITIAL_BASE_FEE = portal.INITIAL_BASE_FEE();
-    }
-
     function test_sendMessage_benchmark_0() external {
         vm.pauseGasMetering();
-        setPrevBaseFee(vm, address(portal), INITIAL_BASE_FEE);
+        setPrevBaseFee(vm, address(portal), 1 gwei);
         // The amount of data typically sent during a bridge deposit.
         bytes
             memory data = hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
@@ -154,13 +143,9 @@ contract GasBenchMark_L1CrossDomainMessenger is Messenger_Initializer {
     }
 }
 
-
 contract GasBenchMark_L1StandardBridge_Deposit is Bridge_Initializer {
-    uint128 internal INITIAL_BASE_FEE;
-
     function setUp() public virtual override {
         super.setUp();
-        INITIAL_BASE_FEE = portal.INITIAL_BASE_FEE();
         deal(address(L1Token), alice, 100000, true);
         vm.startPrank(alice, alice);
         L1Token.approve(address(L1Bridge), type(uint256).max);
@@ -168,7 +153,7 @@ contract GasBenchMark_L1StandardBridge_Deposit is Bridge_Initializer {
 
     function test_depositETH_benchmark_0() external {
         vm.pauseGasMetering();
-        setPrevBaseFee(vm, address(portal), INITIAL_BASE_FEE);
+        setPrevBaseFee(vm, address(portal), 1 gwei);
         vm.resumeGasMetering();
         L1Bridge.bridgeETH{ value: 500 }(50000, hex"");
     }
@@ -182,7 +167,7 @@ contract GasBenchMark_L1StandardBridge_Deposit is Bridge_Initializer {
 
     function test_depositERC20_benchmark_0() external {
         vm.pauseGasMetering();
-        setPrevBaseFee(vm, address(portal), INITIAL_BASE_FEE);
+        setPrevBaseFee(vm, address(portal), 1 gwei);
         vm.resumeGasMetering();
         L1Bridge.bridgeERC20({
             _localToken: address(L1Token),
@@ -220,7 +205,7 @@ contract GasBenchMark_L1StandardBridge_Finalize is Bridge_Initializer {
         vm.deal(address(L1Bridge.MESSENGER()), 100);
     }
 
-     function test_finalizeBridgeETH_benchmark() external {
+    function test_finalizeBridgeETH_benchmark() external {
         // TODO: Make this more accurate. It is underestimating the cost because it pranks
         // the call coming from the messenger, which bypasses the portal
         // and oracle.
