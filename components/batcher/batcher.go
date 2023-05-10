@@ -2,6 +2,7 @@ package batcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -57,10 +58,14 @@ func Main(version string, cliCtx *cli.Context) error {
 
 	batcher, err := NewBatcher(ctx, *batcherCfg, l, m)
 	if err != nil {
+		l.Error("Unable to create batcher", "err", err)
 		return err
 	}
 
-	batcher.Start()
+	if err := batcher.Start(); err != nil {
+		l.Error("Unable to start batcher", "err", err)
+		return err
+	}
 	<-utils.WaitInterrupt()
 	batcher.Stop(context.Background())
 
@@ -72,6 +77,7 @@ type Batcher struct {
 	cancelShutdownCtx context.CancelFunc
 	killCtx           context.Context
 	cancelKillCtx     context.CancelFunc
+	running           bool
 
 	cfg            Config
 	l              log.Logger
@@ -105,8 +111,13 @@ func NewBatcher(parentCtx context.Context, cfg Config, l log.Logger, m metrics.M
 	}, nil
 }
 
-func (b *Batcher) Start() {
+func (b *Batcher) Start() error {
 	b.l.Info("starting Batcher")
+
+	if b.running {
+		return errors.New("batcher is already running")
+	}
+	b.running = true
 
 	b.shutdownCtx, b.cancelShutdownCtx = context.WithCancel(context.Background())
 	b.killCtx, b.cancelKillCtx = context.WithCancel(context.Background())
@@ -115,10 +126,17 @@ func (b *Batcher) Start() {
 	go b.loop()
 
 	b.l.Info("Batcher started")
+
+	return nil
 }
 
-func (b *Batcher) Stop(ctx context.Context) {
+func (b *Batcher) Stop(ctx context.Context) error {
 	b.l.Info("stopping Batcher")
+
+	if !b.running {
+		return errors.New("batcher is not running")
+	}
+	b.running = false
 
 	// go routine will call cancelKillCtx() if the passed in ctx is ever Done
 	cancelKill := b.cancelKillCtx
@@ -134,6 +152,8 @@ func (b *Batcher) Stop(ctx context.Context) {
 	b.cancelKillCtx()
 
 	b.l.Info("Batcher stopped")
+
+	return nil
 }
 
 // The following things occur:
