@@ -331,7 +331,7 @@ func (d *Driver) eventLoop() {
 			if !d.driverConfig.ProposerStopped {
 				resp.err <- errors.New("proposer already running")
 			} else if !bytes.Equal(unsafeHead[:], resp.hash[:]) {
-				resp.err <- fmt.Errorf("block hash does not match: head %d, received %d", unsafeHead.String(), resp.hash.String())
+				resp.err <- fmt.Errorf("block hash does not match: head %s, received %s", unsafeHead.String(), resp.hash.String())
 			} else {
 				d.log.Info("Proposer has been started")
 				d.driverConfig.ProposerStopped = false
