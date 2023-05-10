@@ -631,7 +631,9 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 	// Batcher may be enabled later
 	if !sys.cfg.DisableBatcher {
-		sys.Batcher.Start()
+		if err := sys.Batcher.Start(); err != nil {
+			return nil, fmt.Errorf("unable to start batcher: %w", err)
+		}
 	}
 
 	return sys, nil
