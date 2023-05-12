@@ -21,7 +21,8 @@ export interface OutputRootProof {
   version: string
   stateRoot: string
   messagePasserStorageRoot: string
-  latestBlockhash: string
+  blockHash: string
+  nextBlockHash: string
 }
 
 /**
@@ -133,6 +134,21 @@ export const hashWithdrawal = (
  * @param proof OutputRootProof
  */
 export const hashOutputRootProof = (proof: OutputRootProof): string => {
+  const version = parseInt(proof.version, 10)
+  if (version === 0) {
+    return hashOutputRootProofV0(proof)
+  } else if (version === 1) {
+    return hashOutputRootProofV1(proof)
+  }
+  throw new Error(`unknown version ${version.toString()}`)
+}
+
+/**
+ * Hashes a V0 output root proof
+ *
+ * @param proof OutputRootProof
+ */
+export const hashOutputRootProofV0 = (proof: OutputRootProof): string => {
   return keccak256(
     defaultAbiCoder.encode(
       ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
@@ -140,7 +156,27 @@ export const hashOutputRootProof = (proof: OutputRootProof): string => {
         proof.version,
         proof.stateRoot,
         proof.messagePasserStorageRoot,
-        proof.latestBlockhash,
+        proof.blockHash,
+      ]
+    )
+  )
+}
+
+/**
+ * Hashes a V1 output root proof
+ *
+ * @param proof OutputRootProof
+ */
+export const hashOutputRootProofV1 = (proof: OutputRootProof): string => {
+  return keccak256(
+    defaultAbiCoder.encode(
+      ['bytes32', 'bytes32', 'bytes32', 'bytes32', 'bytes32'],
+      [
+        proof.version,
+        proof.stateRoot,
+        proof.messagePasserStorageRoot,
+        proof.blockHash,
+        proof.nextBlockHash,
       ]
     )
   )
