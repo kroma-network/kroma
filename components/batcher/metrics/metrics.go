@@ -52,7 +52,7 @@ type Metrics struct {
 	Info prometheus.GaugeVec
 	Up   prometheus.Gauge
 
-	// label by openend, closed, fully_submitted, timed_out
+	// label by opened, closed, fully_submitted, timed_out
 	ChannelEvs kmetrics.EventVec
 
 	PendingBlocksCount prometheus.GaugeVec
@@ -153,14 +153,14 @@ func (m *Metrics) Serve(ctx context.Context, host string, port int) error {
 	return kmetrics.ListenAndServe(ctx, m.registry, host, port)
 }
 
+func (m *Metrics) Document() []kmetrics.DocumentedMetric {
+	return m.factory.Document()
+}
+
 func (m *Metrics) StartBalanceMetrics(ctx context.Context,
 	l log.Logger, client *ethclient.Client, account common.Address,
 ) {
 	kmetrics.LaunchBalanceMetrics(ctx, l, m.registry, m.ns, client, account)
-}
-
-func (m *Metrics) Document() []kmetrics.DocumentedMetric {
-	return m.factory.Document()
 }
 
 // RecordInfo sets a pseudo-metric that contains versioning and
