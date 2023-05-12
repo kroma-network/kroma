@@ -75,7 +75,7 @@ type ETHBackend interface {
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 }
 
-// SimpleTxManager is a implementation of TxManager that performs linear fee
+// SimpleTxManager is an implementation of TxManager that performs linear fee
 // bumping of a tx until it confirms.
 type SimpleTxManager struct {
 	Config  // directly embed the config
@@ -212,7 +212,7 @@ func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*typ
 		m.publishAndWaitForTx(ctx, tx, sendState, receiptChan)
 	}
 
-	// Immediately publish a transaction before starting the resumbission loop
+	// Immediately publish a transaction before starting the resubmission loop
 	wg.Add(1)
 	go sendTxAsync(tx)
 
