@@ -332,7 +332,7 @@ except the trailing encoding schema part, which is now message-specific:
 /ProtocolPrefix/MessageName/SchemaVersion/
 ```
 
-The req-resp protocols served by the kroma-node all have `/ProtocolPrefix` set to `/opstack/req`.
+The req-resp protocols served by the kroma-node all have `/ProtocolPrefix` set to `/kroma-stack/req`.
 
 Individual methods may include the chain ID as part of the `/MessageName` segment,
 so it's immediately clear which chain the method applies to, if the communication is chain-specific.
@@ -346,7 +346,7 @@ Each segment starts with a `/`, and may contain multiple `/`, and the final prot
 This is an optional chain syncing method, to request/serve execution payloads by number.
 This serves as a method to fill gaps upon missed gossip, and sync short to medium ranges of unsafe L2 blocks.
 
-Protocol ID: `/opstack/req/payload_by_number/<chain-id>/0/`
+Protocol ID: `/kroma-stack/req/payload_by_number/<chain-id>/0/`
 
 - `/MessageName` is `/block_by_number/<chain-id>` where `<chain-id>` is set to the kroma-node L2 chain ID.
 - `/SchemaVersion` is `/0`

@@ -60,7 +60,7 @@ const (
 )
 
 func PayloadByNumberProtocolID(l2ChainID *big.Int) protocol.ID {
-	return protocol.ID(fmt.Sprintf("/opstack/req/payload_by_number/%d/0", l2ChainID))
+	return protocol.ID(fmt.Sprintf("/kroma-stack/req/payload_by_number/%d/0", l2ChainID))
 }
 
 type requestHandlerFn func(ctx context.Context, log log.Logger, stream network.Stream)
