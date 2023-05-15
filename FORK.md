@@ -4,4 +4,4 @@
 
 - tag: `v1.0.3`
 - differences
-  - to be updated
+  - [Differences from Optimism Bedrock](./specs/differences-from-optimism-bedrock.md)
