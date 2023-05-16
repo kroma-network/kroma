@@ -10,7 +10,9 @@ on:
 jobs:
   prepare:
     name: Run CI
-    runs-on: self-hosted
+    runs-on:
+      group: kroma-runners
+      labels: kroma-ubuntu-latest-8core
 
     outputs:
       kroma-node: ${{ steps.packages.outputs.kroma-node }}
@@ -57,7 +59,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: nightly-f3c20d5664c8773d4ec3b2b67148cc1032f48f58
 
       - name: Build
         run: yarn build
