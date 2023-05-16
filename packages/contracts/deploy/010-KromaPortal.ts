@@ -13,6 +13,10 @@ const deployFn: DeployFunction = async (hre) => {
     'L2OutputOracleProxy'
   )
 
+  const Artifact__SystemConfigProxy = await hre.deployments.get(
+    'SystemConfigProxy'
+  )
+
   const ZKMerkleTrie = await getContractFromArtifact(hre, 'ZKMerkleTrie')
 
   await deploy(hre, 'KromaPortal', {
@@ -20,6 +24,7 @@ const deployFn: DeployFunction = async (hre) => {
       L2OutputOracleProxy.address,
       hre.deployConfig.portalGuardian,
       false,
+      Artifact__SystemConfigProxy.address,
       ZKMerkleTrie.address,
     ],
     isProxyImpl: true,
@@ -37,6 +42,11 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
+        'SYSTEM_CONFIG',
+        Artifact__SystemConfigProxy.address
+      )
+      await assertContractVariable(
+        contract,
         'ZK_MERKLE_TRIE',
         ZKMerkleTrie.address
       )
@@ -44,6 +54,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['KromaPortal', 'setup']
+deployFn.tags = ['KromaPortal', 'setup', 'l1']
 
 export default deployFn

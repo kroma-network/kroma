@@ -17,15 +17,11 @@ const deployFn: DeployFunction = async (hre) => {
     isProxyImpl: true,
     initArgs: [],
     postDeployAction: async (contract) => {
-      await assertContractVariable(
-        contract,
-        'PORTAL',
-        KromaPortalProxy.address
-      )
+      await assertContractVariable(contract, 'PORTAL', KromaPortalProxy.address)
     },
   })
 }
 
-deployFn.tags = ['L1CrossDomainMessenger', 'setup']
+deployFn.tags = ['L1CrossDomainMessenger', 'setup', 'l1']
 
 export default deployFn

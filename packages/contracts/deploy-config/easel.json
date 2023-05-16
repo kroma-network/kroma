@@ -22,7 +22,7 @@
   "l2OutputOracleValidator": "0x496c79132B773940ca5B38EBcc0C56887a0ea164",
   "finalizationPeriodSeconds": 60,
   "proxyAdminOwner": "0x69487D0D1F969E99D3b68C4F79F0F47375c4Ee4A",
-  "l2GenesisBlockGasLimit": "0x17D7840",
+  "l2GenesisBlockGasLimit": "0x1c9c380",
   "l2GenesisBlockCoinbase": "0x4200000000000000000000000000000000000008",
   "l2GenesisBlockBaseFeePerGas": "0x3b9aca00",
   "l2GenesisBlueTimeOffset": "0x0",
@@ -31,5 +31,6 @@
   "eip1559Denominator": 50,
   "eip1559Elasticity": 10,
   "colosseumChallengeTimeout": 120,
-  "colosseumSegmentsLengths": "6,5"
+  "colosseumSegmentsLengths": "6,5",
+  "numDeployConfirmations": 1
 }

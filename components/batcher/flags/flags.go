@@ -9,13 +9,13 @@ import (
 	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
 	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 	krpc "github.com/kroma-network/kroma/utils/service/rpc"
-	ksigner "github.com/kroma-network/kroma/utils/signer/client"
+	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 const envVarPrefix = "BATCHER"
 
 var (
-	/* Required flags */
+	// Required flags
 
 	L1EthRpcFlag = cli.StringFlag{
 		Name:     "l1-eth-rpc",
@@ -50,30 +50,8 @@ var (
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "POLL_INTERVAL"),
 	}
-	NumConfirmationsFlag = cli.Uint64Flag{
-		Name: "num-confirmations",
-		Usage: "Number of confirmations which we will wait after " +
-			"appending a new batch",
-		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "NUM_CONFIRMATIONS"),
-	}
-	SafeAbortNonceTooLowCountFlag = cli.Uint64Flag{
-		Name: "safe-abort-nonce-too-low-count",
-		Usage: "Number of ErrNonceTooLow observations required to " +
-			"give up on a tx at a particular nonce without receiving " +
-			"confirmation",
-		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "SAFE_ABORT_NONCE_TOO_LOW_COUNT"),
-	}
-	ResubmissionTimeoutFlag = cli.DurationFlag{
-		Name: "resubmission-timeout",
-		Usage: "Duration we will wait before resubmitting a " +
-			"transaction to L1",
-		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "RESUBMISSION_TIMEOUT"),
-	}
 
-	/* Optional flags */
+	// Optional flags
 
 	MaxChannelDurationFlag = cli.Uint64Flag{
 		Name:   "max-channel-duration",
@@ -105,22 +83,6 @@ var (
 		Value:  1.0,
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "APPROX_COMPR_RATIO"),
 	}
-	MnemonicFlag = cli.StringFlag{
-		Name:   "mnemonic",
-		Usage:  "The mnemonic used to derive the wallets for the batcher",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "MNEMONIC"),
-	}
-	HDPathFlag = cli.StringFlag{
-		Name: "hd-path",
-		Usage: "The HD path used to derive the batcher from the " +
-			"mnemonic. The mnemonic flag must also be set.",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "HD_PATH"),
-	}
-	PrivateKeyFlag = cli.StringFlag{
-		Name:   "private-key",
-		Usage:  "The private key to use with the batcher. Must not be used with mnemonic.",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "PRIVATE_KEY"),
-	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -129,9 +91,6 @@ var requiredFlags = []cli.Flag{
 	RollupRpcFlag,
 	SubSafetyMarginFlag,
 	PollIntervalFlag,
-	NumConfirmationsFlag,
-	SafeAbortNonceTooLowCountFlag,
-	ResubmissionTimeoutFlag,
 }
 
 var optionalFlags = []cli.Flag{
@@ -140,9 +99,6 @@ var optionalFlags = []cli.Flag{
 	TargetL1TxSizeBytesFlag,
 	TargetNumFramesFlag,
 	ApproxComprRatioFlag,
-	MnemonicFlag,
-	HDPathFlag,
-	PrivateKeyFlag,
 }
 
 func init() {
@@ -151,8 +107,8 @@ func init() {
 	optionalFlags = append(optionalFlags, klog.CLIFlags(envVarPrefix)...)
 	optionalFlags = append(optionalFlags, kmetrics.CLIFlags(envVarPrefix)...)
 	optionalFlags = append(optionalFlags, kpprof.CLIFlags(envVarPrefix)...)
-	optionalFlags = append(optionalFlags, ksigner.CLIFlags(envVarPrefix)...)
 	optionalFlags = append(optionalFlags, rpc.CLIFlags(envVarPrefix)...)
+	optionalFlags = append(optionalFlags, txmgr.CLIFlags(envVarPrefix)...)
 
 	Flags = append(requiredFlags, optionalFlags...)
 }

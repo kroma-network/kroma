@@ -1,10 +1,16 @@
+// eslint-disable-next-line no-undef
 module.exports = {
   root: true,
   env: {
     browser: true,
     es6: true,
   },
-  ignorePatterns: ['dist', 'coverage', 'packages/contracts/hardhat'],
+  ignorePatterns: [
+    'dist',
+    'coverage',
+    'packages/contracts/hardhat',
+    'test/**/*.ts',
+  ],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',

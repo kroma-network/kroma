@@ -15,7 +15,7 @@
 - [L2 Output Commitment Construction](#l2-output-commitment-construction)
   - [Output Payload(Version 0)](#output-payloadversion-0)
   - [Output Payload(Version 1)](#output-payloadversion-1)
-- [The L2 Output Oracle Contract](#the-l2-output-oracle-contract)
+- [L2 Output Oracle Smart Contract](#l2-output-oracle-smart-contract)
   - [Configuration](#configuration)
 - [Security Considerations](#security-considerations)
   - [L1 Reorgs](#l1-reorgs)
@@ -27,27 +27,48 @@
 ![Validation Overview](assets/verifier-proving-fault-proof.svg)
 
 After processing one or more blocks, the outputs will need to be synchronized with [L1][g-l1] for trustless execution of
-L2-to-L1 messaging, such as withdrawals. Outputs are hashed in a tree-structured form which minimizes the cost of
-proving any piece of data captured by the outputs.
-Validators submit the output roots to L1 and can be contested with a [ZK fault proof][g-zk-fault-proof],
+L2-to-L1 messaging, such as withdrawals.
+These output proposals act as the bridge's view into the L2 state.
+Actors called "Validators" submit the output roots to L1 and can be contested with a [ZK fault proof][g-zk-fault-proof],
 with a bond at stake if the proof is wrong.
 
 ## Submitting L2 Output Commitments
 
-The validator's role is to construct and submit output roots, which are commitments made on a configurable interval,
-to the `L2OutputOracle` contract running on L1. It does this by running the [validator](../components/validator/),
-a service which periodically queries the rollup node's
-[`kroma_outputAtBlock` rpc method](./rollup-node.md#l2-output-rpc-method) for the latest output root derived
-from the latest [finalized](rollup-node.md#finalization-guarantees) L1 block. The construction of this output root is
-described [below](#l2-output-commitment-construction).
+The validator's role is to construct and submit output roots, which are commitments to the L2's state,
+to the `L2OutputOracle` contract on L1. To do this, the validator periodically
+queries the [rollup node](./rollup-node.md) for the latest output root derived from the latest
+[finalized][finality] L1 block. It then takes the output root and
+submits it to the `L2OutputOracle` contract on L1.
 
-If there is no newly finalized output, the service continues querying until it receives one. It then submits this
-output, and the appropriate timestamp, to the [L2 Output Oracle](#the-l2-output-oracle-contract) contract's
-`submitL2Output()` function. The block number must correspond to the `startingBlockNumber` plus the next
-multiple of the `SUBMISSION_INTERVAL` value.
+[finality]: https://hackmd.io/@prysmaticlabs/finality
 
-The validator may also delete multiple output roots by calling the `deleteL2Outputs()` function and specifying the
-index of the first output to delete, this will also delete all subsequent outputs.
+The submission of output roots is permitted to a single account. It is expected that this
+account continues to submit output roots over time to ensure that user withdrawals do not halt.
+
+The [validator](../components/validator/) is expected to submit output roots on a deterministic
+interval based on the configured `SUBMISSION_INTERVAL` in the `L2OutputOracle`. The larger
+the `SUBMISSION_INTERVAL`, the less often L1 transactions need to be sent to the `L2OutputOracle`
+contract, but L2 users will need to wait a bit longer for an output root to be included in L1
+that includes their intention to withdrawal from the system.
+
+The honest `kroma-validator` algorithm assumes a connection to the `L2OutputOracle` contract to know
+the L2 block number that corresponds to the next output root that must be submitted. It also
+assumes a connection to an `kroma-node` to be able to query the `kroma_syncStatus` RPC endpoint.
+
+```python
+import time
+
+while True:
+    next_checkpoint_block = L2OutputOracle.nextBlockNumber()
+    rollup_status = kroma_node_client.sync_status()
+    if rollup_status.finalized_l2.number >= next_checkpoint_block:
+        output = kroma_node_client.output_at_block(next_checkpoint_block)
+        tx = send_transaction(output)
+    time.sleep(poll_interval)
+```
+
+The validator may also delete multiple output roots by calling the `deleteL2Outputs()` function
+and specifying the index of the first output to delete, this will also delete all subsequent outputs.
 
 ## L2 Output Commitment Construction
 
@@ -101,12 +122,12 @@ where:
 
 Starting from version 1, the height of the block where the output is submitted has been delayed by one.
 
-## The L2 Output Oracle Contract
+## L2 Output Oracle Smart Contract
 
 L2 blocks are produced at a constant rate of `L2_BLOCK_TIME` (2 seconds).
 A new L2 output MUST be appended to the chain once per `SUBMISSION_INTERVAL` which is based on a number of blocks.
 
-The L2 Output Oracle contract implements the following interface:
+L2 Output Oracle Smart Contract implements the following interface:
 
 ```solidity
 interface L2OutputOracle {
@@ -136,7 +157,7 @@ The first `outputRoot` submitted will thus be at height `startingBlockNumber + S
 
 If the L1 has a reorg after an output has been generated and submitted, the L2 state and correct output may change
 leading to a misbehavior. This is mitigated against by allowing the validator to submit an
-L1 block number and hash to the [L2 Output Oracle](#the-l2-output-oracle-contract) when appending a new output;
+L1 block number and hash to the [L2 Output Oracle](#l2-output-oracle-smart-contract) when appending a new output;
 in the event of a reorg, the block hash will not match that of the block with that number and the call will revert.
 
 ## Summary of Definitions

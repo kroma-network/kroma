@@ -5,6 +5,7 @@
   },
   "include": [
     "src/**/*",
+    "deploy/**/*",
     "deploy-config/**/*",
     "deploy-config/**/*.json",
     "tasks/**/*",

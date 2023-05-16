@@ -70,6 +70,8 @@ services:
       NODE_P2P_LISTEN_IP: 0.0.0.0
       NODE_P2P_LISTEN_TCP_PORT: 9003
       NODE_P2P_LISTEN_UDP_PORT: 9003
+      NODE_P2P_PEER_SCORING: light
+      NODE_P2P_PEER_BANNING: true
       NODE_P2P_PRIV_PATH: /config/p2p-node-key.txt
       NODE_P2P_PROPOSER_KEY: 8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
       NODE_METRICS_ENABLED: true
@@ -117,6 +119,7 @@ services:
       VALIDATOR_METRICS_ENABLED: "true"
       VALIDATOR_ALLOW_NON_FINALIZED: "true"
       VALIDATOR_CHALLENGER_DISABLED: "true"
+      VALIDATOR_TXMGR_TX_SEND_TIMEOUT: 600s
 
   kroma-challenger:
     pid: host # allow debugging
@@ -141,6 +144,7 @@ services:
       VALIDATOR_COLOSSEUM_ADDRESS: "${COLOSSEUM_ADDRESS}"
       VALIDATOR_PROVER_GRPC: "${PROVER_GRPC}"
       VALIDATOR_OUTPUT_SUBMITTER_DISABLED: "true"
+      VALIDATOR_TXMGR_TX_SEND_TIMEOUT: 600s
 
   kroma-batcher:
     pid: host # allow debugging
@@ -173,6 +177,7 @@ services:
       BATCHER_LOG_TERMINAL: "true"
       BATCHER_PPROF_ENABLED: "true"
       BATCHER_METRICS_ENABLED: "true"
+      BATCHER_TXMGR_TX_SEND_TIMEOUT: 600s
 
   stateviz:
     pid: host # allow debugging

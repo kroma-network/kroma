@@ -149,6 +149,7 @@ func (s *L2Syncer) SyncStatus() *eth.SyncStatus {
 		UnsafeL2:           s.L2Unsafe(),
 		SafeL2:             s.L2Safe(),
 		FinalizedL2:        s.L2Finalized(),
+		UnsafeL2SyncTarget: s.derivation.UnsafeL2SyncTarget(),
 	}
 }
 

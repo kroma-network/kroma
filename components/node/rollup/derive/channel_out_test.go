@@ -29,6 +29,22 @@ func TestChannelOutAddBlock(t *testing.T) {
 	})
 }
 
+// TestOutputFrameSmallMaxSize tests that calling [OutputFrame] with a small
+// max size that is below the fixed frame size overhead of 23, will return
+// an error.
+func TestOutputFrameSmallMaxSize(t *testing.T) {
+	cout, err := NewChannelOut()
+	require.NoError(t, err)
+
+	// Call OutputFrame with the range of small max size values that err
+	var w bytes.Buffer
+	for i := 0; i < 23; i++ {
+		fid, err := cout.OutputFrame(&w, uint64(i))
+		require.ErrorIs(t, err, ErrMaxFrameSizeTooSmall)
+		require.Zero(t, fid)
+	}
+}
+
 // TestRLPByteLimit ensures that stream encoder is properly limiting the length.
 // It will decode the input if `len(input) <= inputLimit`.
 func TestRLPByteLimit(t *testing.T) {
@@ -115,4 +131,10 @@ func TestForceCloseTxData(t *testing.T) {
 			require.Equal(t, common.FromHex(test.output), out, "Should match output tc %v", i)
 		}
 	}
+}
+
+func TestBlockToBatchValidity(t *testing.T) {
+	block := new(types.Block)
+	_, _, err := BlockToBatch(block)
+	require.ErrorContains(t, err, "has no transactions")
 }

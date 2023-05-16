@@ -6,31 +6,69 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/trie"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/kroma-network/kroma/components/node/eth"
 )
 
+type EngineBackend interface {
+	CurrentSafeBlock() *types.Header
+	CurrentFinalBlock() *types.Header
+	GetBlockByHash(hash common.Hash) *types.Block
+	GetBlock(hash common.Hash, number uint64) *types.Block
+	HasBlockAndState(hash common.Hash, number uint64) bool
+	GetCanonicalHash(n uint64) common.Hash
+
+	GetVMConfig() *vm.Config
+	Config() *params.ChainConfig
+	// Engine retrieves the chain's consensus engine.
+	Engine() consensus.Engine
+
+	StateAt(root common.Hash) (*state.StateDB, error)
+
+	InsertBlockWithoutSetHead(block *types.Block) error
+	SetCanonical(head *types.Block) (common.Hash, error)
+	SetFinalized(header *types.Header)
+	SetSafe(header *types.Header)
+
+	consensus.ChainHeaderReader
+}
+
 // L2EngineAPI wraps an engine actor, and implements the RPC backend required to serve the engine API.
 // This re-implements some of the Geth API work, but changes the API backend so we can deterministically
 // build and control the L2 block contents to reach very specific edge cases as desired for testing.
-type L2EngineAPI L2Engine
+type L2EngineAPI struct {
+	log     log.Logger
+	backend EngineBackend
+
+	// L2 block building data
+	blockProcessor *BlockProcessor
+	pendingIndices map[common.Address]uint64 // per account, how many txs from the pool were already included in the block, since the pool is lagging behind block mining.
+	l2ForceEmpty   bool                      // when no additional txs may be processed (i.e. when proposer drift runs out)
+	l2TxFailed     []*types.Transaction      // log of failed transactions which could not be included
+
+	payloadID engine.PayloadID // ID of payload that is currently being built
+}
+
+func NewL2EngineAPI(log log.Logger, backend EngineBackend) *L2EngineAPI {
+	return &L2EngineAPI{
+		log:     log,
+		backend: backend,
+	}
+}
 
 var (
-	STATUS_INVALID         = &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, PayloadID: nil}
-	STATUS_SYNCING         = &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionSyncing}, PayloadID: nil}
-	INVALID_TERMINAL_BLOCK = eth.PayloadStatusV1{Status: eth.ExecutionInvalid, LatestValidHash: &common.Hash{}}
+	STATUS_INVALID = &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, PayloadID: nil}
+	STATUS_SYNCING = &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionSyncing}, PayloadID: nil}
 )
 
 // computePayloadId computes a pseudo-random payloadid, based on the parameters.
@@ -53,42 +91,58 @@ func computePayloadId(headBlockHash common.Hash, params *eth.PayloadAttributes) 
 	return out
 }
 
-func (ea *L2EngineAPI) startBlock(parent common.Hash, params *eth.PayloadAttributes) error {
-	if ea.l2BuildingHeader != nil {
-		ea.log.Warn("started building new block without ending previous block", "previous", ea.l2BuildingHeader, "prev_payload_id", ea.payloadID)
+func (ea *L2EngineAPI) RemainingBlockGas() uint64 {
+	if ea.blockProcessor == nil {
+		return 0
+	}
+	return ea.blockProcessor.gasPool.Gas()
+}
+
+func (ea *L2EngineAPI) ForcedEmpty() bool {
+	return ea.l2ForceEmpty
+}
+
+func (ea *L2EngineAPI) PendingIndices(from common.Address) uint64 {
+	return ea.pendingIndices[from]
+}
+
+var ErrNotBuildingBlock = errors.New("not currently building a block, cannot include tx from queue")
+
+func (ea *L2EngineAPI) IncludeTx(tx *types.Transaction, from common.Address) error {
+	if ea.blockProcessor == nil {
+		return ErrNotBuildingBlock
+	}
+	if ea.l2ForceEmpty {
+		ea.log.Info("Skipping including a transaction because ea.L2ForceEmpty is true")
+		return nil
 	}
 
-	parentHeader := ea.l2Chain.GetHeaderByHash(parent)
-	if parentHeader == nil {
-		return fmt.Errorf("uknown parent block: %s", parent)
-	}
-	statedb, err := state.New(parentHeader.Root, state.NewDatabaseWithConfig(ea.l2Database, &trie.Config{
-		Zktrie: true,
-	}), nil)
+	err := ea.blockProcessor.CheckTxWithinGasLimit(tx)
 	if err != nil {
-		return fmt.Errorf("failed to init state db around block %s (state %s): %w", parent, parentHeader.Root, err)
+		return err
 	}
 
-	header := &types.Header{
-		ParentHash: parent,
-		Coinbase:   params.SuggestedFeeRecipient,
-		Difficulty: common.Big0,
-		Number:     new(big.Int).Add(parentHeader.Number, common.Big1),
-		GasLimit:   uint64(*params.GasLimit),
-		Time:       uint64(params.Timestamp),
-		Extra:      nil,
-		MixDigest:  common.Hash(params.PrevRandao),
+	ea.pendingIndices[from] = ea.pendingIndices[from] + 1 // won't retry the tx
+	err = ea.blockProcessor.AddTx(tx)
+	if err != nil {
+		ea.l2TxFailed = append(ea.l2TxFailed, tx)
+		return fmt.Errorf("invalid L2 block (tx %d): %w", len(ea.blockProcessor.transactions), err)
+	}
+	return nil
+}
+
+func (ea *L2EngineAPI) startBlock(parent common.Hash, params *eth.PayloadAttributes) error {
+	if ea.blockProcessor != nil {
+		ea.log.Warn("started building new block without ending previous block", "previous", ea.blockProcessor.header, "prev_payload_id", ea.payloadID)
 	}
 
-	header.BaseFee = misc.CalcBaseFee(ea.l2Cfg.Config, parentHeader)
-
-	ea.l2BuildingHeader = header
-	ea.l2BuildingState = statedb
-	ea.l2Receipts = make([]*types.Receipt, 0)
-	ea.l2Transactions = make([]*types.Transaction, 0)
+	processor, err := NewBlockProcessorFromPayloadAttributes(ea.backend, parent, params)
+	if err != nil {
+		return err
+	}
+	ea.blockProcessor = processor
 	ea.pendingIndices = make(map[common.Address]uint64)
 	ea.l2ForceEmpty = params.NoTxPool
-	ea.l2GasPool = new(core.GasPool).AddGas(header.GasLimit)
 	ea.payloadID = computePayloadId(parent, params)
 
 	// pre-process the deposits
@@ -97,37 +151,25 @@ func (ea *L2EngineAPI) startBlock(parent common.Hash, params *eth.PayloadAttribu
 		if err := tx.UnmarshalBinary(otx); err != nil {
 			return fmt.Errorf("transaction %d is not valid: %w", i, err)
 		}
-		ea.l2BuildingState.SetTxContext(tx.Hash(), i)
-		receipt, err := core.ApplyTransaction(ea.l2Cfg.Config, ea.l2Chain, &ea.l2BuildingHeader.Coinbase,
-			ea.l2GasPool, ea.l2BuildingState, ea.l2BuildingHeader, &tx, &ea.l2BuildingHeader.GasUsed, *ea.l2Chain.GetVMConfig())
+		err := ea.blockProcessor.AddTx(&tx)
 		if err != nil {
 			ea.l2TxFailed = append(ea.l2TxFailed, &tx)
 			return fmt.Errorf("failed to apply deposit transaction to L2 block (tx %d): %w", i, err)
 		}
-		ea.l2Receipts = append(ea.l2Receipts, receipt)
-		ea.l2Transactions = append(ea.l2Transactions, &tx)
 	}
 	return nil
 }
 
 func (ea *L2EngineAPI) endBlock() (*types.Block, error) {
-	if ea.l2BuildingHeader == nil {
+	if ea.blockProcessor == nil {
 		return nil, fmt.Errorf("no block is being built currently (id %s)", ea.payloadID)
 	}
-	header := ea.l2BuildingHeader
-	ea.l2BuildingHeader = nil
+	processor := ea.blockProcessor
+	ea.blockProcessor = nil
 
-	header.GasUsed = header.GasLimit - uint64(*ea.l2GasPool)
-	header.Root = ea.l2BuildingState.IntermediateRoot(ea.l2Cfg.Config.IsEIP158(header.Number))
-	block := types.NewBlock(header, ea.l2Transactions, nil, ea.l2Receipts, trie.NewStackTrie(nil))
-
-	// Write state changes to db
-	root, err := ea.l2BuildingState.Commit(ea.l2Cfg.Config.IsEIP158(header.Number))
+	block, err := processor.Assemble()
 	if err != nil {
-		return nil, fmt.Errorf("l2 state write error: %w", err)
-	}
-	if err := ea.l2BuildingState.Database().TrieDB().Commit(root, false); err != nil {
-		return nil, fmt.Errorf("l2 trie write error: %w", err)
+		return nil, fmt.Errorf("assemble block: %w", err)
 	}
 	return block, nil
 }
@@ -155,31 +197,16 @@ func (ea *L2EngineAPI) ForkchoiceUpdatedV1(ctx context.Context, state *eth.Forkc
 	// Check whether we have the block yet in our database or not. If not, we'll
 	// need to either trigger a sync, or to reject this forkchoice update for a
 	// reason.
-	block := ea.l2Chain.GetBlockByHash(state.HeadBlockHash)
+	block := ea.backend.GetBlockByHash(state.HeadBlockHash)
 	if block == nil {
 		// TODO: syncing not supported yet
 		return STATUS_SYNCING, nil
 	}
 	// Block is known locally, just sanity check that the beacon client does not
 	// attempt to push us back to before the merge.
-	if block.Difficulty().BitLen() > 0 || block.NumberU64() == 0 {
-		var (
-			td  = ea.l2Chain.GetTd(state.HeadBlockHash, block.NumberU64())
-			ptd = ea.l2Chain.GetTd(block.ParentHash(), block.NumberU64()-1)
-			ttd = ea.l2Chain.Config().TerminalTotalDifficulty
-		)
-		if td == nil || (block.NumberU64() > 0 && ptd == nil) {
-			ea.log.Error("TDs unavailable for TTD check", "number", block.NumberU64(), "hash", state.HeadBlockHash, "td", td, "parent", block.ParentHash(), "ptd", ptd)
-			return STATUS_INVALID, errors.New("TDs unavailable for TDD check")
-		}
-		if td.Cmp(ttd) < 0 {
-			ea.log.Error("Refusing beacon update to pre-merge", "number", block.NumberU64(), "hash", state.HeadBlockHash, "diff", block.Difficulty(), "age", common.PrettyAge(time.Unix(int64(block.Time()), 0)))
-			return &eth.ForkchoiceUpdatedResult{PayloadStatus: INVALID_TERMINAL_BLOCK, PayloadID: nil}, nil
-		}
-		if block.NumberU64() > 0 && ptd.Cmp(ttd) >= 0 {
-			ea.log.Error("Parent block is already post-ttd", "number", block.NumberU64(), "hash", state.HeadBlockHash, "diff", block.Difficulty(), "age", common.PrettyAge(time.Unix(int64(block.Time()), 0)))
-			return &eth.ForkchoiceUpdatedResult{PayloadStatus: INVALID_TERMINAL_BLOCK, PayloadID: nil}, nil
-		}
+	// Note: Differs from kroma-geth implementation as pre-merge blocks are never supported here
+	if block.Difficulty().BitLen() > 0 {
+		return STATUS_INVALID, errors.New("pre-merge blocks not supported")
 	}
 	valid := func(id *engine.PayloadID) *eth.ForkchoiceUpdatedResult {
 		return &eth.ForkchoiceUpdatedResult{
@@ -187,16 +214,16 @@ func (ea *L2EngineAPI) ForkchoiceUpdatedV1(ctx context.Context, state *eth.Forkc
 			PayloadID:     id,
 		}
 	}
-	if rawdb.ReadCanonicalHash(ea.l2Database, block.NumberU64()) != state.HeadBlockHash {
+	if ea.backend.GetCanonicalHash(block.NumberU64()) != state.HeadBlockHash {
 		// Block is not canonical, set head.
-		if latestValid, err := ea.l2Chain.SetCanonical(block); err != nil {
+		if latestValid, err := ea.backend.SetCanonical(block); err != nil {
 			return &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionInvalid, LatestValidHash: &latestValid}}, err
 		}
-	} else if ea.l2Chain.CurrentBlock().Hash() == state.HeadBlockHash {
+	} else if ea.backend.CurrentHeader().Hash() == state.HeadBlockHash {
 		// If the specified head matches with our local head, do nothing and keep
 		// generating the payload. It's a special corner case that a few slots are
 		// missing and we are requested to generate the payload in slot.
-	} else if ea.l2Chain.Config().Kroma == nil { // minor L2Engine API divergence: allow validators to reorg their own chain
+	} else if ea.backend.Config().Kroma == nil { // minor L2Engine API divergence: allow validators to reorg their own chain
 		panic("engine not configured as kroma engine")
 	}
 
@@ -204,30 +231,30 @@ func (ea *L2EngineAPI) ForkchoiceUpdatedV1(ctx context.Context, state *eth.Forkc
 	// chain final and completely in PoS mode.
 	if state.FinalizedBlockHash != (common.Hash{}) {
 		// If the finalized block is not in our canonical tree, somethings wrong
-		finalBlock := ea.l2Chain.GetBlockByHash(state.FinalizedBlockHash)
-		if finalBlock == nil {
+		finalHeader := ea.backend.GetHeaderByHash(state.FinalizedBlockHash)
+		if finalHeader == nil {
 			ea.log.Warn("Final block not available in database", "hash", state.FinalizedBlockHash)
 			return STATUS_INVALID, engine.InvalidForkChoiceState.With(errors.New("final block not available in database"))
-		} else if rawdb.ReadCanonicalHash(ea.l2Database, finalBlock.NumberU64()) != state.FinalizedBlockHash {
+		} else if ea.backend.GetCanonicalHash(finalHeader.Number.Uint64()) != state.FinalizedBlockHash {
 			ea.log.Warn("Final block not in canonical chain", "number", block.NumberU64(), "hash", state.HeadBlockHash)
 			return STATUS_INVALID, engine.InvalidForkChoiceState.With(errors.New("final block not in canonical chain"))
 		}
 		// Set the finalized block
-		ea.l2Chain.SetFinalized(finalBlock)
+		ea.backend.SetFinalized(finalHeader)
 	}
 	// Check if the safe block hash is in our canonical tree, if not somethings wrong
 	if state.SafeBlockHash != (common.Hash{}) {
-		safeBlock := ea.l2Chain.GetBlockByHash(state.SafeBlockHash)
-		if safeBlock == nil {
+		safeHeader := ea.backend.GetHeaderByHash(state.SafeBlockHash)
+		if safeHeader == nil {
 			ea.log.Warn("Safe block not available in database")
 			return STATUS_INVALID, engine.InvalidForkChoiceState.With(errors.New("safe block not available in database"))
 		}
-		if rawdb.ReadCanonicalHash(ea.l2Database, safeBlock.NumberU64()) != state.SafeBlockHash {
+		if ea.backend.GetCanonicalHash(safeHeader.Number.Uint64()) != state.SafeBlockHash {
 			ea.log.Warn("Safe block not in canonical chain")
 			return STATUS_INVALID, engine.InvalidForkChoiceState.With(errors.New("safe block not in canonical chain"))
 		}
 		// Set the safe block
-		ea.l2Chain.SetSafe(safeBlock)
+		ea.backend.SetSafe(safeHeader)
 	}
 	// If payload generation was requested, create a new block to be potentially
 	// sealed by the beacon client. The payload will be requested later, and we
@@ -272,7 +299,7 @@ func (ea *L2EngineAPI) NewPayloadV1(ctx context.Context, payload *eth.ExecutionP
 	}
 	// If we already have the block locally, ignore the entire execution and just
 	// return a fake success.
-	if block := ea.l2Chain.GetBlockByHash(payload.BlockHash); block != nil {
+	if block := ea.backend.GetBlockByHash(payload.BlockHash); block != nil {
 		ea.log.Warn("Ignoring already known beacon payload", "number", payload.BlockNumber, "hash", payload.BlockHash, "age", common.PrettyAge(time.Unix(int64(block.Time()), 0)))
 		hash := block.Hash()
 		return &eth.PayloadStatusV1{Status: eth.ExecutionValid, LatestValidHash: &hash}, nil
@@ -280,16 +307,23 @@ func (ea *L2EngineAPI) NewPayloadV1(ctx context.Context, payload *eth.ExecutionP
 
 	// TODO: skipping invalid ancestor check (i.e. not remembering previously failed blocks)
 
-	parent := ea.l2Chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+	parent := ea.backend.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
 		// TODO: hack, saying we accepted if we don't know the parent block. Might want to return critical error if we can't actually sync.
 		return &eth.PayloadStatusV1{Status: eth.ExecutionAccepted, LatestValidHash: nil}, nil
 	}
-	if !ea.l2Chain.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
+
+	if block.Time() <= parent.Time() {
+		log.Warn("Invalid timestamp", "parent", block.Time(), "block", block.Time())
+		return ea.invalid(errors.New("invalid timestamp"), parent.Header()), nil
+	}
+
+	if !ea.backend.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
 		ea.log.Warn("State not available, ignoring new payload")
 		return &eth.PayloadStatusV1{Status: eth.ExecutionAccepted}, nil
 	}
-	if err := ea.l2Chain.InsertBlockWithoutSetHead(block); err != nil {
+	log.Trace("Inserting block without sethead", "hash", block.Hash(), "number", block.Number)
+	if err := ea.backend.InsertBlockWithoutSetHead(block); err != nil {
 		ea.log.Warn("NewPayloadV1: inserting block failed", "error", err)
 		// TODO not remembering the payload as invalid
 		return ea.invalid(err, parent.Header()), nil
@@ -299,7 +333,7 @@ func (ea *L2EngineAPI) NewPayloadV1(ctx context.Context, payload *eth.ExecutionP
 }
 
 func (ea *L2EngineAPI) invalid(err error, latestValid *types.Header) *eth.PayloadStatusV1 {
-	currentHash := ea.l2Chain.CurrentBlock().Hash()
+	currentHash := ea.backend.CurrentHeader().Hash()
 	if latestValid != nil {
 		// Set latest valid hash to 0x0 if parent is PoW block
 		currentHash = common.Hash{}

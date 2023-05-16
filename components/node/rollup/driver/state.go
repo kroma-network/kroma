@@ -16,7 +16,6 @@ import (
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/node/rollup/derive"
-	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/utils/service/backoff"
 )
 
@@ -64,8 +63,8 @@ type Driver struct {
 	l1SafeSig      chan eth.L1BlockRef
 	l1FinalizedSig chan eth.L1BlockRef
 
-	// Backup unsafe sync client
-	L2SyncCl *sources.SyncClient
+	// Interface to signal the L2 block range to sync.
+	altSync AltSync
 
 	// L2 Signals:
 	unsafeL2Payloads chan *eth.ExecutionPayload
@@ -85,65 +84,65 @@ type Driver struct {
 
 // Start starts up the state loop.
 // The loop will have been started iff err is not nil.
-func (s *Driver) Start() error {
-	s.derivation.Reset()
+func (d *Driver) Start() error {
+	d.derivation.Reset()
 
-	s.wg.Add(1)
-	go s.eventLoop()
+	d.wg.Add(1)
+	go d.eventLoop()
 
 	return nil
 }
 
-func (s *Driver) Close() error {
-	s.done <- struct{}{}
-	s.wg.Wait()
+func (d *Driver) Close() error {
+	d.done <- struct{}{}
+	d.wg.Wait()
 	return nil
 }
 
 // OnL1Head signals the driver that the L1 chain changed the "unsafe" block,
 // also known as head of the chain, or "latest".
-func (s *Driver) OnL1Head(ctx context.Context, unsafe eth.L1BlockRef) error {
+func (d *Driver) OnL1Head(ctx context.Context, unsafe eth.L1BlockRef) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case s.l1HeadSig <- unsafe:
+	case d.l1HeadSig <- unsafe:
 		return nil
 	}
 }
 
 // OnL1Safe signals the driver that the L1 chain changed the "safe",
 // also known as the justified checkpoint (as seen on L1 beacon-chain).
-func (s *Driver) OnL1Safe(ctx context.Context, safe eth.L1BlockRef) error {
+func (d *Driver) OnL1Safe(ctx context.Context, safe eth.L1BlockRef) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case s.l1SafeSig <- safe:
+	case d.l1SafeSig <- safe:
 		return nil
 	}
 }
 
-func (s *Driver) OnL1Finalized(ctx context.Context, finalized eth.L1BlockRef) error {
+func (d *Driver) OnL1Finalized(ctx context.Context, finalized eth.L1BlockRef) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case s.l1FinalizedSig <- finalized:
+	case d.l1FinalizedSig <- finalized:
 		return nil
 	}
 }
 
-func (s *Driver) OnUnsafeL2Payload(ctx context.Context, payload *eth.ExecutionPayload) error {
+func (d *Driver) OnUnsafeL2Payload(ctx context.Context, payload *eth.ExecutionPayload) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case s.unsafeL2Payloads <- payload:
+	case d.unsafeL2Payloads <- payload:
 		return nil
 	}
 }
 
 // the eventLoop responds to L1 changes and internal timers to produce L2 blocks.
-func (s *Driver) eventLoop() {
-	defer s.wg.Done()
-	s.log.Info("State loop started")
+func (d *Driver) eventLoop() {
+	defer d.wg.Done()
+	d.log.Info("State loop started")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -173,10 +172,10 @@ func (s *Driver) eventLoop() {
 			// if this is not the first attempt, we re-schedule with a backoff, *without blocking other events*
 			if delayedStepReq == nil {
 				delay := bOffStrategy.Duration(stepAttempts)
-				s.log.Debug("scheduling re-attempt with delay", "attempts", stepAttempts, "delay", delay)
+				d.log.Debug("scheduling re-attempt with delay", "attempts", stepAttempts, "delay", delay)
 				delayedStepReq = time.After(delay)
 			} else {
-				s.log.Debug("ignoring step request, already scheduled re-attempt after previous failure", "attempts", stepAttempts)
+				d.log.Debug("ignoring step request, already scheduled re-attempt after previous failure", "attempts", stepAttempts)
 			}
 		} else {
 			step()
@@ -191,7 +190,7 @@ func (s *Driver) eventLoop() {
 	proposerTimer := time.NewTimer(0)
 	var proposerCh <-chan time.Time
 	planProposerAction := func() {
-		delay := s.proposer.PlanNextProposerAction()
+		delay := d.proposer.PlanNextProposerAction()
 		proposerCh = proposerTimer.C
 		if len(proposerCh) > 0 { // empty if not already drained before resetting
 			<-proposerCh
@@ -199,131 +198,155 @@ func (s *Driver) eventLoop() {
 		proposerTimer.Reset(delay)
 	}
 
-	// Create a ticker to check if there is a gap in the engine queue every 15 seconds
-	// If there is, we send requests to the backup RPC to retrieve the missing payloads
-	// and add them to the unsafe queue.
-	altSyncTicker := time.NewTicker(15 * time.Second)
+	// Create a ticker to check if there is a gap in the engine queue. Whenever
+	// there is, we send requests to sync source to retrieve the missing payloads.
+	syncCheckInterval := time.Duration(d.config.BlockTime) * time.Second * 2
+	altSyncTicker := time.NewTicker(syncCheckInterval)
 	defer altSyncTicker.Stop()
+	lastUnsafeL2 := d.derivation.UnsafeL2Head()
 
 	for {
 		// If we are proposing, and the L1 state is ready, update the trigger for the next proposer action.
 		// This may adjust at any time based on fork-choice changes or previous errors.
 		// And avoid sequencing if the derivation pipeline indicates the engine is not ready.
-		if s.driverConfig.ProposerEnabled && !s.driverConfig.ProposerStopped &&
-			s.l1State.L1Head() != (eth.L1BlockRef{}) && s.derivation.EngineReady() {
-			// update proposer time if the head changed
-			if s.proposer.BuildingOnto().ID() != s.derivation.UnsafeL2Head().ID() {
+		if d.driverConfig.ProposerEnabled && !d.driverConfig.ProposerStopped &&
+			d.l1State.L1Head() != (eth.L1BlockRef{}) && d.derivation.EngineReady() {
+			if d.driverConfig.ProposerMaxSafeLag > 0 && d.derivation.SafeL2Head().Number+d.driverConfig.ProposerMaxSafeLag <= d.derivation.UnsafeL2Head().Number {
+				// If the safe head has fallen behind by a significant number of blocks, delay creating new blocks
+				// until the safe lag is below SequencerMaxSafeLag.
+				if proposerCh != nil {
+					d.log.Warn(
+						"Delay creating new block since safe lag exceeds limit",
+						"safe_l2", d.derivation.SafeL2Head(),
+						"unsafe_l2", d.derivation.UnsafeL2Head(),
+					)
+					proposerCh = nil
+				}
+			} else if d.proposer.BuildingOnto().ID() != d.derivation.UnsafeL2Head().ID() {
+				// If we are sequencing, and the L1 state is ready, update the trigger for the next sequencer action.
+				// This may adjust at any time based on fork-choice changes or previous errors.
+				//
+				// update sequencer time if the head changed
 				planProposerAction()
 			}
 		} else {
 			proposerCh = nil
 		}
 
+		// If the engine is not ready, or if the L2 head is actively changing, then reset the alt-sync:
+		// there is no need to request L2 blocks when we are syncing already.
+		if head := d.derivation.UnsafeL2Head(); head != lastUnsafeL2 || !d.derivation.EngineReady() {
+			lastUnsafeL2 = head
+			altSyncTicker.Reset(syncCheckInterval)
+		}
+
 		select {
 		case <-proposerCh:
-			payload, err := s.proposer.RunNextProposerAction(ctx)
+			payload, err := d.proposer.RunNextProposerAction(ctx)
 			if err != nil {
-				s.log.Error("Sequencer critical error", "err", err)
+				d.log.Error("Sequencer critical error", "err", err)
 				return
 			}
-			if s.network != nil && payload != nil {
+			if d.network != nil && payload != nil {
 				// Publishing of unsafe data via p2p is optional.
 				// Errors are not severe enough to change/halt proposing but should be logged and metered.
-				if err := s.network.PublishL2Payload(ctx, payload); err != nil {
-					s.log.Warn("failed to publish newly created block", "id", payload.ID(), "err", err)
-					s.metrics.RecordPublishingError()
+				if err := d.network.PublishL2Payload(ctx, payload); err != nil {
+					d.log.Warn("failed to publish newly created block", "id", payload.ID(), "err", err)
+					d.metrics.RecordPublishingError()
 				}
 			}
 			planProposerAction() // schedule the next proposer action to keep the proposing looping
 		case <-altSyncTicker.C:
-			// Check if there is a gap in the current unsafe payload queue. If there is, attempt to fetch
-			// missing payloads from the backup RPC (if it is configured).
-			if s.L2SyncCl != nil {
-				s.checkForGapInUnsafeQueue(ctx)
+			// Check if there is a gap in the current unsafe payload queue.
+			ctx, cancel := context.WithTimeout(ctx, time.Second*2)
+			err := d.checkForGapInUnsafeQueue(ctx)
+			cancel()
+			if err != nil {
+				d.log.Warn("failed to check for unsafe L2 blocks to sync", "err", err)
 			}
-		case payload := <-s.unsafeL2Payloads:
-			s.snapshot("New unsafe payload")
-			s.log.Info("Optimistically queueing unsafe L2 execution payload", "id", payload.ID())
-			s.derivation.AddUnsafePayload(payload)
-			s.metrics.RecordReceivedUnsafePayload(payload)
+		case payload := <-d.unsafeL2Payloads:
+			d.snapshot("New unsafe payload")
+			d.log.Info("Optimistically queueing unsafe L2 execution payload", "id", payload.ID())
+			d.derivation.AddUnsafePayload(payload)
+			d.metrics.RecordReceivedUnsafePayload(payload)
 			reqStep()
 
-		case newL1Head := <-s.l1HeadSig:
-			s.l1State.HandleNewL1HeadBlock(newL1Head)
+		case newL1Head := <-d.l1HeadSig:
+			d.l1State.HandleNewL1HeadBlock(newL1Head)
 			reqStep() // a new L1 head may mean we have the data to not get an EOF again.
-		case newL1Safe := <-s.l1SafeSig:
-			s.l1State.HandleNewL1SafeBlock(newL1Safe)
+		case newL1Safe := <-d.l1SafeSig:
+			d.l1State.HandleNewL1SafeBlock(newL1Safe)
 			// no step, justified L1 information does not do anything for L2 derivation or status
-		case newL1Finalized := <-s.l1FinalizedSig:
-			s.l1State.HandleNewL1FinalizedBlock(newL1Finalized)
-			s.derivation.Finalize(newL1Finalized)
+		case newL1Finalized := <-d.l1FinalizedSig:
+			d.l1State.HandleNewL1FinalizedBlock(newL1Finalized)
+			d.derivation.Finalize(newL1Finalized)
 			reqStep() // we may be able to mark more L2 data as finalized now
 		case <-delayedStepReq:
 			delayedStepReq = nil
 			step()
 		case <-stepReqCh:
-			s.metrics.SetDerivationIdle(false)
-			s.log.Debug("Derivation process step", "onto_origin", s.derivation.Origin(), "attempts", stepAttempts)
-			err := s.derivation.Step(context.Background())
+			d.metrics.SetDerivationIdle(false)
+			d.log.Debug("Derivation process step", "onto_origin", d.derivation.Origin(), "attempts", stepAttempts)
+			err := d.derivation.Step(context.Background())
 			stepAttempts += 1 // count as attempt by default. We reset to 0 if we are making healthy progress.
 			if err == io.EOF {
-				s.log.Debug("Derivation process went idle", "progress", s.derivation.Origin())
+				d.log.Debug("Derivation process went idle", "progress", d.derivation.Origin())
 				stepAttempts = 0
-				s.metrics.SetDerivationIdle(true)
+				d.metrics.SetDerivationIdle(true)
 				continue
 			} else if err != nil && errors.Is(err, derive.ErrReset) {
 				// If the pipeline corrupts, e.g. due to a reorg, simply reset it
-				s.log.Warn("Derivation pipeline is reset", "err", err)
-				s.derivation.Reset()
-				s.metrics.RecordPipelineReset()
+				d.log.Warn("Derivation pipeline is reset", "err", err)
+				d.derivation.Reset()
+				d.metrics.RecordPipelineReset()
 				continue
 			} else if err != nil && errors.Is(err, derive.ErrTemporary) {
-				s.log.Warn("Derivation process temporary error", "attempts", stepAttempts, "err", err)
+				d.log.Warn("Derivation process temporary error", "attempts", stepAttempts, "err", err)
 				reqStep()
 				continue
 			} else if err != nil && errors.Is(err, derive.ErrCritical) {
-				s.log.Error("Derivation process critical error", "err", err)
+				d.log.Error("Derivation process critical error", "err", err)
 				return
 			} else if err != nil && errors.Is(err, derive.NotEnoughData) {
 				stepAttempts = 0 // don't do a backoff for this error
 				reqStep()
 				continue
 			} else if err != nil {
-				s.log.Error("Derivation process error", "attempts", stepAttempts, "err", err)
+				d.log.Error("Derivation process error", "attempts", stepAttempts, "err", err)
 				reqStep()
 				continue
 			} else {
 				stepAttempts = 0
 				reqStep() // continue with the next step if we can
 			}
-		case respCh := <-s.stateReq:
+		case respCh := <-d.stateReq:
 			respCh <- struct{}{}
-		case respCh := <-s.forceReset:
-			s.log.Warn("Derivation pipeline is manually reset")
-			s.derivation.Reset()
-			s.metrics.RecordPipelineReset()
+		case respCh := <-d.forceReset:
+			d.log.Warn("Derivation pipeline is manually reset")
+			d.derivation.Reset()
+			d.metrics.RecordPipelineReset()
 			close(respCh)
-		case resp := <-s.startProposer:
-			unsafeHead := s.derivation.UnsafeL2Head().Hash
-			if !s.driverConfig.ProposerStopped {
+		case resp := <-d.startProposer:
+			unsafeHead := d.derivation.UnsafeL2Head().Hash
+			if !d.driverConfig.ProposerStopped {
 				resp.err <- errors.New("proposer already running")
 			} else if !bytes.Equal(unsafeHead[:], resp.hash[:]) {
 				resp.err <- fmt.Errorf("block hash does not match: head %s, received %s", unsafeHead.String(), resp.hash.String())
 			} else {
-				s.log.Info("Proposer has been started")
-				s.driverConfig.ProposerStopped = false
+				d.log.Info("Proposer has been started")
+				d.driverConfig.ProposerStopped = false
 				close(resp.err)
 				planProposerAction() // resume proposing
 			}
-		case respCh := <-s.stopProposer:
-			if s.driverConfig.ProposerStopped {
+		case respCh := <-d.stopProposer:
+			if d.driverConfig.ProposerStopped {
 				respCh <- hashAndError{err: errors.New("proposer not running")}
 			} else {
-				s.log.Warn("Proposer has been stopped")
-				s.driverConfig.ProposerStopped = true
-				respCh <- hashAndError{hash: s.derivation.UnsafeL2Head().Hash}
+				d.log.Warn("Proposer has been stopped")
+				d.driverConfig.ProposerStopped = true
+				respCh <- hashAndError{hash: d.derivation.UnsafeL2Head().Hash}
 			}
-		case <-s.done:
+		case <-d.done:
 			return
 		}
 	}
@@ -332,12 +355,12 @@ func (s *Driver) eventLoop() {
 // ResetDerivationPipeline forces a reset of the derivation pipeline.
 // It waits for the reset to occur. It simply unblocks the caller rather
 // than fully cancelling the reset request upon a context cancellation.
-func (s *Driver) ResetDerivationPipeline(ctx context.Context) error {
+func (d *Driver) ResetDerivationPipeline(ctx context.Context) error {
 	respCh := make(chan struct{}, 1)
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case s.forceReset <- respCh:
+	case d.forceReset <- respCh:
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -347,8 +370,8 @@ func (s *Driver) ResetDerivationPipeline(ctx context.Context) error {
 	}
 }
 
-func (s *Driver) StartProposer(ctx context.Context, blockHash common.Hash) error {
-	if !s.driverConfig.ProposerEnabled {
+func (d *Driver) StartProposer(ctx context.Context, blockHash common.Hash) error {
+	if !d.driverConfig.ProposerEnabled {
 		return errors.New("proposer is not enabled")
 	}
 	h := hashAndErrorChannel{
@@ -358,7 +381,7 @@ func (s *Driver) StartProposer(ctx context.Context, blockHash common.Hash) error
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case s.startProposer <- h:
+	case d.startProposer <- h:
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -368,15 +391,15 @@ func (s *Driver) StartProposer(ctx context.Context, blockHash common.Hash) error
 	}
 }
 
-func (s *Driver) StopProposer(ctx context.Context) (common.Hash, error) {
-	if !s.driverConfig.ProposerEnabled {
+func (d *Driver) StopProposer(ctx context.Context) (common.Hash, error) {
+	if !d.driverConfig.ProposerEnabled {
 		return common.Hash{}, errors.New("proposer is not enabled")
 	}
 	respCh := make(chan hashAndError, 1)
 	select {
 	case <-ctx.Done():
 		return common.Hash{}, ctx.Err()
-	case s.stopProposer <- respCh:
+	case d.stopProposer <- respCh:
 		select {
 		case <-ctx.Done():
 			return common.Hash{}, ctx.Err()
@@ -388,26 +411,27 @@ func (s *Driver) StopProposer(ctx context.Context) (common.Hash, error) {
 
 // syncStatus returns the current sync status, and should only be called synchronously with
 // the driver event loop to avoid retrieval of an inconsistent status.
-func (s *Driver) syncStatus() *eth.SyncStatus {
+func (d *Driver) syncStatus() *eth.SyncStatus {
 	return &eth.SyncStatus{
-		CurrentL1:          s.derivation.Origin(),
-		CurrentL1Finalized: s.derivation.FinalizedL1(),
-		HeadL1:             s.l1State.L1Head(),
-		SafeL1:             s.l1State.L1Safe(),
-		FinalizedL1:        s.l1State.L1Finalized(),
-		UnsafeL2:           s.derivation.UnsafeL2Head(),
-		SafeL2:             s.derivation.SafeL2Head(),
-		FinalizedL2:        s.derivation.Finalized(),
+		CurrentL1:          d.derivation.Origin(),
+		CurrentL1Finalized: d.derivation.FinalizedL1(),
+		HeadL1:             d.l1State.L1Head(),
+		SafeL1:             d.l1State.L1Safe(),
+		FinalizedL1:        d.l1State.L1Finalized(),
+		UnsafeL2:           d.derivation.UnsafeL2Head(),
+		SafeL2:             d.derivation.SafeL2Head(),
+		FinalizedL2:        d.derivation.Finalized(),
+		UnsafeL2SyncTarget: d.derivation.UnsafeL2SyncTarget(),
 	}
 }
 
 // SyncStatus blocks the driver event loop and captures the syncing status.
 // If the event loop is too busy and the context expires, a context error is returned.
-func (s *Driver) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
+func (d *Driver) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
 	wait := make(chan struct{})
 	select {
-	case s.stateReq <- wait:
-		resp := s.syncStatus()
+	case d.stateReq <- wait:
+		resp := d.syncStatus()
 		<-wait
 		return resp, nil
 	case <-ctx.Done():
@@ -418,15 +442,15 @@ func (s *Driver) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
 // BlockRefsWithStatus blocks the driver event loop and captures the syncing status,
 // along with L2 blocks reference by number and number plus 1 consistent with that same status.
 // If the event loop is too busy and the context expires, a context error is returned.
-func (s *Driver) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error) {
+func (d *Driver) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error) {
 	wait := make(chan struct{})
 	select {
-	case s.stateReq <- wait:
-		resp := s.syncStatus()
-		ref, err := s.l2.L2BlockRefByNumber(ctx, num)
+	case d.stateReq <- wait:
+		resp := d.syncStatus()
+		ref, err := d.l2.L2BlockRefByNumber(ctx, num)
 		nextRef := eth.L2BlockRef{}
-		if err == nil && s.config.IsBlueBlock(num) {
-			nextRef, err = s.l2.L2BlockRefByNumber(ctx, num+1)
+		if err == nil && d.config.IsBlueBlock(num) {
+			nextRef, err = d.l2.L2BlockRefByNumber(ctx, num+1)
 		}
 		<-wait
 		return ref, nextRef, resp, err
@@ -445,14 +469,14 @@ func (v deferJSONString) String() string {
 	return string(out)
 }
 
-func (s *Driver) snapshot(event string) {
-	s.snapshotLog.Info("Rollup State Snapshot",
+func (d *Driver) snapshot(event string) {
+	d.snapshotLog.Info("Rollup State Snapshot",
 		"event", event,
-		"l1Head", deferJSONString{s.l1State.L1Head()},
-		"l1Current", deferJSONString{s.derivation.Origin()},
-		"l2Head", deferJSONString{s.derivation.UnsafeL2Head()},
-		"l2Safe", deferJSONString{s.derivation.SafeL2Head()},
-		"l2FinalizedHead", deferJSONString{s.derivation.Finalized()})
+		"l1Head", deferJSONString{d.l1State.L1Head()},
+		"l1Current", deferJSONString{d.derivation.Origin()},
+		"l2Head", deferJSONString{d.derivation.UnsafeL2Head()},
+		"l2Safe", deferJSONString{d.derivation.SafeL2Head()},
+		"l2FinalizedHead", deferJSONString{d.derivation.Finalized()})
 }
 
 type hashAndError struct {
@@ -465,35 +489,19 @@ type hashAndErrorChannel struct {
 	err  chan error
 }
 
-// checkForGapInUnsafeQueue checks if there is a gap in the unsafe queue and attempts to retrieve the missing payloads from the backup RPC.
-// WARNING: The sync client's attempt to retrieve the missing payloads is not guaranteed to succeed, and it will fail silently (besides
-// emitting warning logs) if the requests fail.
-func (s *Driver) checkForGapInUnsafeQueue(ctx context.Context) {
-	// subtract genesis time from wall clock to get the time elapsed since genesis, and then divide that
-	// difference by the block time to get the expected L2 block number at the current time. If the
-	// unsafe head does not have this block number, then there is a gap in the queue.
-	wallClock := uint64(time.Now().Unix())
-	genesisTimestamp := s.config.Genesis.L2Time
-	wallClockGenesisDiff := wallClock - genesisTimestamp
-	expectedL2Block := wallClockGenesisDiff / s.config.BlockTime
-
-	start, end := s.derivation.GetUnsafeQueueGap(expectedL2Block)
-	size := end - start
-
-	// Check if there is a gap between the unsafe head and the expected L2 block number at the current time.
-	if size > 0 {
-		s.log.Warn("Gap in payload queue tip and expected unsafe chain detected", "start", start, "end", end, "size", size)
-		s.log.Info("Attempting to fetch missing payloads from backup RPC", "start", start, "end", end, "size", size)
-
-		// Attempt to fetch the missing payloads from the backup unsafe sync RPC concurrently.
-		// Concurrent requests are safe here due to the engine queue being a priority queue.
-		for blockNumber := start; blockNumber <= end; blockNumber++ {
-			select {
-			case s.L2SyncCl.FetchUnsafeBlock <- blockNumber:
-				// Do nothing- the block number was successfully sent into the channel
-			default:
-				return // If the channel is full, return and wait for the next iteration of the event loop
-			}
-		}
+// checkForGapInUnsafeQueue checks if there is a gap in the unsafe queue and attempts to retrieve the missing payloads from an alt-sync method.
+// WARNING: This is only an outgoing signal, the blocks are not guaranteed to be retrieved.
+// Results are received through OnUnsafeL2Payload.
+func (d *Driver) checkForGapInUnsafeQueue(ctx context.Context) error {
+	start := d.derivation.UnsafeL2Head()
+	end := d.derivation.UnsafeL2SyncTarget()
+	// Check if we have missing blocks between the start and end. Request them if we do.
+	if end == (eth.L2BlockRef{}) {
+		d.log.Debug("requesting sync with open-end range", "start", start)
+		return d.altSync.RequestL2Range(ctx, start, eth.L2BlockRef{})
+	} else if end.Number > start.Number+1 {
+		d.log.Debug("requesting missing unsafe L2 block range", "start", start, "end", end, "size", end.Number-start.Number)
+		return d.altSync.RequestL2Range(ctx, start, end)
 	}
+	return nil
 }

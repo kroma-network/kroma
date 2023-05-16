@@ -37,6 +37,19 @@ const config: HardhatUserConfig = {
       accounts: [
         process.env.PRIVATE_KEY_DEPLOYER_SEPOLIA || ethers.constants.HashZero,
       ],
+      companionNetworks: {
+        l2: 'kromaSepolia',
+      },
+    },
+    kromaSepolia: {
+      chainId: 2357,
+      url: process.env.L2_RPC_KROMA_SEPOLIA || '',
+      accounts: [
+        process.env.PRIVATE_KEY_DEPLOYER_SEPOLIA || ethers.constants.HashZero,
+      ],
+      companionNetworks: {
+        l1: 'sepolia',
+      },
     },
     devnetL1: {
       live: false,

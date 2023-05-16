@@ -427,6 +427,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 		i := i // avoid loop var capture
 		t.Run(fmt.Sprintf("withdrawal test#%d", i+1), func(t *testing.T) {
 			parallel(t)
+
 			// Create our system configuration, funding all accounts we created for L1/L2, and start it
 			cfg := DefaultSystemConfig(t)
 			cfg.DeployConfig.FinalizationPeriodSeconds = 6
@@ -722,7 +723,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			// TODO: Check L1 balance as well here. We avoided this due to time constraints as it seems L1 fees
 			//  were off slightly.
 			_ = endL1Balance
-			//require.Equal(t, transactor.ExpectedL1Balance, endL1Balance, "Unexpected L1 balance for transactor")
+			// require.Equal(t, transactor.ExpectedL1Balance, endL1Balance, "Unexpected L1 balance for transactor")
 			require.Equal(t, transactor.ExpectedL1Nonce, endL1Nonce, "Unexpected L1 nonce for transactor")
 			require.Equal(t, transactor.ExpectedL2Nonce, endL2PropNonce, "Unexpected L2 proposer nonce for transactor")
 			require.Equal(t, transactor.ExpectedL2Balance, endL2PropBalance, "Unexpected L2 proposer balance for transactor")

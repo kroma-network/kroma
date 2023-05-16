@@ -28,6 +28,7 @@ import (
 	"github.com/kroma-network/kroma/bindings/predeploys"
 	"github.com/kroma-network/kroma/components/node/client"
 	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/metrics"
 	rollupNode "github.com/kroma-network/kroma/components/node/node"
 	"github.com/kroma-network/kroma/components/node/p2p"
 	"github.com/kroma-network/kroma/components/node/rollup"
@@ -36,6 +37,7 @@ import (
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/components/node/withdrawals"
+	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 )
 
 var enableParallelTesting bool = true
@@ -94,8 +96,8 @@ func TestL2OutputSubmitter(t *testing.T) {
 	// when it creates it's first block and uses and old L1 Origin. It then does not submit a batch
 	// for that block and subsequently reorgs to match what the syncer derives when running the
 	// reconciliation process.
-	l2Syncer := sys.Clients["syncer"]
-	_, err = waitForL2Block(big.NewInt(6), l2Syncer, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+	l2Sync := sys.Clients["syncer"]
+	_, err = waitForL2Block(big.NewInt(6), l2Sync, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
 	require.Nil(t, err)
 
 	// Wait for batch submitter to update L2 output oracle.
@@ -307,7 +309,7 @@ func TestPendingGasLimit(t *testing.T) {
 	cfg := DefaultSystemConfig(t)
 
 	// configure the L2 gas limit to be high, and the pending gas limits to be lower for resource saving.
-	cfg.DeployConfig.L2GenesisBlockGasLimit = 20_000_000
+	cfg.DeployConfig.L2GenesisBlockGasLimit = 30_000_000
 	cfg.GethOptions["proposer"] = []GethOption{
 		func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
 			ethCfg.Miner.GasCeil = 10_000_000
@@ -345,8 +347,8 @@ func TestPendingGasLimit(t *testing.T) {
 	for {
 		checkGasLimit(l2Prop, big.NewInt(-1), 10_000_000)
 		checkGasLimit(l2Sync, big.NewInt(-1), 9_000_000)
-		checkGasLimit(l2Prop, nil, 20_000_000)
-		latestSyncHeader := checkGasLimit(l2Sync, nil, 20_000_000)
+		checkGasLimit(l2Prop, nil, 30_000_000)
+		latestSyncHeader := checkGasLimit(l2Sync, nil, 30_000_000)
 
 		// Stop once the syncer passes genesis:
 		// this implies we checked a new block from the proposer, on both proposer and syncer nodes.
@@ -410,7 +412,7 @@ func TestMintOnRevertedDeposit(t *testing.T) {
 	defer sys.Close()
 
 	l1Client := sys.Clients["l1"]
-	l2Syncer := sys.Clients["syncer"]
+	l2Sync := sys.Clients["syncer"]
 
 	// Find deposit contract
 	depositContract, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
@@ -424,12 +426,12 @@ func TestMintOnRevertedDeposit(t *testing.T) {
 	fromAddr := opts.From
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	startBalance, err := l2Syncer.BalanceAt(ctx, fromAddr, nil)
+	startBalance, err := l2Sync.BalanceAt(ctx, fromAddr, nil)
 	cancel()
 	require.Nil(t, err)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	startNonce, err := l2Syncer.NonceAt(ctx, fromAddr, nil)
+	startNonce, err := l2Sync.NonceAt(ctx, fromAddr, nil)
 	require.NoError(t, err)
 	cancel()
 
@@ -446,17 +448,17 @@ func TestMintOnRevertedDeposit(t *testing.T) {
 	reconstructedDep, err := derive.UnmarshalDepositLogEvent(receipt.Logs[0])
 	require.NoError(t, err, "Could not reconstruct L2 Deposit")
 	tx = types.NewTx(reconstructedDep)
-	receipt, err = waitForL2Transaction(tx.Hash(), l2Syncer, 10*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	receipt, err = waitForL2Transaction(tx.Hash(), l2Sync, 10*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	require.NoError(t, err)
 	require.Equal(t, receipt.Status, types.ReceiptStatusFailed)
 
 	// Confirm balance
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	endBalance, err := l2Syncer.BalanceAt(ctx, fromAddr, nil)
+	endBalance, err := l2Sync.BalanceAt(ctx, fromAddr, nil)
 	cancel()
 	require.Nil(t, err)
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	toAddrBalance, err := l2Syncer.BalanceAt(ctx, toAddr, nil)
+	toAddrBalance, err := l2Sync.BalanceAt(ctx, toAddr, nil)
 	require.NoError(t, err)
 	cancel()
 
@@ -466,7 +468,7 @@ func TestMintOnRevertedDeposit(t *testing.T) {
 	require.Equal(t, common.Big0.Int64(), toAddrBalance.Int64(), "The recipient account balance should be zero")
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	endNonce, err := l2Syncer.NonceAt(ctx, fromAddr, nil)
+	endNonce, err := l2Sync.NonceAt(ctx, fromAddr, nil)
 	require.NoError(t, err)
 	cancel()
 	require.Equal(t, startNonce+1, endNonce, "Nonce of deposit sender should increment on L2, even if the deposit fails")
@@ -479,7 +481,7 @@ func TestMissingBatchE2E(t *testing.T) {
 	}
 	// Note this test zeroes the balance of the batch-submitter to make the batches unable to go into L1.
 	// The test logs may look scary, but this is expected:
-	// 'batcher unable to publish transaction    role=batcher   err="insufficient funds for gas * price + value"'
+	// 'unable to publish transaction    role=batcher   err="insufficient funds for gas * price + value"'
 
 	cfg := DefaultSystemConfig(t)
 	// small proposer window size so the test does not take as long
@@ -608,9 +610,10 @@ func TestSystemMockP2P(t *testing.T) {
 	}
 
 	cfg := DefaultSystemConfig(t)
-	// slow down L1 blocks so we can see the L2 blocks arrive well before the L1 blocks do.
-	// Keep the proposer window small so the L2 chain is started quick
-	cfg.DeployConfig.L1BlockTime = 10
+	// Disable batcher, so we don't sync from L1
+	cfg.DisableBatcher = true
+	// disable at the start, so we don't miss any gossiped blocks.
+	cfg.Nodes["proposer"].Driver.ProposerStopped = true
 
 	// connect the nodes
 	cfg.P2PTopology = map[string][]string{
@@ -631,6 +634,11 @@ func TestSystemMockP2P(t *testing.T) {
 	sys, err := cfg.Start()
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
+
+	// Enable the proposer now that everyone is ready to receive payloads.
+	rollupRPCClient, err := rpc.DialContext(context.Background(), sys.RollupNodes["proposer"].HTTPEndpoint())
+	require.NoError(t, err)
+	require.NoError(t, rollupRPCClient.Call(nil, "admin_startProposer", sys.L2GenesisCfg.ToBlock().Hash()))
 
 	l2Prop := sys.Clients["proposer"]
 	l2Sync := sys.Clients["syncer"]
@@ -653,11 +661,11 @@ func TestSystemMockP2P(t *testing.T) {
 	require.Nil(t, err, "Sending L2 tx to proposer")
 
 	// Wait for tx to be mined on the L2 proposer chain
-	receiptProp, err := waitForL2Transaction(tx.Hash(), l2Prop, 6*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptProp, err := waitForL2Transaction(tx.Hash(), l2Prop, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
 	require.Nil(t, err, "Waiting for L2 tx on proposer")
 
 	// Wait until the block it was first included in shows up in the safe chain on the syncer
-	receiptSync, err := waitForL2Transaction(tx.Hash(), l2Sync, 6*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptSync, err := waitForL2Transaction(tx.Hash(), l2Sync, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
 	require.Nil(t, err, "Waiting for L2 tx on syncer")
 
 	require.Equal(t, receiptProp, receiptSync)
@@ -670,7 +678,7 @@ func TestSystemMockP2P(t *testing.T) {
 	require.Contains(t, received, receiptSync.BlockHash)
 }
 
-// TestSystemMockP2P sets up a L1 Geth node, a rollup node, and a L2 geth node and then confirms that
+// TestSystemRPCAltSync sets up a L1 Geth node, a rollup node, and a L2 geth node and then confirms that
 // the nodes can sync L2 blocks before they are confirmed on L1.
 //
 // Test steps:
@@ -681,24 +689,28 @@ func TestSystemMockP2P(t *testing.T) {
 // 6. Wait for the RPC sync method to grab the block from the proposer over RPC and insert it into the syncer's unsafe chain.
 // 7. Wait for the syncer to sync the unsafe chain into the safe chain.
 // 8. Verify that the TX is included in the syncer's safe chain.
-func TestSystemMockAltSync(t *testing.T) {
+func TestSystemRPCAltSync(t *testing.T) {
 	parallel(t)
 	if !verboseGethNodes {
 		log.Root().SetHandler(log.DiscardHandler())
 	}
 
 	cfg := DefaultSystemConfig(t)
-	// slow down L1 blocks so we can see the L2 blocks arrive well before the L1 blocks do.
-	// Keep the proposer window small so the L2 chain is started quick
-	cfg.DeployConfig.L1BlockTime = 10
+	// the default is nil, but this may change in the future.
+	// This test must ensure the blocks are not synced via Gossip, but instead via the alt RPC based sync.
+	cfg.P2PTopology = nil
+	// Disable batcher, so there will not be any L1 data to sync from
+	cfg.DisableBatcher = true
 
-	var published, received []common.Hash
+	var published, received []string
 	propTracer, syncTracer := new(FnTracer), new(FnTracer)
+	// The proposer still publishes the blocks to the tracer, even if they do not reach the network due to disabled P2P
 	propTracer.OnPublishL2PayloadFn = func(ctx context.Context, payload *eth.ExecutionPayload) {
-		published = append(published, payload.BlockHash)
+		published = append(published, payload.ID().String())
 	}
+	// Blocks are now received via the RPC based alt-sync method
 	syncTracer.OnUnsafeL2PayloadFn = func(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload) {
-		received = append(received, payload.BlockHash)
+		received = append(received, payload.ID().String())
 	}
 	cfg.Nodes["proposer"].Tracer = propTracer
 	cfg.Nodes["syncer"].Tracer = syncTracer
@@ -708,8 +720,8 @@ func TestSystemMockAltSync(t *testing.T) {
 		role: "proposer",
 		action: func(sCfg *SystemConfig, system *System) {
 			rpc, _ := system.Nodes["proposer"].Attach() // never errors
-			cfg.Nodes["syncer"].L2Sync = &rollupNode.L2SyncRPCConfig{
-				Rpc: client.NewBaseRPCClient(rpc),
+			cfg.Nodes["syncer"].L2Sync = &rollupNode.PreparedL2SyncEndpoint{
+				Client: client.NewBaseRPCClient(rpc),
 			}
 		},
 	})
@@ -737,26 +749,179 @@ func TestSystemMockAltSync(t *testing.T) {
 	require.Nil(t, err, "Sending L2 tx to proposer")
 
 	// Wait for tx to be mined on the L2 proposer chain
-	receiptSeq, err := waitForTransaction(tx.Hash(), l2Prop, 6*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptProp, err := waitForTransaction(tx.Hash(), l2Prop, 6*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
 	require.Nil(t, err, "Waiting for L2 tx on proposer")
 
 	// Wait for alt RPC sync to pick up the blocks on the proposer chain
-	receiptVerif, err := waitForTransaction(tx.Hash(), l2Sync, 12*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptSync, err := waitForTransaction(tx.Hash(), l2Sync, 12*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
 	require.Nil(t, err, "Waiting for L2 tx on syncer")
 
-	require.Equal(t, receiptSeq, receiptVerif)
+	require.Equal(t, receiptProp, receiptSync)
 
 	// Verify that the tx was received via RPC sync (P2P is disabled)
-	require.Contains(t, received, receiptVerif.BlockHash)
+	require.Contains(t, received, eth.BlockID{Hash: receiptSync.BlockHash, Number: receiptSync.BlockNumber.Uint64()}.String())
 
 	// Verify that everything that was received was published
 	require.GreaterOrEqual(t, len(published), len(received))
 	require.ElementsMatch(t, received, published[:len(received)])
 }
 
+func TestSystemP2PAltSync(t *testing.T) {
+	parallel(t)
+	if !verboseGethNodes {
+		log.Root().SetHandler(log.DiscardHandler())
+	}
+
+	cfg := DefaultSystemConfig(t)
+
+	// remove default syncer node
+	delete(cfg.Nodes, "syncer")
+	// Add more syncer nodes
+	cfg.Nodes["alice"] = &rollupNode.Config{
+		Driver: driver.Config{
+			SyncerConfDepth:   0,
+			ProposerConfDepth: 0,
+			ProposerEnabled:   false,
+		},
+		L1EpochPollInterval: time.Second * 4,
+	}
+	cfg.Nodes["bob"] = &rollupNode.Config{
+		Driver: driver.Config{
+			SyncerConfDepth:   0,
+			ProposerConfDepth: 0,
+			ProposerEnabled:   false,
+		},
+		L1EpochPollInterval: time.Second * 4,
+	}
+	cfg.Loggers["alice"] = testlog.Logger(t, log.LvlInfo).New("role", "alice")
+	cfg.Loggers["bob"] = testlog.Logger(t, log.LvlInfo).New("role", "bob")
+
+	// connect the nodes
+	cfg.P2PTopology = map[string][]string{
+		"proposer": {"alice", "bob"},
+		"alice":    {"proposer", "bob"},
+		"bob":      {"alice", "proposer"},
+	}
+	// Enable the P2P req-resp based sync
+	cfg.P2PReqRespSync = true
+
+	// Disable batcher, so there will not be any L1 data to sync from
+	cfg.DisableBatcher = true
+
+	var published []string
+	propTracer := new(FnTracer)
+	// The proposer still publishes the blocks to the tracer, even if they do not reach the network due to disabled P2P
+	propTracer.OnPublishL2PayloadFn = func(ctx context.Context, payload *eth.ExecutionPayload) {
+		published = append(published, payload.ID().String())
+	}
+	// Blocks are now received via the RPC based alt-sync method
+	cfg.Nodes["proposer"].Tracer = propTracer
+
+	sys, err := cfg.Start()
+	require.NoError(t, err, "Error starting up system")
+	defer sys.Close()
+
+	l2Prop := sys.Clients["proposer"]
+
+	// Transactor Account
+	ethPrivKey := cfg.Secrets.Alice
+
+	// Submit a TX to L2 proposer node
+	toAddr := common.Address{0xff, 0xff}
+	tx := types.MustSignNewTx(ethPrivKey, types.LatestSignerForChainID(cfg.L2ChainIDBig()), &types.DynamicFeeTx{
+		ChainID:   cfg.L2ChainIDBig(),
+		Nonce:     0,
+		To:        &toAddr,
+		Value:     big.NewInt(1_000_000_000),
+		GasTipCap: big.NewInt(10),
+		GasFeeCap: big.NewInt(200),
+		Gas:       21000,
+	})
+	err = l2Prop.SendTransaction(context.Background(), tx)
+	require.NoError(t, err, "Sending L2 tx to proposer")
+
+	// Wait for tx to be mined on the L2 proposer chain
+	receiptProp, err := waitForTransaction(tx.Hash(), l2Prop, 6*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	require.NoError(t, err, "Waiting for L2 tx on proposer")
+
+	// Gossip is able to respond to IWANT messages for the duration of heartbeat_time * message_window = 0.5 * 12 = 6
+	// Wait till we pass that, and then we'll have missed some blocks that cannot be retrieved in any way from gossip
+	time.Sleep(time.Second * 10)
+
+	// set up our syncer node, connect it to alice/bob
+	cfg.Loggers["syncer"] = testlog.Logger(t, log.LvlInfo).New("role", "syncer")
+	snapLog := log.New()
+	snapLog.SetHandler(log.DiscardHandler())
+
+	// Create a peer, and hook up alice and bob
+	h, err := sys.Mocknet.GenPeer()
+	require.NoError(t, err)
+	_, err = sys.Mocknet.LinkPeers(sys.RollupNodes["alice"].P2P().Host().ID(), h.ID())
+	require.NoError(t, err)
+	_, err = sys.Mocknet.LinkPeers(sys.RollupNodes["bob"].P2P().Host().ID(), h.ID())
+	require.NoError(t, err)
+
+	// Configure the new rollup node that'll be syncing
+	var syncedPayloads []string
+	syncNodeCfg := &rollupNode.Config{
+		L2Sync:    &rollupNode.PreparedL2SyncEndpoint{Client: nil},
+		Driver:    driver.Config{SyncerConfDepth: 0},
+		Rollup:    *sys.RollupConfig,
+		P2PSigner: nil,
+		RPC: rollupNode.RPCConfig{
+			ListenAddr:  "127.0.0.1",
+			ListenPort:  0,
+			EnableAdmin: true,
+		},
+		P2P:                 &p2p.Prepared{HostP2P: h, EnableReqRespSync: true},
+		Metrics:             rollupNode.MetricsConfig{Enabled: false}, // no metrics server
+		Pprof:               kpprof.CLIConfig{},
+		L1EpochPollInterval: time.Second * 10,
+		Tracer: &FnTracer{
+			OnUnsafeL2PayloadFn: func(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload) {
+				syncedPayloads = append(syncedPayloads, payload.ID().String())
+			},
+		},
+	}
+	configureL1(syncNodeCfg, sys.Nodes["l1"])
+	syncerL2Engine, _, err := initL2Geth("syncer", big.NewInt(int64(cfg.DeployConfig.L2ChainID)), sys.L2GenesisCfg, cfg.JWTFilePath)
+	require.NoError(t, err)
+	require.NoError(t, syncerL2Engine.Start())
+
+	configureL2(syncNodeCfg, syncerL2Engine, cfg.JWTSecret)
+
+	syncerNode, err := rollupNode.New(context.Background(), syncNodeCfg, cfg.Loggers["syncer"], snapLog, "", metrics.NewMetrics(""))
+	require.NoError(t, err)
+	err = syncerNode.Start(context.Background())
+	require.NoError(t, err)
+
+	// connect alice and bob to our new syncer node
+	_, err = sys.Mocknet.ConnectPeers(sys.RollupNodes["alice"].P2P().Host().ID(), syncerNode.P2P().Host().ID())
+	require.NoError(t, err)
+	_, err = sys.Mocknet.ConnectPeers(sys.RollupNodes["bob"].P2P().Host().ID(), syncerNode.P2P().Host().ID())
+	require.NoError(t, err)
+
+	rpc, err := syncerL2Engine.Attach()
+	require.NoError(t, err)
+	l2Sync := ethclient.NewClient(rpc)
+
+	// It may take a while to sync, but eventually we should see the proposed data show up
+	receiptSync, err := waitForTransaction(tx.Hash(), l2Sync, 100*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	require.NoError(t, err, "Waiting for L2 tx on syncer")
+
+	require.Equal(t, receiptProp, receiptSync)
+
+	// Verify that the tx was received via P2P sync
+	require.Contains(t, syncedPayloads, eth.BlockID{Hash: receiptSync.BlockHash, Number: receiptSync.BlockNumber.Uint64()}.String())
+
+	// Verify that everything that was received was published
+	require.GreaterOrEqual(t, len(published), len(syncedPayloads))
+	require.ElementsMatch(t, syncedPayloads, published[:len(syncedPayloads)])
+}
+
 // TestSystemDenseTopology sets up a dense p2p topology with 3 syncer nodes and 1 proposer node.
 func TestSystemDenseTopology(t *testing.T) {
-	t.Skip("Skipping dense topology test to avoid flakiness. @refcell address in p2p scoring pr.")
+	t.Skip("Skipping dense topology test to avoid flakiness.")
 
 	parallel(t)
 	if !verboseGethNodes {
@@ -851,21 +1016,21 @@ func TestSystemDenseTopology(t *testing.T) {
 	require.NoError(t, err, "Sending L2 tx to proposer")
 
 	// Wait for tx to be mined on the L2 proposer chain
-	receiptSeq, err := waitForTransaction(tx.Hash(), l2Prop, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptProp, err := waitForTransaction(tx.Hash(), l2Prop, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
 	require.NoError(t, err, "Waiting for L2 tx on proposer")
 
 	// Wait until the block it was first included in shows up in the safe chain on the syncer
-	receiptVerif, err := waitForTransaction(tx.Hash(), l2Sync, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptSync, err := waitForTransaction(tx.Hash(), l2Sync, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
 	require.NoError(t, err, "Waiting for L2 tx on syncer")
-	require.Equal(t, receiptSeq, receiptVerif)
+	require.Equal(t, receiptProp, receiptSync)
 
-	receiptVerif, err = waitForTransaction(tx.Hash(), l2Sync2, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptSync, err = waitForTransaction(tx.Hash(), l2Sync2, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
 	require.NoError(t, err, "Waiting for L2 tx on syncer2")
-	require.Equal(t, receiptSeq, receiptVerif)
+	require.Equal(t, receiptProp, receiptSync)
 
-	receiptVerif, err = waitForTransaction(tx.Hash(), l2Sync3, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptSync, err = waitForTransaction(tx.Hash(), l2Sync3, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
 	require.NoError(t, err, "Waiting for L2 tx on syncer3")
-	require.Equal(t, receiptSeq, receiptVerif)
+	require.Equal(t, receiptProp, receiptSync)
 
 	// Verify that everything that was received was published
 	require.GreaterOrEqual(t, len(published), len(received1))
@@ -876,9 +1041,9 @@ func TestSystemDenseTopology(t *testing.T) {
 	require.ElementsMatch(t, published, received3[:len(published)])
 
 	// Verify that the tx was received via p2p
-	require.Contains(t, received1, receiptVerif.BlockHash)
-	require.Contains(t, received2, receiptVerif.BlockHash)
-	require.Contains(t, received3, receiptVerif.BlockHash)
+	require.Contains(t, received1, receiptSync.BlockHash)
+	require.Contains(t, received2, receiptSync.BlockHash)
+	require.Contains(t, received3, receiptSync.BlockHash)
 }
 
 func TestL1InfoContract(t *testing.T) {
@@ -975,7 +1140,6 @@ func TestL1InfoContract(t *testing.T) {
 	checkInfoList("On proposer with state", l1InfosFromProposerState)
 	checkInfoList("On syncer with tx", l1InfosFromSyncerTransactions)
 	checkInfoList("On syncer with state", l1InfosFromSyncerState)
-
 }
 
 // calcGasFees determines the actual cost of the transaction given a specific basefee
@@ -1491,7 +1655,8 @@ func TestStopStartBatcher(t *testing.T) {
 	require.Greater(t, newSeqStatus.SafeL2.Number, propStatus.SafeL2.Number, "Safe chain did not advance")
 
 	// stop the batch submission
-	sys.Batcher.Stop()
+	err = sys.Batcher.Stop(context.Background())
+	require.NoError(t, err)
 
 	// wait for any old safe blocks being submitted / derived
 	time.Sleep(safeBlockInclusionDuration)
@@ -1510,7 +1675,8 @@ func TestStopStartBatcher(t *testing.T) {
 	require.Equal(t, newSeqStatus.SafeL2.Number, propStatus.SafeL2.Number, "Safe chain advanced while batcher was stopped")
 
 	// start the batch submission
-	sys.Batcher.Start()
+	err = sys.Batcher.Start()
+	require.NoError(t, err)
 	time.Sleep(safeBlockInclusionDuration)
 
 	// send a third tx

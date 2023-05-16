@@ -802,7 +802,7 @@ See the [Engine Queue section][engine-queue] of the [L2 chain derivation spec][d
 The finalized L2 head is the highest [L2] block that can be derived from _[finalized][finality]_ L1 blocks — i.e. L1
 blocks older than two L1 epochs (64 L1 [time slots][time-slot]).
 
-[finality]: <https://hackmd.io/@prysmaticlabs/finality> _finalized_ L1 data.
+[finality]: https://hackmd.io/@prysmaticlabs/finality
 
 ------------------------------------------------------------------------------------------------------------------------
 

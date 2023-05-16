@@ -216,6 +216,11 @@ func (d *DeployConfig) Check() error {
 	if d.L2GenesisBlockGasLimit == 0 {
 		return fmt.Errorf("%w: L2 genesis block gas limit cannot be 0", ErrInvalidDeployConfig)
 	}
+	// When the initial resource config is made to be configurable by the DeployConfig, ensure
+	// that this check is updated to use the values from the DeployConfig instead of the defaults.
+	if uint64(d.L2GenesisBlockGasLimit) < uint64(defaultResourceConfig.MaxResourceLimit+defaultResourceConfig.SystemTxMaxGas) {
+		return fmt.Errorf("%w: L2 genesis block gas limit is too small", ErrInvalidDeployConfig)
+	}
 	if d.L2GenesisBlockBaseFeePerGas == nil {
 		return fmt.Errorf("%w: L2 genesis block base fee per gas cannot be nil", ErrInvalidDeployConfig)
 	}
@@ -372,7 +377,7 @@ func NewDeployConfigWithNetwork(network, path string) (*DeployConfig, error) {
 }
 
 // NewL2ImmutableConfig will create an ImmutableConfig given an instance of a
-// Hardhat and a DeployConfig.
+// DeployConfig and a block.
 func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.ImmutableConfig, error) {
 	immutable := make(immutables.ImmutableConfig)
 

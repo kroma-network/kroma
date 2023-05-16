@@ -23,9 +23,9 @@ func main() {
 	app := cli.NewApp()
 	app.Flags = flags.Flags
 	app.Version = fmt.Sprintf("%s-%s", Version, Meta)
-	app.Name = "validator"
-	app.Usage = "L2Output Submitter"
-	app.Description = "Service for generating and submitting L2 Output checkpoints to the L2OutputOracle contract"
+	app.Name = "kroma-validator"
+	app.Usage = "L2 Output Submitter and Challenger Service"
+	app.Description = "Service for generating and submitting L2 output checkpoints to the L2OutputOracle contract as an L2 Output Submitter, " + "detecting and correcting invalid L2 outputs as a Challenger to ensure the integrity of the L2 state."
 
 	app.Action = curryMain(Version)
 	err := app.Run(os.Args)

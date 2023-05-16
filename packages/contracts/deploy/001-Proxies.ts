@@ -21,6 +21,6 @@ const deployFn: DeployFunction = async (hre) => {
   }
 }
 
-deployFn.tags = [...PROXY_NAMES, 'setup']
+deployFn.tags = [...PROXY_NAMES, 'setup', 'l1']
 
 export default deployFn

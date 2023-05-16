@@ -946,12 +946,20 @@ export class CrossChainMessenger {
       false,
     ])
 
+    const nextBlock = await (
+      this.l2Provider as ethers.providers.JsonRpcProvider
+    ).send('eth_getBlockByNumber', [
+      toRpcHexString(output.l2BlockNumber + 1),
+      false,
+    ])
+
     return {
       outputRootProof: {
         version: ethers.constants.HashZero,
         stateRoot: block.stateRoot,
         messagePasserStorageRoot: stateTrieProof.storageRoot,
-        latestBlockhash: block.hash,
+        blockHash: block.hash,
+        nextBlockHash: nextBlock.hash,
       },
       withdrawalProof: stateTrieProof.storageProof,
       l2OutputIndex: output.l2OutputIndex,
@@ -1326,7 +1334,8 @@ export class CrossChainMessenger {
           proof.outputRootProof.version,
           proof.outputRootProof.stateRoot,
           proof.outputRootProof.messagePasserStorageRoot,
-          proof.outputRootProof.latestBlockhash,
+          proof.outputRootProof.blockHash,
+          proof.outputRootProof.nextBlockHash,
         ],
         proof.withdrawalProof,
         opts?.overrides || {}
