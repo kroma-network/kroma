@@ -12,7 +12,7 @@ import { ZKVerifier } from "./ZKVerifier.sol";
 
 contract Colosseum is Initializable, Semver {
     /**
-     * @notice enum of challenge status.
+     * @notice Enum of challenge status.
      *
      * See the https://github.com/kroma-network/kroma/blob/dev/specs/challenge.md#state-diagram for more details.
      *
@@ -39,6 +39,12 @@ contract Colosseum is Initializable, Semver {
         READY_TO_PROVE
     }
 
+    /**
+     * @notice Enum of turn validation modes.
+     *
+     * @custom:value NORMAL Represents a normal validation mode.
+     * @custom:value PROOF  Represents a proof validation mode.
+     */
     enum ValidateTurnMode {
         NORMAL,
         PROOF
@@ -109,6 +115,14 @@ contract Colosseum is Initializable, Semver {
      */
     uint256 public latestChallengeId;
 
+    /**
+     * @notice Emitted when the challenge is created.
+     *
+     * @param challengeId Identifier of the challenge.
+     * @param challenger  Address of the creator.
+     * @param outputIndex Index of invalid output.
+     * @param timestamp   The timestamp when created.
+     */
     event ChallengeCreated(
         uint256 indexed challengeId,
         address indexed challenger,
@@ -158,6 +172,12 @@ contract Colosseum is Initializable, Semver {
         _setSegmentsLengths(_segmentsLengths);
     }
 
+    /**
+     * @notice Creates a challenge against an invalid output.
+     *
+     * @param _outputIndex Index of invalid output.
+     * @param _segments    Array of the segment. A segment is the first output root of a specific range.
+     */
     function createChallenge(uint256 _outputIndex, bytes32[] calldata _segments) external payable {
         // TODO(pangssu): Currently, only one task can be opened. It is necessary to
         //                consider holding multiple challenges at the same time.
@@ -194,6 +214,12 @@ contract Colosseum is Initializable, Semver {
         emit ChallengeCreated(challengeId, msg.sender, _outputIndex, block.timestamp);
     }
 
+    /**
+     * @notice Selects an invalid section and submit segments of that section.
+     *
+     * @param _pos         Position of invalid section.
+     * @param _segments    Array of the segment. A segment is the first output root of a specific range.
+     */
     function bisect(uint256 _pos, bytes32[] calldata _segments) external payable {
         uint256 challengeId = latestChallengeId;
         Types.Challenge storage challenge = challenges[challengeId];
@@ -222,6 +248,18 @@ contract Colosseum is Initializable, Semver {
         emit Bisected(challengeId, newTurn, block.timestamp);
     }
 
+    /**
+     * @notice Proves that a specific output is invalid using ZKP.
+     *         This function can only be called in the READY_TO_PROVE state.
+     *
+     * @param _pos                Position of invalid section.
+     * @param _srcOutputRootProof TBD
+     * @param _dstOutputRootProof TBD
+     * @param _publicInput        TBD
+     * @param _rlps               TBD
+     * @param _proof              TBD
+     * @param _pair               TBD
+     */
     function proveFault(
         uint256 _pos,
         Types.OutputRootProof calldata _srcOutputRootProof,
@@ -282,6 +320,10 @@ contract Colosseum is Initializable, Semver {
         _closeChallenge(challengeId, challenge);
     }
 
+    /**
+     * @notice Closes the challenge because the asserter timed out.
+     *         The winner is the challenger.
+     */
     function asserterTimeout() external {
         uint256 challengeId = latestChallengeId;
         Types.Challenge storage challenge = challenges[challengeId];
@@ -290,12 +332,24 @@ contract Colosseum is Initializable, Semver {
         _closeChallenge(challengeId, challenge);
     }
 
+    /**
+     * @notice Closes the challenge because the challenger timed out.
+     *         The winner is the asserter.
+     *
+     * @param _challengeId Identifier of the challenge.
+     */
     function challengerTimeout(uint256 _challengeId) external {
         Types.Challenge storage challenge = challenges[_challengeId];
         _validateTurn(challenge, ValidateTurnMode.NORMAL);
         _closeChallenge(_challengeId, challenge);
     }
 
+    /**
+     * @notice Reverts if it's not sender's turn.
+     *
+     * @param _challenge The challenge data.
+     * @param _mode      Turn validation mode.
+     */
     function _validateTurn(Types.Challenge storage _challenge, ValidateTurnMode _mode)
         private
         view
@@ -311,6 +365,14 @@ contract Colosseum is Initializable, Semver {
         }
     }
 
+    /**
+     * @notice Reverts if the given segments are invalid.
+     *
+     * @param _turn      The current turn.
+     * @param _prevFirst The first segment of previous turn.
+     * @param _prevLast  The last segment of previous turn.
+     * @param _segments  Array of the segment.
+     */
     function _validateSegments(
         uint256 _turn,
         bytes32 _prevFirst,
@@ -327,6 +389,14 @@ contract Colosseum is Initializable, Semver {
         );
     }
 
+    /**
+     * @notice Updates the segment information for a given challenge.
+     *
+     * @param _challenge The challenge data.
+     * @param _segments  Array of the segment.
+     * @param _segStart  The L2 block number of the first segment.
+     * @param _segSize   The number of L2 blocks.
+     */
     function _updateSegments(
         Types.Challenge storage _challenge,
         bytes32[] memory _segments,
@@ -338,6 +408,11 @@ contract Colosseum is Initializable, Semver {
         _challenge.segSize = _segSize;
     }
 
+    /**
+     * @notice Validates and updates the lengths of segments.
+     *
+     * @param _segmentsLengths Lengths of segments.
+     */
     function _setSegmentsLengths(uint256[] memory _segmentsLengths) private {
         // _segmentsLengths length should be an even number in order to let challenger submit
         // invalidity proof at the last turn.
@@ -355,30 +430,73 @@ contract Colosseum is Initializable, Semver {
         require(sum == L2_ORACLE_SUBMISSION_INTERVAL, "Colosseum: invalid segments lengths");
     }
 
+    /**
+     * @notice Slashes loser's deposit and close the challenge.
+     *
+     * @param _challengeId Identifier of the challenge.
+     * @param _challenge   The challenge data.
+     */
     function _closeChallenge(uint256 _challengeId, Types.Challenge storage _challenge) private {
         delete challenges[_challengeId];
 
         emit Closed(_challengeId, _challenge.turn, block.timestamp);
     }
 
+    /**
+     * @notice Returns the number of L2 blocks of a given turn.
+     *
+     * @param _prevSegSize The number of L2 blocks submitted by the previous turn.
+     * @param _turn        The current turn.
+     *
+     * @return The number of L2 blocks.
+     */
     function _calcSegSize(uint256 _prevSegSize, uint256 _turn) private view returns (uint256) {
         return _prevSegSize / (getSegmentsLength(_turn) - 1);
     }
 
+    /**
+     * @notice Determines whether a given timestamp is past.
+     *
+     * @param _sec The timestamp to check.
+     *
+     * @return Whether it's in the past.
+     */
     function _isPast(uint256 _sec) private view returns (bool) {
         return block.timestamp > _sec;
     }
 
-    function _isTimedOut(ChallengeStatus status) private pure returns (bool) {
+    /**
+     * @notice Determines whether a given challenge timed out.
+     *
+     * @param _status The challenge status.
+     *
+     * @return Whether the challenge timed out.
+     */
+    function _isTimedOut(ChallengeStatus _status) private pure returns (bool) {
         return
-            status == ChallengeStatus.CHALLENGER_TIMEOUT ||
-            status == ChallengeStatus.ASSERTER_TIMEOUT;
+            _status == ChallengeStatus.CHALLENGER_TIMEOUT ||
+            _status == ChallengeStatus.ASSERTER_TIMEOUT;
     }
 
+    /**
+     * @notice Determines if bisection is possible.
+     *
+     * @param _segSize The number of L2 blocks.
+     * @param _turn    The current turn.
+     *
+     * @return Whether bisection is possible.
+     */
     function _isAbleToBisect(uint256 _segSize, uint256 _turn) private view returns (bool) {
         return _calcSegSize(_segSize, _turn) > 1;
     }
 
+    /**
+     * @notice Returns status of a given challenge.
+     *
+     * @param _challenge The challenge data.
+     *
+     * @return The status of challenge.
+     */
     function _challengeStatus(Types.Challenge storage _challenge)
         private
         view
@@ -417,15 +535,32 @@ contract Colosseum is Initializable, Semver {
         return isChallengerTurn ? ChallengeStatus.CHALLENGER_TURN : ChallengeStatus.ASSERTER_TURN;
     }
 
+    /**
+     * @notice Returns the segment length required for that turn.
+     *
+     * @param _turn The challenge turn.
+     *
+     * @return The segments length.
+     */
     function getSegmentsLength(uint256 _turn) public view returns (uint256) {
         require(_turn > 0, "Colosseum: invalid turn");
         return segmentsLengths[_turn - 1];
     }
 
+    /**
+     * @notice Returns status of the current challenge.
+     *
+     * @return The status of the current challenge.
+     */
     function getStatusInProgress() public view returns (ChallengeStatus) {
         return _challengeStatus(challenges[latestChallengeId]);
     }
 
+    /**
+     * @notice Returns challenge data of the current challenge.
+     *
+     * @return The current challenge data
+     */
     function getChallengeInProgress() public view returns (Types.Challenge memory) {
         Types.Challenge memory challenge = challenges[latestChallengeId];
 
@@ -434,11 +569,21 @@ contract Colosseum is Initializable, Semver {
         return challenge;
     }
 
+    /**
+     * @notice Determines whether bisection is possible.
+     *
+     * @return Whether bisection is possible.
+     */
     function isAbleToBisect() public view returns (bool) {
         Types.Challenge memory challenge = getChallengeInProgress();
         return _isAbleToBisect(challenge.segSize, challenge.turn);
     }
 
+    /**
+     * @notice Determines whether the current challenge is in progress.
+     *
+     * @return Whether the challenge is in progress.
+     */
     function isInProgress() public view returns (bool) {
         ChallengeStatus status = getStatusInProgress();
 
@@ -448,8 +593,15 @@ contract Colosseum is Initializable, Semver {
         return status != ChallengeStatus.NONE && status != ChallengeStatus.CHALLENGER_TIMEOUT;
     }
 
-    function isChallengeRelated(address _account) public view returns (bool) {
+    /**
+     * @notice Determines whether a given address is a participant in the current challenge.
+     *
+     * @param _address Address.
+     *
+     * @return Whether a given address is a participant.
+     */
+    function isChallengeRelated(address _address) public view returns (bool) {
         Types.Challenge memory challenge = challenges[latestChallengeId];
-        return challenge.current == _account || challenge.next == _account;
+        return challenge.current == _address || challenge.next == _address;
     }
 }
