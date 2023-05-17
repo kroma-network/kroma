@@ -74,9 +74,9 @@ jobs:
         run: |
           if [[ $GITHUB_REF_TYPE == 'branch' ]];
           then
-            echo ::set-output name=docker-tag::dev
+            echo "docker-tag=dev-$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
           else
-            echo ::set-output name=docker-tag::${GITHUB_REF#refs/tags/}
+            echo "docker-tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           fi
 
   kroma-node:
