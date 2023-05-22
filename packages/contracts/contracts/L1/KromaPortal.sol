@@ -312,9 +312,10 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
      *
      * @param _tx Withdrawal transaction to finalize.
      */
-    function finalizeWithdrawalTransaction(
-        Types.WithdrawalTransaction memory _tx
-    ) external whenNotPaused {
+    function finalizeWithdrawalTransaction(Types.WithdrawalTransaction memory _tx)
+        external
+        whenNotPaused
+    {
         // Make sure that the l2Sender has not yet been set. The l2Sender is set to a value other
         // than the default value when a withdrawal transaction is being finalized. This check is
         // a defacto reentrancy guard.
@@ -461,7 +462,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
     }
 
     /**
-     * @notice Determine if a given output is finalized. Reverts if the call to
+     * @notice Determines if the output at the given index is finalized. Reverts if the call to
      *         L2_ORACLE.getL2Output reverts. Returns a boolean otherwise.
      *
      * @param _l2OutputIndex Index of the L2 output to check.
