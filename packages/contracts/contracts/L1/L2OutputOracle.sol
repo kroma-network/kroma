@@ -245,8 +245,7 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Returns an output by index. Exists because Solidity's array access will return a
-     *         tuple instead of a struct.
+     * @notice Returns an output by index. Reverts if output is not found at the given index.
      *
      * @param _l2OutputIndex Index of the output to return.
      *
@@ -297,8 +296,7 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Returns the L2 checkpoint output that checkpoints a given L2 block number. Uses a
-     *         binary search to find the first output greater than or equal to the given block.
+     * @notice Returns the L2 checkpoint output that checkpoints a given L2 block number.
      *
      * @param _l2BlockNumber L2 block number to find a checkpoint for.
      *
@@ -313,10 +311,10 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Returns the number of outputs that have been submitted. Will revert if no outputs
+     * @notice Returns the index of the latest submitted output. Will revert if no outputs
      *         have been submitted yet.
      *
-     * @return The number of outputs that have been submitted.
+     * @return The index of the latest submitted output.
      */
     function latestOutputIndex() external view returns (uint256) {
         return l2Outputs.length - 1;
