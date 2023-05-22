@@ -178,7 +178,7 @@ contract Colosseum is Initializable, Semver {
      * @param _outputIndex Index of invalid output.
      * @param _segments    Array of the segment. A segment is the first output root of a specific range.
      */
-    function createChallenge(uint256 _outputIndex, bytes32[] calldata _segments) external payable {
+    function createChallenge(uint256 _outputIndex, bytes32[] calldata _segments) external {
         // TODO(pangssu): Currently, only one task can be opened. It is necessary to
         //                consider holding multiple challenges at the same time.
         require(!isInProgress(), "Colosseum: previous challenge is in progress");
@@ -220,7 +220,7 @@ contract Colosseum is Initializable, Semver {
      * @param _pos         Position of invalid section.
      * @param _segments    Array of the segment. A segment is the first output root of a specific range.
      */
-    function bisect(uint256 _pos, bytes32[] calldata _segments) external payable {
+    function bisect(uint256 _pos, bytes32[] calldata _segments) external {
         uint256 challengeId = latestChallengeId;
         Types.Challenge storage challenge = challenges[challengeId];
 
@@ -268,7 +268,7 @@ contract Colosseum is Initializable, Semver {
         Types.BlockHeaderRLP calldata _rlps,
         uint256[] calldata _proof,
         uint256[] calldata _pair
-    ) external payable {
+    ) external {
         uint256 challengeId = latestChallengeId;
         Types.Challenge storage challenge = challenges[challengeId];
         _validateTurn(challenge, ValidateTurnMode.PROOF);
