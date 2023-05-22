@@ -19,7 +19,8 @@ contract Colosseum is Initializable, Semver {
     /**
      * @notice Enum of the challenge status.
      *
-     * See the https://github.com/kroma-network/kroma/blob/dev/specs/challenge.md#state-diagram for more details.
+     * See the https://github.com/kroma-network/kroma/blob/dev/specs/challenge.md#state-diagram
+     * for more details.
      *
      * Belows are possible state transitions at current implementation.
      *
@@ -265,7 +266,8 @@ contract Colosseum is Initializable, Semver {
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      * @param _pos         Position of invalid section.
-     * @param _segments    Array of the segment. A segment is the first output root of a specific range.
+     * @param _segments    Array of the segment. A segment is the first output root of a specific
+     *                     range.
      */
     function bisect(
         uint256 _outputIndex,
@@ -702,7 +704,8 @@ contract Colosseum is Initializable, Semver {
     }
 
     /**
-     * @notice Determines whether bisection is possible in the challenge corresponding to the given L2 output index.
+     * @notice Determines whether bisection is possible in the challenge corresponding to the given
+     *         L2 output index.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      *
@@ -714,7 +717,8 @@ contract Colosseum is Initializable, Semver {
     }
 
     /**
-     * @notice Determines whether the challenge corresponding to the output index is in progress.
+     * @notice Determines whether the challenge corresponding to the given L2 output index is in
+     *         progress.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      *
