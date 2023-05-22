@@ -176,13 +176,17 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     }
 
     // Test: getL2OutputIndexAfter() reverts when no output exists yet
-    function test_getL2OutputIndexAfter_noOutputsExis_reverts() external {
+    function test_getL2OutputIndexAfter_noOutputsExist_reverts() external {
         vm.expectRevert("L2OutputOracle: cannot get output as no outputs have been submitted yet");
         oracle.getL2OutputIndexAfter(0);
     }
 
     // Test: nextBlockNumber() should return the correct value
     function test_nextBlockNumber_succeeds() external {
+        assertEq(oracle.nextBlockNumber(), oracle.latestBlockNumber());
+
+        test_submitL2Output_submitAnotherOutput_succeeds();
+
         assertEq(
             oracle.nextBlockNumber(),
             // The return value should match this arithmetic
@@ -219,6 +223,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     // Test: submitL2Output succeeds when given valid input, and no block hash and number are
     // specified.
     function test_submitL2Output_submitAnotherOutput_succeeds() public {
+        startingBlockNumber = oracle.startingBlockNumber();
         bytes32 submittedOutput2 = keccak256(abi.encode());
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         uint256 nextOutputIndex = oracle.nextOutputIndex();
@@ -226,7 +231,11 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 submittedNumber = oracle.latestBlockNumber();
 
         // Ensure the submissionInterval is enforced
-        assertEq(nextBlockNumber, submittedNumber + submissionInterval);
+        if (nextBlockNumber == startingBlockNumber) {
+            assertEq(nextBlockNumber, submittedNumber);
+        } else {
+            assertEq(nextBlockNumber, submittedNumber + submissionInterval);
+        }
 
         vm.roll(nextBlockNumber + 1);
 
@@ -266,7 +275,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         warpToSubmitTime(nextBlockNumber);
 
         vm.prank(address(128));
-        vm.expectRevert("L2OutputOracle: not your turn");
+        vm.expectRevert("L2OutputOracle: only the next selected validator can submit output");
         oracle.submitL2Output(nonZeroHash, nextBlockNumber, 0, 0, minBond);
     }
 

@@ -222,6 +222,8 @@ contract Colosseum is Initializable, Semver {
      * @param _segments    Array of the segment. A segment is the first output root of a specific range.
      */
     function createChallenge(uint256 _outputIndex, bytes32[] calldata _segments) external {
+        require(_outputIndex > 0, "Colosseum: challenge for genesis output is not allowed");
+
         Types.Challenge storage challenge = challenges[_outputIndex];
 
         require(
@@ -238,10 +240,7 @@ contract Colosseum is Initializable, Semver {
         );
 
         Types.CheckpointOutput memory prevOutput;
-        // TODO(chokobole): Enable dispute resolution including genesis output root.
-        if (_outputIndex > 0) {
-            prevOutput = L2_ORACLE.getL2Output(_outputIndex - 1);
-        }
+        prevOutput = L2_ORACLE.getL2Output(_outputIndex - 1);
 
         _validateSegments(TURN_INIT, prevOutput.outputRoot, targetOutput.outputRoot, _segments);
 

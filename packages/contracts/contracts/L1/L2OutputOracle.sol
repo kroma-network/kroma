@@ -172,9 +172,9 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Accepts an outputRoot and the timestamp of the corresponding L2 block. The timestamp
-     *         must be equal to the current value returned by `nextTimestamp()` in order to be
-     *         accepted. This function may only be called by the validator.
+     * @notice Accepts an outputRoot and the block number of the corresponding L2 block.
+     *         The block number must be equal to the current value returned by `nextBlockNumber()`
+     *         in order to be accepted. This function may only be called by the validator.
      *
      * @param _outputRoot    The L2 output of the checkpoint block.
      * @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
@@ -189,7 +189,10 @@ contract L2OutputOracle is Initializable, Semver {
         uint256 _l1BlockNumber,
         uint256 _bondAmount
     ) external payable {
-        require(msg.sender == VALIDATOR_POOL.nextValidator(), "L2OutputOracle: not your turn");
+        require(
+            msg.sender == VALIDATOR_POOL.nextValidator(),
+            "L2OutputOracle: only the next selected validator can submit output"
+        );
 
         require(
             _l2BlockNumber == nextBlockNumber(),
@@ -342,12 +345,15 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Computes the block number of the next L2 block that needs to be checkpointed.
+     * @notice Computes the block number of the next L2 block that needs to be checkpointed. If no
+     *         outputs have been submitted yet then this function will return the latest block
+     *         number, which is the starting block number.
      *
      * @return Next L2 block number.
      */
     function nextBlockNumber() public view returns (uint256) {
-        return latestBlockNumber() + SUBMISSION_INTERVAL;
+        return
+            l2Outputs.length == 0 ? latestBlockNumber() : latestBlockNumber() + SUBMISSION_INTERVAL;
     }
 
     /**

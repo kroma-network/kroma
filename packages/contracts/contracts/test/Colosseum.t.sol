@@ -10,8 +10,6 @@ import { ColosseumTestData } from "./testdata/ColosseumTestData.sol";
 
 // Test the implementations of the Colosseum
 contract ColosseumTest is Colosseum_Initializer {
-    uint256 startBlockNumber = 0;
-
     function nextSender(Types.Challenge memory _challenge) internal pure returns (address) {
         return _challenge.turn % 2 == 0 ? _challenge.challenger : _challenge.asserter;
     }
@@ -24,18 +22,21 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.prank(asserter);
         pool.deposit{ value: asserter.balance }();
 
-        uint256 interval = oracle.SUBMISSION_INTERVAL();
-        startBlockNumber = oracle.latestBlockNumber();
-        uint256 nextBlockNumber = startBlockNumber + interval;
-
+        // Submit genesis output
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
         // Roll to after the block number we'll submit
         warpToSubmitTime(nextBlockNumber);
         vm.prank(pool.nextValidator());
         oracle.submitL2Output(bytes32(nextBlockNumber), nextBlockNumber, 0, 0, minBond);
 
+        // Submit valid output
+        nextBlockNumber = oracle.nextBlockNumber();
+        warpToSubmitTime(nextBlockNumber);
+        vm.prank(pool.nextValidator());
+        oracle.submitL2Output(bytes32(nextBlockNumber), nextBlockNumber, 0, 0, minBond);
+
         // Submit invalid output
-        startBlockNumber = oracle.latestBlockNumber();
-        nextBlockNumber = startBlockNumber + interval;
+        nextBlockNumber = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber);
         vm.prank(pool.nextValidator());
         oracle.submitL2Output(keccak256(abi.encode()), nextBlockNumber, 0, 0, minBond);
@@ -206,6 +207,14 @@ contract ColosseumTest is Colosseum_Initializer {
     function test_createChallenge_succeeds() external {
         uint256 outputIndex = oracle.latestOutputIndex();
         _createChallenge(outputIndex);
+    }
+
+    function test_createChallenge_genesisOutput_reverts() external {
+        uint256 segLen = colosseum.getSegmentsLength(1);
+        vm.prank(challenger);
+
+        vm.expectRevert("Colosseum: challenge for genesis output is not allowed");
+        colosseum.createChallenge(0, new bytes32[](segLen));
     }
 
     function test_createChallenge_sameOutput_reverts() external {
