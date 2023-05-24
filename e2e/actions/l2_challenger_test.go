@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -110,6 +109,8 @@ func TestChallenger(gt *testing.T) {
 	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
 	blockNum, err := outputOracleContract.LatestBlockNumber(nil)
 	require.NoError(t, err)
+	outputIndex, err := outputOracleContract.GetL2OutputIndexAfter(nil, blockNum)
+	require.NoError(t, err)
 	outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, blockNum)
 	require.NoError(t, err)
 	block, err := propEngine.EthClient().BlockByNumber(t.Ctx(), blockNum)
@@ -120,7 +121,7 @@ func TestChallenger(gt *testing.T) {
 	require.NotEqual(t, eth.Bytes32(outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
 	// submit create challenge tx
-	txHash := challenger.ActCreateChallenge(t)
+	txHash := challenger.ActCreateChallenge(t, outputIndex)
 
 	// include tx on L1
 	includeL1Block(t, miner, dp.Addresses.Validator)
@@ -133,13 +134,13 @@ func TestChallenger(gt *testing.T) {
 	// check challenge created
 	colosseumContract, err := bindings.NewColosseum(sd.DeploymentsL1.ColosseumProxy, miner.EthClient())
 	require.NoError(t, err)
-	challengeId, err := colosseumContract.LatestChallengeId(nil)
+	challenge, err := colosseumContract.GetChallenge(nil, outputIndex)
 	require.NoError(t, err)
-	require.True(t, challengeId.Cmp(big.NewInt(0)) == 1, "challenge not found")
+	require.NotNil(t, challenge, "challenge not found")
 
 interaction:
 	for {
-		status, err := colosseumContract.GetStatusInProgress(nil)
+		status, err := colosseumContract.GetStatus(nil, outputIndex)
 		require.NoError(t, err)
 
 		sender := dp.Addresses.Validator
@@ -147,14 +148,12 @@ interaction:
 		switch status {
 		case chal.StatusChallengerTurn:
 			// call bisect by challenger
-			txHash = challenger.ActBisect(t)
+			txHash = challenger.ActBisect(t, outputIndex)
 		case chal.StatusAsserterTurn:
 			// call bisect by validator
-			txHash = asserter.ActBisect(t)
-		case chal.StatusAsserterTimeout:
-			txHash = challenger.ActTimeout(t)
-		case chal.StatusProveReady:
-			txHash = challenger.ActProveFault(t)
+			txHash = asserter.ActBisect(t, outputIndex)
+		case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
+			txHash = challenger.ActProveFault(t, outputIndex)
 		default:
 			break interaction
 		}

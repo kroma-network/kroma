@@ -48,12 +48,11 @@ var (
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "VALPOOL_ADDRESS"),
 	}
-	PollIntervalFlag = cli.DurationFlag{
-		Name: "poll-interval",
-		Usage: "Delay between querying L2 for more transactions and " +
-			"creating a new batch",
+	ChallengerPollIntervalFlag = cli.DurationFlag{
+		Name:     "challenger.poll-interval",
+		Usage:    "Poll interval for challenge process",
 		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "POLL_INTERVAL"),
+		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "CHALLENGER_POLL_INTERVAL"),
 	}
 	ProverGrpcFlag = cli.StringFlag{
 		Name:     "prover-grpc-url",
@@ -99,7 +98,7 @@ var requiredFlags = []cli.Flag{
 	L2OOAddressFlag,
 	ColosseumAddressFlag,
 	ValPoolAddressFlag,
-	PollIntervalFlag,
+	ChallengerPollIntervalFlag,
 	ProverGrpcFlag,
 }
 

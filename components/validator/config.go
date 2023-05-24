@@ -29,7 +29,7 @@ type Config struct {
 	L2OutputOracleAddr        common.Address
 	ColosseumAddr             common.Address
 	ValidatorPoolAddr         common.Address
-	PollInterval              time.Duration
+	ChallengerPollInterval    time.Duration
 	NetworkTimeout            time.Duration
 	TxManager                 *txmgr.SimpleTxManager
 	L1Client                  *ethclient.Client
@@ -69,8 +69,8 @@ type CLIConfig struct {
 	// ValPoolAddress is the ValidatorPool contract address.
 	ValPoolAddress string
 
-	// PollInterval is how frequently to poll L2 for new finalized outputs.
-	PollInterval time.Duration
+	// ChallengerPollInterval is how frequently to poll L2 for new finalized outputs.
+	ChallengerPollInterval time.Duration
 
 	// ProverGrpc is the URL of prover grpc server.
 	ProverGrpc string
@@ -118,14 +118,14 @@ func (c CLIConfig) Check() error {
 func NewCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		// Required Flags
-		L1EthRpc:         ctx.GlobalString(flags.L1EthRpcFlag.Name),
-		RollupRpc:        ctx.GlobalString(flags.RollupRpcFlag.Name),
-		L2OOAddress:      ctx.GlobalString(flags.L2OOAddressFlag.Name),
-		ColosseumAddress: ctx.GlobalString(flags.ColosseumAddressFlag.Name),
-		ValPoolAddress:   ctx.GlobalString(flags.ValPoolAddressFlag.Name),
-		PollInterval:     ctx.GlobalDuration(flags.PollIntervalFlag.Name),
-		ProverGrpc:       ctx.GlobalString(flags.ProverGrpcFlag.Name),
-		TxMgrConfig:      txmgr.ReadCLIConfig(ctx),
+		L1EthRpc:               ctx.GlobalString(flags.L1EthRpcFlag.Name),
+		RollupRpc:              ctx.GlobalString(flags.RollupRpcFlag.Name),
+		L2OOAddress:            ctx.GlobalString(flags.L2OOAddressFlag.Name),
+		ColosseumAddress:       ctx.GlobalString(flags.ColosseumAddressFlag.Name),
+		ValPoolAddress:         ctx.GlobalString(flags.ValPoolAddressFlag.Name),
+		ChallengerPollInterval: ctx.GlobalDuration(flags.ChallengerPollIntervalFlag.Name),
+		ProverGrpc:             ctx.GlobalString(flags.ProverGrpcFlag.Name),
+		TxMgrConfig:            txmgr.ReadCLIConfig(ctx),
 
 		// Optional Flags
 		AllowNonFinalized:         ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
@@ -195,7 +195,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		L2OutputOracleAddr:        l2ooAddress,
 		ColosseumAddr:             colosseumAddress,
 		ValidatorPoolAddr:         valPoolAddress,
-		PollInterval:              cfg.PollInterval,
+		ChallengerPollInterval:    cfg.ChallengerPollInterval,
 		NetworkTimeout:            cfg.TxMgrConfig.NetworkTimeout,
 		TxManager:                 txManager,
 		L1Client:                  l1Client,
