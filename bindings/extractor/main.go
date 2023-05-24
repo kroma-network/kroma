@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"go/format"
 	"go/parser"
 	"go/token"
@@ -42,35 +43,48 @@ func main() {
 		panic(err)
 	}
 
-	typesSource, err := os.ReadFile(path.Join(bindingsDir, TypesBinding))
+	output, err := os.ReadFile(path.Join(bindingsDir, TypesBinding))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			typesSource = []byte{}
+			output = []byte{}
 		} else {
 			panic(err)
 		}
 	}
 
-	if len(typesSource) == 0 {
-		typesSource = []byte(strings.Replace(tmpl, "{{.Package}}", pkg, 1))
+	if len(output) == 0 {
+		output = []byte(strings.Replace(tmpl, "{{.Package}}", pkg, 1))
 	}
 
 	for _, block := range regex.FindAllString(string(source), -1) {
+		// remove code block from binding file.
 		source = []byte(strings.Replace(string(source), block+"\n\n", "", -1))
 
-		if !strings.Contains(string(typesSource), block) {
-			typesSource = []byte(string(typesSource) + block + "\n\n")
+		// find legacy code block corresponding to a given block type.
+		structName := regexp.MustCompile(`Types\w+`).FindString(block)
+		legacyFindRegex := regexp.MustCompile(fmt.Sprintf(
+			`(?s)(?:\/\/[^\n]*\n|\/\*.*?\*\/)*\s*type\s+%s+\s+struct\s*\{.*?\}`,
+			structName,
+		))
+		legacyBlock := legacyFindRegex.FindString(string(output))
+
+		if len(legacyBlock) == 0 {
+			// append code block if there is no legacy code block.
+			output = []byte(string(output) + block + "\n\n")
+		} else if legacyBlock != block {
+			// else, replace if there is no legacy code block.
+			output = []byte(strings.Replace(string(output), legacyBlock, block, -1))
 		}
 	}
 
 	// formatting types bindings and save
 	fset := token.NewFileSet()
-	node, err := parser.ParseFile(fset, "", typesSource, parser.ParseComments)
+	node, err := parser.ParseFile(fset, "", output, parser.ParseComments)
 	if err != nil {
 		log.Fatal(err)
 	}
 	format.Node(io.Discard, fset, node)
-	err = os.WriteFile(path.Join(bindingsDir, TypesBinding), typesSource, os.ModePerm)
+	err = os.WriteFile(path.Join(bindingsDir, TypesBinding), output, os.ModePerm)
 	if err != nil {
 		panic(err)
 	}

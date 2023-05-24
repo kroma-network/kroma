@@ -26,6 +26,7 @@ bindings: basefee-vault-bindings \
 		proxy-admin-bindings \
 		proxy-bindings \
 		system-config-bindings \
+		validator-pool-bindings \
 		weth9-bindings \
 		zk-merkle-trie-bindings \
 		zk-verifier-bindings
@@ -134,6 +135,9 @@ proxy-bindings: compile
 
 system-config-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/SystemConfig.sol:SystemConfig $(pkg)
+
+validator-pool-bindings: compile
+	bash ./gen_bindings.sh contracts/L1/ValidatorPool.sol:ValidatorPool $(pkg)
 
 weth9-bindings: compile
 	bash ./gen_bindings.sh contracts/vendor/WETH9.sol:WETH9 $(pkg)
