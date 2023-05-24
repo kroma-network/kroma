@@ -310,7 +310,7 @@ contract KromaPortal_Test is Portal_Initializer {
             address(portal.L2_ORACLE()),
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
-                Types.CheckpointOutput(bytes32(uint256(1)), uint128(ts), uint128(startingBlockNumber))
+                Types.CheckpointOutput(trusted, bytes32(uint256(1)), uint128(ts), uint128(startingBlockNumber))
             )
         );
 
@@ -328,8 +328,8 @@ contract KromaPortal_Test is Portal_Initializer {
         uint256 nextOutputIndex = oracle.nextOutputIndex();
         vm.roll(checkpoint);
         vm.warp(oracle.computeL2Timestamp(checkpoint) + 1);
-        vm.prank(oracle.VALIDATOR());
-        oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0);
+        vm.prank(trusted);
+        oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0, minBond);
 
         // warp to the final second of the finalization period
         uint256 finalizationHorizon = block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS();
@@ -394,8 +394,8 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
     function setUp() public override {
         // Configure the oracle to return the output root we've prepared.
         vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber) + 1);
-        vm.prank(oracle.VALIDATOR());
-        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
+        vm.prank(trusted);
+        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0, minBond);
 
         // Warp beyond the finalization period for the block we've submitted.
         vm.warp(
@@ -555,12 +555,13 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         Types.CheckpointOutput memory output = portal.L2_ORACLE().getL2Output(_submittedOutputIndex);
 
         // Propose the same output root again, creating the same output at a different index + l2BlockNumber.
-        vm.startPrank(portal.L2_ORACLE().VALIDATOR());
+        vm.startPrank(trusted);
         portal.L2_ORACLE().submitL2Output(
             output.outputRoot,
             portal.L2_ORACLE().nextBlockNumber(),
             blockhash(block.number),
-            block.number
+            block.number,
+            minBond
         );
         vm.stopPrank();
 
@@ -724,6 +725,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     bytes32(uint256(0)),
                     uint128(block.timestamp),
                     uint128(_submittedBlockNumber)
@@ -766,6 +768,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     _outputRoot,
                     uint128(block.timestamp + 1),
                     uint128(_submittedBlockNumber)
@@ -813,6 +816,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     _outputRoot,
                     uint128(recentTimestamp),
                     uint128(_submittedBlockNumber)
@@ -880,6 +884,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     Hashing.hashOutputRootProof(outputRootProof),
                     uint128(block.timestamp),
                     uint128(_submittedBlockNumber)
@@ -933,6 +938,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     outputRoot,
                     uint128(finalizedTimestamp),
                     uint128(_submittedBlockNumber)

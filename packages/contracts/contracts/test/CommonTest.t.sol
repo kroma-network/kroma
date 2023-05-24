@@ -12,6 +12,7 @@ import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
 import { L1StandardBridge } from "../L1/L1StandardBridge.sol";
+import { ValidatorPool } from "../L1/ValidatorPool.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { SystemConfig } from "../L1/SystemConfig.sol";
@@ -91,20 +92,28 @@ contract CommonTest is Test {
 
 contract L2OutputOracle_Initializer is CommonTest {
     // Test target
+    ValidatorPool pool;
+    ValidatorPool poolImpl;
     L2OutputOracle oracle;
     L2OutputOracle oracleImpl;
+    Colosseum colosseum;
+    SystemConfig systemConfig;
 
     L2ToL1MessagePasser messagePasser =
         L2ToL1MessagePasser(payable(Predeploys.L2_TO_L1_MESSAGE_PASSER));
 
+    // ValidatorPool constructor arguments
+    address internal trusted = 0x000000000000000000000000000000000000aaaa;
+    uint256 internal minBond = 0.1 ether;
+
     // Constructor arguments
-    address internal asserter = 0x000000000000000000000000000000000000AbBa;
-    address internal challenger = 0x000000000000000000000000000000000000ACDC;
+    address internal asserter = 0x000000000000000000000000000000000000aAaB;
+    address internal challenger = 0x000000000000000000000000000000000000AAaC;
     uint256 internal submissionInterval = 1800;
     uint256 internal l2BlockTime = 2;
     uint256 internal startingBlockNumber = 200;
     uint256 internal startingTimestamp = 1000;
-    address guardian;
+    address internal guardian = 0x000000000000000000000000000000000000AaaD;
 
     // Test data
     uint256 initL1Time;
@@ -116,7 +125,7 @@ contract L2OutputOracle_Initializer is CommonTest {
         uint256 l1Timestamp
     );
 
-    event OutputsDeleted(uint256 indexed prevNextOutputIndex, uint256 indexed newNextOutputIndex);
+    event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
 
     // Advance the evm's time to meet the L2OutputOracle's requirements for submitL2Output
     function warpToSubmitTime(uint256 _nextBlockNumber) public {
@@ -125,36 +134,68 @@ contract L2OutputOracle_Initializer is CommonTest {
 
     function setUp() public virtual override {
         super.setUp();
-        guardian = makeAddr("guardian");
+
+        vm.deal(trusted, minBond * 10);
+        vm.deal(asserter, minBond * 10);
+        vm.deal(challenger, minBond * 10);
+
+        // Deploy proxies
+        pool = ValidatorPool(address(new Proxy(multisig)));
+        vm.label(address(pool), "ValidatorPool");
+        oracle = L2OutputOracle(address(new Proxy(multisig)));
+        vm.label(address(oracle), "L2OutputOracle");
+
+        // Deploy the ValidatorPool
+        poolImpl = new ValidatorPool({
+            _l2OutputOracle: oracle,
+            _trustedValidator: trusted,
+            _minBondAmount: minBond
+        });
 
         // By default the first block has timestamp and number zero, which will cause underflows in the
         // tests, so we'll move forward to these block values.
         initL1Time = startingTimestamp + 1;
         vm.warp(initL1Time);
         vm.roll(startingBlockNumber);
-        // Deploy the L2OutputOracle and transfer ownership to the asserter
+        // Deploy the L2OutputOracle
         oracleImpl = new L2OutputOracle({
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: startingTimestamp,
-            _validator: asserter,
-            _challenger: challenger,
+            _validatorPool: pool,
+            _colosseum: address(colosseum),
             _finalizationPeriodSeconds: 7 days
         });
-        Proxy proxy = new Proxy(multisig);
+
         vm.prank(multisig);
-        proxy.upgradeToAndCall(
+        Proxy(payable(address(pool))).upgradeToAndCall(
+            address(poolImpl),
+            abi.encodeWithSelector(ValidatorPool.initialize.selector, false)
+        );
+
+        vm.prank(multisig);
+        Proxy(payable(address(oracle))).upgradeToAndCall(
             address(oracleImpl),
             abi.encodeCall(L2OutputOracle.initialize, (startingBlockNumber, startingTimestamp))
         );
-        oracle = L2OutputOracle(address(proxy));
-        vm.label(address(oracle), "L2OutputOracle");
 
         // Set the L2ToL1MessagePasser at the correct address
         vm.etch(Predeploys.L2_TO_L1_MESSAGE_PASSER, address(new L2ToL1MessagePasser()).code);
 
         vm.label(Predeploys.L2_TO_L1_MESSAGE_PASSER, "L2ToL1MessagePasser");
+
+        ResourceMetering.ResourceConfig memory config = Constants.DEFAULT_RESOURCE_CONFIG();
+
+        systemConfig = new SystemConfig({
+            _owner: address(1),
+            _overhead: 0,
+            _scalar: 10000,
+            _batcherHash: bytes32(0),
+            _gasLimit: 30_000_000,
+            _unsafeBlockSigner: address(0),
+            _config: config
+        });
     }
 }
 
@@ -173,7 +214,6 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
     // Test target
     KromaPortal portalImpl;
     KromaPortal portal;
-    SystemConfig systemConfig;
 
     event WithdrawalFinalized(bytes32 indexed withdrawalHash, bool success);
     event WithdrawalProven(
@@ -185,17 +225,9 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
     function setUp() public virtual override {
         super.setUp();
 
-        ResourceMetering.ResourceConfig memory config = Constants.DEFAULT_RESOURCE_CONFIG();
-
-        systemConfig = new SystemConfig({
-            _owner: address(1),
-            _overhead: 0,
-            _scalar: 10000,
-            _batcherHash: bytes32(0),
-            _gasLimit: 30_000_000,
-            _unsafeBlockSigner: address(0),
-            _config: config
-        });
+        vm.deal(trusted, minBond * 100);
+        vm.prank(trusted);
+        pool.deposit{ value: trusted.balance }();
 
         zkMerkleTrie = new ZKMerkleTrie(deployPoseidon2());
 
@@ -438,11 +470,9 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
 
     // Test target
     Colosseum colosseumImpl;
-    Colosseum colosseum;
 
     ZKVerifier zkVerifier;
 
-    uint256 timeout = 1 hours;
     uint256[] segmentsLengths;
 
     function setUp() public virtual override {
@@ -459,19 +489,20 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
         colosseum = Colosseum(payable(address(proxy)));
 
         // Init L2OutputOracle after Colosseum contract deployment
-        challenger = address(colosseum);
         super.setUp();
 
-        colosseumImpl = new Colosseum(
-            oracle,
-            zkVerifier,
-            submissionInterval,
-            timeout,
-            CHAIN_ID,
-            DUMMY_HASH,
-            MAX_TXS,
-            segmentsLengths
-        );
+        colosseumImpl = new Colosseum({
+            _l2Oracle: oracle,
+            _zkVerifier: zkVerifier,
+            _submissionInterval: submissionInterval,
+            _bisectionTimeout: 30 minutes,
+            _provingTimeout: 1 hours,
+            _chainId: CHAIN_ID,
+            _dummyHash: DUMMY_HASH,
+            _maxTxs: MAX_TXS,
+            _segmentsLengths: segmentsLengths,
+            _guardian: guardian
+        });
         vm.prank(multisig);
         proxy.upgradeToAndCall(
             address(colosseumImpl),
@@ -481,9 +512,16 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
 }
 
 contract FFIInterface is Test {
-    function getProveWithdrawalTransactionInputs(
-        Types.WithdrawalTransaction memory _tx
-    ) external returns (bytes32, bytes32, bytes32, bytes32, bytes[] memory) {
+    function getProveWithdrawalTransactionInputs(Types.WithdrawalTransaction memory _tx)
+        external
+        returns (
+            bytes32,
+            bytes32,
+            bytes32,
+            bytes32,
+            bytes[] memory
+        )
+    {
         string[] memory cmds = new string[](8);
         cmds[0] = "scripts/differential-testing/differential-testing";
         cmds[1] = "getProveWithdrawalTransactionInputs";
@@ -595,9 +633,10 @@ contract FFIInterface is Test {
         return abi.decode(result, (bytes32));
     }
 
-    function encodeDepositTransaction(
-        Types.UserDepositTransaction calldata txn
-    ) external returns (bytes memory) {
+    function encodeDepositTransaction(Types.UserDepositTransaction calldata txn)
+        external
+        returns (bytes memory)
+    {
         string[] memory cmds = new string[](11);
         cmds[0] = "scripts/differential-testing/differential-testing";
         cmds[1] = "encodeDepositTransaction";
@@ -647,9 +686,15 @@ contract FFIInterface is Test {
         return abi.decode(result, (uint256, uint256));
     }
 
-    function getMerkleTrieFuzzCase(
-        string memory variant
-    ) external returns (bytes32, bytes memory, bytes memory, bytes[] memory) {
+    function getMerkleTrieFuzzCase(string memory variant)
+        external
+        returns (
+            bytes32,
+            bytes memory,
+            bytes memory,
+            bytes[] memory
+        )
+    {
         string[] memory cmds = new string[](5);
         cmds[0] = "./test-case-generator/fuzz";
         cmds[1] = "-m";

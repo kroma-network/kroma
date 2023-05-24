@@ -11,11 +11,13 @@ library Types {
      *         is the L1 timestamp that the output root is posted. This timestamp is used to verify
      *         that the finalization period has passed since the output root was submitted.
      *
+     * @custom:field submitter     Address of the output submitter.
      * @custom:field outputRoot    Hash of the L2 output.
      * @custom:field timestamp     Timestamp of the L1 block that the output root was submitted in.
      * @custom:field l2BlockNumber L2 block number that the output corresponds to.
      */
     struct CheckpointOutput {
+        address submitter;
         bytes32 outputRoot;
         uint128 timestamp;
         uint128 l2BlockNumber;
@@ -68,7 +70,7 @@ library Types {
 
     /**
      * @notice Struct representing the elements that are hashed together to generate a block hash.
-     *         Some of fields that are contained in PublicnInput are omitted.
+     *         Some of fields that are contained in PublicInput are omitted.
      *
      * @custom:field parentHash      RLP encoded parent hash.
      * @custom:field uncleHash       RLP encoded uncle hash.
@@ -139,16 +141,37 @@ library Types {
 
     /**
      * @notice Struct representing a challenge.
+     *
+     * @custom:field turn       The current turn.
+     * @custom:field asserter   Address of the asserter.
+     * @custom:field challenger Address of the challenger.
+     * @custom:field segments   Array of the segment.
+     * @custom:field segStart   The L2 block number of the first segment.
+     * @custom:field segSize    The number of L2 blocks.
+     * @custom:field timeoutAt  Timeout timestamp of the next turn.
+     * @custom:field outputRoot The L2 output root to be replaced.
+     * @custom:field approved   Whether the challenge was approved.
      */
     struct Challenge {
-        uint256 outputIndex;
         uint256 turn;
-        address current;
-        address next;
+        address asserter;
+        address challenger;
         bytes32[] segments;
         uint256 segStart;
         uint256 segSize;
         uint256 timeoutAt;
-        bool closed;
+        bytes32 outputRoot;
+        bool approved;
+    }
+
+    /**
+     * @notice Struct representing a validator's bond.
+     *
+     * @custom:field amount    Amount of the lock.
+     * @custom:field expiresAt The expiration timestamp of bond.
+     */
+    struct Bond {
+        uint128 amount;
+        uint128 expiresAt;
     }
 }

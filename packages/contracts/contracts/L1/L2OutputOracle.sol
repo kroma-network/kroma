@@ -5,6 +5,7 @@ import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable
 
 import { Types } from "../libraries/Types.sol";
 import { Semver } from "../universal/Semver.sol";
+import { ValidatorPool } from "./ValidatorPool.sol";
 
 /**
  * @custom:proxied
@@ -26,14 +27,14 @@ contract L2OutputOracle is Initializable, Semver {
     uint256 public immutable L2_BLOCK_TIME;
 
     /**
-     * @notice The address of the challenger. Can be updated via upgrade.
+     * @notice The address of the colosseum contract. Can be updated via upgrade.
      */
-    address public immutable CHALLENGER;
+    address public immutable COLOSSEUM;
 
     /**
-     * @notice The address of the validator. Can be updated via upgrade.
+     * @notice The address of the validator pool contract. Can be updated via upgrade.
      */
-    address public immutable VALIDATOR;
+    ValidatorPool public immutable VALIDATOR_POOL;
 
     /**
      * @notice Minimum time (in seconds) that must elapse before a withdrawal can be finalized.
@@ -71,12 +72,12 @@ contract L2OutputOracle is Initializable, Semver {
     );
 
     /**
-     * @notice Emitted when outputs are deleted.
+     * @notice Emitted when an output is replaced.
      *
-     * @param prevNextOutputIndex Next L2 output index before the deletion.
-     * @param newNextOutputIndex  Next L2 output index after the deletion.
+     * @param outputIndex   Replaced L2 output index.
+     * @param newOutputRoot L2 output root after replacement.
      */
-    event OutputsDeleted(uint256 indexed prevNextOutputIndex, uint256 indexed newNextOutputIndex);
+    event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
 
     /**
      * @custom:semver 0.1.0
@@ -85,8 +86,8 @@ contract L2OutputOracle is Initializable, Semver {
      * @param _l2BlockTime               The time per L2 block, in seconds.
      * @param _startingBlockNumber       The number of the first L2 block.
      * @param _startingTimestamp         The timestamp of the first L2 block.
-     * @param _validator                 The address of the validator.
-     * @param _challenger                The address of the challenger.
+     * @param _validatorPool             The address of the ValidatorPool contract.
+     * @param _colosseum                 The address of the Colosseum contract.
      * @param _finalizationPeriodSeconds Output finalization time in seconds.
      */
     constructor(
@@ -94,8 +95,8 @@ contract L2OutputOracle is Initializable, Semver {
         uint256 _l2BlockTime,
         uint256 _startingBlockNumber,
         uint256 _startingTimestamp,
-        address _validator,
-        address _challenger,
+        ValidatorPool _validatorPool,
+        address _colosseum,
         uint256 _finalizationPeriodSeconds
     ) Semver(0, 1, 0) {
         require(_l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
@@ -106,8 +107,8 @@ contract L2OutputOracle is Initializable, Semver {
 
         SUBMISSION_INTERVAL = _submissionInterval;
         L2_BLOCK_TIME = _l2BlockTime;
-        VALIDATOR = _validator;
-        CHALLENGER = _challenger;
+        VALIDATOR_POOL = _validatorPool;
+        COLOSSEUM = _colosseum;
         FINALIZATION_PERIOD_SECONDS = _finalizationPeriodSeconds;
 
         initialize(_startingBlockNumber, _startingTimestamp);
@@ -133,61 +134,62 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Deletes all checkpoint outputs after and including the output that corresponds to
-     *         the given output index. Only the challenger address can delete outputs.
+     * @notice Replaces the output that corresponds to the given output index.
+     *         Only the Colosseum contract can replace an output.
      *
-     * @param _l2OutputIndex Index of the first L2 output to be deleted. All outputs after this
-     *                       output will also be deleted.
+     * @param _l2OutputIndex Index of the L2 output to be replaced.
+     * @param _newOutputRoot The L2 output root to replace the existing one.
+     * @param _submitter     Address of the L2 output submitter.
      */
-    // solhint-disable-next-line ordering
-    function deleteL2Outputs(uint256 _l2OutputIndex) external {
+    function replaceL2Output(
+        uint256 _l2OutputIndex,
+        bytes32 _newOutputRoot,
+        address _submitter
+    ) external {
         require(
-            msg.sender == CHALLENGER,
-            "L2OutputOracle: only the challenger address can delete outputs"
+            msg.sender == COLOSSEUM,
+            "L2OutputOracle: only the colosseum contract can replace an output"
         );
+
+        require(_submitter != address(0), "L2OutputOracle: submitter address cannot be zero");
 
         // Make sure we're not *increasing* the length of the array.
         require(
             _l2OutputIndex < l2Outputs.length,
-            "L2OutputOracle: cannot delete outputs after the latest output index"
+            "L2OutputOracle: cannot replace an output after the latest output index"
         );
 
-        // Do not allow deleting any outputs that have already been finalized.
+        // Do not allow replacing any outputs that have already been finalized.
         require(
             block.timestamp - l2Outputs[_l2OutputIndex].timestamp < FINALIZATION_PERIOD_SECONDS,
-            "L2OutputOracle: cannot delete outputs that have already been finalized"
+            "L2OutputOracle: cannot replace an output that has already been finalized"
         );
 
-        uint256 prevNextL2OutputIndex = nextOutputIndex();
+        l2Outputs[_l2OutputIndex].outputRoot = _newOutputRoot;
+        l2Outputs[_l2OutputIndex].submitter = _submitter;
 
-        // Use assembly to delete the array elements because Solidity doesn't allow it.
-        assembly {
-            sstore(l2Outputs.slot, _l2OutputIndex)
-        }
-
-        emit OutputsDeleted(prevNextL2OutputIndex, _l2OutputIndex);
+        emit OutputReplaced(_l2OutputIndex, _newOutputRoot);
     }
 
     /**
      * @notice Accepts an outputRoot and the timestamp of the corresponding L2 block. The timestamp
      *         must be equal to the current value returned by `nextTimestamp()` in order to be
-     *         accepted. This function may only be called by the Validator.
+     *         accepted. This function may only be called by the validator.
      *
      * @param _outputRoot    The L2 output of the checkpoint block.
      * @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
      * @param _l1BlockHash   A block hash which must be included in the current chain.
      * @param _l1BlockNumber The block number with the specified block hash.
+     * @param _bondAmount    Amount of bond.
      */
     function submitL2Output(
         bytes32 _outputRoot,
         uint256 _l2BlockNumber,
         bytes32 _l1BlockHash,
-        uint256 _l1BlockNumber
+        uint256 _l1BlockNumber,
+        uint256 _bondAmount
     ) external payable {
-        require(
-            msg.sender == VALIDATOR,
-            "L2OutputOracle: only the validator address can submit new outputs"
-        );
+        require(msg.sender == VALIDATOR_POOL.nextValidator(), "L2OutputOracle: not your turn");
 
         require(
             _l2BlockNumber == nextBlockNumber(),
@@ -219,14 +221,23 @@ contract L2OutputOracle is Initializable, Semver {
             );
         }
 
-        emit OutputSubmitted(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
+        uint256 outputIndex = nextOutputIndex();
 
         l2Outputs.push(
             Types.CheckpointOutput({
+                submitter: msg.sender,
                 outputRoot: _outputRoot,
                 timestamp: uint128(block.timestamp),
                 l2BlockNumber: uint128(_l2BlockNumber)
             })
+        );
+
+        emit OutputSubmitted(_outputRoot, outputIndex, _l2BlockNumber, block.timestamp);
+
+        VALIDATOR_POOL.createBond(
+            outputIndex,
+            uint128(_bondAmount),
+            uint128(block.timestamp + FINALIZATION_PERIOD_SECONDS)
         );
     }
 
@@ -348,5 +359,16 @@ contract L2OutputOracle is Initializable, Semver {
      */
     function computeL2Timestamp(uint256 _l2BlockNumber) public view returns (uint256) {
         return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * L2_BLOCK_TIME);
+    }
+
+    /**
+     * @notice Returns the address of the L2 output submitter.
+     *
+     * @param _outputIndex Index of the output.
+     *
+     * @return Address of the submitter.
+     */
+    function getSubmitter(uint256 _outputIndex) external view returns (address) {
+        return l2Outputs[_outputIndex].submitter;
     }
 }
