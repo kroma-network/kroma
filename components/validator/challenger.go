@@ -36,6 +36,7 @@ type Challenger struct {
 
 	submissionInterval        *big.Int
 	finalizationPeriodSeconds *big.Int
+	l2BlockTime               *big.Int
 	checkpoint                *big.Int
 }
 
@@ -58,6 +59,10 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get finalization period seconds: %w", err)
 	}
+	l2BlockTime, err := l2ooContract.L2BLOCKTIME(callOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
+	}
 
 	return &Challenger{
 		log: l,
@@ -72,6 +77,7 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, 
 
 		submissionInterval:        submissionInterval,
 		finalizationPeriodSeconds: finalizationPeriodSeconds,
+		l2BlockTime:               l2BlockTime,
 	}, nil
 }
 
@@ -91,11 +97,6 @@ func (c *Challenger) OutputAtBlockSafe(blockNumber uint64, includeNextBlock bool
 		return nil, err
 	}
 
-	if blockNumber == 0 {
-		// TODO(chokobole): Enable dispute resolution including genesis output root.
-		output.OutputRoot = eth.Bytes32{}
-	}
-
 	return output, nil
 }
 
@@ -110,22 +111,22 @@ func (c *Challenger) GetInvalidOutputRange() (*OutputRange, error) {
 	if err != nil {
 		return nil, err
 	}
-	if nextOutputIndex.Cmp(common.Big0) == 0 {
-		c.log.Info("the output has not been submitted yet.")
+	latestOutputIndex := new(big.Int).Sub(nextOutputIndex, common.Big1)
+	if latestOutputIndex.Cmp(common.Big1) == -1 {
+		c.log.Info("challenge for genesis output is not allowed", "latestOutputIndex", latestOutputIndex)
 		return nil, nil
 	}
-	latestOutputIndex := new(big.Int).Sub(nextOutputIndex, common.Big1)
 
 	if c.checkpoint == nil {
-		waitingOutputs := new(big.Int).Div(c.finalizationPeriodSeconds, c.submissionInterval)
-		if latestOutputIndex.Cmp(waitingOutputs) == -1 {
-			// TODO(chokobole): Enable dispute resolution including genesis output root.
+		submissionIntervalSeconds := new(big.Int).Mul(c.submissionInterval, c.l2BlockTime)
+		waitingOutputNum := new(big.Int).Div(c.finalizationPeriodSeconds, submissionIntervalSeconds)
+		if latestOutputIndex.Cmp(waitingOutputNum) != 1 {
 			c.checkpoint = common.Big1
-		} else if waitingOutputs.Cmp(common.Big0) == 0 {
+		} else if waitingOutputNum.Cmp(common.Big0) == 0 {
 			c.checkpoint = latestOutputIndex
 			return nil, nil
 		} else {
-			c.checkpoint = new(big.Int).Mod(latestOutputIndex, waitingOutputs)
+			c.checkpoint = new(big.Int).Sub(nextOutputIndex, waitingOutputNum)
 		}
 	}
 
@@ -260,12 +261,6 @@ func (c *Challenger) BuildSegments(turn, segStart, segSize uint64) (*chal.Segmen
 	segments := chal.NewEmptySegments(segStart, segSize, sections.Uint64())
 
 	for i, blockNumber := range segments.BlockNumbers() {
-		// TODO(chokobole): Enable dispute resolution including genesis output root.
-		if blockNumber == 0 {
-			segments.SetHashValue(0, eth.Bytes32{})
-			continue
-		}
-
 		output, err := c.OutputAtBlockSafe(blockNumber, false)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get output %d: %w", blockNumber, err)

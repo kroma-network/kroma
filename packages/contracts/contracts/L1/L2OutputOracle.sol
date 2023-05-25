@@ -101,8 +101,8 @@ contract L2OutputOracle is Initializable, Semver {
     ) Semver(0, 1, 0) {
         require(_l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
         require(
-            _submissionInterval > _l2BlockTime,
-            "L2OutputOracle: submission interval must be greater than L2 block time"
+            _submissionInterval > 0,
+            "L2OutputOracle: submission interval must be greater than 0"
         );
 
         SUBMISSION_INTERVAL = _submissionInterval;
@@ -172,9 +172,9 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Accepts an outputRoot and the timestamp of the corresponding L2 block. The timestamp
-     *         must be equal to the current value returned by `nextTimestamp()` in order to be
-     *         accepted. This function may only be called by the validator.
+     * @notice Accepts an outputRoot and the block number of the corresponding L2 block.
+     *         The block number must be equal to the current value returned by `nextBlockNumber()`
+     *         in order to be accepted. This function may only be called by the validator.
      *
      * @param _outputRoot    The L2 output of the checkpoint block.
      * @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
@@ -189,7 +189,10 @@ contract L2OutputOracle is Initializable, Semver {
         uint256 _l1BlockNumber,
         uint256 _bondAmount
     ) external payable {
-        require(msg.sender == VALIDATOR_POOL.nextValidator(), "L2OutputOracle: not your turn");
+        require(
+            msg.sender == VALIDATOR_POOL.nextValidator(),
+            "L2OutputOracle: only the next selected validator can submit output"
+        );
 
         require(
             _l2BlockNumber == nextBlockNumber(),
@@ -242,8 +245,7 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Returns an output by index. Exists because Solidity's array access will return a
-     *         tuple instead of a struct.
+     * @notice Returns an output by index. Reverts if output is not found at the given index.
      *
      * @param _l2OutputIndex Index of the output to return.
      *
@@ -294,8 +296,7 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Returns the L2 checkpoint output that checkpoints a given L2 block number. Uses a
-     *         binary search to find the first output greater than or equal to the given block.
+     * @notice Returns the L2 checkpoint output that checkpoints a given L2 block number.
      *
      * @param _l2BlockNumber L2 block number to find a checkpoint for.
      *
@@ -310,10 +311,10 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Returns the number of outputs that have been submitted. Will revert if no outputs
+     * @notice Returns the index of the latest submitted output. Will revert if no outputs
      *         have been submitted yet.
      *
-     * @return The number of outputs that have been submitted.
+     * @return The index of the latest submitted output.
      */
     function latestOutputIndex() external view returns (uint256) {
         return l2Outputs.length - 1;
@@ -342,12 +343,15 @@ contract L2OutputOracle is Initializable, Semver {
     }
 
     /**
-     * @notice Computes the block number of the next L2 block that needs to be checkpointed.
+     * @notice Computes the block number of the next L2 block that needs to be checkpointed. If no
+     *         outputs have been submitted yet then this function will return the latest block
+     *         number, which is the starting block number.
      *
      * @return Next L2 block number.
      */
     function nextBlockNumber() public view returns (uint256) {
-        return latestBlockNumber() + SUBMISSION_INTERVAL;
+        return
+            l2Outputs.length == 0 ? latestBlockNumber() : latestBlockNumber() + SUBMISSION_INTERVAL;
     }
 
     /**
