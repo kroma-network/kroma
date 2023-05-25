@@ -43,12 +43,11 @@ type DeployConfig struct {
 	BatchInboxAddress         common.Address `json:"batchInboxAddress"`
 	BatchSenderAddress        common.Address `json:"batchSenderAddress"`
 
-	DummyHash common.Hash `json:"dummyHash"`
-	MaxTxs    uint64      `json:"maxTxs"`
+	ValidatorPoolTrustedValidator common.Address `json:"validatorPoolTrustedValidator"`
+	ValidatorPoolMinBondAmount    *hexutil.Big   `json:"validatorPoolMinBondAmount"`
 
-	L2OutputOracleSubmissionInterval uint64         `json:"l2OutputOracleSubmissionInterval"`
-	L2OutputOracleStartingTimestamp  int            `json:"l2OutputOracleStartingTimestamp"`
-	L2OutputOracleValidator          common.Address `json:"l2OutputOracleValidator"`
+	L2OutputOracleSubmissionInterval uint64 `json:"l2OutputOracleSubmissionInterval"`
+	L2OutputOracleStartingTimestamp  int    `json:"l2OutputOracleStartingTimestamp"`
 
 	L1BlockTime                 uint64         `json:"l1BlockTime"`
 	L1GenesisBlockTimestamp     hexutil.Uint64 `json:"l1GenesisBlockTimestamp"`
@@ -75,8 +74,11 @@ type DeployConfig struct {
 	// Seconds after genesis block that Blue hard fork activates. 0 to activate at genesis. Nil to disable blue
 	L2GenesisBlueTimeOffset *hexutil.Uint64 `json:"l2GenesisBlueTimeOffset,omitempty"`
 
-	ColosseumChallengeTimeout uint64 `json:"colosseumChallengeTimeout"`
-	ColosseumSegmentsLengths  string `json:"colosseumSegmentsLengths"`
+	ColosseumBisectionTimeout uint64      `json:"colosseumBisectionTimeout"`
+	ColosseumProvingTimeout   uint64      `json:"colosseumProvingTimeout"`
+	ColosseumSegmentsLengths  string      `json:"colosseumSegmentsLengths"`
+	ColosseumDummyHash        common.Hash `json:"colosseumDummyHash"`
+	ColosseumMaxTxs           uint64      `json:"colosseumMaxTxs"`
 
 	// Owner of the ProxyAdmin predeploy
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
@@ -153,20 +155,17 @@ func (d *DeployConfig) Check() error {
 	if d.BatchSenderAddress == (common.Address{}) {
 		return fmt.Errorf("%w: BatchSenderAddress cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.DummyHash == (common.Hash{}) {
-		return fmt.Errorf("%w: DummyHash cannot be 0", ErrInvalidDeployConfig)
+	if d.ValidatorPoolTrustedValidator == (common.Address{}) {
+		return fmt.Errorf("%w: ValidatorPoolTrustedValidator cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.MaxTxs == 0 {
-		return fmt.Errorf("%w: MaxTxs cannot be 0", ErrInvalidDeployConfig)
+	if d.ValidatorPoolMinBondAmount == nil {
+		return fmt.Errorf("%w: ValidatorPoolMinBondAmount cannot be nil", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleSubmissionInterval == 0 {
 		return fmt.Errorf("%w: L2OutputOracleSubmissionInterval cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleStartingTimestamp == 0 {
 		log.Warn("L2OutputOracleStartingTimestamp is 0")
-	}
-	if d.L2OutputOracleValidator == (common.Address{}) {
-		return fmt.Errorf("%w: L2OutputOracleValidator cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.FinalSystemOwner == (common.Address{}) {
 		return fmt.Errorf("%w: FinalSystemOwner cannot be address(0)", ErrInvalidDeployConfig)
@@ -224,8 +223,17 @@ func (d *DeployConfig) Check() error {
 	if d.L2GenesisBlockBaseFeePerGas == nil {
 		return fmt.Errorf("%w: L2 genesis block base fee per gas cannot be nil", ErrInvalidDeployConfig)
 	}
-	if d.ColosseumChallengeTimeout == 0 {
-		return fmt.Errorf("%w: ColosseumChallengeTimeout cannot be 0", ErrInvalidDeployConfig)
+	if d.ColosseumBisectionTimeout == 0 {
+		return fmt.Errorf("%w: ColosseumBisectionTimeout cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ColosseumProvingTimeout == 0 {
+		return fmt.Errorf("%w: ColosseumProvingTimeout cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ColosseumDummyHash == (common.Hash{}) {
+		return fmt.Errorf("%w: ColosseumDummyHash cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ColosseumMaxTxs == 0 {
+		return fmt.Errorf("%w: ColosseumMaxTxs cannot be 0", ErrInvalidDeployConfig)
 	}
 	if len(strings.Split(d.ColosseumSegmentsLengths, ","))%2 > 0 {
 		return fmt.Errorf("%w: ColosseumSegmentsLengths length cannot be an odd number", ErrInvalidDeployConfig)

@@ -15,17 +15,17 @@ import (
 // We prefer a mnemonic rather than direct private keys to make it easier
 // to export all testing keys in external tooling for use during debugging.
 var DefaultMnemonicConfig = &MnemonicConfig{
-	Mnemonic:     "test test test test test test test test test test test junk",
-	Deployer:     "m/44'/60'/0'/0/1",
-	CliqueSigner: "m/44'/60'/0'/0/2",
-	Validator:    "m/44'/60'/0'/0/3",
-	Challenger:   "m/44'/60'/0'/0/4",
-	Batcher:      "m/44'/60'/0'/0/5",
-	ProposerP2P:  "m/44'/60'/0'/0/6",
-	Alice:        "m/44'/60'/0'/0/7",
-	Bob:          "m/44'/60'/0'/0/8",
-	Mallory:      "m/44'/60'/0'/0/9",
-	SysCfgOwner:  "m/44'/60'/0'/0/10",
+	Mnemonic:         "test test test test test test test test test test test junk",
+	Deployer:         "m/44'/60'/0'/0/1",
+	CliqueSigner:     "m/44'/60'/0'/0/2",
+	TrustedValidator: "m/44'/60'/0'/0/3",
+	Challenger:       "m/44'/60'/0'/0/4",
+	Batcher:          "m/44'/60'/0'/0/5",
+	ProposerP2P:      "m/44'/60'/0'/0/6",
+	Alice:            "m/44'/60'/0'/0/7",
+	Bob:              "m/44'/60'/0'/0/8",
+	Mallory:          "m/44'/60'/0'/0/9",
+	SysCfgOwner:      "m/44'/60'/0'/0/10",
 }
 
 // MnemonicConfig configures the private keys for the hive testnet.
@@ -38,10 +38,10 @@ type MnemonicConfig struct {
 	SysCfgOwner  string
 
 	// rollup actors
-	Validator   string
-	Challenger  string
-	Batcher     string
-	ProposerP2P string
+	TrustedValidator string
+	Challenger       string
+	Batcher          string
+	ProposerP2P      string
 
 	// prefunded L1/L2 accounts for testing
 	Alice   string
@@ -72,7 +72,7 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	if err != nil {
 		return nil, err
 	}
-	validator, err := wallet.PrivateKey(account(m.Validator))
+	trustedValidator, err := wallet.PrivateKey(account(m.TrustedValidator))
 	if err != nil {
 		return nil, err
 	}
@@ -102,17 +102,17 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	}
 
 	return &Secrets{
-		Deployer:     deployer,
-		CliqueSigner: cliqueSigner,
-		SysCfgOwner:  sysCfgOwner,
-		Validator:    validator,
-		Challenger:   challenger,
-		Batcher:      batcher,
-		ProposerP2P:  proposerP2P,
-		Alice:        alice,
-		Bob:          bob,
-		Mallory:      mallory,
-		Wallet:       wallet,
+		Deployer:         deployer,
+		CliqueSigner:     cliqueSigner,
+		SysCfgOwner:      sysCfgOwner,
+		TrustedValidator: trustedValidator,
+		Challenger:       challenger,
+		Batcher:          batcher,
+		ProposerP2P:      proposerP2P,
+		Alice:            alice,
+		Bob:              bob,
+		Mallory:          mallory,
+		Wallet:           wallet,
 	}, nil
 }
 
@@ -123,10 +123,10 @@ type Secrets struct {
 	SysCfgOwner  *ecdsa.PrivateKey
 
 	// rollup actors
-	Validator   *ecdsa.PrivateKey
-	Challenger  *ecdsa.PrivateKey
-	Batcher     *ecdsa.PrivateKey
-	ProposerP2P *ecdsa.PrivateKey
+	TrustedValidator *ecdsa.PrivateKey
+	Challenger       *ecdsa.PrivateKey
+	Batcher          *ecdsa.PrivateKey
+	ProposerP2P      *ecdsa.PrivateKey
 
 	// prefunded L1/L2 accounts for testing
 	Alice   *ecdsa.PrivateKey
@@ -149,16 +149,16 @@ func EncodePrivKey(priv *ecdsa.PrivateKey) hexutil.Bytes {
 // which can then be kept around for fast precomputed address access.
 func (s *Secrets) Addresses() *Addresses {
 	return &Addresses{
-		Deployer:     crypto.PubkeyToAddress(s.Deployer.PublicKey),
-		CliqueSigner: crypto.PubkeyToAddress(s.CliqueSigner.PublicKey),
-		SysCfgOwner:  crypto.PubkeyToAddress(s.SysCfgOwner.PublicKey),
-		Validator:    crypto.PubkeyToAddress(s.Validator.PublicKey),
-		Challenger:   crypto.PubkeyToAddress(s.Challenger.PublicKey),
-		Batcher:      crypto.PubkeyToAddress(s.Batcher.PublicKey),
-		ProposerP2P:  crypto.PubkeyToAddress(s.ProposerP2P.PublicKey),
-		Alice:        crypto.PubkeyToAddress(s.Alice.PublicKey),
-		Bob:          crypto.PubkeyToAddress(s.Bob.PublicKey),
-		Mallory:      crypto.PubkeyToAddress(s.Mallory.PublicKey),
+		Deployer:         crypto.PubkeyToAddress(s.Deployer.PublicKey),
+		CliqueSigner:     crypto.PubkeyToAddress(s.CliqueSigner.PublicKey),
+		SysCfgOwner:      crypto.PubkeyToAddress(s.SysCfgOwner.PublicKey),
+		TrustedValidator: crypto.PubkeyToAddress(s.TrustedValidator.PublicKey),
+		Challenger:       crypto.PubkeyToAddress(s.Challenger.PublicKey),
+		Batcher:          crypto.PubkeyToAddress(s.Batcher.PublicKey),
+		ProposerP2P:      crypto.PubkeyToAddress(s.ProposerP2P.PublicKey),
+		Alice:            crypto.PubkeyToAddress(s.Alice.PublicKey),
+		Bob:              crypto.PubkeyToAddress(s.Bob.PublicKey),
+		Mallory:          crypto.PubkeyToAddress(s.Mallory.PublicKey),
 	}
 }
 
@@ -169,10 +169,10 @@ type Addresses struct {
 	SysCfgOwner  common.Address
 
 	// rollup actors
-	Validator   common.Address
-	Challenger  common.Address
-	Batcher     common.Address
-	ProposerP2P common.Address
+	TrustedValidator common.Address
+	Challenger       common.Address
+	Batcher          common.Address
+	ProposerP2P      common.Address
 
 	// prefunded L1/L2 accounts for testing
 	Alice   common.Address
@@ -185,7 +185,7 @@ func (a *Addresses) All() []common.Address {
 		a.Deployer,
 		a.CliqueSigner,
 		a.SysCfgOwner,
-		a.Validator,
+		a.TrustedValidator,
 		a.Challenger,
 		a.Batcher,
 		a.ProposerP2P,

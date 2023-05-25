@@ -10,5 +10,6 @@
     "deploy-config/**/*.json",
     "tasks/**/*",
     "scripts/**/*",
+    "hardhat.config.ts"
   ]
 }

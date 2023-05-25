@@ -9,6 +9,10 @@ import {
 } from '../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
+  const validatorPoolProxyAddress = await getDeploymentAddress(
+    hre,
+    'ValidatorPoolProxy'
+  )
   const colosseumProxyAddress = await getDeploymentAddress(
     hre,
     'ColosseumProxy'
@@ -35,7 +39,7 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.l2BlockTime,
       0,
       0,
-      hre.deployConfig.l2OutputOracleValidator,
+      validatorPoolProxyAddress,
       colosseumProxyAddress,
       hre.deployConfig.finalizationPeriodSeconds,
     ],
@@ -57,13 +61,18 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'VALIDATOR',
-        hre.deployConfig.l2OutputOracleValidator
+        'COLOSSEUM',
+        colosseumProxyAddress
       )
       await assertContractVariable(
         contract,
-        'CHALLENGER',
-        colosseumProxyAddress
+        'VALIDATOR_POOL',
+        validatorPoolProxyAddress
+      )
+      await assertContractVariable(
+        contract,
+        'FINALIZATION_PERIOD_SECONDS',
+        hre.deployConfig.finalizationPeriodSeconds
       )
     },
   })

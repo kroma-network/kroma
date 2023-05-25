@@ -43,9 +43,13 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	portal, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, sim)
 	require.NoError(t, err)
 
-	validator, err := oracle.VALIDATOR(callOpts)
+	valPoolAddr, err := oracle.VALIDATORPOOL(callOpts)
 	require.NoError(t, err)
-	require.Equal(t, config.L2OutputOracleValidator, validator)
+	require.Equal(t, predeploys.DevValidatorPoolAddr, valPoolAddr)
+
+	colosseumAddr, err := oracle.COLOSSEUM(callOpts)
+	require.NoError(t, err)
+	require.Equal(t, predeploys.DevColosseumAddr, colosseumAddr)
 
 	// Same set of tests as exist in the deployment scripts
 	interval, err := oracle.SUBMISSIONINTERVAL(callOpts)
