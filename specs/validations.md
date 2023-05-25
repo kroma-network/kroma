@@ -124,23 +124,35 @@ Starting from version 1, the height of the block where the output is submitted h
 
 ## L2 Output Oracle Smart Contract
 
-L2 blocks are produced at a constant rate of `L2_BLOCK_TIME` (2 seconds).
-A new L2 output MUST be appended to the chain once per `SUBMISSION_INTERVAL` which is based on a number of blocks.
+L2 blocks are produced at a constant rate of `L2_BLOCK_TIME`.
+A new L2 output MUST be appended to the chain once per `SUBMISSION_INTERVAL` which is based on the number of L2 blocks.
 
 L2 Output Oracle Smart Contract implements the following interface:
 
 ```solidity
 interface L2OutputOracle {
-    function deleteL2Outputs(uint256 _l2OutputIndex) external;
+  event OutputSubmitted(
+    bytes32 indexed outputRoot,
+    uint256 indexed l2OutputIndex,
+    uint256 indexed l2BlockNumber,
+    uint256 l1Timestamp
+  );
 
-    function submitL2Output(
-        bytes32 _outputRoot,
-        uint256 _l2BlockNumber,
-        bytes32 _l1Blockhash,
-        uint256 _l1BlockNumber
-    );
+  event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
 
-    function nextBlockNumber() public view returns (uint256);
+  function replaceL2Output(
+    uint256 _l2OutputIndex,
+    bytes32 _newOutputRoot,
+    address _submitter
+  ) external;
+
+  function submitL2Output(
+    bytes32 _outputRoot,
+    uint256 _l2BlockNumber,
+    bytes32 _l1BlockHash,
+    uint256 _l1BlockNumber,
+    uint256 _bondAmount
+  ) external payable;
 }
 ```
 
@@ -149,7 +161,8 @@ interface L2OutputOracle {
 The `startingBlockNumber` must be at least the number of the first recorded L2 block.
 The `startingTimestamp` MUST be the same as the timestamp of the first recorded L2 block.
 
-The first `outputRoot` submitted will thus be at height `startingBlockNumber + SUBMISSION_INTERVAL`.
+Thus the first `outputRoot` submitted will be at height `startingBlockNumber`, and each subsequent one will be at
+height incremented by `SUBMISSION_INTERVAL`.
 
 ## Security Considerations
 
