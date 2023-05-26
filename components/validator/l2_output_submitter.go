@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
@@ -296,9 +297,19 @@ func submitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse, bondAmount u
 
 // submitL2OutputTx sends the l2 output submit tx to txCandidates channel to process validator's tx candidates in order.
 func (l *L2OutputSubmitter) submitL2OutputTx(data []byte) {
+	accessList := types.AccessList{
+		types.AccessTuple{
+			Address: l.cfg.ValidatorPoolAddr,
+			StorageKeys: []common.Hash{
+				common.HexToHash("0000000000000000000000000000000000000000000000000000000000000036"),
+			},
+		},
+	}
+
 	l.txCandidatesChan <- txmgr.TxCandidate{
-		TxData:   data,
-		To:       &l.cfg.L2OutputOracleAddr,
-		GasLimit: 0,
+		TxData:     data,
+		To:         &l.cfg.L2OutputOracleAddr,
+		GasLimit:   0,
+		AccessList: accessList,
 	}
 }
