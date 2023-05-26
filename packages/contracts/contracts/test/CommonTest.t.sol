@@ -12,8 +12,9 @@ import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
 import { L1StandardBridge } from "../L1/L1StandardBridge.sol";
-import { ValidatorPool } from "../L1/ValidatorPool.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
+import { SecurityCouncil } from "../L1/SecurityCouncil.sol";
+import { ValidatorPool } from "../L1/ValidatorPool.sol";
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { SystemConfig } from "../L1/SystemConfig.sol";
 import { ZKMerkleTrie } from "../L1/ZKMerkleTrie.sol";
@@ -512,17 +513,37 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
     }
 }
 
+contract SecurityCouncil_Initializer is Colosseum_Initializer {
+    address internal securityCouncilAddress;
+    uint256 immutable NUM_CONFIRMATIONS_REQUIRED = 2;
+    address[] owners = new address[](3);
+
+    // Test target
+    SecurityCouncil securityCouncilImpl;
+    SecurityCouncil securityCouncil;
+
+    function setUp() public virtual override {
+        super.setUp(); // Need colosseum setup
+        Proxy proxy = new Proxy(multisig);
+        securityCouncil = SecurityCouncil(address(proxy));
+        securityCouncilAddress = address(securityCouncil);
+        securityCouncilImpl = new SecurityCouncil(address(colosseum));
+        vm.prank(multisig);
+
+        owners[0] = makeAddr("alice");
+        owners[1] = makeAddr("bob");
+        owners[2] = makeAddr("carol");
+        proxy.upgradeToAndCall(
+            address(securityCouncilImpl),
+            abi.encodeCall(SecurityCouncil.initialize, (true, owners, NUM_CONFIRMATIONS_REQUIRED))
+        );
+    }
+}
+
 contract FFIInterface is Test {
-    function getProveWithdrawalTransactionInputs(Types.WithdrawalTransaction memory _tx)
-        external
-        returns (
-            bytes32,
-            bytes32,
-            bytes32,
-            bytes32,
-            bytes[] memory
-        )
-    {
+    function getProveWithdrawalTransactionInputs(
+        Types.WithdrawalTransaction memory _tx
+    ) external returns (bytes32, bytes32, bytes32, bytes32, bytes[] memory) {
         string[] memory cmds = new string[](8);
         cmds[0] = "scripts/differential-testing/differential-testing";
         cmds[1] = "getProveWithdrawalTransactionInputs";
@@ -634,10 +655,9 @@ contract FFIInterface is Test {
         return abi.decode(result, (bytes32));
     }
 
-    function encodeDepositTransaction(Types.UserDepositTransaction calldata txn)
-        external
-        returns (bytes memory)
-    {
+    function encodeDepositTransaction(
+        Types.UserDepositTransaction calldata txn
+    ) external returns (bytes memory) {
         string[] memory cmds = new string[](11);
         cmds[0] = "scripts/differential-testing/differential-testing";
         cmds[1] = "encodeDepositTransaction";
@@ -687,15 +707,9 @@ contract FFIInterface is Test {
         return abi.decode(result, (uint256, uint256));
     }
 
-    function getMerkleTrieFuzzCase(string memory variant)
-        external
-        returns (
-            bytes32,
-            bytes memory,
-            bytes memory,
-            bytes[] memory
-        )
-    {
+    function getMerkleTrieFuzzCase(
+        string memory variant
+    ) external returns (bytes32, bytes memory, bytes memory, bytes[] memory) {
         string[] memory cmds = new string[](5);
         cmds[0] = "./test-case-generator/fuzz";
         cmds[1] = "-m";
