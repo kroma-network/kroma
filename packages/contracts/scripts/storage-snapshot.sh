@@ -10,6 +10,8 @@ then
 fi
 
 contracts=(
+  contracts/L1/Colosseum.sol:Colosseum
+  contracts/L1/ValidatorPool.sol:ValidatorPool
   contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger
   contracts/L1/L1StandardBridge.sol:L1StandardBridge
   contracts/L1/L2OutputOracle.sol:L2OutputOracle
