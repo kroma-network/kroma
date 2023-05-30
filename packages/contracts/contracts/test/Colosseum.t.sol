@@ -64,7 +64,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
     function _newSegments(
         address _sender,
-        uint256 _turn,
+        uint8 _turn,
         uint256 _segStart,
         uint256 _segSize
     ) private view returns (bytes32[] memory) {

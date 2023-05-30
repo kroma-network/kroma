@@ -143,25 +143,25 @@ library Types {
      * @notice Struct representing a challenge.
      *
      * @custom:field turn       The current turn.
+     * @custom:field timeoutAt  Timeout timestamp of the next turn.
+     * @custom:field approved   Whether the challenge was approved.
      * @custom:field asserter   Address of the asserter.
      * @custom:field challenger Address of the challenger.
      * @custom:field segments   Array of the segment.
      * @custom:field segStart   The L2 block number of the first segment.
      * @custom:field segSize    The number of L2 blocks.
-     * @custom:field timeoutAt  Timeout timestamp of the next turn.
      * @custom:field outputRoot The L2 output root to be replaced.
-     * @custom:field approved   Whether the challenge was approved.
      */
     struct Challenge {
-        uint256 turn;
+        uint8 turn;
+        uint64 timeoutAt;
+        bool approved;
         address asserter;
         address challenger;
         bytes32[] segments;
-        uint256 segStart;
         uint256 segSize;
-        uint256 timeoutAt;
+        uint256 segStart;
         bytes32 outputRoot;
-        bool approved;
     }
 
     /**

@@ -5,6 +5,7 @@ import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
+import { SafeCall } from "../libraries/SafeCall.sol";
 import { Types } from "../libraries/Types.sol";
 import { Semver } from "../universal/Semver.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
@@ -125,8 +126,9 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      */
     function withdraw(uint256 _amount) external nonReentrant {
         _decreaseBalance(msg.sender, _amount);
-        (bool success, ) = payable(msg.sender).call{ value: _amount }("");
-        require(success);
+
+        bool success = SafeCall.call(msg.sender, gasleft(), _amount, hex"");
+        require(success, "ValidatorPool: ETH transfer failed");
     }
 
     /**
