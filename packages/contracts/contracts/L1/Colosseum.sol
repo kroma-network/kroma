@@ -14,7 +14,7 @@ contract Colosseum is Initializable, Semver {
     /**
      * @notice The constant value for the first turn.
      */
-    uint256 internal constant TURN_INIT = 1;
+    uint8 internal constant TURN_INIT = 1;
 
     /**
      * @notice Enum of the challenge status.
@@ -145,7 +145,7 @@ contract Colosseum is Initializable, Semver {
      * @param turn        The current turn.
      * @param timestamp   The timestamp when bisected.
      */
-    event Bisected(uint256 indexed outputIndex, uint256 turn, uint256 timestamp);
+    event Bisected(uint256 indexed outputIndex, uint8 turn, uint256 timestamp);
 
     /**
      * @notice Emitted when proven fault.
@@ -278,7 +278,7 @@ contract Colosseum is Initializable, Semver {
 
         _validateTurn(challenge);
 
-        uint256 newTurn = challenge.turn + 1;
+        uint8 newTurn = challenge.turn + 1;
 
         _validateSegments(
             newTurn,
@@ -432,7 +432,7 @@ contract Colosseum is Initializable, Semver {
      * @param _segments  Array of the segment.
      */
     function _validateSegments(
-        uint256 _turn,
+        uint8 _turn,
         bytes32 _prevFirst,
         bytes32 _prevLast,
         bytes32[] memory _segments
@@ -473,9 +473,9 @@ contract Colosseum is Initializable, Semver {
      */
     function _updateTimeout(Types.Challenge storage _challenge) private {
         if (!_isAbleToBisect(_challenge)) {
-            _challenge.timeoutAt = block.timestamp + PROVING_TIMEOUT;
+            _challenge.timeoutAt = uint64(block.timestamp + PROVING_TIMEOUT);
         } else {
-            _challenge.timeoutAt = block.timestamp + BISECTION_TIMEOUT;
+            _challenge.timeoutAt = uint64(block.timestamp + BISECTION_TIMEOUT);
         }
     }
 
@@ -563,7 +563,7 @@ contract Colosseum is Initializable, Semver {
      * @return The number of L2 blocks for the next turn.
      */
     function _nextSegSize(Types.Challenge storage _challenge) private view returns (uint256) {
-        uint256 turn = _challenge.turn;
+        uint8 turn = _challenge.turn;
         return _challenge.segSize / (getSegmentsLength(turn) - 1);
     }
 
@@ -597,7 +597,7 @@ contract Colosseum is Initializable, Semver {
      *
      * @return Whether the next turn is the challenger's turn.
      */
-    function _isNextForChallenger(uint256 _turn) private pure returns (bool) {
+    function _isNextForChallenger(uint8 _turn) private pure returns (bool) {
         // If the _turn value is even, it means that the asserter has completed its turn,
         // so the next turn will be the challenger's turn.
         return _turn % 2 == 0;
@@ -698,7 +698,7 @@ contract Colosseum is Initializable, Semver {
      *
      * @return The segments length.
      */
-    function getSegmentsLength(uint256 _turn) public view returns (uint256) {
+    function getSegmentsLength(uint8 _turn) public view returns (uint256) {
         require(_turn >= TURN_INIT, "Colosseum: invalid turn");
         return segmentsLengths[_turn - 1];
     }
