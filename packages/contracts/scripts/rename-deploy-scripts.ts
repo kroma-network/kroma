@@ -1,7 +1,6 @@
-import path from 'path'
 import fs from 'fs'
+import path from 'path'
 
-// @ts-ignore
 import hardhatConfig from '../hardhat.config'
 
 const DEPLOY_SCRIPTS_PATH = path.resolve(hardhatConfig.paths.deploy as string)
@@ -14,6 +13,7 @@ const ORDERED_FILE_NAMES = [
   'L1StandardBridge',
   'L1ERC721Bridge',
   'KromaMintableERC20Factory',
+  'ValidatorPool',
   'L2OutputOracle',
   'Colosseum',
   'KromaPortal',

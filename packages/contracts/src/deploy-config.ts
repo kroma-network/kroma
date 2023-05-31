@@ -83,15 +83,14 @@ interface RequiredDeployConfig {
   batchSenderAddress: string
 
   /**
-   * Dummy hash to be used to compute ZK fault proof as a padding if
-   * the number of transaction is less than maximum number of transactions.
+   * Address of the trusted validator.
    */
-  dummyHash: string
+  validatorPoolTrustedValidator: string
 
   /**
-   * Maximum the number of transaction are allowed in a block.
+   * Minimum amount of the bond in hex value.
    */
-  maxTxs: number
+  validatorPoolMinBondAmount: string
 
   /**
    * Output Oracle submission interval in L2 blocks.
@@ -100,8 +99,7 @@ interface RequiredDeployConfig {
 
   /**
    * Starting block number for the output oracle.
-   * Must be greater than or equal to the L2 genesis block. The first L2 output will correspond
-   * to this value plus the submission interval.
+   * Must be greater than or equal to the L2 genesis block, and the first L2 output will correspond to this value.
    */
   l2OutputOracleStartingBlockNumber?: number
 
@@ -112,14 +110,20 @@ interface RequiredDeployConfig {
   l2OutputOracleStartingTimestamp?: number
 
   /**
-   * Address of the validator.
-   */
-  l2OutputOracleValidator: string
-
-  /**
    * Output finalization period in seconds.
    */
   finalizationPeriodSeconds: number
+
+  /**
+   * Dummy hash to be used to compute ZK fault proof as a padding if
+   * the number of transaction is less than maximum number of transactions.
+   */
+  colosseumDummyHash: string
+
+  /**
+   * Maximum the number of transaction are allowed in a block.
+   */
+  colosseumMaxTxs: number
 
   /**
    * List of segments length that must be submitted for each turn of the challenge.
@@ -140,12 +144,22 @@ interface RequiredDeployConfig {
   /**
    * L1 recipient of fees accumulated in the ProposerRewardVault.
    */
-  ProposerRewardVaultRecipient: string
+  proposerRewardVaultRecipient: string
 
   /**
    * L1 recipient of fees accumulated in the ValidatorRewardVault.
    */
   validatorRewardVaultRecipient: string
+
+  /**
+   * Timeout seconds of bisection in the Colosseum.
+   */
+  colosseumBisectionTimeout: number
+
+  /**
+   * Timeout seconds of proving in the Colosseum.
+   */
+  colosseumProvingTimeout: number
 }
 
 /**
@@ -183,7 +197,6 @@ interface OptionalL2DeployConfig {
   eip1559Elasticity: number
   gasPriceOracleOverhead: number
   gasPriceOracleScalar: number
-  colosseumChallengeTimeout: number
 }
 
 /**
@@ -242,13 +255,11 @@ export const deployConfigSpec: {
   batchSenderAddress: {
     type: 'address',
   },
-  dummyHash: {
-    type: 'string', // bytes32
-    default: ethers.constants.HashZero,
+  validatorPoolTrustedValidator: {
+    type: 'address',
   },
-  maxTxs: {
-    type: 'number',
-    default: 0,
+  validatorPoolMinBondAmount: {
+    type: 'string', // uint256
   },
   l2OutputOracleSubmissionInterval: {
     type: 'number',
@@ -260,9 +271,6 @@ export const deployConfigSpec: {
   l2OutputOracleStartingTimestamp: {
     type: 'number',
   },
-  l2OutputOracleValidator: {
-    type: 'address',
-  },
   finalizationPeriodSeconds: {
     type: 'number',
     default: 2,
@@ -273,7 +281,7 @@ export const deployConfigSpec: {
   protocolVaultRecipient: {
     type: 'address',
   },
-  ProposerRewardVaultRecipient: {
+  proposerRewardVaultRecipient: {
     type: 'address',
   },
   validatorRewardVaultRecipient: {
@@ -363,9 +371,21 @@ export const deployConfigSpec: {
     type: 'number',
     default: 1_000_000,
   },
-  colosseumChallengeTimeout: {
+  colosseumBisectionTimeout: {
     type: 'number',
     default: 3600,
+  },
+  colosseumProvingTimeout: {
+    type: 'number',
+    default: 3600,
+  },
+  colosseumDummyHash: {
+    type: 'string', // bytes32
+    default: ethers.constants.HashZero,
+  },
+  colosseumMaxTxs: {
+    type: 'number',
+    default: 0,
   },
   colosseumSegmentsLengths: {
     type: 'string', // comma-separated segments lengths

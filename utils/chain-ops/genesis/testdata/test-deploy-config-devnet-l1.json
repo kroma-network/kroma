@@ -11,9 +11,11 @@
   "batchInboxAddress": "0xff00000000000000000000000000000000000000",
   "batchSenderAddress": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
 
+  "validatorPoolTrustedValidator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "validatorPoolMinBondAmount": "0x1",
+
   "l2OutputOracleSubmissionInterval": 20,
   "l2OutputOracleStartingTimestamp": -1,
-  "l2OutputOracleValidator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
 
   "l1BlockTime": 15,
   "cliqueSignerAddress": "0xca062b0fd91172d89bcd4bb084ac4e21972cc467",
@@ -27,6 +29,9 @@
 
   "deploymentWaitConfirmations": 1,
   "fundDevAccounts": true,
-  "colosseumChallengeTimeout": 120,
+  "colosseumBisectionTimeout": 120,
+  "colosseumProvingTimeout": 480,
+  "colosseumDummyHash": "0x8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9",
+  "colosseumMaxTxs": 25,
   "colosseumSegmentsLengths": "3,11"
 }

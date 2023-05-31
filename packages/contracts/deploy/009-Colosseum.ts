@@ -21,8 +21,13 @@ const deployFn: DeployFunction = async (hre) => {
       l2OutputOracleProxyAddress,
       zkVerifierAddress,
       hre.deployConfig.l2OutputOracleSubmissionInterval,
-      hre.deployConfig.colosseumChallengeTimeout,
+      hre.deployConfig.colosseumBisectionTimeout,
+      hre.deployConfig.colosseumProvingTimeout,
+      hre.deployConfig.l2ChainID,
+      hre.deployConfig.colosseumDummyHash,
+      hre.deployConfig.colosseumMaxTxs,
       hre.deployConfig.colosseumSegmentsLengths.split(','),
+      hre.deployConfig.portalGuardian,
     ],
     isProxyImpl: true,
     initArgs: [hre.deployConfig.colosseumSegmentsLengths.split(',')],
@@ -40,8 +45,33 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'CHALLENGE_TIMEOUT',
-        hre.deployConfig.colosseumChallengeTimeout
+        'BISECTION_TIMEOUT',
+        hre.deployConfig.colosseumBisectionTimeout
+      )
+      await assertContractVariable(
+        contract,
+        'PROVING_TIMEOUT',
+        hre.deployConfig.colosseumProvingTimeout
+      )
+      await assertContractVariable(
+        contract,
+        'CHAIN_ID',
+        hre.deployConfig.l2ChainID
+      )
+      await assertContractVariable(
+        contract,
+        'DUMMY_HASH',
+        hre.deployConfig.colosseumDummyHash
+      )
+      await assertContractVariable(
+        contract,
+        'MAX_TXS',
+        hre.deployConfig.colosseumMaxTxs
+      )
+      await assertContractVariable(
+        contract,
+        'GUARDIAN',
+        hre.deployConfig.portalGuardian
       )
     },
   })

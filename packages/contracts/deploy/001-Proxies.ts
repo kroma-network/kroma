@@ -5,6 +5,7 @@ import { deployProxy, getDeploymentAddress } from '../src/deploy-utils'
 const PROXY_NAMES = [
   'SystemConfigProxy',
   'KromaPortalProxy',
+  'ValidatorPoolProxy',
   'L2OutputOracleProxy',
   'L1CrossDomainMessengerProxy',
   'L1StandardBridgeProxy',

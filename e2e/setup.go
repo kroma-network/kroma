@@ -77,12 +77,11 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		BatchInboxAddress:         common.Address{0: 0x52, 19: 0xff}, // tbd
 		BatchSenderAddress:        addresses.Batcher,
 
-		DummyHash: common.HexToHash("0x8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9"),
-		MaxTxs:    25,
+		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
+		ValidatorPoolMinBondAmount:    uint642big(1),
 
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
-		L2OutputOracleValidator:          addresses.Validator,
 
 		FinalSystemOwner: addresses.SysCfgOwner,
 
@@ -110,7 +109,10 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 
 		L2GenesisBlueTimeOffset: new(hexutil.Uint64),
 
-		ColosseumChallengeTimeout: 120,
+		ColosseumBisectionTimeout: 120,
+		ColosseumProvingTimeout:   480,
+		ColosseumDummyHash:        common.HexToHash("0x8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9"),
+		ColosseumMaxTxs:           25,
 		ColosseumSegmentsLengths:  "3,3",
 
 		GasPriceOracleOverhead: 2100,
@@ -580,7 +582,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		ColosseumAddress:  predeploys.DevColosseumAddr.String(),
 		PollInterval:      50 * time.Millisecond,
 		AllowNonFinalized: cfg.NonFinalizedOutputs,
-		TxMgrConfig:       newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Validator),
+		TxMgrConfig:       newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		LogConfig: klog.CLIConfig{
 			Level:  "info",
 			Format: "text",

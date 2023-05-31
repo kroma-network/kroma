@@ -12,8 +12,8 @@
   "p2pProposerAddress": "0xab04a11826a7568ab0285cf6a197d47a00f7f4a1",
   "batchInboxAddress": "0xbac0000000000000000000000000000000000003",
   "batchSenderAddress": "0xf1d8505e40e3f3dc57c104df7ad4e19b8f9d4165",
-  "dummyHash": "0xe3c0fb45c84ee6608b3ee3a7016c505f46ff23736038a4344abf62156e2b21be",
-  "maxTxs": 25,
+  "validatorPoolTrustedValidator": "0xf921640daca3cbadc982e4cd3e1352dfc3a6b39e",
+  "validatorPoolMinBondAmount": "0x2386f26fc10000",
   "protocolVaultRecipient": "0x007e70a098bae84a9e1a96465aeee5af4cdc30e8",
   "proposerRewardVaultRecipient": "0x007e70a098bae84a9e1a96465aeee5af4cdc30e8",
   "validatorRewardVaultRecipient": "0x007e70a098bae84a9e1a96465aeee5af4cdc30e8",
@@ -29,7 +29,10 @@
   "gasPriceOracleScalar": 1500000,
   "eip1559Denominator": 50,
   "eip1559Elasticity": 10,
-  "colosseumChallengeTimeout": 120,
+  "colosseumBisectionTimeout": 120,
+  "colosseumProvingTimeout": 480,
+  "colosseumDummyHash": "0xe3c0fb45c84ee6608b3ee3a7016c505f46ff23736038a4344abf62156e2b21be",
+  "colosseumMaxTxs": 25,
   "colosseumSegmentsLengths": "6,5",
   "numDeployConfirmations": 1
 }
