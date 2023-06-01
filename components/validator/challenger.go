@@ -428,10 +428,19 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int) {
 }
 
 func (c *Challenger) submitChallengeTx(tx *types.Transaction) {
+	accessList := types.AccessList{
+		types.AccessTuple{
+			Address: c.cfg.L2OutputOracleAddr,
+			StorageKeys: []common.Hash{
+				common.HexToHash("0000000000000000000000000000000000000000000000000000000000000003"),
+			},
+		},
+	}
 	c.txCandidatesChan <- txmgr.TxCandidate{
-		TxData:   tx.Data(),
-		To:       tx.To(),
-		GasLimit: 0,
+		TxData:     tx.Data(),
+		To:         tx.To(),
+		GasLimit:   0,
+		AccessList: accessList,
 	}
 }
 
