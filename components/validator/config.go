@@ -26,18 +26,20 @@ import (
 // Config contains the well typed fields that are used to initialize the output submitter.
 // It is intended for programmatic use.
 type Config struct {
-	L2OutputOracleAddr      common.Address
-	ColosseumAddr           common.Address
-	PollInterval            time.Duration
-	NetworkTimeout          time.Duration
-	TxManager               *txmgr.SimpleTxManager
-	L1Client                *ethclient.Client
-	RollupClient            *sources.RollupClient
-	RollupConfig            *rollup.Config
-	AllowNonFinalized       bool
-	OutputSubmitterDisabled bool
-	ChallengerDisabled      bool
-	ProofFetcher            ProofFetcher
+	L2OutputOracleAddr        common.Address
+	ColosseumAddr             common.Address
+	ValidatorPoolAddr         common.Address
+	PollInterval              time.Duration
+	NetworkTimeout            time.Duration
+	TxManager                 *txmgr.SimpleTxManager
+	L1Client                  *ethclient.Client
+	RollupClient              *sources.RollupClient
+	RollupConfig              *rollup.Config
+	AllowNonFinalized         bool
+	OutputSubmitterBondAmount uint64
+	OutputSubmitterDisabled   bool
+	ChallengerDisabled        bool
+	ProofFetcher              ProofFetcher
 }
 
 // Check ensures that the [Config] is valid.
@@ -64,6 +66,9 @@ type CLIConfig struct {
 	// ColosseumAddress is the Colosseum contract address.
 	ColosseumAddress string
 
+	// ValPoolAddress is the ValidatorPool contract address.
+	ValPoolAddress string
+
 	// PollInterval is how frequently to poll L2 for new finalized outputs.
 	PollInterval time.Duration
 
@@ -73,6 +78,9 @@ type CLIConfig struct {
 	// AllowNonFinalized can be set to true to submit outputs
 	// for L2 blocks derived from non-finalized L1 data.
 	AllowNonFinalized bool
+
+	// OutputSubmitterBondAmount is the amount to bond when submitting each output.
+	OutputSubmitterBondAmount uint64
 
 	OutputSubmitterDisabled bool
 
@@ -114,19 +122,21 @@ func NewCLIConfig(ctx *cli.Context) CLIConfig {
 		RollupRpc:        ctx.GlobalString(flags.RollupRpcFlag.Name),
 		L2OOAddress:      ctx.GlobalString(flags.L2OOAddressFlag.Name),
 		ColosseumAddress: ctx.GlobalString(flags.ColosseumAddressFlag.Name),
+		ValPoolAddress:   ctx.GlobalString(flags.ValPoolAddressFlag.Name),
 		PollInterval:     ctx.GlobalDuration(flags.PollIntervalFlag.Name),
 		ProverGrpc:       ctx.GlobalString(flags.ProverGrpcFlag.Name),
 		TxMgrConfig:      txmgr.ReadCLIConfig(ctx),
 
 		// Optional Flags
-		AllowNonFinalized:       ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
-		OutputSubmitterDisabled: ctx.GlobalBool(flags.OutputSubmitterDisabledFlag.Name),
-		ChallengerDisabled:      ctx.GlobalBool(flags.ChallengerDisabledFlag.Name),
-		FetchingProofTimeout:    ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
-		RPCConfig:               krpc.ReadCLIConfig(ctx),
-		LogConfig:               klog.ReadCLIConfig(ctx),
-		MetricsConfig:           kmetrics.ReadCLIConfig(ctx),
-		PprofConfig:             kpprof.ReadCLIConfig(ctx),
+		AllowNonFinalized:         ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
+		OutputSubmitterDisabled:   ctx.GlobalBool(flags.OutputSubmitterDisabledFlag.Name),
+		OutputSubmitterBondAmount: ctx.GlobalUint64(flags.OutputSubmitterBondAmountFlag.Name),
+		ChallengerDisabled:        ctx.GlobalBool(flags.ChallengerDisabledFlag.Name),
+		FetchingProofTimeout:      ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
+		RPCConfig:                 krpc.ReadCLIConfig(ctx),
+		LogConfig:                 klog.ReadCLIConfig(ctx),
+		MetricsConfig:             kmetrics.ReadCLIConfig(ctx),
+		PprofConfig:               kpprof.ReadCLIConfig(ctx),
 	}
 }
 
@@ -138,6 +148,11 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	colosseumAddress, err := utils.ParseAddress(cfg.ColosseumAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	valPoolAddress, err := utils.ParseAddress(cfg.ValPoolAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -177,17 +192,19 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	return &Config{
-		L2OutputOracleAddr:      l2ooAddress,
-		ColosseumAddr:           colosseumAddress,
-		PollInterval:            cfg.PollInterval,
-		NetworkTimeout:          cfg.TxMgrConfig.NetworkTimeout,
-		TxManager:               txManager,
-		L1Client:                l1Client,
-		RollupClient:            rollupClient,
-		RollupConfig:            rollupConfig,
-		AllowNonFinalized:       cfg.AllowNonFinalized,
-		OutputSubmitterDisabled: cfg.OutputSubmitterDisabled,
-		ChallengerDisabled:      cfg.ChallengerDisabled,
-		ProofFetcher:            fetcher,
+		L2OutputOracleAddr:        l2ooAddress,
+		ColosseumAddr:             colosseumAddress,
+		ValidatorPoolAddr:         valPoolAddress,
+		PollInterval:              cfg.PollInterval,
+		NetworkTimeout:            cfg.TxMgrConfig.NetworkTimeout,
+		TxManager:                 txManager,
+		L1Client:                  l1Client,
+		RollupClient:              rollupClient,
+		RollupConfig:              rollupConfig,
+		AllowNonFinalized:         cfg.AllowNonFinalized,
+		OutputSubmitterDisabled:   cfg.OutputSubmitterDisabled,
+		OutputSubmitterBondAmount: cfg.OutputSubmitterBondAmount,
+		ChallengerDisabled:        cfg.ChallengerDisabled,
+		ProofFetcher:              fetcher,
 	}, nil
 }

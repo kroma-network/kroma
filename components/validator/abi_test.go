@@ -51,14 +51,15 @@ func setupL2OutputOracle() (common.Address, *bind.TransactOpts, *backends.Simula
 func TestManualABIPacking(t *testing.T) {
 	_, opts, _, contract, err := setupL2OutputOracle()
 	require.NoError(t, err)
-	rng := rand.New(rand.NewSource(1234))
 
 	abi, err := bindings.L2OutputOracleMetaData.GetAbi()
 	require.NoError(t, err)
 
+	rng := rand.New(rand.NewSource(1234))
 	output := testutils.RandomOutputResponse(rng)
+	bondAmount := uint64(1)
 
-	txData, err := submitL2OutputTxData(abi, output)
+	txData, err := submitL2OutputTxData(abi, output, bondAmount)
 	require.NoError(t, err)
 
 	// set a gas limit to disable gas estimation. The invariants that the L2OO tries to uphold
@@ -69,7 +70,8 @@ func TestManualABIPacking(t *testing.T) {
 		output.OutputRoot,
 		new(big.Int).SetUint64(output.BlockRef.Number),
 		output.Status.CurrentL1.Hash,
-		new(big.Int).SetUint64(output.Status.CurrentL1.Number))
+		new(big.Int).SetUint64(output.Status.CurrentL1.Number),
+		new(big.Int).SetUint64(bondAmount))
 	require.NoError(t, err)
 
 	require.Equal(t, txData, tx.Data())

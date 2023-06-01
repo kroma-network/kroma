@@ -42,6 +42,12 @@ var (
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "COLOSSEUM_ADDRESS"),
 	}
+	ValPoolAddressFlag = cli.StringFlag{
+		Name:     "valpool-address",
+		Usage:    "Address of the ValidatorPool contract",
+		Required: true,
+		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "VALPOOL_ADDRESS"),
+	}
 	PollIntervalFlag = cli.DurationFlag{
 		Name: "poll-interval",
 		Usage: "Delay between querying L2 for more transactions and " +
@@ -68,6 +74,12 @@ var (
 		Usage:  "Disable l2 output submitter",
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_DISABLED"),
 	}
+	OutputSubmitterBondAmountFlag = cli.Uint64Flag{
+		Name:   "output-submitter.bond-amount",
+		Usage:  "Amount to bond when submitting each output (in wei)",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_BOND_AMOUNT"),
+		Value:  1,
+	}
 	ChallengerDisabledFlag = cli.BoolFlag{
 		Name:   "challenger.disabled",
 		Usage:  "Disable challenger",
@@ -86,6 +98,7 @@ var requiredFlags = []cli.Flag{
 	RollupRpcFlag,
 	L2OOAddressFlag,
 	ColosseumAddressFlag,
+	ValPoolAddressFlag,
 	PollIntervalFlag,
 	ProverGrpcFlag,
 }
@@ -93,6 +106,7 @@ var requiredFlags = []cli.Flag{
 var optionalFlags = []cli.Flag{
 	AllowNonFinalizedFlag,
 	OutputSubmitterDisabledFlag,
+	OutputSubmitterBondAmountFlag,
 	ChallengerDisabledFlag,
 	FetchingProofTimeoutFlag,
 }

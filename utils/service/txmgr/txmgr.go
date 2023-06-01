@@ -116,7 +116,9 @@ type TxCandidate struct {
 	// To is the recipient of the constructed tx. Nil means contract creation.
 	To *common.Address
 	// GasLimit is the gas limit to be used in the constructed tx.
-	GasLimit uint64
+	GasLimit   uint64
+	// AccessList is an EIP-2930 access list.
+	AccessList types.AccessList
 }
 
 // Send is used to publish a transaction with incrementally higher gas prices
@@ -165,12 +167,13 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 	m.metr.RecordNonce(nonce)
 
 	rawTx := &types.DynamicFeeTx{
-		ChainID:   m.chainID,
-		Nonce:     nonce,
-		To:        candidate.To,
-		GasTipCap: gasTipCap,
-		GasFeeCap: gasFeeCap,
-		Data:      candidate.TxData,
+		ChainID:    m.chainID,
+		Nonce:      nonce,
+		To:         candidate.To,
+		GasTipCap:  gasTipCap,
+		GasFeeCap:  gasFeeCap,
+		Data:       candidate.TxData,
+		AccessList: candidate.AccessList,
 	}
 
 	m.l.Info("creating tx", "to", rawTx.To, "from", m.From())

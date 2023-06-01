@@ -3,6 +3,34 @@
 =======================
 
 =======================
+➡ contracts/L1/Colosseum.sol:Colosseum
+=======================
+
+| Name                 | Type                                       | Slot | Offset | Bytes | Contract                             |
+|----------------------|--------------------------------------------|------|--------|-------|--------------------------------------|
+| _initialized         | uint8                                      | 0    | 0      | 1     | contracts/L1/Colosseum.sol:Colosseum |
+| _initializing        | bool                                       | 0    | 1      | 1     | contracts/L1/Colosseum.sol:Colosseum |
+| segmentsLengths      | mapping(uint256 => uint256)                | 1    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| challenges           | mapping(uint256 => struct Types.Challenge) | 2    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| verifiedPublicInputs | mapping(bytes32 => bool)                   | 3    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+
+=======================
+➡ contracts/L1/ValidatorPool.sol:ValidatorPool
+=======================
+
+| Name                  | Type                                  | Slot | Offset | Bytes | Contract                                     |
+|-----------------------|---------------------------------------|------|--------|-------|----------------------------------------------|
+| _initialized          | uint8                                 | 0    | 0      | 1     | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| _initializing         | bool                                  | 0    | 1      | 1     | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| _status               | uint256                               | 1    | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| __gap                 | uint256[49]                           | 2    | 0      | 1568  | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| balances              | mapping(address => uint256)           | 51   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| bonds                 | mapping(uint256 => struct Types.Bond) | 52   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| nextUnbondOutputIndex | uint256                               | 53   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| validators            | address[]                             | 54   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| validatorIndexes      | mapping(address => uint256)           | 55   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+
+=======================
 ➡ contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger
 =======================
 
