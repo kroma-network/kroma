@@ -757,7 +757,7 @@ upgraded.
 
 [safe-l2-block]: glossary.md#safe-l2-block
 
-A safe L2 block is an [L2] block can be derived entirely from [L1] by a [rollup node][rollup-node]. This can vary
+A safe L2 block is an [L2] block that can be derived entirely from [L1] by a [rollup node][rollup-node]. This can vary
 between different nodes, based on their view of the L1 chain.
 
 ## Safe L2 Head
