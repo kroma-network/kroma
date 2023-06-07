@@ -119,6 +119,8 @@ type TxCandidate struct {
 	GasLimit uint64
 	// AccessList is an EIP-2930 access list.
 	AccessList types.AccessList
+	// Value is the value that is passed to the constructed tx.
+	Value *big.Int
 }
 
 // Send is used to publish a transaction with incrementally higher gas prices
@@ -172,6 +174,7 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		To:         candidate.To,
 		GasTipCap:  gasTipCap,
 		GasFeeCap:  gasFeeCap,
+		Value:      candidate.Value,
 		Data:       candidate.TxData,
 		AccessList: candidate.AccessList,
 	}
@@ -188,6 +191,7 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 			GasFeeCap: gasFeeCap,
 			GasTipCap: gasTipCap,
 			Data:      rawTx.Data,
+			Value:     candidate.Value,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to estimate gas: %w", err)
