@@ -162,6 +162,10 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
+	if cfg.OutputSubmitterDisabled && cfg.ChallengerDisabled {
+		return nil, errors.New("output submitter and challenger are disabled. either output submitter or challenger must be enabled")
+	}
+
 	if !cfg.ChallengerDisabled && len(cfg.ProverGrpc) == 0 {
 		return nil, errors.New("ProverGrpc is required but given empty")
 	}
