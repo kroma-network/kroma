@@ -174,4 +174,19 @@ library Types {
         uint128 amount;
         uint128 expiresAt;
     }
+
+    /**
+     * @notice Struct representing multisig transaction data.
+     *
+     * @custom:field destination The destination address to run the transaction.
+     * @custom:field executed    Record whether a transaction was executed or not.
+     * @custom:field value       The value passed in while executing the transaction.
+     * @custom:field data        Calldata for transaction.
+     */
+    struct MultiSigTransaction {
+        address destination;
+        bool executed;
+        uint256 value;
+        bytes data;
+    }
 }
