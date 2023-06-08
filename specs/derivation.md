@@ -182,9 +182,9 @@ will still be considered part of the canonical L2 chain. Batches are still subje
 be encoded correctly), and so are individual transactions within the batch (e.g. signatures have to be valid). Invalid
 batches and invalid individual transactions within an otherwise valid batch are discarded by correct nodes.
 
-If a validator applies a state transition incorrectly and posts an [output root][g-l2-output], then
-this output root will be incorrect. The incorrect output root which will be challenged by a
-[ZK fault proof][g-zk-fault-proof], then replaced by a correct output root **for the existing proposer batches.**
+If a validator applies a state transition incorrectly and posts an [output root][g-l2-output],
+this output root will be incorrect. The incorrect output root, which will be challenged by a
+[ZK fault proof][g-zk-fault-proof], will then be replaced by a correct output root **for the existing proposer batches.**
 
 Refer to the [Batch Submission specification][batcher-spec] for more information.
 
