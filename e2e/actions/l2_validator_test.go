@@ -36,7 +36,8 @@ func TestValidator(gt *testing.T) {
 
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorKey:      dp.Secrets.Validator,
+		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
+		ValidatorKey:      dp.Secrets.TrustedValidator,
 		AllowNonFinalized: false,
 	}, miner.EthClient(), proposer.RollupClient())
 
@@ -70,13 +71,18 @@ func TestValidator(gt *testing.T) {
 		proposer.ActL1FinalizedSignal(t)
 	}
 
+	// deposit bond for validator
+	validator.ActDeposit(t, 1_000)
+	includeL1Block(t, miner, validator.address)
+
 	require.Equal(t, proposer.SyncStatus().UnsafeL2, proposer.SyncStatus().FinalizedL2)
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// and submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		includeL1Block(t, miner, dp.Addresses.Validator)
+		includeL1Block(t, miner, validator.address)
+		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 		require.NoError(t, err)

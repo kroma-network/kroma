@@ -15,6 +15,8 @@ import (
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
+const LastValidBlockNum = uint64(6)
+
 func TestChallenger(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
@@ -34,21 +36,17 @@ func TestChallenger(gt *testing.T) {
 	mockRPC := e2eutils.NewRPC(proposer.RPCClient())
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorKey:      dp.Secrets.Validator,
+		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
+		ColosseumAddr:     sd.DeploymentsL1.ColosseumProxy,
+		ValidatorKey:      dp.Secrets.TrustedValidator,
 		AllowNonFinalized: false,
 	}, miner.EthClient(), sources.NewRollupClient(mockRPC))
 
-	asserter := NewL2Challenger(t, log, &ValidatorCfg{
+	challenger := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
 		ColosseumAddr:     sd.DeploymentsL1.ColosseumProxy,
-		ValidatorKey:      dp.Secrets.Validator,
-		AllowNonFinalized: false,
-	}, miner.EthClient(), sources.NewRollupClient(mockRPC))
-
-	challenger := NewL2Challenger(t, log, &ValidatorCfg{
-		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ColosseumAddr:     sd.DeploymentsL1.ColosseumProxy,
-		ValidatorKey:      dp.Secrets.Validator,
+		ValidatorKey:      dp.Secrets.Challenger,
 		AllowNonFinalized: false,
 	}, miner.EthClient(), proposer.RollupClient())
 
@@ -82,20 +80,22 @@ func TestChallenger(gt *testing.T) {
 		proposer.ActL1FinalizedSignal(t)
 	}
 
+	// deposit bond for validator
+	validator.ActDeposit(t, 1_000)
+	includeL1Block(t, miner, validator.address)
+
 	require.Equal(t, proposer.SyncStatus().UnsafeL2, proposer.SyncStatus().FinalizedL2)
 
 	outputOracleContract, err := bindings.NewL2OutputOracle(sd.DeploymentsL1.L2OutputOracleProxy, miner.EthClient())
 	require.NoError(t, err)
 
-	lastValidBlockNumber, err := outputOracleContract.NextBlockNumber(nil)
-	require.NoError(t, err)
-	mockRPC.SetLastValidBlockNumber(lastValidBlockNumber.Uint64())
+	mockRPC.SetLastValidBlockNumber(LastValidBlockNum)
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// and submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		includeL1Block(t, miner, dp.Addresses.Validator)
+		includeL1Block(t, miner, validator.address)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 		require.NoError(t, err)
@@ -120,11 +120,15 @@ func TestChallenger(gt *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, eth.Bytes32(outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
+	// deposit bond for challenger
+	challenger.ActDeposit(t, 1_000)
+	includeL1Block(t, miner, challenger.address)
+
 	// submit create challenge tx
 	txHash := challenger.ActCreateChallenge(t, outputIndex)
 
 	// include tx on L1
-	includeL1Block(t, miner, dp.Addresses.Validator)
+	includeL1Block(t, miner, challenger.address)
 
 	// Check whether the submission was successful
 	receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), txHash)
@@ -143,23 +147,21 @@ interaction:
 		status, err := colosseumContract.GetStatus(nil, outputIndex)
 		require.NoError(t, err)
 
-		sender := dp.Addresses.Validator
-
 		switch status {
 		case chal.StatusChallengerTurn:
 			// call bisect by challenger
 			txHash = challenger.ActBisect(t, outputIndex)
+			includeL1Block(t, miner, challenger.address)
 		case chal.StatusAsserterTurn:
 			// call bisect by validator
-			txHash = asserter.ActBisect(t, outputIndex)
+			txHash = validator.ActBisect(t, outputIndex)
+			includeL1Block(t, miner, validator.address)
 		case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
 			txHash = challenger.ActProveFault(t, outputIndex)
+			includeL1Block(t, miner, challenger.address)
 		default:
 			break interaction
 		}
-
-		// include tx on L1
-		includeL1Block(t, miner, sender)
 
 		// Check whether the submission was successful
 		receipt, err = miner.EthClient().TransactionReceipt(t.Ctx(), txHash)
@@ -167,9 +169,8 @@ interaction:
 		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "failed to progress interactive proof")
 	}
 
-	_, err = outputOracleContract.GetL2OutputAfter(nil, blockNum)
-	require.ErrorContains(t, err,
-		"cannot get output for a block that has not been submitted",
-		"output not deleted",
-	)
+	// Check the status of challenge is StatusProven(6)
+	status, err := colosseumContract.GetStatus(nil, outputIndex)
+	require.NoError(t, err)
+	require.Equal(t, uint8(lastValidBlockNum), status)
 }

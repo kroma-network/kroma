@@ -22,6 +22,8 @@ func NewRPC(rpc client.RPC) *MockL2RPC {
 	return &MockL2RPC{rpc: rpc}
 }
 
+// SetLastValidBlockNumber sets last valid block number for mock L2 RPC.
+// After the m.lastValidBlockNumber, random output root will be returned for `kroma_outputAtBlock` CallContext
 func (m *MockL2RPC) SetLastValidBlockNumber(lastValidBlockNumber uint64) {
 	m.lastValidBlockNumber = new(hexutil.Uint64)
 	*m.lastValidBlockNumber = hexutil.Uint64(lastValidBlockNumber)

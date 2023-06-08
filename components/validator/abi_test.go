@@ -59,7 +59,7 @@ func TestManualABIPacking(t *testing.T) {
 	output := testutils.RandomOutputResponse(rng)
 	bondAmount := uint64(1)
 
-	txData, err := submitL2OutputTxData(abi, output, bondAmount)
+	txData, err := SubmitL2OutputTxData(abi, output, bondAmount)
 	require.NoError(t, err)
 
 	// set a gas limit to disable gas estimation. The invariants that the L2OO tries to uphold
