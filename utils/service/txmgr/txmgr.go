@@ -116,7 +116,7 @@ type TxCandidate struct {
 	// To is the recipient of the constructed tx. Nil means contract creation.
 	To *common.Address
 	// GasLimit is the gas limit to be used in the constructed tx.
-	GasLimit   uint64
+	GasLimit uint64
 	// AccessList is an EIP-2930 access list.
 	AccessList types.AccessList
 }

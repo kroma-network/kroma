@@ -110,10 +110,11 @@ func (l *L2OutputSubmitter) Start() error {
 	return nil
 }
 
-func (l *L2OutputSubmitter) Stop() {
+func (l *L2OutputSubmitter) Stop() error {
 	l.log.Info("stopping L2 Output Submitter")
 	l.cancel()
 	l.wg.Wait()
+	return nil
 }
 
 func (l *L2OutputSubmitter) loop() {

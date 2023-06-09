@@ -43,15 +43,15 @@ func NewL2Challenger(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient
 	require.NoError(t, err)
 
 	validatorCfg := validator.Config{
-		L2OutputOracleAddr: cfg.OutputOracleAddr,
-		ColosseumAddr:      cfg.ColosseumAddr,
-		PollInterval:       time.Second,
-		NetworkTimeout:     time.Second,
-		L1Client:           l1,
-		RollupClient:       rollupCl,
-		RollupConfig:       rollupConfig,
-		AllowNonFinalized:  cfg.AllowNonFinalized,
-		ProofFetcher:       e2eutils.NewFetcher(log),
+		L2OutputOracleAddr:     cfg.OutputOracleAddr,
+		ColosseumAddr:          cfg.ColosseumAddr,
+		ChallengerPollInterval: time.Second,
+		NetworkTimeout:         time.Second,
+		L1Client:               l1,
+		RollupClient:           rollupCl,
+		RollupConfig:           rollupConfig,
+		AllowNonFinalized:      cfg.AllowNonFinalized,
+		ProofFetcher:           e2eutils.NewFetcher(log),
 		TxManager: &txmgr.SimpleTxManager{
 			Config: txmgr.Config{
 				From:   from,
@@ -60,7 +60,7 @@ func NewL2Challenger(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient
 		},
 	}
 
-	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log)
+	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log, make(chan txmgr.TxCandidate))
 	require.NoError(t, err)
 
 	return &L2Challenger{
@@ -71,12 +71,12 @@ func NewL2Challenger(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient
 	}
 }
 
-func (c *L2Challenger) ActCreateChallenge(t Testing) common.Hash {
-	isInProgress, err := c.challenger.IsChallengeInProgress()
+func (c *L2Challenger) ActCreateChallenge(t Testing, outputIndex *big.Int) common.Hash {
+	isInProgress, err := c.challenger.IsChallengeInProgress(outputIndex)
 	require.NoError(t, err)
 	require.False(t, isInProgress, "another challenge is in progress")
 
-	outputRange, err := c.challenger.GetInvalidOutputRange()
+	outputRange, err := c.challenger.ValidateOutput(outputIndex)
 	require.NoError(t, err)
 	require.NotNil(t, outputRange)
 	tx, err := c.challenger.CreateChallenge(outputRange)
@@ -88,14 +88,14 @@ func (c *L2Challenger) ActCreateChallenge(t Testing) common.Hash {
 	return tx.Hash()
 }
 
-func (c *L2Challenger) ActBisect(t Testing) common.Hash {
-	status, err := c.challenger.GetStatusInProgress()
+func (c *L2Challenger) ActBisect(t Testing, outputIndex *big.Int) common.Hash {
+	status, err := c.challenger.GetChallengeStatus(outputIndex)
 	require.NoError(t, err)
 
 	var tx *types.Transaction
 
 	if status == chal.StatusChallengerTurn || status == chal.StatusAsserterTurn {
-		tx, err = c.challenger.Bisect()
+		tx, err = c.challenger.Bisect(outputIndex)
 		require.NoError(t, err, "unable to create bisect tx")
 	} else {
 		require.Fail(t, "invalid challenge status")
@@ -107,18 +107,14 @@ func (c *L2Challenger) ActBisect(t Testing) common.Hash {
 	return tx.Hash()
 }
 
-func (c *L2Challenger) ActTimeout(t Testing) common.Hash {
-	status, err := c.challenger.GetStatusInProgress()
+func (c *L2Challenger) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
+	status, err := c.challenger.GetChallengeStatus(outputIndex)
 	require.NoError(t, err)
 
 	var tx *types.Transaction
 
-	if status == chal.StatusAsserterTimeout {
-		tx, err = c.challenger.AsserterTimeout()
-	} else if status == chal.StatusChallengerTimeout {
-		challengeId, err := c.challenger.LatestChallengeId()
-		require.NoError(t, err)
-		tx, err = c.challenger.ChallengerTimeout(challengeId)
+	if status == chal.StatusChallengerTimeout {
+		tx, err = c.challenger.ChallengerTimeout(outputIndex)
 		require.NoError(t, err)
 	} else {
 		require.Fail(t, "invalid challenge status")
@@ -132,12 +128,12 @@ func (c *L2Challenger) ActTimeout(t Testing) common.Hash {
 	return tx.Hash()
 }
 
-func (c *L2Challenger) ActProveFault(t Testing) common.Hash {
-	status, err := c.challenger.GetStatusInProgress()
+func (c *L2Challenger) ActProveFault(t Testing, outputIndex *big.Int) common.Hash {
+	status, err := c.challenger.GetChallengeStatus(outputIndex)
 	require.NoError(t, err)
-	require.Equal(t, status, chal.StatusProveReady)
+	require.Equal(t, status, chal.StatusReadyToProve)
 
-	tx, err := c.challenger.ProveFault()
+	tx, err := c.challenger.ProveFault(outputIndex)
 	require.NoError(t, err, "unable to create proveFault tx")
 
 	err = c.l1.SendTransaction(t.Ctx(), tx)

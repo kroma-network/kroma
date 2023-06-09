@@ -43,13 +43,13 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	require.NoError(t, err)
 
 	validatorCfg := validator.Config{
-		L2OutputOracleAddr: cfg.OutputOracleAddr,
-		PollInterval:       time.Second,
-		NetworkTimeout:     time.Second,
-		L1Client:           l1,
-		RollupClient:       rollupCl,
-		RollupConfig:       rollupConfig,
-		AllowNonFinalized:  cfg.AllowNonFinalized,
+		L2OutputOracleAddr:     cfg.OutputOracleAddr,
+		ChallengerPollInterval: time.Second,
+		NetworkTimeout:         time.Second,
+		L1Client:               l1,
+		RollupClient:           rollupCl,
+		RollupConfig:           rollupConfig,
+		AllowNonFinalized:      cfg.AllowNonFinalized,
 		// We use custom signing here instead of using the transaction manager.
 		TxManager: &txmgr.SimpleTxManager{
 			Config: txmgr.Config{From: from},

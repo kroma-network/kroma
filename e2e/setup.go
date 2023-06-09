@@ -576,13 +576,13 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 	// Validator (L2 Output Submitter + Challenger)
 	validatorCliCfg := validator.CLIConfig{
-		L1EthRpc:          sys.Nodes["l1"].WSEndpoint(),
-		RollupRpc:         sys.RollupNodes["proposer"].HTTPEndpoint(),
-		L2OOAddress:       predeploys.DevL2OutputOracleAddr.String(),
-		ColosseumAddress:  predeploys.DevColosseumAddr.String(),
-		PollInterval:      50 * time.Millisecond,
-		AllowNonFinalized: cfg.NonFinalizedOutputs,
-		TxMgrConfig:       newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
+		L1EthRpc:               sys.Nodes["l1"].WSEndpoint(),
+		RollupRpc:              sys.RollupNodes["proposer"].HTTPEndpoint(),
+		L2OOAddress:            predeploys.DevL2OutputOracleAddr.String(),
+		ColosseumAddress:       predeploys.DevColosseumAddr.String(),
+		ChallengerPollInterval: 50 * time.Millisecond,
+		AllowNonFinalized:      cfg.NonFinalizedOutputs,
+		TxMgrConfig:            newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		LogConfig: klog.CLIConfig{
 			Level:  "info",
 			Format: "text",

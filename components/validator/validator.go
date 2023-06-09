@@ -57,9 +57,15 @@ func Main(version string, cliCtx *cli.Context) error {
 		return err
 	}
 
-	validator.Start()
+	if err := validator.Start(); err != nil {
+		l.Error("failed to start validator", "err", err)
+		return err
+	}
 	<-utils.WaitInterrupt()
-	validator.Stop()
+	if err := validator.Stop(); err != nil {
+		l.Error("failed to stop validator", "err", err)
+		return err
+	}
 
 	return nil
 }
@@ -95,7 +101,7 @@ func NewValidator(parentCtx context.Context, cfg Config, l log.Logger, m metrics
 		return nil, err
 	}
 
-	challenger, err := NewChallenger(ctx, cfg, l)
+	challenger, err := NewChallenger(ctx, cfg, l, txCandidatesChan)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -113,34 +119,46 @@ func NewValidator(parentCtx context.Context, cfg Config, l log.Logger, m metrics
 	}, nil
 }
 
-func (v *Validator) Start() {
+func (v *Validator) Start() error {
 	v.l.Info("starting Validator")
 
 	if !v.cfg.OutputSubmitterDisabled {
 		if err := v.l2os.Start(); err != nil {
-			v.l.Error("cannot start l2 output submitter: %w", err)
-			return
+			return fmt.Errorf("cannot start l2 output submitter: %w", err)
 		}
+	}
+
+	if err := v.challenger.Start(); err != nil {
+		return fmt.Errorf("cannot start challenger: %w", err)
 	}
 
 	v.wg.Add(1)
 	go v.loop()
+
+	return nil
 }
 
-func (v *Validator) Stop() {
+func (v *Validator) Stop() error {
 	v.l.Info("stopping Validator")
 	if v.cfg.ProofFetcher != nil {
 		if err := v.cfg.ProofFetcher.Close(); err != nil {
-			v.l.Error("cannot close grpc connection: %w", err)
+			return fmt.Errorf("cannot close gRPC connection: %w", err)
 		}
 	}
 
 	if !v.cfg.OutputSubmitterDisabled {
-		v.l2os.Stop()
+		if err := v.l2os.Stop(); err != nil {
+			return fmt.Errorf("failed to stop l2 output submitter: %w", err)
+		}
+	}
+
+	if err := v.challenger.Stop(); err != nil {
+		return fmt.Errorf("failed to stop challenger: %w", err)
 	}
 
 	v.cancel()
 	v.wg.Wait()
+	return nil
 }
 
 func (v *Validator) loop() {
