@@ -35,24 +35,28 @@ func (o *OutputResponse) ToOutputRootProof() bindings.TypesOutputRootProof {
 	}
 }
 
-func (o *OutputResponse) ToPublicInput(ChainId *big.Int) (bindings.TypesPublicInput, error) {
+func (o *OutputResponse) ToPublicInput() (bindings.TypesPublicInput, error) {
 	if o.NextBlock == nil {
 		return bindings.TypesPublicInput{}, ErrBlockIsEmpty
+	}
+	var withdrawalsRoot common.Hash
+	if o.NextBlock.WithdrawalsHash != nil {
+		withdrawalsRoot = *o.NextBlock.WithdrawalsHash
 	}
 	txHashes := make([][32]byte, len(o.NextTransactions))
 	for i, tx := range o.NextTransactions {
 		txHashes[i] = tx.Hash()
 	}
 	return bindings.TypesPublicInput{
-		Coinbase:         o.NextBlock.Coinbase,
+		BlockHash:        o.NextBlockRef.Hash,
+		ParentHash:       o.BlockRef.Hash,
 		Timestamp:        o.NextBlock.Time,
 		Number:           o.NextBlock.Number.Uint64(),
-		Difficulty:       common.Big0,
 		GasLimit:         new(big.Int).SetUint64(o.NextBlock.GasLimit),
 		BaseFee:          o.NextBlock.BaseFee,
-		ChainId:          ChainId,
 		TransactionsRoot: o.NextBlock.TxHash,
 		StateRoot:        o.NextBlock.Root,
+		WithdrawalsRoot:  withdrawalsRoot,
 		TxHashes:         txHashes,
 	}, nil
 }
@@ -61,11 +65,11 @@ func (o *OutputResponse) ToBlockHeaderRLP() (bindings.TypesBlockHeaderRLP, error
 	if o.NextBlock == nil {
 		return bindings.TypesBlockHeaderRLP{}, ErrBlockIsEmpty
 	}
-	parentHash, err := rlp.EncodeToBytes(o.NextBlock.ParentHash)
+	uncleHash, err := rlp.EncodeToBytes(types.EmptyUncleHash)
 	if err != nil {
 		return bindings.TypesBlockHeaderRLP{}, err
 	}
-	uncleHash, err := rlp.EncodeToBytes(types.EmptyUncleHash)
+	coinbase, err := rlp.EncodeToBytes(o.NextBlock.Coinbase)
 	if err != nil {
 		return bindings.TypesBlockHeaderRLP{}, err
 	}
@@ -74,6 +78,10 @@ func (o *OutputResponse) ToBlockHeaderRLP() (bindings.TypesBlockHeaderRLP, error
 		return bindings.TypesBlockHeaderRLP{}, err
 	}
 	logsBloom, err := rlp.EncodeToBytes(o.NextBlock.Bloom)
+	if err != nil {
+		return bindings.TypesBlockHeaderRLP{}, err
+	}
+	difficulty, err := rlp.EncodeToBytes(o.NextBlock.Difficulty)
 	if err != nil {
 		return bindings.TypesBlockHeaderRLP{}, err
 	}
@@ -93,23 +101,16 @@ func (o *OutputResponse) ToBlockHeaderRLP() (bindings.TypesBlockHeaderRLP, error
 	if err != nil {
 		return bindings.TypesBlockHeaderRLP{}, err
 	}
-	var withdrawalsRoot []byte
-	if o.NextBlock.WithdrawalsHash != nil {
-		withdrawalsRoot, err = rlp.EncodeToBytes(*o.NextBlock.WithdrawalsHash)
-		if err != nil {
-			return bindings.TypesBlockHeaderRLP{}, err
-		}
-	}
 
 	return bindings.TypesBlockHeaderRLP{
-		ParentHash:      parentHash,
-		UncleHash:       uncleHash,
-		ReceiptsRoot:    receiptsRoot,
-		LogsBloom:       logsBloom,
-		GasUsed:         gasUsed,
-		ExtraData:       extraData,
-		MixHash:         mixHash,
-		Nonce:           nonce,
-		WithdrawalsRoot: withdrawalsRoot,
+		UncleHash:    uncleHash,
+		Coinbase:     coinbase,
+		ReceiptsRoot: receiptsRoot,
+		LogsBloom:    logsBloom,
+		Difficulty:   difficulty,
+		GasUsed:      gasUsed,
+		ExtraData:    extraData,
+		MixHash:      mixHash,
+		Nonce:        nonce,
 	}, nil
 }

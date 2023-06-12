@@ -628,7 +628,7 @@ func (c *Challenger) ProveFault(outputIndex *big.Int) (*types.Transaction, error
 		)
 	}
 
-	publicInput, err := srcOutput.ToPublicInput(c.cfg.RollupConfig.L2ChainID)
+	publicInput, err := srcOutput.ToPublicInput()
 	if err != nil {
 		return nil, err
 	}

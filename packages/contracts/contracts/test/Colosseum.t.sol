@@ -225,7 +225,6 @@ contract ColosseumTest is Colosseum_Initializer {
             address(zkVerifier),
             "zk verifier address not matched"
         );
-        assertEq(colosseum.CHAIN_ID(), CHAIN_ID);
         assertEq(colosseum.DUMMY_HASH(), DUMMY_HASH);
         assertEq(colosseum.MAX_TXS(), MAX_TXS);
         assertEq(colosseum.SECURITY_COUNCIL(), address(securityCouncil));

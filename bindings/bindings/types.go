@@ -11,15 +11,15 @@ import (
 
 // TypesBlockHeaderRLP is an auto generated low-level Go binding around an user-defined struct.
 type TypesBlockHeaderRLP struct {
-	ParentHash      []byte
-	UncleHash       []byte
-	ReceiptsRoot    []byte
-	LogsBloom       []byte
-	GasUsed         []byte
-	ExtraData       []byte
-	MixHash         []byte
-	Nonce           []byte
-	WithdrawalsRoot []byte
+	UncleHash    []byte
+	Coinbase     []byte
+	ReceiptsRoot []byte
+	LogsBloom    []byte
+	Difficulty   []byte
+	GasUsed      []byte
+	ExtraData    []byte
+	MixHash      []byte
+	Nonce        []byte
 }
 
 // TypesChallenge is an auto generated low-level Go binding around an user-defined struct.
@@ -46,15 +46,15 @@ type TypesOutputRootProof struct {
 
 // TypesPublicInput is an auto generated low-level Go binding around an user-defined struct.
 type TypesPublicInput struct {
-	Coinbase         common.Address
+	BlockHash        [32]byte
+	ParentHash       [32]byte
 	Timestamp        uint64
 	Number           uint64
-	Difficulty       *big.Int
 	GasLimit         *big.Int
 	BaseFee          *big.Int
-	ChainId          *big.Int
 	TransactionsRoot [32]byte
 	StateRoot        [32]byte
+	WithdrawalsRoot  [32]byte
 	TxHashes         [][32]byte
 }
 

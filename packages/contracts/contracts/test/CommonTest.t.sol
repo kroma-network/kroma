@@ -467,7 +467,7 @@ contract ERC721Bridge_Initializer is Messenger_Initializer {
 contract Colosseum_Initializer is L2OutputOracle_Initializer {
     uint256 immutable CHAIN_ID = 901;
     bytes32 immutable DUMMY_HASH =
-        hex"8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9";
+        hex"a1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7";
     uint256 immutable MAX_TXS = 25;
 
     // Test target
@@ -521,7 +521,6 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
             _submissionInterval: submissionInterval,
             _bisectionTimeout: 30 minutes,
             _provingTimeout: 1 hours,
-            _chainId: CHAIN_ID,
             _dummyHash: DUMMY_HASH,
             _maxTxs: MAX_TXS,
             _segmentsLengths: segmentsLengths,

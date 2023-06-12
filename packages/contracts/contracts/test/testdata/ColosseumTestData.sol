@@ -43,15 +43,15 @@ library ColosseumTestData {
 
         return
             Types.PublicInput({
-                coinbase: 0x0000000000000000000000000000000000000000,
+                blockHash: 0xf37a1d0486fe80ccfa63a519512d30c240ade862fa3faca49ede025209b39471,
+                parentHash: 0xfcf55897ef0e68aa8b3b39b1c8d6650a16663b967ad9d01b5d25d1c2bf39e144,
                 timestamp: 0x645db07e,
                 number: 0xbb8,
-                difficulty: 0x0,
                 gasLimit: 0xe4e1c0,
                 baseFee: 0x9,
-                chainId: 901,
                 transactionsRoot: 0x8eb182b0a61fed8cc5f190d4c1d87dbe5e2df9a346cb36d26b8d71639ca92b37,
                 stateRoot: 0x1931d7bf7e9da61441a4145ec18807680141d6a37d68890f9c786e31a364d1ae,
+                withdrawalsRoot: 0x0,
                 txHashes: txHashes
             });
     }
@@ -64,40 +64,35 @@ library ColosseumTestData {
 
         bytes32[] memory dummyHashes;
         if (pi.txHashes.length < maxTxs) {
-            dummyHashes = Hashing.generateDummyHashes(colosseum.DUMMY_HASH(), maxTxs - pi.txHashes.length);
+            dummyHashes = Hashing.generateDummyHashes(
+                colosseum.DUMMY_HASH(),
+                maxTxs - pi.txHashes.length
+            );
         }
 
-        return
-            Hashing.hashPublicInput(
-                srcOutputRootProof.stateRoot,
-                pi,
-                colosseum.CHAIN_ID(),
-                dummyHashes
-            );
+        return Hashing.hashPublicInput(srcOutputRootProof.stateRoot, pi, dummyHashes);
     }
 
     function blockHeaderRLP() internal pure returns (Types.BlockHeaderRLP memory) {
         return
             Types.BlockHeaderRLP({
-                parentHash: RLPWriter.writeBytes(
-                    hex"fcf55897ef0e68aa8b3b39b1c8d6650a16663b967ad9d01b5d25d1c2bf39e144"
-                ),
                 uncleHash: RLPWriter.writeBytes(
                     hex"1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
                 ),
+                coinbase: RLPWriter.writeAddress(address(0)),
                 receiptsRoot: RLPWriter.writeBytes(
                     hex"ff07e961a994197df0f9406d373ef5d124e6febecf85a74ca0bcd436b2c5ad0e"
                 ),
                 logsBloom: RLPWriter.writeBytes(
                     hex"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                 ),
+                difficulty: RLPWriter.writeUint(0),
                 gasUsed: RLPWriter.writeUint(0xf4240),
                 extraData: RLPWriter.writeBytes(hex""),
                 mixHash: RLPWriter.writeBytes(
                     hex"0000000000000000000000000000000000000000000000000000000000000000"
                 ),
-                nonce: RLPWriter.writeBytes(hex"0000000000000000"),
-                withdrawalsRoot: hex""
+                nonce: RLPWriter.writeBytes(hex"0000000000000000")
             });
     }
 
@@ -254,12 +249,13 @@ library ColosseumTestData {
         pp.proof[143] = 0x1e15ec1297adf2bd19b2098779edcfc324e5a140c3f43b225a0337177acd7d66;
         pp.proof[144] = 0x10735949561e38cbf5801fc6f4005a165325ab8b08b7cd40d7e9d76729b5999d;
 
-        pp.pair = new uint256[](5);
+        pp.pair = new uint256[](6);
         pp.pair[0] = 11043928860274208474100222903659720401105736444942783912777777731178123111009;
         pp.pair[1] = 4733049234560598175814075307329400052685708929235536361180057682884349522951;
         pp.pair[2] = 12927143393367435583780384041605583199602086804808450831263369829150907626360;
         pp.pair[3] = 4387398449564854858399845335905273397295727913637629556341886693575315457608;
-        pp.pair[4] = uint256(_publicInputHash);
+        pp.pair[4] = uint256(bytes32(bytes16(_publicInputHash)));
+        pp.pair[5] = uint256(bytes32(bytes16(_publicInputHash << (8 * 16))));
 
         return pp;
     }

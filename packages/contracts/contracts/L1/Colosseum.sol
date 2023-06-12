@@ -76,17 +76,13 @@ contract Colosseum is Initializable, Semver {
     uint256 public immutable L2_ORACLE_SUBMISSION_INTERVAL;
 
     /**
-     * @notice The chain id.
-     */
-    uint256 public immutable CHAIN_ID;
-
-    /**
      * @notice The dummy transaction hash. This is used to pad if the
      *         number of transactions is less than MAX_TXS. This is same as:
      *         unsignedTx = {
      *           nonce: 0,
      *           gasLimit: 0,
      *           gasPrice: 0,
+     *           to: address(0),
      *           value: 0,
      *           data: '0x',
      *           chainId: CHAIN_ID,
@@ -180,7 +176,6 @@ contract Colosseum is Initializable, Semver {
      * @param _submissionInterval Interval in blocks at which checkpoints must be submitted.
      * @param _bisectionTimeout   Timeout seconds for the bisection.
      * @param _provingTimeout     Timeout seconds for the proving.
-     * @param _chainId            Chain ID.
      * @param _dummyHash          Dummy hash.
      * @param _maxTxs             Number of max transactions per block.
      * @param _segmentsLengths    Lengths of segments.
@@ -192,7 +187,6 @@ contract Colosseum is Initializable, Semver {
         uint256 _submissionInterval,
         uint256 _bisectionTimeout,
         uint256 _provingTimeout,
-        uint256 _chainId,
         bytes32 _dummyHash,
         uint256 _maxTxs,
         uint256[] memory _segmentsLengths,
@@ -203,7 +197,6 @@ contract Colosseum is Initializable, Semver {
         BISECTION_TIMEOUT = _bisectionTimeout;
         PROVING_TIMEOUT = _provingTimeout;
         L2_ORACLE_SUBMISSION_INTERVAL = _submissionInterval;
-        CHAIN_ID = _chainId;
         DUMMY_HASH = _dummyHash;
         MAX_TXS = _maxTxs;
         SECURITY_COUNCIL = _securityCouncil;
@@ -312,7 +305,7 @@ contract Colosseum is Initializable, Semver {
      * @param _rlps               Pre-encoded RLPs to compute the next block hash of the source output root proof.
      * @param _proof              Halo2 proofs composed of points and scalars.
      *                            See https://zcash.github.io/halo2/design/implementation/proofs.html.
-     * @param _pair               Aggregated multi-opening proofs and public inputs. (Currently only 1 public input)
+     * @param _pair               Aggregated multi-opening proofs and public inputs. (Currently only 2 public inputs)
      */
     function proveFault(
         uint256 _outputIndex,
@@ -352,7 +345,7 @@ contract Colosseum is Initializable, Semver {
         // TODO(pangssu): waiting for the new Verifier.sol to complete.
         // require(ZK_VERIFIER.verify(_proof, _pair), "Colosseum: invalid proof");
 
-        _validatePublicInput(_srcOutputRootProof, _publicInput, _rlps, _pair[4]);
+        _validatePublicInput(_srcOutputRootProof, _publicInput, _rlps, _pair);
         challenge.outputRoot = _outputRoot;
 
         // request outputRoot validation to security council
@@ -518,13 +511,13 @@ contract Colosseum is Initializable, Semver {
      * @param _srcOutputRootProof Proof of the source output root.
      * @param _publicInput        Ingredients to compute the public input used by ZK proof verification.
      * @param _rlps               Pre-encoded RLPs to compute the next block hash of the source output root proof.
-     * @param _instance           Public input of ZK circuit.
+     * @param _pair               Aggregated multi-opening proofs and public inputs. (Currently only 2 public inputs)
      */
     function _validatePublicInput(
         Types.OutputRootProof calldata _srcOutputRootProof,
         Types.PublicInput calldata _publicInput,
         Types.BlockHeaderRLP calldata _rlps,
-        uint256 _instance
+        uint256[] calldata _pair
     ) private {
         bytes32 blockHash = Hashing.hashBlockHeader(_publicInput, _rlps);
         require(
@@ -544,7 +537,6 @@ contract Colosseum is Initializable, Semver {
         bytes32 publicInputHash = Hashing.hashPublicInput(
             _srcOutputRootProof.stateRoot,
             _publicInput,
-            CHAIN_ID,
             dummyHashes
         );
 
@@ -553,8 +545,9 @@ contract Colosseum is Initializable, Semver {
             "Colosseum: public input that has already been validated cannot be used again."
         );
 
+        bytes32 expected = (bytes32(_pair[5]) >> 128) | bytes32(_pair[4]);
         require(
-            _instance == uint256(publicInputHash),
+            expected == publicInputHash,
             "Colosseum: public input was not included in given pairs."
         );
 

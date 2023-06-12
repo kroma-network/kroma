@@ -31,7 +31,7 @@
   "fundDevAccounts": true,
   "colosseumBisectionTimeout": 120,
   "colosseumProvingTimeout": 480,
-  "colosseumDummyHash": "0x8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9",
+  "colosseumDummyHash": "0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7",
   "colosseumMaxTxs": 25,
   "colosseumSegmentsLengths": "3,11",
   "securityCouncilNumConfirmationRequired": 1,
