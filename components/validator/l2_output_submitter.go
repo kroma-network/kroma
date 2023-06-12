@@ -73,6 +73,7 @@ func NewL2OutputSubmitter(parentCtx context.Context, cfg Config, l log.Logger, m
 	l2BlockTime, err := l2ooContract.L2BLOCKTIME(callOpts)
 	if err != nil {
 		cancel()
+		cCancel()
 		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
 	}
 	cCancel()
@@ -160,7 +161,9 @@ func (l *L2OutputSubmitter) trySubmitL2Output() error {
 		return fmt.Errorf("failed to create submit l2 output transaction data: %w", err)
 	}
 
-	l.submitL2OutputTx(data)
+	if err := l.submitL2OutputTx(data, nextBlockNumber); err != nil {
+		return fmt.Errorf("failed to submit l2 output transaction: %w", err)
+	}
 	l.metr.RecordL2OutputSubmitted(output.BlockRef)
 	l.retryAfter(1 * time.Second)
 
@@ -325,14 +328,33 @@ func submitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse, bondAmount u
 		new(big.Int).SetUint64(bondAmount))
 }
 
-// submitL2OutputTx sends the l2 output submit tx to txCandidates channel to process validator's tx candidates in order.
-func (l *L2OutputSubmitter) submitL2OutputTx(data []byte) {
+// submitL2OutputTx creates l2 output submit tx candidate and sends it to txCandidates channel to process validator's tx candidates in order.
+func (l *L2OutputSubmitter) submitL2OutputTx(data []byte, nextBlockNumber *big.Int) error {
+	layout, err := bindings.GetStorageLayout("ValidatorPool")
+	if err != nil {
+		return fmt.Errorf("failed to get storage layout: %w", err)
+	}
+
+	var outputIndexSlot, validatorsSlot common.Hash
+	for _, entry := range layout.Storage {
+		switch entry.Label {
+		case "nextUnbondOutputIndex":
+			outputIndexSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
+		case "validators":
+			validatorsSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
+		}
+	}
+
+	storageKeys := []common.Hash{outputIndexSlot}
+	if nextBlockNumber.Cmp(common.Big0) == 1 {
+		storageKeys = append(storageKeys, validatorsSlot)
+	}
+
+	// If provide accessList that is not actually accessed, the transaction may not be executed due to exceeding the estimated gas limit
 	accessList := types.AccessList{
 		types.AccessTuple{
-			Address: l.cfg.ValidatorPoolAddr,
-			StorageKeys: []common.Hash{
-				common.HexToHash("0000000000000000000000000000000000000000000000000000000000000036"),
-			},
+			Address:     l.cfg.ValidatorPoolAddr,
+			StorageKeys: storageKeys,
 		},
 	}
 
@@ -342,4 +364,6 @@ func (l *L2OutputSubmitter) submitL2OutputTx(data []byte) {
 		GasLimit:   0,
 		AccessList: accessList,
 	}
+
+	return nil
 }

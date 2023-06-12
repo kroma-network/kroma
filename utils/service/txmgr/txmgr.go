@@ -251,6 +251,10 @@ func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*typ
 		case receipt := <-receiptChan:
 			m.metr.RecordGasBumpCount(bumpCounter)
 			m.metr.TxConfirmed(receipt)
+			// If transaction confirmed but failed to execute, return error instead of receipt
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				return nil, errors.New("transaction confirmed but failed to execute")
+			}
 			return receipt, nil
 		}
 	}
@@ -260,8 +264,8 @@ func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*typ
 // It should be called in a new go-routine. It will send the receipt to receiptChan in a non-blocking way if a receipt is found
 // for the transaction.
 func (m *SimpleTxManager) publishAndWaitForTx(ctx context.Context, tx *types.Transaction, sendState *SendState, receiptChan chan *types.Receipt) {
-	log := m.l.New("hash", tx.Hash(), "nonce", tx.Nonce(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
-	log.Info("publishing transaction")
+	l := m.l.New("hash", tx.Hash(), "nonce", tx.Nonce(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
+	l.Info("publishing transaction")
 
 	cCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
 	defer cancel()
@@ -273,35 +277,35 @@ func (m *SimpleTxManager) publishAndWaitForTx(ctx context.Context, tx *types.Tra
 	if err != nil {
 		switch {
 		case errStringMatch(err, core.ErrNonceTooLow):
-			log.Warn("nonce too low", "err", err)
+			l.Warn("nonce too low", "err", err)
 			m.metr.TxPublished("nonce_to_low")
 		case errStringMatch(err, context.Canceled):
 			m.metr.RPCError()
-			log.Warn("transaction send cancelled", "err", err)
+			l.Warn("transaction send cancelled", "err", err)
 			m.metr.TxPublished("context_cancelled")
 		case errStringMatch(err, txpool.ErrAlreadyKnown):
-			log.Warn("resubmitted already known transaction", "err", err)
+			l.Warn("resubmitted already known transaction", "err", err)
 			m.metr.TxPublished("tx_already_known")
 		case errStringMatch(err, txpool.ErrReplaceUnderpriced):
-			log.Warn("transaction replacement is underpriced", "err", err)
+			l.Warn("transaction replacement is underpriced", "err", err)
 			m.metr.TxPublished("tx_replacement_underpriced")
 		case errStringMatch(err, txpool.ErrUnderpriced):
-			log.Warn("transaction is underpriced", "err", err)
+			l.Warn("transaction is underpriced", "err", err)
 			m.metr.TxPublished("tx_underpriced")
 		default:
 			m.metr.RPCError()
-			log.Error("unable to publish transaction", "err", err)
+			l.Error("unable to publish transaction", "err", err)
 			m.metr.TxPublished("unknown_error")
 		}
 		return
 	}
 	m.metr.TxPublished("")
 
-	log.Info("Transaction successfully published")
+	l.Info("Transaction successfully published")
 	// Poll for the transaction to be ready & then send the result to receiptChan
 	receipt, err := m.waitMined(ctx, tx, sendState)
 	if err != nil {
-		log.Warn("Transaction receipt not found", "err", err)
+		l.Warn("Transaction receipt not found", "err", err)
 		return
 	}
 	select {

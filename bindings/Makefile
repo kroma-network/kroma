@@ -44,21 +44,22 @@ more:
 		-artifacts ../packages/contracts/artifacts \
 		-out ./bindings \
 		-contracts \
+    ValidatorPool, \
 		Colosseum,\
-KromaMintableERC20Factory,\
-KromaMintableERC721Factory,\
-KromaPortal,\
-L1Block,\
-L1CrossDomainMessenger,\
-L2CrossDomainMessenger,\
-L2ERC721Bridge,\
-L2StandardBridge,\
-L2ToL1MessagePasser,\
-ValidatorRewardVault,\
-Proxy,\
-ProxyAdmin,\
-SystemConfig,\
-WETH9\
+    KromaMintableERC20Factory,\
+    KromaMintableERC721Factory,\
+    KromaPortal,\
+    L1Block,\
+    L1CrossDomainMessenger,\
+    L2CrossDomainMessenger,\
+    L2ERC721Bridge,\
+    L2StandardBridge,\
+    L2ToL1MessagePasser,\
+    ValidatorRewardVault,\
+    Proxy,\
+    ProxyAdmin,\
+    SystemConfig,\
+    WETH9\
 		-package bindings
 
 mkdir:
