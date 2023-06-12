@@ -24,15 +24,15 @@ type TypesBlockHeaderRLP struct {
 
 // TypesChallenge is an auto generated low-level Go binding around an user-defined struct.
 type TypesChallenge struct {
-	Turn       *big.Int
+	Turn       uint8
+	TimeoutAt  uint64
+	Approved   bool
 	Asserter   common.Address
 	Challenger common.Address
 	Segments   [][32]byte
-	SegStart   *big.Int
 	SegSize    *big.Int
-	TimeoutAt  *big.Int
+	SegStart   *big.Int
 	OutputRoot [32]byte
-	Approved   bool
 }
 
 // TypesOutputRootProof is an auto generated low-level Go binding around an user-defined struct.
@@ -81,4 +81,3 @@ type TypesBond struct {
 	Amount    *big.Int
 	ExpiresAt *big.Int
 }
-

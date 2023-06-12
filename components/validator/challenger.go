@@ -516,8 +516,8 @@ func (c *Challenger) GetChallengeStatus(outputIndex *big.Int) (uint8, error) {
 	return c.colosseumContract.GetStatus(c.callOpts, outputIndex)
 }
 
-func (c *Challenger) BuildSegments(turn, segStart, segSize uint64) (*chal.Segments, error) {
-	sections, err := c.colosseumContract.GetSegmentsLength(c.callOpts, new(big.Int).SetUint64(turn))
+func (c *Challenger) BuildSegments(turn uint8, segStart, segSize uint64) (*chal.Segments, error) {
+	sections, err := c.colosseumContract.GetSegmentsLength(c.callOpts, turn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get segments length of turn %d: %w", turn, err)
 	}
@@ -580,7 +580,7 @@ func (c *Challenger) Bisect(outputIndex *big.Int) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	nextTurn := challenge.Turn.Uint64() + 1
+	nextTurn := challenge.Turn + 1
 	start, size := prevSegments.NextSegmentsRange(position.Uint64())
 	nextSegments, err := c.BuildSegments(nextTurn, start, size)
 	if err != nil {
