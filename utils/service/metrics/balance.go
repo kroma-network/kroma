@@ -22,7 +22,7 @@ func weiToEther(wei *big.Int) float64 {
 	return f
 }
 
-// LaunchBalanceMetrics fires off a go rountine that queries the balance of the supplied account & periodically records it
+// LaunchBalanceMetrics fires off a go routine that queries the balance of the supplied account & periodically records it
 // to the balance metric of the namespace. The balance of the account is recorded in Ether (not Wei).
 // Cancel the supplied context to shut down the go routine
 func LaunchBalanceMetrics(ctx context.Context, log log.Logger, r *prometheus.Registry, ns string, client *ethclient.Client, account common.Address) {

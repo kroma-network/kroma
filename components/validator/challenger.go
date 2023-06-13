@@ -186,7 +186,7 @@ func (c *Challenger) Start() error {
 	return nil
 }
 
-func (c *Challenger) Stop() error {
+func (c *Challenger) Stop() {
 	c.log.Info("stop challenger")
 
 	if c.l2OutputSub != nil {
@@ -199,7 +199,6 @@ func (c *Challenger) Stop() error {
 
 	c.cancel()
 	c.wg.Wait()
-	return nil
 }
 
 // scanPrevOutputs scans all the previous outputs since the checkpoint within the finalization window.
@@ -275,7 +274,7 @@ func (c *Challenger) subscribeL2OutputSubmitted() {
 		case ev := <-c.l2OutputSubmittedEventChan:
 			c.log.Info("validating output", "l2BlockNumber", ev.L2BlockNumber, "outputRoot", ev.OutputRoot, "outputIndex", ev.L2OutputIndex)
 			// validate all outputs in between the checkpoint and the current outputIndex
-			for i := c.checkpoint; i.Cmp(ev.L2OutputIndex) != 1; new(big.Int).Add(i, common.Big1) {
+			for i := c.checkpoint; i.Cmp(ev.L2OutputIndex) != 1; i.Add(i, common.Big1) {
 				c.wg.Add(1)
 				go c.handleOutput(i)
 			}

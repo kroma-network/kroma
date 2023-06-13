@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -12,9 +13,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	geth_eth "github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -23,6 +26,7 @@ import (
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/bindings/predeploys"
 	batcher "github.com/kroma-network/kroma/components/batcher"
 	batchermetrics "github.com/kroma-network/kroma/components/batcher/metrics"
@@ -172,11 +176,12 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			"syncer":    testlog.Logger(t, log.LvlInfo).New("role", "syncer"),
 			"proposer":  testlog.Logger(t, log.LvlInfo).New("role", "proposer"),
 			"batcher":   testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
-			"validator": testlog.Logger(t, log.LvlCrit).New("role", "validator"),
+			"validator": testlog.Logger(t, log.LvlInfo).New("role", "validator"),
 		},
-		GethOptions:         map[string][]GethOption{},
-		P2PTopology:         nil, // no P2P connectivity by default
-		NonFinalizedOutputs: false,
+		GethOptions:               map[string][]GethOption{},
+		P2PTopology:               nil, // no P2P connectivity by default
+		NonFinalizedOutputs:       false,
+		OutputSubmitterBondAmount: 1,
 	}
 }
 
@@ -223,6 +228,8 @@ type SystemConfig struct {
 
 	// Explicitly disable batcher, for tests that rely on unsafe L2 payloads
 	DisableBatcher bool
+
+	OutputSubmitterBondAmount uint64
 }
 
 type System struct {
@@ -577,20 +584,22 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 	// Validator (L2 Output Submitter + Challenger)
 	validatorCliCfg := validator.CLIConfig{
-		L1EthRpc:                     sys.Nodes["l1"].WSEndpoint(),
-		RollupRpc:                    sys.RollupNodes["proposer"].HTTPEndpoint(),
-		L2OOAddress:                  predeploys.DevL2OutputOracleAddr.String(),
-		ColosseumAddress:             predeploys.DevColosseumAddr.String(),
-		ChallengerPollInterval:       50 * time.Millisecond,
+		L1EthRpc:                  sys.Nodes["l1"].WSEndpoint(),
+		RollupRpc:                 sys.RollupNodes["proposer"].HTTPEndpoint(),
+		L2OOAddress:               predeploys.DevL2OutputOracleAddr.String(),
+		ColosseumAddress:          predeploys.DevColosseumAddr.String(),
+		ValPoolAddress:            predeploys.DevValidatorPoolAddr.String(),
+		ChallengerPollInterval:    50 * time.Millisecond,
 		OutputSubmitterRetryInterval: 50 * time.Millisecond,
 		OutputSubmitterRoundBuffer:   30,
-		AllowNonFinalized:            cfg.NonFinalizedOutputs,
-		TxMgrConfig:                  newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
+		ProverGrpc:                "http://0.0.0.0:0",
+		TxMgrConfig:               newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
+		AllowNonFinalized:         cfg.NonFinalizedOutputs,
+		OutputSubmitterBondAmount: cfg.OutputSubmitterBondAmount,
 		LogConfig: klog.CLIConfig{
 			Level:  "info",
 			Format: "text",
 		},
-		ProverGrpc: "http://0.0.0.0:0",
 	}
 
 	validatorCfg, err := validator.NewValidatorConfig(validatorCliCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
@@ -604,7 +613,9 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		return nil, fmt.Errorf("unable to setup validator: %w", err)
 	}
 
-	sys.Validator.Start()
+	if err := sys.Validator.Start(); err != nil {
+		return nil, fmt.Errorf("unable to start validator: %w", err)
+	}
 
 	// Batcher (Batch Submitter)
 	batcherCliCfg := batcher.CLIConfig{
@@ -680,6 +691,30 @@ func (cfg SystemConfig) L1ChainIDBig() *big.Int {
 
 func (cfg SystemConfig) L2ChainIDBig() *big.Int {
 	return new(big.Int).SetUint64(cfg.DeployConfig.L2ChainID)
+}
+
+func (cfg SystemConfig) DepositValidatorPool(l1Client *ethclient.Client, priv *ecdsa.PrivateKey, value *big.Int) error {
+	valpoolContract, err := bindings.NewValidatorPool(predeploys.DevValidatorPoolAddr, l1Client)
+	if err != nil {
+		return fmt.Errorf("unable to create ValidatorPool instance: %w", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(priv, cfg.L1ChainIDBig())
+	if err != nil {
+		return fmt.Errorf("unable to create transactor opts: %w", err)
+	}
+	transactOpts.Value = value
+	tx, err := valpoolContract.Deposit(transactOpts)
+	if err != nil {
+		return fmt.Errorf("unable to send deposit transaction: %w", err)
+	}
+	receipt, err := waitForTransaction(tx.Hash(), l1Client, time.Duration(3*cfg.DeployConfig.L1BlockTime)*time.Second)
+	if err != nil {
+		return fmt.Errorf("unable to wait for validator deposit tx on L1: %w", err)
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return errors.New("validator deposit tx failed")
+	}
+	return nil
 }
 
 func uint642big(in uint64) *hexutil.Big {
