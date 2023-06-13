@@ -43,7 +43,7 @@ func CLIFlags(envPrefix string) []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:   HDPathFlagName,
-			Usage:  "The HD path used to derive the proposer wallet from the mnemonic. The mnemonic flag must also be set.",
+			Usage:  "The HD path used to derive the wallet from the mnemonic. The mnemonic flag must also be set.",
 			EnvVar: kservice.PrefixEnvVar(envPrefix, "HD_PATH"),
 		},
 		cli.StringFlag{

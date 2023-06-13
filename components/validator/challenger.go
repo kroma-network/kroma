@@ -149,8 +149,6 @@ func (c *Challenger) initSub() {
 		}
 		return c.colosseumContract.WatchChallengeCreated(opts, c.challengeCreatedEventChan, nil, nil, nil)
 	})
-
-	return
 }
 
 func (c *Challenger) Start() error {
