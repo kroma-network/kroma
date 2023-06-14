@@ -20,7 +20,7 @@ var (
 
 	L1EthRpcFlag = cli.StringFlag{
 		Name:     "l1-eth-rpc",
-		Usage:    "HTTP provider URL for L1",
+		Usage:    "Websocket provider URL for L1",
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "L1_ETH_RPC"),
 	}
@@ -84,11 +84,27 @@ var (
 		Usage:  "Disable challenger",
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "CHALLENGER_DISABLED"),
 	}
+	SecurityCouncilAddressFlag = cli.StringFlag{
+		Name:   "securitycouncil-address",
+		Usage:  "Address of the SecurityCouncil contract",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "SECURITYCOUNCIL_ADDRESS"),
+	}
+	GuardianEnabledFlag = cli.BoolFlag{
+		Name:   "guardian.enabled",
+		Usage:  "Enable guardian",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "GUARDIAN_ENABLED"),
+	}
 	FetchingProofTimeoutFlag = cli.DurationFlag{
 		Name:   "fetching-proof-timeout",
 		Usage:  "Duration we will wait to fetching proof",
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "FETCHING_PROOF_TIMEOUT"),
 		Value:  time.Hour * 2,
+	}
+	ResubscribeBackoffMaxFlag = cli.DurationFlag{
+		Name:   "resubscribe-backoff-max",
+		Usage:  "Backoff duration in resubscribeErr between calls to fn",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "RESUBSCRIBE_BACKOFF_MAX"),
+		Value:  time.Second * 10,
 	}
 )
 
@@ -107,7 +123,10 @@ var optionalFlags = []cli.Flag{
 	OutputSubmitterDisabledFlag,
 	OutputSubmitterBondAmountFlag,
 	ChallengerDisabledFlag,
+	SecurityCouncilAddressFlag,
+	GuardianEnabledFlag,
 	FetchingProofTimeoutFlag,
+	ResubscribeBackoffMaxFlag,
 }
 
 func init() {

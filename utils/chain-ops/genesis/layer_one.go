@@ -34,6 +34,7 @@ var (
 		"KromaPortalProxy",
 		"KromaMintableERC20FactoryProxy",
 		"ColosseumProxy",
+		"SecurityCouncilProxy",
 	}
 	// portalMeteringSlot is the storage slot containing the metering params.
 	portalMeteringSlot = common.Hash{31: 0x01}
@@ -201,6 +202,24 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		opts,
 		depsByName["ColosseumProxy"].Address,
 		depsByName["Colosseum"].Address,
+		data,
+	); err != nil {
+		return nil, err
+	}
+
+	securityCouncilABI, err := bindings.SecurityCouncilMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = securityCouncilABI.Pack("initialize0", true, config.SecurityCouncilOwners, uint642Big(config.SecurityCouncilNumConfirmationRequired))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["SecurityCouncilProxy"].Address,
+		depsByName["SecurityCouncil"].Address,
 		data,
 	); err != nil {
 		return nil, err
@@ -402,6 +421,9 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			},
 		},
 		{
+			Name: "SecurityCouncil",
+		},
+		{
 			Name: "L1CrossDomainMessenger",
 		},
 		{
@@ -487,6 +509,12 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			/* maxTxs= */ deployment.Args[5].(*big.Int),
 			/* segmentsLengths= */ deployment.Args[6].([]*big.Int),
 			/* guardian= */ deployment.Args[7].(common.Address),
+		)
+	case "SecurityCouncil":
+		_, tx, _, err = bindings.DeploySecurityCouncil(
+			opts,
+			backend,
+			predeploys.DevColosseumAddr,
 		)
 	case "L1CrossDomainMessenger":
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(

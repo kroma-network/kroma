@@ -6,6 +6,7 @@ all: version mkdir bindings more
 
 bindings: basefee-vault-bindings \
 		colosseum-bindings \
+    security-council-bindings \
 		erc20-bindings \
 		gas-price-oracle-bindings \
 		kroma-mintable-erc20-bindings \
@@ -54,11 +55,12 @@ L2CrossDomainMessenger,\
 L2ERC721Bridge,\
 L2StandardBridge,\
 L2ToL1MessagePasser,\
-ValidatorPool,\
-ValidatorRewardVault,\
 Proxy,\
 ProxyAdmin,\
+SecurityCouncil,\
 SystemConfig,\
+ValidatorPool,\
+ValidatorRewardVault,\
 WETH9\
 		-package bindings
 
@@ -76,6 +78,9 @@ basefee-vault-bindings: compile
 
 colosseum-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/Colosseum.sol:Colosseum $(pkg)
+
+security-council-bindings: compile
+	bash ./gen_bindings.sh contracts/L1/SecurityCouncil.sol:SecurityCouncil $(pkg)
 
 erc20-bindings: compile
 	bash ./gen_bindings.sh node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20 $(pkg)
