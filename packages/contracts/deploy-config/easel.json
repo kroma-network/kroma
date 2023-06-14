@@ -35,5 +35,7 @@
   "colosseumDummyHash": "0x4c8c149b0686093ddaddbf212b68c9170fe7de9b255050b392ff79a523ee5349",
   "colosseumMaxTxs": 25,
   "colosseumSegmentsLengths": "6,5",
-  "numDeployConfirmations": 1
+  "numDeployConfirmations": 1,
+  "securityCouncilNumConfirmationRequired": 1,
+  "securityCouncilOwners": ["0x007D7e4391DCFdE47Dd7FD0B8E16091C5e0E1C7f","0x2A06Af6a4F325B1e0095a8AbD32888e0AbdCD04D","0xed92E7C40348A552822847384D722A6adB9AFeFA"]
 }

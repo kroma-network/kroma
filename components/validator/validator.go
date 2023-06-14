@@ -79,6 +79,7 @@ type Validator struct {
 	metr       metrics.Metricer
 	l2os       *L2OutputSubmitter
 	challenger *Challenger
+	guardian   *Guardian
 
 	txCandidatesChan chan txmgr.TxCandidate
 
@@ -107,6 +108,12 @@ func NewValidator(parentCtx context.Context, cfg Config, l log.Logger, m metrics
 		return nil, err
 	}
 
+	guardian, err := NewGuardian(ctx, cfg, l, txCandidatesChan)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
 	return &Validator{
 		ctx:              ctx,
 		cancel:           cancel,
@@ -115,6 +122,7 @@ func NewValidator(parentCtx context.Context, cfg Config, l log.Logger, m metrics
 		metr:             m,
 		l2os:             l2OutputSubmitter,
 		challenger:       challenger,
+		guardian:         guardian,
 		txCandidatesChan: txCandidatesChan,
 	}, nil
 }
@@ -130,6 +138,12 @@ func (v *Validator) Start() error {
 
 	if err := v.challenger.Start(); err != nil {
 		return fmt.Errorf("cannot start challenger: %w", err)
+	}
+
+	if v.cfg.GuardianEnabled {
+		if err := v.guardian.Start(); err != nil {
+			return fmt.Errorf("cannot start guardian: %w", err)
+		}
 	}
 
 	v.wg.Add(1)
@@ -154,6 +168,12 @@ func (v *Validator) Stop() error {
 
 	if err := v.challenger.Stop(); err != nil {
 		return fmt.Errorf("failed to stop challenger: %w", err)
+	}
+
+	if v.cfg.GuardianEnabled {
+		if err := v.guardian.Stop(); err != nil {
+			return fmt.Errorf("failed to stop guardian: %w", err)
+		}
 	}
 
 	v.cancel()

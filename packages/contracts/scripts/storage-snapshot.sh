@@ -11,6 +11,7 @@ fi
 
 contracts=(
   contracts/L1/Colosseum.sol:Colosseum
+  contracts/L1/SecurityCouncil.sol:SecurityCouncil
   contracts/L1/ValidatorPool.sol:ValidatorPool
   contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger
   contracts/L1/L1StandardBridge.sol:L1StandardBridge

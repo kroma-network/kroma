@@ -80,6 +80,10 @@ type DeployConfig struct {
 	ColosseumDummyHash        common.Hash `json:"colosseumDummyHash"`
 	ColosseumMaxTxs           uint64      `json:"colosseumMaxTxs"`
 
+	// The initial value of the number of confirmations in security council
+	SecurityCouncilNumConfirmationRequired uint64           `json:"securityCouncilNumConfirmationRequired"`
+	SecurityCouncilOwners                  []common.Address `json:"securityCouncilOwners"`
+
 	// Owner of the ProxyAdmin predeploy
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
 	// Owner of the system on L1
@@ -104,6 +108,8 @@ type DeployConfig struct {
 	KromaPortalProxy common.Address `json:"kromaPortalProxy"`
 	// Colosseum proxy address on L1
 	ColosseumProxy common.Address `json:"colosseumProxy"`
+	// SecurityCouncil proxy address on L1
+	SecurityCouncilProxy common.Address `json:"securityCouncilProxy"`
 	// The initial value of the gas overhead
 	GasPriceOracleOverhead uint64 `json:"gasPriceOracleOverhead"`
 	// The initial value of the gas scalar
@@ -206,6 +212,9 @@ func (d *DeployConfig) Check() error {
 	if d.ColosseumProxy == (common.Address{}) {
 		return fmt.Errorf("%w: ColosseumProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
+	if d.SecurityCouncilProxy == (common.Address{}) {
+		return fmt.Errorf("%w: SecurityCouncilProxy cannot be address(0)", ErrInvalidDeployConfig)
+	}
 	if d.EIP1559Denominator == 0 {
 		return fmt.Errorf("%w: EIP1559Denominator cannot be 0", ErrInvalidDeployConfig)
 	}
@@ -296,6 +305,14 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 		d.ColosseumProxy = colosseumProxyDeployment.Address
 	}
 
+	if d.SecurityCouncilProxy == (common.Address{}) {
+		securityCouncilProxyDeployment, err := hh.GetDeployment("SecurityCouncilProxy")
+		if err != nil {
+			return err
+		}
+		d.SecurityCouncilProxy = securityCouncilProxyDeployment.Address
+	}
+
 	return nil
 }
 
@@ -306,6 +323,7 @@ func (d *DeployConfig) InitDeveloperDeployedAddresses() error {
 	d.L1ERC721BridgeProxy = predeploys.DevL1ERC721BridgeAddr
 	d.KromaPortalProxy = predeploys.DevKromaPortalAddr
 	d.ColosseumProxy = predeploys.DevColosseumAddr
+	d.SecurityCouncilProxy = predeploys.DevSecurityCouncilAddr
 	d.SystemConfigProxy = predeploys.DevSystemConfigAddr
 	return nil
 }

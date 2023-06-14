@@ -135,7 +135,7 @@ func (c *Challenger) initSub() {
 	opts := &bind.WatchOpts{Context: c.ctx}
 
 	if !c.cfg.ChallengerDisabled {
-		c.l2OutputSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
+		c.l2OutputSub = event.ResubscribeErr(c.cfg.ResubscribeBackoffMax, func(ctx context.Context, err error) (event.Subscription, error) {
 			if err != nil {
 				c.log.Error("resubscribing after failed L2OutputSubmitted event", "err", err)
 			}
@@ -143,7 +143,7 @@ func (c *Challenger) initSub() {
 		})
 	}
 
-	c.challengeSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
+	c.challengeSub = event.ResubscribeErr(c.cfg.ResubscribeBackoffMax, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
 			c.log.Error("resubscribing after failed ChallengeCreated event", "err", err)
 		}
