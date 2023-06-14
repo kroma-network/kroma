@@ -28,9 +28,11 @@ import (
 type Config struct {
 	L2OutputOracleAddr        common.Address
 	ColosseumAddr             common.Address
+	SecurityCouncilAddr       common.Address
 	ValidatorPoolAddr         common.Address
 	ChallengerPollInterval    time.Duration
 	NetworkTimeout            time.Duration
+	ResubscribeBackoffMax     time.Duration
 	TxManager                 *txmgr.SimpleTxManager
 	L1Client                  *ethclient.Client
 	RollupClient              *sources.RollupClient
@@ -39,6 +41,7 @@ type Config struct {
 	OutputSubmitterBondAmount uint64
 	OutputSubmitterDisabled   bool
 	ChallengerDisabled        bool
+	GuardianEnabled           bool
 	ProofFetcher              ProofFetcher
 }
 
@@ -54,7 +57,7 @@ func (c *Config) Check() error {
 // This also contains config options for auxiliary services.
 // It is transformed into a `Config` before the Validator is started.
 type CLIConfig struct {
-	// L1EthRpc is the HTTP provider URL for L1.
+	// L1EthRpc is the Websocket provider URL for L1.
 	L1EthRpc string
 
 	// RollupRpc is the HTTP provider URL for the rollup node.
@@ -65,6 +68,9 @@ type CLIConfig struct {
 
 	// ColosseumAddress is the Colosseum contract address.
 	ColosseumAddress string
+
+	// SecurityCouncilAddress is the SecurityCouncil contract address.
+	SecurityCouncilAddress string
 
 	// ValPoolAddress is the ValidatorPool contract address.
 	ValPoolAddress string
@@ -86,7 +92,14 @@ type CLIConfig struct {
 
 	ChallengerDisabled bool
 
+	GuardianEnabled bool
+
 	FetchingProofTimeout time.Duration
+
+	// ResubscribeBackoffMax is the max duration for geth event resubscription.
+	// ResubscribeErr applies backoff between calls to fn. The time between calls is adapted
+	// based on the error rate, but will never exceed backoffMax.
+	ResubscribeBackoffMax time.Duration
 
 	TxMgrConfig   txmgr.CLIConfig
 	RPCConfig     krpc.CLIConfig
@@ -132,7 +145,10 @@ func NewCLIConfig(ctx *cli.Context) CLIConfig {
 		OutputSubmitterDisabled:   ctx.GlobalBool(flags.OutputSubmitterDisabledFlag.Name),
 		OutputSubmitterBondAmount: ctx.GlobalUint64(flags.OutputSubmitterBondAmountFlag.Name),
 		ChallengerDisabled:        ctx.GlobalBool(flags.ChallengerDisabledFlag.Name),
+		SecurityCouncilAddress:    ctx.GlobalString(flags.SecurityCouncilAddressFlag.Name),
+		GuardianEnabled:           ctx.GlobalBool(flags.GuardianEnabledFlag.Name),
 		FetchingProofTimeout:      ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
+		ResubscribeBackoffMax:     ctx.GlobalDuration(flags.ResubscribeBackoffMaxFlag.Name),
 		RPCConfig:                 krpc.ReadCLIConfig(ctx),
 		LogConfig:                 klog.ReadCLIConfig(ctx),
 		MetricsConfig:             kmetrics.ReadCLIConfig(ctx),
@@ -148,6 +164,11 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	colosseumAddress, err := utils.ParseAddress(cfg.ColosseumAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	securityCouncilAddress, err := utils.ParseAddress(cfg.SecurityCouncilAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -198,9 +219,11 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	return &Config{
 		L2OutputOracleAddr:        l2ooAddress,
 		ColosseumAddr:             colosseumAddress,
+		SecurityCouncilAddr:       securityCouncilAddress,
 		ValidatorPoolAddr:         valPoolAddress,
 		ChallengerPollInterval:    cfg.ChallengerPollInterval,
 		NetworkTimeout:            cfg.TxMgrConfig.NetworkTimeout,
+		ResubscribeBackoffMax:     cfg.ResubscribeBackoffMax,
 		TxManager:                 txManager,
 		L1Client:                  l1Client,
 		RollupClient:              rollupClient,
@@ -209,6 +232,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		OutputSubmitterDisabled:   cfg.OutputSubmitterDisabled,
 		OutputSubmitterBondAmount: cfg.OutputSubmitterBondAmount,
 		ChallengerDisabled:        cfg.ChallengerDisabled,
+		GuardianEnabled:           cfg.GuardianEnabled,
 		ProofFetcher:              fetcher,
 	}, nil
 }

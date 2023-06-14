@@ -6,6 +6,7 @@ all: version mkdir bindings more
 
 bindings: basefee-vault-bindings \
 		colosseum-bindings \
+    security-council-bindings \
 		erc20-bindings \
 		gas-price-oracle-bindings \
 		kroma-mintable-erc20-bindings \
@@ -45,21 +46,21 @@ more:
 		-out ./bindings \
 		-contracts \
 		Colosseum,\
-KromaMintableERC20Factory,\
-KromaMintableERC721Factory,\
-KromaPortal,\
-L1Block,\
-L1CrossDomainMessenger,\
-L2CrossDomainMessenger,\
-L2ERC721Bridge,\
-L2StandardBridge,\
-L2ToL1MessagePasser,\
-ValidatorPool,\
-ValidatorRewardVault,\
-Proxy,\
-ProxyAdmin,\
-SystemConfig,\
-WETH9\
+    SecurityCouncil,\
+    KromaMintableERC20Factory,\
+    KromaMintableERC721Factory,\
+    KromaPortal,\
+    L1Block,\
+    L1CrossDomainMessenger,\
+    L2CrossDomainMessenger,\
+    L2ERC721Bridge,\
+    L2StandardBridge,\
+    L2ToL1MessagePasser,\
+    ValidatorRewardVault,\
+    Proxy,\
+    ProxyAdmin,\
+    SystemConfig,\
+    WETH9\
 		-package bindings
 
 mkdir:
@@ -76,6 +77,9 @@ basefee-vault-bindings: compile
 
 colosseum-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/Colosseum.sol:Colosseum $(pkg)
+
+security-council-bindings: compile
+	bash ./gen_bindings.sh contracts/L1/SecurityCouncil.sol:SecurityCouncil $(pkg)
 
 erc20-bindings: compile
 	bash ./gen_bindings.sh node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20 $(pkg)
