@@ -70,6 +70,15 @@ func (h testHarness) createTxCandidate() TxCandidate {
 		To:       &inbox,
 		TxData:   []byte{0x00, 0x01, 0x02},
 		GasLimit: uint64(1337),
+		AccessList: types.AccessList{
+			types.AccessTuple{
+				Address: inbox,
+				StorageKeys: []common.Hash{
+					common.HexToHash("0x01"),
+				},
+			},
+		},
+		Value: new(big.Int).SetUint64(1),
 	}
 }
 
@@ -228,7 +237,7 @@ func (*mockBackend) ChainID(ctx context.Context) (*big.Int, error) {
 }
 
 // TransactionReceipt queries the mockBackend for a mined txHash. If none is
-// found, nil is returned for both return values. Otherwise, it retruns a
+// found, nil is returned for both return values. Otherwise, it returns a
 // receipt containing the txHash and the gasFeeCap used in the GasUsed to make
 // the value accessible from our test framework.
 func (b *mockBackend) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
@@ -276,7 +285,7 @@ func TestTxMgrConfirmAtMinGasPrice(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	receipt, err := h.mgr.send(ctx, tx)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrTxReceiptNotSucceed)
 	require.NotNil(t, receipt)
 	require.Equal(t, gasPricer.expGasFeeCap().Uint64(), receipt.GasUsed)
 }
@@ -331,9 +340,8 @@ func TestTxMgrConfirmsAtHigherGasPrice(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
 	receipt, err := h.mgr.send(ctx, tx)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrTxReceiptNotSucceed)
 	require.NotNil(t, receipt)
 	require.Equal(t, h.gasPricer.expGasFeeCap().Uint64(), receipt.GasUsed)
 }
@@ -442,8 +450,7 @@ func TestTxMgrOnlyOnePublicationSucceeds(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	receipt, err := h.mgr.send(ctx, tx)
-	require.NoError(t, err)
-
+	require.ErrorIs(t, err, ErrTxReceiptNotSucceed)
 	require.NotNil(t, receipt)
 	require.Equal(t, h.gasPricer.expGasFeeCap().Uint64(), receipt.GasUsed)
 }
@@ -477,7 +484,7 @@ func TestTxMgrConfirmsMinGasPriceAfterBumping(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	receipt, err := h.mgr.send(ctx, tx)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrTxReceiptNotSucceed)
 	require.NotNil(t, receipt)
 	require.Equal(t, h.gasPricer.expGasFeeCap().Uint64(), receipt.GasUsed)
 }
@@ -522,7 +529,7 @@ func TestTxMgrDoesntAbortNonceTooLowAfterMiningTx(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	receipt, err := h.mgr.send(ctx, tx)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrTxReceiptNotSucceed)
 	require.NotNil(t, receipt)
 	require.Equal(t, h.gasPricer.expGasFeeCap().Uint64(), receipt.GasUsed)
 }
@@ -557,7 +564,7 @@ func TestWaitMinedCanBeCanceled(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Create an unimined tx.
+	// Create an unmined tx.
 	tx := types.NewTx(&types.LegacyTx{})
 
 	receipt, err := h.mgr.waitMined(ctx, tx, NewSendState(10, time.Hour))
@@ -576,7 +583,7 @@ func TestWaitMinedMultipleConfs(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	// Create an unimined tx.
+	// Create an unmined tx.
 	tx := types.NewTx(&types.LegacyTx{})
 	txHash := tx.Hash()
 	h.backend.mine(&txHash, new(big.Int))
@@ -751,7 +758,7 @@ func TestIncreaseGasPrice(t *testing.T) {
 			},
 		},
 		{
-			name: "enforces min bump on only tip incrase",
+			name: "enforces min bump on only tip increase",
 			run: func(t *testing.T) {
 				tx, newTx := doGasPriceIncrease(t, 100, 1000, 101, 440)
 				require.True(t, newTx.GasFeeCap().Cmp(tx.GasFeeCap()) > 0, "new tx fee cap must be larger")
@@ -759,7 +766,7 @@ func TestIncreaseGasPrice(t *testing.T) {
 			},
 		},
 		{
-			name: "enforces min bump on only basefee incrase",
+			name: "enforces min bump on only basefee increase",
 			run: func(t *testing.T) {
 				tx, newTx := doGasPriceIncrease(t, 100, 1000, 99, 460)
 				require.True(t, newTx.GasFeeCap().Cmp(tx.GasFeeCap()) > 0, "new tx fee cap must be larger")

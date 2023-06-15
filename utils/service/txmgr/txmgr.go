@@ -29,6 +29,9 @@ var (
 	oneHundred       = big.NewInt(100)
 )
 
+// ErrTxReceiptNotSucceed is the error returned when tx confirmed but the status is not success.
+var ErrTxReceiptNotSucceed = errors.New("transaction confirmed but the status is not success")
+
 // TxManager is an interface that allows callers to reliably publish txs,
 // bumping the gas price if needed, and obtain the receipt of the resulting tx.
 //
@@ -251,9 +254,9 @@ func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*typ
 		case receipt := <-receiptChan:
 			m.metr.RecordGasBumpCount(bumpCounter)
 			m.metr.TxConfirmed(receipt)
-			// If transaction confirmed but failed to execute, return error instead of receipt
+			// If transaction confirmed but the status is not success, return ErrTxReceiptNotSucceed
 			if receipt.Status != types.ReceiptStatusSuccessful {
-				return nil, errors.New("transaction confirmed but failed to execute")
+				return receipt, ErrTxReceiptNotSucceed
 			}
 			return receipt, nil
 		}
