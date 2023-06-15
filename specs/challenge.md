@@ -225,11 +225,12 @@ verification by [ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contrac
 4. Verify that the `stateRoot` in `_publicInput` matches the `stateRoot` in `_dstOutputRootProof`.
 5. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the block hash derived from `_publicInput` and
    `_rlps`.
-6. Verify that the `transactionsRoot` in `_publicInput` matches the transaction root derived from the transaction
-   hashes.
-7. Verify that the `withdrawalStorageRoot` in `_dstOutputRootProof` is contained in `stateRoot` in
+6. Verify that the `withdrawalStorageRoot` in `_dstOutputRootProof` is contained in `stateRoot` in
   `_dstOutputRootProof`.
-8. If the length of transaction hashes in `_publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
+7. If the length of transaction hashes in `_publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
+8. Verify the computation of the `publicInputHash` by comparing it with the `expectedPublicInputHash`.
+   The `publicInputHash` is derived from the `_publicInput` mentioned earlier, while the `expectedPublicInputHash`
+   is constructed using `_pair[4]` and `_pair[5]`.
 
 ## Upgradeability
 

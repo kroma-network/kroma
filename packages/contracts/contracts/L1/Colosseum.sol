@@ -539,7 +539,12 @@ contract Colosseum is Initializable, Semver {
             );
         }
 
-        // TODO(chokobole): check transaction root hash
+        // NOTE(chokobole): We cannot calculate the Ethereum transaction root solely
+        // based on transaction hashes. It is necessary to have access to the original
+        // transactions. Considering the imposed constraints and the difficulty
+        // of providing a preimage that would generate the desired public input hash
+        // from an attacker's perspective, we have decided to omit the verification
+        // using the transaction root.
         bytes32 publicInputHash = Hashing.hashPublicInput(
             _srcOutputRootProof.stateRoot,
             _publicInput,
