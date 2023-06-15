@@ -121,6 +121,9 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		ColosseumMaxTxs:           25,
 		ColosseumSegmentsLengths:  "3,3",
 
+		SecurityCouncilNumConfirmationRequired: 1,
+		SecurityCouncilOwners:                  []common.Address{addresses.Alice, addresses.Bob, addresses.Mallory},
+
 		GasPriceOracleOverhead: 2100,
 		GasPriceOracleScalar:   1_000_000,
 
@@ -589,6 +592,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		L2OOAddress:               predeploys.DevL2OutputOracleAddr.String(),
 		ColosseumAddress:          predeploys.DevColosseumAddr.String(),
 		ValPoolAddress:            predeploys.DevValidatorPoolAddr.String(),
+		SecurityCouncilAddress:    predeploys.DevSecurityCouncilAddr.String(),
 		ChallengerPollInterval:    50 * time.Millisecond,
 		OutputSubmitterRetryInterval: 50 * time.Millisecond,
 		OutputSubmitterRoundBuffer:   30,

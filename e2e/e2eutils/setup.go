@@ -107,6 +107,9 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		ColosseumMaxTxs:           25,
 		ColosseumSegmentsLengths:  "3,4",
 
+		SecurityCouncilNumConfirmationRequired: 1,
+		SecurityCouncilOwners:                  []common.Address{addresses.Alice, addresses.Bob, addresses.Mallory},
+
 		GasPriceOracleOverhead:      2100,
 		GasPriceOracleScalar:        1000_000,
 		DeploymentWaitConfirmations: 1,
@@ -143,6 +146,7 @@ type DeploymentsL1 struct {
 	ValidatorPoolProxy          common.Address
 	L2OutputOracleProxy         common.Address
 	ColosseumProxy              common.Address
+	SecurityCouncilProxy        common.Address
 	KromaPortalProxy            common.Address
 	SystemConfigProxy           common.Address
 }
@@ -233,6 +237,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		ValidatorPoolProxy:          predeploys.DevValidatorPoolAddr,
 		L2OutputOracleProxy:         predeploys.DevL2OutputOracleAddr,
 		ColosseumProxy:              predeploys.DevColosseumAddr,
+		SecurityCouncilProxy:        predeploys.DevSecurityCouncilAddr,
 		KromaPortalProxy:            predeploys.DevKromaPortalAddr,
 		SystemConfigProxy:           predeploys.DevSystemConfigAddr,
 	}
