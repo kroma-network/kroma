@@ -117,7 +117,7 @@ SECURITYCOUNCIL_ADDRESS="0x690000000000000000000000000000000000000E"
 (
   echo "Deposit into ValidatorPool to be a validator..."
   cd $OPS_DEVNET
-  docker-compose exec kroma-validator kroma-validator deposit --amount 1000000000
+  docker compose exec kroma-validator kroma-validator deposit --amount 1000000000
 )
 
 echo "Devnet ready."
