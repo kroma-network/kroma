@@ -12,6 +12,7 @@ const PROXY_NAMES = [
   'L1ERC721BridgeProxy',
   'KromaMintableERC20FactoryProxy',
   'ColosseumProxy',
+  'SecurityCouncilProxy'
 ]
 
 const deployFn: DeployFunction = async (hre) => {

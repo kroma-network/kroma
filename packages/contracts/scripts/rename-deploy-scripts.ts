@@ -16,6 +16,7 @@ const ORDERED_FILE_NAMES = [
   'ValidatorPool',
   'L2OutputOracle',
   'Colosseum',
+  'SecurityCouncil',
   'KromaPortal',
   'SystemConfig',
 ]

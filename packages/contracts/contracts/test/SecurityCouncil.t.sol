@@ -16,7 +16,11 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
     event OwnerAddition(address indexed owner);
     event OwnerRemoval(address indexed owner);
     event RequirementChange(uint256 required);
-    event ValidationRequested(uint256 indexed transactionId, bytes32 outputRoot, uint128 l2BlockNumber);
+    event ValidationRequested(
+        uint256 indexed transactionId,
+        bytes32 outputRoot,
+        uint128 l2BlockNumber
+    );
 
     function test_initialize_succeeds() external {
         address[] memory _owners = securityCouncil.getOwners();
@@ -24,7 +28,7 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
             assertEq(securityCouncil.owners(i), _owners[i]);
         }
 
-        assertEq(securityCouncil.COLOSSEUM(), address(colosseum));
+        assertEq(securityCouncil.COLOSSEUM(), colosseumAddr);
         assertEq(securityCouncil.numConfirmationsRequired(), NUM_CONFIRMATIONS_REQUIRED);
         assertEq(securityCouncil.getTransactionCount(true, true), 0);
     }
@@ -132,25 +136,17 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
         uint128 l2BlockNumber = 3;
         vm.prank(makeAddr("not colosseum"));
         vm.expectRevert("SecurityCouncil: only the colosseum contract can be a sender");
-        securityCouncil.requestValidation(
-            outputRoot,
-            l2BlockNumber,
-            bytes("anydata")
-        );
+        securityCouncil.requestValidation(outputRoot, l2BlockNumber, bytes("anydata"));
     }
 
     function test_requestValidation_succeeds() external {
         // request output validation
         bytes32 outputRoot = bytes32("dummy output root");
         uint128 l2BlockNumber = 3;
-        vm.prank(address(colosseum));
+        vm.prank(colosseumAddr);
         vm.expectEmit(true, false, false, false);
         emit ValidationRequested(0, outputRoot, l2BlockNumber);
-        securityCouncil.requestValidation(
-            outputRoot,
-            l2BlockNumber,
-            bytes("anydata")
-        );
+        securityCouncil.requestValidation(outputRoot, l2BlockNumber, bytes("anydata"));
     }
 
     function test_executeValidateTransaction_succeeds() external {
@@ -158,19 +154,30 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
         bytes32 outputRoot = bytes32("dummy output root");
         uint128 l2BlockNumber = 3;
         uint256 txId = 0;
-        vm.prank(address(colosseum));
+        vm.prank(colosseumAddr);
         vm.expectEmit(true, false, false, false);
         emit ValidationRequested(txId, outputRoot, l2BlockNumber);
-        securityCouncil.requestValidation(
-            outputRoot,
-            l2BlockNumber,
-            bytes("anydata")
-        );
+        securityCouncil.requestValidation(outputRoot, l2BlockNumber, bytes("anydata"));
+
+        // check transaction not executed
+        Types.MultiSigTransaction memory t;
+        (t.destination, t.executed, t.value, t.data) = securityCouncil.transactions(txId);
+        assertEq(t.executed, false);
 
         // confirm transaction to execute
         vm.prank(owners[0]);
         securityCouncil.confirmTransaction(txId);
+        vm.prank(owners[1]);
+        securityCouncil.confirmTransaction(txId);
 
-        // TODO: update execution test with colosseum
+        // check transaction confirmed
+        address[] memory confirmList;
+        confirmList = securityCouncil.getConfirmations(txId);
+        assertEq(confirmList.length, 2);
+
+
+        // check transaction executed
+        (t.destination, t.executed, t.value, t.data) = securityCouncil.transactions(txId);
+        assertEq(t.executed, true);
     }
 }

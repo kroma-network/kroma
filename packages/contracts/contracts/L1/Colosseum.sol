@@ -8,6 +8,7 @@ import { Hashing } from "../libraries/Hashing.sol";
 import { Types } from "../libraries/Types.sol";
 import { Semver } from "../universal/Semver.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
+import { SecurityCouncil } from "./SecurityCouncil.sol";
 import { ZKVerifier } from "./ZKVerifier.sol";
 
 contract Colosseum is Initializable, Semver {
@@ -106,7 +107,7 @@ contract Colosseum is Initializable, Semver {
     /**
      * @notice Address that has the ability to approve the challenge.
      */
-    address public immutable GUARDIAN;
+    address public immutable SECURITY_COUNCIL;
 
     /**
      * @notice Length of segment array for each turn.
@@ -183,7 +184,7 @@ contract Colosseum is Initializable, Semver {
      * @param _dummyHash          Dummy hash.
      * @param _maxTxs             Number of max transactions per block.
      * @param _segmentsLengths    Lengths of segments.
-     * @param _guardian           Address of guardian a.k.a security council.
+     * @param _securityCouncil    Address of security council.
      */
     constructor(
         L2OutputOracle _l2Oracle,
@@ -195,7 +196,7 @@ contract Colosseum is Initializable, Semver {
         bytes32 _dummyHash,
         uint256 _maxTxs,
         uint256[] memory _segmentsLengths,
-        address _guardian
+        address _securityCouncil
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2Oracle;
         ZK_VERIFIER = _zkVerifier;
@@ -205,7 +206,7 @@ contract Colosseum is Initializable, Semver {
         CHAIN_ID = _chainId;
         DUMMY_HASH = _dummyHash;
         MAX_TXS = _maxTxs;
-        GUARDIAN = _guardian;
+        SECURITY_COUNCIL = _securityCouncil;
         initialize(_segmentsLengths);
     }
 
@@ -354,8 +355,13 @@ contract Colosseum is Initializable, Semver {
         _validatePublicInput(_srcOutputRootProof, _publicInput, _rlps, _pair[4]);
         challenge.outputRoot = _outputRoot;
 
-        // TODO(pangssu): call `createTransaction` to guardian
-
+        // request outputRoot validation to security council
+        bytes memory CALLDATA = abi.encodeWithSignature("approveChallenge(uint256)", _outputIndex);
+        SecurityCouncil(SECURITY_COUNCIL).requestValidation(
+            _outputRoot,
+            _publicInput.number,
+            CALLDATA
+        );
         emit Proven(_outputIndex, _outputRoot);
     }
 
@@ -379,7 +385,7 @@ contract Colosseum is Initializable, Semver {
      * @param _outputIndex Index of the L2 checkpoint output.
      */
     function approveChallenge(uint256 _outputIndex) external {
-        require(msg.sender == GUARDIAN, "Colosseum: sender is not the guardian");
+        require(msg.sender == SECURITY_COUNCIL, "Colosseum: sender is not the security council");
 
         Types.Challenge storage challenge = challenges[_outputIndex];
 

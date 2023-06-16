@@ -475,6 +475,11 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
 
     ZKVerifier zkVerifier;
 
+    SecurityCouncil securityCouncilImpl;
+    SecurityCouncil securityCouncil;
+    uint256 NUM_CONFIRMATIONS_REQUIRED = 2;
+    address[] securityCouncilOwners = new address[](3);
+
     uint256[] segmentsLengths;
 
     function setUp() public virtual override {
@@ -493,6 +498,23 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
         // Init L2OutputOracle after Colosseum contract deployment
         super.setUp();
 
+        // Deploy the SecurityCouncil (after Colosseum contract deployment)
+        Proxy securityCouncilProxy = new Proxy(multisig);
+        securityCouncil = SecurityCouncil(address(securityCouncilProxy));
+        securityCouncilImpl = new SecurityCouncil(address(colosseum));
+        vm.prank(multisig);
+
+        securityCouncilOwners[0] = makeAddr("alice");
+        securityCouncilOwners[1] = makeAddr("bob");
+        securityCouncilOwners[2] = makeAddr("carol");
+        securityCouncilProxy.upgradeToAndCall(
+            address(securityCouncilImpl),
+            abi.encodeCall(
+                SecurityCouncil.initialize,
+                (true, securityCouncilOwners, NUM_CONFIRMATIONS_REQUIRED)
+            )
+        );
+
         colosseumImpl = new Colosseum({
             _l2Oracle: oracle,
             _zkVerifier: zkVerifier,
@@ -503,7 +525,7 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
             _dummyHash: DUMMY_HASH,
             _maxTxs: MAX_TXS,
             _segmentsLengths: segmentsLengths,
-            _guardian: guardian
+            _securityCouncil: address(securityCouncilProxy)
         });
         vm.prank(multisig);
         proxy.upgradeToAndCall(
@@ -513,21 +535,18 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
     }
 }
 
-contract SecurityCouncil_Initializer is Colosseum_Initializer {
-    address internal securityCouncilAddress;
+contract SecurityCouncil_Initializer is CommonTest {
     uint256 immutable NUM_CONFIRMATIONS_REQUIRED = 2;
     address[] owners = new address[](3);
-
-    // Test target
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
+    address colosseumAddr;
 
     function setUp() public virtual override {
-        super.setUp(); // Need colosseum setup
         Proxy proxy = new Proxy(multisig);
         securityCouncil = SecurityCouncil(address(proxy));
-        securityCouncilAddress = address(securityCouncil);
-        securityCouncilImpl = new SecurityCouncil(address(colosseum));
+        colosseumAddr = makeAddr("colosseum");
+        securityCouncilImpl = new SecurityCouncil(colosseumAddr);
         vm.prank(multisig);
 
         owners[0] = makeAddr("alice");
@@ -541,9 +560,16 @@ contract SecurityCouncil_Initializer is Colosseum_Initializer {
 }
 
 contract FFIInterface is Test {
-    function getProveWithdrawalTransactionInputs(
-        Types.WithdrawalTransaction memory _tx
-    ) external returns (bytes32, bytes32, bytes32, bytes32, bytes[] memory) {
+    function getProveWithdrawalTransactionInputs(Types.WithdrawalTransaction memory _tx)
+        external
+        returns (
+            bytes32,
+            bytes32,
+            bytes32,
+            bytes32,
+            bytes[] memory
+        )
+    {
         string[] memory cmds = new string[](8);
         cmds[0] = "scripts/differential-testing/differential-testing";
         cmds[1] = "getProveWithdrawalTransactionInputs";
@@ -655,9 +681,10 @@ contract FFIInterface is Test {
         return abi.decode(result, (bytes32));
     }
 
-    function encodeDepositTransaction(
-        Types.UserDepositTransaction calldata txn
-    ) external returns (bytes memory) {
+    function encodeDepositTransaction(Types.UserDepositTransaction calldata txn)
+        external
+        returns (bytes memory)
+    {
         string[] memory cmds = new string[](11);
         cmds[0] = "scripts/differential-testing/differential-testing";
         cmds[1] = "encodeDepositTransaction";
@@ -707,9 +734,15 @@ contract FFIInterface is Test {
         return abi.decode(result, (uint256, uint256));
     }
 
-    function getMerkleTrieFuzzCase(
-        string memory variant
-    ) external returns (bytes32, bytes memory, bytes memory, bytes[] memory) {
+    function getMerkleTrieFuzzCase(string memory variant)
+        external
+        returns (
+            bytes32,
+            bytes memory,
+            bytes memory,
+            bytes[] memory
+        )
+    {
         string[] memory cmds = new string[](5);
         cmds[0] = "./test-case-generator/fuzz";
         cmds[1] = "-m";

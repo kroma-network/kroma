@@ -15,6 +15,10 @@ const deployFn: DeployFunction = async (hre) => {
     hre,
     'L2OutputOracleProxy'
   )
+  const securityCouncilProxyAddress = await getDeploymentAddress(
+    hre,
+    'SecurityCouncilProxy'
+  )
 
   await deploy(hre, 'Colosseum', {
     args: [
@@ -27,7 +31,7 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.colosseumDummyHash,
       hre.deployConfig.colosseumMaxTxs,
       hre.deployConfig.colosseumSegmentsLengths.split(','),
-      hre.deployConfig.portalGuardian,
+      securityCouncilProxyAddress
     ],
     isProxyImpl: true,
     initArgs: [hre.deployConfig.colosseumSegmentsLengths.split(',')],
@@ -70,8 +74,8 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'GUARDIAN',
-        hre.deployConfig.portalGuardian
+        'SECURITY_COUNCIL',
+        securityCouncilProxyAddress
       )
     },
   })
