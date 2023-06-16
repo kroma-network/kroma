@@ -106,6 +106,9 @@ contract L2OutputOracle_Initializer is CommonTest {
     // ValidatorPool constructor arguments
     address internal trusted = 0x000000000000000000000000000000000000aaaa;
     uint256 internal minBond = 0.1 ether;
+    uint256 internal nonPenaltyPeriod = 10 minutes;
+    uint256 internal penaltyPeriod = 20 minutes;
+    uint256 internal roundDuration = nonPenaltyPeriod + penaltyPeriod;
 
     // Constructor arguments
     address internal asserter = 0x000000000000000000000000000000000000aAaB;
@@ -130,7 +133,7 @@ contract L2OutputOracle_Initializer is CommonTest {
 
     // Advance the evm's time to meet the L2OutputOracle's requirements for submitL2Output
     function warpToSubmitTime(uint256 _nextBlockNumber) public {
-        vm.warp(oracle.computeL2Timestamp(_nextBlockNumber) + 1);
+        vm.warp(oracle.computeL2Timestamp(_nextBlockNumber + 1));
     }
 
     function setUp() public virtual override {
@@ -146,11 +149,35 @@ contract L2OutputOracle_Initializer is CommonTest {
         oracle = L2OutputOracle(address(new Proxy(multisig)));
         vm.label(address(oracle), "L2OutputOracle");
 
+        ResourceMetering.ResourceConfig memory config = Constants.DEFAULT_RESOURCE_CONFIG();
+        systemConfig = new SystemConfig({
+            _owner: address(1),
+            _overhead: 0,
+            _scalar: 10000,
+            _batcherHash: bytes32(0),
+            _gasLimit: 30_000_000,
+            _unsafeBlockSigner: address(0),
+            _config: config
+        });
+
+        // Mock KromaPortal
+        KromaPortal mockPortal = new KromaPortal({
+            _l2Oracle: oracle,
+            _validatorPool: address(pool),
+            _guardian: guardian,
+            _paused: false,
+            _config: systemConfig,
+            _zkMerkleTrie: ZKMerkleTrie(address(0))
+        });
+
         // Deploy the ValidatorPool
         poolImpl = new ValidatorPool({
             _l2OutputOracle: oracle,
+            _portal: mockPortal,
             _trustedValidator: trusted,
-            _minBondAmount: minBond
+            _minBondAmount: minBond,
+            _nonPenaltyPeriod: nonPenaltyPeriod,
+            _penaltyPeriod: penaltyPeriod
         });
 
         // By default the first block has timestamp and number zero, which will cause underflows in
@@ -160,12 +187,12 @@ contract L2OutputOracle_Initializer is CommonTest {
         vm.roll(startingBlockNumber);
         // Deploy the L2OutputOracle
         oracleImpl = new L2OutputOracle({
+            _validatorPool: pool,
+            _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: startingTimestamp,
-            _validatorPool: pool,
-            _colosseum: address(colosseum),
             _finalizationPeriodSeconds: 7 days
         });
 
@@ -185,18 +212,6 @@ contract L2OutputOracle_Initializer is CommonTest {
         vm.etch(Predeploys.L2_TO_L1_MESSAGE_PASSER, address(new L2ToL1MessagePasser()).code);
 
         vm.label(Predeploys.L2_TO_L1_MESSAGE_PASSER, "L2ToL1MessagePasser");
-
-        ResourceMetering.ResourceConfig memory config = Constants.DEFAULT_RESOURCE_CONFIG();
-
-        systemConfig = new SystemConfig({
-            _owner: address(1),
-            _overhead: 0,
-            _scalar: 10000,
-            _batcherHash: bytes32(0),
-            _gasLimit: 30_000_000,
-            _unsafeBlockSigner: address(0),
-            _config: config
-        });
     }
 }
 
@@ -235,6 +250,7 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
 
         portalImpl = new KromaPortal({
             _l2Oracle: oracle,
+            _validatorPool: address(pool),
             _guardian: guardian,
             _paused: true,
             _config: systemConfig,
@@ -314,7 +330,6 @@ contract Messenger_Initializer is Portal_Initializer {
 
         // Label addresses
         vm.label(address(L1MessengerImpl), "L1CrossDomainMessenger_Impl");
-        vm.label(address(L1Messenger), "L1CrossDomainMessenger_Proxy");
         vm.label(Predeploys.L2_CROSS_DOMAIN_MESSENGER, "L2CrossDomainMessenger");
 
         vm.label(

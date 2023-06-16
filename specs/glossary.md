@@ -38,6 +38,8 @@
   - [Trusted Validator](#trusted-validator)
   - [Validating Epoch](#validating-epoch)
   - [SUBMISSION TIMEOUT](#submission-timeout)
+  - [Priority Round](#priority-round)
+  - [Public Round](#public-round)
 - [Deposits](#deposits)
   - [Deposited Transaction](#deposited-transaction)
   - [L1 Attributes Deposited Transaction](#l1-attributes-deposited-transaction)
@@ -78,6 +80,8 @@
   - [L1 Attributes Predeployed Contract](#l1-attributes-predeployed-contract)
   - [L2 Output Root](#l2-output-root)
   - [L2 Output Oracle Contract](#l2-output-oracle-contract)
+  - [Validator Pool Contract](#validator-pool-contract)
+  - [Colosseum Contract](#colosseum-contract)
   - [ZK Fault Proof](#zk-fault-proof)
   - [Time Slot](#time-slot)
   - [Block Time](#block-time)
@@ -358,8 +362,8 @@ The [L1] origin of an [L2] [block] is the L1 block corresponding to its [proposi
 
 Because transactions are visible to anyone, nodes can derive state. Registered [validators][validator] can submit
 [checkpoint output][checkpoint-output] every [validating epoch][validating-epoch]. Validators receive rewards
-in return. If the checkpoint output turns out to be invalid, this is challenged by validator who acts as a challenger.
-In result, validators should pay for gas used by challenger and lose their stake.
+in return. If the checkpoint output turns out to be invalid, this is challenged by another validator who acts as a
+challenger. As a result, validator who submitted invalid checkpoint output will lose their bond.
 
 ## Checkpoint Output
 
@@ -372,7 +376,8 @@ Checkpoint output is the l2 output root that denotes state transition during [va
 [validator]: glossary.md#validator
 
 A validator is a decentralized actor, who does [validation]. To participate network as a validator, one needs to
-stake to [L1]. Then validator is allowed to be able to submit checkpoint.
+deposit to [ValidatorPool contract][validator-pool-contract].
+Then the validator is allowed to be able to submit checkpoint.
 
 ## Trusted Validator
 
@@ -398,6 +403,18 @@ identical to 1 hour.
 
 A submission timeout is the maximum duration that the trusted validator waits for decentralized validators to do
 validations.
+
+## Priority Round
+
+[priority-round]: glossary.md#priority-round
+
+A priority round is the period during which validator with output submission priority can submit the output.
+
+## Public Round
+
+[public-round]: glossary.md#public-round
+
+A public round is the time period during which any account registered as a Validator can submit the output.
 
 ------------------------------------------------------------------------------------------------------------------------
 
@@ -812,8 +829,8 @@ blocks older than two L1 epochs (64 L1 [time slots][time-slot]).
 
 [address-aliasing]: glossary.md#address-aliasing
 
-When a contract submits a [deposit][deposits] from [L1] to [L2], it's address (as returned by `ORIGIN` and `CALLER`) will
-be aliased with a modified representation of the address of a contract.
+When a contract submits a [deposit][deposits] from [L1] to [L2], it's address (as returned by `ORIGIN` and `CALLER`)
+will be aliased with a modified representation of the address of a contract.
 
 - cf. [Deposit Specification](deposits.md#address-aliasing)
 
@@ -874,6 +891,20 @@ cf. [Submitting L2 output commitments](validations.md#submitting-l2-output-commi
 An [L1] contract to which [L2 output roots][l2-output] are posted by the [validator].
 
 > **TODO** expand
+
+## Validator Pool Contract
+
+[validator-pool-contract]: glossary.md#validator-pool-contract
+
+An [L1] contract that determines [validator] eligibility, selects the [validator] of next round, and manages bonding for
+[L2 output roots][l2-output] submissions.
+
+## Colosseum Contract
+
+[colosseum-contract]: glossary.md#colosseum-contract
+
+An [L1] contract in which the [asserter][validator] and challenger argue with each other to fix
+invalid [L2 output roots][l2-output].
 
 ## ZK Fault Proof
 

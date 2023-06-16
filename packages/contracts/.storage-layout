@@ -46,6 +46,7 @@
 | nextUnbondOutputIndex | uint256                               | 53   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
 | validators            | address[]                             | 54   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
 | validatorIndexes      | mapping(address => uint256)           | 55   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| nextPriorityValidator | address                               | 56   | 0      | 20    | contracts/L1/ValidatorPool.sol:ValidatorPool |
 
 =======================
 ➡ contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger
@@ -174,9 +175,12 @@
 ➡ contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                                                   |
-|----------------|---------|------|--------|-------|------------------------------------------------------------|
-| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
+| Name           | Type                        | Slot | Offset | Bytes | Contract                                                   |
+|----------------|-----------------------------|------|--------|-------|------------------------------------------------------------|
+| totalProcessed | uint256                     | 0    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
+| rewards        | mapping(address => uint256) | 1    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
+| isPaid         | mapping(uint256 => bool)    | 2    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
+| totalReserved  | uint256                     | 3    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
 
 =======================
 ➡ contracts/L2/ProtocolVault.sol:ProtocolVault

@@ -93,6 +93,16 @@ interface RequiredDeployConfig {
   validatorPoolMinBondAmount: string
 
   /**
+   * The period during a submission round that is not penalized (in seconds).
+   */
+  validatorPoolNonPenaltyPeriod: number
+
+  /**
+   * The period during a submission round that is penalized (in seconds).
+   */
+  validatorPoolPenaltyPeriod: number
+
+  /**
    * Output Oracle submission interval in L2 blocks.
    */
   l2OutputOracleSubmissionInterval: number
@@ -145,11 +155,6 @@ interface RequiredDeployConfig {
    * L1 recipient of fees accumulated in the ProposerRewardVault.
    */
   proposerRewardVaultRecipient: string
-
-  /**
-   * L1 recipient of fees accumulated in the ValidatorRewardVault.
-   */
-  validatorRewardVaultRecipient: string
 
   /**
    * Timeout seconds of bisection in the Colosseum.
@@ -261,6 +266,12 @@ export const deployConfigSpec: {
   validatorPoolMinBondAmount: {
     type: 'string', // uint256
   },
+  validatorPoolNonPenaltyPeriod: {
+    type: 'number',
+  },
+  validatorPoolPenaltyPeriod: {
+    type: 'number',
+  },
   l2OutputOracleSubmissionInterval: {
     type: 'number',
   },
@@ -282,9 +293,6 @@ export const deployConfigSpec: {
     type: 'address',
   },
   proposerRewardVaultRecipient: {
-    type: 'address',
-  },
-  validatorRewardVaultRecipient: {
     type: 'address',
   },
   cliqueSignerAddress: {
