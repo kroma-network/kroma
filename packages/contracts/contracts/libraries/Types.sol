@@ -44,27 +44,27 @@ library Types {
     /**
      * @notice Struct representing the elements that are hashed together to generate a public input.
      *
-     * @custom:field coinbase         Account address for paying transaction fees to.
+     * @custom:field blockHash        The hash of the block.
+     * @custom:field parentHash       The hash of the previous block.
      * @custom:field timestamp        The block time.
      * @custom:field number           The block number.
-     * @custom:field difficulty       Difficulty.
      * @custom:field gasLimit         Maximum gas allowed.
      * @custom:field baseFee          The base fee per gas.
-     * @custom:field chainId          The chain ID.
      * @custom:field transactionsRoot Root hash of the transactions.
      * @custom:field stateRoot        Root hash of the state trie.
+     * @custom:field withdrawalsRoot  Root hash of the withdrawals.
      * @custom:field txHashes         Array of hash of the transaction.
      */
     struct PublicInput {
-        address coinbase;
+        bytes32 blockHash;
+        bytes32 parentHash;
         uint64 timestamp;
         uint64 number;
-        uint256 difficulty;
         uint256 gasLimit;
         uint256 baseFee;
-        uint256 chainId;
         bytes32 transactionsRoot;
         bytes32 stateRoot;
+        bytes32 withdrawalsRoot;
         bytes32[] txHashes;
     }
 
@@ -72,26 +72,26 @@ library Types {
      * @notice Struct representing the elements that are hashed together to generate a block hash.
      *         Some of fields that are contained in PublicInput are omitted.
      *
-     * @custom:field parentHash      RLP encoded parent hash.
-     * @custom:field uncleHash       RLP encoded uncle hash.
-     * @custom:field receiptsRoot    RLP encoded receipts root.
-     * @custom:field logsBloom       RLP encoded logs bloom.
-     * @custom:field gasUsed         RLP encoded gas used.
-     * @custom:field extraData       RLP encoded extra data.
-     * @custom:field mixHash         RLP encoded mix hash.
-     * @custom:field nonce           RLP encoded nonce.
-     * @custom:field withdrawalsRoot RLP encoded withdrawals root.
+     * @custom:field uncleHash    RLP encoded uncle hash.
+     * @custom:field coinbase     RLP encoded coinbase.
+     * @custom:field receiptsRoot RLP encoded receipts root.
+     * @custom:field logsBloom    RLP encoded logs bloom.
+     * @custom:field difficulty   RLP encoded difficulty.
+     * @custom:field gasUsed      RLP encoded gas used.
+     * @custom:field extraData    RLP encoded extra data.
+     * @custom:field mixHash      RLP encoded mix hash.
+     * @custom:field nonce        RLP encoded nonce.
      */
     struct BlockHeaderRLP {
-        bytes parentHash;
         bytes uncleHash;
+        bytes coinbase;
         bytes receiptsRoot;
         bytes logsBloom;
+        bytes difficulty;
         bytes gasUsed;
         bytes extraData;
         bytes mixHash;
         bytes nonce;
-        bytes withdrawalsRoot;
     }
 
     /**

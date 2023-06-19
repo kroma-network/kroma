@@ -130,7 +130,7 @@ library Hashing {
      * @notice Hashes the various elements of an output root proof into an output root hash which
      *         can be used to check if the proof is valid.
      *
-     * @param _outputRootProof Output root proof which should hash to an output root.
+     * @param _outputRootProof Output root proof which should be hashed to an output root.
      *
      * @return Hashed output root proof.
      */
@@ -152,7 +152,7 @@ library Hashing {
      * @notice Hashes the various elements of an output root proof into an output root hash which
      *         can be used to check if the proof is valid. (version 0)
      *
-     * @param _outputRootProof Output root proof which should hash to an output root.
+     * @param _outputRootProof Output root proof which should be hashed to an output root.
      *
      * @return Hashed output root proof.
      */
@@ -176,7 +176,7 @@ library Hashing {
      * @notice Hashes the various elements of an output root proof into an output root hash which
      *         can be used to check if the proof is valid. (version 1)
      *
-     * @param _outputRootProof Output root proof which should hash to an output root.
+     * @param _outputRootProof Output root proof which should be hashed to an output root.
      *
      * @return Hashed output root proof.
      */
@@ -198,10 +198,40 @@ library Hashing {
     }
 
     /**
-     * @notice Hashes the various elements of a block header into a block hash.
+     * @notice Fills the values of the block hash fields to a given bytes.
      *
-     * @param _publicInput Public input which should hash to a block hash.
-     * @param _rlps        Pre-RLP encoded data which should hash to a block hash.
+     * @param _publicInput Public input which should be hashed to a block hash.
+     * @param _rlps        Pre-RLP encoded data which should be hashed to a block hash.
+     * @param _raw         An array of bytes to be populated.
+     */
+    function _fillBlockHashFieldsToBytes(
+        Types.PublicInput memory _publicInput,
+        Types.BlockHeaderRLP memory _rlps,
+        bytes[] memory _raw
+    ) private pure {
+        _raw[0] = RLPWriter.writeBytes(abi.encodePacked(_publicInput.parentHash));
+        _raw[1] = _rlps.uncleHash;
+        _raw[2] = _rlps.coinbase;
+        _raw[3] = RLPWriter.writeBytes(abi.encodePacked(_publicInput.stateRoot));
+        _raw[4] = RLPWriter.writeBytes(abi.encodePacked(_publicInput.transactionsRoot));
+        _raw[5] = _rlps.receiptsRoot;
+        _raw[6] = _rlps.logsBloom;
+        _raw[7] = _rlps.difficulty;
+        _raw[8] = RLPWriter.writeUint(_publicInput.number);
+        _raw[9] = RLPWriter.writeUint(_publicInput.gasLimit);
+        _raw[10] = _rlps.gasUsed;
+        _raw[11] = RLPWriter.writeUint(_publicInput.timestamp);
+        _raw[12] = _rlps.extraData;
+        _raw[13] = _rlps.mixHash;
+        _raw[14] = _rlps.nonce;
+        _raw[15] = RLPWriter.writeUint(_publicInput.baseFee);
+    }
+
+    /**
+     * @notice Hashes the various elements of a block header into a block hash(before shanghai).
+     *
+     * @param _publicInput Public input which should be hashed to a block hash.
+     * @param _rlps        Pre-RLP encoded data which should be hashed to a block hash.
      *
      * @return Hashed block header.
      */
@@ -209,30 +239,26 @@ library Hashing {
         Types.PublicInput memory _publicInput,
         Types.BlockHeaderRLP memory _rlps
     ) internal pure returns (bytes32) {
-        uint256 length = 16;
-        if (_rlps.withdrawalsRoot.length > 0) {
-            length += 1;
-        }
-        bytes[] memory raw = new bytes[](length);
-        raw[0] = _rlps.parentHash;
-        raw[1] = _rlps.uncleHash;
-        raw[2] = RLPWriter.writeAddress(_publicInput.coinbase);
-        raw[3] = RLPWriter.writeBytes(abi.encodePacked(_publicInput.stateRoot));
-        raw[4] = RLPWriter.writeBytes(abi.encodePacked(_publicInput.transactionsRoot));
-        raw[5] = _rlps.receiptsRoot;
-        raw[6] = _rlps.logsBloom;
-        raw[7] = RLPWriter.writeUint(_publicInput.difficulty);
-        raw[8] = RLPWriter.writeUint(_publicInput.number);
-        raw[9] = RLPWriter.writeUint(_publicInput.gasLimit);
-        raw[10] = _rlps.gasUsed;
-        raw[11] = RLPWriter.writeUint(_publicInput.timestamp);
-        raw[12] = _rlps.extraData;
-        raw[13] = _rlps.mixHash;
-        raw[14] = _rlps.nonce;
-        raw[15] = RLPWriter.writeUint(_publicInput.baseFee);
-        if (length == 17) {
-            raw[16] = _rlps.withdrawalsRoot;
-        }
+        bytes[] memory raw = new bytes[](16);
+        _fillBlockHashFieldsToBytes(_publicInput, _rlps, raw);
+        return keccak256(RLPWriter.writeList(raw));
+    }
+
+    /**
+     * @notice Hashes the various elements of a block header into a block hash(after shanghai).
+     *
+     * @param _publicInput Public input which should be hashed to a block hash.
+     * @param _rlps        Pre-RLP encoded data which should be hashed to a block hash.
+     *
+     * @return Hashed block header.
+     */
+    function hashBlockHeaderShanghai(
+        Types.PublicInput memory _publicInput,
+        Types.BlockHeaderRLP memory _rlps
+    ) internal pure returns (bytes32) {
+        bytes[] memory raw = new bytes[](17);
+        _fillBlockHashFieldsToBytes(_publicInput, _rlps, raw);
+        raw[16] = RLPWriter.writeBytes(abi.encodePacked(_publicInput.withdrawalsRoot));
         return keccak256(RLPWriter.writeList(raw));
     }
 
@@ -240,8 +266,7 @@ library Hashing {
      * @notice Hashes the various elements of a public input into a public input hash.
      *
      * @param _prevStateRoot Previous state root.
-     * @param _publicInput   Public input which should hash to a public input hash.
-     * @param _chainId       Chain ID.
+     * @param _publicInput   Public input which should be hashed to a public input hash.
      * @param _dummyHashes   Dummy hashes returned from generateDummyHashes().
      *
      * @return Hashed block header.
@@ -249,22 +274,21 @@ library Hashing {
     function hashPublicInput(
         bytes32 _prevStateRoot,
         Types.PublicInput memory _publicInput,
-        uint256 _chainId,
         bytes32[] memory _dummyHashes
     ) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encodePacked(
-                    _publicInput.coinbase,
-                    _publicInput.timestamp,
-                    _publicInput.number,
-                    _publicInput.difficulty,
-                    _publicInput.gasLimit,
-                    _publicInput.baseFee,
-                    _chainId,
-                    _publicInput.txHashes.length,
                     _prevStateRoot,
                     _publicInput.stateRoot,
+                    _publicInput.withdrawalsRoot,
+                    _publicInput.blockHash,
+                    _publicInput.parentHash,
+                    _publicInput.number,
+                    _publicInput.timestamp,
+                    _publicInput.baseFee,
+                    _publicInput.gasLimit,
+                    uint16(_publicInput.txHashes.length),
                     _publicInput.txHashes,
                     _dummyHashes
                 )
@@ -279,10 +303,11 @@ library Hashing {
      *
      * @return Bytes32 array filled with dummy hash.
      */
-    function generateDummyHashes(
-        bytes32 _dummyHashes,
-        uint256 _length
-    ) internal pure returns (bytes32[] memory) {
+    function generateDummyHashes(bytes32 _dummyHashes, uint256 _length)
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
         bytes32[] memory hashes = new bytes32[](_length);
         for (uint256 i = 0; i < _length; i++) {
             hashes[i] = _dummyHashes;

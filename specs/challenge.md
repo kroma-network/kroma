@@ -216,13 +216,14 @@ until time `t`".
 
 The following verification process applies to output version 1 and later:
 
-The `_pair[4]` contains the [public input](./zkevm-prover.md#zkevm-proof), which must be processed before
+The `_pair[4]` and `_pair[5]` contain the [public input](./zkevm-prover.md#zkevm-proof), which must be processed before
 verification by [ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract) can be performed.
 
 1. Check whether `_srcOutputRootProof` is the preimage of the first output root of the segment.
 2. Check whether `_dstOutputRootProof` is the preimage of the next output root of the segment.
 3. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the `blockHash` in `_dstOutputRootProof`.
-4. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the block hash derived from `_publicInput` and `_rlps`.
+4. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the block hash derived from `_publicInput` and
+   `_rlps`.
 5. Verify that the `transactionsRoot` in `_publicInput` matches the transaction root derived from the transaction
    hashes.
 6. If the transaction hash in `_publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
@@ -243,5 +244,6 @@ Colosseum should be behind upgradable proxies.
 | `PROVING_TIMEOUT`     | TBD                                                                | seconds           |
 | `SEGMENTS_LENGTHS`    | [9, 6, 10, 6]                                                      | array of integers |
 | `MAX_TXS`             | 25                                                                 | uint256           |
-| `DUMMY_HASH`(sepolia) | 0xe3c0fb45c84ee6608b3ee3a7016c505f46ff23736038a4344abf62156e2b21be | bytes32           |
-| `DUMMY_HASH`(easel)   | 0xec42d5de5b086e5922e6b0b65ff579305bca5681eed40133209c86cfbc2c7d48 | bytes32           |
+| `DUMMY_HASH`(sepolia) | 0xaf01bc158f9b35867aea1517e84cf67eedc6a397c0df380b4b139eb570ddb2fc | bytes32           |
+| `DUMMY_HASH`(easel)   | 0x970006032ab7595c0e6f85fad6d7062523dfe465ff201aba93801f9cd36ad825 | bytes32           |
+| `DUMMY_HASH`(devnet)  | 0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7 | bytes32           |

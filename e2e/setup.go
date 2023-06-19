@@ -113,7 +113,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 
 		ColosseumBisectionTimeout: 120,
 		ColosseumProvingTimeout:   480,
-		ColosseumDummyHash:        common.HexToHash("0x8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9"),
+		ColosseumDummyHash:        common.HexToHash("0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7"),
 		ColosseumMaxTxs:           25,
 		ColosseumSegmentsLengths:  "3,3",
 

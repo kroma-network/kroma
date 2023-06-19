@@ -23,8 +23,8 @@
 ## Overview
 
 A Prover produces a [ZK fault proof][g-zk-fault-proof] that states that a [state][g-state] transition from `S` to
-`S'` is valid. It sounds like there are no big differences from validity proofs. That's true. But the point is this is used
-to prove the state transition `S` to `S''` is wrong by showing a valid state transition `S` to `S'`.
+`S'` is valid. It sounds like there are no big differences from validity proofs. That's true. But the point is this is
+used to prove the state transition `S` to `S''` is wrong by showing a valid state transition `S` to `S'`.
 
 ## zkEVM Proof
 
@@ -36,11 +36,11 @@ zkEVM proof is a proof that proves the relation between public input and witness
 
 Public input and witness are followings:
 
-- Public input: the single hash needed by `PublicInputCircuit`. You can compute it like below:
+- Public input: the 2 hashes needed by `PublicInputCircuit`. You can compute them like below:
 
   ```ts
   import { DataOptions, hexlify } from '@ethersproject/bytes';
-  import { Wallet } from 'ethers';
+  import { Wallet, constants } from 'ethers';
   import { keccak256 } from 'ethers/lib/utils';
 
   function strip0x(str: string): string {
@@ -63,13 +63,14 @@ Public input and witness are followings:
     );
   }
 
-  function getDummyTxHash(chainId: number): Promise<string> {
+  async function getDummyTxHash(chainId: number): Promise<string> {
     const sk = hex.toFixedBuffer(1, 32);
     const signer = new Wallet(sk);
     const rlp = await signer.signTransaction({
       nonce: 0,
       gasLimit: 0,
       gasPrice: 0,
+      to: constants.AddressZero,
       value: 0,
       data: '0x',
       chainId,
@@ -77,20 +78,20 @@ Public input and witness are followings:
     return keccak256(rlp);
   }
 
-  function computePublicInput(block: RPCBlock, chainId: number): {
+  async function computePublicInput(block: RPCBlock, chainId: number): Promise<[string, string]> {
     const maxTxs = 25;
 
     const buf = Buffer.concat([
-      toFixedBuffer(block.miner, 20),
-      toFixedBuffer(block.timestamp, 8),
-      toFixedBuffer(block.number, 8),
-      toFixedBuffer(block.difficulty, 32),
-      toFixedBuffer(block.gasLimit, 8),
-      toFixedBuffer(block.baseFeePerGas!, 32),
-      toFixedBuffer(chainId, 32),
-      toFixedBuffer(block.transactions.length, 32),
-      toFixedBuffer(prevStateRoot, 32),
-      toFixedBuffer(block.stateRoot, 32),
+      hex.toFixedBuffer(prevStateRoot, 32),
+      hex.toFixedBuffer(block.stateRoot, 32),
+      hex.toFixedBuffer(block.withdrawalsRoot ?? 0, 32),
+      hex.toFixedBuffer(block.hash, 32),
+      hex.toFixedBuffer(block.parentHash, 32),
+      hex.toFixedBuffer(block.number, 8),
+      hex.toFixedBuffer(block.timestamp, 8),
+      hex.toFixedBuffer(block.baseFeePerGas ?? 0, 32),
+      hex.toFixedBuffer(block.gasLimit, 8),
+      hex.toFixedBuffer(block.transactions.length, 2),
       Buffer.concat(
         block.transactions.map((txHash: string) => {
             return toFixedBuffer(txHash, 32);
@@ -102,7 +103,11 @@ Public input and witness are followings:
         ),
       ),
     ]);
-    return keccak256(buf);
+    const h = hex.toFixedBuffer(keccak256(buf), 32);
+    return [
+      '0x' + h.subarray(0, 16).toString('hex'),
+      '0x' + h.subarray(16, 32).toString('hex'),
+    ];
   }
   ```
 

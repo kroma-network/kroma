@@ -32,7 +32,7 @@
   "eip1559Elasticity": 10,
   "colosseumBisectionTimeout": 120,
   "colosseumProvingTimeout": 480,
-  "colosseumDummyHash": "0xe3c0fb45c84ee6608b3ee3a7016c505f46ff23736038a4344abf62156e2b21be",
+  "colosseumDummyHash": "0xaf01bc158f9b35867aea1517e84cf67eedc6a397c0df380b4b139eb570ddb2fc",
   "colosseumMaxTxs": 25,
   "colosseumSegmentsLengths": "6,5",
   "numDeployConfirmations": 1,

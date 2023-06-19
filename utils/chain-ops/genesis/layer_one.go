@@ -413,7 +413,6 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 				uint642Big(config.L2OutputOracleSubmissionInterval),
 				uint642Big(config.ColosseumBisectionTimeout),
 				uint642Big(config.ColosseumProvingTimeout),
-				uint642Big(config.L2ChainID),
 				config.ColosseumDummyHash,
 				uint642Big(config.ColosseumMaxTxs),
 				parseSegsLengthsConfig(config.ColosseumSegmentsLengths),
@@ -508,10 +507,9 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			/* submissionInterval= */ deployment.Args[0].(*big.Int),
 			/* bisectionTimeout= */ deployment.Args[1].(*big.Int),
 			/* provingTimeout= */ deployment.Args[2].(*big.Int),
-			/* chainId= */ deployment.Args[3].(*big.Int),
-			/* dummyHash= */ deployment.Args[4].(common.Hash),
-			/* maxTxs= */ deployment.Args[5].(*big.Int),
-			/* segmentsLengths= */ deployment.Args[6].([]*big.Int),
+			/* dummyHash= */ deployment.Args[3].(common.Hash),
+			/* maxTxs= */ deployment.Args[4].(*big.Int),
+			/* segmentsLengths= */ deployment.Args[5].([]*big.Int),
 			predeploys.DevSecurityCouncilAddr,
 		)
 	case "SecurityCouncil":
