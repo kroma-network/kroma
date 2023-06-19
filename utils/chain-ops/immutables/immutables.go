@@ -176,6 +176,9 @@ func l2Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			return nil, fmt.Errorf("invalid type for validatorPoolAddress")
 		}
 		rewardDivider, ok := deployment.Args[1].(*big.Int)
+		if !ok {
+			return nil, fmt.Errorf("invalid type for rewardDivider")
+		}
 		_, tx, _, err = bindings.DeployValidatorRewardVault(opts, backend, validatorPoolAddress, rewardDivider)
 	case "ProtocolVault":
 		recipient, ok := deployment.Args[0].(common.Address)

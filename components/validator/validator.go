@@ -131,7 +131,9 @@ func (v *Validator) Start() error {
 	v.l.Info("starting Validator")
 
 	if !v.cfg.OutputSubmitterDisabled {
-		v.l2os.Start()
+		if err := v.l2os.Start(); err != nil {
+			return fmt.Errorf("cannot start l2 output submitter: %w", err)
+		}
 	}
 
 	if err := v.challenger.Start(); err != nil {
@@ -159,10 +161,14 @@ func (v *Validator) Stop() error {
 	}
 
 	if !v.cfg.OutputSubmitterDisabled {
-		v.l2os.Stop()
+		if err := v.l2os.Stop(); err != nil {
+			return fmt.Errorf("failed to stop l2 output submitter: %w", err)
+		}
 	}
 
-	v.challenger.Stop()
+	if err := v.challenger.Stop(); err != nil {
+		return fmt.Errorf("failed to stop challenger: %w", err)
+	}
 
 	if v.cfg.GuardianEnabled {
 		if err := v.guardian.Stop(); err != nil {
@@ -172,6 +178,7 @@ func (v *Validator) Stop() error {
 
 	v.cancel()
 	v.wg.Wait()
+
 	return nil
 }
 

@@ -70,6 +70,7 @@ func (g *Guardian) Start() error {
 
 	g.wg.Add(1)
 	go g.handleValidationRequested()
+
 	return nil
 }
 
@@ -83,6 +84,7 @@ func (g *Guardian) Stop() error {
 
 	g.cancel()
 	g.wg.Wait()
+
 	return nil
 }
 

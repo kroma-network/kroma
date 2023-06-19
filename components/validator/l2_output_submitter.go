@@ -112,16 +112,20 @@ func NewL2OutputSubmitter(parentCtx context.Context, cfg Config, l log.Logger, m
 	}, nil
 }
 
-func (l *L2OutputSubmitter) Start() {
+func (l *L2OutputSubmitter) Start() error {
 	l.log.Info("starting L2 Output Submitter")
 	l.wg.Add(1)
 	go l.loop()
+
+	return nil
 }
 
-func (l *L2OutputSubmitter) Stop() {
+func (l *L2OutputSubmitter) Stop() error {
 	l.log.Info("stopping L2 Output Submitter")
 	l.cancel()
 	l.wg.Wait()
+
+	return nil
 }
 
 func (l *L2OutputSubmitter) loop() {

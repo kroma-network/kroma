@@ -15,7 +15,7 @@ import (
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
-const LastValidBlockNum = uint64(6)
+const lastValidBlockNum = uint64(6)
 
 func TestChallenger(gt *testing.T) {
 	t := NewDefaultTesting(gt)
@@ -89,7 +89,7 @@ func TestChallenger(gt *testing.T) {
 	outputOracleContract, err := bindings.NewL2OutputOracle(sd.DeploymentsL1.L2OutputOracleProxy, miner.EthClient())
 	require.NoError(t, err)
 
-	mockRPC.SetLastValidBlockNumber(LastValidBlockNum)
+	mockRPC.SetLastValidBlockNumber(lastValidBlockNum)
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// and submit it to L1

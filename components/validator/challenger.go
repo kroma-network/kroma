@@ -186,7 +186,7 @@ func (c *Challenger) Start() error {
 	return nil
 }
 
-func (c *Challenger) Stop() {
+func (c *Challenger) Stop() error {
 	c.log.Info("stop challenger")
 
 	if c.l2OutputSub != nil {
@@ -199,6 +199,8 @@ func (c *Challenger) Stop() {
 
 	c.cancel()
 	c.wg.Wait()
+
+	return nil
 }
 
 // scanPrevOutputs scans all the previous outputs since the checkpoint within the finalization window.
