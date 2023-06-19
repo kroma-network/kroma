@@ -79,6 +79,8 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 
 		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
 		ValidatorPoolMinBondAmount:    uint642big(1),
+		ValidatorPoolNonPenaltyPeriod: 1,
+		ValidatorPoolPenaltyPeriod:    1,
 
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
@@ -118,9 +120,8 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		GasPriceOracleOverhead: 2100,
 		GasPriceOracleScalar:   1_000_000,
 
-		ValidatorRewardVaultRecipient: common.Address{19: 1},
-		ProtocolVaultRecipient:        common.Address{19: 2},
-		ProposerRewardVaultRecipient:  common.Address{19: 3},
+		ProtocolVaultRecipient:       common.Address{19: 2},
+		ProposerRewardVaultRecipient: common.Address{19: 3},
 
 		DeploymentWaitConfirmations: 1,
 

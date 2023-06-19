@@ -393,7 +393,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
     // Get the system into a nice ready-to-use state.
     function setUp() public override {
         // Configure the oracle to return the output root we've prepared.
-        vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber) + 1);
+        vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber + 1));
         vm.prank(trusted);
         oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0, minBond);
 

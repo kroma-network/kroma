@@ -5,6 +5,7 @@ import { stdError } from "forge-std/Test.sol";
 
 import { Types } from "../libraries/Types.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
+import { ValidatorPool } from "../L1/ValidatorPool.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { L2OutputOracle_Initializer, NextImpl } from "./CommonTest.t.sol";
 
@@ -20,24 +21,23 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     }
 
     function test_constructor_succeeds() external {
+        assertEq(address(oracle.VALIDATOR_POOL()), address(pool));
+        assertEq(oracle.COLOSSEUM(), address(colosseum));
         assertEq(oracle.SUBMISSION_INTERVAL(), submissionInterval);
         assertEq(oracle.latestBlockNumber(), startingBlockNumber);
         assertEq(oracle.startingBlockNumber(), startingBlockNumber);
         assertEq(oracle.startingTimestamp(), startingTimestamp);
-        assertEq(address(oracle.VALIDATOR_POOL()), address(pool));
-        assertEq(oracle.COLOSSEUM(), address(colosseum));
     }
 
     function test_constructor_badTimestamp_reverts() external {
         vm.expectRevert("L2OutputOracle: starting L2 timestamp must be less than current time");
-
         new L2OutputOracle({
+            _validatorPool: pool,
+            _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: block.timestamp + 1,
-            _validatorPool: pool,
-            _colosseum: address(colosseum),
             _finalizationPeriodSeconds: 7 days
         });
     }
@@ -45,12 +45,12 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_constructor_l2BlockTimeZero_reverts() external {
         vm.expectRevert("L2OutputOracle: L2 block time must be greater than 0");
         new L2OutputOracle({
+            _validatorPool: pool,
+            _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: 0,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: block.timestamp,
-            _validatorPool: pool,
-            _colosseum: address(colosseum),
             _finalizationPeriodSeconds: 7 days
         });
     }
@@ -58,12 +58,12 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_constructor_submissionInterval_reverts() external {
         vm.expectRevert("L2OutputOracle: submission interval must be greater than 0");
         new L2OutputOracle({
+            _validatorPool: pool,
+            _colosseum: address(colosseum),
             _submissionInterval: 0,
             _l2BlockTime: l2BlockTime,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: block.timestamp,
-            _validatorPool: pool,
-            _colosseum: address(colosseum),
             _finalizationPeriodSeconds: 7 days
         });
     }
@@ -229,9 +229,18 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
 
         vm.roll(nextBlockNumber + 1);
 
+        uint128 finalizeAt = uint128(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
+        vm.expectCall(
+            address(oracle.VALIDATOR_POOL()),
+            abi.encodeWithSelector(
+                ValidatorPool.createBond.selector,
+                nextOutputIndex,
+                minBond,
+                finalizeAt
+            )
+        );
         vm.expectEmit(true, true, true, true);
         emit OutputSubmitted(submittedOutput2, nextOutputIndex, nextBlockNumber, block.timestamp);
-
         vm.prank(trusted);
         oracle.submitL2Output(submittedOutput2, nextBlockNumber, 0, 0, minBond);
     }
@@ -242,9 +251,9 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         // Get the number and hash of a previous block in the chain
         uint256 prevL1BlockNumber = block.number - 1;
         bytes32 prevL1BlockHash = blockhash(prevL1BlockNumber);
-
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber);
+
         vm.prank(trusted);
         oracle.submitL2Output(
             nonZeroHash,

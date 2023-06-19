@@ -4,10 +4,15 @@ pragma solidity 0.8.15;
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
+import { Constants } from "../libraries/Constants.sol";
+import { Predeploys } from "../libraries/Predeploys.sol";
 import { SafeCall } from "../libraries/SafeCall.sol";
 import { Types } from "../libraries/Types.sol";
 import { Semver } from "../universal/Semver.sol";
+import { ValidatorRewardVault } from "../L2/ValidatorRewardVault.sol";
+import { KromaPortal } from "./KromaPortal.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
 
 /**
@@ -17,9 +22,20 @@ import { L2OutputOracle } from "./L2OutputOracle.sol";
  */
 contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     /**
+     * @notice The gas limit to use when rewarding validator in the ValidatorRewardVault on L2.
+     *         This value is measured through simulation.
+     */
+    uint64 public constant VAULT_REWARD_GAS_LIMIT = 100000;
+
+    /**
      * @notice The address of the L2OutputOracle contract. Can be updated via upgrade.
      */
     L2OutputOracle public immutable L2_ORACLE;
+
+    /**
+     * @notice The address of the KromaPortal contract. Can be updated via upgrade.
+     */
+    KromaPortal public immutable PORTAL;
 
     /**
      * @notice The address of the trusted validator. Can be updated via upgrade.
@@ -30,6 +46,22 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @notice The minimum bond amount. Can be updated via upgrade.
      */
     uint256 public immutable MIN_BOND_AMOUNT;
+
+    /**
+     * @notice The period in a round that the penalty does not apply, after which it does (in seconds).
+     */
+    uint256 public immutable NON_PENALTY_PERIOD;
+
+    /**
+     * @notice The period in a round that the penalty does apply (in seconds).
+     */
+    uint256 public immutable PENALTY_PERIOD;
+
+    /*
+     * @notice The duration of a submission round for one output (in seconds).
+     *         Note that there are two submission rounds for an output: PRIORITY ROUND and PUBLIC ROUND.
+     */
+    uint256 public immutable ROUND_DURATION;
 
     /**
      * @notice A mapping of balances.
@@ -55,6 +87,11 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @notice The index of the specific address in the validator array.
      */
     mapping(address => uint256) internal validatorIndexes;
+
+    /**
+     * @notice Address of the next validator with priority for submitting output.
+     */
+    address internal nextPriorityValidator;
 
     /**
      * @notice Emitted when a validator bonds.
@@ -93,17 +130,31 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @custom:semver 0.1.0
      *
      * @param _l2OutputOracle   Address of the L2OutputOracle.
+     * @param _portal           Address of the KromaPortal.
      * @param _trustedValidator Address of the trusted validator.
      * @param _minBondAmount    The minimum bond amount.
+     * @param _nonPenaltyPeriod The period during a submission round that is not penalized.
+     * @param _penaltyPeriod    The period during a submission round when penalties are applied.
      */
     constructor(
         L2OutputOracle _l2OutputOracle,
+        KromaPortal _portal,
         address _trustedValidator,
-        uint256 _minBondAmount
+        uint256 _minBondAmount,
+        uint256 _nonPenaltyPeriod,
+        uint256 _penaltyPeriod
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2OutputOracle;
+        PORTAL = _portal;
         TRUSTED_VALIDATOR = _trustedValidator;
         MIN_BOND_AMOUNT = _minBondAmount;
+        NON_PENALTY_PERIOD = _nonPenaltyPeriod;
+        PENALTY_PERIOD = _penaltyPeriod;
+
+        // The submission round duration is the sum of the non-penalty time and the penalty time.
+        // Note that this value MUST NOT exceed (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
+        ROUND_DURATION = _nonPenaltyPeriod + _penaltyPeriod;
+
         initialize();
     }
 
@@ -193,24 +244,86 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
 
     /**
      * @notice Attempts to unbond corresponding to nextUnbondOutputIndex and returns whether the unbond was successful.
+     *         When unbound, it updates the next priority validator and sends a reward message to L2.
      *
      * @return Whether the bond has been successfully unbonded.
      */
     function _tryUnbond() private returns (bool) {
         uint256 outputIndex = nextUnbondOutputIndex;
-        address recipient = L2_ORACLE.getSubmitter(outputIndex);
 
         Types.Bond storage bond = bonds[outputIndex];
-        if (block.timestamp >= bond.expiresAt && bond.amount > 0) {
-            _increaseBalance(recipient, bond.amount);
-            nextUnbondOutputIndex = nextUnbondOutputIndex + 1;
-            emit Unbonded(outputIndex, recipient, bond.amount);
-            bond.amount = 0;
+        uint128 bondAmount = bond.amount;
+        if (block.timestamp >= bond.expiresAt && bondAmount > 0) {
+            delete bonds[outputIndex];
+
+            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(outputIndex);
+            _increaseBalance(output.submitter, bondAmount);
+            emit Unbonded(outputIndex, output.submitter, bondAmount);
+
+            unchecked {
+                ++nextUnbondOutputIndex;
+            }
+
+            // Select the next priority validator.
+            _updatePriorityValidator(output.outputRoot);
+            // Send reward message to L2 ValidatorRewardVault.
+            _sendRewardMessageToL2Vault(output);
 
             return true;
         }
 
         return false;
+    }
+
+    /**
+     * @notice Updates next priority validator address.
+     *
+     * @param _outputRoot The L2 output of the checkpoint block.
+     */
+    function _updatePriorityValidator(bytes32 _outputRoot) private {
+        uint256 len = validators.length;
+        if (len > 0) {
+            // TODO(pangssu): improve next validator selection
+            uint256 validatorIndex = uint256(
+                keccak256(abi.encodePacked(_outputRoot, block.number, block.coinbase))
+            ) % len;
+
+            nextPriorityValidator = validators[validatorIndex];
+        } else {
+            nextPriorityValidator = address(0);
+        }
+    }
+
+    /**
+     * @notice Sends reward message to ValidatorRewardVault contract on L2 using Portal.
+     *
+     * @param _output The finalized output.
+     */
+    function _sendRewardMessageToL2Vault(Types.CheckpointOutput memory _output) private {
+        // Calculate the elapsed time to submitting the output.
+        uint256 penaltyNumerator = 0;
+        uint256 elapsed = _output.timestamp -
+            L2_ORACLE.computeL2Timestamp(_output.l2BlockNumber + 1);
+        if (elapsed > ROUND_DURATION) {
+            elapsed -= ROUND_DURATION;
+        }
+        // Count from the time the penalty is applied.
+        if (elapsed >= NON_PENALTY_PERIOD) {
+            penaltyNumerator = Math.min(elapsed - NON_PENALTY_PERIOD, PENALTY_PERIOD);
+        }
+
+        // Pay out rewards via L2 Vault now that the output is finalized.
+        PORTAL.depositTransactionByValidatorPool(
+            Predeploys.VALIDATOR_REWARD_VAULT,
+            VAULT_REWARD_GAS_LIMIT,
+            abi.encodeWithSelector(
+                ValidatorRewardVault.reward.selector,
+                _output.submitter,
+                _output.l2BlockNumber,
+                penaltyNumerator,
+                PENALTY_PERIOD
+            )
+        );
     }
 
     /**
@@ -316,23 +429,18 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @return The address of the validator.
      */
     function nextValidator() public view returns (address) {
-        uint256 nextOutputIndex = L2_ORACLE.nextOutputIndex();
-        if (nextOutputIndex > 0) {
-            // TODO(pangssu): Make sure to use the finalized output root.
-            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(nextOutputIndex - 1);
-            uint256 rand = uint256(
-                keccak256(
-                    abi.encodePacked(
-                        validators.length,
-                        output.outputRoot,
-                        output.submitter,
-                        output.timestamp,
-                        output.l2BlockNumber
-                    )
-                )
-            ) % validators.length;
+        if (nextPriorityValidator != address(0)) {
+            uint256 l2BlockNumber = L2_ORACLE.nextBlockNumber();
+            uint256 l2Timestamp = L2_ORACLE.computeL2Timestamp(l2BlockNumber + 1);
+            if (block.timestamp >= l2Timestamp) {
+                uint256 elapsed = block.timestamp - l2Timestamp;
+                // If the current time exceeds one round time, it is a public round.
+                if (elapsed > ROUND_DURATION) {
+                    return Constants.VALIDATOR_PUBLIC_ROUND_ADDRESS;
+                }
+            }
 
-            return validators[rand];
+            return nextPriorityValidator;
         } else {
             return TRUSTED_VALIDATOR;
         }

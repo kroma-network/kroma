@@ -13,6 +13,8 @@
 
   "validatorPoolTrustedValidator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   "validatorPoolMinBondAmount": "0x1",
+  "validatorPoolNonPenaltyPeriod": 10,
+  "validatorPoolPenaltyPeriod": 10,
 
   "l2OutputOracleSubmissionInterval": 20,
   "l2OutputOracleStartingTimestamp": -1,
@@ -22,7 +24,6 @@
 
   "protocolVaultRecipient": "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
   "proposerRewardVaultRecipient": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
-  "validatorRewardVaultRecipient": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
   "l1ERC721BridgeProxy": "0xff000000000000000000000000000000000000ff",
   "l1StandardBridgeProxy": "0xff000000000000000000000000000000000000fd",
   "l1CrossDomainMessengerProxy": "0xff000000000000000000000000000000000000dd",

@@ -68,6 +68,8 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 
 		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
 		ValidatorPoolMinBondAmount:    uint64ToBig(1),
+		ValidatorPoolNonPenaltyPeriod: 3,
+		ValidatorPoolPenaltyPeriod:    3,
 
 		L2OutputOracleSubmissionInterval: 6,
 		L2OutputOracleStartingTimestamp:  -1,
@@ -109,9 +111,8 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		GasPriceOracleScalar:        1000_000,
 		DeploymentWaitConfirmations: 1,
 
-		ValidatorRewardVaultRecipient: common.Address{19: 1},
-		ProtocolVaultRecipient:        common.Address{19: 2},
-		ProposerRewardVaultRecipient:  common.Address{19: 3},
+		ProtocolVaultRecipient:       common.Address{19: 2},
+		ProposerRewardVaultRecipient: common.Address{19: 3},
 
 		EIP1559Elasticity:  10,
 		EIP1559Denominator: 50,

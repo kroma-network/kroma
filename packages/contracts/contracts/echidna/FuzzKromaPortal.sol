@@ -26,6 +26,7 @@ contract EchidnaFuzzKromaPortal {
         });
         portal = new KromaPortal({
             _l2Oracle: L2OutputOracle(address(0)),
+            _validatorPool: address(0),
             _guardian: address(0),
             _paused: false,
             _config: systemConfig,

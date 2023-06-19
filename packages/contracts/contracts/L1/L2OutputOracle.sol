@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
+import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
 import { Semver } from "../universal/Semver.sol";
 import { ValidatorPool } from "./ValidatorPool.sol";
@@ -16,6 +17,16 @@ import { ValidatorPool } from "./ValidatorPool.sol";
  */
 contract L2OutputOracle is Initializable, Semver {
     /**
+     * @notice The address of the validator pool contract. Can be updated via upgrade.
+     */
+    ValidatorPool public immutable VALIDATOR_POOL;
+
+    /**
+     * @notice The address of the colosseum contract. Can be updated via upgrade.
+     */
+    address public immutable COLOSSEUM;
+
+    /**
      * @notice The interval in L2 blocks at which checkpoints must be submitted. Although this is
      *         immutable, it can safely be modified by upgrading the implementation contract.
      */
@@ -25,16 +36,6 @@ contract L2OutputOracle is Initializable, Semver {
      * @notice The time between L2 blocks in seconds. Once set, this value MUST NOT be modified.
      */
     uint256 public immutable L2_BLOCK_TIME;
-
-    /**
-     * @notice The address of the colosseum contract. Can be updated via upgrade.
-     */
-    address public immutable COLOSSEUM;
-
-    /**
-     * @notice The address of the validator pool contract. Can be updated via upgrade.
-     */
-    ValidatorPool public immutable VALIDATOR_POOL;
 
     /**
      * @notice Minimum time (in seconds) that must elapse before a withdrawal can be finalized.
@@ -82,21 +83,21 @@ contract L2OutputOracle is Initializable, Semver {
     /**
      * @custom:semver 0.1.0
      *
+     * @param _validatorPool             The address of the ValidatorPool contract.
+     * @param _colosseum                 The address of the Colosseum contract.
      * @param _submissionInterval        Interval in blocks at which checkpoints must be submitted.
      * @param _l2BlockTime               The time per L2 block, in seconds.
      * @param _startingBlockNumber       The number of the first L2 block.
      * @param _startingTimestamp         The timestamp of the first L2 block.
-     * @param _validatorPool             The address of the ValidatorPool contract.
-     * @param _colosseum                 The address of the Colosseum contract.
      * @param _finalizationPeriodSeconds Output finalization time in seconds.
      */
     constructor(
+        ValidatorPool _validatorPool,
+        address _colosseum,
         uint256 _submissionInterval,
         uint256 _l2BlockTime,
         uint256 _startingBlockNumber,
         uint256 _startingTimestamp,
-        ValidatorPool _validatorPool,
-        address _colosseum,
         uint256 _finalizationPeriodSeconds
     ) Semver(0, 1, 0) {
         require(_l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
@@ -105,10 +106,10 @@ contract L2OutputOracle is Initializable, Semver {
             "L2OutputOracle: submission interval must be greater than 0"
         );
 
-        SUBMISSION_INTERVAL = _submissionInterval;
-        L2_BLOCK_TIME = _l2BlockTime;
         VALIDATOR_POOL = _validatorPool;
         COLOSSEUM = _colosseum;
+        SUBMISSION_INTERVAL = _submissionInterval;
+        L2_BLOCK_TIME = _l2BlockTime;
         FINALIZATION_PERIOD_SECONDS = _finalizationPeriodSeconds;
 
         initialize(_startingBlockNumber, _startingTimestamp);
@@ -159,14 +160,15 @@ contract L2OutputOracle is Initializable, Semver {
             "L2OutputOracle: cannot replace an output after the latest output index"
         );
 
+        Types.CheckpointOutput storage output = l2Outputs[_l2OutputIndex];
         // Do not allow replacing any outputs that have already been finalized.
         require(
-            block.timestamp - l2Outputs[_l2OutputIndex].timestamp < FINALIZATION_PERIOD_SECONDS,
+            block.timestamp - output.timestamp < FINALIZATION_PERIOD_SECONDS,
             "L2OutputOracle: cannot replace an output that has already been finalized"
         );
 
-        l2Outputs[_l2OutputIndex].outputRoot = _newOutputRoot;
-        l2Outputs[_l2OutputIndex].submitter = _submitter;
+        output.outputRoot = _newOutputRoot;
+        output.submitter = _submitter;
 
         emit OutputReplaced(_l2OutputIndex, _newOutputRoot);
     }
@@ -189,10 +191,14 @@ contract L2OutputOracle is Initializable, Semver {
         uint256 _l1BlockNumber,
         uint256 _bondAmount
     ) external payable {
-        require(
-            msg.sender == VALIDATOR_POOL.nextValidator(),
-            "L2OutputOracle: only the next selected validator can submit output"
-        );
+        address nextValidator = VALIDATOR_POOL.nextValidator();
+        // If it's not a public round, only selected validators can submit output.
+        if (nextValidator != Constants.VALIDATOR_PUBLIC_ROUND_ADDRESS) {
+            require(
+                msg.sender == nextValidator,
+                "L2OutputOracle: only the next selected validator can submit output"
+            );
+        }
 
         require(
             _l2BlockNumber == nextBlockNumber(),
