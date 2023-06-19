@@ -7,6 +7,7 @@ import { Types } from "../libraries/Types.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
 import { Colosseum_Initializer } from "./CommonTest.t.sol";
 import { ColosseumTestData } from "./testdata/ColosseumTestData.sol";
+import { SecurityCouncil } from "../L1/SecurityCouncil.sol";
 
 // Test the implementations of the Colosseum
 contract ColosseumTest is Colosseum_Initializer {
@@ -155,6 +156,10 @@ contract ColosseumTest is Colosseum_Initializer {
     }
 
     function _proveFault(uint256 _outputIndex) private {
+        // get previous snapshot
+        uint256 outputIndex = oracle.latestOutputIndex();
+        Types.CheckpointOutput memory prevOutput = oracle.getL2Output(outputIndex);
+
         Types.Challenge memory challenge = colosseum.getChallenge(_outputIndex);
         Types.CheckpointOutput memory output = oracle.getL2Output(_outputIndex);
 
@@ -189,6 +194,28 @@ contract ColosseumTest is Colosseum_Initializer {
             uint256(colosseum.getStatus(_outputIndex)),
             uint256(Colosseum.ChallengeStatus.PROVEN)
         );
+
+        challenge = colosseum.getChallenge(_outputIndex);
+        assertEq(challenge.approved, false, "challenge not approved yet");
+
+        // confirm transaction without check condition
+        vm.prank(securityCouncilOwners[0]);
+        securityCouncil.confirmTransaction(0);
+
+        vm.prank(securityCouncilOwners[1]);
+        securityCouncil.confirmTransaction(0);
+
+        challenge = colosseum.getChallenge(_outputIndex);
+        assertEq(challenge.approved, true, "challenge approved");
+
+        outputIndex = oracle.latestOutputIndex();
+        Types.CheckpointOutput memory newOutput = oracle.getL2Output(outputIndex);
+
+        assertTrue(prevOutput.outputRoot != newOutput.outputRoot);
+        assertEq(prevOutput.timestamp, newOutput.timestamp);
+        assertEq(prevOutput.l2BlockNumber, newOutput.l2BlockNumber);
+        assertEq(newOutput.submitter, challenger);
+        assertEq(outputIndex, oracle.latestOutputIndex());
     }
 
     function test_constructor() external {
@@ -201,7 +228,7 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(colosseum.CHAIN_ID(), CHAIN_ID);
         assertEq(colosseum.DUMMY_HASH(), DUMMY_HASH);
         assertEq(colosseum.MAX_TXS(), MAX_TXS);
-        assertEq(colosseum.GUARDIAN(), guardian);
+        assertEq(colosseum.SECURITY_COUNCIL(), address(securityCouncil));
     }
 
     function test_createChallenge_succeeds() external {
@@ -277,7 +304,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
     function test_createChallenge_afterChallengeApproved_reverts() external {
         uint256 outputIndex = oracle.latestOutputIndex();
-        test_approveChallenge_succeeds();
+        test_proveFault_succeeds();
 
         assertEq(
             uint256(colosseum.getStatus(outputIndex)),
@@ -439,38 +466,20 @@ contract ColosseumTest is Colosseum_Initializer {
         _proveFault(outputIndex);
     }
 
-    function test_approveChallenge_succeeds() public {
-        test_proveFault_succeeds();
-
-        uint256 outputIndex = oracle.latestOutputIndex();
-        Types.CheckpointOutput memory prevOutput = oracle.getL2Output(outputIndex);
-
-        vm.prank(guardian);
-        colosseum.approveChallenge(outputIndex);
-
-        Types.CheckpointOutput memory newOutput = oracle.getL2Output(outputIndex);
-
-        assertTrue(prevOutput.outputRoot != newOutput.outputRoot);
-        assertEq(prevOutput.timestamp, newOutput.timestamp);
-        assertEq(prevOutput.l2BlockNumber, newOutput.l2BlockNumber);
-        assertEq(newOutput.submitter, challenger);
-        assertEq(outputIndex, oracle.latestOutputIndex());
-    }
-
-    function test_approveChallenge_notGuardian_reverts() external {
+    function test_approveChallenge_notSecuritryCouncil_reverts() external {
         test_proveFault_succeeds();
 
         uint256 outputIndex = oracle.latestOutputIndex();
 
-        vm.prank(trusted);
-        vm.expectRevert("Colosseum: sender is not the guardian");
+        vm.prank(makeAddr("not_security_council"));
+        vm.expectRevert("Colosseum: sender is not the security council");
         colosseum.approveChallenge(outputIndex);
     }
 
     function test_approveChallenge_notProven_reverts() external {
         uint256 outputIndex = oracle.latestOutputIndex();
 
-        vm.prank(guardian);
+        vm.prank(address(securityCouncil));
         vm.expectRevert("Colosseum: this challenge is not proven");
         colosseum.approveChallenge(outputIndex);
     }
