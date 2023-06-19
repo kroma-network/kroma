@@ -222,11 +222,14 @@ verification by [ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contrac
 1. Check whether `_srcOutputRootProof` is the preimage of the first output root of the segment.
 2. Check whether `_dstOutputRootProof` is the preimage of the next output root of the segment.
 3. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the `blockHash` in `_dstOutputRootProof`.
-4. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the block hash derived from `_publicInput` and
+4. Verify that the `stateRoot` in `_publicInput` matches the `stateRoot` in `_dstOutputRootProof`.
+5. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the block hash derived from `_publicInput` and
    `_rlps`.
-5. Verify that the `transactionsRoot` in `_publicInput` matches the transaction root derived from the transaction
+6. Verify that the `transactionsRoot` in `_publicInput` matches the transaction root derived from the transaction
    hashes.
-6. If the transaction hash in `_publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
+7. Verify that the `withdrawalStorageRoot` in `_dstOutputRootProof` is contained in `stateRoot` in
+  `_dstOutputRootProof`.
+8. If the length of transaction hashes in `_publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
 
 ## Upgradeability
 
