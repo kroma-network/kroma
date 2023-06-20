@@ -79,6 +79,18 @@ var (
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_BOND_AMOUNT"),
 		Value:  1,
 	}
+	OutputSubmitterRetryIntervalFlag = cli.DurationFlag{
+		Name:   "output-submitter.retry-interval",
+		Usage:  "Retry interval for output submission process",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_RETRY_INTERVAL"),
+		Value:  time.Second * 1,
+	}
+	OutputSubmitterRoundBufferFlag = cli.Uint64Flag{
+		Name:   "output-submitter.round-buffer",
+		Usage:  "Number of blocks before each round to start trying submission",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_ROUND_BUFFER"),
+		Value:  30,
+	}
 	ChallengerDisabledFlag = cli.BoolFlag{
 		Name:   "challenger.disabled",
 		Usage:  "Disable challenger",
@@ -122,6 +134,8 @@ var optionalFlags = []cli.Flag{
 	AllowNonFinalizedFlag,
 	OutputSubmitterDisabledFlag,
 	OutputSubmitterBondAmountFlag,
+	OutputSubmitterRetryIntervalFlag,
+	OutputSubmitterRoundBufferFlag,
 	ChallengerDisabledFlag,
 	SecurityCouncilAddressFlag,
 	GuardianEnabledFlag,

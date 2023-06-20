@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -22,6 +23,13 @@ import (
 	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
+const (
+	roundNums      = 2
+	publicRoundHex = "0xffffffffffffffffffffffffffffffffffffffff"
+)
+
+var publicRoundAddr = common.HexToAddress(publicRoundHex)
+
 // L2OutputSubmitter is responsible for submitting outputs.
 type L2OutputSubmitter struct {
 	ctx    context.Context
@@ -35,8 +43,8 @@ type L2OutputSubmitter struct {
 	l2ooABI         *abi.ABI
 	valpoolContract *bindings.ValidatorPoolCaller
 
-	submissionInterval *big.Int
-	l2BlockTime        *big.Int
+	singleRoundInterval *big.Int
+	l2BlockTime         *big.Int
 
 	txCandidatesChan chan<- txmgr.TxCandidate
 	submitChan       chan struct{}
@@ -86,20 +94,21 @@ func NewL2OutputSubmitter(parentCtx context.Context, cfg Config, l log.Logger, m
 		cancel()
 		return nil, fmt.Errorf("failed to get submission interval: %w", err)
 	}
+	singleRoundInterval := new(big.Int).Div(submissionInterval, new(big.Int).SetUint64(roundNums))
 
 	return &L2OutputSubmitter{
-		ctx:                ctx,
-		cancel:             cancel,
-		cfg:                cfg,
-		log:                l,
-		metr:               m,
-		l2ooContract:       l2ooContract,
-		l2ooABI:            parsed,
-		valpoolContract:    valpoolContract,
-		submissionInterval: submissionInterval,
-		l2BlockTime:        l2BlockTime,
-		txCandidatesChan:   txCandidatesChan,
-		submitChan:         submitChan,
+		ctx:                 ctx,
+		cancel:              cancel,
+		cfg:                 cfg,
+		log:                 l,
+		metr:                m,
+		l2ooContract:        l2ooContract,
+		l2ooABI:             parsed,
+		valpoolContract:     valpoolContract,
+		singleRoundInterval: singleRoundInterval,
+		l2BlockTime:         l2BlockTime,
+		txCandidatesChan:    txCandidatesChan,
+		submitChan:          submitChan,
 	}, nil
 }
 
@@ -128,7 +137,7 @@ func (l *L2OutputSubmitter) loop() {
 		case <-l.submitChan:
 			if err := l.trySubmitL2Output(); err != nil {
 				l.log.Error("failed to submit l2 output", "err", err)
-				l.retryAfter(1 * time.Second)
+				l.retryAfter(l.cfg.OutputSubmitterRetryInterval)
 			}
 		case <-l.ctx.Done():
 			return
@@ -142,6 +151,7 @@ func (l *L2OutputSubmitter) retryAfter(d time.Duration) {
 	})
 }
 
+// TODO(seolaoh): return wait duration explicitly, and handle `retryAfter` function calls at once.
 func (l *L2OutputSubmitter) trySubmitL2Output() error {
 	nextBlockNumber, canSubmit, err := l.canSubmit()
 	if err != nil {
@@ -165,19 +175,19 @@ func (l *L2OutputSubmitter) trySubmitL2Output() error {
 		return fmt.Errorf("failed to submit l2 output transaction: %w", err)
 	}
 	l.metr.RecordL2OutputSubmitted(output.BlockRef)
-	l.retryAfter(1 * time.Second)
+	l.retryAfter(l.cfg.OutputSubmitterRetryInterval)
 
 	return nil
 }
 
-// canSubmit checks if submission interval has elapsed and selected for next validator.
+// canSubmit checks if submission interval has elapsed and current round conditions.
 func (l *L2OutputSubmitter) canSubmit() (*big.Int, bool, error) {
 	hasEnoughDeposit, err := l.checkDeposit()
 	if err != nil {
 		return nil, false, err
 	}
 	if !hasEnoughDeposit {
-		l.retryAfter(1 * time.Second)
+		l.retryAfter(l.cfg.OutputSubmitterRetryInterval)
 		return nil, false, nil
 	}
 
@@ -195,19 +205,26 @@ func (l *L2OutputSubmitter) canSubmit() (*big.Int, bool, error) {
 	}
 
 	// Wait for L2 blocks proceeding when validator submission interval has not elapsed
+	roundBuffer := new(big.Int).SetUint64(l.cfg.OutputSubmitterRoundBuffer)
 	if currentBlockNumber.Cmp(nextBlockNumberToWait) < 0 {
+		nextBlockNumberToWait = new(big.Int).Sub(nextBlockNumber, roundBuffer)
 		l.waitL2Blocks(currentBlockNumber, nextBlockNumberToWait)
 		return nil, false, nil
 	}
 
-	// Check if selected for next validator or not
-	isNextValidator, err := l.isNextValidator()
+	// Check if it's a public round, or selected for priority validator
+	roundInfo, err := l.fetchCurrentRound()
 	if err != nil {
 		return nil, false, err
 	}
-	// Wait for L2 blocks proceeding until next submission is available when not selected for next validator
-	if !isNextValidator {
-		nextBlockNumberToWait = new(big.Int).Add(nextBlockNumberToWait, l.submissionInterval)
+	// if it's a public round, try to submit right now
+	if roundInfo.isPublicRound {
+		return nextBlockNumber, true, nil
+	}
+	// if it's a priority round, wait for L2 blocks proceeding until public round when not selected for priority validator
+	if !roundInfo.isPriorityValidator {
+		roundIntervalToWait := new(big.Int).Sub(l.singleRoundInterval, roundBuffer)
+		nextBlockNumberToWait = new(big.Int).Add(nextBlockNumber, roundIntervalToWait)
 		l.waitL2Blocks(currentBlockNumber, nextBlockNumberToWait)
 		return nil, false, nil
 	}
@@ -268,31 +285,59 @@ func (l *L2OutputSubmitter) fetchBlockNumbers() (*big.Int, *big.Int, error) {
 func (l *L2OutputSubmitter) waitL2Blocks(currentBlockNumber *big.Int, targetBlockNumber *big.Int) {
 	l.log.Info("validator submission interval has not elapsed", "currentBlockNumber", currentBlockNumber, "targetBlockNumber", targetBlockNumber)
 	waitBlockNum := new(big.Int).Sub(targetBlockNumber, currentBlockNumber)
-	waitSec := new(big.Int).Mul(waitBlockNum, l.l2BlockTime)
-	if waitSec.Cmp(common.Big0) == -1 {
-		waitSec = common.Big1
+
+	var waitDuration time.Duration
+	if waitBlockNum.Cmp(common.Big0) == -1 {
+		waitDuration = l.cfg.OutputSubmitterRetryInterval
+	} else {
+		waitDuration = time.Duration(new(big.Int).Mul(waitBlockNum, l.l2BlockTime).Uint64()) * time.Second
 	}
 
-	l.log.Info("wait for L2 blocks proceeding", "waitSec", waitSec)
-	l.retryAfter(time.Duration(waitSec.Uint64()) * time.Second)
+	l.log.Info("wait for L2 blocks proceeding", "waitDuration", waitDuration)
+	l.retryAfter(waitDuration)
 }
 
-func (l *L2OutputSubmitter) isNextValidator() (bool, error) {
+type roundInfo struct {
+	isPublicRound       bool
+	isPriorityValidator bool
+}
+
+// fetchCurrentRound fetches next validator address from ValidatorPool contract.
+// It returns if current round is public round, and if selected for priority validator if it's a priority round.
+func (l *L2OutputSubmitter) fetchCurrentRound() (roundInfo, error) {
 	cCtx, cCancel := context.WithTimeout(l.ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	callOpts := utils.NewCallOptsWithSender(cCtx, l.cfg.TxManager.From())
 	nextValidator, err := l.valpoolContract.NextValidator(callOpts)
 	if err != nil {
 		l.log.Error("validator unable to get next validator address", "err", err)
-		return false, err
+		return roundInfo{
+			isPublicRound:       false,
+			isPriorityValidator: false,
+		}, err
 	}
 
-	if nextValidator != l.cfg.TxManager.From() {
-		l.log.Info("not selected for next validator")
-		return false, nil
+	if bytes.Equal(nextValidator[:], publicRoundAddr[:]) {
+		l.log.Info("current round is public round")
+		return roundInfo{
+			isPublicRound:       true,
+			isPriorityValidator: false,
+		}, nil
 	}
 
-	return true, nil
+	if nextValidator == l.cfg.TxManager.From() {
+		l.log.Info("current round is priority round, and selected for priority validator")
+		return roundInfo{
+			isPublicRound:       false,
+			isPriorityValidator: true,
+		}, nil
+	}
+
+	l.log.Info("current round is priority round, and not selected for priority validator")
+	return roundInfo{
+		isPublicRound:       false,
+		isPriorityValidator: false,
+	}, nil
 }
 
 // fetchOutput gets the output information to the corresponding block number.
@@ -335,20 +380,17 @@ func (l *L2OutputSubmitter) submitL2OutputTx(data []byte, nextBlockNumber *big.I
 		return fmt.Errorf("failed to get storage layout: %w", err)
 	}
 
-	var outputIndexSlot, validatorsSlot common.Hash
+	var outputIndexSlot, priorityValidatorSlot common.Hash
 	for _, entry := range layout.Storage {
 		switch entry.Label {
 		case "nextUnbondOutputIndex":
 			outputIndexSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
-		case "validators":
-			validatorsSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
+		case "nextPriorityValidator":
+			priorityValidatorSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
 		}
 	}
 
-	storageKeys := []common.Hash{outputIndexSlot}
-	if nextBlockNumber.Cmp(common.Big0) == 1 {
-		storageKeys = append(storageKeys, validatorsSlot)
-	}
+	storageKeys := []common.Hash{outputIndexSlot, priorityValidatorSlot}
 
 	// If provide accessList that is not actually accessed, the transaction may not be executed due to exceeding the estimated gas limit
 	accessList := types.AccessList{
