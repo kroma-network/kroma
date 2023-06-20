@@ -60,7 +60,7 @@ library Types {
         bytes32 parentHash;
         uint64 timestamp;
         uint64 number;
-        uint256 gasLimit;
+        uint64 gasLimit;
         uint256 baseFee;
         bytes32 transactionsRoot;
         bytes32 stateRoot;
