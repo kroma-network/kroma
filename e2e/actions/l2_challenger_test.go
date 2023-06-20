@@ -1,8 +1,10 @@
 package actions
 
 import (
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -12,15 +14,16 @@ import (
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	"github.com/kroma-network/kroma/e2e"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
+	"github.com/kroma-network/kroma/e2e/testdata"
 )
-
-const lastValidBlockNum = uint64(6)
 
 func TestChallenger(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.FinalizationPeriodSeconds = 60 * 60 * 24
+	dp.DeployConfig.ColosseumDummyHash = common.HexToHash(e2e.DummyHashSepolia)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 	miner, propEngine, proposer := setupProposerTest(t, sd, log)
@@ -33,22 +36,25 @@ func TestChallenger(gt *testing.T) {
 	}, rollupPropCl, miner.EthClient(), propEngine.EthClient())
 
 	// setup mockup rpc for returning invalid output
-	mockRPC := e2eutils.NewRPC(proposer.RPCClient())
+	validatorRPC := e2eutils.NewMaliciousL2RPC(proposer.RPCClient())
+	validatorRollupClient := sources.NewRollupClient(validatorRPC)
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
 		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
 		ColosseumAddr:     sd.DeploymentsL1.ColosseumProxy,
 		ValidatorKey:      dp.Secrets.TrustedValidator,
 		AllowNonFinalized: false,
-	}, miner.EthClient(), sources.NewRollupClient(mockRPC))
+	}, miner.EthClient(), validatorRollupClient)
 
+	challengerRPC := e2eutils.NewChallengerL2RPC(proposer.RPCClient())
+	challengerRollupClient := sources.NewRollupClient(challengerRPC)
 	challenger := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
 		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
 		ColosseumAddr:     sd.DeploymentsL1.ColosseumProxy,
 		ValidatorKey:      dp.Secrets.Challenger,
 		AllowNonFinalized: false,
-	}, miner.EthClient(), proposer.RollupClient())
+	}, miner.EthClient(), challengerRollupClient)
 
 	// NOTE(chokobole): After the Blue hard fork, it is necessary to wait for one finalized
 	// (or safe if AllowNonFinalized config is set) block to pass after each submission interval
@@ -59,7 +65,7 @@ func TestChallenger(gt *testing.T) {
 	// In fact, the following code is designed to create one or more finalized L2 blocks
 	// in order to pass the test after the Blue hard fork.
 	// If Proto Dank Sharding is introduced, the below code fix may no longer be necessary.
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		// L1 block
 		miner.ActEmptyBlock(t)
 		// L2 block
@@ -89,7 +95,8 @@ func TestChallenger(gt *testing.T) {
 	outputOracleContract, err := bindings.NewL2OutputOracle(sd.DeploymentsL1.L2OutputOracleProxy, miner.EthClient())
 	require.NoError(t, err)
 
-	mockRPC.SetLastValidBlockNumber(lastValidBlockNum)
+	validatorRPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+	challengerRPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// and submit it to L1
@@ -107,8 +114,7 @@ func TestChallenger(gt *testing.T) {
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
 	// block := proposer.SyncStatus().FinalizedL2
 	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
-	blockNum, err := outputOracleContract.LatestBlockNumber(nil)
-	require.NoError(t, err)
+	blockNum := big.NewInt(int64(testdata.TargetBlockNumber))
 	outputIndex, err := outputOracleContract.GetL2OutputIndexAfter(nil, blockNum)
 	require.NoError(t, err)
 	outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, blockNum)
@@ -172,5 +178,5 @@ interaction:
 	// Check the status of challenge is StatusProven(6)
 	status, err := colosseumContract.GetStatus(nil, outputIndex)
 	require.NoError(t, err)
-	require.Equal(t, uint8(lastValidBlockNum), status)
+	require.Equal(t, chal.StatusProven, status)
 }
