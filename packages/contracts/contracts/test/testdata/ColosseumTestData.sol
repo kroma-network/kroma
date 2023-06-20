@@ -254,8 +254,8 @@ library ColosseumTestData {
         pp.pair[1] = 4733049234560598175814075307329400052685708929235536361180057682884349522951;
         pp.pair[2] = 12927143393367435583780384041605583199602086804808450831263369829150907626360;
         pp.pair[3] = 4387398449564854858399845335905273397295727913637629556341886693575315457608;
-        pp.pair[4] = uint256(bytes32(bytes16(_publicInputHash)));
-        pp.pair[5] = uint256(bytes32(bytes16(_publicInputHash << (8 * 16))));
+        pp.pair[4] = uint256(bytes32(bytes16(_publicInputHash)) >> (8 * 16));
+        pp.pair[5] = uint256(bytes32(bytes16(_publicInputHash << (8 * 16))) >> (8 * 16));
 
         return pp;
     }

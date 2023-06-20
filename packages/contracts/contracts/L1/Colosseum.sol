@@ -351,8 +351,7 @@ contract Colosseum is Initializable, Semver {
         // TODO(pangssu): waiting for the new Verifier.sol to complete.
         // require(ZK_VERIFIER.verify(_proof, _pair), "Colosseum: invalid proof");
 
-        // TODO(0xHansLee): temporal commenting out for challenge E2E test
-        // _validatePublicInput(_srcOutputRootProof, _publicInput, _rlps, _pair);
+        _validatePublicInput(_srcOutputRootProof, _publicInput, _rlps, _pair);
         challenge.outputRoot = _outputRoot;
 
         // request outputRoot validation to security council
@@ -552,7 +551,7 @@ contract Colosseum is Initializable, Semver {
             "Colosseum: public input that has already been validated cannot be used again."
         );
 
-        bytes32 expected = (bytes32(_pair[5]) >> 128) | bytes32(_pair[4]);
+        bytes32 expected = (bytes32(_pair[4]) << 128) | bytes32(_pair[5]);
         require(
             expected == publicInputHash,
             "Colosseum: public input was not included in given pairs."
