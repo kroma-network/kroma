@@ -28,7 +28,7 @@ import (
 
 	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/bindings/predeploys"
-	batcher "github.com/kroma-network/kroma/components/batcher"
+	"github.com/kroma-network/kroma/components/batcher"
 	batchermetrics "github.com/kroma-network/kroma/components/batcher/metrics"
 	"github.com/kroma-network/kroma/components/node/chaincfg"
 	"github.com/kroma-network/kroma/components/node/eth"
@@ -39,7 +39,7 @@ import (
 	"github.com/kroma-network/kroma/components/node/rollup/driver"
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
-	validator "github.com/kroma-network/kroma/components/validator"
+	"github.com/kroma-network/kroma/components/validator"
 	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 	"github.com/kroma-network/kroma/utils/chain-ops/genesis"

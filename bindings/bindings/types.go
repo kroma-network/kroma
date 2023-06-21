@@ -50,7 +50,7 @@ type TypesPublicInput struct {
 	ParentHash       [32]byte
 	Timestamp        uint64
 	Number           uint64
-	GasLimit         *big.Int
+	GasLimit         uint64
 	BaseFee          *big.Int
 	TransactionsRoot [32]byte
 	StateRoot        [32]byte

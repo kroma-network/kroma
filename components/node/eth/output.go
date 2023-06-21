@@ -2,7 +2,6 @@ package eth
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -52,7 +51,7 @@ func (o *OutputResponse) ToPublicInput() (bindings.TypesPublicInput, error) {
 		ParentHash:       o.BlockRef.Hash,
 		Timestamp:        o.NextBlock.Time,
 		Number:           o.NextBlock.Number.Uint64(),
-		GasLimit:         new(big.Int).SetUint64(o.NextBlock.GasLimit),
+		GasLimit:         o.NextBlock.GasLimit,
 		BaseFee:          o.NextBlock.BaseFee,
 		TransactionsRoot: o.NextBlock.TxHash,
 		StateRoot:        o.NextBlock.Root,
