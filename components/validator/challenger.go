@@ -462,6 +462,25 @@ func (c *Challenger) OutputAtBlockSafe(blockNumber uint64, includeNextBlock bool
 	return output, nil
 }
 
+type Outputs struct {
+	remoteOutput bindings.TypesCheckpointOutput
+	localOutput  *eth.OutputResponse
+}
+
+func (c *Challenger) outputsAtIndex(outputIndex *big.Int) (*Outputs, error) {
+	remoteOutput, err := c.l2ooContract.GetL2Output(c.callOpts, outputIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	localOutput, err := c.OutputAtBlockSafe(remoteOutput.L2BlockNumber.Uint64(), false)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Outputs{remoteOutput, localOutput}, nil
+}
+
 type OutputRange struct {
 	OutputIndex *big.Int
 	StartBlock  uint64
@@ -470,26 +489,21 @@ type OutputRange struct {
 
 // ValidateOutput validates the output given the outputIndex
 func (c *Challenger) ValidateOutput(outputIndex *big.Int) (*OutputRange, error) {
-	output, err := c.l2ooContract.GetL2Output(c.callOpts, outputIndex)
+	outputs, err := c.outputsAtIndex(outputIndex)
 	if err != nil {
 		return nil, err
 	}
 
-	knownOutput, err := c.OutputAtBlockSafe(output.L2BlockNumber.Uint64(), false)
-	if err != nil {
-		return nil, err
-	}
+	start := outputs.remoteOutput.L2BlockNumber.Uint64() - c.submissionInterval.Uint64()
+	end := outputs.remoteOutput.L2BlockNumber.Uint64()
 
-	start := output.L2BlockNumber.Uint64() - c.submissionInterval.Uint64()
-	end := output.L2BlockNumber.Uint64()
-
-	if !bytes.Equal(knownOutput.OutputRoot[:], output.OutputRoot[:]) {
+	if !bytes.Equal(outputs.localOutput.OutputRoot[:], outputs.remoteOutput.OutputRoot[:]) {
 		c.log.Info(
 			"found invalid output",
-			"blockNumber", output.L2BlockNumber,
+			"blockNumber", outputs.remoteOutput.L2BlockNumber,
 			"outputIndex", outputIndex,
-			"known", knownOutput.OutputRoot,
-			"invalid", common.BytesToHash(output.OutputRoot[:]),
+			"local", outputs.localOutput.OutputRoot,
+			"invalid", common.BytesToHash(outputs.remoteOutput.OutputRoot[:]),
 		)
 		return &OutputRange{
 			OutputIndex: outputIndex,
@@ -501,7 +515,7 @@ func (c *Challenger) ValidateOutput(outputIndex *big.Int) (*OutputRange, error) 
 			"outputIndex", outputIndex,
 			"start", start,
 			"end", end,
-			"outputRoot", common.BytesToHash(output.OutputRoot[:]),
+			"outputRoot", common.BytesToHash(outputs.remoteOutput.OutputRoot[:]),
 		)
 		return nil, nil
 	}
@@ -599,6 +613,11 @@ func (c *Challenger) ChallengerTimeout(outputIndex *big.Int) (*types.Transaction
 func (c *Challenger) ProveFault(outputIndex *big.Int) (*types.Transaction, error) {
 	c.log.Info("crafting proveFault tx")
 
+	outputs, err := c.outputsAtIndex(outputIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	challenge, err := c.colosseumContract.GetChallenge(c.callOpts, outputIndex)
 	if err != nil {
 		return nil, err
@@ -642,7 +661,7 @@ func (c *Challenger) ProveFault(outputIndex *big.Int) (*types.Transaction, error
 	return c.colosseumContract.ProveFault(
 		c.txOpts,
 		outputIndex,
-		dstOutput.OutputRoot,
+		outputs.localOutput.OutputRoot,
 		position,
 		srcOutput.ToOutputRootProof(),
 		dstOutput.ToOutputRootProof(),
