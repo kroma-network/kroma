@@ -668,7 +668,9 @@ func (c *Challenger) ProveFault(outputIndex *big.Int) (*types.Transaction, error
 		publicInput,
 		blockHeaderRLP,
 		fetchResult.Proof,
-		fetchResult.Pair,
+		// NOTE(0xHansLee): the hash of public input (pair[4], pair[5]) is not needed in proving fault.
+		// It can be calculated using public input sent to colosseum contract.
+		fetchResult.Pair[:4],
 	)
 }
 

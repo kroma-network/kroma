@@ -259,7 +259,7 @@ contract Colosseum is Initializable, Semver {
      * @notice Selects an invalid section and submit segments of that section.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
-     * @param _pos         Position of invalid section.
+     * @param _pos         Position of the last valid segment.
      * @param _segments    Array of the segment. A segment is the first output root of a specific
      *                     range.
      */
@@ -298,7 +298,7 @@ contract Colosseum is Initializable, Semver {
      *
      * @param _outputIndex        Index of the L2 checkpoint output.
      * @param _outputRoot         The L2 output root to replace the existing one.
-     * @param _pos                Position of invalid section.
+     * @param _pos                Position of the last valid segment.
      * @param _srcOutputRootProof Proof of the source output root.
      * @param _dstOutputRootProof Proof of the destination output root.
      * @param _publicInput        Ingredients to compute the public input used by ZK proof verification.
@@ -319,39 +319,22 @@ contract Colosseum is Initializable, Semver {
         uint256[] calldata _pair
     ) external {
         Types.Challenge storage challenge = challenges[_outputIndex];
+
         _validateTurn(challenge);
+        _validateOutputRootProof(_pos, challenge, _srcOutputRootProof, _dstOutputRootProof);
+        _validatePublicInput(_srcOutputRootProof, _dstOutputRootProof, _publicInput, _rlps);
 
-        bytes32 srcOutputRoot = Hashing.hashOutputRootProof(_srcOutputRootProof);
-        bytes32 dstOutputRoot = Hashing.hashOutputRootProof(_dstOutputRootProof);
-
-        // If asserter timeout, the bisection of segments may not have ended.
-        // Therefore, segment validation only proceeds when bisection is not possible.
-        if (!_isAbleToBisect(challenge)) {
-            require(
-                challenge.segments[_pos] == srcOutputRoot,
-                "Colosseum: the source segment must be matched"
-            );
-            require(
-                challenge.segments[_pos + 1] != dstOutputRoot,
-                "Colosseum: the destination segment must not be matched"
-            );
-        }
+        bytes32 publicInputHash = _hashPublicInput(_srcOutputRootProof.stateRoot, _publicInput);
 
         require(
-            _srcOutputRootProof.nextBlockHash == _dstOutputRootProof.blockHash,
-            "Colosseum: the block hash must be matched"
-        );
-
-        // TODO(chokobole): check withdrawal storage root of _dstOutputRootProof against state root of _dstOutputRootProof.
-        require(
-            _publicInput.stateRoot == _dstOutputRootProof.stateRoot,
-            "Colosseum: the state root must be matched"
+            !verifiedPublicInputs[publicInputHash],
+            "Colosseum: public input that has already been validated cannot be used again."
         );
 
         // TODO(pangssu): waiting for the new Verifier.sol to complete.
-        // require(ZK_VERIFIER.verify(_proof, _pair), "Colosseum: invalid proof");
+        // require(ZK_VERIFIER.verify(_proof, _pair, publicInputHash), "Colosseum: invalid proof");
 
-        _validatePublicInput(_srcOutputRootProof, _publicInput, _rlps, _pair);
+        verifiedPublicInputs[publicInputHash] = true;
         challenge.outputRoot = _outputRoot;
 
         // request outputRoot validation to security council
@@ -511,26 +494,82 @@ contract Colosseum is Initializable, Semver {
     }
 
     /**
-     * @notice Checks if the public input has been used before and validates if it is correct.
-     *         Reverts if public input is used before or invalid.
+     * @notice Validates the output root proofs.
+     *
+     * @param _pos                Position of the last valid segment.
+     * @param _challenge          The challenge data.
+     * @param _srcOutputRootProof Proof of the source output root.
+     * @param _dstOutputRootProof Proof of the destination output root.
+     */
+    function _validateOutputRootProof(
+        uint256 _pos,
+        Types.Challenge storage _challenge,
+        Types.OutputRootProof calldata _srcOutputRootProof,
+        Types.OutputRootProof calldata _dstOutputRootProof
+    ) private view {
+        bytes32 srcOutputRoot = Hashing.hashOutputRootProof(_srcOutputRootProof);
+        bytes32 dstOutputRoot = Hashing.hashOutputRootProof(_dstOutputRootProof);
+
+        // If asserter timeout, the bisection of segments may not have ended.
+        // Therefore, segment validation only proceeds when bisection is not possible.
+        if (!_isAbleToBisect(_challenge)) {
+            require(
+                _challenge.segments[_pos] == srcOutputRoot,
+                "Colosseum: the source segment must be matched"
+            );
+            require(
+                _challenge.segments[_pos + 1] != dstOutputRoot,
+                "Colosseum: the destination segment must not be matched"
+            );
+        }
+
+        require(
+            _srcOutputRootProof.nextBlockHash == _dstOutputRootProof.blockHash,
+            "Colosseum: the block hash must be matched"
+        );
+    }
+
+    /**
+     * @notice Checks if the public input is valid.
+     *         Reverts if public input is invalid.
      *
      * @param _srcOutputRootProof Proof of the source output root.
+     * @param _dstOutputRootProof Proof of the destination output root.
      * @param _publicInput        Ingredients to compute the public input used by ZK proof verification.
      * @param _rlps               Pre-encoded RLPs to compute the next block hash of the source output root proof.
-     * @param _pair               Aggregated multi-opening proofs and public inputs. (Currently only 2 public inputs)
      */
     function _validatePublicInput(
         Types.OutputRootProof calldata _srcOutputRootProof,
+        Types.OutputRootProof calldata _dstOutputRootProof,
         Types.PublicInput calldata _publicInput,
-        Types.BlockHeaderRLP calldata _rlps,
-        uint256[] calldata _pair
-    ) private {
+        Types.BlockHeaderRLP calldata _rlps
+    ) private pure {
+        // TODO(chokobole): check withdrawal storage root of _dstOutputRootProof against state root of _dstOutputRootProof.
+        require(
+            _publicInput.stateRoot == _dstOutputRootProof.stateRoot,
+            "Colosseum: the state root must be matched"
+        );
+
         bytes32 blockHash = Hashing.hashBlockHeader(_publicInput, _rlps);
         require(
             _srcOutputRootProof.nextBlockHash == blockHash,
             "Colosseum: the block hash must be matched"
         );
+    }
 
+    /**
+     * @notice Hashes the public input with padding dummy transactions.
+     *
+     * @param _prevStateRoot Previous state root.
+     * @param _publicInput   Ingredients to compute the public input used by ZK proof verification.
+     *
+     * @return Hash of public input.
+     */
+    function _hashPublicInput(bytes32 _prevStateRoot, Types.PublicInput calldata _publicInput)
+        private
+        view
+        returns (bytes32)
+    {
         bytes32[] memory dummyHashes;
         if (_publicInput.txHashes.length < MAX_TXS) {
             dummyHashes = Hashing.generateDummyHashes(
@@ -545,24 +584,7 @@ contract Colosseum is Initializable, Semver {
         // of providing a preimage that would generate the desired public input hash
         // from an attacker's perspective, we have decided to omit the verification
         // using the transaction root.
-        bytes32 publicInputHash = Hashing.hashPublicInput(
-            _srcOutputRootProof.stateRoot,
-            _publicInput,
-            dummyHashes
-        );
-
-        require(
-            !verifiedPublicInputs[publicInputHash],
-            "Colosseum: public input that has already been validated cannot be used again."
-        );
-
-        bytes32 expected = (bytes32(_pair[4]) << 128) | bytes32(_pair[5]);
-        require(
-            expected == publicInputHash,
-            "Colosseum: public input was not included in given pairs."
-        );
-
-        verifiedPublicInputs[publicInputHash] = true;
+        return Hashing.hashPublicInput(_prevStateRoot, _publicInput, dummyHashes);
     }
 
     /**
