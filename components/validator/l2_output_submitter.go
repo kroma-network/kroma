@@ -53,26 +53,19 @@ type L2OutputSubmitter struct {
 }
 
 // NewL2OutputSubmitter creates a new L2OutputSubmitter.
-func NewL2OutputSubmitter(parentCtx context.Context, cfg Config, l log.Logger, m metrics.Metricer, txCandidatesChan chan<- txmgr.TxCandidate) (*L2OutputSubmitter, error) {
-	ctx, cancel := context.WithCancel(parentCtx)
-
-	submitChan := make(chan struct{}, 1)
-
+func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*L2OutputSubmitter, error) {
 	l2ooContract, err := bindings.NewL2OutputOracleCaller(cfg.L2OutputOracleAddr, cfg.L1Client)
 	if err != nil {
-		cancel()
 		return nil, err
 	}
 
 	parsed, err := bindings.L2OutputOracleMetaData.GetAbi()
 	if err != nil {
-		cancel()
 		return nil, err
 	}
 
 	valpoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, cfg.L1Client)
 	if err != nil {
-		cancel()
 		return nil, err
 	}
 
@@ -80,7 +73,6 @@ func NewL2OutputSubmitter(parentCtx context.Context, cfg Config, l log.Logger, m
 	callOpts := utils.NewSimpleCallOpts(cCtx)
 	l2BlockTime, err := l2ooContract.L2BLOCKTIME(callOpts)
 	if err != nil {
-		cancel()
 		cCancel()
 		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
 	}
@@ -91,14 +83,11 @@ func NewL2OutputSubmitter(parentCtx context.Context, cfg Config, l log.Logger, m
 	callOpts = utils.NewSimpleCallOpts(cCtx)
 	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(callOpts)
 	if err != nil {
-		cancel()
 		return nil, fmt.Errorf("failed to get submission interval: %w", err)
 	}
 	singleRoundInterval := new(big.Int).Div(submissionInterval, new(big.Int).SetUint64(roundNums))
 
 	return &L2OutputSubmitter{
-		ctx:                 ctx,
-		cancel:              cancel,
 		cfg:                 cfg,
 		log:                 l,
 		metr:                m,
@@ -107,13 +96,15 @@ func NewL2OutputSubmitter(parentCtx context.Context, cfg Config, l log.Logger, m
 		valpoolContract:     valpoolContract,
 		singleRoundInterval: singleRoundInterval,
 		l2BlockTime:         l2BlockTime,
-		txCandidatesChan:    txCandidatesChan,
-		submitChan:          submitChan,
 	}, nil
 }
 
-func (l *L2OutputSubmitter) Start() error {
+func (l *L2OutputSubmitter) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCandidate) error {
+	l.ctx, l.cancel = context.WithCancel(ctx)
 	l.log.Info("starting L2 Output Submitter")
+
+	l.submitChan = make(chan struct{}, 1)
+	l.txCandidatesChan = txCandidatesChan
 	l.wg.Add(1)
 	go l.loop()
 
@@ -122,8 +113,11 @@ func (l *L2OutputSubmitter) Start() error {
 
 func (l *L2OutputSubmitter) Stop() error {
 	l.log.Info("stopping L2 Output Submitter")
+
 	l.cancel()
 	l.wg.Wait()
+
+	close(l.submitChan)
 
 	return nil
 }
@@ -147,8 +141,11 @@ func (l *L2OutputSubmitter) loop() {
 }
 
 func (l *L2OutputSubmitter) retryAfter(d time.Duration) {
+	l.wg.Add(1)
+
 	time.AfterFunc(d, func() {
 		l.submitChan <- struct{}{}
+		l.wg.Done()
 	})
 }
 

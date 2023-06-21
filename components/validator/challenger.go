@@ -62,7 +62,7 @@ type Challenger struct {
 	wg sync.WaitGroup
 }
 
-func NewChallenger(parentCtx context.Context, cfg Config, l log.Logger, txCandidateChan chan<- txmgr.TxCandidate) (*Challenger, error) {
+func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, error) {
 	colosseumContract, err := bindings.NewColosseum(cfg.ColosseumAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
@@ -83,35 +83,23 @@ func NewChallenger(parentCtx context.Context, cfg Config, l log.Logger, txCandid
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(parentCtx)
 	callOpts := utils.NewSimpleCallOpts(ctx)
 	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(callOpts)
 	if err != nil {
-		cancel()
 		return nil, fmt.Errorf("failed to get submission interval: %w", err)
 	}
 	finalizationPeriodSeconds, err := l2ooContract.FINALIZATIONPERIODSECONDS(callOpts)
 	if err != nil {
-		cancel()
 		return nil, fmt.Errorf("failed to get finalization period seconds: %w", err)
 	}
 	l2BlockTime, err := l2ooContract.L2BLOCKTIME(callOpts)
 	if err != nil {
-		cancel()
 		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
 	}
 
-	l2OutputSubmittedEventChan := make(chan *bindings.L2OutputOracleOutputSubmitted)
-	challengeCreatedEventChan := make(chan *bindings.ColosseumChallengeCreated)
-
 	return &Challenger{
-		log:    l,
-		cfg:    cfg,
-		ctx:    ctx,
-		cancel: cancel,
-
-		callOpts: utils.NewCallOptsWithSender(ctx, cfg.TxManager.From()),
-		txOpts:   utils.NewSimpleTxOpts(ctx, cfg.TxManager.From(), cfg.TxManager.Signer),
+		log: l,
+		cfg: cfg,
 
 		l1Client: cfg.L1Client,
 
@@ -123,10 +111,6 @@ func NewChallenger(parentCtx context.Context, cfg Config, l log.Logger, txCandid
 		submissionInterval:        submissionInterval,
 		finalizationPeriodSeconds: finalizationPeriodSeconds,
 		l2BlockTime:               l2BlockTime,
-
-		txCandidatesChan:           txCandidateChan,
-		l2OutputSubmittedEventChan: l2OutputSubmittedEventChan,
-		challengeCreatedEventChan:  challengeCreatedEventChan,
 	}, nil
 }
 
@@ -151,9 +135,16 @@ func (c *Challenger) initSub() {
 	})
 }
 
-func (c *Challenger) Start() error {
+func (c *Challenger) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCandidate) error {
+	c.ctx, c.cancel = context.WithCancel(ctx)
+	c.callOpts = utils.NewCallOptsWithSender(c.ctx, c.cfg.TxManager.From())
+	c.txOpts = utils.NewSimpleTxOpts(c.ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
+
 	c.log.Info("start challenger")
 
+	c.l2OutputSubmittedEventChan = make(chan *bindings.L2OutputOracleOutputSubmitted)
+	c.challengeCreatedEventChan = make(chan *bindings.ColosseumChallengeCreated)
+	c.txCandidatesChan = txCandidatesChan
 	c.initSub()
 
 	// if checkpoint is behind the latest output index, scan the previous outputs from the checkpoint
@@ -199,6 +190,9 @@ func (c *Challenger) Stop() error {
 
 	c.cancel()
 	c.wg.Wait()
+
+	close(c.l2OutputSubmittedEventChan)
+	close(c.challengeCreatedEventChan)
 
 	return nil
 }

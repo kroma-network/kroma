@@ -37,26 +37,22 @@ type Guardian struct {
 }
 
 // NewGuardian creates a new Guardian
-func NewGuardian(parentCtx context.Context, cfg Config, l log.Logger, txCandidateChan chan<- txmgr.TxCandidate) (*Guardian, error) {
+func NewGuardian(cfg Config, l log.Logger) (*Guardian, error) {
 	securityCouncilContract, err := bindings.NewSecurityCouncil(cfg.SecurityCouncilAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(parentCtx)
-
 	return &Guardian{
 		log:                     l,
 		cfg:                     cfg,
-		ctx:                     ctx,
-		cancel:                  cancel,
 		securityCouncilContract: securityCouncilContract,
 		validationRequestedChan: make(chan *bindings.SecurityCouncilValidationRequested),
-		txCandidatesChan:        txCandidateChan,
 	}, nil
 }
 
-func (g *Guardian) Start() error {
+func (g *Guardian) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCandidate) error {
+	g.ctx, g.cancel = context.WithCancel(ctx)
 	g.log.Info("start Guardian")
 
 	watchOpts := &bind.WatchOpts{Context: g.ctx, Start: nil}
@@ -68,6 +64,7 @@ func (g *Guardian) Start() error {
 		return g.securityCouncilContract.WatchValidationRequested(watchOpts, g.validationRequestedChan, nil)
 	})
 
+	g.txCandidatesChan = txCandidatesChan
 	g.wg.Add(1)
 	go g.handleValidationRequested()
 
@@ -80,10 +77,11 @@ func (g *Guardian) Stop() error {
 	if g.securityCouncilSub != nil {
 		g.securityCouncilSub.Unsubscribe()
 	}
-	close(g.validationRequestedChan)
 
 	g.cancel()
 	g.wg.Wait()
+
+	close(g.validationRequestedChan)
 
 	return nil
 }

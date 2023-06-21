@@ -86,62 +86,55 @@ type Validator struct {
 	wg sync.WaitGroup
 }
 
-func NewValidator(parentCtx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Validator, error) {
+func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Validator, error) {
 	// Validate the validator config
 	if err := cfg.Check(); err != nil {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(parentCtx)
-
-	txCandidatesChan := make(chan txmgr.TxCandidate, 10)
-
-	l2OutputSubmitter, err := NewL2OutputSubmitter(ctx, cfg, l, m, txCandidatesChan)
+	l2OutputSubmitter, err := NewL2OutputSubmitter(ctx, cfg, l, m)
 	if err != nil {
-		cancel()
 		return nil, err
 	}
 
-	challenger, err := NewChallenger(ctx, cfg, l, txCandidatesChan)
+	challenger, err := NewChallenger(ctx, cfg, l)
 	if err != nil {
-		cancel()
 		return nil, err
 	}
 
-	guardian, err := NewGuardian(ctx, cfg, l, txCandidatesChan)
+	guardian, err := NewGuardian(cfg, l)
 	if err != nil {
-		cancel()
 		return nil, err
 	}
 
 	return &Validator{
-		ctx:              ctx,
-		cancel:           cancel,
-		cfg:              cfg,
-		l:                l,
-		metr:             m,
-		l2os:             l2OutputSubmitter,
-		challenger:       challenger,
-		guardian:         guardian,
-		txCandidatesChan: txCandidatesChan,
+		cfg:        cfg,
+		l:          l,
+		metr:       m,
+		l2os:       l2OutputSubmitter,
+		challenger: challenger,
+		guardian:   guardian,
 	}, nil
 }
 
 func (v *Validator) Start() error {
+	v.ctx, v.cancel = context.WithCancel(context.Background())
 	v.l.Info("starting Validator")
 
+	v.txCandidatesChan = make(chan txmgr.TxCandidate, 10)
+
 	if !v.cfg.OutputSubmitterDisabled {
-		if err := v.l2os.Start(); err != nil {
+		if err := v.l2os.Start(v.ctx, v.txCandidatesChan); err != nil {
 			return fmt.Errorf("cannot start l2 output submitter: %w", err)
 		}
 	}
 
-	if err := v.challenger.Start(); err != nil {
+	if err := v.challenger.Start(v.ctx, v.txCandidatesChan); err != nil {
 		return fmt.Errorf("cannot start challenger: %w", err)
 	}
 
 	if v.cfg.GuardianEnabled {
-		if err := v.guardian.Start(); err != nil {
+		if err := v.guardian.Start(v.ctx, v.txCandidatesChan); err != nil {
 			return fmt.Errorf("cannot start guardian: %w", err)
 		}
 	}
@@ -178,6 +171,8 @@ func (v *Validator) Stop() error {
 
 	v.cancel()
 	v.wg.Wait()
+
+	close(v.txCandidatesChan)
 
 	return nil
 }
