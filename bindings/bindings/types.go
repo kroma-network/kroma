@@ -81,3 +81,14 @@ type TypesBond struct {
 	Amount    *big.Int
 	ExpiresAt *big.Int
 }
+// TypesPublicInputProof is an auto generated low-level Go binding around an user-defined struct.
+type TypesPublicInputProof struct {
+	SrcOutputRootProof          TypesOutputRootProof
+	DstOutputRootProof          TypesOutputRootProof
+	PublicInput                 TypesPublicInput
+	Rlps                        TypesBlockHeaderRLP
+	L2ToL1MessagePasserBalance  [32]byte
+	L2ToL1MessagePasserCodeHash [32]byte
+	MerkleProof                 [][]byte
+}
+

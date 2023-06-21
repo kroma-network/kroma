@@ -479,7 +479,7 @@ contract ERC721Bridge_Initializer is Messenger_Initializer {
     }
 }
 
-contract Colosseum_Initializer is L2OutputOracle_Initializer {
+contract Colosseum_Initializer is Portal_Initializer {
     uint256 immutable CHAIN_ID = 901;
     bytes32 immutable DUMMY_HASH =
         hex"a1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7";
@@ -498,6 +498,8 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
     uint256[] segmentsLengths;
 
     function setUp() public virtual override {
+        super.setUp();
+
         // Deploy the ZKVerifier
         zkVerifier = new ZKVerifier();
 
@@ -539,7 +541,8 @@ contract Colosseum_Initializer is L2OutputOracle_Initializer {
             _dummyHash: DUMMY_HASH,
             _maxTxs: MAX_TXS,
             _segmentsLengths: segmentsLengths,
-            _securityCouncil: address(securityCouncilProxy)
+            _securityCouncil: address(securityCouncilProxy),
+            _zkMerkleTrie: address(zkMerkleTrie)
         });
         vm.prank(multisig);
         proxy.upgradeToAndCall(
@@ -557,6 +560,8 @@ contract SecurityCouncil_Initializer is CommonTest {
     address colosseumAddr;
 
     function setUp() public virtual override {
+        super.setUp();
+
         Proxy proxy = new Proxy(multisig);
         securityCouncil = SecurityCouncil(address(proxy));
         colosseumAddr = makeAddr("colosseum");

@@ -69,8 +69,8 @@ func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int) common.Hash
 	return tx.Hash()
 }
 
-func (v *L2Validator) ActOutputAtBlockSafe(t Testing, blockNumber uint64, includeNextBlock bool) *eth.OutputResponse {
-	output, err := v.challenger.OutputAtBlockSafe(t.Ctx(), blockNumber, includeNextBlock)
+func (v *L2Validator) ActOutputAtBlockSafe(t Testing, blockNumber uint64) *eth.OutputResponse {
+	output, err := v.challenger.OutputAtBlockSafe(t.Ctx(), blockNumber)
 	require.NoError(t, err, "unable get output at block safe")
 
 	return output

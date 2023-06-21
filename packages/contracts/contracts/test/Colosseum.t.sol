@@ -167,27 +167,7 @@ contract ColosseumTest is Colosseum_Initializer {
         bytes32 newOutputRoot = _getOutputRoot(challenger, output.l2BlockNumber);
         assertTrue(newOutputRoot != output.outputRoot);
 
-        (
-            Types.OutputRootProof memory srcOutputRootProof,
-            Types.OutputRootProof memory dstOutputRootProof
-        ) = ColosseumTestData.outputRootProof();
-        Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
-        Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
-
-        ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
-
-        vm.prank(challenge.challenger);
-        colosseum.proveFault(
-            _outputIndex,
-            newOutputRoot,
-            position,
-            srcOutputRootProof,
-            dstOutputRootProof,
-            publicInput,
-            rlps,
-            pp.proof,
-            pp.pair
-        );
+        _doProveFault(challenge.challenger, _outputIndex, newOutputRoot, position);
 
         assertEq(
             uint256(colosseum.getStatus(_outputIndex)),
@@ -215,6 +195,38 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(prevOutput.l2BlockNumber, newOutput.l2BlockNumber);
         assertEq(newOutput.submitter, challenger);
         assertEq(outputIndex, oracle.latestOutputIndex());
+    }
+
+    function _doProveFault(
+        address challenger,
+        uint256 _outputIndex,
+        bytes32 newOutputRoot,
+        uint256 position
+    ) private {
+        (
+            Types.OutputRootProof memory srcOutputRootProof,
+            Types.OutputRootProof memory dstOutputRootProof
+        ) = ColosseumTestData.outputRootProof();
+        Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
+        Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
+
+        ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
+
+        (ColosseumTestData.Account memory account, bytes[] memory merkleProof) = ColosseumTestData
+            .merkleProof();
+
+        Types.PublicInputProof memory proof = Types.PublicInputProof({
+            srcOutputRootProof: srcOutputRootProof,
+            dstOutputRootProof: dstOutputRootProof,
+            publicInput: publicInput,
+            rlps: rlps,
+            l2ToL1MessagePasserBalance: bytes32(account.balance),
+            l2ToL1MessagePasserCodeHash: account.codeHash,
+            merkleProof: merkleProof
+        });
+
+        vm.prank(challenger);
+        colosseum.proveFault(_outputIndex, newOutputRoot, position, proof, pp.proof, pp.pair);
     }
 
     function test_constructor() external {

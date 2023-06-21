@@ -9,9 +9,9 @@ import { Colosseum } from "../../L1/Colosseum.sol";
 library ColosseumTestData {
     uint256 internal constant INVALID_BLOCK_NUMBER = 3000;
     bytes32 internal constant PREV_OUTPUT_ROOT =
-        0xccac4c06a5ea0106ec15bb374df8c97084492ffd527764eae88a794200432c9e;
+        0x361713c2cfb614ee684cf67932fdafa957c17fd8103e9dca78d9d80682e15a9a;
     bytes32 internal constant TARGET_OUTPUT_ROOT =
-        0xb0617c5bfa546a0b6cc576e5d270731c866c542f694664636648b9469135d353;
+        0xf219abe66fec5d421248cdfc8353fb512e2a2a39de2e1ab55e6f9632b3165268;
 
     function outputRootProof()
         internal
@@ -20,18 +20,18 @@ library ColosseumTestData {
     {
         Types.OutputRootProof memory src = Types.OutputRootProof({
             version: bytes32(uint256(1)),
-            stateRoot: 0x0d987e48a7951caba0bcbb4f7d6049ecb41f98f68acdd724219f76a8ca5b720e,
+            stateRoot: 0x2fbc5f620a2e28afd9b159b9b7b259ebcca31cea10e3424994a39c1d6d551c18,
             messagePasserStorageRoot: 0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127,
-            blockHash: 0xfcf55897ef0e68aa8b3b39b1c8d6650a16663b967ad9d01b5d25d1c2bf39e144,
-            nextBlockHash: 0xf37a1d0486fe80ccfa63a519512d30c240ade862fa3faca49ede025209b39471
+            blockHash: 0x7296c63860b949715042cc8a60b5dcea924801b62ab7aa9ea40345abd570db40,
+            nextBlockHash: 0x3534f7f01bdd7d6b568f4eb60cb6a4b08131678be85cf84a61cebd2f1ae81769
         });
 
         Types.OutputRootProof memory dst = Types.OutputRootProof({
             version: bytes32(uint256(1)),
-            stateRoot: 0x1931d7bf7e9da61441a4145ec18807680141d6a37d68890f9c786e31a364d1ae,
+            stateRoot: 0x008bc0b55af382fe6508389a13c011b873eb5d7dcbcd3f8ba8f9a2001c196205,
             messagePasserStorageRoot: 0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127,
-            blockHash: 0xf37a1d0486fe80ccfa63a519512d30c240ade862fa3faca49ede025209b39471,
-            nextBlockHash: bytes32(abi.encode())
+            blockHash: 0x3534f7f01bdd7d6b568f4eb60cb6a4b08131678be85cf84a61cebd2f1ae81769,
+            nextBlockHash: 0x76da1f020b58638d4f0199a96c46a4c493366c61bbb1dbd3a4ad60166006d6cd
         });
 
         return (src, dst);
@@ -39,18 +39,18 @@ library ColosseumTestData {
 
     function publicInput() internal pure returns (Types.PublicInput memory) {
         bytes32[] memory txHashes = new bytes32[](1);
-        txHashes[0] = 0xa856617fcd81b386d003c195fc82ae03a79c6d7538e1763324b0eb7d207207d0;
+        txHashes[0] = 0x456bfcf0633a1c76b29954b1cef0a2d7543b6f5aaf76361819cd82ace7623954;
 
         return
             Types.PublicInput({
-                blockHash: 0xf37a1d0486fe80ccfa63a519512d30c240ade862fa3faca49ede025209b39471,
-                parentHash: 0xfcf55897ef0e68aa8b3b39b1c8d6650a16663b967ad9d01b5d25d1c2bf39e144,
-                timestamp: 0x645db07e,
-                number: 0xbb8,
-                gasLimit: 0xe4e1c0,
-                baseFee: 0x9,
-                transactionsRoot: 0x8eb182b0a61fed8cc5f190d4c1d87dbe5e2df9a346cb36d26b8d71639ca92b37,
-                stateRoot: 0x1931d7bf7e9da61441a4145ec18807680141d6a37d68890f9c786e31a364d1ae,
+                blockHash: 0x3534f7f01bdd7d6b568f4eb60cb6a4b08131678be85cf84a61cebd2f1ae81769,
+                parentHash: 0x7296c63860b949715042cc8a60b5dcea924801b62ab7aa9ea40345abd570db40,
+                timestamp: 0x6489d44b,
+                number: 0x11,
+                gasLimit: 0x1c9c380,
+                baseFee: 0x634d0f4,
+                transactionsRoot: 0x984e84df9b4f0573f6381e05f5445f0e7d82cd95d3a2b916a58369898b82eef3,
+                stateRoot: 0x008bc0b55af382fe6508389a13c011b873eb5d7dcbcd3f8ba8f9a2001c196205,
                 withdrawalsRoot: 0x0,
                 txHashes: txHashes
             });
@@ -64,13 +64,13 @@ library ColosseumTestData {
                 ),
                 coinbase: RLPWriter.writeAddress(address(0)),
                 receiptsRoot: RLPWriter.writeBytes(
-                    hex"ff07e961a994197df0f9406d373ef5d124e6febecf85a74ca0bcd436b2c5ad0e"
+                    hex"7298f243c2bd5472fb20330a6ba763aaf9dd07d8b0f818b27277c6b0fd3b85a9"
                 ),
                 logsBloom: RLPWriter.writeBytes(
                     hex"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                 ),
                 difficulty: RLPWriter.writeUint(0),
-                gasUsed: RLPWriter.writeUint(0xf4240),
+                gasUsed: RLPWriter.writeUint(0xc0b1),
                 extraData: RLPWriter.writeBytes(hex""),
                 mixHash: RLPWriter.writeBytes(
                     hex"0000000000000000000000000000000000000000000000000000000000000000"
@@ -239,5 +239,63 @@ library ColosseumTestData {
         pp.pair[3] = 4387398449564854858399845335905273397295727913637629556341886693575315457608;
 
         return pp;
+    }
+
+    struct Account {
+        uint64 nonce;
+        uint256 balance;
+        bytes32 storageRoot;
+        bytes32 codeHash;
+    }
+
+    function merkleProof() internal pure returns (Account memory, bytes[] memory) {
+        Account memory account = Account({
+            nonce: 0,
+            balance: 0,
+            storageRoot: 0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127,
+            codeHash: 0x1f958654ab06a152993e7a0ae7b6dbb0d4b19265cc9337b8789fe1353bd9dc35
+        });
+        bytes[] memory proof = new bytes[](13);
+        proof[
+            0
+        ] = hex"000aa0439c4396244e32a290420ad3cc63fcd7492387b6b4b50a151a9c3be187142190905b2b91df9e3921f3cb4a75059a2e7f071b0a036ca3bf5cebca5f1cb420";
+        proof[
+            1
+        ] = hex"0002b8ac403422ca5bf986d532f2a36bf0ed895ac42b0bd739f427d1cdf61745860a428d32b9078aebb23b8e08aed0f5393f8ce5d9050945cdcbde3e9aa754e218";
+        proof[
+            2
+        ] = hex"001fae62daabf99b5ab4efbd7504f308c79180e9bb04448eb51b69951646f4e8e51d0cb347c4624112228de283bda8b87d21bdb2a743cc8d7e2771d1a20afd40d4";
+        proof[
+            3
+        ] = hex"002bf1dc335fbd3c6252fa426d647d20ff86181a1a3ac1f4c53122b5a853436a592a82b9a18c350c5571c5461d90d2e37d3751a17c18bd3c90a701fada42a7446b";
+        proof[
+            4
+        ] = hex"00188f4a9b605caa246413179613bffe6c4efcd717d4d68a2dbc531123c8d2a4531d12fb4a76dc568a4655d2e360e9bdcd9f86542d6f7d327e3140477c92aa2920";
+        proof[
+            5
+        ] = hex"00244f31e0a770ed9dbdf583a0e0dbe036f5f9476c3cc761e18b2a475a96bcc10809387d2d4be643d4d8df653dcb8495eebc36eba91f993f78fe843a799a6d0fb9";
+        proof[
+            6
+        ] = hex"0008f993e0df87a04e71f72a3a237c909e2381eacf176b279925d333ee7b1e36ed03c30671a87c81a313a035fdbe052cc592ae0a604bcf87a5cf163d5a43104574";
+        proof[
+            7
+        ] = hex"00202aa398b4bd976d7c165b2c7bfa6e4b695f18ff78e4cb544dbb0fbab8c6537e15c1089ff56ee758ec382a55a21b76c08ebf64d6a78d7e6ff442793536607510";
+        proof[
+            8
+        ] = hex"0000000000000000000000000000000000000000000000000000000000000000002e957b48192277673a8dde0549358d09d3f9ad6e8db14e08f4fed46f96021a74";
+        proof[
+            9
+        ] = hex"002325a334c56feef28306cece9e3867165ee117aab1c831fe04db286a1b4ff2c80000000000000000000000000000000000000000000000000000000000000000";
+        proof[
+            10
+        ] = hex"00218476186a36a2ddf003ef59459478f44e0cea1ac32870dafca118331259b05f23618448c7fab9e44d30c44be6777aa390c25ad138fde11d22bdefd05f43838b";
+        proof[
+            11
+        ] = hex"012de4ca10cb48fa7ae483633127295fecab2f03da9355f4ca12ca0c820096f9c304040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001f958654ab06a152993e7a0ae7b6dbb0d4b19265cc9337b8789fe1353bd9dc3524f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127202de4ca10cb48fa7ae483633127295fecab2f03da9355f4ca12ca0c820096f9c3";
+        proof[
+            12
+        ] = hex"5448495320495320534f4d45204d4147494320425954455320464f5220534d54206d3172525867503278704449";
+
+        return (account, proof);
     }
 }

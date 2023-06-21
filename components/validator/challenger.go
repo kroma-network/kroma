@@ -27,7 +27,7 @@ import (
 )
 
 type ProofFetcher interface {
-	FetchProofAndPair(blockRef eth.L2BlockRef) (*chal.ProofAndPair, error)
+	FetchProofAndPair(blockRef uint64) (*chal.ProofAndPair, error)
 	Close() error
 }
 
@@ -431,15 +431,59 @@ func (c *Challenger) GetChallenge(ctx context.Context, outputIndex *big.Int) (bi
 	return c.colosseumContract.GetChallenge(&bind.CallOpts{Context: ctx}, outputIndex)
 }
 
-func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64, includeNextBlock bool) (*eth.OutputResponse, error) {
+func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cancel()
-	output, err := c.cfg.RollupClient.OutputAtBlock(ctx, blockNumber, includeNextBlock)
+	return c.cfg.RollupClient.OutputAtBlock(ctx, blockNumber)
+}
+
+func (c *Challenger) OutputWithProofAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cancel()
+	return c.cfg.RollupClient.OutputWithProofAtBlock(ctx, blockNumber)
+}
+
+func (c *Challenger) PublicInputProof(ctx context.Context, blockNumber uint64) (bindings.TypesPublicInputProof, error) {
+	srcOutput, err := c.OutputAtBlockSafe(ctx, blockNumber)
 	if err != nil {
-		return nil, err
+		return bindings.TypesPublicInputProof{}, err
 	}
 
-	return output, nil
+	dstOutput, err := c.OutputAtBlockSafe(ctx, blockNumber+1)
+	if err != nil {
+		return bindings.TypesPublicInputProof{}, err
+	}
+
+	publicInput, err := srcOutput.ToPublicInput()
+	if err != nil {
+		return bindings.TypesPublicInputProof{}, err
+	}
+
+	rlp, err := srcOutput.ToBlockHeaderRLP()
+	if err != nil {
+		return bindings.TypesPublicInputProof{}, err
+	}
+
+	p := srcOutput.PublicInputProof
+
+	var balance [32]byte
+	copy(balance[:], p.L2ToL1MessagePasserBalance.Bytes()[:])
+
+	// TODO(chokobole): Do we need to deep copy of this?
+	merkleProof := make([][]byte, len(p.MerkleProof))
+	for i, b := range p.MerkleProof {
+		merkleProof[i] = b
+	}
+
+	return bindings.TypesPublicInputProof{
+		SrcOutputRootProof:          srcOutput.ToOutputRootProof(),
+		DstOutputRootProof:          dstOutput.ToOutputRootProof(),
+		PublicInput:                 publicInput,
+		Rlps:                        rlp,
+		L2ToL1MessagePasserBalance:  balance,
+		L2ToL1MessagePasserCodeHash: p.L2ToL1MessagePasserCodeHash,
+		MerkleProof:                 merkleProof,
+	}, nil
 }
 
 type Outputs struct {
@@ -453,7 +497,7 @@ func (c *Challenger) outputsAtIndex(ctx context.Context, outputIndex *big.Int) (
 		return nil, err
 	}
 
-	localOutput, err := c.OutputAtBlockSafe(ctx, remoteOutput.L2BlockNumber.Uint64(), false)
+	localOutput, err := c.OutputAtBlockSafe(ctx, remoteOutput.L2BlockNumber.Uint64())
 	if err != nil {
 		return nil, err
 	}
@@ -518,7 +562,7 @@ func (c *Challenger) BuildSegments(ctx context.Context, turn uint8, segStart, se
 	segments := chal.NewEmptySegments(segStart, segSize, sections.Uint64())
 
 	for i, blockNumber := range segments.BlockNumbers() {
-		output, err := c.OutputAtBlockSafe(ctx, blockNumber, false)
+		output, err := c.OutputAtBlockSafe(ctx, blockNumber)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get output %d: %w", blockNumber, err)
 		}
@@ -531,7 +575,7 @@ func (c *Challenger) BuildSegments(ctx context.Context, turn uint8, segStart, se
 
 func (c *Challenger) selectFaultPosition(ctx context.Context, segments *chal.Segments) (*big.Int, error) {
 	for i, blockNumber := range segments.BlockNumbers() {
-		output, err := c.OutputAtBlockSafe(ctx, blockNumber, false)
+		output, err := c.OutputAtBlockSafe(ctx, blockNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -613,30 +657,12 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int) (*typ
 	}
 
 	blockNumber := challenge.SegStart.Uint64() + position.Uint64()
-	srcOutput, err := c.OutputAtBlockSafe(ctx, blockNumber, true)
+	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(blockNumber)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: blockNumber: %d", err, blockNumber)
 	}
 
-	dstOutput, err := c.OutputAtBlockSafe(ctx, blockNumber+1, false)
-	if err != nil {
-		return nil, err
-	}
-
-	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(dstOutput.BlockRef)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"%w: blockNumber: %d, blockHash: %s",
-			err, dstOutput.BlockRef.Number, dstOutput.BlockRef.Hash,
-		)
-	}
-
-	publicInput, err := srcOutput.ToPublicInput()
-	if err != nil {
-		return nil, err
-	}
-
-	blockHeaderRLP, err := srcOutput.ToBlockHeaderRLP()
+	proof, err := c.PublicInputProof(ctx, blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -647,10 +673,7 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int) (*typ
 		outputIndex,
 		outputs.localOutput.OutputRoot,
 		position,
-		srcOutput.ToOutputRootProof(),
-		dstOutput.ToOutputRootProof(),
-		publicInput,
-		blockHeaderRLP,
+		proof,
 		fetchResult.Proof,
 		// NOTE(0xHansLee): the hash of public input (pair[4], pair[5]) is not needed in proving fault.
 		// It can be calculated using public input sent to colosseum contract.

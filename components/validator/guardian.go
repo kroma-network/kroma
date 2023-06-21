@@ -164,7 +164,7 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 func (g *Guardian) outputRootAtBlock(ctx context.Context, blockNumber uint64) (eth.Bytes32, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
-	output, err := g.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber, false)
+	output, err := g.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber)
 	if err != nil {
 		return eth.Bytes32{}, err
 	}

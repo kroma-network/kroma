@@ -343,7 +343,7 @@ func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, e
 func (l *L2OutputSubmitter) FetchOutput(ctx context.Context, blockNumber *big.Int) (*eth.OutputResponse, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
-	output, err := l.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber.Uint64(), false)
+	output, err := l.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber.Uint64())
 	if err != nil {
 		l.log.Error("failed to fetch output at block number %d: %w", blockNumber, err)
 		return nil, err
