@@ -14,17 +14,14 @@ const deployFn: DeployFunction = async (hre) => {
   )
 
   await deploy(hre, 'SecurityCouncil', {
-    args: [
-      ColosseumProxyAddress
-    ],
+    args: [ColosseumProxyAddress],
     isProxyImpl: true,
-    initArgs: [hre.deployConfig.securityCouncilOwners, hre.deployConfig.securityCouncilNumConfirmationRequired],
+    initArgs: [
+      hre.deployConfig.securityCouncilOwners,
+      hre.deployConfig.securityCouncilNumConfirmationRequired,
+    ],
     postDeployAction: async (contract) => {
-      await assertContractVariable(
-        contract,
-        'COLOSSEUM',
-        ColosseumProxyAddress
-      )
+      await assertContractVariable(contract, 'COLOSSEUM', ColosseumProxyAddress)
     },
   })
 }

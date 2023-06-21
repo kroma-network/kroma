@@ -32,12 +32,12 @@ func setupL2OutputOracle() (common.Address, *bind.TransactOpts, *backends.Simula
 	_, _, contract, err := bindings.DeployL2OutputOracle(
 		opts,
 		backend,
+		common.Address{0xdd},
+		common.Address{0xee},
 		big.NewInt(10),
 		big.NewInt(2),
 		big.NewInt(0),
 		big.NewInt(0),
-		from,
-		common.Address{0xdd},
 		big.NewInt(100))
 	if err != nil {
 		return common.Address{}, nil, nil, nil, err
@@ -59,7 +59,7 @@ func TestManualABIPacking(t *testing.T) {
 	output := testutils.RandomOutputResponse(rng)
 	bondAmount := uint64(1)
 
-	txData, err := submitL2OutputTxData(abi, output, bondAmount)
+	txData, err := SubmitL2OutputTxData(abi, output, bondAmount)
 	require.NoError(t, err)
 
 	// set a gas limit to disable gas estimation. The invariants that the L2OO tries to uphold

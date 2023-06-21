@@ -178,6 +178,7 @@ func (v *Validator) Stop() error {
 
 	v.cancel()
 	v.wg.Wait()
+
 	return nil
 }
 

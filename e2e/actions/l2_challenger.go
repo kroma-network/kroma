@@ -1,120 +1,50 @@
 package actions
 
 import (
-	"context"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kroma-network/kroma/components/node/sources"
-	validator "github.com/kroma-network/kroma/components/validator"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
-	"github.com/kroma-network/kroma/e2e/e2eutils"
-	kcrypto "github.com/kroma-network/kroma/utils/service/crypto"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
-type L2Challenger struct {
-	log        log.Logger
-	l1         *ethclient.Client
-	challenger *validator.Challenger
-	address    common.Address
-}
-
-func NewL2Challenger(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.Client, rollupCl *sources.RollupClient) *L2Challenger {
-	signer := func(chainID *big.Int) kcrypto.SignerFn {
-		s := kcrypto.PrivateKeySignerFn(cfg.ValidatorKey, chainID)
-		return func(_ context.Context, addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
-			return s(addr, tx)
-		}
-	}
-	from := crypto.PubkeyToAddress(cfg.ValidatorKey.PublicKey)
-
-	chainID, err := l1.ChainID(t.Ctx())
-	require.NoError(t, err)
-
-	rollupConfig, err := rollupCl.RollupConfig(t.Ctx())
-	require.NoError(t, err)
-
-	validatorCfg := validator.Config{
-		L2OutputOracleAddr:     cfg.OutputOracleAddr,
-		ColosseumAddr:          cfg.ColosseumAddr,
-		ChallengerPollInterval: time.Second,
-		NetworkTimeout:         time.Second,
-		L1Client:               l1,
-		RollupClient:           rollupCl,
-		RollupConfig:           rollupConfig,
-		AllowNonFinalized:      cfg.AllowNonFinalized,
-		ProofFetcher:           e2eutils.NewFetcher(log),
-		TxManager: &txmgr.SimpleTxManager{
-			Config: txmgr.Config{
-				From:   from,
-				Signer: signer(chainID),
-			},
-		},
-	}
-
-	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log, make(chan txmgr.TxCandidate))
-	require.NoError(t, err)
-
-	return &L2Challenger{
-		log:        log,
-		l1:         l1,
-		challenger: challenger,
-		address:    from,
-	}
-}
-
-func (c *L2Challenger) ActCreateChallenge(t Testing, outputIndex *big.Int) common.Hash {
-	isInProgress, err := c.challenger.IsChallengeInProgress(outputIndex)
+func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common.Hash {
+	isInProgress, err := v.challenger.IsChallengeInProgress(outputIndex)
 	require.NoError(t, err)
 	require.False(t, isInProgress, "another challenge is in progress")
 
-	outputRange, err := c.challenger.ValidateOutput(outputIndex)
+	outputRange, err := v.challenger.ValidateOutput(outputIndex)
 	require.NoError(t, err)
 	require.NotNil(t, outputRange)
-	tx, err := c.challenger.CreateChallenge(outputRange)
+	tx, err := v.challenger.CreateChallenge(outputRange)
 	require.NoError(t, err, "unable to create createChallenge tx")
 
-	err = c.l1.SendTransaction(t.Ctx(), tx)
+	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
 
 	return tx.Hash()
 }
 
-func (c *L2Challenger) ActBisect(t Testing, outputIndex *big.Int) common.Hash {
-	status, err := c.challenger.GetChallengeStatus(outputIndex)
-	require.NoError(t, err)
+func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int) common.Hash {
+	tx, err := v.challenger.Bisect(outputIndex)
+	require.NoError(t, err, "unable to create bisect tx")
 
-	var tx *types.Transaction
-
-	if status == chal.StatusChallengerTurn || status == chal.StatusAsserterTurn {
-		tx, err = c.challenger.Bisect(outputIndex)
-		require.NoError(t, err, "unable to create bisect tx")
-	} else {
-		require.Fail(t, "invalid challenge status")
-	}
-
-	err = c.l1.SendTransaction(t.Ctx(), tx)
+	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
 
 	return tx.Hash()
 }
 
-func (c *L2Challenger) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
-	status, err := c.challenger.GetChallengeStatus(outputIndex)
+func (v *L2Validator) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
+	status, err := v.challenger.GetChallengeStatus(outputIndex)
 	require.NoError(t, err)
 
 	var tx *types.Transaction
 
 	if status == chal.StatusChallengerTimeout {
-		tx, err = c.challenger.ChallengerTimeout(outputIndex)
+		tx, err = v.challenger.ChallengerTimeout(outputIndex)
 		require.NoError(t, err)
 	} else {
 		require.Fail(t, "invalid challenge status")
@@ -122,21 +52,17 @@ func (c *L2Challenger) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
 
 	require.NoError(t, err, "unable to create tx")
 
-	err = c.l1.SendTransaction(t.Ctx(), tx)
+	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
 
 	return tx.Hash()
 }
 
-func (c *L2Challenger) ActProveFault(t Testing, outputIndex *big.Int) common.Hash {
-	status, err := c.challenger.GetChallengeStatus(outputIndex)
-	require.NoError(t, err)
-	require.Equal(t, status, chal.StatusReadyToProve)
-
-	tx, err := c.challenger.ProveFault(outputIndex)
+func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int) common.Hash {
+	tx, err := v.challenger.ProveFault(outputIndex)
 	require.NoError(t, err, "unable to create proveFault tx")
 
-	err = c.l1.SendTransaction(t.Ctx(), tx)
+	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
 
 	return tx.Hash()

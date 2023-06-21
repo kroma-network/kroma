@@ -124,6 +124,7 @@ func (l *L2OutputSubmitter) Stop() error {
 	l.log.Info("stopping L2 Output Submitter")
 	l.cancel()
 	l.wg.Wait()
+
 	return nil
 }
 
@@ -153,7 +154,7 @@ func (l *L2OutputSubmitter) retryAfter(d time.Duration) {
 
 // TODO(seolaoh): return wait duration explicitly, and handle `retryAfter` function calls at once.
 func (l *L2OutputSubmitter) trySubmitL2Output() error {
-	nextBlockNumber, canSubmit, err := l.canSubmit()
+	nextBlockNumber, canSubmit, err := l.CanSubmit()
 	if err != nil {
 		return fmt.Errorf("failed to check if it can submit: %w", err)
 	}
@@ -161,12 +162,12 @@ func (l *L2OutputSubmitter) trySubmitL2Output() error {
 		return nil
 	}
 
-	output, err := l.fetchOutput(nextBlockNumber)
+	output, err := l.FetchOutput(nextBlockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to fetch next output: %w", err)
 	}
 
-	data, err := submitL2OutputTxData(l.l2ooABI, output, l.cfg.OutputSubmitterBondAmount)
+	data, err := SubmitL2OutputTxData(l.l2ooABI, output, l.cfg.OutputSubmitterBondAmount)
 	if err != nil {
 		return fmt.Errorf("failed to create submit l2 output transaction data: %w", err)
 	}
@@ -180,8 +181,8 @@ func (l *L2OutputSubmitter) trySubmitL2Output() error {
 	return nil
 }
 
-// canSubmit checks if submission interval has elapsed and current round conditions.
-func (l *L2OutputSubmitter) canSubmit() (*big.Int, bool, error) {
+// CanSubmit checks if submission interval has elapsed and current round conditions.
+func (l *L2OutputSubmitter) CanSubmit() (*big.Int, bool, error) {
 	hasEnoughDeposit, err := l.checkDeposit()
 	if err != nil {
 		return nil, false, err
@@ -340,9 +341,9 @@ func (l *L2OutputSubmitter) fetchCurrentRound() (roundInfo, error) {
 	}, nil
 }
 
-// fetchOutput gets the output information to the corresponding block number.
+// FetchOutput gets the output information to the corresponding block number.
 // It returns the output info if the output can be made, otherwise error.
-func (l *L2OutputSubmitter) fetchOutput(blockNumber *big.Int) (*eth.OutputResponse, error) {
+func (l *L2OutputSubmitter) FetchOutput(blockNumber *big.Int) (*eth.OutputResponse, error) {
 	cCtx, cCancel := context.WithTimeout(l.ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	output, err := l.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber.Uint64(), false)
@@ -362,8 +363,8 @@ func (l *L2OutputSubmitter) fetchOutput(blockNumber *big.Int) (*eth.OutputRespon
 	return output, nil
 }
 
-// submitL2OutputTxData creates the transaction data for the submitL2OutputTx function.
-func submitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse, bondAmount uint64) ([]byte, error) {
+// SubmitL2OutputTxData creates the transaction data for the submitL2OutputTx function.
+func SubmitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse, bondAmount uint64) ([]byte, error) {
 	return abi.Pack(
 		"submitL2Output",
 		output.OutputRoot,
@@ -408,4 +409,8 @@ func (l *L2OutputSubmitter) submitL2OutputTx(data []byte, nextBlockNumber *big.I
 	}
 
 	return nil
+}
+
+func (l *L2OutputSubmitter) L2ooAbi() *abi.ABI {
+	return l.l2ooABI
 }

@@ -80,11 +80,15 @@ func TestL2OutputSubmitter(t *testing.T) {
 
 	l1Client := sys.Clients["l1"]
 
+	// deposit to ValidatorPool to be a validator
+	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.TrustedValidator, big.NewInt(1_000_000_000))
+	require.NoError(t, err, "Error deposit to ValidatorPool")
+
 	rollupRPCClient, err := rpc.DialContext(context.Background(), sys.RollupNodes["proposer"].HTTPEndpoint())
 	require.Nil(t, err)
 	rollupClient := sources.NewRollupClient(client.NewBaseRPCClient(rollupRPCClient))
 
-	//  OutputOracle is already deployed
+	// OutputOracle is already deployed
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
 	require.Nil(t, err)
 
@@ -1190,6 +1194,10 @@ func TestWithdrawals(t *testing.T) {
 	l1Client := sys.Clients["l1"]
 	l2Prop := sys.Clients["proposer"]
 	l2Sync := sys.Clients["syncer"]
+
+	// deposit to ValidatorPool to be a validator
+	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.TrustedValidator, big.NewInt(1_000_000_000))
+	require.NoError(t, err, "Error deposit to ValidatorPool")
 
 	// Transactor Account
 	ethPrivKey := cfg.Secrets.Alice

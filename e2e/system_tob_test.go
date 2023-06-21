@@ -441,6 +441,10 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			l2Sync := sys.Clients["syncer"]
 			require.NoError(t, err)
 
+			// deposit to ValidatorPool to be a validator
+			err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.TrustedValidator, big.NewInt(1_000_000_000))
+			require.NoError(t, err, "Error deposit to ValidatorPool")
+
 			// Define our L1 transaction timeout duration.
 			txTimeoutDuration := 10 * time.Duration(cfg.DeployConfig.L1BlockTime) * time.Second
 

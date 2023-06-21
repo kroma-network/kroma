@@ -60,7 +60,8 @@ func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	}, proposer.RollupClient(), miner.EthClient(), propEngine.EthClient())
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorKey:      dp.Secrets.Validator,
+		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
+		ValidatorKey:      dp.Secrets.TrustedValidator,
 		AllowNonFinalized: true,
 	}, miner.EthClient(), proposer.RollupClient())
 
@@ -170,14 +171,16 @@ func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	// derive from L1, blocks will now become safe to submit
 	proposer.ActL2PipelineFull(t)
 
+	validator.ActDeposit(t, 1000)
+	includeL1Block(t, miner, dp.Addresses.TrustedValidator)
+
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		miner.ActL1StartBlock(12)(t)
-		miner.ActL1IncludeTx(dp.Addresses.Validator)(t)
-		miner.ActL1EndBlock(t)
+		includeL1Block(t, miner, dp.Addresses.TrustedValidator)
+		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 		require.NoError(t, err)

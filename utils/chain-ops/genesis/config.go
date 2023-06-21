@@ -106,8 +106,6 @@ type DeployConfig struct {
 	SystemConfigProxy common.Address `json:"systemConfigProxy"`
 	// KromaPortal proxy address on L1
 	KromaPortalProxy common.Address `json:"kromaPortalProxy"`
-	// SecurityCouncil proxy address on L1
-	SecurityCouncilProxy common.Address `json:"securityCouncilProxy"`
 	// The initial value of the gas overhead
 	GasPriceOracleOverhead uint64 `json:"gasPriceOracleOverhead"`
 	// The initial value of the gas scalar
@@ -213,9 +211,6 @@ func (d *DeployConfig) Check() error {
 	if d.KromaPortalProxy == (common.Address{}) {
 		return fmt.Errorf("%w: KromaPortalProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.SecurityCouncilProxy == (common.Address{}) {
-		return fmt.Errorf("%w: SecurityCouncilProxy cannot be address(0)", ErrInvalidDeployConfig)
-	}
 	if d.EIP1559Denominator == 0 {
 		return fmt.Errorf("%w: EIP1559Denominator cannot be 0", ErrInvalidDeployConfig)
 	}
@@ -298,14 +293,6 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 		d.KromaPortalProxy = kromaPortalProxyDeployment.Address
 	}
 
-	if d.SecurityCouncilProxy == (common.Address{}) {
-		securityCouncilProxyDeployment, err := hh.GetDeployment("SecurityCouncilProxy")
-		if err != nil {
-			return err
-		}
-		d.SecurityCouncilProxy = securityCouncilProxyDeployment.Address
-	}
-
 	return nil
 }
 
@@ -315,7 +302,6 @@ func (d *DeployConfig) InitDeveloperDeployedAddresses() error {
 	d.L1CrossDomainMessengerProxy = predeploys.DevL1CrossDomainMessengerAddr
 	d.L1ERC721BridgeProxy = predeploys.DevL1ERC721BridgeAddr
 	d.KromaPortalProxy = predeploys.DevKromaPortalAddr
-	d.SecurityCouncilProxy = predeploys.DevSecurityCouncilAddr
 	d.SystemConfigProxy = predeploys.DevSystemConfigAddr
 	return nil
 }
