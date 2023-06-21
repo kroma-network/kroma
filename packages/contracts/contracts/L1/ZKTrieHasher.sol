@@ -88,13 +88,15 @@ contract ZKTrieHasher {
         else if (_elems.length == 3) {
             return POSEIDON2.poseidon([baseH, _elems[2]]);
         }
-        bytes32[] memory newValues = new bytes32[](_elems.length / 2 + 1);
+        bytes32[] memory newValues = new bytes32[]((_elems.length + 1) >> 1);
         newValues[0] = baseH;
-        for (uint256 i = 0; i < newValues.length; ) {
-            if ((i + 1) * 2 > _elems.length) {
-                newValues[i] = _elems[i * 2 + 1];
+        uint256 j;
+        for (uint256 i = 1; i < newValues.length; ) {
+            j = i << 1;
+            if (j + 1 < _elems.length) {
+                newValues[i] = POSEIDON2.poseidon([_elems[j], _elems[j + 1]]);
             } else {
-                newValues[i] = POSEIDON2.poseidon([_elems[i * 2], _elems[i * 2 + 1]]);
+                newValues[i] = _elems[j];
             }
             unchecked {
                 ++i;
