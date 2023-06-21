@@ -28,7 +28,7 @@ const (
 	publicRoundHex = "0xffffffffffffffffffffffffffffffffffffffff"
 )
 
-var publicRoundAddr = common.HexToAddress(publicRoundHex)
+var PublicRoundAddress = common.HexToAddress(publicRoundHex)
 
 // L2OutputSubmitter is responsible for submitting outputs.
 type L2OutputSubmitter struct {
@@ -318,7 +318,7 @@ func (l *L2OutputSubmitter) fetchCurrentRound() (roundInfo, error) {
 		}, err
 	}
 
-	if bytes.Equal(nextValidator[:], publicRoundAddr[:]) {
+	if bytes.Equal(nextValidator[:], PublicRoundAddress[:]) {
 		l.log.Info("current round is public round")
 		return roundInfo{
 			isPublicRound:       true,
