@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
@@ -83,8 +84,8 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 
 		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
 		ValidatorPoolMinBondAmount:    uint642big(1),
-		ValidatorPoolNonPenaltyPeriod: 1,
-		ValidatorPoolPenaltyPeriod:    1,
+		ValidatorPoolNonPenaltyPeriod: 2,
+		ValidatorPoolPenaltyPeriod:    2,
 
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
@@ -606,6 +607,12 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		},
 	}
 
+	// deposit to ValidatorPool to be a validator
+	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.TrustedValidator, big.NewInt(params.Ether))
+	if err != nil {
+		return nil, fmt.Errorf("unable to deposit to ValidatorPool: %w", err)
+	}
+
 	validatorCfg, err := validator.NewValidatorConfig(validatorCliCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("unable to init validator config: %w", err)
@@ -719,6 +726,47 @@ func (cfg SystemConfig) DepositValidatorPool(l1Client *ethclient.Client, priv *e
 		return errors.New("validator deposit tx failed")
 	}
 	return nil
+}
+
+func (cfg SystemConfig) SendTransferTx(l2Prop *ethclient.Client, l2Sync *ethclient.Client) (*types.Receipt, error) {
+	chainId := cfg.L2ChainIDBig()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	nonce, err := l2Prop.PendingNonceAt(ctx, cfg.Secrets.Addresses().Alice)
+	cancel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nonce: %w", err)
+	}
+	tx := types.MustSignNewTx(cfg.Secrets.Alice, types.LatestSignerForChainID(chainId), &types.DynamicFeeTx{
+		ChainID:   chainId,
+		Nonce:     nonce,
+		To:        &common.Address{0xff, 0xff},
+		Value:     common.Big1,
+		GasTipCap: big.NewInt(10),
+		GasFeeCap: big.NewInt(200),
+		Gas:       21000,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	err = l2Prop.SendTransaction(ctx, tx)
+	cancel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to send L2 tx to proposer: %w", err)
+	}
+
+	_, err = waitForL2Transaction(tx.Hash(), l2Prop, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait L2 tx on proposer: %w", err)
+	}
+
+	receipt, err := waitForL2Transaction(tx.Hash(), l2Sync, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait L2 tx on syncer: %w", err)
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, errors.New("tx was failed on L2")
+	}
+
+	return receipt, nil
 }
 
 func uint642big(in uint64) *hexutil.Big {
