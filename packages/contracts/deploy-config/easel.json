@@ -21,7 +21,7 @@
   "l2OutputOracleSubmissionInterval": 20,
   "l2OutputOracleStartingTimestamp": -1,
   "l2OutputOracleValidator": "0x496c79132B773940ca5B38EBcc0C56887a0ea164",
-  "finalizationPeriodSeconds": 60,
+  "finalizationPeriodSeconds": 600,
   "proxyAdminOwner": "0x69487D0D1F969E99D3b68C4F79F0F47375c4Ee4A",
   "l2GenesisBlockGasLimit": "0x1c9c380",
   "l2GenesisBlockCoinbase": "0x4200000000000000000000000000000000000008",
