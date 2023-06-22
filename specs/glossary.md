@@ -40,6 +40,7 @@
   - [SUBMISSION TIMEOUT](#submission-timeout)
   - [Priority Round](#priority-round)
   - [Public Round](#public-round)
+  - [Validator Reward](#validator-reward)
 - [Deposits](#deposits)
   - [Deposited Transaction](#deposited-transaction)
   - [L1 Attributes Deposited Transaction](#l1-attributes-deposited-transaction)
@@ -415,6 +416,13 @@ A priority round is the period during which validator with output submission pri
 [public-round]: glossary.md#public-round
 
 A public round is the time period during which any account registered as a Validator can submit the output.
+
+## Validator Reward
+
+[validator-reward]: glossary.md#validator-reward
+
+The validator reward is calculated using the following formula:
+`(L2 base fee + L2 priority fee) * validator reward ratio / 10000`.
 
 ------------------------------------------------------------------------------------------------------------------------
 
