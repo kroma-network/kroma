@@ -105,17 +105,11 @@ contract ZKMerkleTrie is IZKMerkleTrie, ZKTrieHasher {
                     currentNode.nodeKey,
                     _valueHash(currentNode.compressedFlags, currentNode.valuePreimage)
                 );
-                value = new bytes(currentNode.valuePreimage.length * 32);
-                uint256 offset = 32;
-                for (uint256 j = 0; j < currentNode.valuePreimage.length; ) {
-                    bytes32 valuePreimage = currentNode.valuePreimage[j];
-                    assembly {
-                        mstore(add(value, offset), valuePreimage)
-                    }
-                    unchecked {
-                        ++j;
-                        offset += 32;
-                    }
+                bytes32[] memory valuePreimage = currentNode.valuePreimage;
+                uint256 len = valuePreimage.length;
+                assembly {
+                    value := valuePreimage
+                    mstore(value, mul(len, 32))
                 }
                 if (currentNode.keyPreimage != bytes32(0)) {
                     // NOTE(chokobole): The comparison order is important, because in this setting,
