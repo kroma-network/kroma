@@ -75,33 +75,65 @@ contract ZKTrieHasher {
     }
 
     /**
-     * @notice Computes a hash of elements.
+     * @notice Computes a root hash of elements tree.
      *
      * @param _elems Bytes32 array to be hashed.
      *
-     * @return A hash of element.
+     * @return A hash of elements tree.
      */
     function _hashElems(bytes32[] memory _elems) internal view returns (bytes32) {
-        require(_elems.length >= 2, "ZKTrieHasher: too few values for _hashElems");
-        bytes32 baseH = POSEIDON2.poseidon([_elems[0], _elems[1]]);
-        if (_elems.length == 2) return baseH;
-        else if (_elems.length == 3) {
-            return POSEIDON2.poseidon([baseH, _elems[2]]);
-        }
-        bytes32[] memory newValues = new bytes32[]((_elems.length + 1) >> 1);
-        newValues[0] = baseH;
-        uint256 j;
-        for (uint256 i = 1; i < newValues.length; ) {
-            j = i << 1;
-            if (j + 1 < _elems.length) {
-                newValues[i] = POSEIDON2.poseidon([_elems[j], _elems[j + 1]]);
-            } else {
-                newValues[i] = _elems[j];
+        require(_elems.length >= 4, "ZKTrieHasher: too few values for _hashElems");
+        IPoseidon2 iposeidon = POSEIDON2;
+
+        uint256 idx;
+        uint256 adjacent_idx;
+
+        uint256 adjacent_offset = 1;
+        uint256 jump = 2;
+        uint256 length = _elems.length;
+        for (; adjacent_offset < length;) {
+            for (idx = 0; idx < length;) {
+                unchecked {
+                    adjacent_idx = idx + adjacent_offset;
+                }
+                if (adjacent_idx < length) {
+                    _elems[idx] = iposeidon.poseidon( [_elems[idx], _elems[adjacent_idx]] );
+                }
+                unchecked {
+                    idx += jump;
+                }
             }
-            unchecked {
-                ++i;
-            }
+            adjacent_offset = jump;
+            jump <<= 1;
         }
-        return _hashElems(newValues);
+
+        return _elems[0];
+    }
+
+    /**
+     * @notice Computes a root hash of 2 elements.
+     *
+     * @param left_leaf  Bytes32 left leaf to be hashed.
+     * @param right_leaf Bytes32 right leaf to be hashed.
+     *
+     * @return A hash of 2 elements.
+     */
+    function _hashFixed2Elems(bytes32 left_leaf, bytes32 right_leaf) internal view returns (bytes32) {
+        return POSEIDON2.poseidon([left_leaf, right_leaf]);
+    }
+
+   /**
+     * @notice Computes a root hash of 3 elements.
+     *
+     * @param left_leaf  Bytes32 left leaf to be hashed.
+     * @param right_leaf Bytes32 right leaf to be hashed.
+     * @param up_leaf    Bytes32 up leaf to be hashed with left||right hash.
+     *
+     * @return A hash of 3 elements.
+     */
+    function _hashFixed3Elems(bytes32 left_leaf, bytes32 right_leaf, bytes32 up_leaf) internal view returns (bytes32) {
+        IPoseidon2 iposeidon = POSEIDON2;
+        left_leaf = iposeidon.poseidon([left_leaf, right_leaf]);
+        return iposeidon.poseidon([left_leaf, up_leaf]);
     }
 }

@@ -93,18 +93,18 @@ contract ZKMerkleTrie is IZKMerkleTrie, ZKTrieHasher {
                 } else {
                     require(computedKey == currentNode.childR, "ZKMerkleTrie: invalid key R");
                 }
-                bytes32[] memory inputs = new bytes32[](2);
-                inputs[0] = currentNode.childL;
-                inputs[1] = currentNode.childR;
-                computedKey = _hashElems(inputs);
+                computedKey = _hashFixed2Elems(
+                    currentNode.childL,
+                    currentNode.childR
+                );
             } else if (currentNode.nodeType == NodeReader.NodeType.LEAF) {
                 require(!exists, "ZKMerkleTrie: duplicated leaf node");
                 exists = true;
-                bytes32[] memory inputs = new bytes32[](3);
-                inputs[0] = bytes32(uint256(1));
-                inputs[1] = currentNode.nodeKey;
-                inputs[2] = _valueHash(currentNode.compressedFlags, currentNode.valuePreimage);
-                computedKey = _hashElems(inputs);
+                computedKey = _hashFixed3Elems(
+                    bytes32(uint256(1)),
+                    currentNode.nodeKey,
+                    _valueHash(currentNode.compressedFlags, currentNode.valuePreimage)
+                );
                 value = new bytes(currentNode.valuePreimage.length * 32);
                 uint256 offset = 32;
                 for (uint256 j = 0; j < currentNode.valuePreimage.length; ) {
