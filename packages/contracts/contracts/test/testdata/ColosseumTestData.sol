@@ -56,23 +56,6 @@ library ColosseumTestData {
             });
     }
 
-    function publicInputHash(Colosseum colosseum) internal view returns (bytes32) {
-        (Types.OutputRootProof memory srcOutputRootProof, ) = outputRootProof();
-        Types.PublicInput memory pi = publicInput();
-
-        uint256 maxTxs = colosseum.MAX_TXS();
-
-        bytes32[] memory dummyHashes;
-        if (pi.txHashes.length < maxTxs) {
-            dummyHashes = Hashing.generateDummyHashes(
-                colosseum.DUMMY_HASH(),
-                maxTxs - pi.txHashes.length
-            );
-        }
-
-        return Hashing.hashPublicInput(srcOutputRootProof.stateRoot, pi, dummyHashes);
-    }
-
     function blockHeaderRLP() internal pure returns (Types.BlockHeaderRLP memory) {
         return
             Types.BlockHeaderRLP({
@@ -101,7 +84,7 @@ library ColosseumTestData {
         uint256[] pair;
     }
 
-    function proofAndPair(bytes32 _publicInputHash) internal pure returns (ProofPair memory pp) {
+    function proofAndPair() internal pure returns (ProofPair memory pp) {
         pp.proof = new uint256[](145);
         pp.proof[0] = 0x2db84b4be2adf33a9442a48e35273b442afb13491b53b5ddda9d28afa4bcc94f;
         pp.proof[1] = 0x250d0813a637b6894bcfda982e940ace442939d02d7d308bd269da5bc0d90c75;
@@ -249,13 +232,11 @@ library ColosseumTestData {
         pp.proof[143] = 0x1e15ec1297adf2bd19b2098779edcfc324e5a140c3f43b225a0337177acd7d66;
         pp.proof[144] = 0x10735949561e38cbf5801fc6f4005a165325ab8b08b7cd40d7e9d76729b5999d;
 
-        pp.pair = new uint256[](6);
+        pp.pair = new uint256[](4);
         pp.pair[0] = 11043928860274208474100222903659720401105736444942783912777777731178123111009;
         pp.pair[1] = 4733049234560598175814075307329400052685708929235536361180057682884349522951;
         pp.pair[2] = 12927143393367435583780384041605583199602086804808450831263369829150907626360;
         pp.pair[3] = 4387398449564854858399845335905273397295727913637629556341886693575315457608;
-        pp.pair[4] = uint256(bytes32(bytes16(_publicInputHash)) >> (8 * 16));
-        pp.pair[5] = uint256(bytes32(bytes16(_publicInputHash << (8 * 16))) >> (8 * 16));
 
         return pp;
     }

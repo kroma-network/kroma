@@ -174,8 +174,7 @@ contract ColosseumTest is Colosseum_Initializer {
         Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
         Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
 
-        bytes32 piHash = ColosseumTestData.publicInputHash(colosseum);
-        ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair(piHash);
+        ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
 
         vm.prank(challenge.challenger);
         colosseum.proveFault(
