@@ -254,7 +254,7 @@ contract ColosseumTest is Colosseum_Initializer {
         colosseum.createChallenge(outputIndex, new bytes32[](segLen));
     }
 
-    function test_createChallenge_WithBadSegments_reverts() external {
+    function test_createChallenge_withBadSegments_reverts() external {
         uint256 latestBlockNumber = oracle.latestBlockNumber();
         uint256 outputIndex = oracle.getL2OutputIndexAfter(latestBlockNumber);
         uint256 segLen = colosseum.getSegmentsLength(1);
@@ -267,15 +267,10 @@ contract ColosseumTest is Colosseum_Initializer {
 
         bytes32[] memory segments = new bytes32[](segLen);
 
-        // invalid output of first segment
+        // invalid output of the last segment
         for (uint256 i = 0; i < segments.length; i++) {
             segments[i] = keccak256(abi.encodePacked("wrong hash", i));
         }
-        vm.expectRevert("Colosseum: the first segment must be matched");
-        colosseum.createChallenge(outputIndex, segments);
-
-        // invalid output of last segments
-        segments[0] = oracle.getL2Output(outputIndex - 1).outputRoot;
         segments[segLen - 1] = oracle.getL2Output(outputIndex).outputRoot;
         vm.expectRevert("Colosseum: the last segment must not be matched");
         colosseum.createChallenge(outputIndex, segments);
@@ -362,6 +357,42 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(nextSender(challenge), challenge.asserter);
 
         _bisect(outputIndex, challenge.asserter);
+    }
+
+    function test_bisect_withBadSegments_reverts() external {
+        uint256 outputIndex = oracle.latestOutputIndex();
+        _createChallenge(outputIndex);
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex);
+
+        assertEq(colosseum.isInProgress(outputIndex), true);
+        assertEq(nextSender(challenge), challenge.asserter);
+
+        uint256 position = _detectFault(challenge, challenge.asserter);
+        uint256 segSize = challenge.segSize / (colosseum.getSegmentsLength(challenge.turn) - 1);
+        uint256 segStart = challenge.segStart + position * segSize;
+
+        bytes32[] memory segments = _newSegments(
+            challenge.asserter,
+            challenge.turn + 1,
+            segStart,
+            segSize
+        );
+
+        vm.startPrank(challenge.asserter);
+
+        // invalid output of the first segment
+        bytes32 firstSegment = segments[0];
+        segments[0] = keccak256(abi.encodePacked("wrong hash", uint256(0)));
+        vm.expectRevert("Colosseum: the first segment must be matched");
+        colosseum.bisect(outputIndex, position, segments);
+
+        // invalid output of the last segment
+        segments[0] = firstSegment;
+        segments[segments.length - 1] = challenge.segments[position + 1];
+        vm.expectRevert("Colosseum: the last segment must not be matched");
+        colosseum.bisect(outputIndex, position, segments);
+
+        vm.stopPrank();
     }
 
     function test_bisect_ifNotYourTurn_reverts() external {
