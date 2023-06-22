@@ -234,18 +234,20 @@ contract Colosseum is Initializable, Semver {
             "Colosseum: the asserter and challenger must be different"
         );
 
-        Types.CheckpointOutput memory prevOutput;
-        prevOutput = L2_ORACLE.getL2Output(_outputIndex - 1);
-
-        _validateSegments(TURN_INIT, prevOutput.outputRoot, targetOutput.outputRoot, _segments);
+        // TODO(seolaoh): We do not check if the first segment is matched with previous output root
+        // when creating challenge currently. This is because a delay attack is possible that takes advantage
+        // of the fact that only one challenge is possible on one output. Not checking this logic is fine
+        // thanks to security council, but it needs to be improved in other ways in the future.
+        // Related issue: https://github.com/kroma-network/kroma/issues/54
+        _validateSegments(TURN_INIT, _segments[0], targetOutput.outputRoot, _segments);
 
         L2_ORACLE.VALIDATOR_POOL().increaseBond(msg.sender, _outputIndex);
 
         _updateSegments(
             challenge,
             _segments,
-            prevOutput.l2BlockNumber,
-            targetOutput.l2BlockNumber - prevOutput.l2BlockNumber
+            targetOutput.l2BlockNumber - L2_ORACLE_SUBMISSION_INTERVAL,
+            L2_ORACLE_SUBMISSION_INTERVAL
         );
         challenge.turn = TURN_INIT;
         challenge.asserter = targetOutput.submitter;
