@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 	_ "net/http/pprof"
 	"sync"
 	"time"
@@ -86,6 +87,20 @@ func (g *Guardian) Stop() error {
 	return nil
 }
 
+func (g *Guardian) ValidateL2Output(ctx context.Context, outputRoot eth.Bytes32, l2BlockNumber uint64) (bool, error) {
+	localOutputRoot, err := g.outputRootAtBlock(ctx, l2BlockNumber)
+	if err != nil {
+		return false, fmt.Errorf("failed to get outputRootAtBlock: %w", err)
+	}
+	isValid := bytes.Equal(outputRoot[:], localOutputRoot[:])
+	return isValid, nil
+}
+
+func (g *Guardian) ConfirmTransaction(ctx context.Context, transactionId *big.Int) (*types.Transaction, error) {
+	txOpts := utils.NewSimpleTxOpts(ctx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
+	return g.securityCouncilContract.ConfirmTransaction(txOpts, transactionId)
+}
+
 func (g *Guardian) handleValidationRequested(ctx context.Context) {
 	defer g.wg.Done()
 	for {
@@ -100,7 +115,7 @@ func (g *Guardian) handleValidationRequested(ctx context.Context) {
 }
 
 func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.SecurityCouncilValidationRequested) {
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(10 * time.Second)
 	defer func() {
 		ticker.Stop()
 		g.wg.Done()
@@ -124,15 +139,14 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 				return
 			}
 
-			isValid, err := g.validateL2Output(ctx, event.OutputRoot, event.L2BlockNumber.Uint64())
+			isValid, err := g.ValidateL2Output(ctx, event.OutputRoot, event.L2BlockNumber.Uint64())
 			if err != nil {
 				g.log.Error("validateL2Output failed", "err", err, "l2BlockNumber", event.L2BlockNumber.Uint64())
 				break Loop
 			}
 			if isValid {
 				cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-				txOpts := utils.NewSimpleTxOpts(cCtx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
-				tx, err := g.securityCouncilContract.ConfirmTransaction(txOpts, event.TransactionId)
+				tx, err := g.ConfirmTransaction(cCtx, event.TransactionId)
 				cCancel()
 				if err != nil {
 					g.log.Error("tx call ConfirmTransaction failed", "err", err, "transactionId", event.TransactionId)
@@ -145,15 +159,6 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 			return
 		}
 	}
-}
-
-func (g *Guardian) validateL2Output(ctx context.Context, outputRoot eth.Bytes32, l2BlockNumber uint64) (bool, error) {
-	localOutputRoot, err := g.outputRootAtBlock(ctx, l2BlockNumber)
-	if err != nil {
-		return false, fmt.Errorf("failed to get outputRootAtBlock: %w", err)
-	}
-	isValid := bytes.Equal(outputRoot[:], localOutputRoot[:])
-	return isValid, nil
 }
 
 func (g *Guardian) outputRootAtBlock(ctx context.Context, blockNumber uint64) (eth.Bytes32, error) {

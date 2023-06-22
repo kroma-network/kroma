@@ -37,6 +37,15 @@
   "colosseumMaxTxs": 25,
   "colosseumSegmentsLengths": "6,5",
   "numDeployConfirmations": 1,
-  "securityCouncilNumConfirmationRequired": 1,
-  "securityCouncilOwners": ["0x007D7e4391DCFdE47Dd7FD0B8E16091C5e0E1C7f","0x2A06Af6a4F325B1e0095a8AbD32888e0AbdCD04D","0xed92E7C40348A552822847384D722A6adB9AFeFA"]
+  "securityCouncilNumConfirmationRequired": 5,
+  "securityCouncilOwners": [
+    "0x496c79132B773940ca5B38EBcc0C56887a0ea164",
+    "0x56be5d7Fe331364348fa2Cf6dF09a9897a556a98",
+    "0x78A154B3ee77d1EaF988EE9AaB89E0Ae92d97cE9",
+    "0x3587968cF5802E7262c3f0b8F8A9921d3EF44BD9",
+    "0xfc4Eb1EB3C0BA999d048B9654ab3F28E41c636f8",
+    "0xAA321D1dCABE111C16CEcE0Ba7e3B152C6cC228f",
+    "0x30f69Ee804F788Bd6f32ea71532f05482953522e",
+    "0x9969182e4E666F6A1d77143A425aE5e438e46Cd2"
+  ]
 }

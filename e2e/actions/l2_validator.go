@@ -25,11 +25,12 @@ import (
 )
 
 type ValidatorCfg struct {
-	OutputOracleAddr  common.Address
-	ColosseumAddr     common.Address
-	ValidatorPoolAddr common.Address
-	ValidatorKey      *ecdsa.PrivateKey
-	AllowNonFinalized bool
+	OutputOracleAddr    common.Address
+	ColosseumAddr       common.Address
+	SecurityCouncilAddr common.Address
+	ValidatorPoolAddr   common.Address
+	ValidatorKey        *ecdsa.PrivateKey
+	AllowNonFinalized   bool
 }
 
 type L2Validator struct {
@@ -37,6 +38,7 @@ type L2Validator struct {
 	l1                  *ethclient.Client
 	l2os                *validator.L2OutputSubmitter
 	challenger          *validator.Challenger
+	guardian            *validator.Guardian
 	address             common.Address
 	privKey             *ecdsa.PrivateKey
 	l2ooContractAddr    common.Address
@@ -63,15 +65,17 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		L2OutputOracleAddr:           cfg.OutputOracleAddr,
 		ValidatorPoolAddr:            cfg.ValidatorPoolAddr,
 		ColosseumAddr:                cfg.ColosseumAddr,
+		SecurityCouncilAddr:          cfg.SecurityCouncilAddr,
 		ChallengerPollInterval:       time.Second,
 		OutputSubmitterRetryInterval: time.Second,
 		OutputSubmitterRoundBuffer:   30,
 		NetworkTimeout:               time.Second,
+		ResubscribeBackoffMax:        time.Second,
 		L1Client:                     l1,
 		RollupClient:                 rollupCl,
 		RollupConfig:                 rollupConfig,
 		AllowNonFinalized:            cfg.AllowNonFinalized,
-		ProofFetcher:                 e2eutils.NewFetcher(log),
+		ProofFetcher:                 e2eutils.NewFetcher(log, "../testdata/proof"),
 		// We use custom signing here instead of using the transaction manager.
 		TxManager: &txmgr.SimpleTxManager{
 			Config: txmgr.Config{
@@ -87,11 +91,15 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log)
 	require.NoError(t, err)
 
+	guardian, err := validator.NewGuardian(validatorCfg, log)
+	require.NoError(t, err)
+
 	return &L2Validator{
 		log:                 log,
 		l1:                  l1,
 		l2os:                l2os,
 		challenger:          challenger,
+		guardian:            guardian,
 		address:             from,
 		privKey:             cfg.ValidatorKey,
 		l2ooContractAddr:    cfg.OutputOracleAddr,

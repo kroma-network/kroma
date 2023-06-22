@@ -386,11 +386,10 @@ contract Colosseum is Initializable, Semver {
      */
     function _callSecurityCouncil(uint256 _outputIndex, bytes32 _outputRoot) private {
         // request outputRoot validation to security council
-        bytes memory CALLDATA = abi.encodeWithSignature("approveChallenge(uint256)", _outputIndex);
         SecurityCouncil(SECURITY_COUNCIL).requestValidation(
             _outputRoot,
             uint128(_outputIndex * L2_ORACLE_SUBMISSION_INTERVAL),
-            CALLDATA
+            abi.encodeWithSignature("approveChallenge(uint256)", _outputIndex)
         );
         emit Proven(_outputIndex, _outputRoot);
     }
