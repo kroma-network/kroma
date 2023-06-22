@@ -13,6 +13,7 @@
 [g-proposer]: glossary.md#proposer
 [g-user-deposited]: glossary.md#user-deposited-transaction
 [g-transaction-type]: glossary.md#transaction-type
+[g-validator-reward]: glossary.md#validator-reward
 
 [Deposited transactions][g-deposited], also known as [deposits][g-deposits] are transactions which
 are initiated on [L1][g-l1], and executed on [L2][g-l2]. This document outlines a new [transaction
@@ -276,6 +277,9 @@ The predeploy stores the following values:
   - `batcherHash` (`bytes32`): A versioned commitment to the batch-submitter(s) currently operating.
   - `overhead` (`uint256`): The L1 fee overhead to apply to L1 cost computation of transactions in this L2 block.
   - `scalar` (`uint256`): The L1 fee scalar to apply to L1 cost computation of transactions in this L2 block.
+- Parameters to calculate a validator reward.
+  - `validatorRewardRatio` (`uint256`): A number between 0 and 10000. A [validator reward][g-validator-reward] is
+  calculated with the expression.
 
 The contract implements an authorization scheme, such that it only accepts state-changing calls from
 the [depositor account][depositor-account].
