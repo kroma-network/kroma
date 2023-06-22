@@ -81,10 +81,10 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		},
 	}
 
-	l2os, err := validator.NewL2OutputSubmitter(context.Background(), validatorCfg, log, validatormetrics.NoopMetrics, make(chan txmgr.TxCandidate))
+	l2os, err := validator.NewL2OutputSubmitter(context.Background(), validatorCfg, log, validatormetrics.NoopMetrics)
 	require.NoError(t, err)
 
-	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log, make(chan txmgr.TxCandidate))
+	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log)
 	require.NoError(t, err)
 
 	return &L2Validator{
@@ -142,19 +142,19 @@ func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int
 }
 
 func (v *L2Validator) CanSubmit(t Testing) bool {
-	_, shouldSubmit, err := v.l2os.CanSubmit()
+	_, shouldSubmit, err := v.l2os.CanSubmit(t.Ctx())
 	require.NoError(t, err)
 	return shouldSubmit
 }
 
 func (v *L2Validator) ActSubmitL2Output(t Testing) {
-	nextBlockNumber, canSubmit, err := v.l2os.CanSubmit()
+	nextBlockNumber, canSubmit, err := v.l2os.CanSubmit(t.Ctx())
 	require.NoError(t, err)
 	if !canSubmit {
 		return
 	}
 
-	output, err := v.l2os.FetchOutput(nextBlockNumber)
+	output, err := v.l2os.FetchOutput(t.Ctx(), nextBlockNumber)
 	require.NoError(t, err)
 
 	txData, err := validator.SubmitL2OutputTxData(v.l2os.L2ooAbi(), output, 1)

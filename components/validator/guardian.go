@@ -37,26 +37,22 @@ type Guardian struct {
 }
 
 // NewGuardian creates a new Guardian
-func NewGuardian(parentCtx context.Context, cfg Config, l log.Logger, txCandidateChan chan<- txmgr.TxCandidate) (*Guardian, error) {
+func NewGuardian(cfg Config, l log.Logger) (*Guardian, error) {
 	securityCouncilContract, err := bindings.NewSecurityCouncil(cfg.SecurityCouncilAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(parentCtx)
-
 	return &Guardian{
 		log:                     l,
 		cfg:                     cfg,
-		ctx:                     ctx,
-		cancel:                  cancel,
 		securityCouncilContract: securityCouncilContract,
 		validationRequestedChan: make(chan *bindings.SecurityCouncilValidationRequested),
-		txCandidatesChan:        txCandidateChan,
 	}, nil
 }
 
-func (g *Guardian) Start() error {
+func (g *Guardian) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCandidate) error {
+	g.ctx, g.cancel = context.WithCancel(ctx)
 	g.log.Info("start Guardian")
 
 	watchOpts := &bind.WatchOpts{Context: g.ctx, Start: nil}
@@ -68,8 +64,9 @@ func (g *Guardian) Start() error {
 		return g.securityCouncilContract.WatchValidationRequested(watchOpts, g.validationRequestedChan, nil)
 	})
 
+	g.txCandidatesChan = txCandidatesChan
 	g.wg.Add(1)
-	go g.handleValidationRequested()
+	go g.handleValidationRequested(g.ctx)
 
 	return nil
 }
@@ -80,28 +77,29 @@ func (g *Guardian) Stop() error {
 	if g.securityCouncilSub != nil {
 		g.securityCouncilSub.Unsubscribe()
 	}
-	close(g.validationRequestedChan)
 
 	g.cancel()
 	g.wg.Wait()
 
+	close(g.validationRequestedChan)
+
 	return nil
 }
 
-func (g *Guardian) handleValidationRequested() {
+func (g *Guardian) handleValidationRequested(ctx context.Context) {
 	defer g.wg.Done()
 	for {
 		select {
 		case ev := <-g.validationRequestedChan:
 			g.wg.Add(1)
-			go g.processOutputValidation(ev)
-		case <-g.ctx.Done():
+			go g.processOutputValidation(ctx, ev)
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (g *Guardian) processOutputValidation(event *bindings.SecurityCouncilValidationRequested) {
+func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.SecurityCouncilValidationRequested) {
 	ticker := time.NewTicker(time.Minute)
 	defer func() {
 		ticker.Stop()
@@ -112,7 +110,7 @@ func (g *Guardian) processOutputValidation(event *bindings.SecurityCouncilValida
 	Loop:
 		select {
 		case <-ticker.C:
-			cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+			cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 			callOpts := utils.NewCallOptsWithSender(cCtx, g.cfg.TxManager.From())
 			isConfirmed, err := g.securityCouncilContract.IsConfirmed(callOpts, event.TransactionId)
 			cCancel()
@@ -126,13 +124,13 @@ func (g *Guardian) processOutputValidation(event *bindings.SecurityCouncilValida
 				return
 			}
 
-			isValid, err := g.validateL2Output(event.OutputRoot, event.L2BlockNumber.Uint64())
+			isValid, err := g.validateL2Output(ctx, event.OutputRoot, event.L2BlockNumber.Uint64())
 			if err != nil {
 				g.log.Error("validateL2Output failed", "err", err, "l2BlockNumber", event.L2BlockNumber.Uint64())
 				break Loop
 			}
 			if isValid {
-				cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+				cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 				txOpts := utils.NewSimpleTxOpts(cCtx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
 				tx, err := g.securityCouncilContract.ConfirmTransaction(txOpts, event.TransactionId)
 				cCancel()
@@ -143,14 +141,14 @@ func (g *Guardian) processOutputValidation(event *bindings.SecurityCouncilValida
 				g.sendTransaction(tx)
 			}
 			return
-		case <-g.ctx.Done():
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (g *Guardian) validateL2Output(outputRoot eth.Bytes32, l2BlockNumber uint64) (bool, error) {
-	localOutputRoot, err := g.outputRootAtBlock(l2BlockNumber)
+func (g *Guardian) validateL2Output(ctx context.Context, outputRoot eth.Bytes32, l2BlockNumber uint64) (bool, error) {
+	localOutputRoot, err := g.outputRootAtBlock(ctx, l2BlockNumber)
 	if err != nil {
 		return false, fmt.Errorf("failed to get outputRootAtBlock: %w", err)
 	}
@@ -158,8 +156,8 @@ func (g *Guardian) validateL2Output(outputRoot eth.Bytes32, l2BlockNumber uint64
 	return isValid, nil
 }
 
-func (g *Guardian) outputRootAtBlock(blockNumber uint64) (eth.Bytes32, error) {
-	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+func (g *Guardian) outputRootAtBlock(ctx context.Context, blockNumber uint64) (eth.Bytes32, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	output, err := g.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber, false)
 	if err != nil {
