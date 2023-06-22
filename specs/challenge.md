@@ -163,61 +163,137 @@ We'll show an example. Let's say `MIN_BOND_AMOUNT` is 100.
 
 1. At time `t`, alice, bob, and carol are registered as validators, and they submitted outputs like following:
 
-| Name  | Output | Challenge | Bond | Lock                     |
-|-------|--------|-----------|------|--------------------------|
-| alice | O_1800 | N         | 100  | L_{t + 7 days}           |
-| bob   | O_3600 | N         | 100  | L_{t + 7 days + 1 hours} |
-| bob   | O_5400 | N         | 100  | L_{t + 7 days + 2 hours} |
-| carol | O_7200 | N         | 100  | L_{t + 7 days + 3 hours} |
+   | Name  | Output | Challenge | Bond | Lock                     |
+   |-------|--------|-----------|------|--------------------------|
+   | alice | O_1800 | N         | 100  | L_{t + 7 days}           |
+   | bob   | O_3600 | N         | 100  | L_{t + 7 days + 1 hours} |
+   | bob   | O_5400 | N         | 100  | L_{t + 7 days + 2 hours} |
+   | carol | O_7200 | N         | 100  | L_{t + 7 days + 3 hours} |
 
-**NOTE:** `O_number` denotes the output at specific block `number`. `L_t` denotes "the bond should be locked
-until time `t`".
+   **NOTE:** `O_number` denotes the output at specific block `number`. `L_t` denotes "the bond should be locked
+   until time `t`".
 
 2. At `t + 3 hours 30 minutes`, david initiates a challenge to the output at 5400.
 
-| Name  | Output | Challenge    | Bond | Lock                     |
-|-------|--------|--------------|------|--------------------------|
-| alice | O_1800 | N            | 100  | L_{t + 7 days}           |
-| bob   | O_3600 | N            | 100  | L_{t + 7 days + 1 hours} |
-| bob   | O_5400 | Y (by david) | 200  | L_{t + 7 days + 2 hours} |
-| carol | O_7200 | N            | 100  | L_{t + 7 days + 3 hours} |
+   | Name  | Output | Challenge    | Bond | Lock                     |
+   |-------|--------|--------------|------|--------------------------|
+   | alice | O_1800 | N            | 100  | L_{t + 7 days}           |
+   | bob   | O_3600 | N            | 100  | L_{t + 7 days + 1 hours} |
+   | bob   | O_5400 | Y (by david) | 200  | L_{t + 7 days + 2 hours} |
+   | carol | O_7200 | N            | 100  | L_{t + 7 days + 3 hours} |
 
 3. At `t + 4 hours`, emma submits a output at 9000.
 
-| Name  | Output | Challenge    | Bond | Lock                     |
-|-------|--------|--------------|------|--------------------------|
-| alice | O_1800 | N            | 100  | L_{t + 7 days}           |
-| bob   | O_3600 | N            | 100  | L_{t + 7 days + 1 hours} |
-| bob   | O_5400 | Y (by david) | 200  | L_{t + 7 days + 2 hours} |
-| carol | O_7200 | N            | 100  | L_{t + 7 days + 3 hours} |
-| emma  | O_9000 | N            | 100  | L_{t + 7 days + 4 hours} |
+   | Name  | Output | Challenge    | Bond | Lock                     |
+   |-------|--------|--------------|------|--------------------------|
+   | alice | O_1800 | N            | 100  | L_{t + 7 days}           |
+   | bob   | O_3600 | N            | 100  | L_{t + 7 days + 1 hours} |
+   | bob   | O_5400 | Y (by david) | 200  | L_{t + 7 days + 2 hours} |
+   | carol | O_7200 | N            | 100  | L_{t + 7 days + 3 hours} |
+   | emma  | O_9000 | N            | 100  | L_{t + 7 days + 4 hours} |
 
 4. If the challenger wins:
 
-| Name  | Output | Challenge | Bond | Lock                     |
-|-------|--------|-----------|------|--------------------------|
-| alice | O_1800 | N         | 100  | L_{t + 7 days}           |
-| bob   | O_3600 | N         | 100  | L_{t + 7 days + 1 hours} |
-| david | O_5400 | N         | 200  | L_{t + 7 days + 2 hours} |
-| carol | O_7200 | N         | 100  | L_{t + 7 days + 3 hours} |
-| emma  | O_9000 | N         | 100  | L_{t + 7 days + 4 hours} |
+   | Name  | Output | Challenge | Bond | Lock                     |
+   |-------|--------|-----------|------|--------------------------|
+   | alice | O_1800 | N         | 100  | L_{t + 7 days}           |
+   | bob   | O_3600 | N         | 100  | L_{t + 7 days + 1 hours} |
+   | david | O_5400 | N         | 200  | L_{t + 7 days + 2 hours} |
+   | carol | O_7200 | N         | 100  | L_{t + 7 days + 3 hours} |
+   | emma  | O_9000 | N         | 100  | L_{t + 7 days + 4 hours} |
 
 5. Otherwise:
 
-| Name  | Output | Challenge | Bond | Lock                     |
-|-------|--------|-----------|------|--------------------------|
-| alice | O_1800 | N         | 100  | L_{t + 7 days}           |
-| bob   | O_3600 | N         | 100  | L_{t + 7 days + 1 hours} |
-| bob   | O_5400 | N         | 200  | L_{t + 7 days + 2 hours} |
-| carol | O_7200 | N         | 100  | L_{t + 7 days + 3 hours} |
-| emma  | O_9000 | N         | 100  | L_{t + 7 days + 4 hours} |
+   | Name  | Output | Challenge | Bond | Lock                     |
+   |-------|--------|-----------|------|--------------------------|
+   | alice | O_1800 | N         | 100  | L_{t + 7 days}           |
+   | bob   | O_3600 | N         | 100  | L_{t + 7 days + 1 hours} |
+   | bob   | O_5400 | N         | 200  | L_{t + 7 days + 2 hours} |
+   | carol | O_7200 | N         | 100  | L_{t + 7 days + 3 hours} |
+   | emma  | O_9000 | N         | 100  | L_{t + 7 days + 4 hours} |
 
 ## Public Input Verification
 
+Since Colosseum verifies public input along with [zkevm-proof](./zkevm-prover.md#zkevm-proof), challengers should
+calculate as below and enclose the public input to the `proveFault` transaction.
+
+```ts
+  import { DataOptions, hexlify } from '@ethersproject/bytes';
+  import { Wallet, constants } from 'ethers';
+  import { keccak256 } from 'ethers/lib/utils';
+
+  function strip0x(str: string): string {
+    if (str.startsWith('0x')) {
+      return str.slice(2);
+    }
+    return str;
+  }
+
+  function toFixedBuffer(
+    value: string | number,
+    length,
+    padding = '0',
+  ): Buffer {
+    const options: DataOptions = {
+      hexPad: 'left',
+    };
+    return hexToBuffer(
+      strip0x(hexlify(value, options)).padStart(length * 2, padding),
+    );
+  }
+
+  async function getDummyTxHash(chainId: number): Promise<string> {
+    const sk = hex.toFixedBuffer(1, 32);
+    const signer = new Wallet(sk);
+    const rlp = await signer.signTransaction({
+      nonce: 0,
+      gasLimit: 0,
+      gasPrice: 0,
+      to: constants.AddressZero,
+      value: 0,
+      data: '0x',
+      chainId,
+    });
+    return keccak256(rlp);
+  }
+
+  async function computePublicInput(block: RPCBlock, chainId: number): Promise<[string, string]> {
+    const maxTxs = 25;
+
+    const buf = Buffer.concat([
+      hex.toFixedBuffer(prevStateRoot, 32),
+      hex.toFixedBuffer(block.stateRoot, 32),
+      hex.toFixedBuffer(block.withdrawalsRoot ?? 0, 32),
+      hex.toFixedBuffer(block.hash, 32),
+      hex.toFixedBuffer(block.parentHash, 32),
+      hex.toFixedBuffer(block.number, 8),
+      hex.toFixedBuffer(block.timestamp, 8),
+      hex.toFixedBuffer(block.baseFeePerGas ?? 0, 32),
+      hex.toFixedBuffer(block.gasLimit, 8),
+      hex.toFixedBuffer(block.transactions.length, 2),
+      Buffer.concat(
+        block.transactions.map((txHash: string) => {
+            return toFixedBuffer(txHash, 32);
+        }),
+      ),
+      Buffer.concat(
+        Array(maxTxs - block.transactions.length).fill(
+          toFixedBuffer(await getDummyTxHash(chainId), 32),
+        ),
+      ),
+    ]);
+    const h = hex.toFixedBuffer(keccak256(buf), 32);
+    return [
+      '0x' + h.subarray(0, 16).toString('hex'),
+      '0x' + h.subarray(16, 32).toString('hex'),
+    ];
+  }
+  ```
+
 The following verification process applies to output version 1 and later:
 
-The `_pair[4]` and `_pair[5]` contain the [public input](./zkevm-prover.md#zkevm-proof), which must be processed before
-verification by [ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract) can be performed.
+The `_pair[4]` and `_pair[5]` contain the public input, which must be processed before verification by
+[ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract) can be performed.
 
 1. Check whether `_srcOutputRootProof` is the preimage of the first output root of the segment.
 2. Check whether `_dstOutputRootProof` is the preimage of the next output root of the segment.

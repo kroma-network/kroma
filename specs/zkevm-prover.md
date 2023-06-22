@@ -4,122 +4,45 @@
 
 [g-state]: glossary.md#state
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
+[g-mpt]: glossary.md#merkle-patricia-trie
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**
 
 - [Overview](#overview)
-- [zkEVM Proof](#zkevm-proof)
-- [the ZK Verifier Contract](#the-zk-verifier-contract)
-- [Implementation](#implementation)
-- [RPC](#rpc)
-  - [Protobuf](#protobuf)
-- [Summary of Definitions](#summary-of-definitions)
-  - [Constants](#constants)
+- [ZKEVM Proof](#zkevm-proof)
+- [The ZK Verifier Contract](#the-zk-verifier-contract)
+- [Prover as an RPC Server](#prover-as-an-rpc-server)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Overview
 
-A Prover produces a [ZK fault proof][g-zk-fault-proof] that states that a [state][g-state] transition from `S` to
-`S'` is valid. It sounds like there are no big differences from validity proofs. That's true. But the point is this is
-used to prove the state transition `S` to `S''` is wrong by showing a valid state transition `S` to `S'`.
+A prover is responsible for generating proof using the [Halo2 proving scheme](https://zcash.github.io/halo2/)
+for a target blocks. This proof provides claims regarding the legitimacy of block data and state transitions.
+A prover plays a vital role in the challenge process, serving as a key component of the challenger.
 
-## zkEVM Proof
+A [ZK fault proof][g-zk-fault-proof] states that a [state][g-state] transition from `S` to `S'` is valid.
+It sounds like there are no big differences from validity proof. That's true. But the point is this is used
+to prove the state transition `S` to `S''` is wrong by showing a valid state transition `S` to `S'`.
 
-See [zkevm-circuits](https://github.com/kroma-network/zkevm-circuits) and
-[zkevm-specs](https://github.com/kroma-network/zkevm-specs) for details.
+## ZKEVM Proof
 
-zkEVM proof is a proof that proves the relation between public input and witness. This proof can be verified by the
-[ZK Verifier contract](#the-zk-verifier-contract).
+In the context of the EVM, which is regarded as a Turing machine, the generation of proof requires demonstrating the
+execution of opcode operations in arbitrary order. This proof serves as an evidence of computation for the EVM.
+Additionally, validating the block data's integrity involves proving sub-operations such as
+[Merkle Patricia Trie][g-mpt] and ECDSA verification.
+To support the proof generation process for a target block, [zkevm-circuits] offer circuits capable of proving the
+required sub-operations. These circuits provide the means to prove the integrity and validity of the block data.
+By combining these circuits, a prover completes the overall validity proof for the target block.
 
-Public input and witness are followings:
+See [zkevm-specs] for details about the statements claimed by the zk-proof.
 
-- Public input: the 2 hashes needed by `PublicInputCircuit`. You can compute them like below:
+## The ZK Verifier Contract
 
-  ```ts
-  import { DataOptions, hexlify } from '@ethersproject/bytes';
-  import { Wallet, constants } from 'ethers';
-  import { keccak256 } from 'ethers/lib/utils';
-
-  function strip0x(str: string): string {
-    if (str.startsWith('0x')) {
-      return str.slice(2);
-    }
-    return str;
-  }
-
-  function toFixedBuffer(
-    value: string | number,
-    length,
-    padding = '0',
-  ): Buffer {
-    const options: DataOptions = {
-      hexPad: 'left',
-    };
-    return hexToBuffer(
-      strip0x(hexlify(value, options)).padStart(length * 2, padding),
-    );
-  }
-
-  async function getDummyTxHash(chainId: number): Promise<string> {
-    const sk = hex.toFixedBuffer(1, 32);
-    const signer = new Wallet(sk);
-    const rlp = await signer.signTransaction({
-      nonce: 0,
-      gasLimit: 0,
-      gasPrice: 0,
-      to: constants.AddressZero,
-      value: 0,
-      data: '0x',
-      chainId,
-    });
-    return keccak256(rlp);
-  }
-
-  async function computePublicInput(block: RPCBlock, chainId: number): Promise<[string, string]> {
-    const maxTxs = 25;
-
-    const buf = Buffer.concat([
-      hex.toFixedBuffer(prevStateRoot, 32),
-      hex.toFixedBuffer(block.stateRoot, 32),
-      hex.toFixedBuffer(block.withdrawalsRoot ?? 0, 32),
-      hex.toFixedBuffer(block.hash, 32),
-      hex.toFixedBuffer(block.parentHash, 32),
-      hex.toFixedBuffer(block.number, 8),
-      hex.toFixedBuffer(block.timestamp, 8),
-      hex.toFixedBuffer(block.baseFeePerGas ?? 0, 32),
-      hex.toFixedBuffer(block.gasLimit, 8),
-      hex.toFixedBuffer(block.transactions.length, 2),
-      Buffer.concat(
-        block.transactions.map((txHash: string) => {
-            return toFixedBuffer(txHash, 32);
-        }),
-      ),
-      Buffer.concat(
-        Array(maxTxs - block.transactions.length).fill(
-          toFixedBuffer(await getDummyTxHash(chainId), 32),
-        ),
-      ),
-    ]);
-    const h = hex.toFixedBuffer(keccak256(buf), 32);
-    return [
-      '0x' + h.subarray(0, 16).toString('hex'),
-      '0x' + h.subarray(16, 32).toString('hex'),
-    ];
-  }
-  ```
-
-- Witness: TODO
-
-> These relations are changed soon after [super circuit] integration.
-
-[super circuit]: https://github.com/kroma-network/zkevm-specs/blob/dev/specs/super_circuit.png
-
-## the ZK Verifier Contract
-
-The ZK Verifier contract implements `verify` function like followings:
+The proof generated by a prover can be verified through the verifier contract that includes the following interface.
+The verification in a challenge process is implemented using the `verify` function provided by the verifier contract.
 
 ```solidity
 interface ZKVerifier {
@@ -130,24 +53,24 @@ interface ZKVerifier {
 }
 ```
 
-## Implementation
+## Prover as an RPC Server
 
-See [kroma-prover](https://github.com/kroma-network/kroma-prover) for details.
+[kroma-prover](https://github.com/kroma-network/kroma-prover) is implemented as a gRPC server that generates a zkevm
+proof for the requested height block. It can be utilized as a local component on the challenger's machine
+or as a remote [gRPC] server (prover as a service).
 
-## RPC
+- Step 1:  An user (e.g., challenger) requests a zkevm-proof for a block of specific height to kroma-prover with
+  a desired block height value.
+- Step 2: A kroma-prover obtains the trace of the corresponding block from kroma-geth RPC.
+- Step 3: And then a kroma-prover generates zkevm-proof for the target block, and return it to the user.
 
-Currently, to request a proof generation, a validator needs to communicate via [gRPC](https://grpc.io/). A validator acts
-as a client and prover acts as a server. Because proof generation takes time, it must wait for `FETCHING_TIMEOUT`
-seconds.
+Operating a grpc-kroma-prover, which is launched only when necessary, can alleviate the situation where
+regular challengers need to allocate excessive system resources due to the proof generation process
+that is occasionally executed (perhaps rarely executed).
 
-### Protobuf
+The detailed gRPC specification can be available at [prover-grpc-proto].
 
-See [prover-grpc-proto](https://github.com/kroma-network/prover-grpc-proto) for details.
-
-## Summary of Definitions
-
-### Constants
-
-| Name               | Value | Unit    |
-| ------------------ | ----- | ------- |
-| `FETCHING_TIMEOUT` | TBD   | seconds |
+[zkevm-circuits]: https://github.com/kroma-network/zkevm-circuits
+[gRPC]: https://grpc.io/
+[zkevm-specs]: https://github.com/kroma-network/zkevm-specs
+[prover-grpc-proto]: https://github.com/kroma-network/prover-grpc-proto
