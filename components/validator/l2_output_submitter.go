@@ -130,7 +130,7 @@ func (l *L2OutputSubmitter) loop() {
 	for {
 		select {
 		case <-l.submitChan:
-			if err := l.trySubmitL2Output(); err != nil {
+			if err := l.trySubmitL2Output(l.ctx); err != nil {
 				l.log.Error("failed to submit l2 output", "err", err)
 				l.retryAfter(l.cfg.OutputSubmitterRetryInterval)
 			}
@@ -150,8 +150,8 @@ func (l *L2OutputSubmitter) retryAfter(d time.Duration) {
 }
 
 // TODO(seolaoh): return wait duration explicitly, and handle `retryAfter` function calls at once.
-func (l *L2OutputSubmitter) trySubmitL2Output() error {
-	nextBlockNumber, canSubmit, err := l.CanSubmit()
+func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) error {
+	nextBlockNumber, canSubmit, err := l.CanSubmit(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check if it can submit: %w", err)
 	}
@@ -159,7 +159,7 @@ func (l *L2OutputSubmitter) trySubmitL2Output() error {
 		return nil
 	}
 
-	output, err := l.FetchOutput(nextBlockNumber)
+	output, err := l.FetchOutput(ctx, nextBlockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to fetch next output: %w", err)
 	}
@@ -179,8 +179,8 @@ func (l *L2OutputSubmitter) trySubmitL2Output() error {
 }
 
 // CanSubmit checks if submission interval has elapsed and current round conditions.
-func (l *L2OutputSubmitter) CanSubmit() (*big.Int, bool, error) {
-	hasEnoughDeposit, err := l.checkDeposit()
+func (l *L2OutputSubmitter) CanSubmit(ctx context.Context) (*big.Int, bool, error) {
+	hasEnoughDeposit, err := l.checkDeposit(ctx)
 	if err != nil {
 		return nil, false, err
 	}
@@ -189,7 +189,7 @@ func (l *L2OutputSubmitter) CanSubmit() (*big.Int, bool, error) {
 		return nil, false, nil
 	}
 
-	currentBlockNumber, nextBlockNumber, err := l.fetchBlockNumbers()
+	currentBlockNumber, nextBlockNumber, err := l.fetchBlockNumbers(ctx)
 	if err != nil {
 		return nil, false, err
 	}
@@ -211,7 +211,7 @@ func (l *L2OutputSubmitter) CanSubmit() (*big.Int, bool, error) {
 	}
 
 	// Check if it's a public round, or selected for priority validator
-	roundInfo, err := l.fetchCurrentRound()
+	roundInfo, err := l.fetchCurrentRound(ctx)
 	if err != nil {
 		return nil, false, err
 	}
@@ -230,8 +230,8 @@ func (l *L2OutputSubmitter) CanSubmit() (*big.Int, bool, error) {
 	return nextBlockNumber, true, nil
 }
 
-func (l *L2OutputSubmitter) checkDeposit() (bool, error) {
-	cCtx, cCancel := context.WithTimeout(l.ctx, l.cfg.NetworkTimeout)
+func (l *L2OutputSubmitter) checkDeposit(ctx context.Context) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
 	callOpts := utils.NewCallOptsWithSender(cCtx, from)
@@ -249,8 +249,8 @@ func (l *L2OutputSubmitter) checkDeposit() (bool, error) {
 	return true, nil
 }
 
-func (l *L2OutputSubmitter) fetchBlockNumbers() (*big.Int, *big.Int, error) {
-	cCtx, cCancel := context.WithTimeout(l.ctx, l.cfg.NetworkTimeout)
+func (l *L2OutputSubmitter) fetchBlockNumbers(ctx context.Context) (*big.Int, *big.Int, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	callOpts := utils.NewCallOptsWithSender(cCtx, l.cfg.TxManager.From())
 	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(callOpts)
 	if err != nil {
@@ -261,7 +261,7 @@ func (l *L2OutputSubmitter) fetchBlockNumbers() (*big.Int, *big.Int, error) {
 	cCancel()
 
 	// Fetch the current L2 heads
-	cCtx, cCancel = context.WithTimeout(l.ctx, l.cfg.NetworkTimeout)
+	cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	status, err := l.cfg.RollupClient.SyncStatus(cCtx)
 	if err != nil {
@@ -302,8 +302,8 @@ type roundInfo struct {
 
 // fetchCurrentRound fetches next validator address from ValidatorPool contract.
 // It returns if current round is public round, and if selected for priority validator if it's a priority round.
-func (l *L2OutputSubmitter) fetchCurrentRound() (roundInfo, error) {
-	cCtx, cCancel := context.WithTimeout(l.ctx, l.cfg.NetworkTimeout)
+func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	callOpts := utils.NewCallOptsWithSender(cCtx, l.cfg.TxManager.From())
 	nextValidator, err := l.valpoolContract.NextValidator(callOpts)
@@ -340,8 +340,8 @@ func (l *L2OutputSubmitter) fetchCurrentRound() (roundInfo, error) {
 
 // FetchOutput gets the output information to the corresponding block number.
 // It returns the output info if the output can be made, otherwise error.
-func (l *L2OutputSubmitter) FetchOutput(blockNumber *big.Int) (*eth.OutputResponse, error) {
-	cCtx, cCancel := context.WithTimeout(l.ctx, l.cfg.NetworkTimeout)
+func (l *L2OutputSubmitter) FetchOutput(ctx context.Context, blockNumber *big.Int) (*eth.OutputResponse, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	output, err := l.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber.Uint64(), false)
 	if err != nil {

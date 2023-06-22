@@ -11,14 +11,14 @@ import (
 )
 
 func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common.Hash {
-	isInProgress, err := v.challenger.IsChallengeInProgress(outputIndex)
+	isInProgress, err := v.challenger.IsChallengeInProgress(t.Ctx(), outputIndex)
 	require.NoError(t, err)
 	require.False(t, isInProgress, "another challenge is in progress")
 
-	outputRange, err := v.challenger.ValidateOutput(outputIndex)
+	outputRange, err := v.challenger.ValidateOutput(t.Ctx(), outputIndex)
 	require.NoError(t, err)
 	require.NotNil(t, outputRange)
-	tx, err := v.challenger.CreateChallenge(outputRange)
+	tx, err := v.challenger.CreateChallenge(t.Ctx(), outputRange)
 	require.NoError(t, err, "unable to create createChallenge tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
@@ -28,7 +28,7 @@ func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common
 }
 
 func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int) common.Hash {
-	tx, err := v.challenger.Bisect(outputIndex)
+	tx, err := v.challenger.Bisect(t.Ctx(), outputIndex)
 	require.NoError(t, err, "unable to create bisect tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
@@ -38,13 +38,13 @@ func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int) common.Hash {
 }
 
 func (v *L2Validator) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
-	status, err := v.challenger.GetChallengeStatus(outputIndex)
+	status, err := v.challenger.GetChallengeStatus(t.Ctx(), outputIndex)
 	require.NoError(t, err)
 
 	var tx *types.Transaction
 
 	if status == chal.StatusChallengerTimeout {
-		tx, err = v.challenger.ChallengerTimeout(outputIndex)
+		tx, err = v.challenger.ChallengerTimeout(t.Ctx(), outputIndex)
 		require.NoError(t, err)
 	} else {
 		require.Fail(t, "invalid challenge status")
@@ -59,7 +59,7 @@ func (v *L2Validator) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
 }
 
 func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int) common.Hash {
-	tx, err := v.challenger.ProveFault(outputIndex)
+	tx, err := v.challenger.ProveFault(t.Ctx(), outputIndex)
 	require.NoError(t, err, "unable to create proveFault tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
