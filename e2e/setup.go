@@ -607,7 +607,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		TxMgrConfig:                  newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		AllowNonFinalized:            cfg.NonFinalizedOutputs,
 		OutputSubmitterBondAmount:    cfg.OutputSubmitterBondAmount,
-		OutputSubmitterRetryInterval: 500 * time.Millisecond,
+		OutputSubmitterRetryInterval: 50 * time.Millisecond,
 		OutputSubmitterRoundBuffer:   30,
 		ChallengerDisabled:           true,
 		SecurityCouncilAddress:       predeploys.DevSecurityCouncilAddr.String(),
