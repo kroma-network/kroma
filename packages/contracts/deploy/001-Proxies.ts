@@ -5,12 +5,14 @@ import { deployProxy, getDeploymentAddress } from '../src/deploy-utils'
 const PROXY_NAMES = [
   'SystemConfigProxy',
   'KromaPortalProxy',
+  'ValidatorPoolProxy',
   'L2OutputOracleProxy',
   'L1CrossDomainMessengerProxy',
   'L1StandardBridgeProxy',
   'L1ERC721BridgeProxy',
   'KromaMintableERC20FactoryProxy',
   'ColosseumProxy',
+  'SecurityCouncilProxy'
 ]
 
 const deployFn: DeployFunction = async (hre) => {

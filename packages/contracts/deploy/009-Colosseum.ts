@@ -15,14 +15,24 @@ const deployFn: DeployFunction = async (hre) => {
     hre,
     'L2OutputOracleProxy'
   )
+  const securityCouncilProxyAddress = await getDeploymentAddress(
+    hre,
+    'SecurityCouncilProxy'
+  )
+  const zkMerkleTrieAddress = await getDeploymentAddress(hre, 'ZKMerkleTrie')
 
   await deploy(hre, 'Colosseum', {
     args: [
       l2OutputOracleProxyAddress,
       zkVerifierAddress,
       hre.deployConfig.l2OutputOracleSubmissionInterval,
-      hre.deployConfig.colosseumChallengeTimeout,
+      hre.deployConfig.colosseumBisectionTimeout,
+      hre.deployConfig.colosseumProvingTimeout,
+      hre.deployConfig.colosseumDummyHash,
+      hre.deployConfig.colosseumMaxTxs,
       hre.deployConfig.colosseumSegmentsLengths.split(','),
+      securityCouncilProxyAddress,
+      zkMerkleTrieAddress,
     ],
     isProxyImpl: true,
     initArgs: [hre.deployConfig.colosseumSegmentsLengths.split(',')],
@@ -40,8 +50,33 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'CHALLENGE_TIMEOUT',
-        hre.deployConfig.colosseumChallengeTimeout
+        'BISECTION_TIMEOUT',
+        hre.deployConfig.colosseumBisectionTimeout
+      )
+      await assertContractVariable(
+        contract,
+        'PROVING_TIMEOUT',
+        hre.deployConfig.colosseumProvingTimeout
+      )
+      await assertContractVariable(
+        contract,
+        'DUMMY_HASH',
+        hre.deployConfig.colosseumDummyHash
+      )
+      await assertContractVariable(
+        contract,
+        'MAX_TXS',
+        hre.deployConfig.colosseumMaxTxs
+      )
+      await assertContractVariable(
+        contract,
+        'SECURITY_COUNCIL',
+        securityCouncilProxyAddress
+      )
+      await assertContractVariable(
+        contract,
+        'ZK_MERKLE_TRIE',
+        zkMerkleTrieAddress
       )
     },
   })

@@ -26,18 +26,24 @@ import (
 // Config contains the well typed fields that are used to initialize the output submitter.
 // It is intended for programmatic use.
 type Config struct {
-	L2OutputOracleAddr      common.Address
-	ColosseumAddr           common.Address
-	PollInterval            time.Duration
-	NetworkTimeout          time.Duration
-	TxManager               *txmgr.SimpleTxManager
-	L1Client                *ethclient.Client
-	RollupClient            *sources.RollupClient
-	RollupConfig            *rollup.Config
-	AllowNonFinalized       bool
-	OutputSubmitterDisabled bool
-	ChallengerDisabled      bool
-	ProofFetcher            ProofFetcher
+	L2OutputOracleAddr           common.Address
+	ColosseumAddr                common.Address
+	SecurityCouncilAddr          common.Address
+	ValidatorPoolAddr            common.Address
+	ChallengerPollInterval       time.Duration
+	NetworkTimeout               time.Duration
+	TxManager                    *txmgr.SimpleTxManager
+	L1Client                     *ethclient.Client
+	RollupClient                 *sources.RollupClient
+	RollupConfig                 *rollup.Config
+	AllowNonFinalized            bool
+	OutputSubmitterDisabled      bool
+	OutputSubmitterBondAmount    uint64
+	OutputSubmitterRetryInterval time.Duration
+	OutputSubmitterRoundBuffer   uint64
+	ChallengerDisabled           bool
+	GuardianEnabled              bool
+	ProofFetcher                 ProofFetcher
 }
 
 // Check ensures that the [Config] is valid.
@@ -52,7 +58,7 @@ func (c *Config) Check() error {
 // This also contains config options for auxiliary services.
 // It is transformed into a `Config` before the Validator is started.
 type CLIConfig struct {
-	// L1EthRpc is the HTTP provider URL for L1.
+	// L1EthRpc is the Websocket provider URL for L1.
 	L1EthRpc string
 
 	// RollupRpc is the HTTP provider URL for the rollup node.
@@ -64,8 +70,14 @@ type CLIConfig struct {
 	// ColosseumAddress is the Colosseum contract address.
 	ColosseumAddress string
 
-	// PollInterval is how frequently to poll L2 for new finalized outputs.
-	PollInterval time.Duration
+	// SecurityCouncilAddress is the SecurityCouncil contract address.
+	SecurityCouncilAddress string
+
+	// ValPoolAddress is the ValidatorPool contract address.
+	ValPoolAddress string
+
+	// ChallengerPollInterval is how frequently to poll L2 for new finalized outputs.
+	ChallengerPollInterval time.Duration
 
 	// ProverGrpc is the URL of prover grpc server.
 	ProverGrpc string
@@ -76,7 +88,18 @@ type CLIConfig struct {
 
 	OutputSubmitterDisabled bool
 
+	// OutputSubmitterBondAmount is the amount to bond when submitting each output.
+	OutputSubmitterBondAmount uint64
+
+	// OutputSubmitterRetryInterval is how frequently to retry output submission.
+	OutputSubmitterRetryInterval time.Duration
+
+	// OutputSubmitterRoundBuffer is how many blocks before each round to start trying submission.
+	OutputSubmitterRoundBuffer uint64
+
 	ChallengerDisabled bool
+
+	GuardianEnabled bool
 
 	FetchingProofTimeout time.Duration
 
@@ -110,23 +133,29 @@ func (c CLIConfig) Check() error {
 func NewCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		// Required Flags
-		L1EthRpc:         ctx.GlobalString(flags.L1EthRpcFlag.Name),
-		RollupRpc:        ctx.GlobalString(flags.RollupRpcFlag.Name),
-		L2OOAddress:      ctx.GlobalString(flags.L2OOAddressFlag.Name),
-		ColosseumAddress: ctx.GlobalString(flags.ColosseumAddressFlag.Name),
-		PollInterval:     ctx.GlobalDuration(flags.PollIntervalFlag.Name),
-		ProverGrpc:       ctx.GlobalString(flags.ProverGrpcFlag.Name),
-		TxMgrConfig:      txmgr.ReadCLIConfig(ctx),
+		L1EthRpc:               ctx.GlobalString(flags.L1EthRpcFlag.Name),
+		RollupRpc:              ctx.GlobalString(flags.RollupRpcFlag.Name),
+		L2OOAddress:            ctx.GlobalString(flags.L2OOAddressFlag.Name),
+		ColosseumAddress:       ctx.GlobalString(flags.ColosseumAddressFlag.Name),
+		ValPoolAddress:         ctx.GlobalString(flags.ValPoolAddressFlag.Name),
+		ChallengerPollInterval: ctx.GlobalDuration(flags.ChallengerPollIntervalFlag.Name),
+		ProverGrpc:             ctx.GlobalString(flags.ProverGrpcFlag.Name),
+		TxMgrConfig:            txmgr.ReadCLIConfig(ctx),
 
 		// Optional Flags
-		AllowNonFinalized:       ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
-		OutputSubmitterDisabled: ctx.GlobalBool(flags.OutputSubmitterDisabledFlag.Name),
-		ChallengerDisabled:      ctx.GlobalBool(flags.ChallengerDisabledFlag.Name),
-		FetchingProofTimeout:    ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
-		RPCConfig:               krpc.ReadCLIConfig(ctx),
-		LogConfig:               klog.ReadCLIConfig(ctx),
-		MetricsConfig:           kmetrics.ReadCLIConfig(ctx),
-		PprofConfig:             kpprof.ReadCLIConfig(ctx),
+		AllowNonFinalized:            ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
+		OutputSubmitterDisabled:      ctx.GlobalBool(flags.OutputSubmitterDisabledFlag.Name),
+		OutputSubmitterBondAmount:    ctx.GlobalUint64(flags.OutputSubmitterBondAmountFlag.Name),
+		OutputSubmitterRetryInterval: ctx.GlobalDuration(flags.OutputSubmitterRetryIntervalFlag.Name),
+		OutputSubmitterRoundBuffer:   ctx.GlobalUint64(flags.OutputSubmitterRoundBufferFlag.Name),
+		ChallengerDisabled:           ctx.GlobalBool(flags.ChallengerDisabledFlag.Name),
+		SecurityCouncilAddress:       ctx.GlobalString(flags.SecurityCouncilAddressFlag.Name),
+		GuardianEnabled:              ctx.GlobalBool(flags.GuardianEnabledFlag.Name),
+		FetchingProofTimeout:         ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
+		RPCConfig:                    krpc.ReadCLIConfig(ctx),
+		LogConfig:                    klog.ReadCLIConfig(ctx),
+		MetricsConfig:                kmetrics.ReadCLIConfig(ctx),
+		PprofConfig:                  kpprof.ReadCLIConfig(ctx),
 	}
 }
 
@@ -142,9 +171,23 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
+	securityCouncilAddress, err := utils.ParseAddress(cfg.SecurityCouncilAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	valPoolAddress, err := utils.ParseAddress(cfg.ValPoolAddress)
+	if err != nil {
+		return nil, err
+	}
+
 	txManager, err := txmgr.NewSimpleTxManager("validator", l, m, cfg.TxMgrConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.OutputSubmitterDisabled && cfg.ChallengerDisabled {
+		return nil, errors.New("output submitter and challenger are disabled. either output submitter or challenger must be enabled")
 	}
 
 	if !cfg.ChallengerDisabled && len(cfg.ProverGrpc) == 0 {
@@ -177,17 +220,23 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	return &Config{
-		L2OutputOracleAddr:      l2ooAddress,
-		ColosseumAddr:           colosseumAddress,
-		PollInterval:            cfg.PollInterval,
-		NetworkTimeout:          cfg.TxMgrConfig.NetworkTimeout,
-		TxManager:               txManager,
-		L1Client:                l1Client,
-		RollupClient:            rollupClient,
-		RollupConfig:            rollupConfig,
-		AllowNonFinalized:       cfg.AllowNonFinalized,
-		OutputSubmitterDisabled: cfg.OutputSubmitterDisabled,
-		ChallengerDisabled:      cfg.ChallengerDisabled,
-		ProofFetcher:            fetcher,
+		L2OutputOracleAddr:           l2ooAddress,
+		ColosseumAddr:                colosseumAddress,
+		SecurityCouncilAddr:          securityCouncilAddress,
+		ValidatorPoolAddr:            valPoolAddress,
+		ChallengerPollInterval:       cfg.ChallengerPollInterval,
+		NetworkTimeout:               cfg.TxMgrConfig.NetworkTimeout,
+		TxManager:                    txManager,
+		L1Client:                     l1Client,
+		RollupClient:                 rollupClient,
+		RollupConfig:                 rollupConfig,
+		AllowNonFinalized:            cfg.AllowNonFinalized,
+		OutputSubmitterDisabled:      cfg.OutputSubmitterDisabled,
+		OutputSubmitterBondAmount:    cfg.OutputSubmitterBondAmount,
+		OutputSubmitterRetryInterval: cfg.OutputSubmitterRetryInterval,
+		OutputSubmitterRoundBuffer:   cfg.OutputSubmitterRoundBuffer,
+		ChallengerDisabled:           cfg.ChallengerDisabled,
+		GuardianEnabled:              cfg.GuardianEnabled,
+		ProofFetcher:                 fetcher,
 	}, nil
 }

@@ -27,7 +27,8 @@ func TestBuildKroma(t *testing.T) {
 			"bridge":        common.HexToAddress("0x1234567890123456789012345678901234567890"),
 		},
 		"ValidatorRewardVault": {
-			"recipient": common.HexToAddress("0x1234567890123456789012345678901234567890"),
+			"validatorPoolAddress": common.HexToAddress("0x1234567890123456789012345678901234567890"),
+			"rewardDivider":        new(big.Int).SetUint64(24 * 7),
 		},
 		"ProposerRewardVault": {
 			"recipient": common.HexToAddress("0x1234567890123456789012345678901234567890"),

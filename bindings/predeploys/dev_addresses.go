@@ -17,6 +17,7 @@ const (
 	DevZKMerkleTrie              = "0x690000000000000000000000000000000000000B"
 	DevZKVerifier                = "0x690000000000000000000000000000000000000C"
 	DevColosseum                 = "0x690000000000000000000000000000000000000D"
+	DevSecurityCouncil           = "0x690000000000000000000000000000000000000E"
 )
 
 var (
@@ -34,6 +35,7 @@ var (
 	DevZKMerkleTrieAddr              = common.HexToAddress(DevZKMerkleTrie)
 	DevZKVerifierAddr                = common.HexToAddress(DevZKVerifier)
 	DevColosseumAddr                 = common.HexToAddress(DevColosseum)
+	DevSecurityCouncilAddr           = common.HexToAddress(DevSecurityCouncil)
 
 	DevPredeploys = make(map[string]*common.Address)
 )
@@ -53,4 +55,5 @@ func init() {
 	DevPredeploys["ZKMerkleTrie"] = &DevZKMerkleTrieAddr
 	DevPredeploys["ZKVerifier"] = &DevZKVerifierAddr
 	DevPredeploys["Colosseum"] = &DevColosseumAddr
+	DevPredeploys["SecurityCouncil"] = &DevSecurityCouncilAddr
 }

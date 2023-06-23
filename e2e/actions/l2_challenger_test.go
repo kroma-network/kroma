@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -13,13 +14,16 @@ import (
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	"github.com/kroma-network/kroma/e2e"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
+	"github.com/kroma-network/kroma/e2e/testdata"
 )
 
 func TestChallenger(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.FinalizationPeriodSeconds = 60 * 60 * 24
+	dp.DeployConfig.ColosseumDummyHash = common.HexToHash(e2e.DummyHashSepolia)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 	miner, propEngine, proposer := setupProposerTest(t, sd, log)
@@ -32,26 +36,34 @@ func TestChallenger(gt *testing.T) {
 	}, rollupPropCl, miner.EthClient(), propEngine.EthClient())
 
 	// setup mockup rpc for returning invalid output
-	mockRPC := e2eutils.NewRPC(proposer.RPCClient())
+	validatorRPC := e2eutils.NewMaliciousL2RPC(proposer.RPCClient())
+	validatorRollupClient := sources.NewRollupClient(validatorRPC)
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorKey:      dp.Secrets.Validator,
-		AllowNonFinalized: false,
-	}, miner.EthClient(), sources.NewRollupClient(mockRPC))
-
-	asserter := NewL2Challenger(t, log, &ValidatorCfg{
-		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
 		ColosseumAddr:     sd.DeploymentsL1.ColosseumProxy,
-		ValidatorKey:      dp.Secrets.Validator,
+		ValidatorKey:      dp.Secrets.TrustedValidator,
 		AllowNonFinalized: false,
-	}, miner.EthClient(), sources.NewRollupClient(mockRPC))
+	}, miner.EthClient(), validatorRollupClient)
 
-	challenger := NewL2Challenger(t, log, &ValidatorCfg{
+	challengerRPC := e2eutils.NewHonestL2RPC(proposer.RPCClient())
+	challengerRollupClient := sources.NewRollupClient(challengerRPC)
+	challenger := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
 		ColosseumAddr:     sd.DeploymentsL1.ColosseumProxy,
-		ValidatorKey:      dp.Secrets.Validator,
+		ValidatorKey:      dp.Secrets.Challenger,
 		AllowNonFinalized: false,
-	}, miner.EthClient(), proposer.RollupClient())
+	}, miner.EthClient(), challengerRollupClient)
+
+	guardianRPC := e2eutils.NewHonestL2RPC(proposer.RPCClient())
+	guardianRollupClient := sources.NewRollupClient(guardianRPC)
+	guardian := NewL2Validator(t, log, &ValidatorCfg{
+		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
+		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
+		ValidatorKey:        dp.Secrets.Challenger,
+		AllowNonFinalized:   false,
+	}, miner.EthClient(), guardianRollupClient)
 
 	// NOTE(chokobole): After the Blue hard fork, it is necessary to wait for one finalized
 	// (or safe if AllowNonFinalized config is set) block to pass after each submission interval
@@ -62,7 +74,7 @@ func TestChallenger(gt *testing.T) {
 	// In fact, the following code is designed to create one or more finalized L2 blocks
 	// in order to pass the test after the Blue hard fork.
 	// If Proto Dank Sharding is introduced, the below code fix may no longer be necessary.
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		// L1 block
 		miner.ActEmptyBlock(t)
 		// L2 block
@@ -83,20 +95,23 @@ func TestChallenger(gt *testing.T) {
 		proposer.ActL1FinalizedSignal(t)
 	}
 
+	// deposit bond for validator
+	validator.ActDeposit(t, 1_000)
+	includeL1Block(t, miner, validator.address)
+
 	require.Equal(t, proposer.SyncStatus().UnsafeL2, proposer.SyncStatus().FinalizedL2)
 
 	outputOracleContract, err := bindings.NewL2OutputOracle(sd.DeploymentsL1.L2OutputOracleProxy, miner.EthClient())
 	require.NoError(t, err)
 
-	lastValidBlockNumber, err := outputOracleContract.NextBlockNumber(nil)
-	require.NoError(t, err)
-	mockRPC.SetLastValidBlockNumber(lastValidBlockNumber.Uint64())
+	validatorRPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+	challengerRPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// and submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		includeL1Block(t, miner, dp.Addresses.Validator)
+		includeL1Block(t, miner, validator.address)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 		require.NoError(t, err)
@@ -108,22 +123,27 @@ func TestChallenger(gt *testing.T) {
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
 	// block := proposer.SyncStatus().FinalizedL2
 	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
-	blockNum, err := outputOracleContract.LatestBlockNumber(nil)
+	targetBlockNum := big.NewInt(int64(testdata.TargetBlockNumber))
+	outputIndex, err := outputOracleContract.GetL2OutputIndexAfter(nil, targetBlockNum)
 	require.NoError(t, err)
-	outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, blockNum)
+	outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, targetBlockNum)
 	require.NoError(t, err)
-	block, err := propEngine.EthClient().BlockByNumber(t.Ctx(), blockNum)
+	block, err := propEngine.EthClient().BlockByNumber(t.Ctx(), targetBlockNum)
 	require.NoError(t, err)
 	require.Less(t, block.Time(), outputOnL1.Timestamp.Uint64(), "output is registered with L1 timestamp of L2 tx output submission, past L2 block")
-	outputComputed, err := proposer.RollupClient().OutputAtBlock(t.Ctx(), blockNum.Uint64(), false)
+	outputComputed, err := proposer.RollupClient().OutputAtBlock(t.Ctx(), targetBlockNum.Uint64())
 	require.NoError(t, err)
 	require.NotEqual(t, eth.Bytes32(outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
+	// deposit bond for challenger
+	challenger.ActDeposit(t, 1_000)
+	includeL1Block(t, miner, challenger.address)
+
 	// submit create challenge tx
-	txHash := challenger.ActCreateChallenge(t)
+	txHash := challenger.ActCreateChallenge(t, outputIndex)
 
 	// include tx on L1
-	includeL1Block(t, miner, dp.Addresses.Validator)
+	includeL1Block(t, miner, challenger.address)
 
 	// Check whether the submission was successful
 	receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), txHash)
@@ -133,34 +153,38 @@ func TestChallenger(gt *testing.T) {
 	// check challenge created
 	colosseumContract, err := bindings.NewColosseum(sd.DeploymentsL1.ColosseumProxy, miner.EthClient())
 	require.NoError(t, err)
-	challengeId, err := colosseumContract.LatestChallengeId(nil)
+	challenge, err := colosseumContract.GetChallenge(nil, outputIndex)
 	require.NoError(t, err)
-	require.True(t, challengeId.Cmp(big.NewInt(0)) == 1, "challenge not found")
+	require.NotNil(t, challenge, "challenge not found")
 
 interaction:
 	for {
-		status, err := colosseumContract.GetStatusInProgress(nil)
+		status, err := colosseumContract.GetStatus(nil, outputIndex)
 		require.NoError(t, err)
-
-		sender := dp.Addresses.Validator
 
 		switch status {
 		case chal.StatusChallengerTurn:
 			// call bisect by challenger
-			txHash = challenger.ActBisect(t)
+			txHash = challenger.ActBisect(t, outputIndex)
+			includeL1Block(t, miner, challenger.address)
 		case chal.StatusAsserterTurn:
 			// call bisect by validator
-			txHash = asserter.ActBisect(t)
-		case chal.StatusAsserterTimeout:
-			txHash = challenger.ActTimeout(t)
-		case chal.StatusProveReady:
-			txHash = challenger.ActProveFault(t)
+			txHash = validator.ActBisect(t, outputIndex)
+			includeL1Block(t, miner, validator.address)
+		case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
+			txHash = challenger.ActProveFault(t, outputIndex)
+			includeL1Block(t, miner, challenger.address)
+		case chal.StatusProven:
+			// validate l2 output submitted by challenger
+			outputBlockNum := outputOnL1.L2BlockNumber.Uint64()
+			output := challenger.ActOutputAtBlockSafe(t, outputBlockNum)
+			isValid := guardian.ActValidateL2Output(t, output.OutputRoot, outputBlockNum)
+			require.True(t, isValid)
+			txHash = guardian.ActConfirmTransaction(t, big.NewInt(0))
+			includeL1Block(t, miner, guardian.address)
 		default:
 			break interaction
 		}
-
-		// include tx on L1
-		includeL1Block(t, miner, sender)
 
 		// Check whether the submission was successful
 		receipt, err = miner.EthClient().TransactionReceipt(t.Ctx(), txHash)
@@ -168,9 +192,8 @@ interaction:
 		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "failed to progress interactive proof")
 	}
 
-	_, err = outputOracleContract.GetL2OutputAfter(nil, blockNum)
-	require.ErrorContains(t, err,
-		"cannot get output for a block that has not been submitted",
-		"output not deleted",
-	)
+	// Check the status of challenge is StatusProven(6)
+	status, err := colosseumContract.GetStatus(nil, outputIndex)
+	require.NoError(t, err)
+	require.Equal(t, chal.StatusApproved, status)
 }

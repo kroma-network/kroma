@@ -66,12 +66,13 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		BatchInboxAddress:  common.Address{0: 0x42, 19: 0xff}, // tbd
 		BatchSenderAddress: addresses.Batcher,
 
-		DummyHash: common.HexToHash("0x8e556cf0e9ed5d6b6ad79247cddc30112cfee4a207fb13903eb834b447aebae9"),
-		MaxTxs:    25,
+		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
+		ValidatorPoolMinBondAmount:    uint64ToBig(1),
+		ValidatorPoolNonPenaltyPeriod: 3,
+		ValidatorPoolPenaltyPeriod:    3,
 
 		L2OutputOracleSubmissionInterval: 6,
 		L2OutputOracleStartingTimestamp:  -1,
-		L2OutputOracleValidator:          addresses.Validator,
 
 		FinalSystemOwner: addresses.SysCfgOwner,
 
@@ -100,16 +101,21 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 
 		L2GenesisBlueTimeOffset: new(hexutil.Uint64),
 
-		ColosseumChallengeTimeout: 120,
+		ColosseumBisectionTimeout: 120,
+		ColosseumProvingTimeout:   480,
+		ColosseumDummyHash:        common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
+		ColosseumMaxTxs:           25,
 		ColosseumSegmentsLengths:  "3,4",
+
+		SecurityCouncilNumConfirmationRequired: 1,
+		SecurityCouncilOwners:                  []common.Address{addresses.Challenger, addresses.Alice, addresses.Bob, addresses.Mallory},
 
 		GasPriceOracleOverhead:      2100,
 		GasPriceOracleScalar:        1000_000,
 		DeploymentWaitConfirmations: 1,
 
-		ValidatorRewardVaultRecipient: common.Address{19: 1},
-		ProtocolVaultRecipient:        common.Address{19: 2},
-		ProposerRewardVaultRecipient:  common.Address{19: 3},
+		ProtocolVaultRecipient:       common.Address{19: 2},
+		ProposerRewardVaultRecipient: common.Address{19: 3},
 
 		EIP1559Elasticity:  10,
 		EIP1559Denominator: 50,
@@ -137,8 +143,10 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 type DeploymentsL1 struct {
 	L1CrossDomainMessengerProxy common.Address
 	L1StandardBridgeProxy       common.Address
+	ValidatorPoolProxy          common.Address
 	L2OutputOracleProxy         common.Address
 	ColosseumProxy              common.Address
+	SecurityCouncilProxy        common.Address
 	KromaPortalProxy            common.Address
 	SystemConfigProxy           common.Address
 }
@@ -226,8 +234,10 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	deploymentsL1 := DeploymentsL1{
 		L1CrossDomainMessengerProxy: predeploys.DevL1CrossDomainMessengerAddr,
 		L1StandardBridgeProxy:       predeploys.DevL1StandardBridgeAddr,
+		ValidatorPoolProxy:          predeploys.DevValidatorPoolAddr,
 		L2OutputOracleProxy:         predeploys.DevL2OutputOracleAddr,
 		ColosseumProxy:              predeploys.DevColosseumAddr,
+		SecurityCouncilProxy:        predeploys.DevSecurityCouncilAddr,
 		KromaPortalProxy:            predeploys.DevKromaPortalAddr,
 		SystemConfigProxy:           predeploys.DevSystemConfigAddr,
 	}

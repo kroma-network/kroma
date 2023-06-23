@@ -76,8 +76,8 @@ contract GasBenchMark_KromaPortal is Portal_Initializer {
     function setUp() public override {
         // Configure the oracle to return the output root we've prepared.
         vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber) + 1);
-        vm.prank(oracle.VALIDATOR());
-        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
+        vm.prank(trusted);
+        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0, minBond);
 
         // Warp beyond the finalization period for the block we've submitted.
         vm.warp(
@@ -218,12 +218,17 @@ contract GasBenchMark_L2OutputOracle is L2OutputOracle_Initializer {
 
     function setUp() public override {
         super.setUp();
+
+        vm.deal(trusted, minBond);
+        vm.prank(trusted);
+        pool.deposit{ value: minBond }();
+
         nextBlockNumber = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber);
-        vm.startPrank(asserter);
+        vm.startPrank(trusted);
     }
 
     function test_submitL2Output_benchmark() external {
-        oracle.submitL2Output(nonZeroHash, nextBlockNumber, 0, 0);
+        oracle.submitL2Output(nonZeroHash, nextBlockNumber, 0, 0, minBond);
     }
 }

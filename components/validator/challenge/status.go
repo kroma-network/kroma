@@ -6,5 +6,7 @@ const (
 	StatusAsserterTurn
 	StatusChallengerTimeout
 	StatusAsserterTimeout
-	StatusProveReady
+	StatusReadyToProve
+	StatusProven
+	StatusApproved
 )

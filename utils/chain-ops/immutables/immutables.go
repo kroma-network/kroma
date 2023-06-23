@@ -46,8 +46,8 @@ func (i ImmutableConfig) Check() error {
 	if _, ok := i["KromaMintableERC721Factory"]["remoteChainId"]; !ok {
 		return errors.New("KromaMintableERC20Factory remoteChainId not set")
 	}
-	if _, ok := i["ValidatorRewardVault"]["recipient"]; !ok {
-		return errors.New("ValidatorRewardVault recipient not set")
+	if _, ok := i["ValidatorRewardVault"]["validatorPoolAddress"]; !ok {
+		return errors.New("ValidatorRewardVault validatorPoolAddress not set")
 	}
 	if _, ok := i["ProposerRewardVault"]["recipient"]; !ok {
 		return errors.New("ProposerRewardVault recipient not set")
@@ -94,7 +94,8 @@ func BuildKroma(immutable ImmutableConfig, zktrie bool) (DeploymentResults, erro
 		{
 			Name: "ValidatorRewardVault",
 			Args: []interface{}{
-				immutable["ValidatorRewardVault"]["recipient"],
+				immutable["ValidatorRewardVault"]["validatorPoolAddress"],
+				immutable["ValidatorRewardVault"]["rewardDivider"],
 			},
 		},
 		{
@@ -170,11 +171,15 @@ func l2Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		// No arguments required for L2ToL1MessagePasser
 		_, tx, _, err = bindings.DeployL2ToL1MessagePasser(opts, backend)
 	case "ValidatorRewardVault":
-		recipient, ok := deployment.Args[0].(common.Address)
+		validatorPoolAddress, ok := deployment.Args[0].(common.Address)
 		if !ok {
-			return nil, fmt.Errorf("invalid type for recipient")
+			return nil, fmt.Errorf("invalid type for validatorPoolAddress")
 		}
-		_, tx, _, err = bindings.DeployValidatorRewardVault(opts, backend, recipient)
+		rewardDivider, ok := deployment.Args[1].(*big.Int)
+		if !ok {
+			return nil, fmt.Errorf("invalid type for rewardDivider")
+		}
+		_, tx, _, err = bindings.DeployValidatorRewardVault(opts, backend, validatorPoolAddress, rewardDivider)
 	case "ProtocolVault":
 		recipient, ok := deployment.Args[0].(common.Address)
 		if !ok {

@@ -11,11 +11,13 @@ library Types {
      *         is the L1 timestamp that the output root is posted. This timestamp is used to verify
      *         that the finalization period has passed since the output root was submitted.
      *
+     * @custom:field submitter     Address of the output submitter.
      * @custom:field outputRoot    Hash of the L2 output.
      * @custom:field timestamp     Timestamp of the L1 block that the output root was submitted in.
      * @custom:field l2BlockNumber L2 block number that the output corresponds to.
      */
     struct CheckpointOutput {
+        address submitter;
         bytes32 outputRoot;
         uint128 timestamp;
         uint128 l2BlockNumber;
@@ -42,54 +44,54 @@ library Types {
     /**
      * @notice Struct representing the elements that are hashed together to generate a public input.
      *
-     * @custom:field coinbase         Account address for paying transaction fees to.
+     * @custom:field blockHash        The hash of the block.
+     * @custom:field parentHash       The hash of the previous block.
      * @custom:field timestamp        The block time.
      * @custom:field number           The block number.
-     * @custom:field difficulty       Difficulty.
      * @custom:field gasLimit         Maximum gas allowed.
      * @custom:field baseFee          The base fee per gas.
-     * @custom:field chainId          The chain ID.
      * @custom:field transactionsRoot Root hash of the transactions.
      * @custom:field stateRoot        Root hash of the state trie.
+     * @custom:field withdrawalsRoot  Root hash of the withdrawals.
      * @custom:field txHashes         Array of hash of the transaction.
      */
     struct PublicInput {
-        address coinbase;
+        bytes32 blockHash;
+        bytes32 parentHash;
         uint64 timestamp;
         uint64 number;
-        uint256 difficulty;
-        uint256 gasLimit;
+        uint64 gasLimit;
         uint256 baseFee;
-        uint256 chainId;
         bytes32 transactionsRoot;
         bytes32 stateRoot;
+        bytes32 withdrawalsRoot;
         bytes32[] txHashes;
     }
 
     /**
      * @notice Struct representing the elements that are hashed together to generate a block hash.
-     *         Some of fields that are contained in PublicnInput are omitted.
+     *         Some of fields that are contained in PublicInput are omitted.
      *
-     * @custom:field parentHash      RLP encoded parent hash.
-     * @custom:field uncleHash       RLP encoded uncle hash.
-     * @custom:field receiptsRoot    RLP encoded receipts root.
-     * @custom:field logsBloom       RLP encoded logs bloom.
-     * @custom:field gasUsed         RLP encoded gas used.
-     * @custom:field extraData       RLP encoded extra data.
-     * @custom:field mixHash         RLP encoded mix hash.
-     * @custom:field nonce           RLP encoded nonce.
-     * @custom:field withdrawalsRoot RLP encoded withdrawals root.
+     * @custom:field uncleHash    RLP encoded uncle hash.
+     * @custom:field coinbase     RLP encoded coinbase.
+     * @custom:field receiptsRoot RLP encoded receipts root.
+     * @custom:field logsBloom    RLP encoded logs bloom.
+     * @custom:field difficulty   RLP encoded difficulty.
+     * @custom:field gasUsed      RLP encoded gas used.
+     * @custom:field extraData    RLP encoded extra data.
+     * @custom:field mixHash      RLP encoded mix hash.
+     * @custom:field nonce        RLP encoded nonce.
      */
     struct BlockHeaderRLP {
-        bytes parentHash;
         bytes uncleHash;
+        bytes coinbase;
         bytes receiptsRoot;
         bytes logsBloom;
+        bytes difficulty;
         bytes gasUsed;
         bytes extraData;
         bytes mixHash;
         bytes nonce;
-        bytes withdrawalsRoot;
     }
 
     /**
@@ -139,16 +141,74 @@ library Types {
 
     /**
      * @notice Struct representing a challenge.
+     *
+     * @custom:field turn       The current turn.
+     * @custom:field timeoutAt  Timeout timestamp of the next turn.
+     * @custom:field approved   Whether the challenge was approved.
+     * @custom:field asserter   Address of the asserter.
+     * @custom:field challenger Address of the challenger.
+     * @custom:field segments   Array of the segment.
+     * @custom:field segStart   The L2 block number of the first segment.
+     * @custom:field segSize    The number of L2 blocks.
+     * @custom:field outputRoot The L2 output root to be replaced.
      */
     struct Challenge {
-        uint256 outputIndex;
-        uint256 turn;
-        address current;
-        address next;
+        uint8 turn;
+        uint64 timeoutAt;
+        bool approved;
+        address asserter;
+        address challenger;
         bytes32[] segments;
-        uint256 segStart;
         uint256 segSize;
-        uint256 timeoutAt;
-        bool closed;
+        uint256 segStart;
+        bytes32 outputRoot;
+    }
+
+    /**
+     * @notice Struct representing a validator's bond.
+     *
+     * @custom:field amount    Amount of the lock.
+     * @custom:field expiresAt The expiration timestamp of bond.
+     */
+    struct Bond {
+        uint128 amount;
+        uint128 expiresAt;
+    }
+
+    /**
+     * @notice Struct representing multisig transaction data.
+     *
+     * @custom:field destination The destination address to run the transaction.
+     * @custom:field executed    Record whether a transaction was executed or not.
+     * @custom:field value       The value passed in while executing the transaction.
+     * @custom:field data        Calldata for transaction.
+     */
+    struct MultiSigTransaction {
+        address destination;
+        bool executed;
+        uint256 value;
+        bytes data;
+    }
+
+    /**
+     * @notice Struct representing the data for verifying the public input.
+     *
+     * @custom:field srcOutputRootProof          Proof of the source output root.
+     * @custom:field dstOutputRootProof          Proof of the destination output root.
+     * @custom:field publicInput                 Ingredients to compute the public input used by ZK proof verification.
+     * @custom:field rlps                        Pre-encoded RLPs to compute the next block hash
+     *                                           of the source output root proof.
+     * @custom:field l2ToL1MessagePasserBalance  Balance of the L2ToL1MessagePasser account.
+     * @custom:field l2ToL1MessagePasserCodeHash Codehash of the L2ToL1MessagePasser account.
+     * @custom:field merkleProof                 Merkle proof of L2ToL1MessagePasser account against the state root.
+     */
+    struct PublicInputProof {
+        OutputRootProof srcOutputRootProof;
+        OutputRootProof dstOutputRootProof;
+        PublicInput publicInput;
+        BlockHeaderRLP rlps;
+        bytes32 l2ToL1MessagePasserBalance;
+        bytes32 l2ToL1MessagePasserCodeHash;
+        bytes[] merkleProof;
     }
 }

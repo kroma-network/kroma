@@ -34,8 +34,8 @@ L2_URL="http://localhost:9545"
 
 KROMA_NODE="$PWD/components/node"
 CONTRACTS="$PWD/packages/contracts"
-NETWORK=devnetL1
 DEVNET="$PWD/.devnet"
+OPS_DEVNET="$PWD/ops-devnet"
 
 # Helper method that waits for a given URL to be up. Can't use
 # cURL's built-in retry logic because connection reset errors
@@ -43,12 +43,11 @@ DEVNET="$PWD/.devnet"
 function wait_up {
   echo -n "Waiting for $1 to come up..."
   i=0
-  until curl -s -f -o /dev/null "$1"
-  do
+  until curl -s -f -o /dev/null "$1"; do
     echo -n .
     sleep 0.25
 
-    ((i=i+1))
+    ((i = i + 1))
     if [ "$i" -eq 800 ]; then
       echo " Timeout!" >&2
       exit 1
@@ -57,7 +56,7 @@ function wait_up {
   echo "Done!"
 }
 
-mkdir -p ./.devnet
+mkdir -p $DEVNET
 
 # Regenerate the L1 genesis file if necessary. The existence of the genesis
 # file is used to determine if we need to recreate the devnet's state folder.
@@ -65,22 +64,22 @@ if [ ! -f "$DEVNET/done" ]; then
   echo "Regenerating genesis files"
 
   TIMESTAMP=$(date +%s | xargs printf '0x%x')
-  cat "$CONTRACTS/deploy-config/devnetL1.json" | jq -r ".l1GenesisBlockTimestamp = \"$TIMESTAMP\"" > /tmp/devnet-deploy-config.json
+  cat "$CONTRACTS/deploy-config/devnetL1.json" | jq -r ".l1GenesisBlockTimestamp = \"$TIMESTAMP\"" >/tmp/devnet-deploy-config.json
 
   (
     cd "$KROMA_NODE"
     go run cmd/main.go genesis devnet \
-        --deploy-config /tmp/devnet-deploy-config.json \
-        --outfile.l1 $DEVNET/genesis-l1.json \
-        --outfile.l2 $DEVNET/genesis-l2.json \
-        --outfile.rollup $DEVNET/rollup.json
+      --deploy-config /tmp/devnet-deploy-config.json \
+      --outfile.l1 "$DEVNET"/genesis-l1.json \
+      --outfile.l2 "$DEVNET"/genesis-l2.json \
+      --outfile.rollup "$DEVNET"/rollup.json
     touch "$DEVNET/done"
   )
 fi
 
 # Bring up L1.
 (
-  cd ops-devnet
+  cd $OPS_DEVNET
   echo "Bringing up L1..."
   DOCKER_BUILDKIT=1 docker compose build --progress plain
   docker compose up -d l1
@@ -89,7 +88,7 @@ fi
 
 # Bring up L2.
 (
-  cd ops-devnet
+  cd $OPS_DEVNET
   echo "Bringing up L2..."
   docker compose up -d l2
   wait_up $L2_URL
@@ -97,17 +96,28 @@ fi
 
 L2OO_ADDRESS="0x6900000000000000000000000000000000000004"
 COLOSSEUM_ADDRESS="0x690000000000000000000000000000000000000D"
+VALPOOL_ADDRESS="0x6900000000000000000000000000000000000005"
+SECURITYCOUNCIL_ADDRESS="0x690000000000000000000000000000000000000E"
 
 # Bring up everything else.
 (
-  cd ops-devnet
+  cd $OPS_DEVNET
   echo "Bringing up devnet..."
   L2OO_ADDRESS="$L2OO_ADDRESS" \
-      COLOSSEUM_ADDRESS="$COLOSSEUM_ADDRESS" \
-      docker compose up -d kroma-node kroma-validator kroma-batcher kroma-challenger
+    COLOSSEUM_ADDRESS="$COLOSSEUM_ADDRESS" \
+    VALPOOL_ADDRESS="$VALPOOL_ADDRESS" \
+    SECURITYCOUNCIL_ADDRESS="$SECURITYCOUNCIL_ADDRESS" \
+    docker compose up -d kroma-node kroma-validator kroma-batcher kroma-challenger
 
   echo "Bringing up stateviz webserver..."
   docker compose up -d stateviz
+)
+
+# Deposit into ValidatorPool to be a validator.
+(
+  echo "Deposit into ValidatorPool to be a validator..."
+  cd $OPS_DEVNET
+  docker compose exec kroma-validator kroma-validator deposit --amount 1000000000
 )
 
 echo "Devnet ready."

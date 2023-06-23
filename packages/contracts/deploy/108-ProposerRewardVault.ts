@@ -9,18 +9,18 @@ const deployFn: DeployFunction = async (hre) => {
   const l1 = hre.network.companionNetworks['l1']
   const deployConfig = hre.getDeployConfig(l1)
 
-  const ProposerRewardVaultRecipient = deployConfig.ProposerRewardVaultRecipient
-  if (ProposerRewardVaultRecipient === ethers.constants.AddressZero) {
+  const proposerRewardVaultRecipient = deployConfig.proposerRewardVaultRecipient
+  if (proposerRewardVaultRecipient === ethers.constants.AddressZero) {
     throw new Error('ProposerRewardVault RECIPIENT zero address')
   }
 
   await deploy(hre, 'ProposerRewardVault', {
-    args: [ProposerRewardVaultRecipient],
+    args: [proposerRewardVaultRecipient],
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,
         'RECIPIENT',
-        ethers.utils.getAddress(ProposerRewardVaultRecipient)
+        ethers.utils.getAddress(proposerRewardVaultRecipient)
       )
     },
   })

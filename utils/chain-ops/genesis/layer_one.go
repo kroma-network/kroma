@@ -27,12 +27,14 @@ var (
 	// proxies represents the set of proxies in front of contracts.
 	proxies = []string{
 		"SystemConfigProxy",
+		"ValidatorPoolProxy",
 		"L2OutputOracleProxy",
 		"L1CrossDomainMessengerProxy",
 		"L1StandardBridgeProxy",
 		"KromaPortalProxy",
 		"KromaMintableERC20FactoryProxy",
 		"ColosseumProxy",
+		"SecurityCouncilProxy",
 	}
 	// portalMeteringSlot is the storage slot containing the metering params.
 	portalMeteringSlot = common.Hash{31: 0x01}
@@ -147,6 +149,24 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		return nil, fmt.Errorf("cannot upgrade SystemConfigProxy: %w", err)
 	}
 
+	valPoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = valPoolABI.Pack("initialize")
+	if err != nil {
+		return nil, fmt.Errorf("cannot abi encode initialize for ValidatorPool: %w", err)
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["ValidatorPoolProxy"].Address,
+		depsByName["ValidatorPool"].Address,
+		data,
+	); err != nil {
+		return nil, err
+	}
+
 	l2ooABI, err := bindings.L2OutputOracleMetaData.GetAbi()
 	if err != nil {
 		return nil, err
@@ -182,6 +202,24 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		opts,
 		depsByName["ColosseumProxy"].Address,
 		depsByName["Colosseum"].Address,
+		data,
+	); err != nil {
+		return nil, err
+	}
+
+	securityCouncilABI, err := bindings.SecurityCouncilMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = securityCouncilABI.Pack("initialize0", true, config.SecurityCouncilOwners, uint642Big(config.SecurityCouncilNumConfirmationRequired))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["SecurityCouncilProxy"].Address,
+		depsByName["SecurityCouncil"].Address,
 		data,
 	); err != nil {
 		return nil, err
@@ -334,14 +372,21 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			},
 		},
 		{
+			Name: "ValidatorPool",
+			Args: []interface{}{
+				config.ValidatorPoolTrustedValidator,
+				config.ValidatorPoolMinBondAmount.ToInt(),
+				uint642Big(config.ValidatorPoolNonPenaltyPeriod),
+				uint642Big(config.ValidatorPoolPenaltyPeriod),
+			},
+		},
+		{
 			Name: "L2OutputOracle",
 			Args: []interface{}{
 				uint642Big(config.L2OutputOracleSubmissionInterval),
 				uint642Big(config.L2BlockTime),
 				big.NewInt(0),
 				uint642Big(uint64(config.L1GenesisBlockTimestamp)),
-				config.L2OutputOracleValidator,
-				predeploys.DevColosseumAddr,
 				uint642Big(config.FinalizationPeriodSeconds),
 			},
 		},
@@ -366,12 +411,16 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			Name: "Colosseum",
 			Args: []interface{}{
 				uint642Big(config.L2OutputOracleSubmissionInterval),
-				uint642Big(config.ColosseumChallengeTimeout),
-				uint642Big(config.L2ChainID),
-				config.DummyHash,
-				uint642Big(config.MaxTxs),
+				uint642Big(config.ColosseumBisectionTimeout),
+				uint642Big(config.ColosseumProvingTimeout),
+				config.ColosseumDummyHash,
+				uint642Big(config.ColosseumMaxTxs),
 				parseSegsLengthsConfig(config.ColosseumSegmentsLengths),
+				predeploys.DevSystemConfigAddr,
 			},
+		},
+		{
+			Name: "SecurityCouncil",
 		},
 		{
 			Name: "L1CrossDomainMessenger",
@@ -415,23 +464,35 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			/* unsafeBlockSigner= */ deployment.Args[5].(common.Address),
 			/* config= */ deployment.Args[6].(bindings.ResourceMeteringResourceConfig),
 		)
+	case "ValidatorPool":
+		_, tx, _, err = bindings.DeployValidatorPool(
+			opts,
+			backend,
+			predeploys.DevL2OutputOracleAddr,
+			predeploys.DevKromaPortalAddr,
+			/* trustedValidator= */ deployment.Args[0].(common.Address),
+			/* minBondAmount= */ deployment.Args[1].(*big.Int),
+			/* nonPenaltyPeriod= */ deployment.Args[2].(*big.Int),
+			/* penaltyPeriod= */ deployment.Args[3].(*big.Int),
+		)
 	case "L2OutputOracle":
 		_, tx, _, err = bindings.DeployL2OutputOracle(
 			opts,
 			backend,
+			predeploys.DevValidatorPoolAddr,
+			predeploys.DevColosseumAddr,
 			/* submissionInterval= */ deployment.Args[0].(*big.Int),
 			/* l2BlockTime= */ deployment.Args[1].(*big.Int),
 			/* startingBlockNumber= */ deployment.Args[2].(*big.Int),
 			/* startingTimestamp= */ deployment.Args[3].(*big.Int),
-			/* validator= */ deployment.Args[4].(common.Address),
-			/* challenger= */ deployment.Args[5].(common.Address),
-			/* finalizationPeriodSeconds= */ deployment.Args[6].(*big.Int),
+			/* finalizationPeriodSeconds= */ deployment.Args[4].(*big.Int),
 		)
 	case "KromaPortal":
 		_, tx, _, err = bindings.DeployKromaPortal(
 			opts,
 			backend,
 			predeploys.DevL2OutputOracleAddr,
+			predeploys.DevValidatorPoolAddr,
 			/* guardian= */ deployment.Args[0].(common.Address),
 			/* paused= */ deployment.Args[1].(bool),
 			/* config= */ deployment.Args[2].(common.Address),
@@ -444,11 +505,19 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			predeploys.DevL2OutputOracleAddr,
 			predeploys.DevZKVerifierAddr,
 			/* submissionInterval= */ deployment.Args[0].(*big.Int),
-			/* challengeTimeout= */ deployment.Args[1].(*big.Int),
-			/* chainId= */ deployment.Args[2].(*big.Int),
+			/* bisectionTimeout= */ deployment.Args[1].(*big.Int),
+			/* provingTimeout= */ deployment.Args[2].(*big.Int),
 			/* dummyHash= */ deployment.Args[3].(common.Hash),
 			/* maxTxs= */ deployment.Args[4].(*big.Int),
 			/* segmentsLengths= */ deployment.Args[5].([]*big.Int),
+			predeploys.DevSecurityCouncilAddr,
+			predeploys.DevZKMerkleTrieAddr,
+		)
+	case "SecurityCouncil":
+		_, tx, _, err = bindings.DeploySecurityCouncil(
+			opts,
+			backend,
+			predeploys.DevColosseumAddr,
 		)
 	case "L1CrossDomainMessenger":
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(

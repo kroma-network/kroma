@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/kroma-network/kroma/components/node/eth"
 	pb "github.com/kroma-network/kroma/components/validator/challenge/prover-grpc-proto"
 )
 
@@ -44,11 +43,11 @@ type ProofAndPair struct {
 	Pair  []*big.Int
 }
 
-func (f *Fetcher) FetchProofAndPair(blockRef eth.L2BlockRef) (*ProofAndPair, error) {
+func (f *Fetcher) FetchProofAndPair(blockNumber uint64) (*ProofAndPair, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), f.timeout)
 	defer cancel()
 
-	blockNumberHex := fmt.Sprintf("0x%x", blockRef.Number)
+	blockNumberHex := fmt.Sprintf("0x%x", blockNumber)
 	f.logger.Info("received block number hex", "hex", blockNumberHex)
 
 	response, err := f.Client.Prove(ctx, &pb.ProofRequest{BlockNumberHex: blockNumberHex})

@@ -29,6 +29,9 @@ var (
 	oneHundred       = big.NewInt(100)
 )
 
+// ErrTxReceiptNotSucceed is the error returned when tx confirmed but the status is not success.
+var ErrTxReceiptNotSucceed = errors.New("transaction confirmed but the status is not success")
+
 // TxManager is an interface that allows callers to reliably publish txs,
 // bumping the gas price if needed, and obtain the receipt of the resulting tx.
 //
@@ -117,6 +120,10 @@ type TxCandidate struct {
 	To *common.Address
 	// GasLimit is the gas limit to be used in the constructed tx.
 	GasLimit uint64
+	// AccessList is an EIP-2930 access list.
+	AccessList types.AccessList
+	// Value is the value that is passed to the constructed tx.
+	Value *big.Int
 }
 
 // Send is used to publish a transaction with incrementally higher gas prices
@@ -164,13 +171,18 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 	}
 	m.metr.RecordNonce(nonce)
 
+	// TODO: If we apply the accessList manually, it's hard to predict and react to other issues,
+	// such as gas prices, due to subsequent code modifications.
+	// To avoid this, we need to add logic to calculate the accessList automatically using `eth_createAccessList`.
 	rawTx := &types.DynamicFeeTx{
-		ChainID:   m.chainID,
-		Nonce:     nonce,
-		To:        candidate.To,
-		GasTipCap: gasTipCap,
-		GasFeeCap: gasFeeCap,
-		Data:      candidate.TxData,
+		ChainID:    m.chainID,
+		Nonce:      nonce,
+		To:         candidate.To,
+		GasTipCap:  gasTipCap,
+		GasFeeCap:  gasFeeCap,
+		Value:      candidate.Value,
+		Data:       candidate.TxData,
+		AccessList: candidate.AccessList,
 	}
 
 	m.l.Info("creating tx", "to", rawTx.To, "from", m.From())
@@ -185,6 +197,7 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 			GasFeeCap: gasFeeCap,
 			GasTipCap: gasTipCap,
 			Data:      rawTx.Data,
+			Value:     candidate.Value,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to estimate gas: %w", err)
@@ -244,6 +257,10 @@ func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*typ
 		case receipt := <-receiptChan:
 			m.metr.RecordGasBumpCount(bumpCounter)
 			m.metr.TxConfirmed(receipt)
+			// If transaction confirmed but the status is not success, return ErrTxReceiptNotSucceed
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				return receipt, ErrTxReceiptNotSucceed
+			}
 			return receipt, nil
 		}
 	}
@@ -253,8 +270,8 @@ func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*typ
 // It should be called in a new go-routine. It will send the receipt to receiptChan in a non-blocking way if a receipt is found
 // for the transaction.
 func (m *SimpleTxManager) publishAndWaitForTx(ctx context.Context, tx *types.Transaction, sendState *SendState, receiptChan chan *types.Receipt) {
-	log := m.l.New("hash", tx.Hash(), "nonce", tx.Nonce(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
-	log.Info("publishing transaction")
+	l := m.l.New("hash", tx.Hash(), "nonce", tx.Nonce(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
+	l.Info("publishing transaction")
 
 	cCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
 	defer cancel()
@@ -266,35 +283,35 @@ func (m *SimpleTxManager) publishAndWaitForTx(ctx context.Context, tx *types.Tra
 	if err != nil {
 		switch {
 		case errStringMatch(err, core.ErrNonceTooLow):
-			log.Warn("nonce too low", "err", err)
+			l.Warn("nonce too low", "err", err)
 			m.metr.TxPublished("nonce_to_low")
 		case errStringMatch(err, context.Canceled):
 			m.metr.RPCError()
-			log.Warn("transaction send cancelled", "err", err)
+			l.Warn("transaction send cancelled", "err", err)
 			m.metr.TxPublished("context_cancelled")
 		case errStringMatch(err, txpool.ErrAlreadyKnown):
-			log.Warn("resubmitted already known transaction", "err", err)
+			l.Warn("resubmitted already known transaction", "err", err)
 			m.metr.TxPublished("tx_already_known")
 		case errStringMatch(err, txpool.ErrReplaceUnderpriced):
-			log.Warn("transaction replacement is underpriced", "err", err)
+			l.Warn("transaction replacement is underpriced", "err", err)
 			m.metr.TxPublished("tx_replacement_underpriced")
 		case errStringMatch(err, txpool.ErrUnderpriced):
-			log.Warn("transaction is underpriced", "err", err)
+			l.Warn("transaction is underpriced", "err", err)
 			m.metr.TxPublished("tx_underpriced")
 		default:
 			m.metr.RPCError()
-			log.Error("unable to publish transaction", "err", err)
+			l.Error("unable to publish transaction", "err", err)
 			m.metr.TxPublished("unknown_error")
 		}
 		return
 	}
 	m.metr.TxPublished("")
 
-	log.Info("Transaction successfully published")
+	l.Info("Transaction successfully published")
 	// Poll for the transaction to be ready & then send the result to receiptChan
 	receipt, err := m.waitMined(ctx, tx, sendState)
 	if err != nil {
-		log.Warn("Transaction receipt not found", "err", err)
+		l.Warn("Transaction receipt not found", "err", err)
 		return
 	}
 	select {

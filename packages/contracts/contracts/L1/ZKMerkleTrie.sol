@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import { Bytes } from "../libraries/Bytes.sol";
 import { NodeReader } from "../libraries/NodeReader.sol";
+import { IZKMerkleTrie } from "./IZKMerkleTrie.sol";
 import { ZKTrieHasher } from "./ZKTrieHasher.sol";
 
 /**
@@ -11,7 +12,7 @@ import { ZKTrieHasher } from "./ZKTrieHasher.sol";
  * @notice The ZKMerkleTrie is contract which can produce a hash according to ZKTrie.
  *         This owns an interface of Poseidon2 that is required to compute hash used by ZKTrie.
  */
-contract ZKMerkleTrie is ZKTrieHasher {
+contract ZKMerkleTrie is IZKMerkleTrie, ZKTrieHasher {
     /**
      * @notice Struct representing a node in the trie.
      */
@@ -44,15 +45,7 @@ contract ZKMerkleTrie is ZKTrieHasher {
     }
 
     /**
-     * @notice Verifies a proof that a given key/value pair is present in the trie.
-     *
-     * @param _key    Key of the node to search for, as a hex string.
-     * @param _value  Value of the node to search for, as a hex string.
-     * @param _proofs Merkle trie inclusion proof for the desired node.
-     * @param _root   Known root of the Merkle trie. Used to verify that the included proof is
-     *                correctly constructed.
-     *
-     * @return Whether or not the proof is valid.
+     * @inheritdoc IZKMerkleTrie
      */
     function verifyInclusionProof(
         bytes32 _key,
@@ -100,30 +93,23 @@ contract ZKMerkleTrie is ZKTrieHasher {
                 } else {
                     require(computedKey == currentNode.childR, "ZKMerkleTrie: invalid key R");
                 }
-                bytes32[] memory inputs = new bytes32[](2);
-                inputs[0] = currentNode.childL;
-                inputs[1] = currentNode.childR;
-                computedKey = _hashElems(inputs);
+                computedKey = _hashFixed2Elems(
+                    currentNode.childL,
+                    currentNode.childR
+                );
             } else if (currentNode.nodeType == NodeReader.NodeType.LEAF) {
                 require(!exists, "ZKMerkleTrie: duplicated leaf node");
                 exists = true;
-                bytes32[] memory inputs = new bytes32[](3);
-                inputs[0] = bytes32(uint256(1));
-                inputs[1] = currentNode.nodeKey;
-                inputs[2] = _valueHash(currentNode.compressedFlags, currentNode.valuePreimage);
-                computedKey = _hashElems(inputs);
-                // TODO(chokobole): How about fixing length of valuePreimage to be 1?
-                value = new bytes(currentNode.valuePreimage.length * 32);
-                uint256 offset = 32;
-                for (uint256 j = 0; j < currentNode.valuePreimage.length; ) {
-                    bytes32 valuePreimage = currentNode.valuePreimage[j];
-                    assembly {
-                        mstore(add(value, offset), valuePreimage)
-                    }
-                    unchecked {
-                        ++j;
-                        offset += 32;
-                    }
+                computedKey = _hashFixed3Elems(
+                    bytes32(uint256(1)),
+                    currentNode.nodeKey,
+                    _valueHash(currentNode.compressedFlags, currentNode.valuePreimage)
+                );
+                bytes32[] memory valuePreimage = currentNode.valuePreimage;
+                uint256 len = valuePreimage.length;
+                assembly {
+                    value := valuePreimage
+                    mstore(value, mul(len, 32))
                 }
                 if (currentNode.keyPreimage != bytes32(0)) {
                     // NOTE(chokobole): The comparison order is important, because in this setting,

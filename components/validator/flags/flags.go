@@ -20,7 +20,7 @@ var (
 
 	L1EthRpcFlag = cli.StringFlag{
 		Name:     "l1-eth-rpc",
-		Usage:    "HTTP provider URL for L1",
+		Usage:    "Websocket provider URL for L1",
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "L1_ETH_RPC"),
 	}
@@ -42,12 +42,17 @@ var (
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "COLOSSEUM_ADDRESS"),
 	}
-	PollIntervalFlag = cli.DurationFlag{
-		Name: "poll-interval",
-		Usage: "Delay between querying L2 for more transactions and " +
-			"creating a new batch",
+	ValPoolAddressFlag = cli.StringFlag{
+		Name:     "valpool-address",
+		Usage:    "Address of the ValidatorPool contract",
 		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "POLL_INTERVAL"),
+		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "VALPOOL_ADDRESS"),
+	}
+	ChallengerPollIntervalFlag = cli.DurationFlag{
+		Name:     "challenger.poll-interval",
+		Usage:    "Poll interval for challenge process",
+		Required: true,
+		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "CHALLENGER_POLL_INTERVAL"),
 	}
 	ProverGrpcFlag = cli.StringFlag{
 		Name:     "prover-grpc-url",
@@ -68,10 +73,38 @@ var (
 		Usage:  "Disable l2 output submitter",
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_DISABLED"),
 	}
+	OutputSubmitterBondAmountFlag = cli.Uint64Flag{
+		Name:   "output-submitter.bond-amount",
+		Usage:  "Amount to bond when submitting each output (in wei)",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_BOND_AMOUNT"),
+		Value:  1,
+	}
+	OutputSubmitterRetryIntervalFlag = cli.DurationFlag{
+		Name:   "output-submitter.retry-interval",
+		Usage:  "Retry interval for output submission process",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_RETRY_INTERVAL"),
+		Value:  time.Second * 1,
+	}
+	OutputSubmitterRoundBufferFlag = cli.Uint64Flag{
+		Name:   "output-submitter.round-buffer",
+		Usage:  "Number of blocks before each round to start trying submission",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_ROUND_BUFFER"),
+		Value:  30,
+	}
 	ChallengerDisabledFlag = cli.BoolFlag{
 		Name:   "challenger.disabled",
 		Usage:  "Disable challenger",
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "CHALLENGER_DISABLED"),
+	}
+	SecurityCouncilAddressFlag = cli.StringFlag{
+		Name:   "securitycouncil-address",
+		Usage:  "Address of the SecurityCouncil contract",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "SECURITYCOUNCIL_ADDRESS"),
+	}
+	GuardianEnabledFlag = cli.BoolFlag{
+		Name:   "guardian.enabled",
+		Usage:  "Enable guardian",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "GUARDIAN_ENABLED"),
 	}
 	FetchingProofTimeoutFlag = cli.DurationFlag{
 		Name:   "fetching-proof-timeout",
@@ -86,14 +119,20 @@ var requiredFlags = []cli.Flag{
 	RollupRpcFlag,
 	L2OOAddressFlag,
 	ColosseumAddressFlag,
-	PollIntervalFlag,
+	ValPoolAddressFlag,
+	ChallengerPollIntervalFlag,
 	ProverGrpcFlag,
 }
 
 var optionalFlags = []cli.Flag{
 	AllowNonFinalizedFlag,
 	OutputSubmitterDisabledFlag,
+	OutputSubmitterBondAmountFlag,
+	OutputSubmitterRetryIntervalFlag,
+	OutputSubmitterRoundBufferFlag,
 	ChallengerDisabledFlag,
+	SecurityCouncilAddressFlag,
+	GuardianEnabledFlag,
 	FetchingProofTimeoutFlag,
 }
 

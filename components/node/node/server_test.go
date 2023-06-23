@@ -139,7 +139,7 @@ func TestOutputAtBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	var out *eth.OutputResponse
-	err = client.CallContext(context.Background(), &out, "kroma_outputAtBlock", "0xdcdc89", false)
+	err = client.CallContext(context.Background(), &out, "kroma_outputAtBlock", "0xdcdc89")
 	require.NoError(t, err)
 
 	require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000000", out.Version.String())

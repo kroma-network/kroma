@@ -5,12 +5,18 @@ import {
   assertContractVariable,
   deploy,
   getContractFromArtifact,
+  getDeploymentAddress,
 } from '../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const L2OutputOracleProxy = await getContractFromArtifact(
+  const l2OutputOracleProxyAddress = await getDeploymentAddress(
     hre,
     'L2OutputOracleProxy'
+  )
+
+  const validatorPoolProxyAddress = await getDeploymentAddress(
+    hre,
+    'ValidatorPoolProxy'
   )
 
   const Artifact__SystemConfigProxy = await hre.deployments.get(
@@ -21,7 +27,8 @@ const deployFn: DeployFunction = async (hre) => {
 
   await deploy(hre, 'KromaPortal', {
     args: [
-      L2OutputOracleProxy.address,
+      l2OutputOracleProxyAddress,
+      validatorPoolProxyAddress,
       hre.deployConfig.portalGuardian,
       false,
       Artifact__SystemConfigProxy.address,
@@ -33,7 +40,12 @@ const deployFn: DeployFunction = async (hre) => {
       await assertContractVariable(
         contract,
         'L2_ORACLE',
-        L2OutputOracleProxy.address
+        l2OutputOracleProxyAddress
+      )
+      await assertContractVariable(
+        contract,
+        'VALIDATOR_POOL',
+        validatorPoolProxyAddress
       )
       await assertContractVariable(
         contract,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
@@ -58,9 +57,15 @@ func Main(version string, cliCtx *cli.Context) error {
 		return err
 	}
 
-	validator.Start()
+	if err := validator.Start(); err != nil {
+		l.Error("failed to start validator", "err", err)
+		return err
+	}
 	<-utils.WaitInterrupt()
-	validator.Stop()
+	if err := validator.Stop(); err != nil {
+		l.Error("failed to stop validator", "err", err)
+		return err
+	}
 
 	return nil
 }
@@ -74,132 +79,117 @@ type Validator struct {
 	metr       metrics.Metricer
 	l2os       *L2OutputSubmitter
 	challenger *Challenger
+	guardian   *Guardian
+
+	txCandidatesChan chan txmgr.TxCandidate
 
 	wg sync.WaitGroup
 }
 
-func NewValidator(parentCtx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Validator, error) {
+func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Validator, error) {
 	// Validate the validator config
 	if err := cfg.Check(); err != nil {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(parentCtx)
-
-	l2OutputSubmitter, err := NewL2OutputSubmitter(cfg, l)
+	l2OutputSubmitter, err := NewL2OutputSubmitter(ctx, cfg, l, m)
 	if err != nil {
-		cancel()
 		return nil, err
 	}
 
 	challenger, err := NewChallenger(ctx, cfg, l)
 	if err != nil {
-		cancel()
+		return nil, err
+	}
+
+	guardian, err := NewGuardian(cfg, l)
+	if err != nil {
 		return nil, err
 	}
 
 	return &Validator{
-		ctx:        ctx,
-		cancel:     cancel,
 		cfg:        cfg,
 		l:          l,
+		metr:       m,
 		l2os:       l2OutputSubmitter,
 		challenger: challenger,
-		metr:       m,
+		guardian:   guardian,
 	}, nil
 }
 
-func (v *Validator) Start() {
+func (v *Validator) Start() error {
+	v.ctx, v.cancel = context.WithCancel(context.Background())
 	v.l.Info("starting Validator")
+
+	v.txCandidatesChan = make(chan txmgr.TxCandidate, 10)
+
+	if !v.cfg.OutputSubmitterDisabled {
+		if err := v.l2os.Start(v.ctx, v.txCandidatesChan); err != nil {
+			return fmt.Errorf("cannot start l2 output submitter: %w", err)
+		}
+	}
+
+	if err := v.challenger.Start(v.ctx, v.txCandidatesChan); err != nil {
+		return fmt.Errorf("cannot start challenger: %w", err)
+	}
+
+	if v.cfg.GuardianEnabled {
+		if err := v.guardian.Start(v.ctx, v.txCandidatesChan); err != nil {
+			return fmt.Errorf("cannot start guardian: %w", err)
+		}
+	}
+
 	v.wg.Add(1)
 	go v.loop()
+
+	return nil
 }
 
-func (v *Validator) Stop() {
+func (v *Validator) Stop() error {
 	v.l.Info("stopping Validator")
 	if v.cfg.ProofFetcher != nil {
 		if err := v.cfg.ProofFetcher.Close(); err != nil {
-			v.l.Error("cannot close grpc connection: %w", err)
+			return fmt.Errorf("cannot close gRPC connection: %w", err)
 		}
 	}
+
+	if !v.cfg.OutputSubmitterDisabled {
+		if err := v.l2os.Stop(); err != nil {
+			return fmt.Errorf("failed to stop l2 output submitter: %w", err)
+		}
+	}
+
+	if err := v.challenger.Stop(); err != nil {
+		return fmt.Errorf("failed to stop challenger: %w", err)
+	}
+
+	if v.cfg.GuardianEnabled {
+		if err := v.guardian.Stop(); err != nil {
+			return fmt.Errorf("failed to stop guardian: %w", err)
+		}
+	}
+
 	v.cancel()
 	v.wg.Wait()
+
+	close(v.txCandidatesChan)
+
+	return nil
 }
 
 func (v *Validator) loop() {
 	defer v.wg.Done()
 
-	ticker := time.NewTicker(v.cfg.PollInterval)
-	defer ticker.Stop()
-
 	for {
 		select {
-		case <-ticker.C:
-			if !v.cfg.OutputSubmitterDisabled {
-				if err := v.submitL2Output(); err != nil {
-					v.l.Error("failed to submit l2 output", "err", err)
-				}
-			}
-
-			if err := v.submitChallengeTx(); err != nil {
-				v.l.Error("failed to submit challenge tx", "err", err)
+		case txCandidate := <-v.txCandidatesChan:
+			if err := v.sendTransaction(v.ctx, txCandidate); err != nil {
+				v.l.Error("failed to submit transaction of validator", "err", err)
 			}
 		case <-v.ctx.Done():
 			return
 		}
 	}
-}
-
-func (v *Validator) submitL2Output() error {
-	ctx := v.ctx
-	output, shouldSubmit, err := v.l2os.FetchNextOutputInfo(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to fetch next output: %w", err)
-	}
-	if !shouldSubmit {
-		return nil
-	}
-
-	data, err := v.l2os.SubmitL2OutputTxData(output)
-	if err != nil {
-		return fmt.Errorf("failed to create submit l2 output transaction data: %w", err)
-	}
-
-	txCandidate := txmgr.TxCandidate{
-		TxData:   data,
-		To:       &v.cfg.L2OutputOracleAddr,
-		GasLimit: 0,
-	}
-
-	if err := v.sendTransaction(ctx, txCandidate); err != nil {
-		return fmt.Errorf("failed to send submit l2 output transaction: %w", err)
-	}
-	v.metr.RecordL2OutputSubmitted(output.BlockRef)
-
-	return nil
-}
-
-func (v *Validator) submitChallengeTx() error {
-	tx, err := v.challenger.DetermineChallengeTx()
-	if err != nil {
-		return fmt.Errorf("failed to determine challenge transaction to submit: %w", err)
-	}
-
-	if tx == nil {
-		return nil
-	}
-
-	txCandidate := txmgr.TxCandidate{
-		TxData:   tx.Data(),
-		To:       tx.To(),
-		GasLimit: 0,
-	}
-
-	if err := v.sendTransaction(v.ctx, txCandidate); err != nil {
-		return fmt.Errorf("failed to send challenge transaction: %w", err)
-	}
-
-	return nil
 }
 
 // sendTransaction creates & sends transactions through the underlying transaction manager.

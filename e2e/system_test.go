@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"testing"
@@ -37,6 +38,8 @@ import (
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/components/node/withdrawals"
+	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	"github.com/kroma-network/kroma/e2e/testdata"
 	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 )
 
@@ -84,7 +87,7 @@ func TestL2OutputSubmitter(t *testing.T) {
 	require.Nil(t, err)
 	rollupClient := sources.NewRollupClient(client.NewBaseRPCClient(rollupRPCClient))
 
-	//  OutputOracle is already deployed
+	// OutputOracle is already deployed
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
 	require.Nil(t, err)
 
@@ -125,7 +128,7 @@ func TestL2OutputSubmitter(t *testing.T) {
 			// finalized.
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			l2Output, err := rollupClient.OutputAtBlock(ctx, l2ooBlockNumber.Uint64(), false)
+			l2Output, err := rollupClient.OutputAtBlock(ctx, l2ooBlockNumber.Uint64())
 			require.Nil(t, err)
 			require.Equal(t, l2Output.OutputRoot[:], committedL2Output.OutputRoot[:])
 			break
@@ -137,6 +140,83 @@ func TestL2OutputSubmitter(t *testing.T) {
 		case <-ticker.C:
 		}
 	}
+}
+
+func TestValidationReward(t *testing.T) {
+	parallel(t)
+	if !verboseGethNodes {
+		log.Root().SetHandler(log.DiscardHandler())
+	}
+
+	runTest := func(t *testing.T, cfg SystemConfig) (*big.Int, *big.Int) {
+		sys, err := cfg.Start()
+		require.NoError(t, err, "Error starting up system")
+		defer sys.Close()
+
+		l2Prop := sys.Clients["proposer"]
+		l2Sync := sys.Clients["syncer"]
+
+		validatorVault, err := bindings.NewValidatorRewardVault(predeploys.ValidatorRewardVaultAddr, l2Sync)
+		require.NoError(t, err)
+
+		rewardDivider, err := validatorVault.REWARDDIVIDER(&bind.CallOpts{})
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, rewardDivider.Uint64(), uint64(1))
+
+		// Send a transaction to pay a fee.
+		_, err = cfg.SendTransferTx(l2Prop, l2Sync)
+		require.NoError(t, err)
+
+		l2RewardedCh := make(chan *bindings.ValidatorRewardVaultRewarded, 1)
+		rewardedSub, err := validatorVault.WatchRewarded(&bind.WatchOpts{}, l2RewardedCh, nil, nil)
+		require.NoError(t, err)
+		defer rewardedSub.Unsubscribe()
+
+		timeout := time.Minute * 2
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		for {
+			select {
+			case <-ctx.Done():
+				t.Fatalf("not rewarded to validator")
+			case evt := <-l2RewardedCh:
+				vaultBalance, err := l2Sync.PendingBalanceAt(ctx, predeploys.ValidatorRewardVaultAddr)
+				require.NoError(t, err)
+				fullReward := new(big.Int).Div(vaultBalance, rewardDivider)
+				return fullReward, evt.Amount
+			}
+		}
+	}
+
+	t.Run("non penalized", func(t *testing.T) {
+		parallel(t)
+
+		cfg := DefaultSystemConfig(t)
+		cfg.DeployConfig.FinalizationPeriodSeconds = 32
+		cfg.DeployConfig.L2OutputOracleSubmissionInterval = 16
+		cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
+		cfg.DeployConfig.ValidatorPoolNonPenaltyPeriod = 15
+		cfg.DeployConfig.ValidatorPoolPenaltyPeriod = 1
+
+		fullReward, rewardAmount := runTest(t, cfg)
+		require.Equal(t, 0, fullReward.Cmp(rewardAmount))
+	})
+
+	t.Run("penalized", func(t *testing.T) {
+		parallel(t)
+
+		cfg := DefaultSystemConfig(t)
+		cfg.DeployConfig.FinalizationPeriodSeconds = 32
+		cfg.DeployConfig.L2OutputOracleSubmissionInterval = 16
+		cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
+		cfg.DeployConfig.ValidatorPoolNonPenaltyPeriod = 1
+		cfg.DeployConfig.ValidatorPoolPenaltyPeriod = 15
+
+		fullReward, rewardAmount := runTest(t, cfg)
+		require.Equal(t, 1, fullReward.Cmp(rewardAmount))
+	})
+
+	// TODO(pangssu): test for public submission round
 }
 
 // TestSystemE2E sets up a L1 Geth node, a rollup node, and a L2 geth node and then confirms that L1 deposits are reflected on L2.
@@ -1690,6 +1770,78 @@ func TestStopStartBatcher(t *testing.T) {
 	newSeqStatus, err = rollupClient.SyncStatus(context.Background())
 	require.Nil(t, err)
 	require.Greater(t, newSeqStatus.SafeL2.Number, propStatus.SafeL2.Number, "Safe chain did not advance after batcher was restarted")
+}
+
+func TestChallenge(t *testing.T) {
+	parallel(t)
+	if !verboseGethNodes {
+		log.Root().SetHandler(log.DiscardHandler())
+	}
+
+	cfg := DefaultSystemConfig(t)
+	cfg.EnableMaliciousValidator = true
+
+	sys, err := cfg.Start()
+	require.NoError(t, err, "Error starting up system")
+	defer sys.Close()
+
+	l1Client := sys.Clients["l1"]
+
+	// deposit to ValidatorPool to be a challenger
+	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.Challenger, big.NewInt(1_000_000_000))
+	require.NoError(t, err, "Error challenger deposit to ValidatorPool")
+
+	// OutputOracle is already deployed
+	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
+	require.NoError(t, err)
+
+	// Colosseum is already deployed
+	colosseum, err := bindings.NewColosseumCaller(predeploys.DevColosseumAddr, l1Client)
+	require.NoError(t, err)
+
+	// SecurityCouncil is already deployed
+	securityCouncil, err := bindings.NewSecurityCouncilCaller(predeploys.DevSecurityCouncilAddr, l1Client)
+	require.NoError(t, err)
+
+	// set a timeout for one cycle of challenge
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
+
+	for {
+		challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
+		require.NoError(t, err)
+
+		// APPROVED status
+		if challengeStatus == chal.StatusApproved {
+			// check tx executed
+			tx, err := securityCouncil.Transactions(&bind.CallOpts{}, new(big.Int).SetUint64(0))
+			require.NoError(t, err)
+			require.Equal(t, tx.Executed, true)
+
+			// check challenge status is approved
+			challenge, err := colosseum.GetChallenge(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
+			require.NoError(t, err)
+			require.Equal(t, challenge.Approved, true)
+
+			// check output replaced by challenger
+			output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
+			require.NoError(t, err)
+			require.Equal(t, output.Submitter, cfg.Secrets.Addresses().Challenger)
+
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Fatalf("Timed out for challenge test")
+		case <-ticker.C:
+		}
+	}
 }
 
 func safeAddBig(a *big.Int, b *big.Int) *big.Int {
