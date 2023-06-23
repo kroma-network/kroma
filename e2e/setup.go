@@ -32,6 +32,7 @@ import (
 	"github.com/kroma-network/kroma/components/batcher"
 	batchermetrics "github.com/kroma-network/kroma/components/batcher/metrics"
 	"github.com/kroma-network/kroma/components/node/chaincfg"
+	"github.com/kroma-network/kroma/components/node/client"
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/metrics"
 	rollupNode "github.com/kroma-network/kroma/components/node/node"
@@ -43,6 +44,7 @@ import (
 	"github.com/kroma-network/kroma/components/validator"
 	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
+	"github.com/kroma-network/kroma/e2e/testdata"
 	"github.com/kroma-network/kroma/utils/chain-ops/genesis"
 	klog "github.com/kroma-network/kroma/utils/service/log"
 	"github.com/kroma-network/kroma/utils/service/txmgr"
@@ -123,7 +125,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		ColosseumSegmentsLengths:  "3,3",
 
 		SecurityCouncilNumConfirmationRequired: 1,
-		SecurityCouncilOwners:                  []common.Address{addresses.Alice, addresses.Bob, addresses.Mallory},
+		SecurityCouncilOwners:                  []common.Address{addresses.Challenger, addresses.Alice, addresses.Bob, addresses.Mallory},
 
 		GasPriceOracleOverhead: 2100,
 		GasPriceOracleScalar:   1_000_000,
@@ -177,10 +179,12 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			},
 		},
 		Loggers: map[string]log.Logger{
-			"syncer":    testlog.Logger(t, log.LvlInfo).New("role", "syncer"),
-			"proposer":  testlog.Logger(t, log.LvlInfo).New("role", "proposer"),
-			"batcher":   testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
-			"validator": testlog.Logger(t, log.LvlInfo).New("role", "validator"),
+			"syncer":     testlog.Logger(t, log.LvlInfo).New("role", "syncer"),
+			"proposer":   testlog.Logger(t, log.LvlInfo).New("role", "proposer"),
+			"batcher":    testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
+			"validator":  testlog.Logger(t, log.LvlInfo).New("role", "validator"),
+			"challenger": testlog.Logger(t, log.LvlInfo).New("role", "challenger"),
+			"guardian":   testlog.Logger(t, log.LvlInfo).New("role", "guardian"),
 		},
 		GethOptions:               map[string][]GethOption{},
 		P2PTopology:               nil, // no P2P connectivity by default
@@ -249,6 +253,8 @@ type System struct {
 	Clients     map[string]*ethclient.Client
 	RollupNodes map[string]*rollupNode.KromaNode
 	Validator   *validator.Validator
+	Challenger  *validator.Validator
+	Guardian    *validator.Validator
 	Batcher     *batcher.Batcher
 	Mocknet     mocknet.Mocknet
 }
@@ -586,21 +592,22 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		}
 	}
 
-	// Validator (L2 Output Submitter + Challenger)
+	// Run validator node (L2 Output Submitter, Asserter)
 	validatorCliCfg := validator.CLIConfig{
 		L1EthRpc:                     sys.Nodes["l1"].WSEndpoint(),
 		RollupRpc:                    sys.RollupNodes["proposer"].HTTPEndpoint(),
 		L2OOAddress:                  predeploys.DevL2OutputOracleAddr.String(),
 		ColosseumAddress:             predeploys.DevColosseumAddr.String(),
 		ValPoolAddress:               predeploys.DevValidatorPoolAddr.String(),
-		SecurityCouncilAddress:       predeploys.DevSecurityCouncilAddr.String(),
-		ChallengerPollInterval:       50 * time.Millisecond,
-		OutputSubmitterRetryInterval: 50 * time.Millisecond,
-		OutputSubmitterRoundBuffer:   30,
+		ChallengerPollInterval:       500 * time.Millisecond,
 		ProverGrpc:                   "http://0.0.0.0:0",
 		TxMgrConfig:                  newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		AllowNonFinalized:            cfg.NonFinalizedOutputs,
 		OutputSubmitterBondAmount:    cfg.OutputSubmitterBondAmount,
+		OutputSubmitterRetryInterval: 500 * time.Millisecond,
+		OutputSubmitterRoundBuffer:   30,
+		ChallengerDisabled:           true,
+		SecurityCouncilAddress:       predeploys.DevSecurityCouncilAddr.String(),
 		LogConfig: klog.CLIConfig{
 			Level:  "info",
 			Format: "text",
@@ -610,15 +617,26 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	// deposit to ValidatorPool to be a validator
 	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.TrustedValidator, big.NewInt(params.Ether))
 	if err != nil {
-		return nil, fmt.Errorf("unable to deposit to ValidatorPool: %w", err)
+		return nil, fmt.Errorf("trusted validator unable to deposit to ValidatorPool: %w", err)
 	}
 
 	validatorCfg, err := validator.NewValidatorConfig(validatorCliCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("unable to init validator config: %w", err)
 	}
-	// replace to mock fetcher
-	validatorCfg.ProofFetcher = e2eutils.NewFetcher(sys.cfg.Loggers["validator"])
+
+	// Replace to mock RPC client
+	cl, err := rpc.DialHTTP(validatorCliCfg.RollupRpc)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init validator rollup rpc client: %w", err)
+	}
+	rpcCl := client.NewBaseRPCClient(cl)
+	validatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
+	validatorCfg.RollupClient = sources.NewRollupClient(validatorMaliciousL2RPC)
+
+	// Set target block number
+	validatorMaliciousL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+
 	sys.Validator, err = validator.NewValidator(context.Background(), *validatorCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup validator: %w", err)
@@ -626,6 +644,53 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 	if err := sys.Validator.Start(); err != nil {
 		return nil, fmt.Errorf("unable to start validator: %w", err)
+	}
+
+	// Run validator node (Challenger)
+	challengerCliCfg := validator.CLIConfig{
+		L1EthRpc:                sys.Nodes["l1"].WSEndpoint(),
+		RollupRpc:               sys.RollupNodes["proposer"].HTTPEndpoint(),
+		L2OOAddress:             predeploys.DevL2OutputOracleAddr.String(),
+		ColosseumAddress:        predeploys.DevColosseumAddr.String(),
+		ValPoolAddress:          predeploys.DevValidatorPoolAddr.String(),
+		ChallengerPollInterval:  500 * time.Millisecond,
+		ProverGrpc:              "http://0.0.0.0:0",
+		TxMgrConfig:             newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Challenger),
+		OutputSubmitterDisabled: true,
+		SecurityCouncilAddress:  predeploys.DevSecurityCouncilAddr.String(),
+		GuardianEnabled:         true,
+		LogConfig: klog.CLIConfig{
+			Level:  "info",
+			Format: "text",
+		},
+	}
+
+	challengerCfg, err := validator.NewValidatorConfig(challengerCliCfg, sys.cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init challenger config: %w", err)
+	}
+
+	// Replace to mock RPC client
+	cl, err = rpc.DialHTTP(challengerCliCfg.RollupRpc)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init challenger rollup rpc client: %w", err)
+	}
+	rpcCl = client.NewBaseRPCClient(cl)
+	challengerHonestL2RPC := e2eutils.NewChallengerL2RPC(rpcCl)
+	challengerCfg.RollupClient = sources.NewRollupClient(challengerHonestL2RPC)
+
+	// Set target block number
+	challengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+
+	// Replace to mock fetcher
+	challengerCfg.ProofFetcher = e2eutils.NewFetcher(sys.cfg.Loggers["challenger"], "./testdata/proof")
+	sys.Challenger, err = validator.NewValidator(context.Background(), *challengerCfg, sys.cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("unable to setup challenger: %w", err)
+	}
+
+	if err := sys.Challenger.Start(); err != nil {
+		return nil, fmt.Errorf("unable to start challenger: %w", err)
 	}
 
 	// Batcher (Batch Submitter)

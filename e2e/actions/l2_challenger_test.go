@@ -56,6 +56,15 @@ func TestChallenger(gt *testing.T) {
 		AllowNonFinalized: false,
 	}, miner.EthClient(), challengerRollupClient)
 
+	guardianRPC := e2eutils.NewChallengerL2RPC(proposer.RPCClient())
+	guardianRollupClient := sources.NewRollupClient(guardianRPC)
+	guardian := NewL2Validator(t, log, &ValidatorCfg{
+		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
+		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
+		ValidatorKey:        dp.Secrets.Challenger,
+		AllowNonFinalized:   false,
+	}, miner.EthClient(), guardianRollupClient)
+
 	// NOTE(chokobole): After the Blue hard fork, it is necessary to wait for one finalized
 	// (or safe if AllowNonFinalized config is set) block to pass after each submission interval
 	// before submitting the output root.
@@ -114,15 +123,15 @@ func TestChallenger(gt *testing.T) {
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
 	// block := proposer.SyncStatus().FinalizedL2
 	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
-	blockNum := big.NewInt(int64(testdata.TargetBlockNumber))
-	outputIndex, err := outputOracleContract.GetL2OutputIndexAfter(nil, blockNum)
+	targetBlockNum := big.NewInt(int64(testdata.TargetBlockNumber))
+	outputIndex, err := outputOracleContract.GetL2OutputIndexAfter(nil, targetBlockNum)
 	require.NoError(t, err)
-	outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, blockNum)
+	outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, targetBlockNum)
 	require.NoError(t, err)
-	block, err := propEngine.EthClient().BlockByNumber(t.Ctx(), blockNum)
+	block, err := propEngine.EthClient().BlockByNumber(t.Ctx(), targetBlockNum)
 	require.NoError(t, err)
 	require.Less(t, block.Time(), outputOnL1.Timestamp.Uint64(), "output is registered with L1 timestamp of L2 tx output submission, past L2 block")
-	outputComputed, err := proposer.RollupClient().OutputAtBlock(t.Ctx(), blockNum.Uint64(), false)
+	outputComputed, err := proposer.RollupClient().OutputAtBlock(t.Ctx(), targetBlockNum.Uint64(), false)
 	require.NoError(t, err)
 	require.NotEqual(t, eth.Bytes32(outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
@@ -165,6 +174,14 @@ interaction:
 		case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
 			txHash = challenger.ActProveFault(t, outputIndex)
 			includeL1Block(t, miner, challenger.address)
+		case chal.StatusProven:
+			// validate l2 output submitted by challenger
+			outputBlockNum := outputOnL1.L2BlockNumber.Uint64()
+			output := challenger.ActOutputAtBlockSafe(t, outputBlockNum, false)
+			isValid := guardian.ActValidateL2Output(t, output.OutputRoot, outputBlockNum)
+			require.True(t, isValid)
+			txHash = guardian.ActConfirmTransaction(t, big.NewInt(0))
+			includeL1Block(t, miner, guardian.address)
 		default:
 			break interaction
 		}
@@ -178,5 +195,5 @@ interaction:
 	// Check the status of challenge is StatusProven(6)
 	status, err := colosseumContract.GetStatus(nil, outputIndex)
 	require.NoError(t, err)
-	require.Equal(t, chal.StatusProven, status)
+	require.Equal(t, chal.StatusApproved, status)
 }

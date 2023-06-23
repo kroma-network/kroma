@@ -171,6 +171,9 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 	}
 	m.metr.RecordNonce(nonce)
 
+	// TODO: If we apply the accessList manually, it's hard to predict and react to other issues,
+	// such as gas prices, due to subsequent code modifications.
+	// To avoid this, we need to add logic to calculate the accessList automatically using `eth_createAccessList`.
 	rawTx := &types.DynamicFeeTx{
 		ChainID:    m.chainID,
 		Nonce:      nonce,

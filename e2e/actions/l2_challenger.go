@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kroma-network/kroma/components/node/eth"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 )
 
@@ -66,4 +67,11 @@ func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int) common.Hash
 	require.NoError(t, err)
 
 	return tx.Hash()
+}
+
+func (v *L2Validator) ActOutputAtBlockSafe(t Testing, blockNumber uint64, includeNextBlock bool) *eth.OutputResponse {
+	output, err := v.challenger.OutputAtBlockSafe(t.Ctx(), blockNumber, includeNextBlock)
+	require.NoError(t, err, "unable get output at block safe")
+
+	return output
 }

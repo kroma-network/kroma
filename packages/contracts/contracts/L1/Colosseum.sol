@@ -339,14 +339,7 @@ contract Colosseum is Initializable, Semver {
         verifiedPublicInputs[publicInputHash] = true;
         challenge.outputRoot = _outputRoot;
 
-        // request outputRoot validation to security council
-        bytes memory CALLDATA = abi.encodeWithSignature("approveChallenge(uint256)", _outputIndex);
-        SecurityCouncil(SECURITY_COUNCIL).requestValidation(
-            _outputRoot,
-            _publicInput.number,
-            CALLDATA
-        );
-        emit Proven(_outputIndex, _outputRoot);
+        _callSecurityCouncil(_outputIndex, _outputRoot);
     }
 
     /**
@@ -383,6 +376,22 @@ contract Colosseum is Initializable, Semver {
         delete challenges[_outputIndex];
         challenges[_outputIndex].approved = true;
         emit Approved(_outputIndex, block.timestamp);
+    }
+
+    /**
+     * @notice Calls SecurityCouncil to request validation of output to replace with.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _outputRoot  The L2 output root to replace the existing one.
+     */
+    function _callSecurityCouncil(uint256 _outputIndex, bytes32 _outputRoot) private {
+        // request outputRoot validation to security council
+        SecurityCouncil(SECURITY_COUNCIL).requestValidation(
+            _outputRoot,
+            uint128(_outputIndex * L2_ORACLE_SUBMISSION_INTERVAL),
+            abi.encodeWithSignature("approveChallenge(uint256)", _outputIndex)
+        );
+        emit Proven(_outputIndex, _outputRoot);
     }
 
     /**

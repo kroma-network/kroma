@@ -2,9 +2,9 @@ package e2eutils
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/log"
 	"golang.org/x/sync/errgroup"
@@ -14,12 +14,14 @@ import (
 )
 
 type Fetcher struct {
-	l log.Logger
+	l        log.Logger
+	mockPath string
 }
 
-func NewFetcher(logger log.Logger) *Fetcher {
+func NewFetcher(logger log.Logger, path string) *Fetcher {
 	return &Fetcher{
-		l: logger,
+		l:        logger,
+		mockPath: path,
 	}
 }
 
@@ -39,7 +41,7 @@ func (f *Fetcher) FetchProofAndPair(blockRef eth.L2BlockRef) (*chal.ProofAndPair
 	g, _ := errgroup.WithContext(context.Background())
 
 	for i := 0; i < len(files); i++ {
-		filePath := fmt.Sprintf("../testdata/proof/%s", files[i])
+		filePath := filepath.Join(f.mockPath, files[i])
 		i := i
 
 		g.Go(func() error {
