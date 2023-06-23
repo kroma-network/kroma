@@ -46,7 +46,7 @@ func TestChallenger(gt *testing.T) {
 		AllowNonFinalized: false,
 	}, miner.EthClient(), validatorRollupClient)
 
-	challengerRPC := e2eutils.NewChallengerL2RPC(proposer.RPCClient())
+	challengerRPC := e2eutils.NewHonestL2RPC(proposer.RPCClient())
 	challengerRollupClient := sources.NewRollupClient(challengerRPC)
 	challenger := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
@@ -56,7 +56,7 @@ func TestChallenger(gt *testing.T) {
 		AllowNonFinalized: false,
 	}, miner.EthClient(), challengerRollupClient)
 
-	guardianRPC := e2eutils.NewChallengerL2RPC(proposer.RPCClient())
+	guardianRPC := e2eutils.NewHonestL2RPC(proposer.RPCClient())
 	guardianRollupClient := sources.NewRollupClient(guardianRPC)
 	guardian := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,

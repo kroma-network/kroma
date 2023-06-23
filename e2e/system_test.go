@@ -1779,6 +1779,7 @@ func TestChallenge(t *testing.T) {
 	}
 
 	cfg := DefaultSystemConfig(t)
+	cfg.EnableMaliciousValidator = true
 
 	sys, err := cfg.Start()
 	require.NoError(t, err, "Error starting up system")

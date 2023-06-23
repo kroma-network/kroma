@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/kroma-network/kroma/e2e/testdata"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 
@@ -44,7 +45,6 @@ import (
 	"github.com/kroma-network/kroma/components/validator"
 	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
-	"github.com/kroma-network/kroma/e2e/testdata"
 	"github.com/kroma-network/kroma/utils/chain-ops/genesis"
 	klog "github.com/kroma-network/kroma/utils/service/log"
 	"github.com/kroma-network/kroma/utils/service/txmgr"
@@ -238,6 +238,9 @@ type SystemConfig struct {
 	DisableBatcher bool
 
 	OutputSubmitterBondAmount uint64
+
+	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
+	EnableMaliciousValidator bool
 }
 
 type System struct {
@@ -631,11 +634,13 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		return nil, fmt.Errorf("unable to init validator rollup rpc client: %w", err)
 	}
 	rpcCl := client.NewBaseRPCClient(cl)
-	validatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
-	validatorCfg.RollupClient = sources.NewRollupClient(validatorMaliciousL2RPC)
+	ValidatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
+	validatorCfg.RollupClient = sources.NewRollupClient(ValidatorMaliciousL2RPC)
 
-	// Set target block number
-	validatorMaliciousL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+	// If malicious validator is turn on, set target block number for submitting invalid output
+	if cfg.EnableMaliciousValidator {
+		ValidatorMaliciousL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+	}
 
 	sys.Validator, err = validator.NewValidator(context.Background(), *validatorCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
 	if err != nil {
@@ -676,11 +681,12 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		return nil, fmt.Errorf("unable to init challenger rollup rpc client: %w", err)
 	}
 	rpcCl = client.NewBaseRPCClient(cl)
-	challengerHonestL2RPC := e2eutils.NewChallengerL2RPC(rpcCl)
-	challengerCfg.RollupClient = sources.NewRollupClient(challengerHonestL2RPC)
+	ChallengerHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
+	challengerCfg.RollupClient = sources.NewRollupClient(ChallengerHonestL2RPC)
 
-	// Set target block number
-	challengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+	if cfg.EnableMaliciousValidator {
+		ChallengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+	}
 
 	// Replace to mock fetcher
 	challengerCfg.ProofFetcher = e2eutils.NewFetcher(sys.cfg.Loggers["challenger"], "./testdata/proof")

@@ -74,7 +74,7 @@ type ChallengerL2RPC struct {
 	targetBlockNumber *hexutil.Uint64
 }
 
-func NewChallengerL2RPC(rpc client.RPC) *ChallengerL2RPC {
+func NewHonestL2RPC(rpc client.RPC) *ChallengerL2RPC {
 	return &ChallengerL2RPC{rpc: rpc}
 }
 
