@@ -19,6 +19,7 @@ interface DeployOptions {
   postDeployAction?: (contract: Contract) => Promise<void>
   isProxyImpl?: boolean
   initArgs?: any[]
+  initializer?: string
 }
 
 /**
@@ -113,10 +114,15 @@ export const deploy = async (
       console.log(
         `upgrading "${proxyName}" to ${created.address} and initializing`
       )
+
+      if (!opts.initializer) {
+        opts.initializer = 'initialize'
+      }
+
       const tx = await proxyAdmin.upgradeAndCall(
         proxy.address,
         created.address,
-        created.interface.encodeFunctionData('initialize', opts.initArgs)
+        created.interface.encodeFunctionData(opts.initializer, opts.initArgs)
       )
       await hre.ethers.provider.waitForTransaction(tx.hash)
     }

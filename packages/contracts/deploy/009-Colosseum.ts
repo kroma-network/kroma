@@ -28,7 +28,6 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.l2OutputOracleSubmissionInterval,
       hre.deployConfig.colosseumBisectionTimeout,
       hre.deployConfig.colosseumProvingTimeout,
-      hre.deployConfig.l2ChainID,
       hre.deployConfig.colosseumDummyHash,
       hre.deployConfig.colosseumMaxTxs,
       hre.deployConfig.colosseumSegmentsLengths.split(','),
@@ -58,11 +57,6 @@ const deployFn: DeployFunction = async (hre) => {
         contract,
         'PROVING_TIMEOUT',
         hre.deployConfig.colosseumProvingTimeout
-      )
-      await assertContractVariable(
-        contract,
-        'CHAIN_ID',
-        hre.deployConfig.l2ChainID
       )
       await assertContractVariable(
         contract,

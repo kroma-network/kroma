@@ -35,12 +35,12 @@ const deployFn: DeployFunction = async (hre) => {
 
   await deploy(hre, 'L2OutputOracle', {
     args: [
+      validatorPoolProxyAddress,
+      colosseumProxyAddress,
       hre.deployConfig.l2OutputOracleSubmissionInterval,
       hre.deployConfig.l2BlockTime,
       0,
       0,
-      validatorPoolProxyAddress,
-      colosseumProxyAddress,
       hre.deployConfig.finalizationPeriodSeconds,
     ],
     isProxyImpl: true,

@@ -16,7 +16,9 @@ const deployFn: DeployFunction = async (hre) => {
   await deploy(hre, 'SecurityCouncil', {
     args: [ColosseumProxyAddress],
     isProxyImpl: true,
+    initializer: 'initialize(bool,address[],uint256)',
     initArgs: [
+      false,
       hre.deployConfig.securityCouncilOwners,
       hre.deployConfig.securityCouncilNumConfirmationRequired,
     ],
