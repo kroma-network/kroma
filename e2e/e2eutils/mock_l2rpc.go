@@ -36,11 +36,10 @@ func (m *MaliciousL2RPC) Close() {
 }
 
 func (m *MaliciousL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	if method == "kroma_outputAtBlock" {
+	if method == "kroma_outputAtBlock" || method == "kroma_outputWithProofAtBlock" {
 		blockNumber := args[0].(hexutil.Uint64)
-		includeNextBlock := args[1].(bool)
 
-		err := m.rpc.CallContext(ctx, &result, "kroma_outputAtBlock", blockNumber, includeNextBlock)
+		err := m.rpc.CallContext(ctx, &result, method, blockNumber)
 		if err != nil {
 			return err
 		}
@@ -91,11 +90,10 @@ func (m *ChallengerL2RPC) Close() {
 }
 
 func (m *ChallengerL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	if method == "kroma_outputAtBlock" {
+	if method == "kroma_outputAtBlock" || method == "kroma_outputWithProofAtBlock" {
 		blockNumber := args[0].(hexutil.Uint64)
-		includeNextBlock := args[1].(bool)
 
-		err := m.rpc.CallContext(ctx, &result, "kroma_outputAtBlock", blockNumber, includeNextBlock)
+		err := m.rpc.CallContext(ctx, &result, method, blockNumber)
 		if err != nil {
 			return err
 		}

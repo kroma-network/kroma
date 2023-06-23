@@ -511,6 +511,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			/* maxTxs= */ deployment.Args[4].(*big.Int),
 			/* segmentsLengths= */ deployment.Args[5].([]*big.Int),
 			predeploys.DevSecurityCouncilAddr,
+			predeploys.DevZKMerkleTrieAddr,
 		)
 	case "SecurityCouncil":
 		_, tx, _, err = bindings.DeploySecurityCouncil(

@@ -19,6 +19,7 @@ const deployFn: DeployFunction = async (hre) => {
     hre,
     'SecurityCouncilProxy'
   )
+  const zkMerkleTrieAddress = await getDeploymentAddress(hre, 'ZKMerkleTrie')
 
   await deploy(hre, 'Colosseum', {
     args: [
@@ -31,7 +32,8 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.colosseumDummyHash,
       hre.deployConfig.colosseumMaxTxs,
       hre.deployConfig.colosseumSegmentsLengths.split(','),
-      securityCouncilProxyAddress
+      securityCouncilProxyAddress,
+      zkMerkleTrieAddress,
     ],
     isProxyImpl: true,
     initArgs: [hre.deployConfig.colosseumSegmentsLengths.split(',')],
@@ -76,6 +78,11 @@ const deployFn: DeployFunction = async (hre) => {
         contract,
         'SECURITY_COUNCIL',
         securityCouncilProxyAddress
+      )
+      await assertContractVariable(
+        contract,
+        'ZK_MERKLE_TRIE',
+        zkMerkleTrieAddress
       )
     },
   })

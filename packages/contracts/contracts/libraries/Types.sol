@@ -189,4 +189,26 @@ library Types {
         uint256 value;
         bytes data;
     }
+
+    /**
+     * @notice Struct representing the data for verifying the public input.
+     *
+     * @custom:field srcOutputRootProof          Proof of the source output root.
+     * @custom:field dstOutputRootProof          Proof of the destination output root.
+     * @custom:field publicInput                 Ingredients to compute the public input used by ZK proof verification.
+     * @custom:field rlps                        Pre-encoded RLPs to compute the next block hash
+     *                                           of the source output root proof.
+     * @custom:field l2ToL1MessagePasserBalance  Balance of the L2ToL1MessagePasser account.
+     * @custom:field l2ToL1MessagePasserCodeHash Codehash of the L2ToL1MessagePasser account.
+     * @custom:field merkleProof                 Merkle proof of L2ToL1MessagePasser account against the state root.
+     */
+    struct PublicInputProof {
+        OutputRootProof srcOutputRootProof;
+        OutputRootProof dstOutputRootProof;
+        PublicInput publicInput;
+        BlockHeaderRLP rlps;
+        bytes32 l2ToL1MessagePasserBalance;
+        bytes32 l2ToL1MessagePasserCodeHash;
+        bytes[] merkleProof;
+    }
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/kroma-network/kroma/components/node/eth"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 )
 
@@ -34,7 +33,7 @@ func read(path string) ([]byte, error) {
 	return data, nil
 }
 
-func (f *Fetcher) FetchProofAndPair(blockRef eth.L2BlockRef) (*chal.ProofAndPair, error) {
+func (f *Fetcher) FetchProofAndPair(blockNumber uint64) (*chal.ProofAndPair, error) {
 	decoded := make([][]*big.Int, 2)
 	files := []string{"verify_circuit_proof.data", "verify_circuit_final_pair.data"}
 

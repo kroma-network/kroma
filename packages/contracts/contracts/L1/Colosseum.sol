@@ -5,8 +5,10 @@ import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { Hashing } from "../libraries/Hashing.sol";
+import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
 import { Semver } from "../universal/Semver.sol";
+import { IZKMerkleTrie } from "./IZKMerkleTrie.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
 import { SecurityCouncil } from "./SecurityCouncil.sol";
 import { ZKVerifier } from "./ZKVerifier.sol";
@@ -106,6 +108,11 @@ contract Colosseum is Initializable, Semver {
     address public immutable SECURITY_COUNCIL;
 
     /**
+     * @notice Address that has the ability to verify the merkle proof.
+     */
+    address public immutable ZK_MERKLE_TRIE;
+
+    /**
      * @notice Length of segment array for each turn.
      */
     mapping(uint256 => uint256) internal segmentsLengths;
@@ -180,6 +187,7 @@ contract Colosseum is Initializable, Semver {
      * @param _maxTxs             Number of max transactions per block.
      * @param _segmentsLengths    Lengths of segments.
      * @param _securityCouncil    Address of security council.
+     * @param _zkMerkleTrie       Address of zk merkle trie.
      */
     constructor(
         L2OutputOracle _l2Oracle,
@@ -190,7 +198,8 @@ contract Colosseum is Initializable, Semver {
         bytes32 _dummyHash,
         uint256 _maxTxs,
         uint256[] memory _segmentsLengths,
-        address _securityCouncil
+        address _securityCouncil,
+        address _zkMerkleTrie
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2Oracle;
         ZK_VERIFIER = _zkVerifier;
@@ -200,6 +209,7 @@ contract Colosseum is Initializable, Semver {
         DUMMY_HASH = _dummyHash;
         MAX_TXS = _maxTxs;
         SECURITY_COUNCIL = _securityCouncil;
+        ZK_MERKLE_TRIE = _zkMerkleTrie;
         initialize(_segmentsLengths);
     }
 
@@ -298,35 +308,49 @@ contract Colosseum is Initializable, Semver {
      * @notice Proves that a specific output is invalid using ZKP.
      *         This function can only be called in the READY_TO_PROVE and ASSERTER_TIMEOUT states.
      *
-     * @param _outputIndex        Index of the L2 checkpoint output.
-     * @param _outputRoot         The L2 output root to replace the existing one.
-     * @param _pos                Position of the last valid segment.
-     * @param _srcOutputRootProof Proof of the source output root.
-     * @param _dstOutputRootProof Proof of the destination output root.
-     * @param _publicInput        Ingredients to compute the public input used by ZK proof verification.
-     * @param _rlps               Pre-encoded RLPs to compute the next block hash of the source output root proof.
-     * @param _proof              Halo2 proofs composed of points and scalars.
-     *                            See https://zcash.github.io/halo2/design/implementation/proofs.html.
-     * @param _pair               Aggregated multi-opening proofs and public inputs. (Currently only 2 public inputs)
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _outputRoot  The L2 output root to replace the existing one.
+     * @param _pos         Position of the last valid segment.
+     * @param _proof       Proof for public input validation.
+     * @param _zkproof     Halo2 proofs composed of points and scalars.
+     *                     See https://zcash.github.io/halo2/design/implementation/proofs.html.
+     * @param _pair        Aggregated multi-opening proofs and public inputs. (Currently only 2 public inputs)
      */
     function proveFault(
         uint256 _outputIndex,
         bytes32 _outputRoot,
         uint256 _pos,
-        Types.OutputRootProof calldata _srcOutputRootProof,
-        Types.OutputRootProof calldata _dstOutputRootProof,
-        Types.PublicInput calldata _publicInput,
-        Types.BlockHeaderRLP calldata _rlps,
-        uint256[] calldata _proof,
+        Types.PublicInputProof calldata _proof,
+        uint256[] calldata _zkproof,
         uint256[] calldata _pair
     ) external {
         Types.Challenge storage challenge = challenges[_outputIndex];
 
         _validateTurn(challenge);
-        _validateOutputRootProof(_pos, challenge, _srcOutputRootProof, _dstOutputRootProof);
-        _validatePublicInput(_srcOutputRootProof, _dstOutputRootProof, _publicInput, _rlps);
+        _validateOutputRootProof(
+            _pos,
+            challenge,
+            _proof.srcOutputRootProof,
+            _proof.dstOutputRootProof
+        );
+        _validatePublicInput(
+            _proof.srcOutputRootProof,
+            _proof.dstOutputRootProof,
+            _proof.publicInput,
+            _proof.rlps
+        );
+        _validateWithdrawalStorageRoot(
+            _proof.merkleProof,
+            _proof.l2ToL1MessagePasserBalance,
+            _proof.l2ToL1MessagePasserCodeHash,
+            _proof.dstOutputRootProof.messagePasserStorageRoot,
+            _proof.dstOutputRootProof.stateRoot
+        );
 
-        bytes32 publicInputHash = _hashPublicInput(_srcOutputRootProof.stateRoot, _publicInput);
+        bytes32 publicInputHash = _hashPublicInput(
+            _proof.srcOutputRootProof.stateRoot,
+            _proof.publicInput
+        );
 
         require(
             !verifiedPublicInputs[publicInputHash],
@@ -502,6 +526,41 @@ contract Colosseum is Initializable, Semver {
         }
 
         require(sum == L2_ORACLE_SUBMISSION_INTERVAL, "Colosseum: invalid segments lengths");
+    }
+
+    /**
+     * @notice Checks if the L2ToL1MesagePasser account is included in the given state root.
+     *
+     * @param _merkleProof                 Merkle proof of L2ToL1MessagePasser account against the state root.
+     * @param _l2ToL1MessagePasserBalance  Balance of the L2ToL1MessagePasser account.
+     * @param _l2ToL1MessagePasserCodeHash Codehash of the L2ToL1MessagePasser account.
+     * @param _messagePasserStorageRoot    Storage root of the L2ToL1MessagePasser account.
+     * @param _stateRoot                   State root.
+     */
+    function _validateWithdrawalStorageRoot(
+        bytes[] calldata _merkleProof,
+        bytes32 _l2ToL1MessagePasserBalance,
+        bytes32 _l2ToL1MessagePasserCodeHash,
+        bytes32 _messagePasserStorageRoot,
+        bytes32 _stateRoot
+    ) private view {
+        // TODO(chokobole): Can we fix the codeHash?
+        bytes memory l2ToL1MessagePasserAccount = abi.encodePacked(
+            uint256(0), // nonce
+            _l2ToL1MessagePasserBalance, // balance,
+            _l2ToL1MessagePasserCodeHash, // codeHash,
+            _messagePasserStorageRoot // storage root
+        );
+
+        require(
+            IZKMerkleTrie(ZK_MERKLE_TRIE).verifyInclusionProof(
+                bytes32(bytes20(Predeploys.L2_TO_L1_MESSAGE_PASSER)),
+                l2ToL1MessagePasserAccount,
+                _merkleProof,
+                _stateRoot
+            ),
+            "Colosseum: invalid L2ToL1MessagePasser inclusion proof"
+        );
     }
 
     /**
