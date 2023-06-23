@@ -20,7 +20,7 @@ export enum L1ChainID {
  */
 export enum L2ChainID {
   KROMA_SEPOLIA = 2357,
-  KROMA_SAIL = 7790,
+  KROMA_SAIL = 7791,
   KROMA_LOCAL_DEVNET = 901,
 }
 
