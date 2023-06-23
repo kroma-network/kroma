@@ -70,7 +70,6 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		OutputSubmitterRetryInterval: time.Second,
 		OutputSubmitterRoundBuffer:   30,
 		NetworkTimeout:               time.Second,
-		ResubscribeBackoffMax:        time.Second,
 		L1Client:                     l1,
 		RollupClient:                 rollupCl,
 		RollupConfig:                 rollupConfig,

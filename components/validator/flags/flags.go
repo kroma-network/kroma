@@ -112,12 +112,6 @@ var (
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "FETCHING_PROOF_TIMEOUT"),
 		Value:  time.Hour * 2,
 	}
-	ResubscribeBackoffMaxFlag = cli.DurationFlag{
-		Name:   "resubscribe-backoff-max",
-		Usage:  "Backoff duration in resubscribeErr between calls to fn",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "RESUBSCRIBE_BACKOFF_MAX"),
-		Value:  time.Second * 10,
-	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -140,7 +134,6 @@ var optionalFlags = []cli.Flag{
 	SecurityCouncilAddressFlag,
 	GuardianEnabledFlag,
 	FetchingProofTimeoutFlag,
-	ResubscribeBackoffMaxFlag,
 }
 
 func init() {

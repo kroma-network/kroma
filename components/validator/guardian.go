@@ -58,9 +58,9 @@ func (g *Guardian) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCa
 
 	watchOpts := &bind.WatchOpts{Context: g.ctx, Start: nil}
 
-	g.securityCouncilSub = event.ResubscribeErr(g.cfg.ResubscribeBackoffMax, func(ctx context.Context, err error) (event.Subscription, error) {
+	g.securityCouncilSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			g.log.Error("resubscribing after failed SecurityCouncilValidationRequested event", "err", err)
+			g.log.Warn("resubscribing after failed SecurityCouncilValidationRequested event", "err", err)
 		}
 		return g.securityCouncilContract.WatchValidationRequested(watchOpts, g.validationRequestedChan, nil)
 	})

@@ -116,17 +116,17 @@ func (c *Challenger) initSub(ctx context.Context) {
 	opts := &bind.WatchOpts{Context: ctx}
 
 	if !c.cfg.ChallengerDisabled {
-		c.l2OutputSub = event.ResubscribeErr(c.cfg.ResubscribeBackoffMax, func(ctx context.Context, err error) (event.Subscription, error) {
+		c.l2OutputSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
 			if err != nil {
-				c.log.Error("resubscribing after failed L2OutputSubmitted event", "err", err)
+				c.log.Warn("resubscribing after failed L2OutputSubmitted event", "err", err)
 			}
 			return c.l2ooContract.WatchOutputSubmitted(opts, c.l2OutputSubmittedEventChan, nil, nil, nil)
 		})
 	}
 
-	c.challengeSub = event.ResubscribeErr(c.cfg.ResubscribeBackoffMax, func(ctx context.Context, err error) (event.Subscription, error) {
+	c.challengeSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			c.log.Error("resubscribing after failed ChallengeCreated event", "err", err)
+			c.log.Warn("resubscribing after failed ChallengeCreated event", "err", err)
 		}
 		return c.colosseumContract.WatchChallengeCreated(opts, c.challengeCreatedEventChan, nil, nil, nil)
 	})

@@ -32,7 +32,6 @@ type Config struct {
 	ValidatorPoolAddr            common.Address
 	ChallengerPollInterval       time.Duration
 	NetworkTimeout               time.Duration
-	ResubscribeBackoffMax        time.Duration
 	TxManager                    *txmgr.SimpleTxManager
 	L1Client                     *ethclient.Client
 	RollupClient                 *sources.RollupClient
@@ -104,11 +103,6 @@ type CLIConfig struct {
 
 	FetchingProofTimeout time.Duration
 
-	// ResubscribeBackoffMax is the max duration for geth event resubscription.
-	// ResubscribeErr applies backoff between calls to fn. The time between calls is adapted
-	// based on the error rate, but will never exceed backoffMax.
-	ResubscribeBackoffMax time.Duration
-
 	TxMgrConfig   txmgr.CLIConfig
 	RPCConfig     krpc.CLIConfig
 	LogConfig     klog.CLIConfig
@@ -158,7 +152,6 @@ func NewCLIConfig(ctx *cli.Context) CLIConfig {
 		SecurityCouncilAddress:       ctx.GlobalString(flags.SecurityCouncilAddressFlag.Name),
 		GuardianEnabled:              ctx.GlobalBool(flags.GuardianEnabledFlag.Name),
 		FetchingProofTimeout:         ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
-		ResubscribeBackoffMax:        ctx.GlobalDuration(flags.ResubscribeBackoffMaxFlag.Name),
 		RPCConfig:                    krpc.ReadCLIConfig(ctx),
 		LogConfig:                    klog.ReadCLIConfig(ctx),
 		MetricsConfig:                kmetrics.ReadCLIConfig(ctx),
@@ -233,7 +226,6 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		ValidatorPoolAddr:            valPoolAddress,
 		ChallengerPollInterval:       cfg.ChallengerPollInterval,
 		NetworkTimeout:               cfg.TxMgrConfig.NetworkTimeout,
-		ResubscribeBackoffMax:        cfg.ResubscribeBackoffMax,
 		TxManager:                    txManager,
 		L1Client:                     l1Client,
 		RollupClient:                 rollupClient,
