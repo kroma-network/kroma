@@ -68,28 +68,28 @@ func (m *MaliciousL2RPC) EthSubscribe(ctx context.Context, channel interface{}, 
 	return m.rpc.EthSubscribe(ctx, channel, args...)
 }
 
-type ChallengerL2RPC struct {
+type HonestL2RPC struct {
 	rpc client.RPC
 	// targetBlockNumber is the block number for challenge
 	targetBlockNumber *hexutil.Uint64
 }
 
-func NewHonestL2RPC(rpc client.RPC) *ChallengerL2RPC {
-	return &ChallengerL2RPC{rpc: rpc}
+func NewHonestL2RPC(rpc client.RPC) *HonestL2RPC {
+	return &HonestL2RPC{rpc: rpc}
 }
 
 // SetTargetBlockNumber sets the target block number for challenge.
 // At the m.targetBlockNumber, mocked output root will be returned for `kroma_outputAtBlock` CallContext
-func (m *ChallengerL2RPC) SetTargetBlockNumber(lastValidBlockNumber uint64) {
+func (m *HonestL2RPC) SetTargetBlockNumber(lastValidBlockNumber uint64) {
 	m.targetBlockNumber = new(hexutil.Uint64)
 	*m.targetBlockNumber = hexutil.Uint64(lastValidBlockNumber)
 }
 
-func (m *ChallengerL2RPC) Close() {
+func (m *HonestL2RPC) Close() {
 	m.rpc.Close()
 }
 
-func (m *ChallengerL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+func (m *HonestL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	if method == "kroma_outputAtBlock" || method == "kroma_outputWithProofAtBlock" {
 		blockNumber := args[0].(hexutil.Uint64)
 
@@ -107,10 +107,10 @@ func (m *ChallengerL2RPC) CallContext(ctx context.Context, result interface{}, m
 	return m.rpc.CallContext(ctx, result, method, args...)
 }
 
-func (m *ChallengerL2RPC) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+func (m *HonestL2RPC) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return m.rpc.BatchCallContext(ctx, b)
 }
 
-func (m *ChallengerL2RPC) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+func (m *HonestL2RPC) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
 	return m.rpc.EthSubscribe(ctx, channel, args...)
 }
