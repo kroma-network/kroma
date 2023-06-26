@@ -99,8 +99,6 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L2GenesisBlockParentHash:    common.Hash{},
 		L2GenesisBlockBaseFeePerGas: uint64ToBig(1000_000_000),
 
-		L2GenesisBlueTimeOffset: new(hexutil.Uint64),
-
 		ColosseumBisectionTimeout: 120,
 		ColosseumProvingTimeout:   480,
 		ColosseumDummyHash:        common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
@@ -228,7 +226,6 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		BatchInboxAddress:      deployConf.BatchInboxAddress,
 		DepositContractAddress: predeploys.DevKromaPortalAddr,
 		L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
-		BlueTime:               deployConf.BlueTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 	}
 
 	deploymentsL1 := DeploymentsL1{

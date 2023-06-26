@@ -196,7 +196,6 @@ interface OptionalL2DeployConfig {
   l2GenesisBlockGasUsed: string
   l2GenesisBlockParentHash: string
   l2GenesisBlockBaseFeePerGas: string
-  l2GenesisBlueTimeOffset: string
   l2GenesisBlockCoinbase: string
   eip1559Denominator: number
   eip1559Elasticity: number

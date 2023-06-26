@@ -290,7 +290,7 @@ calculate as below and enclose the public input to the `proveFault` transaction.
   }
   ```
 
-The following verification process applies to output version 1 and later:
+The following is the verification process of invalid output:
 
 The `_pair[4]` and `_pair[5]` contain the public input, which must be processed before verification by
 [ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract) can be performed.

@@ -448,9 +448,12 @@ func (d *Driver) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2Blo
 	case d.stateReq <- wait:
 		resp := d.syncStatus()
 		ref, err := d.l2.L2BlockRefByNumber(ctx, num)
-		nextRef := eth.L2BlockRef{}
-		if err == nil && d.config.IsBlueBlock(num) {
-			nextRef, err = d.l2.L2BlockRefByNumber(ctx, num+1)
+		if err != nil {
+			return eth.L2BlockRef{}, eth.L2BlockRef{}, nil, err
+		}
+		nextRef, err := d.l2.L2BlockRefByNumber(ctx, num+1)
+		if err != nil {
+			return eth.L2BlockRef{}, eth.L2BlockRef{}, nil, err
 		}
 		<-wait
 		return ref, nextRef, resp, err

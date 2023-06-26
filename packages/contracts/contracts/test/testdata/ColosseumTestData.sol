@@ -9,9 +9,9 @@ import { Colosseum } from "../../L1/Colosseum.sol";
 library ColosseumTestData {
     uint256 internal constant INVALID_BLOCK_NUMBER = 3000;
     bytes32 internal constant PREV_OUTPUT_ROOT =
-        0x361713c2cfb614ee684cf67932fdafa957c17fd8103e9dca78d9d80682e15a9a;
+        0x73b1650d4a14ba847c9da41b2a26507fa5a5bf1f38f64ddb77da0a2d2fff9c70;
     bytes32 internal constant TARGET_OUTPUT_ROOT =
-        0xf219abe66fec5d421248cdfc8353fb512e2a2a39de2e1ab55e6f9632b3165268;
+        0x66ed00aa73c65d731f205eef2f328643a65d87e166de1c6aa74791237fe6351d;
 
     function outputRootProof()
         internal
@@ -19,7 +19,7 @@ library ColosseumTestData {
         returns (Types.OutputRootProof memory, Types.OutputRootProof memory)
     {
         Types.OutputRootProof memory src = Types.OutputRootProof({
-            version: bytes32(uint256(1)),
+            version: bytes32(uint256(0)),
             stateRoot: 0x2fbc5f620a2e28afd9b159b9b7b259ebcca31cea10e3424994a39c1d6d551c18,
             messagePasserStorageRoot: 0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127,
             blockHash: 0x7296c63860b949715042cc8a60b5dcea924801b62ab7aa9ea40345abd570db40,
@@ -27,7 +27,7 @@ library ColosseumTestData {
         });
 
         Types.OutputRootProof memory dst = Types.OutputRootProof({
-            version: bytes32(uint256(1)),
+            version: bytes32(uint256(0)),
             stateRoot: 0x008bc0b55af382fe6508389a13c011b873eb5d7dcbcd3f8ba8f9a2001c196205,
             messagePasserStorageRoot: 0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127,
             blockHash: 0x3534f7f01bdd7d6b568f4eb60cb6a4b08131678be85cf84a61cebd2f1ae81769,

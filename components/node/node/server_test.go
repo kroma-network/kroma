@@ -143,7 +143,7 @@ func TestOutputAtBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000000", out.Version.String())
-	require.Equal(t, "0xc861dbdc5bf1d8bbbc0bca7cd876ab6a70748c50b2054a46e8f30e99002170ab", out.OutputRoot.String())
+	require.Equal(t, "0x3c476dc6a9c558c68e3d3811436181daafceb445bde053beb07702967a613c0c", out.OutputRoot.String())
 	require.Equal(t, "0xb46d4bcb0e471e1b8506031a1f34ebc6f200253cbaba56246dd2320e8e2c8f13", out.StateRoot.String())
 	require.Equal(t, "0xc1917a80cb25ccc50d0d1921525a44fb619b4601194ca726ae32312f08a799f8", out.WithdrawalStorageRoot.String())
 	require.Equal(t, *status, *out.Status)

@@ -195,14 +195,9 @@ func (l *L2OutputSubmitter) CanSubmit(ctx context.Context) (*big.Int, bool, erro
 	}
 	l.log.Info("current status before submit", "currentBlockNumber", currentBlockNumber, "nextBlockNumberToSubmit", nextBlockNumber)
 
-	var nextBlockNumberToWait *big.Int
-	if l.cfg.RollupConfig.IsBlueBlock(nextBlockNumber.Uint64()) {
-		nextBlockNumberToWait = new(big.Int).Add(nextBlockNumber, common.Big1)
-	} else {
-		nextBlockNumberToWait = nextBlockNumber
-	}
-
 	// Wait for L2 blocks proceeding when validator submission interval has not elapsed
+	// Need to wait next block number to submit plus 1 because of next block hash inclusion
+	nextBlockNumberToWait := new(big.Int).Add(nextBlockNumber, common.Big1)
 	roundBuffer := new(big.Int).SetUint64(l.cfg.OutputSubmitterRoundBuffer)
 	if currentBlockNumber.Cmp(nextBlockNumberToWait) < 0 {
 		nextBlockNumberToWait = new(big.Int).Sub(nextBlockNumber, roundBuffer)

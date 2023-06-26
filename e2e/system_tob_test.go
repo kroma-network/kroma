@@ -540,13 +540,10 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			cancel()
 			require.Nil(t, err)
 
-			var nextHeader *types.Header = nil
 			ctx, cancel = context.WithTimeout(context.Background(), txTimeoutDuration)
-			if sys.RollupConfig.IsBlue(header.Time) {
-				nextHeader, err = l2Sync.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber+1))
-				cancel()
-				require.Nil(t, err)
-			}
+			nextHeader, err := l2Sync.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber+1))
+			cancel()
+			require.Nil(t, err)
 
 			l2OutputOracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
 			require.Nil(t, err)

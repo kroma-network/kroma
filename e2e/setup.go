@@ -116,8 +116,6 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		L2GenesisBlockParentHash:    common.Hash{},
 		L2GenesisBlockBaseFeePerGas: uint642big(7),
 
-		L2GenesisBlueTimeOffset: new(hexutil.Uint64),
-
 		ColosseumBisectionTimeout: 120,
 		ColosseumProvingTimeout:   480,
 		ColosseumDummyHash:        common.HexToHash("0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7"),
@@ -403,7 +401,6 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			BatchInboxAddress:      cfg.DeployConfig.BatchInboxAddress,
 			DepositContractAddress: predeploys.DevKromaPortalAddr,
 			L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
-			BlueTime:               cfg.DeployConfig.BlueTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 		}
 	}
 	defaultConfig := makeRollupConfig()

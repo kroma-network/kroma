@@ -141,8 +141,6 @@ library Hashing {
     {
         if (_outputRootProof.version == bytes32(uint256(0))) {
             return hashOutputRootProofV0(_outputRootProof);
-        } else if (_outputRootProof.version == bytes32(uint256(1))) {
-            return hashOutputRootProofV1(_outputRootProof);
         } else {
             revert("Hashing: unknown output root proof version");
         }
@@ -157,30 +155,6 @@ library Hashing {
      * @return Hashed output root proof.
      */
     function hashOutputRootProofV0(Types.OutputRootProof memory _outputRootProof)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return
-            keccak256(
-                abi.encode(
-                    _outputRootProof.version,
-                    _outputRootProof.stateRoot,
-                    _outputRootProof.messagePasserStorageRoot,
-                    _outputRootProof.blockHash
-                )
-            );
-    }
-
-    /**
-     * @notice Hashes the various elements of an output root proof into an output root hash which
-     *         can be used to check if the proof is valid. (version 1)
-     *
-     * @param _outputRootProof Output root proof which should be hashed to an output root.
-     *
-     * @return Hashed output root proof.
-     */
-    function hashOutputRootProofV1(Types.OutputRootProof memory _outputRootProof)
         internal
         pure
         returns (bytes32)
