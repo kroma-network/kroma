@@ -445,12 +445,12 @@ func (c *Challenger) OutputWithProofAtBlockSafe(ctx context.Context, blockNumber
 }
 
 func (c *Challenger) PublicInputProof(ctx context.Context, blockNumber uint64) (bindings.TypesPublicInputProof, error) {
-	srcOutput, err := c.OutputAtBlockSafe(ctx, blockNumber)
+	srcOutput, err := c.OutputWithProofAtBlockSafe(ctx, blockNumber)
 	if err != nil {
 		return bindings.TypesPublicInputProof{}, err
 	}
 
-	dstOutput, err := c.OutputAtBlockSafe(ctx, blockNumber+1)
+	dstOutput, err := c.OutputWithProofAtBlockSafe(ctx, blockNumber+1)
 	if err != nil {
 		return bindings.TypesPublicInputProof{}, err
 	}
