@@ -106,6 +106,8 @@ type DeployConfig struct {
 	SystemConfigProxy common.Address `json:"systemConfigProxy"`
 	// KromaPortal proxy address on L1
 	KromaPortalProxy common.Address `json:"kromaPortalProxy"`
+	// ValidatorPool proxy address on L1
+	ValidatorPoolProxy common.Address `json:"validatorPoolProxy"`
 	// The initial value of the gas overhead
 	GasPriceOracleOverhead uint64 `json:"gasPriceOracleOverhead"`
 	// The initial value of the gas scalar
@@ -293,6 +295,14 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 		d.KromaPortalProxy = kromaPortalProxyDeployment.Address
 	}
 
+	if d.ValidatorPoolProxy == (common.Address{}) {
+		validatorPoolProxyDeployment, err := hh.GetDeployment("ValidatorPoolProxy")
+		if err != nil {
+			return err
+		}
+		d.ValidatorPoolProxy = validatorPoolProxyDeployment.Address
+	}
+
 	return nil
 }
 
@@ -303,6 +313,7 @@ func (d *DeployConfig) InitDeveloperDeployedAddresses() error {
 	d.L1ERC721BridgeProxy = predeploys.DevL1ERC721BridgeAddr
 	d.KromaPortalProxy = predeploys.DevKromaPortalAddr
 	d.SystemConfigProxy = predeploys.DevSystemConfigAddr
+	d.ValidatorPoolProxy = predeploys.DevValidatorPoolAddr
 	return nil
 }
 
@@ -417,7 +428,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.
 	}
 	rewardDivider := config.FinalizationPeriodSeconds / (config.L2OutputOracleSubmissionInterval * config.L2BlockTime)
 	immutable["ValidatorRewardVault"] = immutables.ImmutableValues{
-		"validatorPoolAddress": predeploys.DevValidatorPoolAddr,
+		"validatorPoolAddress": config.ValidatorPoolProxy,
 		"rewardDivider":        new(big.Int).SetUint64(rewardDivider),
 	}
 	immutable["ProposerRewardVault"] = immutables.ImmutableValues{
