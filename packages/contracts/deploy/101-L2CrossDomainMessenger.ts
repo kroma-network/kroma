@@ -12,6 +12,7 @@ const deployFn: DeployFunction = async (hre) => {
 
   await deploy(hre, 'L2CrossDomainMessenger', {
     args: [Artifact__L1CrossDomainMessenger.address],
+    isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,

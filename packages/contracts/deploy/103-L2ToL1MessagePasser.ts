@@ -7,6 +7,7 @@ import { assertContractVariable, deploy } from '../src/deploy-utils'
 const deployFn: DeployFunction = async (hre) => {
   await deploy(hre, 'L2ToL1MessagePasser', {
     args: [],
+    isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(contract, 'MESSAGE_VERSION', 0)
     },

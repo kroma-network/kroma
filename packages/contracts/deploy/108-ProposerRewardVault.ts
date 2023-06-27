@@ -16,6 +16,7 @@ const deployFn: DeployFunction = async (hre) => {
 
   await deploy(hre, 'ProposerRewardVault', {
     args: [proposerRewardVaultRecipient],
+    isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,

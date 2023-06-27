@@ -7,6 +7,7 @@ import { assertContractVariable, deploy } from '../src/deploy-utils'
 const deployFn: DeployFunction = async (hre) => {
   await deploy(hre, 'GasPriceOracle', {
     args: [],
+    isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(contract, 'DECIMALS', 6)
     },

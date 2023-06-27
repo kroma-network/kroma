@@ -8,6 +8,7 @@ import { assertContractVariable, deploy } from '../src/deploy-utils'
 const deployFn: DeployFunction = async (hre) => {
   await deploy(hre, 'L1Block', {
     args: [],
+    isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,

@@ -12,6 +12,7 @@ const deployFn: DeployFunction = async (hre) => {
 
   await deploy(hre, 'L2StandardBridge', {
     args: [Artifact__L1StandardBridge.address],
+    isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,

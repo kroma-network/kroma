@@ -10,8 +10,10 @@ import { ArtifactData } from 'hardhat-deploy/dist/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
 
-const IMPLEMENTATION_SLOT =
+const PROXY_IMPLEMENTATION_SLOT =
   '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
+const PROXY_OWNER_SLOT =
+  '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
 
 interface DeployOptions {
   contract?: string | ArtifactData
@@ -45,17 +47,18 @@ export const deploy = async (
   }
 
   const { deployer } = await hre.getNamedAccounts()
-  const { differences, address } = await hre.deployments.fetchIfDifferent(
-    name,
-    {
-      from: deployer,
-      args: opts.args,
-      contract: opts.contract,
+  const deployment = await hre.deployments.getOrNull(name)
+
+  if (deployment?.address) {
+    const deployedBytecode = await hre.ethers.provider.getCode(
+      deployment.address
+    )
+    if (deployedBytecode === deployment.deployedBytecode) {
+      console.log(
+        `skipping ${name}, using existing deployment at ${deployment.address}`
+      )
+      return null
     }
-  )
-  if (!differences) {
-    console.log(`skipping ${name}, using existing deployment at ${address}`)
-    return null
   }
 
   // Wrap in a try/catch in case there is not a deployConfig for the current network.
@@ -99,12 +102,16 @@ export const deploy = async (
   }
 
   if (opts.isProxyImpl) {
-    const proxyAdmin = await getContractFromArtifact(hre, 'ProxyAdmin', {
-      signerOrProvider: hre.ethers.provider.getSigner(deployer),
-    })
     const proxyName = name + 'Proxy'
-    const proxy = await getContractFromArtifact(hre, proxyName)
+    const proxy = await getContractFromArtifact(hre, proxyName, {
+      signerOrProvider: deployer,
+    })
     const hasImpl = await hasImplementation(hre, proxy.address)
+    const admin = await getProxyAdmin(hre, proxy.address)
+
+    let proxyAdmin = await hre.ethers.getContractAt('ProxyAdmin', admin)
+    const proxyOwner = await proxyAdmin.owner()
+    proxyAdmin = proxyAdmin.connect(hre.ethers.provider.getSigner(proxyOwner))
 
     if (!opts.initArgs || hasImpl) {
       console.log(`upgrading "${proxyName}" to ${created.address}`)
@@ -339,6 +346,24 @@ export const getDeploymentAddress = async (
 }
 
 /**
+ * Returns the implementation address for a given proxy address.
+ *
+ * @param hre HardhatRuntimeEnvironment.
+ * @param proxyAddress Address of the proxy contract.
+ * @returns Address of the implementation.
+ */
+export const getImplementation = async (
+  hre: HardhatRuntimeEnvironment,
+  proxyAddress: string
+): Promise<string> => {
+  const slotValue = await hre.ethers.provider.getStorageAt(
+    proxyAddress,
+    PROXY_IMPLEMENTATION_SLOT
+  )
+  return ethers.utils.getAddress(ethers.utils.hexDataSlice(slotValue, 12))
+}
+
+/**
  * Returns whether a given proxy contract has an implementation address.
  *
  * @param hre HardhatRuntimeEnvironment.
@@ -349,9 +374,24 @@ export const hasImplementation = async (
   hre: HardhatRuntimeEnvironment,
   proxyAddress: string
 ): Promise<boolean> => {
-  const impl = await hre.ethers.provider.getStorageAt(
-    proxyAddress,
-    IMPLEMENTATION_SLOT
-  )
+  const impl = await getImplementation(hre, proxyAddress)
   return impl !== ethers.constants.HashZero
+}
+
+/**
+ * Returns the admin address for a given proxy address.
+ *
+ * @param hre HardhatRuntimeEnvironment.
+ * @param proxyAddress Address of the proxy contract.
+ * @returns Address of the proxy admin.
+ */
+export const getProxyAdmin = async (
+  hre: HardhatRuntimeEnvironment,
+  proxyAddress: string
+): Promise<string> => {
+  const slotValue = await hre.ethers.provider.getStorageAt(
+    proxyAddress,
+    PROXY_OWNER_SLOT
+  )
+  return ethers.utils.getAddress(ethers.utils.hexDataSlice(slotValue, 12))
 }
