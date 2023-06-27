@@ -25,7 +25,7 @@ var (
 // This is the fixed overhead frame size, calculated as specified
 // in the [Frame Format] specs: 16 + 2 + 4 + 1 = 23 bytes.
 //
-// [Frame Format]: https://github.com/ethereum-optimism/optimism/blob/develop/specs/derivation.md#frame-format
+// [Frame Format]: https://github.com/kroma-network/kroma/blob/dev/specs/derivation.md#frame-format
 const FrameV0OverHeadSize = 23
 
 type ChannelOut struct {

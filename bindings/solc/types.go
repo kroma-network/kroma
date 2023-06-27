@@ -82,8 +82,10 @@ type CompilerOutputBytecode struct {
 	LinkReferences LinkReferences `json:"linkReferences"`
 }
 
-type LinkReferences map[string]LinkReference
-type LinkReference map[string][]LinkReferenceOffset
+type (
+	LinkReferences map[string]LinkReference
+	LinkReference  map[string][]LinkReferenceOffset
+)
 
 type LinkReferenceOffset struct {
 	Length uint `json:"length"`

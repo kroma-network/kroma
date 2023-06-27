@@ -18,7 +18,6 @@
 - [Submitting L2 Output Commitments](#submitting-l2-output-commitments)
 - [L2 Output Commitment Construction](#l2-output-commitment-construction)
   - [Output Payload(Version 0)](#output-payloadversion-0)
-  - [Output Payload(Version 1)](#output-payloadversion-1)
 - [L2 Output Oracle Smart Contract](#l2-output-oracle-smart-contract)
   - [Configuration of L2OutputOracle](#configuration-of-l2outputoracle)
 - [Validator Pool Smart Contract](#validator-pool-smart-contract)
@@ -102,7 +101,7 @@ where:
 The version 0 payload is defined as:
 
 ```pseudocode
-payload = state_root || withdrawal_storage_root || block_hash
+payload = state_root || withdrawal_storage_root || block_hash || next_block_hash
 ```
 
 where:
@@ -120,19 +119,9 @@ where:
    L2toL1MessagePasser against the state root, then the withdrawal against that storage root), we can prove against the
    L2toL1MessagePasser's storage root directly, thus reducing the verification cost of withdrawals on L1.
 
-### Output Payload(Version 1)
+4. The `next_block_hash` (`bytes32`) is the next block hash for the block that is next to the `block_hash`.
 
-The version 1 payload is defined as:
-
-```pseudocode
-payload = state_root || withdrawal_storage_root || block_hash || next_block_hash
-```
-
-where:
-
-1. The `next_block_hash` (`bytes32`) is the next block hash for the block that is next to the `block_hash`.
-
-Starting from version 1, the height of the block where the output is submitted has been delayed by one.
+The height of the block where the output is submitted has been delayed by one.
 
 ## L2 Output Oracle Smart Contract
 

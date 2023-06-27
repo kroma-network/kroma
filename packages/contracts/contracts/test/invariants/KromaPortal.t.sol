@@ -33,7 +33,7 @@ contract KromaPortal_Invariant_Harness is Portal_Initializer {
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({
-            version: bytes32(uint256(1)),
+            version: bytes32(uint256(0)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
             blockHash: bytes32(uint256(0)),

@@ -46,8 +46,10 @@ const (
 // Message domains, the msg id function uncompresses to keep data monomorphic,
 // but invalid compressed data will need a unique different id.
 
-var MessageDomainInvalidSnappy = [4]byte{0, 0, 0, 0}
-var MessageDomainValidSnappy = [4]byte{1, 0, 0, 0}
+var (
+	MessageDomainInvalidSnappy = [4]byte{0, 0, 0, 0}
+	MessageDomainValidSnappy   = [4]byte{1, 0, 0, 0}
+)
 
 type GossipSetupConfigurables interface {
 	PeerScoringParams() *pubsub.PeerScoreParams
@@ -240,7 +242,6 @@ func (sb *seenBlocks) markSeen(h common.Hash) {
 }
 
 func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRuntimeConfig) pubsub.ValidatorEx {
-
 	// Seen block hashes per block height
 	// uint64 -> *seenBlocks
 	blockHeightLRU, err := lru.New(1000)
@@ -356,7 +357,7 @@ func verifyBlockSignature(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 	// This means we may drop old payloads upon key rotation,
 	// but this can be recovered from like any other missed unsafe payload.
 	if expected := runCfg.P2PProposerAddress(); expected == (common.Address{}) {
-		log.Warn("no configured p2p sequencer address, ignoring gossiped block", "peer", id, "addr", addr)
+		log.Warn("no configured p2p proposer address, ignoring gossiped block", "peer", id, "addr", addr)
 		return pubsub.ValidationIgnore
 	} else if addr != expected {
 		log.Warn("unexpected block author", "err", err, "peer", id, "addr", addr, "expected", expected)
@@ -463,8 +464,10 @@ func JoinGossip(p2pCtx context.Context, self peer.ID, topicScoreParams *pubsub.T
 	return &publisher{log: log, cfg: cfg, blocksTopic: blocksTopic, runCfg: runCfg}, nil
 }
 
-type TopicSubscriber func(ctx context.Context, sub *pubsub.Subscription)
-type MessageHandler func(ctx context.Context, from peer.ID, msg any) error
+type (
+	TopicSubscriber func(ctx context.Context, sub *pubsub.Subscription)
+	MessageHandler  func(ctx context.Context, from peer.ID, msg any) error
+)
 
 func BlocksHandler(onBlock func(ctx context.Context, from peer.ID, msg *eth.ExecutionPayload) error) MessageHandler {
 	return func(ctx context.Context, from peer.ID, msg any) error {

@@ -332,13 +332,13 @@ func TestProposerChaosMonkey(t *testing.T) {
 		// reset errors
 		originErr = nil
 		attrsErr = nil
-		if engControl.err != mockResetErr { // the mockResetErr requires the sequencer to Reset() to recover.
+		if engControl.err != mockResetErr { // the mockResetErr requires the proposer to Reset() to recover.
 			engControl.err = nil
 		}
 		engControl.errTyp = derive.BlockInsertOK
 
 		// maybe make something maybe fail, or try a new L1 origin
-		switch rng.Intn(20) { // 9/20 = 45% chance to fail sequencer action (!!!)
+		switch rng.Intn(20) { // 9/20 = 45% chance to fail proposer action (!!!)
 		case 0, 1:
 			originErr = errors.New("mock origin error")
 		case 2, 3:

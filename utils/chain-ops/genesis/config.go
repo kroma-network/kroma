@@ -73,9 +73,6 @@ type DeployConfig struct {
 	L2GenesisBlockParentHash    common.Hash    `json:"l2GenesisBlockParentHash"`
 	L2GenesisBlockBaseFeePerGas *hexutil.Big   `json:"l2GenesisBlockBaseFeePerGas"`
 
-	// Seconds after genesis block that Blue hard fork activates. 0 to activate at genesis. Nil to disable blue
-	L2GenesisBlueTimeOffset *hexutil.Uint64 `json:"l2GenesisBlueTimeOffset,omitempty"`
-
 	ColosseumBisectionTimeout uint64      `json:"colosseumBisectionTimeout"`
 	ColosseumProvingTimeout   uint64      `json:"colosseumProvingTimeout"`
 	ColosseumSegmentsLengths  string      `json:"colosseumSegmentsLengths"`
@@ -243,9 +240,6 @@ func (d *DeployConfig) Check() error {
 	if len(strings.Split(d.ColosseumSegmentsLengths, ","))%2 > 0 {
 		return fmt.Errorf("%w: ColosseumSegmentsLengths length cannot be an odd number", ErrInvalidDeployConfig)
 	}
-	if d.L2GenesisBlueTimeOffset != nil && uint64(*d.L2GenesisBlueTimeOffset)%d.L2OutputOracleSubmissionInterval != 0 {
-		return fmt.Errorf("%w: L2 genesis blue time offset should be a multiple of l2 output oracle submission interval", ErrInvalidDeployConfig)
-	}
 	return nil
 }
 
@@ -306,17 +300,6 @@ func (d *DeployConfig) InitDeveloperDeployedAddresses() error {
 	return nil
 }
 
-func (d *DeployConfig) BlueTime(genesisTime uint64) *uint64 {
-	if d.L2GenesisBlueTimeOffset == nil {
-		return nil
-	}
-	v := uint64(0)
-	if offset := *d.L2GenesisBlueTimeOffset; offset > 0 {
-		v = genesisTime + uint64(offset)
-	}
-	return &v
-}
-
 // RollupConfig converts a DeployConfig to a rollup.Config
 func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHash common.Hash, l2GenesisBlockNumber uint64) (*rollup.Config, error) {
 	if d.KromaPortalProxy == (common.Address{}) {
@@ -353,7 +336,6 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		BatchInboxAddress:      d.BatchInboxAddress,
 		DepositContractAddress: d.KromaPortalProxy,
 		L1SystemConfigAddress:  d.SystemConfigProxy,
-		BlueTime:               d.BlueTime(l1StartBlock.Time()),
 	}, nil
 }
 
