@@ -401,7 +401,8 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 					}
 					c.submitChallengeTx(tx)
 				case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
-					tx, err := c.ProveFault(ctx, outputIndex)
+					skipSelectPosition := (status == chal.StatusAsserterTimeout)
+					tx, err := c.ProveFault(ctx, outputIndex, skipSelectPosition)
 					if err != nil {
 						c.log.Error("failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
 						break Loop
@@ -637,7 +638,7 @@ func (c *Challenger) ChallengerTimeout(ctx context.Context, outputIndex *big.Int
 
 // ProveFault creates proveFault transaction for invalid output root
 // TODO: ProveFault will take long time, so that we may have to handle it carefully
-func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int) (*types.Transaction, error) {
+func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, skipSelectPosition bool) (*types.Transaction, error) {
 	c.log.Info("crafting proveFault tx")
 
 	outputs, err := c.outputsAtIndex(ctx, outputIndex)
@@ -650,13 +651,19 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int) (*typ
 		return nil, err
 	}
 
-	segments := chal.NewSegments(challenge.SegStart.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
-	position, err := c.selectFaultPosition(ctx, segments)
-	if err != nil {
-		return nil, err
+	// When asserter timeout, skip finding fault position since the same segments have been stored in colosseum.
+	position := common.Big0
+	blockNumber := challenge.SegStart.Uint64()
+	if !skipSelectPosition {
+		segments := chal.NewSegments(challenge.SegStart.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
+		position, err = c.selectFaultPosition(ctx, segments)
+		if err != nil {
+			return nil, err
+		}
+
+		blockNumber = challenge.SegStart.Uint64() + position.Uint64()
 	}
 
-	blockNumber := challenge.SegStart.Uint64() + position.Uint64()
 	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(blockNumber)
 	if err != nil {
 		return nil, fmt.Errorf("%w: blockNumber: %d", err, blockNumber)

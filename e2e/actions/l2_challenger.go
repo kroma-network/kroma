@@ -59,8 +59,8 @@ func (v *L2Validator) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
 	return tx.Hash()
 }
 
-func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int) common.Hash {
-	tx, err := v.challenger.ProveFault(t.Ctx(), outputIndex)
+func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int, skipSelectPosition bool) common.Hash {
+	tx, err := v.challenger.ProveFault(t.Ctx(), outputIndex, skipSelectPosition)
 	require.NoError(t, err, "unable to create proveFault tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)

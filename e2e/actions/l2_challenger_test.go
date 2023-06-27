@@ -171,8 +171,11 @@ interaction:
 			// call bisect by validator
 			txHash = validator.ActBisect(t, outputIndex)
 			includeL1Block(t, miner, validator.address)
-		case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
-			txHash = challenger.ActProveFault(t, outputIndex)
+		case chal.StatusAsserterTimeout:
+			txHash = challenger.ActProveFault(t, outputIndex, true)
+			includeL1Block(t, miner, challenger.address)
+		case chal.StatusReadyToProve:
+			txHash = challenger.ActProveFault(t, outputIndex, false)
 			includeL1Block(t, miner, challenger.address)
 		case chal.StatusProven:
 			// validate l2 output submitted by challenger
