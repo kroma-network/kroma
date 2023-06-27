@@ -42,7 +42,7 @@ export interface SyncStatusResponse {
 
 export class KromaNodeProvider extends EventEmitter {
   readonly connection: ConnectionInfo
-  private _nextId: number = 0
+  private _nextId = 0
 
   constructor(url?: ConnectionInfo | string) {
     super()

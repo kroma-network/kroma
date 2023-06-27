@@ -49,5 +49,5 @@ func TestShapellaL1Fork(gt *testing.T) {
 	syncer.ActL2PipelineFull(t)
 	// verify syncer accepted shanghai L1 inputs
 	require.Equal(t, l1Block.Hash(), syncer.SyncStatus().SafeL2.L1Origin.Hash, "syncer synced L1 chain that includes shanghai headers")
-	require.Equal(t, proposer.SyncStatus().UnsafeL2, syncer.SyncStatus().UnsafeL2, "syncer and sequencer agree")
+	require.Equal(t, proposer.SyncStatus().UnsafeL2, syncer.SyncStatus().UnsafeL2, "syncer and proposer agree")
 }

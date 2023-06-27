@@ -213,7 +213,7 @@ func (d *Driver) eventLoop() {
 			d.l1State.L1Head() != (eth.L1BlockRef{}) && d.derivation.EngineReady() {
 			if d.driverConfig.ProposerMaxSafeLag > 0 && d.derivation.SafeL2Head().Number+d.driverConfig.ProposerMaxSafeLag <= d.derivation.UnsafeL2Head().Number {
 				// If the safe head has fallen behind by a significant number of blocks, delay creating new blocks
-				// until the safe lag is below SequencerMaxSafeLag.
+				// until the safe lag is below ProposerMaxSafeLag.
 				if proposerCh != nil {
 					d.log.Warn(
 						"Delay creating new block since safe lag exceeds limit",
@@ -223,10 +223,10 @@ func (d *Driver) eventLoop() {
 					proposerCh = nil
 				}
 			} else if d.proposer.BuildingOnto().ID() != d.derivation.UnsafeL2Head().ID() {
-				// If we are sequencing, and the L1 state is ready, update the trigger for the next sequencer action.
+				// If we are sequencing, and the L1 state is ready, update the trigger for the next proposer action.
 				// This may adjust at any time based on fork-choice changes or previous errors.
 				//
-				// update sequencer time if the head changed
+				// update proposer time if the head changed
 				planProposerAction()
 			}
 		} else {
@@ -244,7 +244,7 @@ func (d *Driver) eventLoop() {
 		case <-proposerCh:
 			payload, err := d.proposer.RunNextProposerAction(ctx)
 			if err != nil {
-				d.log.Error("Sequencer critical error", "err", err)
+				d.log.Error("Proposer critical error", "err", err)
 				return
 			}
 			if d.network != nil && payload != nil {

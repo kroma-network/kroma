@@ -631,12 +631,12 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		return nil, fmt.Errorf("unable to init validator rollup rpc client: %w", err)
 	}
 	rpcCl := client.NewBaseRPCClient(cl)
-	ValidatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
-	validatorCfg.RollupClient = sources.NewRollupClient(ValidatorMaliciousL2RPC)
+	validatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
+	validatorCfg.RollupClient = sources.NewRollupClient(validatorMaliciousL2RPC)
 
-	// If malicious validator is turn on, set target block number for submitting invalid output
+	// If malicious validator is turned on, set target block number for submitting invalid output
 	if cfg.EnableMaliciousValidator {
-		ValidatorMaliciousL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+		validatorMaliciousL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 	}
 
 	sys.Validator, err = validator.NewValidator(context.Background(), *validatorCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
@@ -678,11 +678,12 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		return nil, fmt.Errorf("unable to init challenger rollup rpc client: %w", err)
 	}
 	rpcCl = client.NewBaseRPCClient(cl)
-	ChallengerHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
-	challengerCfg.RollupClient = sources.NewRollupClient(ChallengerHonestL2RPC)
+	challengerHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
+	challengerCfg.RollupClient = sources.NewRollupClient(challengerHonestL2RPC)
 
+	// If malicious validator is turned on, set target block number for challenge
 	if cfg.EnableMaliciousValidator {
-		ChallengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+		challengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 	}
 
 	// Replace to mock fetcher
