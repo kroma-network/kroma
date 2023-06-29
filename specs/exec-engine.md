@@ -75,8 +75,8 @@ Transaction fees in Kroma are different from [eip-1559] specification.
 The Base Fee is not burned, and there is no distinction between Base Fee and Priority Fee.
 The transaction fee is distributed to two vaults, Validator Reward Vault and Protocol Fee.
 
-- Validator Reward Vault: `(baseFee + priorityFee) * ValidatorRewardRatio)`
-- Protocol Vault: `(baseFee + priorityFee) * (1 - ValidatorRewardRatio)`
+- Validator Reward Vault: `(baseFee + priorityFee) * (ValidatorRewardRatio / 10000)`
+- Protocol Vault: `(baseFee + priorityFee) * (1 - ValidatorRewardRatio / 10000)`
 
 `ValidatorRewardRatio` value is recorded in the [`L1Block`](./predeploys.md#L1block) contract.
 
