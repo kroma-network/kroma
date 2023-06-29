@@ -37,10 +37,10 @@ type L1BlockInfo struct {
 	// i.e. when the actual L1 info was first introduced.
 	SequenceNumber uint64
 	// BatcherHash version 0 is just the address with 0 padding to the left.
-	BatcherAddr          common.Address
-	L1FeeOverhead        eth.Bytes32
-	L1FeeScalar          eth.Bytes32
-	ValidatorRewardRatio eth.Bytes32
+	BatcherAddr           common.Address
+	L1FeeOverhead         eth.Bytes32
+	L1FeeScalar           eth.Bytes32
+	ValidatorRewardScalar eth.Bytes32
 }
 
 func (info *L1BlockInfo) MarshalBinary() ([]byte, error) {
@@ -68,7 +68,7 @@ func (info *L1BlockInfo) MarshalBinary() ([]byte, error) {
 	offset += 32
 	copy(data[offset:offset+32], info.L1FeeScalar[:])
 	offset += 32
-	copy(data[offset:offset+32], info.ValidatorRewardRatio[:])
+	copy(data[offset:offset+32], info.ValidatorRewardScalar[:])
 	return data, nil
 }
 
@@ -108,7 +108,7 @@ func (info *L1BlockInfo) UnmarshalBinary(data []byte) error {
 	offset += 32
 	copy(info.L1FeeScalar[:], data[offset:offset+32])
 	offset += 32
-	copy(info.ValidatorRewardRatio[:], data[offset:offset+32])
+	copy(info.ValidatorRewardScalar[:], data[offset:offset+32])
 	return nil
 }
 
@@ -123,15 +123,15 @@ func L1InfoDepositTxData(data []byte) (L1BlockInfo, error) {
 // and the L2 block-height difference with the start of the epoch.
 func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfig) (*types.DepositTx, error) {
 	infoDat := L1BlockInfo{
-		Number:               block.NumberU64(),
-		Time:                 block.Time(),
-		BaseFee:              block.BaseFee(),
-		BlockHash:            block.Hash(),
-		SequenceNumber:       seqNumber,
-		BatcherAddr:          sysCfg.BatcherAddr,
-		L1FeeOverhead:        sysCfg.Overhead,
-		L1FeeScalar:          sysCfg.Scalar,
-		ValidatorRewardRatio: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(CalcValidatorRewardRatio()))),
+		Number:                block.NumberU64(),
+		Time:                  block.Time(),
+		BaseFee:               block.BaseFee(),
+		BlockHash:             block.Hash(),
+		SequenceNumber:        seqNumber,
+		BatcherAddr:           sysCfg.BatcherAddr,
+		L1FeeOverhead:         sysCfg.Overhead,
+		L1FeeScalar:           sysCfg.Scalar,
+		ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(CalcValidatorRewardScalar()))),
 	}
 	data, err := infoDat.MarshalBinary()
 	if err != nil {
