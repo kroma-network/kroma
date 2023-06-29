@@ -465,7 +465,7 @@ func (c *Challenger) PublicInputProof(ctx context.Context, blockNumber uint64) (
 		return bindings.TypesPublicInputProof{}, err
 	}
 
-	p := srcOutput.PublicInputProof
+	p := dstOutput.PublicInputProof
 
 	var balance [32]byte
 	copy(balance[:], p.L2ToL1MessagePasserBalance.Bytes()[:])
