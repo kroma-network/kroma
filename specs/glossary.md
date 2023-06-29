@@ -422,7 +422,7 @@ A public round is the time period during which any account registered as a Valid
 [validator-reward]: glossary.md#validator-reward
 
 The validator reward is calculated using the following formula:
-`(L2 base fee + L2 priority fee) * validator reward ratio / 10000`.
+`(L2 base fee + L2 priority fee) * validator reward scalar / 10000`.
 
 ------------------------------------------------------------------------------------------------------------------------
 

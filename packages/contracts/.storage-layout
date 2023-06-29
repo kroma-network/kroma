@@ -123,17 +123,17 @@
 ➡ contracts/L2/L1Block.sol:L1Block
 =======================
 
-| Name                 | Type    | Slot | Offset | Bytes | Contract                         |
-|----------------------|---------|------|--------|-------|----------------------------------|
-| number               | uint64  | 0    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
-| timestamp            | uint64  | 0    | 8      | 8     | contracts/L2/L1Block.sol:L1Block |
-| basefee              | uint256 | 1    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| hash                 | bytes32 | 2    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| sequenceNumber       | uint64  | 3    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
-| batcherHash          | bytes32 | 4    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| l1FeeOverhead        | uint256 | 5    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| l1FeeScalar          | uint256 | 6    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| validatorRewardRatio | uint256 | 7    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| Name                  | Type    | Slot | Offset | Bytes | Contract                         |
+|-----------------------|---------|------|--------|-------|----------------------------------|
+| number                | uint64  | 0    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
+| timestamp             | uint64  | 0    | 8      | 8     | contracts/L2/L1Block.sol:L1Block |
+| basefee               | uint256 | 1    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| hash                  | bytes32 | 2    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| sequenceNumber        | uint64  | 3    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
+| batcherHash           | bytes32 | 4    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| l1FeeOverhead         | uint256 | 5    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| l1FeeScalar           | uint256 | 6    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| validatorRewardScalar | uint256 | 7    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 
 =======================
 ➡ contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger

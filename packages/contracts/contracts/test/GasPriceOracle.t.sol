@@ -24,7 +24,7 @@ contract GasPriceOracle_Test is CommonTest {
     bytes32 constant batcherHash = bytes32(uint256(777));
     uint256 constant l1FeeOverhead = 310;
     uint256 constant l1FeeScalar = 10;
-    uint256 constant vRewardRatio = 10000;
+    uint256 constant validatorRewardScalar = 10000;
 
     function setUp() public virtual override {
         super.setUp();
@@ -49,7 +49,7 @@ contract GasPriceOracle_Test is CommonTest {
             _batcherHash: batcherHash,
             _l1FeeOverhead: l1FeeOverhead,
             _l1FeeScalar: l1FeeScalar,
-            _vRewardRatio: vRewardRatio
+            _validatorRewardScalar: validatorRewardScalar
         });
     }
 
