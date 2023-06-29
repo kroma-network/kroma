@@ -468,7 +468,7 @@ func (c *Challenger) PublicInputProof(ctx context.Context, blockNumber uint64) (
 	p := dstOutput.PublicInputProof
 
 	var balance [32]byte
-	copy(balance[:], p.L2ToL1MessagePasserBalance.Bytes()[:])
+	copy(balance[:], common.BigToHash(p.L2ToL1MessagePasserBalance).Bytes())
 
 	// TODO(chokobole): Do we need to deep copy of this?
 	merkleProof := make([][]byte, len(p.MerkleProof))
