@@ -101,7 +101,7 @@ contract L1Block is Semver {
         );
         require(
             _validatorRewardScalar <= 10000,
-            "L1Block: the max value of validation reward scalar has been exceeded"
+            "L1Block: the max value of validatior reward scalar has been exceeded"
         );
 
         number = _number;
