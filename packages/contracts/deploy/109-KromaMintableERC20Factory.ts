@@ -9,6 +9,7 @@ import { assertContractVariable, deploy } from '../src/deploy-utils'
 const deployFn: DeployFunction = async (hre) => {
   await deploy(hre, 'KromaMintableERC20Factory', {
     args: [predeploys.L2StandardBridge],
+    isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,

@@ -64,7 +64,18 @@ const config: HardhatUserConfig = {
     easel: {
       chainId: 7789,
       url: process.env.L1_RPC_EASEL || '',
-      accounts: [PRIVATE_KEY_DEPLOYER_DEVNET],
+      accounts: [process.env.PRIVATE_KEY_DEPLOYER || ethers.constants.HashZero],
+      companionNetworks: {
+        l2: 'sail',
+      },
+    },
+    sail: {
+      chainId: 7791,
+      url: process.env.L2_RPC_SAIL || '',
+      accounts: [process.env.PRIVATE_KEY_DEPLOYER || ethers.constants.HashZero],
+      companionNetworks: {
+        l1: 'easel',
+      },
     },
   },
   foundry: {

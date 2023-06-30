@@ -15,6 +15,7 @@ const deployFn: DeployFunction = async (hre) => {
 
   await deploy(hre, 'KromaMintableERC721Factory', {
     args: [predeploys.L2StandardBridge, remoteChainId],
+    isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,

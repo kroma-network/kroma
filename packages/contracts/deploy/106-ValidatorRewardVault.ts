@@ -2,22 +2,17 @@ import '@kroma-network/hardhat-deploy-config'
 import '@nomiclabs/hardhat-ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
-import {
-  assertContractVariable,
-  deploy,
-  getDeploymentAddress,
-} from '../src/deploy-utils'
+import { assertContractVariable, deploy } from '../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
   const l1 = hre.network.companionNetworks['l1']
   const deployConfig = hre.getDeployConfig(l1)
 
-  const validatorPoolProxyAddress = await getDeploymentAddress(
-    hre,
+  const validatorPoolProxy = await hre.companionNetworks['l1'].deployments.get(
     'ValidatorPoolProxy'
   )
 
-  const submissionInterval = deployConfig.submissionInterval
+  const submissionInterval = deployConfig.l2OutputOracleSubmissionInterval
   const l2BlockTime = deployConfig.l2BlockTime
   const finalizationPeriodSeconds = deployConfig.finalizationPeriodSeconds
 
@@ -28,12 +23,13 @@ const deployFn: DeployFunction = async (hre) => {
   }
 
   await deploy(hre, 'ValidatorRewardVault', {
-    args: [validatorPoolProxyAddress, rewardDivider],
+    args: [validatorPoolProxy.address, rewardDivider],
+    isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,
         'VALIDATOR_POOL',
-        validatorPoolProxyAddress
+        validatorPoolProxy.address
       )
       await assertContractVariable(contract, 'REWARD_DIVIDER', rewardDivider)
     },
