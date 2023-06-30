@@ -21,6 +21,9 @@ import (
 	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
+const GAS_LIMIT_MULTIPLIER = 150
+const GAS_LIMIT_DENOMINATOR = 100
+
 // Guardian is responsible for validating outputs
 type Guardian struct {
 	log    log.Logger
@@ -114,6 +117,7 @@ func (g *Guardian) handleValidationRequested(ctx context.Context) {
 	}
 }
 
+// TODO(pangssu): Retry a failed or missed transaction.
 func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.SecurityCouncilValidationRequested) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer func() {
@@ -144,6 +148,7 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 				g.log.Error("validateL2Output failed", "err", err, "l2BlockNumber", event.L2BlockNumber.Uint64())
 				break Loop
 			}
+
 			if isValid {
 				cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 				tx, err := g.ConfirmTransaction(cCtx, event.TransactionId)
@@ -152,6 +157,7 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 					g.log.Error("tx call ConfirmTransaction failed", "err", err, "transactionId", event.TransactionId)
 					break Loop
 				}
+
 				g.sendTransaction(tx)
 			}
 			return
@@ -171,11 +177,26 @@ func (g *Guardian) outputRootAtBlock(ctx context.Context, blockNumber uint64) (e
 	return output.OutputRoot, nil
 }
 
-func (g *Guardian) sendTransaction(tx *types.Transaction) {
+func (g *Guardian) sendTransaction(tx *types.Transaction) error {
+	ctx, cancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+	defer cancel()
+
+	gasLimit, err := g.cfg.L1Client.EstimateGas(ctx, ethereum.CallMsg{
+		From:  g.cfg.TxManager.From(),
+		To:    tx.To(),
+		Data:  tx.Data(),
+		Value: tx.Value(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to estimate confirmation tx gas: %w", err)
+	}
+
 	g.txCandidatesChan <- txmgr.TxCandidate{
 		TxData:     tx.Data(),
 		To:         tx.To(),
-		GasLimit:   0,
+		GasLimit:   gasLimit * GAS_LIMIT_MULTIPLIER / GAS_LIMIT_DENOMINATOR,
 		AccessList: nil,
 	}
+
+	return nil
 }
