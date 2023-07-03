@@ -171,9 +171,12 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
-	securityCouncilAddress, err := utils.ParseAddress(cfg.SecurityCouncilAddress)
-	if err != nil {
-		return nil, err
+	var securityCouncilAddress common.Address
+	if cfg.GuardianEnabled {
+		securityCouncilAddress, err = utils.ParseAddress(cfg.SecurityCouncilAddress)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	valPoolAddress, err := utils.ParseAddress(cfg.ValPoolAddress)

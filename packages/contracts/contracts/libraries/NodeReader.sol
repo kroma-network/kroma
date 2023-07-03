@@ -13,7 +13,7 @@ library NodeReader {
      * @custom:value MIDDLE Represents a middle node.
      * @custom:value LEAF   Represents a leaf node.
      * @custom:value EMPTY  Represents a empty node.
-     * @custom:value ROOT   Represents a middle node.
+     * @custom:value ROOT   Represents a root node.
      */
     enum NodeType {
         MIDDLE,
