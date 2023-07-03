@@ -263,11 +263,11 @@ func (c *Challenger) subscribeL2OutputSubmitted(ctx context.Context) {
 	for {
 		select {
 		case ev := <-c.l2OutputSubmittedEventChan:
-			c.log.Info("validating output", "l2BlockNumber", ev.L2BlockNumber, "outputRoot", ev.OutputRoot, "outputIndex", ev.L2OutputIndex)
+			c.log.Info("watched output submitted event", "l2BlockNumber", ev.L2BlockNumber, "outputRoot", ev.OutputRoot, "outputIndex", ev.L2OutputIndex)
 			// validate all outputs in between the checkpoint and the current outputIndex
 			for i := c.checkpoint; i.Cmp(ev.L2OutputIndex) != 1; i.Add(i, common.Big1) {
 				c.wg.Add(1)
-				go c.handleOutput(ctx, i)
+				go c.handleOutput(ctx, new(big.Int).Set(i))
 			}
 			c.checkpoint = ev.L2OutputIndex
 		case <-ctx.Done():
@@ -296,6 +296,7 @@ func (c *Challenger) subscribeChallengeCreated(ctx context.Context) {
 
 // handleOutput handles output when output submitted
 func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
+	c.log.Info("handling output", "outputIndex", outputIndex)
 	defer c.wg.Done()
 
 	ticker := time.NewTicker(time.Minute)
@@ -338,6 +339,7 @@ func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
 			}
 
 			c.submitChallengeTx(tx)
+			c.log.Info("submit challenge tx", "outputIndex", outputIndex)
 			return
 		case <-ctx.Done():
 			return
@@ -664,7 +666,7 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, skipS
 		blockNumber = challenge.SegStart.Uint64() + position.Uint64()
 	}
 
-	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(blockNumber)
+	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(blockNumber + 1)
 	if err != nil {
 		return nil, fmt.Errorf("%w: blockNumber: %d", err, blockNumber)
 	}
