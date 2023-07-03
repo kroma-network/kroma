@@ -207,7 +207,7 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 					break Loop
 				}
 				if tx == nil {
-					log.Error("failed to send confirm tx", "transactionId", event.TransactionId, "err", err)
+					g.log.Error("confirm tx is nil", "transactionId", event.TransactionId, "err", err)
 					return
 				}
 

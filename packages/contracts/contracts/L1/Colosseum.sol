@@ -358,7 +358,7 @@ contract Colosseum is Initializable, Semver {
         );
 
         // TODO(pangssu): waiting for the new Verifier.sol to complete.
-        // require(ZK_VERIFIER.verify(_proof, _pair, publicInputHash), "Colosseum: invalid proof");
+        // require(ZK_VERIFIER.verify(_zkproof, _pair, publicInputHash), "Colosseum: invalid proof");
 
         verifiedPublicInputs[publicInputHash] = true;
         challenge.outputRoot = _outputRoot;
