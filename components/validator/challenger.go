@@ -265,7 +265,7 @@ func (c *Challenger) subscribeL2OutputSubmitted(ctx context.Context) {
 		case ev := <-c.l2OutputSubmittedEventChan:
 			c.log.Info("watched output submitted event", "l2BlockNumber", ev.L2BlockNumber, "outputRoot", ev.OutputRoot, "outputIndex", ev.L2OutputIndex)
 			// validate all outputs in between the checkpoint and the current outputIndex
-			for i := c.checkpoint; i.Cmp(ev.L2OutputIndex) != 1; i.Add(i, common.Big1) {
+			for i := new(big.Int).Add(c.checkpoint, common.Big1); i.Cmp(ev.L2OutputIndex) != 1; i.Add(i, common.Big1) {
 				c.wg.Add(1)
 				go c.handleOutput(ctx, new(big.Int).Set(i))
 			}
