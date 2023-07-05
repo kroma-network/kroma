@@ -24,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/kroma-network/kroma/e2e/testdata"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 
@@ -45,6 +44,7 @@ import (
 	"github.com/kroma-network/kroma/components/validator"
 	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
+	"github.com/kroma-network/kroma/e2e/testdata"
 	"github.com/kroma-network/kroma/utils/chain-ops/genesis"
 	klog "github.com/kroma-network/kroma/utils/service/log"
 	"github.com/kroma-network/kroma/utils/service/txmgr"
