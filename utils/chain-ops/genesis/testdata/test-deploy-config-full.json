@@ -11,6 +11,7 @@
   "batchSenderAddress": "0x0000000000000000000000000000000000000000",
   "validatorPoolTrustedValidator": "0x7770000000000000000000000000000000000001",
   "validatorPoolMinBondAmount": "0x1",
+  "validatorPoolMaxUnbond": 10,
   "validatorPoolNonPenaltyPeriod": 3,
   "validatorPoolPenaltyPeriod": 3,
   "l2OutputOracleSubmissionInterval": 6,
@@ -59,5 +60,9 @@
   "colosseumMaxTxs": 25,
   "colosseumSegmentsLengths": "3,4",
   "securityCouncilNumConfirmationRequired": 1,
-  "securityCouncilOwners": ["0x007d7e4391dcfde47dd7fd0b8e16091c5e0e1c7f","0x2a06af6a4f325b1e0095a8abd32888e0abdcd04d","0xed92e7c40348a552822847384d722a6adb9afefa"]
+  "securityCouncilOwners": [
+    "0x007d7e4391dcfde47dd7fd0b8e16091c5e0e1c7f",
+    "0x2a06af6a4f325b1e0095a8abd32888e0abdcd04d",
+    "0xed92e7c40348a552822847384d722a6adb9afefa"
+  ]
 }

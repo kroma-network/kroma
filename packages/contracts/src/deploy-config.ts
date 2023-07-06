@@ -93,6 +93,11 @@ interface RequiredDeployConfig {
   validatorPoolMinBondAmount: string
 
   /**
+   * Max number of unbonds when trying unbond.
+   */
+  validatorPoolMaxUnbond: number
+
+  /**
    * The period during a submission round that is not penalized (in seconds).
    */
   validatorPoolNonPenaltyPeriod: number
@@ -264,6 +269,9 @@ export const deployConfigSpec: {
   },
   validatorPoolMinBondAmount: {
     type: 'string', // uint256
+  },
+  validatorPoolMaxUnbond: {
+    type: 'number',
   },
   validatorPoolNonPenaltyPeriod: {
     type: 'number',

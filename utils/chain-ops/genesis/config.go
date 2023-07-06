@@ -45,6 +45,7 @@ type DeployConfig struct {
 
 	ValidatorPoolTrustedValidator common.Address `json:"validatorPoolTrustedValidator"`
 	ValidatorPoolMinBondAmount    *hexutil.Big   `json:"validatorPoolMinBondAmount"`
+	ValidatorPoolMaxUnbond        uint64         `json:"validatorPoolMaxUnbond"`
 	ValidatorPoolNonPenaltyPeriod uint64         `json:"validatorPoolNonPenaltyPeriod"`
 	ValidatorPoolPenaltyPeriod    uint64         `json:"validatorPoolPenaltyPeriod"`
 
@@ -161,6 +162,9 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.ValidatorPoolMinBondAmount == nil {
 		return fmt.Errorf("%w: ValidatorPoolMinBondAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorPoolMaxUnbond == 0 {
+		return fmt.Errorf("%w: ValidatorPoolMaxUnbond cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.ValidatorPoolNonPenaltyPeriod == 0 {
 		return fmt.Errorf("%w: ValidatorPoolNonPenaltyPeriod cannot be 0", ErrInvalidDeployConfig)
