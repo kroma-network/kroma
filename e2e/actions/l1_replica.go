@@ -19,6 +19,7 @@ import (
 	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testutils"
+	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
 // L1CanonSrc is used to sync L1 from another node.
@@ -44,6 +45,15 @@ type L1Replica struct {
 
 	failL1RPC func() error // mock error
 }
+
+var defaultRollupTestParams = &e2eutils.TestParams{
+	MaxProposerDrift:   40,
+	ProposerWindowSize: 120,
+	ChannelTimeout:     120,
+	L1BlockTime:        15,
+}
+
+var defaultAlloc = &e2eutils.AllocParams{PrefundTestUsers: true}
 
 // NewL1Replica constructs a L1Replica starting at the given genesis.
 func NewL1Replica(t Testing, log log.Logger, genesis *core.Genesis) *L1Replica {
