@@ -302,14 +302,15 @@ func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
-	for {
-	Loop:
+	for ; ; <-ticker.C {
 		select {
-		case <-ticker.C:
+		case <-ctx.Done():
+			return
+		default:
 			outputRange, err := c.ValidateOutput(ctx, outputIndex)
 			if err != nil {
 				c.log.Error("unable to validate output", "err", err, "outputIndex", outputIndex)
-				break Loop
+				continue
 			}
 
 			// if output is valid, terminate handling
@@ -322,7 +323,7 @@ func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
 			isInProgress, err := c.IsChallengeInProgress(ctx, outputIndex)
 			if err != nil {
 				c.log.Error("unable to get the status of challenge", "err", err, "outputIndex", outputIndex)
-				break Loop
+				continue
 			}
 
 			// if challenge is in progress, terminate handling
@@ -335,13 +336,11 @@ func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
 			tx, err := c.CreateChallenge(ctx, outputRange)
 			if err != nil {
 				c.log.Error("failed to create createChallenge tx", "err", err, "outputIndex", outputIndex)
-				break Loop
+				continue
 			}
 
 			c.submitChallengeTx(tx)
 			c.log.Info("submit challenge tx", "outputIndex", outputIndex)
-			return
-		case <-ctx.Done():
 			return
 		}
 	}
@@ -354,14 +353,15 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 	ticker := time.NewTicker(c.cfg.ChallengerPollInterval)
 	defer ticker.Stop()
 
-	for {
-	Loop:
+	for ; ; <-ticker.C {
 		select {
-		case <-ticker.C:
+		case <-ctx.Done():
+			return
+		default:
 			challenge, err := c.GetChallenge(ctx, outputIndex)
 			if err != nil {
 				c.log.Error("failed to get challenge", "err", err, "outputIndex", outputIndex)
-				break Loop
+				continue
 			}
 
 			isAsserter := challenge.Asserter == c.cfg.TxManager.From()
@@ -371,7 +371,7 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 			status, err := c.GetChallengeStatus(ctx, outputIndex)
 			if err != nil {
 				c.log.Error("unable to get challenge status", "err", err, "outputIndex", outputIndex)
-				break Loop
+				continue
 			}
 
 			// if the challenge is inactivated, terminate handling
@@ -386,7 +386,7 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 					tx, err := c.Bisect(ctx, outputIndex)
 					if err != nil {
 						c.log.Error("asserter: failed to create bisect tx", "err", err, "outputIndex", outputIndex)
-						break Loop
+						continue
 					}
 					c.submitChallengeTx(tx)
 				}
@@ -399,21 +399,19 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 					tx, err := c.Bisect(ctx, outputIndex)
 					if err != nil {
 						c.log.Error("challenger: failed to create bisect tx", "err", err, "outputIndex", outputIndex)
-						break Loop
+						continue
 					}
 					c.submitChallengeTx(tx)
 				case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
-					skipSelectPosition := (status == chal.StatusAsserterTimeout)
+					skipSelectPosition := status == chal.StatusAsserterTimeout
 					tx, err := c.ProveFault(ctx, outputIndex, skipSelectPosition)
 					if err != nil {
 						c.log.Error("failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
-						break Loop
+						continue
 					}
 					c.submitChallengeTx(tx)
 				}
 			}
-		case <-ctx.Done():
-			return
 		}
 	}
 }
