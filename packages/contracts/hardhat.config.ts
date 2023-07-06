@@ -42,7 +42,7 @@ const config: HardhatUserConfig = {
       },
     },
     kromaSepolia: {
-      chainId: 2357,
+      chainId: 2358,
       url: process.env.L2_RPC_KROMA_SEPOLIA || '',
       accounts: [
         process.env.PRIVATE_KEY_DEPLOYER_SEPOLIA || ethers.constants.HashZero,

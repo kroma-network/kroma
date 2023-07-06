@@ -18,7 +18,7 @@ export enum L1ChainID {
  * L2 network chain IDs
  */
 export enum L2ChainID {
-  KROMA_SEPOLIA = 2357,
+  KROMA_SEPOLIA = 2358,
   KROMA_LOCAL_DEVNET = 901,
 }
 
