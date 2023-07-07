@@ -363,7 +363,7 @@ export const hasImplementation = async (
   proxyAddress: string
 ): Promise<boolean> => {
   const impl = await getImplementation(hre, proxyAddress)
-  return impl !== ethers.constants.HashZero
+  return impl !== ethers.constants.AddressZero
 }
 
 /**

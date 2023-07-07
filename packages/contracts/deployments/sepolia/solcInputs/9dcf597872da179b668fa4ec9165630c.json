@@ -173,7 +173,13 @@
       "bytecodeHash": "none"
     },
     "outputSelection": {
-      "*": {
+      "contracts/L1/IZKMerkleTrie.sol": {
+        "*": []
+      },
+      "contracts/L1/KromaPortal.sol": {
+        "*": []
+      },
+      "contracts/L1/L1CrossDomainMessenger.sol": {
         "": [
           "ast"
         ],
@@ -182,8 +188,153 @@
           "evm.bytecode",
           "evm.deployedBytecode",
           "evm.methodIdentifiers",
-          "metadata"
+          "metadata",
+          "storageLayout"
         ]
+      },
+      "contracts/L1/L2OutputOracle.sol": {
+        "*": []
+      },
+      "contracts/L1/ResourceMetering.sol": {
+        "*": []
+      },
+      "contracts/L1/SystemConfig.sol": {
+        "*": []
+      },
+      "contracts/L1/ValidatorPool.sol": {
+        "*": []
+      },
+      "contracts/L1/ZKMerkleTrie.sol": {
+        "*": []
+      },
+      "contracts/L1/ZKTrieHasher.sol": {
+        "*": []
+      },
+      "contracts/L2/L2StandardBridge.sol": {
+        "*": []
+      },
+      "contracts/L2/ValidatorRewardVault.sol": {
+        "*": []
+      },
+      "contracts/libraries/Arithmetic.sol": {
+        "*": []
+      },
+      "contracts/libraries/Burn.sol": {
+        "*": []
+      },
+      "contracts/libraries/Bytes.sol": {
+        "*": []
+      },
+      "contracts/libraries/Bytes32.sol": {
+        "*": []
+      },
+      "contracts/libraries/Constants.sol": {
+        "*": []
+      },
+      "contracts/libraries/Encoding.sol": {
+        "*": []
+      },
+      "contracts/libraries/Hashing.sol": {
+        "*": []
+      },
+      "contracts/libraries/NodeReader.sol": {
+        "*": []
+      },
+      "contracts/libraries/Predeploys.sol": {
+        "*": []
+      },
+      "contracts/libraries/SafeCall.sol": {
+        "*": []
+      },
+      "contracts/libraries/Types.sol": {
+        "*": []
+      },
+      "contracts/libraries/rlp/RLPWriter.sol": {
+        "*": []
+      },
+      "contracts/universal/CrossDomainMessenger.sol": {
+        "*": []
+      },
+      "contracts/universal/FeeVault.sol": {
+        "*": []
+      },
+      "contracts/universal/IKromaMintableERC20.sol": {
+        "*": []
+      },
+      "contracts/universal/KromaMintableERC20.sol": {
+        "*": []
+      },
+      "contracts/universal/Semver.sol": {
+        "*": []
+      },
+      "contracts/universal/StandardBridge.sol": {
+        "*": []
+      },
+      "contracts/vendor/AddressAliasHelper.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/access/Ownable.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/proxy/utils/Initializable.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/utils/Address.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/utils/Strings.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/utils/introspection/ERC165Checker.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/utils/math/Math.sol": {
+        "*": []
+      },
+      "node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol": {
+        "*": []
+      },
+      "node_modules/@rari-capital/solmate/src/utils/FixedPointMathLib.sol": {
+        "*": []
       }
     },
     "evmVersion": "london",

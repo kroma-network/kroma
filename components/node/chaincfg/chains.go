@@ -13,14 +13,14 @@ import (
 var Sepolia = rollup.Config{
 	Genesis: rollup.Genesis{
 		L1: eth.BlockID{
-			Hash:   common.HexToHash("0xd15978faa2adb2fe8678ab7bba43d288b355240b64389ca65f67d41df2dc40ac"),
-			Number: 3835030,
+			Hash:   common.HexToHash("0x936e490e33e6e136ecd9095090e30ed7def3903ef2bae3e05966b376e493ad76"),
+			Number: 3841490,
 		},
 		L2: eth.BlockID{
-			Hash:   common.HexToHash("0x4d5e05fc1480f767a0a6a33a69c3b66ac3ec382337731db22b6714c632046faa"),
+			Hash:   common.HexToHash("0x52ef8f66bb31c16326eb2072dd9b2fa734068728b845d5428f3a256a50bf252e"),
 			Number: 0,
 		},
-		L2Time: 1688629152,
+		L2Time: 1688709132,
 		SystemConfig: eth.SystemConfig{
 			BatcherAddr: common.HexToAddress("0xf15dc770221b99c98d4aaed568f2ab04b9d16e42"),
 			Overhead:    eth.Bytes32(common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000834")),
@@ -34,9 +34,9 @@ var Sepolia = rollup.Config{
 	ChannelTimeout:         120,
 	L1ChainID:              big.NewInt(11155111),
 	L2ChainID:              big.NewInt(2358),
-	BatchInboxAddress:      common.HexToAddress("0xfa79000000000000000000000000000000000000"),
-	DepositContractAddress: common.HexToAddress("0x16ceb19a3abf1a8b56f53db50eb22695b6ef7bcc"),
-	L1SystemConfigAddress:  common.HexToAddress("0x29eeb4681bde3b2d0e739c5d82c5908dd0769b61"),
+	BatchInboxAddress:      common.HexToAddress("0xfa79000000000000000000000000000000000001"),
+	DepositContractAddress: common.HexToAddress("0x31ab8ed993a3be9aa2757c7d368dc87101a868a4"),
+	L1SystemConfigAddress:  common.HexToAddress("0x398c8ea789968893095d86cba168378a4f452e33"),
 }
 
 var NetworksByName = map[string]rollup.Config{
