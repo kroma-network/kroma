@@ -33,7 +33,7 @@ contract KromaPortal_Invariant_Harness is Portal_Initializer {
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({
-            version: bytes32(uint256(1)),
+            version: bytes32(uint256(0)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
             blockHash: bytes32(uint256(0)),
@@ -44,8 +44,8 @@ contract KromaPortal_Invariant_Harness is Portal_Initializer {
 
         // Configure the oracle to return the output root we've prepared.
         vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber) + 1);
-        vm.prank(oracle.VALIDATOR());
-        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
+        vm.prank(trusted);
+        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0, minBond);
 
         // Warp beyond the finalization period for the block we've submitted.
         vm.warp(

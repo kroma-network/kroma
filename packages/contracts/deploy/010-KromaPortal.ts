@@ -5,21 +5,33 @@ import {
   assertContractVariable,
   deploy,
   getContractFromArtifact,
+  getDeploymentAddress,
 } from '../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const L2OutputOracleProxy = await getContractFromArtifact(
+  const l2OutputOracleProxyAddress = await getDeploymentAddress(
     hre,
     'L2OutputOracleProxy'
+  )
+
+  const validatorPoolProxyAddress = await getDeploymentAddress(
+    hre,
+    'ValidatorPoolProxy'
+  )
+
+  const Artifact__SystemConfigProxy = await hre.deployments.get(
+    'SystemConfigProxy'
   )
 
   const ZKMerkleTrie = await getContractFromArtifact(hre, 'ZKMerkleTrie')
 
   await deploy(hre, 'KromaPortal', {
     args: [
-      L2OutputOracleProxy.address,
+      l2OutputOracleProxyAddress,
+      validatorPoolProxyAddress,
       hre.deployConfig.portalGuardian,
       false,
+      Artifact__SystemConfigProxy.address,
       ZKMerkleTrie.address,
     ],
     isProxyImpl: true,
@@ -28,12 +40,22 @@ const deployFn: DeployFunction = async (hre) => {
       await assertContractVariable(
         contract,
         'L2_ORACLE',
-        L2OutputOracleProxy.address
+        l2OutputOracleProxyAddress
+      )
+      await assertContractVariable(
+        contract,
+        'VALIDATOR_POOL',
+        validatorPoolProxyAddress
       )
       await assertContractVariable(
         contract,
         'GUARDIAN',
         hre.deployConfig.portalGuardian
+      )
+      await assertContractVariable(
+        contract,
+        'SYSTEM_CONFIG',
+        Artifact__SystemConfigProxy.address
       )
       await assertContractVariable(
         contract,
@@ -44,6 +66,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['KromaPortal', 'setup']
+deployFn.tags = ['KromaPortal', 'setup', 'l1']
 
 export default deployFn

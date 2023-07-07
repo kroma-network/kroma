@@ -51,8 +51,8 @@ func main() {
 	app.Version = VersionWithMeta
 	app.Flags = flags.Flags
 	app.Name = "kroma-node"
-	app.Usage = "Kroma Rollup Node"
-	app.Description = "The Kroma Rollup Node derives L2 block inputs from L1 data and drives an external L2 Execution Engine to build a L2 chain."
+	app.Usage = "Rollup Node Service"
+	app.Description = "Service for deriving L2 block inputs from L1 data and driving an external L2 Execution Engine to build a L2 chain."
 	app.Action = RollupNodeMain
 	app.Commands = []cli.Command{
 		{
@@ -165,5 +165,4 @@ func RollupNodeMain(ctx *cli.Context) error {
 	<-interruptChannel
 
 	return nil
-
 }

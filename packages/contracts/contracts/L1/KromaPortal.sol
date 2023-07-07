@@ -9,8 +9,9 @@ import { SafeCall } from "../libraries/SafeCall.sol";
 import { Types } from "../libraries/Types.sol";
 import { Semver } from "../universal/Semver.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
-import { ResourceMetering } from "./ResourceMetering.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
+import { ResourceMetering } from "./ResourceMetering.sol";
+import { SystemConfig } from "./SystemConfig.sol";
 import { ZKMerkleTrie } from "./ZKMerkleTrie.sol";
 
 /**
@@ -45,9 +46,20 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
     uint64 internal constant RECEIVE_DEFAULT_GAS_LIMIT = 100_000;
 
     /**
-     * @notice Address of the L2OutputOracle.
+     * @notice Address of the L2OutputOracle contract.
      */
     L2OutputOracle public immutable L2_ORACLE;
+
+    /**
+     * @notice Address of the ValidatorPool contract.
+     */
+    address public immutable VALIDATOR_POOL;
+
+    /**
+    /**
+     * @notice Address of the SystemConfig contract.
+     */
+    SystemConfig public immutable SYSTEM_CONFIG;
 
     /**
      * @notice Address that has the ability to pause and unpause withdrawals.
@@ -78,8 +90,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
 
     /**
      * @notice Determines if cross domain messaging is paused. When set to true,
-     *         deposits and withdrawals are paused. This may be removed in the
-     *         future.
+     *         withdrawals are paused. This may be removed in the future.
      */
     bool public paused;
 
@@ -144,18 +155,24 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
      * @custom:semver 0.1.0
      *
      * @param _l2Oracle                  Address of the L2OutputOracle contract.
+     * @param _validatorPool             Address of the ValidatorPool contract.
      * @param _guardian                  Address that can pause deposits and withdrawals.
      * @param _paused                    Sets the contract's pausability state.
+     * @param _config                    Address of the SystemConfig contract.
      * @param _zkMerkleTrie              Address of the ZKMerkleTrie contract.
      */
     constructor(
         L2OutputOracle _l2Oracle,
+        address _validatorPool,
         address _guardian,
         bool _paused,
+        SystemConfig _config,
         ZKMerkleTrie _zkMerkleTrie
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2Oracle;
+        VALIDATOR_POOL = _validatorPool;
         GUARDIAN = _guardian;
+        SYSTEM_CONFIG = _config;
         ZK_MERKLE_TRIE = _zkMerkleTrie;
         initialize(_paused);
     }
@@ -169,7 +186,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
         __ResourceMetering_init();
     }
 
-     /**
+    /**
      * @notice Pause deposits and withdrawals.
      */
     function pause() external {
@@ -196,6 +213,21 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
     // solhint-disable-next-line ordering
     receive() external payable {
         depositTransaction(msg.sender, msg.value, RECEIVE_DEFAULT_GAS_LIMIT, false, bytes(""));
+    }
+
+    /**
+     * @notice Getter for the resource config. Used internally by the ResourceMetering
+     *         contract. The SystemConfig is the source of truth for the resource config.
+     *
+     * @return ResourceMetering.ResourceConfig
+     */
+    function _resourceConfig()
+        internal
+        view
+        override
+        returns (ResourceMetering.ResourceConfig memory)
+    {
+        return SYSTEM_CONFIG.resourceConfig();
     }
 
     /**
@@ -308,10 +340,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
         // A withdrawal can only be finalized if it has been proven. We know that a withdrawal has
         // been proven at least once when its timestamp is non-zero. Unproven withdrawals will have
         // a timestamp of zero.
-        require(
-            provenWithdrawal.timestamp != 0,
-            "KromaPortal: withdrawal has not been proven yet"
-        );
+        require(provenWithdrawal.timestamp != 0, "KromaPortal: withdrawal has not been proven yet");
 
         // As a sanity check, we make sure that the proven withdrawal's timestamp is greater than
         // starting timestamp inside the L2OutputOracle. Not strictly necessary but extra layer of
@@ -442,7 +471,36 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
     }
 
     /**
-     * @notice Determine if a given output is finalized. Reverts if the call to
+     * @notice Accepts deposits of data from ValidatorPool contract, and emits a TransactionDeposited event for use in
+     *         deriving deposit transactions on L2.
+     *
+     * @param _to         Target address on L2.
+     * @param _gasLimit   Minimum L2 gas limit (can be greater than or equal to this value).
+     * @param _data       Data to trigger the recipient with.
+     */
+    function depositTransactionByValidatorPool(
+        address _to,
+        uint64 _gasLimit,
+        bytes memory _data
+    ) public {
+        require(
+            msg.sender == VALIDATOR_POOL,
+            "KromaPortal: function can only be called from the ValidatorPool"
+        );
+
+        // Transform the from-address to its alias.
+        address from = AddressAliasHelper.applyL1ToL2Alias(msg.sender);
+
+        // Compute the opaque data that will be emitted as part of the TransactionDeposited event.
+        bytes memory opaqueData = abi.encodePacked(uint256(0), uint256(0), _gasLimit, false, _data);
+
+        // Emit a TransactionDeposited event so that the rollup node can derive a deposit
+        // transaction for this deposit.
+        emit TransactionDeposited(from, _to, DEPOSIT_VERSION, opaqueData);
+    }
+
+    /**
+     * @notice Determines if the output at the given index is finalized. Reverts if the call to
      *         L2_ORACLE.getL2Output reverts. Returns a boolean otherwise.
      *
      * @param _l2OutputIndex Index of the L2 output to check.

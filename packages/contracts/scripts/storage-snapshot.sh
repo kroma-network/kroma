@@ -10,6 +10,9 @@ then
 fi
 
 contracts=(
+  contracts/L1/Colosseum.sol:Colosseum
+  contracts/L1/SecurityCouncil.sol:SecurityCouncil
+  contracts/L1/ValidatorPool.sol:ValidatorPool
   contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger
   contracts/L1/L1StandardBridge.sol:L1StandardBridge
   contracts/L1/L2OutputOracle.sol:L2OutputOracle
@@ -19,9 +22,9 @@ contracts=(
   contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger
   contracts/L2/L2StandardBridge.sol:L2StandardBridge
   contracts/L2/L2ToL1MessagePasser.sol:L2ToL1MessagePasser
-  contracts/L2/ProposerFeeVault.sol:ProposerFeeVault
-  contracts/L2/BaseFeeVault.sol:BaseFeeVault
-  contracts/L2/L1FeeVault.sol:L1FeeVault
+  contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault
+  contracts/L2/ProtocolVault.sol:ProtocolVault
+  contracts/L2/ProposerRewardVault.sol:ProposerRewardVault
   contracts/vendor/WETH9.sol:WETH9
   contracts/universal/ProxyAdmin.sol:ProxyAdmin
   contracts/universal/Proxy.sol:Proxy

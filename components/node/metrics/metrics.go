@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	libp2pmetrics "github.com/libp2p/go-libp2p/core/metrics"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -63,8 +62,12 @@ type Metricer interface {
 	RecordProposerBuildingDiffTime(duration time.Duration)
 	RecordProposerSealingTime(duration time.Duration)
 	Document() []metrics.DocumentedMetric
+	RecordChannelInputBytes(num int)
 	// P2P Metrics
-	RecordPeerScoring(peerID peer.ID, score float64)
+	SetPeerScores(scores map[string]float64)
+	ClientPayloadByNumberEvent(num uint64, resultCode byte, duration time.Duration)
+	ServerPayloadByNumberEvent(num uint64, resultCode byte, duration time.Duration)
+	PayloadsQuarantineSize(n int)
 }
 
 // Metrics tracks all the metrics for the kroma-node.
@@ -88,6 +91,12 @@ type Metrics struct {
 	DerivationErrors *EventMetrics
 	SequencingErrors *EventMetrics
 	PublishingErrors *EventMetrics
+
+	P2PReqDurationSeconds *prometheus.HistogramVec
+	P2PReqTotal           *prometheus.CounterVec
+	P2PPayloadByNumber    *prometheus.GaugeVec
+
+	PayloadsQuarantineTotal prometheus.Gauge
 
 	ProposerInconsistentL1Origin *EventMetrics
 	ProposerResets               *EventMetrics
@@ -120,6 +129,8 @@ type Metrics struct {
 	PeerScores        *prometheus.GaugeVec
 	GossipEventsTotal *prometheus.CounterVec
 	BandwidthTotal    *prometheus.GaugeVec
+
+	ChannelInputBytes prometheus.Counter
 
 	registry *prometheus.Registry
 	factory  metrics.Factory
@@ -285,21 +296,24 @@ func NewMetrics(procName string) *Metrics {
 			Name:      "peer_count",
 			Help:      "Count of currently connected p2p peers",
 		}),
+		// Notice: We cannot use peer ids as [Labels] in the GaugeVec
+		// since peer ids would open a service attack vector.
+		// Each peer id would be a separate metric, flooding prometheus.
+		//
+		// [Labels]: https://prometheus.io/docs/practices/naming/#labels
+		PeerScores: factory.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: ns,
+			Subsystem: "p2p",
+			Name:      "peer_scores",
+			Help:      "Count of peer scores grouped by score",
+		}, []string{
+			"band",
+		}),
 		StreamCount: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
 			Subsystem: "p2p",
 			Name:      "stream_count",
 			Help:      "Count of currently connected p2p streams",
-		}),
-		PeerScores: factory.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: ns,
-			Subsystem: "p2p",
-			Name:      "peer_scores",
-			Help:      "Peer scoring",
-		}, []string{
-			// No label names here since peer ids would open a service attack vector.
-			// Each peer id would be a separate metric, flooding prometheus.
-			// See: https://prometheus.io/docs/practices/naming/#labels
 		}),
 		GossipEventsTotal: factory.NewCounterVec(prometheus.CounterOpts{
 			Namespace: ns,
@@ -316,6 +330,49 @@ func NewMetrics(procName string) *Metrics {
 			Help:      "P2P bandwidth by direction",
 		}, []string{
 			"direction",
+		}),
+		ChannelInputBytes: factory.NewCounter(prometheus.CounterOpts{
+			Namespace: ns,
+			Name:      "channel_input_bytes",
+			Help:      "Number of compressed bytes added to the channel",
+		}),
+
+		P2PReqDurationSeconds: factory.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: ns,
+			Subsystem: "p2p",
+			Name:      "req_duration_seconds",
+			Buckets:   []float64{},
+			Help:      "Duration of P2P requests",
+		}, []string{
+			"p2p_role", // "client" or "server"
+			"p2p_method",
+			"result_code",
+		}),
+
+		P2PReqTotal: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace: ns,
+			Subsystem: "p2p",
+			Name:      "req_total",
+			Help:      "Number of P2P requests",
+		}, []string{
+			"p2p_role", // "client" or "server"
+			"p2p_method",
+			"result_code",
+		}),
+
+		P2PPayloadByNumber: factory.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: ns,
+			Subsystem: "p2p",
+			Name:      "payload_by_number",
+			Help:      "Payload by number requests",
+		}, []string{
+			"p2p_role", // "client" or "server"
+		}),
+		PayloadsQuarantineTotal: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace: ns,
+			Subsystem: "p2p",
+			Name:      "payloads_quarantine_total",
+			Help:      "number of unverified execution payloads buffered in quarantine",
 		}),
 
 		ProposerBuildingDiffDurationSeconds: factory.NewHistogram(prometheus.HistogramOpts{
@@ -345,6 +402,14 @@ func NewMetrics(procName string) *Metrics {
 
 		registry: registry,
 		factory:  factory,
+	}
+}
+
+// SetPeerScores updates the peer score [prometheus.GaugeVec].
+// This takes a map of labels to scores.
+func (m *Metrics) SetPeerScores(scores map[string]float64) {
+	for label, score := range scores {
+		m.PeerScores.WithLabelValues(label).Set(score)
 	}
 }
 
@@ -489,10 +554,6 @@ func (m *Metrics) RecordGossipEvent(evType int32) {
 	m.GossipEventsTotal.WithLabelValues(pb.TraceEvent_Type_name[evType]).Inc()
 }
 
-func (m *Metrics) RecordPeerScoring(peerID peer.ID, score float64) {
-	m.PeerScores.WithLabelValues(peerID.String()).Set(score)
-}
-
 func (m *Metrics) IncPeerCount() {
 	m.PeerCount.Inc()
 }
@@ -557,6 +618,31 @@ func (m *Metrics) Serve(ctx context.Context, hostname string, port int) error {
 
 func (m *Metrics) Document() []metrics.DocumentedMetric {
 	return m.factory.Document()
+}
+
+func (m *Metrics) ClientPayloadByNumberEvent(num uint64, resultCode byte, duration time.Duration) {
+	if resultCode > 4 { // summarize all high codes to reduce metrics overhead
+		resultCode = 5
+	}
+	code := strconv.FormatUint(uint64(resultCode), 10)
+	m.P2PReqTotal.WithLabelValues("client", "payload_by_number", code).Inc()
+	m.P2PReqDurationSeconds.WithLabelValues("client", "payload_by_number", code).Observe(float64(duration) / float64(time.Second))
+	m.P2PPayloadByNumber.WithLabelValues("client").Set(float64(num))
+}
+
+func (m *Metrics) ServerPayloadByNumberEvent(num uint64, resultCode byte, duration time.Duration) {
+	code := strconv.FormatUint(uint64(resultCode), 10)
+	m.P2PReqTotal.WithLabelValues("server", "payload_by_number", code).Inc()
+	m.P2PReqDurationSeconds.WithLabelValues("server", "payload_by_number", code).Observe(float64(duration) / float64(time.Second))
+	m.P2PPayloadByNumber.WithLabelValues("server").Set(float64(num))
+}
+
+func (m *Metrics) PayloadsQuarantineSize(n int) {
+	m.PayloadsQuarantineTotal.Set(float64(n))
+}
+
+func (m *Metrics) RecordChannelInputBytes(inputCompressedBytes int) {
+	m.ChannelInputBytes.Add(float64(inputCompressedBytes))
 }
 
 type noopMetricer struct{}
@@ -625,7 +711,7 @@ func (n *noopMetricer) RecordProposerReset() {
 func (n *noopMetricer) RecordGossipEvent(evType int32) {
 }
 
-func (n *noopMetricer) RecordPeerScoring(peerID peer.ID, score float64) {
+func (n *noopMetricer) SetPeerScores(scores map[string]float64) {
 }
 
 func (n *noopMetricer) IncPeerCount() {
@@ -651,4 +737,16 @@ func (n *noopMetricer) RecordProposerSealingTime(duration time.Duration) {
 
 func (n *noopMetricer) Document() []metrics.DocumentedMetric {
 	return nil
+}
+
+func (n *noopMetricer) ClientPayloadByNumberEvent(num uint64, resultCode byte, duration time.Duration) {
+}
+
+func (n *noopMetricer) ServerPayloadByNumberEvent(num uint64, resultCode byte, duration time.Duration) {
+}
+
+func (n *noopMetricer) PayloadsQuarantineSize(int) {
+}
+
+func (n *noopMetricer) RecordChannelInputBytes(int) {
 }

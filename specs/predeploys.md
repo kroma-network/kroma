@@ -15,9 +15,9 @@
 - [L2ToL1MessagePasser](#l2tol1messagepasser)
 - [L2CrossDomainMessenger](#l2crossdomainmessenger)
 - [GasPriceOracle](#gaspriceoracle)
-- [BaseFeeVault](#basefeevault)
-- [L1FeeVault](#l1feevault)
-- [ProposerFeeVault](#proposerfeevault)
+- [ProtocolVault](#protocolvault)
+- [ProposerRewardVault](#proposerrewardvault)
+- [ValidatorRewardVault](#validatorrewardvault)
 - [L2StandardBridge](#l2standardbridge)
 - [KromaMintableERC20Factory](#kromamintableerc20factory)
 - [KromaMintableERC721Factory](#kromamintableerc721factory)
@@ -37,21 +37,21 @@ network forking.
 Predeploy addresses exist in 1 byte namespace `0x42000000000000000000000000000000000000xx`.
 Proxies are set at each possible predeploy address except for the `ProxyAdmin` and the `WETH9`.
 
-| Name                          | Address                                    | Proxied |
-| ----------------------------- | ------------------------------------------ | --------|
-| ProxyAdmin                    | 0x4200000000000000000000000000000000000000 | No      |
-| WETH9                         | 0x4200000000000000000000000000000000000001 | No      |
-| L1Block                       | 0x4200000000000000000000000000000000000002 | Yes     |
-| L2ToL1MessagePasser           | 0x4200000000000000000000000000000000000003 | Yes     |
-| L2CrossDomainMessenger        | 0x4200000000000000000000000000000000000004 | Yes     |
-| GasPriceOracle                | 0x4200000000000000000000000000000000000005 | Yes     |
-| BaseFeeVault                  | 0x4200000000000000000000000000000000000006 | Yes     |
-| L1FeeVault                    | 0x4200000000000000000000000000000000000007 | Yes     |
-| ProposerFeeVault              | 0x4200000000000000000000000000000000000008 | Yes     |
-| L2StandardBridge              | 0x4200000000000000000000000000000000000009 | Yes     |
-| L2ERC721Bridge                | 0x420000000000000000000000000000000000000A | Yes     |
-| KromaMintableERC20Factory    | 0x420000000000000000000000000000000000000B | Yes     |
-| KromaMintableERC721Factory   | 0x420000000000000000000000000000000000000C | Yes     |
+| Name                       | Address                                    | Proxied |
+|----------------------------|--------------------------------------------|---------|
+| ProxyAdmin                 | 0x4200000000000000000000000000000000000000 | No      |
+| WETH9                      | 0x4200000000000000000000000000000000000001 | No      |
+| L1Block                    | 0x4200000000000000000000000000000000000002 | Yes     |
+| L2ToL1MessagePasser        | 0x4200000000000000000000000000000000000003 | Yes     |
+| L2CrossDomainMessenger     | 0x4200000000000000000000000000000000000004 | Yes     |
+| GasPriceOracle             | 0x4200000000000000000000000000000000000005 | Yes     |
+| ProtocolVault              | 0x4200000000000000000000000000000000000006 | Yes     |
+| ProposerRewardVault        | 0x4200000000000000000000000000000000000007 | Yes     |
+| ValidatorRewardVault       | 0x4200000000000000000000000000000000000008 | Yes     |
+| L2StandardBridge           | 0x4200000000000000000000000000000000000009 | Yes     |
+| L2ERC721Bridge             | 0x420000000000000000000000000000000000000A | Yes     |
+| KromaMintableERC20Factory  | 0x420000000000000000000000000000000000000B | Yes     |
+| KromaMintableERC721Factory | 0x420000000000000000000000000000000000000C | Yes     |
 
 ## ProxyAdmin
 
@@ -139,35 +139,33 @@ These values are managed by the `SystemConfig` contract on L2. The `scalar` and
 `overhead` values are sent to the `L1Block` contract each block and the `decimals`
 value is hardcoded to 6.
 
-## BaseFeeVault
+## ProtocolVault
 
-[Implementation](../packages/contracts/contracts/L2/BaseFeeVault.sol)
+[Implementation](../packages/contracts/contracts/L2/ProtocolVault.sol)
 
 Address: `0x4200000000000000000000000000000000000006`
 
-The `BaseFeeVault` predeploy receives the basefees on L2. The basefee is not
-burnt on L2 like it is on L1. Once the contract has received a certain amount
-of fees, the ETH can be withdrawn to an immutable address on
-L1.
-
-## L1FeeVault
-
-[Implementation](../packages/contracts/contracts/L2/L1FeeVault.sol)
-
-Address: `0x4200000000000000000000000000000000000007`
-
-The `L1FeeVault` predeploy receives the L1 portion of the transaction fees.
+The `ProtocolVault` predeploy accumulates transaction fees to fund network operation.
 Once the contract has received a certain amount of fees, the ETH can be
 withdrawn to an immutable address on L1.
 
-## ProposerFeeVault
+## ProposerRewardVault
 
-[Implementation](../packages/contracts/contracts/L2/ProposerFeeVault.sol)
+[Implementation](../packages/contracts/contracts/L2/ProposerRewardVault.sol)
+
+Address: `0x4200000000000000000000000000000000000007`
+
+The `ProposerRewardVault` predeploy receives the L1 portion of the transaction fees.
+Once the contract has received a certain amount of fees, the ETH can be
+withdrawn to an immutable address on L1.
+
+## ValidatorRewardVault
+
+[Implementation](../packages/contracts/contracts/L2/ValidatorRewardVault.sol)
 
 Address: `0x4200000000000000000000000000000000000008`
 
-The `ProposerFeeVault` accumulates any transaction priority fee and is the value of
-`block.coinbase`.
+The `ValidatorRewardVault` accumulates transaction fees and pays rewards to validators.
 When enough fees accumulate in this account, they can be withdrawn to an immutable L1 address.
 
 To change the L1 address that fees are withdrawn to, the contract must be

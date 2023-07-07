@@ -11,6 +11,7 @@ import (
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/rollup/derive"
 	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
+	txmetrics "github.com/kroma-network/kroma/utils/service/txmgr/metrics"
 )
 
 const Namespace = "kroma_batcher"
@@ -21,6 +22,9 @@ type Metricer interface {
 
 	// Records all L1 and L2 block events
 	kmetrics.RefMetricer
+
+	// Record Tx metrics
+	txmetrics.TxMetricer
 
 	RecordLatestL1Block(l1ref eth.L1BlockRef)
 	RecordL2BlocksLoaded(l2ref eth.L2BlockRef)
@@ -43,11 +47,12 @@ type Metrics struct {
 	factory  kmetrics.Factory
 
 	kmetrics.RefMetrics
+	txmetrics.TxMetrics
 
 	Info prometheus.GaugeVec
 	Up   prometheus.Gauge
 
-	// label by openend, closed, fully_submitted, timed_out
+	// label by opened, closed, fully_submitted, timed_out
 	ChannelEvs kmetrics.EventVec
 
 	PendingBlocksCount prometheus.GaugeVec
@@ -80,6 +85,7 @@ func NewMetrics(procName string) *Metrics {
 		factory:  factory,
 
 		RefMetrics: kmetrics.MakeRefMetrics(ns, factory),
+		TxMetrics:  txmetrics.MakeTxMetrics(ns, factory),
 
 		Info: *factory.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: ns,
@@ -152,7 +158,8 @@ func (m *Metrics) Document() []kmetrics.DocumentedMetric {
 }
 
 func (m *Metrics) StartBalanceMetrics(ctx context.Context,
-	l log.Logger, client *ethclient.Client, account common.Address) {
+	l log.Logger, client *ethclient.Client, account common.Address,
+) {
 	kmetrics.LaunchBalanceMetrics(ctx, l, m.registry, m.ns, client, account)
 }
 
@@ -185,7 +192,7 @@ func (m *Metrics) RecordLatestL1Block(l1ref eth.L1BlockRef) {
 	m.RecordL1Ref("latest", l1ref)
 }
 
-// RecordL2BlockLoaded should be called when a new L2 block was loaded into the
+// RecordL2BlocksLoaded should be called when a new L2 block was loaded into the
 // channel manager (but not processed yet).
 func (m *Metrics) RecordL2BlocksLoaded(l2ref eth.L2BlockRef) {
 	m.RecordL2Ref(StageLoaded, l2ref)

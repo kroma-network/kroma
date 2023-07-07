@@ -80,7 +80,7 @@ func TestBatcherKeyRotation(gt *testing.T) {
 	miner.ActL1StartBlock(12)(t)
 	miner.ActL1IncludeTx(dp.Addresses.SysCfgOwner)(t)
 	miner.ActL1EndBlock(t)
-	cfgChangeL1BlockNum := miner.l1Chain.CurrentBlock().NumberU64()
+	cfgChangeL1BlockNum := miner.l1Chain.CurrentBlock().Number.Uint64()
 
 	// sequence L2 blocks, and submit with new batcher
 	proposer.ActL1HeadSignal(t)
@@ -200,7 +200,7 @@ func TestGPOParamsChange(gt *testing.T) {
 	miner.ActEmptyBlock(t)
 	proposer.ActL1HeadSignal(t)
 	proposer.ActBuildToL1Head(t)
-	basefee := miner.l1Chain.CurrentBlock().BaseFee()
+	basefee := miner.l1Chain.CurrentBlock().BaseFee
 
 	// alice makes a L2 tx, proposer includes it
 	alice.ActResetTxOpts(t)
@@ -238,7 +238,7 @@ func TestGPOParamsChange(gt *testing.T) {
 	miner.ActL1StartBlock(12)(t)
 	miner.ActL1IncludeTx(dp.Addresses.SysCfgOwner)(t)
 	miner.ActL1EndBlock(t)
-	basefeeGPOUpdate := miner.l1Chain.CurrentBlock().BaseFee()
+	basefeeGPOUpdate := miner.l1Chain.CurrentBlock().BaseFee
 
 	// build empty L2 chain, up to but excluding the L2 block with the L1 origin that processes the GPO change
 	proposer.ActL1HeadSignal(t)
@@ -274,7 +274,7 @@ func TestGPOParamsChange(gt *testing.T) {
 
 	// build more L2 blocks, with new L1 origin
 	miner.ActEmptyBlock(t)
-	basefee = miner.l1Chain.CurrentBlock().BaseFee()
+	basefee = miner.l1Chain.CurrentBlock().BaseFee
 	proposer.ActL1HeadSignal(t)
 	proposer.ActBuildToL1Head(t)
 	// and Alice makes a tx again
@@ -313,7 +313,7 @@ func TestGasLimitChange(gt *testing.T) {
 	proposer.ActL1HeadSignal(t)
 	proposer.ActBuildToL1Head(t)
 
-	oldGasLimit := propEngine.l2Chain.CurrentBlock().GasLimit()
+	oldGasLimit := propEngine.l2Chain.CurrentBlock().GasLimit
 	require.Equal(t, oldGasLimit, uint64(dp.DeployConfig.L2GenesisBlockGasLimit))
 
 	// change gas limit on L1 to triple what it was
@@ -335,12 +335,12 @@ func TestGasLimitChange(gt *testing.T) {
 	proposer.ActL1HeadSignal(t)
 	proposer.ActBuildToL1HeadExcl(t)
 
-	require.Equal(t, oldGasLimit, propEngine.l2Chain.CurrentBlock().GasLimit())
+	require.Equal(t, oldGasLimit, propEngine.l2Chain.CurrentBlock().GasLimit)
 	require.Equal(t, uint64(1), proposer.SyncStatus().UnsafeL2.L1Origin.Number)
 
 	// now include the L1 block with the gaslimit change, and see if it changes as expected
 	proposer.ActBuildToL1Head(t)
-	require.Equal(t, oldGasLimit*3, propEngine.l2Chain.CurrentBlock().GasLimit())
+	require.Equal(t, oldGasLimit*3, propEngine.l2Chain.CurrentBlock().GasLimit)
 	require.Equal(t, uint64(2), proposer.SyncStatus().UnsafeL2.L1Origin.Number)
 
 	// now submit all this to L1, and see if a syncer can sync and reproduce it

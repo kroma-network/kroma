@@ -24,16 +24,16 @@ Contract that can upgrade L1 contracts                                          
 
 ### Contracts deployed to L2
 
-| Name                                                                                     | Proxy Type                                 | Description                                                                                      |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| [`GasPriceOracle`](../../specs/predeploys.md#gaspriceoracle)                             | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L2 gas price configuration values                                                             |
-| [`L1Block`](../../specs/predeploys.md#l1block)                                           | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L1 block context information (e.g., latest known L1 block hash)                                 |
-| [`L2CrossDomainMessenger`](../../specs/predeploys.md#l2crossdomainmessenger)             | [`Proxy`](./contracts/universal/Proxy.sol) | High-level interface for sending messages to and receiving messages from L1                       |
-| [`L2StandardBridge`](../../specs/predeploys.md#l2standardbridge)                         | [`Proxy`](./contracts/universal/Proxy.sol) | Standardized system for transferring ERC20 tokens to/from L1                                        |
-| [`L2ToL1MessagePasser`](../../specs/predeploys.md#l2tol1messagepasser)                   | [`Proxy`](./contracts/universal/Proxy.sol) | Low-level message passing interface                                                              |
-| [`ProposerFeeVault`](../../specs/predeploys.md#proposerfeevault)                       | [`Proxy`](./contracts/universal/Proxy.sol) | Vault for L2 transaction fees                                                                       |
-| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory)     | [`Proxy`](./contracts/universal/Proxy.sol) | Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge` |
-| [`L2ProxyAdmin`](../../specs/TODO)                                                       | -                                          | Contract that can upgrade L2 contracts when sent a transaction from L1                               |
+| Name                                                                               | Proxy Type                                 | Description                                                                                   |
+|------------------------------------------------------------------------------------|--------------------------------------------|-----------------------------------------------------------------------------------------------|
+| [`GasPriceOracle`](../../specs/predeploys.md#gaspriceoracle)                       | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L2 gas price configuration values                                                      |
+| [`L1Block`](../../specs/predeploys.md#l1block)                                     | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L1 block context information (e.g., latest known L1 block hash)                        |
+| [`L2CrossDomainMessenger`](../../specs/predeploys.md#l2crossdomainmessenger)       | [`Proxy`](./contracts/universal/Proxy.sol) | High-level interface for sending messages to and receiving messages from L1                   |
+| [`L2StandardBridge`](../../specs/predeploys.md#l2standardbridge)                   | [`Proxy`](./contracts/universal/Proxy.sol) | Standardized system for transferring ERC20 tokens to/from L1                                  |
+| [`L2ToL1MessagePasser`](../../specs/predeploys.md#l2tol1messagepasser)             | [`Proxy`](./contracts/universal/Proxy.sol) | Low-level message passing interface                                                           |
+| [`ValidatorRewardVault`](../../specs/predeploys.md#validatorrewardvault)           | [`Proxy`](./contracts/universal/Proxy.sol) | Vault for L2 transaction fees                                                                 |
+| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory) | [`Proxy`](./contracts/universal/Proxy.sol) | Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge` |
+| [`L2ProxyAdmin`](../../specs/TODO)                                                 | -                                          | Contract that can upgrade L2 contracts when sent a transaction from L1                        |
 
 ## Installation
 
@@ -53,7 +53,7 @@ We work on this repository with a combination of [Hardhat](https://hardhat.org) 
    A specific version must be used.
 
    ```shell
-   > foundryup -C 2ff99025abade470a795724c10648c800a41025e
+   > foundryup -C da2392e58bb8a7fefeba46b40c4df1afad8ccd22
    ```
 
 2. Install node modules with yarn (v1) and Node.js (16+):
@@ -89,9 +89,11 @@ Each target contract is tested with a separate yarn command, for example:
 
 #### Configuration
 
-1. Create or modify a file `<network-name>.json` inside of the [`deploy-config`](./deploy-config/) folder.
+1. Create or modify a file `<network-name>.ts` inside of the [`deploy-config`](./deploy-config/) folder.
 2. Fill out this file according to the `deployConfigSpec` located inside of the
-   [`hardhat.config.ts](./hardhat.config.ts).
+   [`hardhat.config.ts`](./hardhat.config.ts).
+3. Optionally: Run `npx hardhat generate-deploy-config --network <network-name>` to generate the associated JSON
+   file. This is required if using `utils/chain-ops`.
 
 #### Execution
 
@@ -250,3 +252,8 @@ Test contracts should be named one of the following according to their use:
 - `TargetContract_Init` for contracts that perform basic setup to be reused in other test contracts.
 - `TargetContract_Function_Test` for contracts containing happy path tests for a given function.
 - `TargetContract_Function_TestFail` for contracts containing sad path tests for a given function.
+
+## Withdrawing From Fee Vaults
+
+See the file `scripts/FeeVaultWithdrawal.s.sol` to withdraw from the L2 fee vaults. It includes
+instructions on how to run it. `foundry` is required.

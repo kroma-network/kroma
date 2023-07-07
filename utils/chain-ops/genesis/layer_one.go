@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 
@@ -22,20 +23,48 @@ import (
 	"github.com/kroma-network/kroma/utils/chain-ops/state"
 )
 
-var proxies = []string{
-	"SystemConfigProxy",
-	"L2OutputOracleProxy",
-	"L1CrossDomainMessengerProxy",
-	"L1StandardBridgeProxy",
-	"KromaPortalProxy",
-	"KromaMintableERC20FactoryProxy",
-	"ColosseumProxy",
+var (
+	// proxies represents the set of proxies in front of contracts.
+	proxies = []string{
+		"SystemConfigProxy",
+		"ValidatorPoolProxy",
+		"L2OutputOracleProxy",
+		"L1CrossDomainMessengerProxy",
+		"L1StandardBridgeProxy",
+		"KromaPortalProxy",
+		"KromaMintableERC20FactoryProxy",
+		"ColosseumProxy",
+		"SecurityCouncilProxy",
+	}
+	// portalMeteringSlot is the storage slot containing the metering params.
+	portalMeteringSlot = common.Hash{31: 0x01}
+	// zeroHash represents the zero value for a hash.
+	zeroHash = common.Hash{}
+	// uint128Max is type(uint128).max and is set in the init function.
+	uint128Max = new(big.Int)
+	// The default values for the ResourceConfig, used as part of
+	// an EIP-1559 curve for deposit gas.
+	defaultResourceConfig = bindings.ResourceMeteringResourceConfig{
+		MaxResourceLimit:            20_000_000,
+		ElasticityMultiplier:        10,
+		BaseFeeMaxChangeDenominator: 8,
+		MinimumBaseFee:              params.GWei,
+		SystemTxMaxGas:              1_000_000,
+	}
+)
+
+func init() {
+	var ok bool
+	uint128Max, ok = new(big.Int).SetString("ffffffffffffffffffffffffffffffff", 16)
+	if !ok {
+		panic("bad uint128Max")
+	}
+	// Set the maximum base fee on the default config.
+	defaultResourceConfig.MaximumBaseFee = uint128Max
 }
 
-var portalMeteringSlot = common.Hash{31: 0x01}
-
-var zeroHash common.Hash
-
+// BuildL1DeveloperGenesis will create a L1 genesis block after creating
+// all of the state required for a Kroma network to function.
 func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 	if config.L2OutputOracleStartingTimestamp != -1 {
 		return nil, errors.New("l2oo starting timestamp must be -1")
@@ -68,6 +97,26 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	portalABI, err := bindings.KromaPortalMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	// Initialize the KromaPortal without being paused
+	data, err := portalABI.Pack("initialize", false)
+	if err != nil {
+		return nil, fmt.Errorf("cannot abi encode initialize for KromaPortal: %w", err)
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["KromaPortalProxy"].Address,
+		depsByName["KromaPortal"].Address,
+		data,
+	); err != nil {
+		return nil, fmt.Errorf("cannot upgrade KromaPortalProxy: %w", err)
+	}
+
 	sysCfgABI, err := bindings.SystemConfigMetaData.GetAbi()
 	if err != nil {
 		return nil, err
@@ -76,7 +125,8 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 	if gasLimit == 0 {
 		gasLimit = defaultL2GasLimit
 	}
-	data, err := sysCfgABI.Pack(
+
+	data, err = sysCfgABI.Pack(
 		"initialize",
 		config.FinalSystemOwner,
 		uint642Big(config.GasPriceOracleOverhead),
@@ -84,6 +134,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		config.BatchSenderAddress.Hash(),
 		gasLimit,
 		config.P2PProposerAddress,
+		defaultResourceConfig,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cannot abi encode initialize for SystemConfig: %w", err)
@@ -93,6 +144,24 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		opts,
 		depsByName["SystemConfigProxy"].Address,
 		depsByName["SystemConfig"].Address,
+		data,
+	); err != nil {
+		return nil, fmt.Errorf("cannot upgrade SystemConfigProxy: %w", err)
+	}
+
+	valPoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = valPoolABI.Pack("initialize")
+	if err != nil {
+		return nil, fmt.Errorf("cannot abi encode initialize for ValidatorPool: %w", err)
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["ValidatorPoolProxy"].Address,
+		depsByName["ValidatorPool"].Address,
 		data,
 	); err != nil {
 		return nil, err
@@ -138,23 +207,24 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		return nil, err
 	}
 
-	portalABI, err := bindings.KromaPortalMetaData.GetAbi()
+	securityCouncilABI, err := bindings.SecurityCouncilMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	data, err = portalABI.Pack("initialize", false)
+	data, err = securityCouncilABI.Pack("initialize0", true, config.SecurityCouncilOwners, uint642Big(config.SecurityCouncilNumConfirmationRequired))
 	if err != nil {
-		return nil, fmt.Errorf("cannot abi encode initialize for KromaPortal: %w", err)
+		return nil, err
 	}
 	if _, err := upgradeProxy(
 		backend,
 		opts,
-		depsByName["KromaPortalProxy"].Address,
-		depsByName["KromaPortal"].Address,
+		depsByName["SecurityCouncilProxy"].Address,
+		depsByName["SecurityCouncil"].Address,
 		data,
 	); err != nil {
 		return nil, err
 	}
+
 	l1XDMABI, err := bindings.L1CrossDomainMessengerMetaData.GetAbi()
 	if err != nil {
 		return nil, err
@@ -287,6 +357,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 	if gasLimit == 0 {
 		gasLimit = defaultL2GasLimit
 	}
+
 	constructors = append(constructors, []deployer.Constructor{
 		{
 			Name: "SystemConfig",
@@ -297,6 +368,16 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 				config.BatchSenderAddress.Hash(), // left-padded 32 bytes value, version is zero anyway
 				gasLimit,
 				config.P2PProposerAddress,
+				defaultResourceConfig,
+			},
+		},
+		{
+			Name: "ValidatorPool",
+			Args: []interface{}{
+				config.ValidatorPoolTrustedValidator,
+				config.ValidatorPoolMinBondAmount.ToInt(),
+				uint642Big(config.ValidatorPoolNonPenaltyPeriod),
+				uint642Big(config.ValidatorPoolPenaltyPeriod),
 			},
 		},
 		{
@@ -306,8 +387,6 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 				uint642Big(config.L2BlockTime),
 				big.NewInt(0),
 				uint642Big(uint64(config.L1GenesisBlockTimestamp)),
-				config.L2OutputOracleValidator,
-				predeploys.DevColosseumAddr,
 				uint642Big(config.FinalizationPeriodSeconds),
 			},
 		},
@@ -323,19 +402,25 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		{
 			Name: "KromaPortal",
 			Args: []interface{}{
-				predeploys.DevL2OutputOracleAddr,
 				config.PortalGuardian,
 				true, // _paused
-				predeploys.DevZKMerkleTrieAddr,
+				predeploys.DevSystemConfigAddr,
 			},
 		},
 		{
 			Name: "Colosseum",
 			Args: []interface{}{
 				uint642Big(config.L2OutputOracleSubmissionInterval),
-				uint642Big(config.ColosseumChallengeTimeout),
+				uint642Big(config.ColosseumBisectionTimeout),
+				uint642Big(config.ColosseumProvingTimeout),
+				config.ColosseumDummyHash,
+				uint642Big(config.ColosseumMaxTxs),
 				parseSegsLengthsConfig(config.ColosseumSegmentsLengths),
+				predeploys.DevSystemConfigAddr,
 			},
+		},
+		{
+			Name: "SecurityCouncil",
 		},
 		{
 			Name: "L1CrossDomainMessenger",
@@ -371,33 +456,47 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		_, tx, _, err = bindings.DeploySystemConfig(
 			opts,
 			backend,
-			deployment.Args[0].(common.Address),
-			deployment.Args[1].(*big.Int),
-			deployment.Args[2].(*big.Int),
-			deployment.Args[3].(common.Hash),
-			deployment.Args[4].(uint64),
-			deployment.Args[5].(common.Address),
+			/* owner= */ deployment.Args[0].(common.Address),
+			/* overhead= */ deployment.Args[1].(*big.Int),
+			/* scalar= */ deployment.Args[2].(*big.Int),
+			/* batcherHash= */ deployment.Args[3].(common.Hash),
+			/* gasLimit= */ deployment.Args[4].(uint64),
+			/* unsafeBlockSigner= */ deployment.Args[5].(common.Address),
+			/* config= */ deployment.Args[6].(bindings.ResourceMeteringResourceConfig),
+		)
+	case "ValidatorPool":
+		_, tx, _, err = bindings.DeployValidatorPool(
+			opts,
+			backend,
+			predeploys.DevL2OutputOracleAddr,
+			predeploys.DevKromaPortalAddr,
+			/* trustedValidator= */ deployment.Args[0].(common.Address),
+			/* minBondAmount= */ deployment.Args[1].(*big.Int),
+			/* nonPenaltyPeriod= */ deployment.Args[2].(*big.Int),
+			/* penaltyPeriod= */ deployment.Args[3].(*big.Int),
 		)
 	case "L2OutputOracle":
 		_, tx, _, err = bindings.DeployL2OutputOracle(
 			opts,
 			backend,
-			deployment.Args[0].(*big.Int),
-			deployment.Args[1].(*big.Int),
-			deployment.Args[2].(*big.Int),
-			deployment.Args[3].(*big.Int),
-			deployment.Args[4].(common.Address),
-			deployment.Args[5].(common.Address),
-			deployment.Args[6].(*big.Int),
+			predeploys.DevValidatorPoolAddr,
+			predeploys.DevColosseumAddr,
+			/* submissionInterval= */ deployment.Args[0].(*big.Int),
+			/* l2BlockTime= */ deployment.Args[1].(*big.Int),
+			/* startingBlockNumber= */ deployment.Args[2].(*big.Int),
+			/* startingTimestamp= */ deployment.Args[3].(*big.Int),
+			/* finalizationPeriodSeconds= */ deployment.Args[4].(*big.Int),
 		)
 	case "KromaPortal":
 		_, tx, _, err = bindings.DeployKromaPortal(
 			opts,
 			backend,
-			deployment.Args[0].(common.Address),
-			deployment.Args[1].(common.Address),
-			deployment.Args[2].(bool),
-			deployment.Args[3].(common.Address),
+			predeploys.DevL2OutputOracleAddr,
+			predeploys.DevValidatorPoolAddr,
+			/* guardian= */ deployment.Args[0].(common.Address),
+			/* paused= */ deployment.Args[1].(bool),
+			/* config= */ deployment.Args[2].(common.Address),
+			predeploys.DevZKMerkleTrieAddr,
 		)
 	case "Colosseum":
 		_, tx, _, err = bindings.DeployColosseum(
@@ -405,9 +504,20 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			backend,
 			predeploys.DevL2OutputOracleAddr,
 			predeploys.DevZKVerifierAddr,
-			deployment.Args[0].(*big.Int),
-			deployment.Args[1].(*big.Int),
-			deployment.Args[2].([]*big.Int),
+			/* submissionInterval= */ deployment.Args[0].(*big.Int),
+			/* bisectionTimeout= */ deployment.Args[1].(*big.Int),
+			/* provingTimeout= */ deployment.Args[2].(*big.Int),
+			/* dummyHash= */ deployment.Args[3].(common.Hash),
+			/* maxTxs= */ deployment.Args[4].(*big.Int),
+			/* segmentsLengths= */ deployment.Args[5].([]*big.Int),
+			predeploys.DevSecurityCouncilAddr,
+			predeploys.DevZKMerkleTrieAddr,
+		)
+	case "SecurityCouncil":
+		_, tx, _, err = bindings.DeploySecurityCouncil(
+			opts,
+			backend,
+			predeploys.DevColosseumAddr,
 		)
 	case "L1CrossDomainMessenger":
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(
@@ -431,7 +541,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		_, tx, _, err = bindings.DeployProxyAdmin(
 			opts,
 			backend,
-			common.Address{},
+			/* owner= */ common.Address{},
 		)
 	case "WETH9":
 		_, tx, _, err = bindings.DeployWETH9(
@@ -480,6 +590,15 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 
 func upgradeProxy(backend *backends.SimulatedBackend, opts *bind.TransactOpts, proxyAddr common.Address, implAddr common.Address, callData []byte) (*types.Transaction, error) {
 	var tx *types.Transaction
+
+	code, err := backend.CodeAt(context.Background(), implAddr, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(code) == 0 {
+		return nil, fmt.Errorf("no code at %s", implAddr)
+	}
+
 	proxy, err := bindings.NewProxy(proxyAddr, backend)
 	if err != nil {
 		return nil, err

@@ -43,9 +43,13 @@ type DeployConfig struct {
 	BatchInboxAddress         common.Address `json:"batchInboxAddress"`
 	BatchSenderAddress        common.Address `json:"batchSenderAddress"`
 
-	L2OutputOracleSubmissionInterval uint64         `json:"l2OutputOracleSubmissionInterval"`
-	L2OutputOracleStartingTimestamp  int            `json:"l2OutputOracleStartingTimestamp"`
-	L2OutputOracleValidator          common.Address `json:"l2OutputOracleValidator"`
+	ValidatorPoolTrustedValidator common.Address `json:"validatorPoolTrustedValidator"`
+	ValidatorPoolMinBondAmount    *hexutil.Big   `json:"validatorPoolMinBondAmount"`
+	ValidatorPoolNonPenaltyPeriod uint64         `json:"validatorPoolNonPenaltyPeriod"`
+	ValidatorPoolPenaltyPeriod    uint64         `json:"validatorPoolPenaltyPeriod"`
+
+	L2OutputOracleSubmissionInterval uint64 `json:"l2OutputOracleSubmissionInterval"`
+	L2OutputOracleStartingTimestamp  int    `json:"l2OutputOracleStartingTimestamp"`
 
 	L1BlockTime                 uint64         `json:"l1BlockTime"`
 	L1GenesisBlockTimestamp     hexutil.Uint64 `json:"l1GenesisBlockTimestamp"`
@@ -69,11 +73,15 @@ type DeployConfig struct {
 	L2GenesisBlockParentHash    common.Hash    `json:"l2GenesisBlockParentHash"`
 	L2GenesisBlockBaseFeePerGas *hexutil.Big   `json:"l2GenesisBlockBaseFeePerGas"`
 
-	// Seconds after genesis block that Blue hard fork activates. 0 to activate at genesis. Nil to disable blue
-	L2GenesisBlueTimeOffset *hexutil.Uint64 `json:"l2GenesisBlueTimeOffset,omitempty"`
+	ColosseumBisectionTimeout uint64      `json:"colosseumBisectionTimeout"`
+	ColosseumProvingTimeout   uint64      `json:"colosseumProvingTimeout"`
+	ColosseumSegmentsLengths  string      `json:"colosseumSegmentsLengths"`
+	ColosseumDummyHash        common.Hash `json:"colosseumDummyHash"`
+	ColosseumMaxTxs           uint64      `json:"colosseumMaxTxs"`
 
-	ColosseumChallengeTimeout uint64 `json:"colosseumChallengeTimeout"`
-	ColosseumSegmentsLengths  string `json:"colosseumSegmentsLengths"`
+	// The initial value of the number of confirmations in security council
+	SecurityCouncilNumConfirmationRequired uint64           `json:"securityCouncilNumConfirmationRequired"`
+	SecurityCouncilOwners                  []common.Address `json:"securityCouncilOwners"`
 
 	// Owner of the ProxyAdmin predeploy
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
@@ -81,12 +89,10 @@ type DeployConfig struct {
 	FinalSystemOwner common.Address `json:"finalSystemOwner"`
 	// GUARDIAN account in the KromaPortal
 	PortalGuardian common.Address `json:"portalGuardian"`
-	// L1 recipient of fees accumulated in the BaseFeeVault
-	BaseFeeVaultRecipient common.Address `json:"baseFeeVaultRecipient"`
-	// L1 recipient of fees accumulated in the L1FeeVault
-	L1FeeVaultRecipient common.Address `json:"l1FeeVaultRecipient"`
-	// L1 recipient of fees accumulated in the ProposerFeeVault
-	ProposerFeeVaultRecipient common.Address `json:"proposerFeeVaultRecipient"`
+	// L1 recipient of fees accumulated in the ProtocolVault
+	ProtocolVaultRecipient common.Address `json:"protocolVaultRecipient"`
+	// L1 recipient of fees accumulated in the ProposerRewardVault
+	ProposerRewardVaultRecipient common.Address `json:"proposerRewardVaultRecipient"`
 	// L1StandardBridge proxy address on L1
 	L1StandardBridgeProxy common.Address `json:"l1StandardBridgeProxy"`
 	// L1CrossDomainMessenger proxy address on L1
@@ -97,8 +103,8 @@ type DeployConfig struct {
 	SystemConfigProxy common.Address `json:"systemConfigProxy"`
 	// KromaPortal proxy address on L1
 	KromaPortalProxy common.Address `json:"kromaPortalProxy"`
-	// Colosseum proxy address on L1
-	ColosseumProxy common.Address `json:"colosseumProxy"`
+	// ValidatorPool proxy address on L1
+	ValidatorPoolProxy common.Address `json:"validatorPoolProxy"`
 	// The initial value of the gas overhead
 	GasPriceOracleOverhead uint64 `json:"gasPriceOracleOverhead"`
 	// The initial value of the gas scalar
@@ -150,14 +156,26 @@ func (d *DeployConfig) Check() error {
 	if d.BatchSenderAddress == (common.Address{}) {
 		return fmt.Errorf("%w: BatchSenderAddress cannot be address(0)", ErrInvalidDeployConfig)
 	}
+	if d.ValidatorPoolTrustedValidator == (common.Address{}) {
+		return fmt.Errorf("%w: ValidatorPoolTrustedValidator cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorPoolMinBondAmount == nil {
+		return fmt.Errorf("%w: ValidatorPoolMinBondAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorPoolNonPenaltyPeriod == 0 {
+		return fmt.Errorf("%w: ValidatorPoolNonPenaltyPeriod cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorPoolPenaltyPeriod == 0 {
+		return fmt.Errorf("%w: ValidatorPoolPenaltyPeriod cannot be 0", ErrInvalidDeployConfig)
+	}
 	if d.L2OutputOracleSubmissionInterval == 0 {
 		return fmt.Errorf("%w: L2OutputOracleSubmissionInterval cannot be 0", ErrInvalidDeployConfig)
 	}
+	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != (d.ValidatorPoolNonPenaltyPeriod+d.ValidatorPoolPenaltyPeriod)*2 {
+		return fmt.Errorf("%w: sum of ValidatorPoolNonPenaltyPeriod and ValidatorPoolPenaltyPeriod must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
+	}
 	if d.L2OutputOracleStartingTimestamp == 0 {
 		log.Warn("L2OutputOracleStartingTimestamp is 0")
-	}
-	if d.L2OutputOracleValidator == (common.Address{}) {
-		return fmt.Errorf("%w: L2OutputOracleValidator cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.FinalSystemOwner == (common.Address{}) {
 		return fmt.Errorf("%w: FinalSystemOwner cannot be address(0)", ErrInvalidDeployConfig)
@@ -165,14 +183,11 @@ func (d *DeployConfig) Check() error {
 	if d.ProxyAdminOwner == (common.Address{}) {
 		return fmt.Errorf("%w: ProxyAdminOwner cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.BaseFeeVaultRecipient == (common.Address{}) {
-		return fmt.Errorf("%w: BaseFeeVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)
+	if d.ProtocolVaultRecipient == (common.Address{}) {
+		return fmt.Errorf("%w: ProtocolVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.L1FeeVaultRecipient == (common.Address{}) {
-		return fmt.Errorf("%w: L1FeeVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)
-	}
-	if d.ProposerFeeVaultRecipient == (common.Address{}) {
-		return fmt.Errorf("%w: ProposerFeeVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)
+	if d.ProposerRewardVaultRecipient == (common.Address{}) {
+		return fmt.Errorf("%w: ProposerRewardVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.GasPriceOracleOverhead == 0 {
 		log.Warn("GasPriceOracleOverhead is 0")
@@ -195,9 +210,6 @@ func (d *DeployConfig) Check() error {
 	if d.KromaPortalProxy == (common.Address{}) {
 		return fmt.Errorf("%w: KromaPortalProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.ColosseumProxy == (common.Address{}) {
-		return fmt.Errorf("%w: ColosseumProxy cannot be address(0)", ErrInvalidDeployConfig)
-	}
 	if d.EIP1559Denominator == 0 {
 		return fmt.Errorf("%w: EIP1559Denominator cannot be 0", ErrInvalidDeployConfig)
 	}
@@ -207,17 +219,28 @@ func (d *DeployConfig) Check() error {
 	if d.L2GenesisBlockGasLimit == 0 {
 		return fmt.Errorf("%w: L2 genesis block gas limit cannot be 0", ErrInvalidDeployConfig)
 	}
+	// When the initial resource config is made to be configurable by the DeployConfig, ensure
+	// that this check is updated to use the values from the DeployConfig instead of the defaults.
+	if uint64(d.L2GenesisBlockGasLimit) < uint64(defaultResourceConfig.MaxResourceLimit+defaultResourceConfig.SystemTxMaxGas) {
+		return fmt.Errorf("%w: L2 genesis block gas limit is too small", ErrInvalidDeployConfig)
+	}
 	if d.L2GenesisBlockBaseFeePerGas == nil {
 		return fmt.Errorf("%w: L2 genesis block base fee per gas cannot be nil", ErrInvalidDeployConfig)
 	}
-	if d.ColosseumChallengeTimeout == 0 {
-		return fmt.Errorf("%w: ColosseumChallengeTimeout cannot be 0", ErrInvalidDeployConfig)
+	if d.ColosseumBisectionTimeout == 0 {
+		return fmt.Errorf("%w: ColosseumBisectionTimeout cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ColosseumProvingTimeout == 0 {
+		return fmt.Errorf("%w: ColosseumProvingTimeout cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ColosseumDummyHash == (common.Hash{}) {
+		return fmt.Errorf("%w: ColosseumDummyHash cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ColosseumMaxTxs == 0 {
+		return fmt.Errorf("%w: ColosseumMaxTxs cannot be 0", ErrInvalidDeployConfig)
 	}
 	if len(strings.Split(d.ColosseumSegmentsLengths, ","))%2 > 0 {
 		return fmt.Errorf("%w: ColosseumSegmentsLengths length cannot be an odd number", ErrInvalidDeployConfig)
-	}
-	if d.L2GenesisBlueTimeOffset != nil && uint64(*d.L2GenesisBlueTimeOffset)%d.L2OutputOracleSubmissionInterval != 0 {
-		return fmt.Errorf("%w: L2 genesis blue time offset should be a multiple of l2 output oracle submission interval", ErrInvalidDeployConfig)
 	}
 	return nil
 }
@@ -266,12 +289,12 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 		d.KromaPortalProxy = kromaPortalProxyDeployment.Address
 	}
 
-	if d.ColosseumProxy == (common.Address{}) {
-		colosseumProxyDeployment, err := hh.GetDeployment("ColosseumProxy")
+	if d.ValidatorPoolProxy == (common.Address{}) {
+		validatorPoolProxyDeployment, err := hh.GetDeployment("ValidatorPoolProxy")
 		if err != nil {
 			return err
 		}
-		d.ColosseumProxy = colosseumProxyDeployment.Address
+		d.ValidatorPoolProxy = validatorPoolProxyDeployment.Address
 	}
 
 	return nil
@@ -283,20 +306,9 @@ func (d *DeployConfig) InitDeveloperDeployedAddresses() error {
 	d.L1CrossDomainMessengerProxy = predeploys.DevL1CrossDomainMessengerAddr
 	d.L1ERC721BridgeProxy = predeploys.DevL1ERC721BridgeAddr
 	d.KromaPortalProxy = predeploys.DevKromaPortalAddr
-	d.ColosseumProxy = predeploys.DevColosseumAddr
 	d.SystemConfigProxy = predeploys.DevSystemConfigAddr
+	d.ValidatorPoolProxy = predeploys.DevValidatorPoolAddr
 	return nil
-}
-
-func (d *DeployConfig) BlueTime(genesisTime uint64) *uint64 {
-	if d.L2GenesisBlueTimeOffset == nil {
-		return nil
-	}
-	v := uint64(0)
-	if offset := *d.L2GenesisBlueTimeOffset; offset > 0 {
-		v = genesisTime + uint64(offset)
-	}
-	return &v
 }
 
 // RollupConfig converts a DeployConfig to a rollup.Config
@@ -335,7 +347,6 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		BatchInboxAddress:      d.BatchInboxAddress,
 		DepositContractAddress: d.KromaPortalProxy,
 		L1SystemConfigAddress:  d.SystemConfigProxy,
-		BlueTime:               d.BlueTime(l1StartBlock.Time()),
 	}, nil
 }
 
@@ -363,7 +374,7 @@ func NewDeployConfigWithNetwork(network, path string) (*DeployConfig, error) {
 }
 
 // NewL2ImmutableConfig will create an ImmutableConfig given an instance of a
-// Hardhat and a DeployConfig.
+// DeployConfig and a block.
 func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.ImmutableConfig, error) {
 	immutable := make(immutables.ImmutableConfig)
 
@@ -376,14 +387,11 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.
 	if config.L1ERC721BridgeProxy == (common.Address{}) {
 		return immutable, fmt.Errorf("L1ERC721BridgeProxy cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
-	if config.ProposerFeeVaultRecipient == (common.Address{}) {
-		return immutable, fmt.Errorf("ProposerFeeVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
+	if config.ProtocolVaultRecipient == (common.Address{}) {
+		return immutable, fmt.Errorf("ProtocolVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
-	if config.BaseFeeVaultRecipient == (common.Address{}) {
-		return immutable, fmt.Errorf("BaseFeeVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
-	}
-	if config.L1FeeVaultRecipient == (common.Address{}) {
-		return immutable, fmt.Errorf("L1FeeVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
+	if config.ProposerRewardVaultRecipient == (common.Address{}) {
+		return immutable, fmt.Errorf("ProposerRewardVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
 
 	immutable["L2StandardBridge"] = immutables.ImmutableValues{
@@ -400,14 +408,16 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.
 		"bridge":        predeploys.L2ERC721BridgeAddr,
 		"remoteChainId": new(big.Int).SetUint64(config.L1ChainID),
 	}
-	immutable["ProposerFeeVault"] = immutables.ImmutableValues{
-		"recipient": config.ProposerFeeVaultRecipient,
+	rewardDivider := config.FinalizationPeriodSeconds / (config.L2OutputOracleSubmissionInterval * config.L2BlockTime)
+	immutable["ValidatorRewardVault"] = immutables.ImmutableValues{
+		"validatorPoolAddress": config.ValidatorPoolProxy,
+		"rewardDivider":        new(big.Int).SetUint64(rewardDivider),
 	}
-	immutable["L1FeeVault"] = immutables.ImmutableValues{
-		"recipient": config.L1FeeVaultRecipient,
+	immutable["ProposerRewardVault"] = immutables.ImmutableValues{
+		"recipient": config.ProposerRewardVaultRecipient,
 	}
-	immutable["BaseFeeVault"] = immutables.ImmutableValues{
-		"recipient": config.BaseFeeVaultRecipient,
+	immutable["ProtocolVault"] = immutables.ImmutableValues{
+		"recipient": config.ProtocolVaultRecipient,
 	}
 
 	return immutable, nil

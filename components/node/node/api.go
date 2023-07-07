@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
@@ -18,6 +19,7 @@ import (
 
 type l2EthClient interface {
 	InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error)
+	InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error)
 	// GetProof returns a proof of the account, it may return a nil result without error if the address was not found.
 	// Optionally keys of the account storage trie can be specified to include with corresponding values in the proof.
 	GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error)
@@ -88,6 +90,50 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 	recordDur := n.m.RecordRPCServerRequest("kroma_outputAtBlock")
 	defer recordDur()
 
+	output, err := n.fetchOutputAtBlock(ctx, number)
+	if err != nil {
+		return nil, err
+	}
+
+	return output, nil
+}
+
+func (n *nodeAPI) OutputWithProofAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
+	recordDur := n.m.RecordRPCServerRequest("kroma_outputWithProofAtBlock")
+	defer recordDur()
+
+	output, err := n.fetchOutputAtBlock(ctx, number)
+	if err != nil {
+		return nil, err
+	}
+
+	nextHead, nextTxs, err := n.client.InfoAndTxsByHash(ctx, output.NextBlockRef.Hash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 block by hash %s: %w", output.NextBlockRef, err)
+	}
+	nextBlock := nextHead.Header()
+
+	// TODO(seolaoh): reuse the proof fetched in `fetchOutputAtBlock` function
+	accountResult, err := n.client.GetProof(ctx, predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, output.BlockRef.Hash.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proof of L2ToL1MessagePasser by hash %s: %w", output.BlockRef.Hash.String(), err)
+	}
+	l2ToL1MessagePasserBalance := accountResult.Balance.ToInt()
+	l2ToL1MessagePasserCodeHash := accountResult.CodeHash
+	merkleProof := accountResult.AccountProof
+
+	output.PublicInputProof = &eth.PublicInputProof{
+		NextBlock:                   nextBlock,
+		NextTransactions:            nextTxs,
+		L2ToL1MessagePasserBalance:  l2ToL1MessagePasserBalance,
+		L2ToL1MessagePasserCodeHash: l2ToL1MessagePasserCodeHash,
+		MerkleProof:                 merkleProof,
+	}
+
+	return output, nil
+}
+
+func (n *nodeAPI) fetchOutputAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
 	ref, nextRef, status, err := n.dr.BlockRefsWithStatus(ctx, uint64(number))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 block ref with sync status: %w", err)
@@ -114,27 +160,14 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 		return nil, fmt.Errorf("invalid withdrawal root hash, state root was %s: %w", head.Root(), err)
 	}
 
-	var l2OutputRootVersion eth.Bytes32
-	var l2OutputRoot eth.Bytes32
-	if n.config.IsBlue(head.Time()) {
-		l2OutputRootVersion = rollup.V1
-		l2OutputRoot, err = rollup.ComputeL2OutputRootV1(&bindings.TypesOutputRootProof{
-			Version:                  l2OutputRootVersion,
-			StateRoot:                head.Root(),
-			MessagePasserStorageRoot: proof.StorageHash,
-			BlockHash:                head.Hash(),
-			NextBlockHash:            nextRef.Hash,
-		})
-	} else {
-		l2OutputRootVersion = rollup.V0
-		l2OutputRoot, err = rollup.ComputeL2OutputRootV0(&bindings.TypesOutputRootProof{
-			Version:                  l2OutputRootVersion,
-			StateRoot:                head.Root(),
-			MessagePasserStorageRoot: proof.StorageHash,
-			BlockHash:                head.Hash(),
-		})
-	}
-
+	l2OutputRootVersion := rollup.V0 // current version is 0
+	l2OutputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
+		Version:                  l2OutputRootVersion,
+		StateRoot:                head.Root(),
+		MessagePasserStorageRoot: proof.StorageHash,
+		BlockHash:                head.Hash(),
+		NextBlockHash:            nextRef.Hash,
+	})
 	if err != nil {
 		n.log.Error("Error computing L2 output root, nil ptr passed to hashing function")
 		return nil, err

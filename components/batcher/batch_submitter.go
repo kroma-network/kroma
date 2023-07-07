@@ -6,29 +6,18 @@ import (
 	"fmt"
 	"math/big"
 	_ "net/http/pprof"
-	"time"
 
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/kroma-network/kroma/components/batcher/metrics"
 	"github.com/kroma-network/kroma/components/node/eth"
-	"github.com/kroma-network/kroma/utils"
 )
-
-const networkTimeout = 2 * time.Second // How long a single network request can take. TODO: put in a config somewhere
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
 // batches to L1 for availability.
 type BatchSubmitter struct {
 	Config // directly embed the config
-
-	done chan struct{}
-	log  log.Logger
-
-	ctx    context.Context
-	cancel context.CancelFunc
 
 	// lastStoredBlock is the last block loaded into `state`. If it is empty it should be set to the l2 safe head.
 	lastStoredBlock eth.BlockID
@@ -40,19 +29,10 @@ type BatchSubmitter struct {
 // NewBatchSubmitter initializes the BatchSubmitter, gathering any resources
 // that will be needed during operation.
 func NewBatchSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*BatchSubmitter, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	return &BatchSubmitter{
 		Config: cfg,
-		done:   make(chan struct{}),
-		log:    l,
-		// TODO: this context only exists because the event loop doesn't reach done
-		// if the tx manager is blocking forever due to e.g. insufficient balance.
-		ctx:    ctx,
-		cancel: cancel,
 		state:  NewChannelManager(l, m, cfg.Channel),
 	}, nil
-
 }
 
 // LoadBlocksIntoState loads all blocks since the previous stored block
@@ -86,7 +66,7 @@ func (b *BatchSubmitter) LoadBlocksIntoState(ctx context.Context) {
 
 // loadBlockIntoState fetches & stores a single block into `state`. It returns the block it loaded.
 func (b *BatchSubmitter) loadBlockIntoState(ctx context.Context, blockNumber uint64) (eth.BlockID, error) {
-	ctx, cancel := context.WithTimeout(ctx, networkTimeout)
+	ctx, cancel := context.WithTimeout(ctx, b.NetworkTimeout)
 	block, err := b.L2Client.BlockByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 	cancel()
 	if err != nil {
@@ -100,12 +80,12 @@ func (b *BatchSubmitter) loadBlockIntoState(ctx context.Context, blockNumber uin
 	return id, nil
 }
 
-// calculateL2BlockRangeToStore determines the range (start,end] that should be loaded into the local state.
+// calculateL2BlockRangeToStore determines the range (start,end) that should be loaded into the local state.
 // It also takes care of initializing some local state (i.e. will modify b.lastStoredBlock in certain conditions)
 func (b *BatchSubmitter) calculateL2BlockRangeToStore(ctx context.Context) (eth.BlockID, eth.BlockID, error) {
-	childCtx, cancel := context.WithTimeout(ctx, networkTimeout)
+	ctx, cancel := context.WithTimeout(ctx, b.NetworkTimeout)
 	defer cancel()
-	syncStatus, err := b.RollupClient.SyncStatus(childCtx)
+	syncStatus, err := b.RollupClient.SyncStatus(ctx)
 	// Ensure that we have the sync status
 	if err != nil {
 		return eth.BlockID{}, eth.BlockID{}, fmt.Errorf("failed to get sync status: %w", err)
@@ -132,42 +112,6 @@ func (b *BatchSubmitter) calculateL2BlockRangeToStore(ctx context.Context) (eth.
 	return b.lastStoredBlock, syncStatus.UnsafeL2.ID(), nil
 }
 
-func (b *BatchSubmitter) CreateSubmitTx(data []byte) (*types.Transaction, error) {
-	ctx, cancel := context.WithTimeout(b.ctx, networkTimeout)
-	nonce, err := b.L1Client.NonceAt(ctx, b.From, nil)
-	cancel()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce: %w", err)
-	}
-
-	ctx, cancel = context.WithTimeout(b.ctx, networkTimeout)
-	gasTipCap, gasFeeCap, err := utils.CalcGasTipAndFeeCap(ctx, b.L1Client)
-	cancel()
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate gasTipCap and gasFeeCap: %w", err)
-	}
-
-	rawTx := &types.DynamicFeeTx{
-		ChainID:   b.Rollup.L1ChainID,
-		Nonce:     nonce,
-		To:        &b.Rollup.BatchInboxAddress,
-		GasTipCap: gasTipCap,
-		GasFeeCap: gasFeeCap,
-		Data:      data,
-	}
-
-	gas, err := core.IntrinsicGas(rawTx.Data, nil, false, true, true, false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate intrinsic gas: %w", err)
-	}
-	rawTx.Gas = gas
-
-	ctx, cancel = context.WithTimeout(b.ctx, networkTimeout)
-	defer cancel()
-	tx := types.NewTx(rawTx)
-	return b.TxManagerConfig.Signer(ctx, b.From, tx)
-}
-
 func (b *BatchSubmitter) recordL1Tip(l1tip eth.L1BlockRef) {
 	if b.lastL1Tip == l1tip {
 		return
@@ -190,7 +134,7 @@ func (b *BatchSubmitter) recordConfirmedTx(id txID, receipt *types.Receipt) {
 // l1Tip gets the current L1 tip as a L1BlockRef. The passed context is assumed
 // to be a lifetime context, so it is internally wrapped with a network timeout.
 func (b *BatchSubmitter) l1Tip(ctx context.Context) (eth.L1BlockRef, error) {
-	tctx, cancel := context.WithTimeout(ctx, networkTimeout)
+	tctx, cancel := context.WithTimeout(ctx, b.NetworkTimeout)
 	defer cancel()
 	head, err := b.L1Client.HeaderByNumber(tctx, nil)
 	if err != nil {

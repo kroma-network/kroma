@@ -71,16 +71,17 @@ func FuzzL1InfoRoundTrip(f *testing.F) {
 // FuzzL1InfoAgainstContract checks the custom marshalling functions against the contract
 // bindings to ensure that our functions are up to date and match the bindings.
 func FuzzL1InfoAgainstContract(f *testing.F) {
-	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, hash []byte, seqNumber uint64, batcherHash []byte, l1FeeOverhead []byte, l1FeeScalar []byte) {
+	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, hash []byte, seqNumber uint64, batcherHash []byte, l1FeeOverhead []byte, l1FeeScalar []byte, vRewardRatio []byte) {
 		expected := L1BlockInfo{
-			Number:         number,
-			Time:           time,
-			BaseFee:        BytesToBigInt(baseFee),
-			BlockHash:      common.BytesToHash(hash),
-			SequenceNumber: seqNumber,
-			BatcherAddr:    common.BytesToAddress(batcherHash),
-			L1FeeOverhead:  eth.Bytes32(common.BytesToHash(l1FeeOverhead)),
-			L1FeeScalar:    eth.Bytes32(common.BytesToHash(l1FeeScalar)),
+			Number:               number,
+			Time:                 time,
+			BaseFee:              BytesToBigInt(baseFee),
+			BlockHash:            common.BytesToHash(hash),
+			SequenceNumber:       seqNumber,
+			BatcherAddr:          common.BytesToAddress(batcherHash),
+			L1FeeOverhead:        eth.Bytes32(common.BytesToHash(l1FeeOverhead)),
+			L1FeeScalar:          eth.Bytes32(common.BytesToHash(l1FeeScalar)),
+			ValidatorRewardRatio: eth.Bytes32(common.BytesToHash(vRewardRatio)),
 		}
 
 		// Setup opts
@@ -99,6 +100,7 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 			common.BytesToAddress(batcherHash).Hash(),
 			common.BytesToHash(l1FeeOverhead).Big(),
 			common.BytesToHash(l1FeeScalar).Big(),
+			common.BytesToHash(vRewardRatio).Big(),
 		)
 		if err != nil {
 			t.Fatalf("Failed to create the transaction: %v", err)

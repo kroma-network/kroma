@@ -9,9 +9,7 @@ import (
 
 // CrossDomainMessage represents a cross domain message
 // used by the CrossDomainMessenger. The version is encoded
-// in the nonce. Version 0 messages do not have a value,
-// version 1 messages have a value and the most significant
-// byte of the nonce is a 1
+// in the nonce.
 type CrossDomainMessage struct {
 	Nonce    *big.Int       `json:"nonce"`
 	Sender   common.Address `json:"sender"`

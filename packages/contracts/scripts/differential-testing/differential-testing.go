@@ -299,7 +299,7 @@ func main() {
 		checkErr(state.Prove(key_s.Bytes(), 0, &proof), "Error getting proof")
 
 		// Get the output root
-		outputRoot, err := hashOutputRootProof(rollup.V1, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
+		outputRoot, err := hashOutputRootProof(rollup.V0, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
 		checkErr(err, "Error hashing output root proof")
 
 		// Pack the output

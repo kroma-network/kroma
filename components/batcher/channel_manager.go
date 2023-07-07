@@ -42,6 +42,9 @@ type channelManager struct {
 	pendingTransactions map[txID]txData
 	// Set of confirmed txID -> inclusion block. For determining if the channel is timed out
 	confirmedTransactions map[txID]eth.BlockID
+
+	// if set to true, prevents production of any new channel frames
+	closed bool
 }
 
 func NewChannelManager(log log.Logger, metr metrics.Metricer, cfg ChannelConfig) *channelManager {
@@ -57,86 +60,91 @@ func NewChannelManager(log log.Logger, metr metrics.Metricer, cfg ChannelConfig)
 
 // Clear clears the entire state of the channel manager.
 // It is intended to be used after an L2 reorg.
-func (s *channelManager) Clear() {
-	s.log.Trace("clearing channel manager state")
-	s.blocks = s.blocks[:0]
-	s.tip = common.Hash{}
-	s.clearPendingChannel()
+func (c *channelManager) Clear() {
+	c.log.Trace("clearing channel manager state")
+	c.blocks = c.blocks[:0]
+	c.tip = common.Hash{}
+	c.closed = false
+	c.clearPendingChannel()
 }
 
 // TxFailed records a transaction as failed. It will attempt to resubmit the data
 // in the failed transaction.
-func (s *channelManager) TxFailed(id txID) {
-	if data, ok := s.pendingTransactions[id]; ok {
-		s.log.Trace("marked transaction as failed", "id", id)
+func (c *channelManager) TxFailed(id txID) {
+	if data, ok := c.pendingTransactions[id]; ok {
+		c.log.Trace("marked transaction as failed", "id", id)
 		// Note: when the batcher is changed to send multiple frames per tx,
 		// this needs to be changed to iterate over all frames of the tx data
 		// and re-queue them.
-		s.pendingChannel.PushFrame(data.Frame())
-		delete(s.pendingTransactions, id)
+		c.pendingChannel.PushFrame(data.Frame())
+		delete(c.pendingTransactions, id)
 	} else {
-		s.log.Warn("unknown transaction marked as failed", "id", id)
+		c.log.Warn("unknown transaction marked as failed", "id", id)
 	}
 
-	s.metr.RecordBatchTxFailed()
+	c.metr.RecordBatchTxFailed()
+	if c.closed && len(c.confirmedTransactions) == 0 && len(c.pendingTransactions) == 0 {
+		c.log.Info("Channel has no submitted transactions, clearing for shutdown", "chID", c.pendingChannel.ID())
+		c.clearPendingChannel()
+	}
 }
 
 // TxConfirmed marks a transaction as confirmed on L1. Unfortunately even if all frames in
 // a channel have been marked as confirmed on L1 the channel may be invalid & need to be
 // resubmitted.
 // This function may reset the pending channel if the pending channel has timed out.
-func (s *channelManager) TxConfirmed(id txID, inclusionBlock eth.BlockID) {
-	s.metr.RecordBatchTxSubmitted()
-	s.log.Debug("marked transaction as confirmed", "id", id, "block", inclusionBlock)
-	if _, ok := s.pendingTransactions[id]; !ok {
-		s.log.Warn("unknown transaction marked as confirmed", "id", id, "block", inclusionBlock)
+func (c *channelManager) TxConfirmed(id txID, inclusionBlock eth.BlockID) {
+	c.metr.RecordBatchTxSubmitted()
+	c.log.Debug("marked transaction as confirmed", "id", id, "block", inclusionBlock)
+	if _, ok := c.pendingTransactions[id]; !ok {
+		c.log.Warn("unknown transaction marked as confirmed", "id", id, "block", inclusionBlock)
 		// TODO: This can occur if we clear the channel while there are still pending transactions
 		// We need to keep track of stale transactions instead
 		return
 	}
-	delete(s.pendingTransactions, id)
-	s.confirmedTransactions[id] = inclusionBlock
-	s.pendingChannel.FramePublished(inclusionBlock.Number)
+	delete(c.pendingTransactions, id)
+	c.confirmedTransactions[id] = inclusionBlock
+	c.pendingChannel.FramePublished(inclusionBlock.Number)
 
 	// If this channel timed out, put the pending blocks back into the local saved blocks
 	// and then reset this state so it can try to build a new channel.
-	if s.pendingChannelIsTimedOut() {
-		s.metr.RecordChannelTimedOut(s.pendingChannel.ID())
-		s.log.Warn("Channel timed out", "id", s.pendingChannel.ID())
-		s.blocks = append(s.pendingChannel.Blocks(), s.blocks...)
-		s.clearPendingChannel()
+	if c.pendingChannelIsTimedOut() {
+		c.metr.RecordChannelTimedOut(c.pendingChannel.ID())
+		c.log.Warn("Channel timed out", "id", c.pendingChannel.ID())
+		c.blocks = append(c.pendingChannel.Blocks(), c.blocks...)
+		c.clearPendingChannel()
 	}
 	// If we are done with this channel, record that.
-	if s.pendingChannelIsFullySubmitted() {
-		s.metr.RecordChannelFullySubmitted(s.pendingChannel.ID())
-		s.log.Info("Channel is fully submitted", "id", s.pendingChannel.ID())
-		s.clearPendingChannel()
+	if c.pendingChannelIsFullySubmitted() {
+		c.metr.RecordChannelFullySubmitted(c.pendingChannel.ID())
+		c.log.Info("Channel is fully submitted", "id", c.pendingChannel.ID())
+		c.clearPendingChannel()
 	}
 }
 
 // clearPendingChannel resets all pending state back to an initialized but empty state.
 // TODO: Create separate "pending" state
-func (s *channelManager) clearPendingChannel() {
-	s.pendingChannel = nil
-	s.pendingTransactions = make(map[txID]txData)
-	s.confirmedTransactions = make(map[txID]eth.BlockID)
+func (c *channelManager) clearPendingChannel() {
+	c.pendingChannel = nil
+	c.pendingTransactions = make(map[txID]txData)
+	c.confirmedTransactions = make(map[txID]eth.BlockID)
 }
 
 // pendingChannelIsTimedOut returns true if submitted channel has timed out.
 // A channel has timed out if the difference in L1 Inclusion blocks between
 // the first & last included block is greater than or equal to the channel timeout.
-func (s *channelManager) pendingChannelIsTimedOut() bool {
-	if s.pendingChannel == nil {
+func (c *channelManager) pendingChannelIsTimedOut() bool {
+	if c.pendingChannel == nil {
 		return false // no channel to be timed out
 	}
 	// No confirmed transactions => not timed out
-	if len(s.confirmedTransactions) == 0 {
+	if len(c.confirmedTransactions) == 0 {
 		return false
 	}
 	// If there are confirmed transactions, find the first + last confirmed block numbers
 	min := uint64(math.MaxUint64)
 	max := uint64(0)
-	for _, inclusionBlock := range s.confirmedTransactions {
+	for _, inclusionBlock := range c.confirmedTransactions {
 		if inclusionBlock.Number < min {
 			min = inclusionBlock.Number
 		}
@@ -144,30 +152,30 @@ func (s *channelManager) pendingChannelIsTimedOut() bool {
 			max = inclusionBlock.Number
 		}
 	}
-	return max-min >= s.cfg.ChannelTimeout
+	return max-min >= c.cfg.ChannelTimeout
 }
 
 // pendingChannelIsFullySubmitted returns true if the channel has been fully submitted.
-func (s *channelManager) pendingChannelIsFullySubmitted() bool {
-	if s.pendingChannel == nil {
+func (c *channelManager) pendingChannelIsFullySubmitted() bool {
+	if c.pendingChannel == nil {
 		return false // todo: can decide either way here. Nonsensical answer though
 	}
-	return s.pendingChannel.IsFull() && len(s.pendingTransactions)+s.pendingChannel.NumFrames() == 0
+	return c.pendingChannel.IsFull() && len(c.pendingTransactions)+c.pendingChannel.NumFrames() == 0
 }
 
-// nextTxData pops off s.datas & handles updating the internal state
-func (s *channelManager) nextTxData() (txData, error) {
-	if s.pendingChannel == nil || !s.pendingChannel.HasFrame() {
-		s.log.Trace("no next tx data")
+// nextTxData pops off c.datas & handles updating the internal state
+func (c *channelManager) nextTxData() (txData, error) {
+	if c.pendingChannel == nil || !c.pendingChannel.HasFrame() {
+		c.log.Trace("no next tx data")
 		return txData{}, io.EOF // TODO: not enough data error instead
 	}
 
-	frame := s.pendingChannel.NextFrame()
+	frame := c.pendingChannel.NextFrame()
 	txdata := txData{frame}
 	id := txdata.ID()
 
-	s.log.Trace("returning next tx data", "id", id)
-	s.pendingTransactions[id] = txdata
+	c.log.Trace("returning next tx data", "id", id)
+	c.pendingTransactions[id] = txdata
 	return txdata, nil
 }
 
@@ -176,81 +184,81 @@ func (s *channelManager) nextTxData() (txData, error) {
 // It currently only uses one frame per transaction. If the pending channel is
 // full, it only returns the remaining frames of this channel until it got
 // successfully fully sent to L1. It returns io.EOF if there's no pending frame.
-func (s *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
-	dataPending := s.pendingChannel != nil && s.pendingChannel.HasFrame()
-	s.log.Debug("Requested tx data", "l1Head", l1Head, "data_pending", dataPending, "blocks_pending", len(s.blocks))
+func (c *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
+	dataPending := c.pendingChannel != nil && c.pendingChannel.HasFrame()
+	c.log.Debug("Requested tx data", "l1Head", l1Head, "data_pending", dataPending, "blocks_pending", len(c.blocks))
 
-	// Short circuit if there is a pending frame.
-	if dataPending {
-		return s.nextTxData()
+	// Short circuit if there is a pending frame or the channel manager is closed.
+	if dataPending || c.closed {
+		return c.nextTxData()
 	}
 
 	// No pending frame, so we have to add new blocks to the channel
 
 	// If we have no saved blocks, we will not be able to create valid frames
-	if len(s.blocks) == 0 {
+	if len(c.blocks) == 0 {
 		return txData{}, io.EOF
 	}
 
-	if err := s.ensurePendingChannel(l1Head); err != nil {
+	if err := c.ensurePendingChannel(l1Head); err != nil {
 		return txData{}, err
 	}
 
-	if err := s.processBlocks(); err != nil {
+	if err := c.processBlocks(); err != nil {
 		return txData{}, err
 	}
 
 	// Register current L1 head only after all pending blocks have been
 	// processed. Even if a timeout will be triggered now, it is better to have
 	// all pending blocks be included in this channel for submission.
-	s.registerL1Block(l1Head)
+	c.registerL1Block(l1Head)
 
-	if err := s.outputFrames(); err != nil {
+	if err := c.outputFrames(); err != nil {
 		return txData{}, err
 	}
 
-	return s.nextTxData()
+	return c.nextTxData()
 }
 
-func (s *channelManager) ensurePendingChannel(l1Head eth.BlockID) error {
-	if s.pendingChannel != nil {
+func (c *channelManager) ensurePendingChannel(l1Head eth.BlockID) error {
+	if c.pendingChannel != nil {
 		return nil
 	}
 
-	cb, err := newChannelBuilder(s.cfg)
+	cb, err := newChannelBuilder(c.cfg)
 	if err != nil {
 		return fmt.Errorf("creating new channel: %w", err)
 	}
-	s.pendingChannel = cb
-	s.log.Info("Created channel",
+	c.pendingChannel = cb
+	c.log.Info("Created channel",
 		"id", cb.ID(),
 		"l1Head", l1Head,
-		"blocks_pending", len(s.blocks))
-	s.metr.RecordChannelOpened(cb.ID(), len(s.blocks))
+		"blocks_pending", len(c.blocks))
+	c.metr.RecordChannelOpened(cb.ID(), len(c.blocks))
 
 	return nil
 }
 
 // registerL1Block registers the given block at the pending channel.
-func (s *channelManager) registerL1Block(l1Head eth.BlockID) {
-	s.pendingChannel.RegisterL1Block(l1Head.Number)
-	s.log.Debug("new L1-block registered at channel builder",
+func (c *channelManager) registerL1Block(l1Head eth.BlockID) {
+	c.pendingChannel.RegisterL1Block(l1Head.Number)
+	c.log.Debug("new L1-block registered at channel builder",
 		"l1Head", l1Head,
-		"channel_full", s.pendingChannel.IsFull(),
-		"full_reason", s.pendingChannel.FullErr(),
+		"channel_full", c.pendingChannel.IsFull(),
+		"full_reason", c.pendingChannel.FullErr(),
 	)
 }
 
 // processBlocks adds blocks from the blocks queue to the pending channel until
 // either the queue got exhausted or the channel is full.
-func (s *channelManager) processBlocks() error {
+func (c *channelManager) processBlocks() error {
 	var (
 		blocksAdded int
 		_chFullErr  *ChannelFullError // throw away, just for type checking
 		latestL2ref eth.L2BlockRef
 	)
-	for i, block := range s.blocks {
-		l1info, err := s.pendingChannel.AddBlock(block)
+	for i, block := range c.blocks {
+		l1info, err := c.pendingChannel.AddBlock(block)
 		if errors.As(err, &_chFullErr) {
 			// current block didn't get added because channel is already full
 			break
@@ -260,63 +268,63 @@ func (s *channelManager) processBlocks() error {
 		blocksAdded += 1
 		latestL2ref = l2BlockRefFromBlockAndL1Info(block, l1info)
 		// current block got added but channel is now full
-		if s.pendingChannel.IsFull() {
+		if c.pendingChannel.IsFull() {
 			break
 		}
 	}
 
-	if blocksAdded == len(s.blocks) {
+	if blocksAdded == len(c.blocks) {
 		// all blocks processed, reuse slice
-		s.blocks = s.blocks[:0]
+		c.blocks = c.blocks[:0]
 	} else {
 		// remove processed blocks
-		s.blocks = s.blocks[blocksAdded:]
+		c.blocks = c.blocks[blocksAdded:]
 	}
 
-	s.metr.RecordL2BlocksAdded(latestL2ref,
+	c.metr.RecordL2BlocksAdded(latestL2ref,
 		blocksAdded,
-		len(s.blocks),
-		s.pendingChannel.InputBytes(),
-		s.pendingChannel.ReadyBytes())
-	s.log.Debug("Added blocks to channel",
+		len(c.blocks),
+		c.pendingChannel.InputBytes(),
+		c.pendingChannel.ReadyBytes())
+	c.log.Debug("Added blocks to channel",
 		"blocks_added", blocksAdded,
-		"blocks_pending", len(s.blocks),
-		"channel_full", s.pendingChannel.IsFull(),
-		"input_bytes", s.pendingChannel.InputBytes(),
-		"ready_bytes", s.pendingChannel.ReadyBytes(),
+		"blocks_pending", len(c.blocks),
+		"channel_full", c.pendingChannel.IsFull(),
+		"input_bytes", c.pendingChannel.InputBytes(),
+		"ready_bytes", c.pendingChannel.ReadyBytes(),
 	)
 	return nil
 }
 
-func (s *channelManager) outputFrames() error {
-	if err := s.pendingChannel.OutputFrames(); err != nil {
+func (c *channelManager) outputFrames() error {
+	if err := c.pendingChannel.OutputFrames(); err != nil {
 		return fmt.Errorf("creating frames with channel builder: %w", err)
 	}
-	if !s.pendingChannel.IsFull() {
+	if !c.pendingChannel.IsFull() {
 		return nil
 	}
 
-	inBytes, outBytes := s.pendingChannel.InputBytes(), s.pendingChannel.OutputBytes()
-	s.metr.RecordChannelClosed(
-		s.pendingChannel.ID(),
-		len(s.blocks),
-		s.pendingChannel.NumFrames(),
+	inBytes, outBytes := c.pendingChannel.InputBytes(), c.pendingChannel.OutputBytes()
+	c.metr.RecordChannelClosed(
+		c.pendingChannel.ID(),
+		len(c.blocks),
+		c.pendingChannel.NumFrames(),
 		inBytes,
 		outBytes,
-		s.pendingChannel.FullErr(),
+		c.pendingChannel.FullErr(),
 	)
 
 	var comprRatio float64
 	if inBytes > 0 {
 		comprRatio = float64(outBytes) / float64(inBytes)
 	}
-	s.log.Info("Channel closed",
-		"id", s.pendingChannel.ID(),
-		"blocks_pending", len(s.blocks),
-		"num_frames", s.pendingChannel.NumFrames(),
+	c.log.Info("Channel closed",
+		"id", c.pendingChannel.ID(),
+		"blocks_pending", len(c.blocks),
+		"num_frames", c.pendingChannel.NumFrames(),
 		"input_bytes", inBytes,
 		"output_bytes", outBytes,
-		"full_reason", s.pendingChannel.FullErr(),
+		"full_reason", c.pendingChannel.FullErr(),
 		"compr_ratio", comprRatio,
 	)
 	return nil
@@ -325,12 +333,12 @@ func (s *channelManager) outputFrames() error {
 // AddL2Block adds an L2 block to the internal blocks queue. It returns ErrReorg
 // if the block does not extend the last block loaded into the state. If no
 // blocks were added yet, the parent hash check is skipped.
-func (s *channelManager) AddL2Block(block *types.Block) error {
-	if s.tip != (common.Hash{}) && s.tip != block.ParentHash() {
+func (c *channelManager) AddL2Block(block *types.Block) error {
+	if c.tip != (common.Hash{}) && c.tip != block.ParentHash() {
 		return ErrReorg
 	}
-	s.blocks = append(s.blocks, block)
-	s.tip = block.Hash()
+	c.blocks = append(c.blocks, block)
+	c.tip = block.Hash()
 
 	return nil
 }
@@ -344,4 +352,28 @@ func l2BlockRefFromBlockAndL1Info(block *types.Block, l1info derive.L1BlockInfo)
 		L1Origin:       eth.BlockID{Hash: l1info.BlockHash, Number: l1info.Number},
 		SequenceNumber: l1info.SequenceNumber,
 	}
+}
+
+// Close closes the current pending channel, if one exists, outputs any remaining frames,
+// and prevents the creation of any new channels.
+// Any outputted frames still need to be published.
+func (c *channelManager) Close() error {
+	if c.closed {
+		return nil
+	}
+
+	c.closed = true
+
+	// Any pending state can be proactively cleared if there are no submitted transactions
+	if len(c.confirmedTransactions) == 0 && len(c.pendingTransactions) == 0 {
+		c.clearPendingChannel()
+	}
+
+	if c.pendingChannel == nil {
+		return nil
+	}
+
+	c.pendingChannel.Close()
+
+	return c.outputFrames()
 }

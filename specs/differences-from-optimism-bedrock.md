@@ -36,7 +36,7 @@ are used to run each node:
 
 `kroma-prover` is only needed when `kroma-validator` is turned on with `challenger` mode.
 
-**NOTE:** Here `L2 EE client` means `kroma-geth` and `L2 CL client` means `kroma-node`. `L2 EE client` can
+**NOTE:** Here `L2 EL client` means `kroma-geth` and `L2 CL client` means `kroma-node`. `L2 EL client` can
 be expanded to other clients for pragmatic decentralization.
 
 ### Sequencer -> Proposer

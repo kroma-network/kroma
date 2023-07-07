@@ -60,6 +60,11 @@ contract L1Block is Semver {
     uint256 public l1FeeScalar;
 
     /**
+     * @notice The ratio to distribute transaction fees as validator reward. 4 decimal.
+     */
+    uint256 public validatorRewardRatio;
+
+    /**
      * @custom:semver 0.1.0
      */
     constructor() Semver(0, 1, 0) {}
@@ -75,6 +80,7 @@ contract L1Block is Semver {
      * @param _batcherHash    Versioned hash to authenticate batcher by.
      * @param _l1FeeOverhead  L1 fee overhead.
      * @param _l1FeeScalar    L1 fee scalar.
+     * @param _vRewardRatio   Validator reward ratio.
      */
     function setL1BlockValues(
         uint64 _number,
@@ -84,11 +90,16 @@ contract L1Block is Semver {
         uint64 _sequenceNumber,
         bytes32 _batcherHash,
         uint256 _l1FeeOverhead,
-        uint256 _l1FeeScalar
+        uint256 _l1FeeScalar,
+        uint256 _vRewardRatio
     ) external {
         require(
             msg.sender == DEPOSITOR_ACCOUNT,
             "L1Block: only the depositor account can set L1 block values"
+        );
+        require(
+            _vRewardRatio <= 10000,
+            "L1Block: the max value of validation reward ratio has been exceeded"
         );
 
         number = _number;
@@ -99,5 +110,6 @@ contract L1Block is Semver {
         batcherHash = _batcherHash;
         l1FeeOverhead = _l1FeeOverhead;
         l1FeeScalar = _l1FeeScalar;
+        validatorRewardRatio = _vRewardRatio;
     }
 }

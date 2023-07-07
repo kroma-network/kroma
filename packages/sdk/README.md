@@ -17,6 +17,7 @@ You can use this class to, for example, initiate a withdrawal of ERC20 tokens fr
 track when the withdrawal is ready to be finalized on Ethereum, and execute the finalization transaction after
 the challenge period has elapsed.
 The `CrossChainMessenger` can handle deposits and withdrawals of ETH and any ERC20-compatible token.
+Detailed API descriptions can be found at [sdk.optimism.io](https://sdk.optimism.io/classes/crosschainmessenger).
 The `CrossChainMessenger` automatically connects to all relevant contracts so complex configuration is not necessary.
 
 [`CrossChainMessenger`]: ./src/cross-chain-messenger.ts

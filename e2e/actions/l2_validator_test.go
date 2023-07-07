@@ -36,19 +36,17 @@ func TestValidator(gt *testing.T) {
 
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorKey:      dp.Secrets.Validator,
+		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
+		ValidatorKey:      dp.Secrets.TrustedValidator,
 		AllowNonFinalized: false,
 	}, miner.EthClient(), proposer.RollupClient())
 
-	// NOTE(chokobole): After the Blue hard fork, it is necessary to wait for one finalized
-	// (or safe if AllowNonFinalized config is set) block to pass after each submission interval
-	// before submitting the output root.
-	// For example, if the submission interval is set to 1800 blocks, before the Blue hard fork,
-	// the output root could be submitted at 1800 finalized blocks. However, after the update,
-	// the output root can only be submitted at 1801 finalized blocks.
-	// In fact, the following code is designed to create one or more finalized L2 blocks
-	// in order to pass the test after the Blue hard fork.
-	// If Proto Dank Sharding is introduced, the below code fix may no longer be necessary.
+	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
+	// config is set) block to pass after each submission interval before submitting the output
+	// root. For example, if the submission interval is set to 1800 blocks, the output root can
+	// only be submitted at 1801 finalized blocks. In fact, the following code is designed to
+	// create one or more finalized L2 blocks in order to pass the test. If Proto Dank Sharding
+	// is introduced, the below code fix may no longer be necessary.
 	for i := 0; i < 2; i++ {
 		// L1 block
 		miner.ActEmptyBlock(t)
@@ -70,13 +68,18 @@ func TestValidator(gt *testing.T) {
 		proposer.ActL1FinalizedSignal(t)
 	}
 
+	// deposit bond for validator
+	validator.ActDeposit(t, 1_000)
+	includeL1Block(t, miner, validator.address)
+
 	require.Equal(t, proposer.SyncStatus().UnsafeL2, proposer.SyncStatus().FinalizedL2)
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// and submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		includeL1Block(t, miner, dp.Addresses.Validator)
+		includeL1Block(t, miner, validator.address)
+		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 		require.NoError(t, err)
@@ -86,7 +89,7 @@ func TestValidator(gt *testing.T) {
 	// check that L1 stored the expected output root
 	outputOracleContract, err := bindings.NewL2OutputOracle(sd.DeploymentsL1.L2OutputOracleProxy, miner.EthClient())
 	require.NoError(t, err)
-	// NOTE(chokobole): Comment these 2 lines because of the reason above about the Blue hard fork.
+	// NOTE(chokobole): Comment these 2 lines because of the reason above.
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
 	// block := proposer.SyncStatus().FinalizedL2
 	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))

@@ -5,6 +5,7 @@ import { stdError } from "forge-std/Test.sol";
 
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
+import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { Types } from "../libraries/Types.sol";
 import { Proxy } from "../universal/Proxy.sol";
@@ -309,7 +310,12 @@ contract KromaPortal_Test is Portal_Initializer {
             address(portal.L2_ORACLE()),
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
-                Types.CheckpointOutput(bytes32(uint256(1)), uint128(ts), uint128(startingBlockNumber))
+                Types.CheckpointOutput(
+                    trusted,
+                    bytes32(uint256(1)),
+                    uint128(ts),
+                    uint128(startingBlockNumber)
+                )
             )
         );
 
@@ -327,8 +333,8 @@ contract KromaPortal_Test is Portal_Initializer {
         uint256 nextOutputIndex = oracle.nextOutputIndex();
         vm.roll(checkpoint);
         vm.warp(oracle.computeL2Timestamp(checkpoint) + 1);
-        vm.prank(oracle.VALIDATOR());
-        oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0);
+        vm.prank(trusted);
+        oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0, minBond);
 
         // warp to the final second of the finalization period
         uint256 finalizationHorizon = block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS();
@@ -379,7 +385,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({
-            version: bytes32(uint256(1)),
+            version: bytes32(uint256(0)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
             blockHash: bytes32(uint256(0)),
@@ -392,9 +398,9 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
     // Get the system into a nice ready-to-use state.
     function setUp() public override {
         // Configure the oracle to return the output root we've prepared.
-        vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber) + 1);
-        vm.prank(oracle.VALIDATOR());
-        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
+        vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber + 1));
+        vm.prank(trusted);
+        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0, minBond);
 
         // Warp beyond the finalization period for the block we've submitted.
         vm.warp(
@@ -448,7 +454,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
     // Test: proveWithdrawalTransaction reverts if the outputRootProof does not match the output root
     function test_proveWithdrawalTransaction_onInvalidOutputRootProof_reverts() external {
         // Modify the version to invalidate the withdrawal proof.
-        _outputRootProof.version = bytes32(uint256(2));
+        _outputRootProof.version = bytes32(uint256(MAX_OUTPUT_ROOT_PROOF_VERSION + 1));
         vm.expectRevert("Hashing: unknown output root proof version");
         portal.proveWithdrawalTransaction(
             _defaultTx,
@@ -551,15 +557,18 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         vm.store(address(portal), slot, bytes32(0));
 
         // Fetch the checkpoint output at `_submittedOutputIndex` from the L2OutputOracle
-        Types.CheckpointOutput memory output = portal.L2_ORACLE().getL2Output(_submittedOutputIndex);
+        Types.CheckpointOutput memory output = portal.L2_ORACLE().getL2Output(
+            _submittedOutputIndex
+        );
 
         // Propose the same output root again, creating the same output at a different index + l2BlockNumber.
-        vm.startPrank(portal.L2_ORACLE().VALIDATOR());
+        vm.startPrank(trusted);
         portal.L2_ORACLE().submitL2Output(
             output.outputRoot,
             portal.L2_ORACLE().nextBlockNumber(),
             blockhash(block.number),
-            block.number
+            block.number,
+            minBond
         );
         vm.stopPrank();
 
@@ -689,9 +698,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         );
 
         // Attempt to finalize the withdrawal
-        vm.expectRevert(
-            "KromaPortal: withdrawal timestamp less than L2 Oracle starting timestamp"
-        );
+        vm.expectRevert("KromaPortal: withdrawal timestamp less than L2 Oracle starting timestamp");
         portal.finalizeWithdrawalTransaction(_defaultTx);
 
         // Ensure that bob's balance has remained the same
@@ -723,6 +730,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     bytes32(uint256(0)),
                     uint128(block.timestamp),
                     uint128(_submittedBlockNumber)
@@ -731,9 +739,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         );
 
         // Attempt to finalize the withdrawal
-        vm.expectRevert(
-            "KromaPortal: output root proven is not the same as current output root"
-        );
+        vm.expectRevert("KromaPortal: output root proven is not the same as current output root");
         portal.finalizeWithdrawalTransaction(_defaultTx);
 
         // Ensure that bob's balance has remained the same
@@ -765,6 +771,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     _outputRoot,
                     uint128(block.timestamp + 1),
                     uint128(_submittedBlockNumber)
@@ -812,6 +819,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     _outputRoot,
                     uint128(recentTimestamp),
                     uint128(_submittedBlockNumber)
@@ -867,7 +875,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         (bytes32 stateRoot, bytes32 storageRoot, , , bytes[] memory withdrawalProof) = ffi
             .getProveWithdrawalTransactionInputs(insufficientGasTx);
         Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
-            version: bytes32(uint256(1)),
+            version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
             blockHash: bytes32(uint256(0)),
@@ -879,6 +887,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     Hashing.hashOutputRootProof(outputRootProof),
                     uint128(block.timestamp),
                     uint128(_submittedBlockNumber)
@@ -918,7 +927,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             bytes[] memory withdrawalProof
         ) = ffi.getProveWithdrawalTransactionInputs(_testTx);
         Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
-            version: bytes32(uint256(1)),
+            version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
             blockHash: bytes32(uint256(0)),
@@ -932,6 +941,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
             abi.encode(
                 Types.CheckpointOutput(
+                    trusted,
                     outputRoot,
                     uint128(finalizedTimestamp),
                     uint128(_submittedBlockNumber)
@@ -990,7 +1000,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         ) = ffi.getProveWithdrawalTransactionInputs(_tx);
 
         Types.OutputRootProof memory proof = Types.OutputRootProof({
-            version: bytes32(uint256(1)),
+            version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
             blockhash: bytes32(uint256(0)),
@@ -1039,10 +1049,11 @@ contract KromaPortalUpgradeable_Test is Portal_Initializer {
     }
 
     function test_params_initValuesOnProxy_succeeds() external {
-        (uint128 prevBaseFee, uint64 prevBoughtGas, uint64 prevBlockNum) = KromaPortal(
-            payable(address(proxy))
-        ).params();
-        assertEq(prevBaseFee, portalImpl.INITIAL_BASE_FEE());
+        KromaPortal p = KromaPortal(payable(address(proxy)));
+        (uint128 prevBaseFee, uint64 prevBoughtGas, uint64 prevBlockNum) = p.params();
+        ResourceMetering.ResourceConfig memory rcfg = systemConfig.resourceConfig();
+
+        assertEq(prevBaseFee, rcfg.minimumBaseFee);
         assertEq(prevBoughtGas, 0);
         assertEq(prevBlockNum, initialBlockNum);
     }

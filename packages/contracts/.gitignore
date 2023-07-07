@@ -2,7 +2,7 @@ artifacts
 forge-artifacts
 cache
 typechain
-coverage.out
+coverage.json
 .deps
 broadcast
 genesis.json

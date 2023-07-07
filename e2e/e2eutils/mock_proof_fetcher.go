@@ -2,24 +2,25 @@ package e2eutils
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/log"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/kroma-network/kroma/components/node/eth"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 )
 
 type Fetcher struct {
-	l log.Logger
+	l        log.Logger
+	mockPath string
 }
 
-func NewFetcher(logger log.Logger) *Fetcher {
+func NewFetcher(logger log.Logger, path string) *Fetcher {
 	return &Fetcher{
-		l: logger,
+		l:        logger,
+		mockPath: path,
 	}
 }
 
@@ -32,14 +33,14 @@ func read(path string) ([]byte, error) {
 	return data, nil
 }
 
-func (f *Fetcher) FetchProofAndPair(blockRef eth.L2BlockRef) (*chal.ProofAndPair, error) {
+func (f *Fetcher) FetchProofAndPair(blockNumber uint64) (*chal.ProofAndPair, error) {
 	decoded := make([][]*big.Int, 2)
 	files := []string{"verify_circuit_proof.data", "verify_circuit_final_pair.data"}
 
 	g, _ := errgroup.WithContext(context.Background())
 
 	for i := 0; i < len(files); i++ {
-		filePath := fmt.Sprintf("../testdata/proof/%s", files[i])
+		filePath := filepath.Join(f.mockPath, files[i])
 		i := i
 
 		g.Go(func() error {

@@ -22,6 +22,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['ZKMerkleTrie', 'Poseidon2', 'setup']
+deployFn.tags = ['ZKMerkleTrie', 'Poseidon2', 'setup', 'l1']
 
 export default deployFn

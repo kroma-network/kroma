@@ -4,7 +4,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -12,12 +11,6 @@ import (
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
-
-type blueScheduledTest struct {
-	name         string
-	blueTime     *hexutil.Uint64
-	activateBlue bool
-}
 
 // TestCrossLayerUser tests that common actions of the CrossLayerUser actor work:
 // - transact on L1
@@ -27,28 +20,9 @@ type blueScheduledTest struct {
 // - prove tx on L1
 // - wait 1 week + 1 second
 // - finalize withdrawal on L1
-func TestCrossLayerUser(t *testing.T) {
-	zeroTime := hexutil.Uint64(0)
-	futureTime := hexutil.Uint64(20)
-	farFutureTime := hexutil.Uint64(2000)
-	tests := []blueScheduledTest{
-		{name: "NoBlue", blueTime: nil, activateBlue: false},
-		{name: "NotYetBlue", blueTime: &farFutureTime, activateBlue: false},
-		{name: "BlueAtGenesis", blueTime: &zeroTime, activateBlue: true},
-		{name: "BlueAfterGenesis", blueTime: &futureTime, activateBlue: true},
-	}
-	for _, test := range tests {
-		test := test // Use a fixed reference as the tests run in parallel
-		t.Run(test.name, func(gt *testing.T) {
-			runCrossLayerUserTest(gt, test)
-		})
-	}
-}
-
-func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
+func TestCrossLayerUser(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
-	dp.DeployConfig.L2GenesisBlueTimeOffset = test.blueTime
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 
@@ -60,7 +34,8 @@ func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	}, proposer.RollupClient(), miner.EthClient(), propEngine.EthClient())
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorKey:      dp.Secrets.Validator,
+		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
+		ValidatorKey:      dp.Secrets.TrustedValidator,
 		AllowNonFinalized: true,
 	}, miner.EthClient(), proposer.RollupClient())
 
@@ -94,10 +69,6 @@ func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	proposer.ActL2StartBlock(t)
 	proposer.ActL2EndBlock(t)
 
-	if test.activateBlue {
-		// advance L2 enough to activate blue fork
-		proposer.ActBuildL2ToBlue(t)
-	}
 	// regular L2 tx, in new L2 block
 	alice.L2.ActResetTxOpts(t)
 	alice.L2.ActSetTxToAddr(&dp.Addresses.Bob)(t)
@@ -125,7 +96,7 @@ func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	proposer.ActL1HeadSignal(t)
 
 	// sync proposer build enough blocks to adopt latest L1 origin
-	for proposer.SyncStatus().UnsafeL2.L1Origin.Number < miner.l1Chain.CurrentBlock().NumberU64() {
+	for proposer.SyncStatus().UnsafeL2.L1Origin.Number < miner.l1Chain.CurrentBlock().Number.Uint64() {
 		proposer.ActL2StartBlock(t)
 		proposer.ActL2EndBlock(t)
 	}
@@ -139,20 +110,13 @@ func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	proposer.ActL2EndBlock(t)
 	alice.ActCheckStartWithdrawal(true)(t)
 
-	// NOTE(chokobole): After the Blue hard fork, it is necessary to wait for one finalized
-	// (or safe if AllowNonFinalized config is set) block to pass after each submission interval
-	// before submitting the output root.
-	// For example, if the submission interval is set to 1800 blocks, before the Blue hard fork,
-	// the output root could be submitted at 1800 finalized blocks. However, after the update,
-	// the output root can only be submitted at 1801 finalized blocks.
-	// In fact, the following code is designed to create one or more finalized L2 blocks
-	// in order to pass the test after the Blue hard fork.
-	// If Proto Dank Sharding is introduced, the below code fix may no longer be necessary.
-	loopCount := 1
-	if test.activateBlue {
-		loopCount = 2
-	}
-	for i := 0; i < loopCount; i++ {
+	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
+	// config is set) block to pass after each submission interval before submitting the output
+	// root. For example, if the submission interval is set to 1800 blocks, the output root can
+	// only be submitted at 1801 finalized blocks. In fact, the following code is designed to
+	// create one or more finalized L2 blocks in order to pass the test. If Proto Dank Sharding
+	// is introduced, the below code fix may no longer be necessary.
+	for i := 0; i < 2; i++ {
 		// build a L1 block and more L2 blocks,
 		// to ensure the L2 withdrawal is old enough to be able to get into a checkpoint output on L1
 		miner.ActEmptyBlock(t)
@@ -170,14 +134,16 @@ func runCrossLayerUserTest(gt *testing.T, test blueScheduledTest) {
 	// derive from L1, blocks will now become safe to submit
 	proposer.ActL2PipelineFull(t)
 
+	validator.ActDeposit(t, 1000)
+	includeL1Block(t, miner, dp.Addresses.TrustedValidator)
+
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		miner.ActL1StartBlock(12)(t)
-		miner.ActL1IncludeTx(dp.Addresses.Validator)(t)
-		miner.ActL1EndBlock(t)
+		includeL1Block(t, miner, dp.Addresses.TrustedValidator)
+		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 		require.NoError(t, err)

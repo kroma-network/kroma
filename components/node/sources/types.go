@@ -46,6 +46,9 @@ type HeaderInfo struct {
 	txHash      common.Hash
 	receiptHash common.Hash
 	gasUsed     uint64
+	gasLimit    uint64
+	bloom       types.Bloom
+	extra       []byte
 
 	// withdrawalsRoot was added in Shapella and is thus optional
 	withdrawalsRoot *common.Hash
@@ -89,12 +92,53 @@ func (info *HeaderInfo) ID() eth.BlockID {
 	return eth.BlockID{Hash: info.hash, Number: info.number}
 }
 
+func (info *HeaderInfo) TxHash() common.Hash {
+	return info.txHash
+}
+
 func (info *HeaderInfo) ReceiptHash() common.Hash {
 	return info.receiptHash
 }
 
+func (info *HeaderInfo) WithdrawalsHash() *common.Hash {
+	return info.withdrawalsRoot
+}
+
 func (info *HeaderInfo) GasUsed() uint64 {
 	return info.gasUsed
+}
+
+func (info *HeaderInfo) GasLimit() uint64 {
+	return info.gasLimit
+}
+
+func (info *HeaderInfo) Bloom() types.Bloom {
+	return info.bloom
+}
+
+func (info *HeaderInfo) Extra() []byte {
+	return info.extra
+}
+
+func (info *HeaderInfo) Header() *types.Header {
+	return &types.Header{
+		ParentHash:      info.parentHash,
+		UncleHash:       types.EmptyUncleHash,
+		Coinbase:        info.coinbase,
+		Root:            info.root,
+		TxHash:          info.txHash,
+		ReceiptHash:     info.receiptHash,
+		Bloom:           info.bloom,
+		Difficulty:      common.Big0,
+		Number:          new(big.Int).SetUint64(info.number),
+		GasLimit:        info.gasLimit,
+		GasUsed:         info.gasUsed,
+		Time:            info.time,
+		Extra:           info.extra,
+		MixDigest:       info.mixDigest,
+		BaseFee:         info.baseFee,
+		WithdrawalsHash: info.withdrawalsRoot,
+	}
 }
 
 type rpcHeader struct {
@@ -194,6 +238,9 @@ func (hdr *rpcHeader) Info(trustCache bool, mustBePostMerge bool) (*HeaderInfo, 
 		txHash:          hdr.TxHash,
 		receiptHash:     hdr.ReceiptHash,
 		gasUsed:         uint64(hdr.GasUsed),
+		gasLimit:        uint64(hdr.GasLimit),
+		bloom:           types.Bloom(hdr.Bloom),
+		extra:           hdr.Extra,
 		withdrawalsRoot: hdr.WithdrawalsRoot,
 	}
 	return &info, nil

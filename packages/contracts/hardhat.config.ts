@@ -37,6 +37,19 @@ const config: HardhatUserConfig = {
       accounts: [
         process.env.PRIVATE_KEY_DEPLOYER_SEPOLIA || ethers.constants.HashZero,
       ],
+      companionNetworks: {
+        l2: 'kromaSepolia',
+      },
+    },
+    kromaSepolia: {
+      chainId: 2358,
+      url: process.env.L2_RPC_KROMA_SEPOLIA || '',
+      accounts: [
+        process.env.PRIVATE_KEY_DEPLOYER_SEPOLIA || ethers.constants.HashZero,
+      ],
+      companionNetworks: {
+        l1: 'sepolia',
+      },
     },
     devnetL1: {
       live: false,
@@ -46,11 +59,6 @@ const config: HardhatUserConfig = {
     devnetL2: {
       live: false,
       url: process.env.RPC_URL || 'http://localhost:9545',
-      accounts: [PRIVATE_KEY_DEPLOYER_DEVNET],
-    },
-    easel: {
-      chainId: 7789,
-      url: process.env.L1_RPC_EASEL || '',
       accounts: [PRIVATE_KEY_DEPLOYER_DEVNET],
     },
   },
@@ -77,7 +85,6 @@ const config: HardhatUserConfig = {
     deployments: {
       mainnet: ['../contracts/deployments/mainnet'],
       sepolia: ['../contracts/deployments/sepolia'],
-      easel: ['../contracts/deployments/easel'],
     },
   },
   solidity: {

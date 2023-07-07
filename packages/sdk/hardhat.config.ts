@@ -22,9 +22,9 @@ const config: HardhatUserConfig = {
       chainId: 11155111,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
-    sepoliaKroma: {
+    kromaSepolia: {
       url: 'https://api.sepolia.kroma.network',
-      chainId: 2357,
+      chainId: 2358,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
     devnetL1: {

@@ -3,9 +3,9 @@ package hardhat_test
 import (
 	"testing"
 
-	"github.com/kroma-network/kroma/bindings/hardhat"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/kroma-network/kroma/bindings/hardhat"
 )
 
 func TestGetFullyQualifiedName(t *testing.T) {

@@ -133,29 +133,8 @@ The Kroma Portal serves as both the entry and exit point to the Kroma L2. It is 
 the [KromaPortal](./deposits.md#deposit-contract) contract, and in addition provides the following interface for
 withdrawals:
 
-- `Types.WithdrawalTransaction` type
-
-  ```solidity
-  struct WithdrawalTransaction {
-      uint256 nonce;
-      address sender;
-      address target;
-      uint256 value;
-      uint256 gasLimit;
-      bytes data;
-  }
-  ```
-
-- `Types.OutputRootProof` type
-
-  ```solidity
-  struct OutputRootProof {
-      bytes32 version;
-      bytes32 stateRoot;
-      bytes32 messagePasserStorageRoot;
-      bytes32 latestBlockhash;
-  }
-  ```
+- [`WithdrawalTransaction` type]
+- [`OutputRootProof` type]
 
 ```solidity
 interface KromaPortal {
@@ -237,3 +216,6 @@ contracts if desired.
 | `FINALIZATION_PERIOD` | `604_800` | seconds |
 
 This `FINALIZATION_PERIOD` value is equivalent to 7 days.
+
+[`WithdrawalTransaction` type]: https://github.com/kroma-network/kroma/blob/7a4126dcc30d10f4ebf881f681296d3fbe308eaf/packages/contracts/contracts/libraries/Types.sol#L131-L138
+[`OutputRootProof` type]: https://github.com/kroma-network/kroma/blob/7a4126dcc30d10f4ebf881f681296d3fbe308eaf/packages/contracts/contracts/libraries/Types.sol#L34-L40

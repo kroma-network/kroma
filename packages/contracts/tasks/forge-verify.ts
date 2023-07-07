@@ -13,6 +13,7 @@ interface ForgeVerifyArgs {
   contractAddress: string
   contractName: string
   etherscanApiKey: string
+  verifierUrl: string
 }
 
 const verifyArgs = (opts: ForgeVerifyArgs): string[] => {
@@ -31,6 +32,9 @@ const verifyArgs = (opts: ForgeVerifyArgs): string[] => {
   }
   if (typeof opts.optimizerRuns === 'number') {
     allArgs.push('--num-of-optimizations', opts.optimizerRuns.toString())
+  }
+  if (opts.verifierUrl) {
+    allArgs.push('--verifier-url', opts.verifierUrl)
   }
   allArgs.push('--watch')
 
@@ -75,6 +79,7 @@ task('forge-contract-verify', 'Verify contracts using forge')
     process.env.ETHERSCAN_API_KEY,
     types.string
   )
+  .addOptionalParam('verifierUrl', 'Verifier URL', '', types.string)
   .setAction(async (args, hre) => {
     const deployments = await hre.deployments.all()
     if (args.contract !== '') {
@@ -93,11 +98,17 @@ task('forge-contract-verify', 'Verify contracts using forge')
       const chainId = await hre.getChainId()
       const contractAddress = deployment.address
       const etherscanApiKey = args.etherscanApiKey
+      const verifierUrl = args.verifierUrl
 
       let metadata = deployment.metadata as any
       // Handle double nested JSON stringify
       while (typeof metadata === 'string') {
         metadata = JSON.parse(metadata) as any
+      }
+
+      // Skip if metadata is undefined or null
+      if (!metadata) {
+        continue
       }
 
       const contractName = Object.values(
@@ -117,6 +128,7 @@ task('forge-contract-verify', 'Verify contracts using forge')
         contractAddress,
         contractName,
         etherscanApiKey,
+        verifierUrl,
       })
 
       if (success) {

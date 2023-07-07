@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -15,7 +14,6 @@ import (
 	"github.com/kroma-network/kroma/components/node/client"
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/utils/service/crypto"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 const (
@@ -57,71 +55,6 @@ func ParseAddress(address string) (common.Address, error) {
 	}
 
 	return common.Address{}, fmt.Errorf("invalid address: %v", address)
-}
-
-func CalcGasTipAndFeeCap(ctx context.Context, client *ethclient.Client) (*big.Int, *big.Int, error) {
-	gasTipCap, err := client.SuggestGasTipCap(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	head, err := client.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	gasFeeCap := new(big.Int).Add(gasTipCap, new(big.Int).Mul(head.BaseFee, big.NewInt(2)))
-
-	return gasTipCap, gasFeeCap, nil
-}
-
-func UpdateGasPrice(client *ethclient.Client, tx *types.Transaction, addr common.Address, signerFn crypto.SignerFn) txmgr.UpdateGasPriceFunc {
-	return func(ctx context.Context) (*types.Transaction, error) {
-		var newTx *types.Transaction
-
-		nonce, err := client.PendingNonceAt(ctx, addr)
-		if err != nil {
-			nonce = tx.Nonce()
-		}
-
-		if tx.ChainId() != nil {
-			gasTipCap, gasFeeCap, err := CalcGasTipAndFeeCap(ctx, client)
-			if err != nil {
-				return nil, err
-			}
-			newTx = types.NewTx(&types.DynamicFeeTx{
-				ChainID:    tx.ChainId(),
-				Nonce:      nonce,
-				GasTipCap:  gasTipCap,
-				GasFeeCap:  gasFeeCap,
-				Gas:        tx.Gas(),
-				To:         tx.To(),
-				Value:      tx.Value(),
-				Data:       tx.Data(),
-				AccessList: tx.AccessList(),
-			})
-		} else if tx.GasPrice() != nil {
-			gasPrice, err := client.SuggestGasPrice(ctx)
-			if err != nil {
-				return nil, err
-			}
-			newTx = types.NewTx(&types.LegacyTx{
-				Nonce:    nonce,
-				GasPrice: gasPrice,
-				Gas:      tx.Gas(),
-				To:       tx.To(),
-				Value:    tx.Value(),
-				Data:     tx.Data(),
-			})
-		}
-
-		signedTx, err := signerFn(ctx, addr, newTx)
-		if err != nil {
-			return nil, err
-		}
-
-		return signedTx, nil
-	}
 }
 
 func NewSimpleCallOpts(ctx context.Context) *bind.CallOpts {

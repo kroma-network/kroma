@@ -50,6 +50,12 @@ those frames need to be generated differently than simply closing the channel.
 
 # Select all channels that are not ready and then get the id and inclusion block & tx hash of the first frame.
 > jq "select(.is_ready == false)|[.id, .frames[0].inclusion_block, .frames[0].transaction_hash]"  $CHANNEL_DIR
+
+# Show all of the frames in a channel without seeing the batches or frame data
+> jq 'del(.batches)|del(.frames[]|.frame.data)' $CHANNEL_FILE
+
+# Show all batches (without timestamps) in a channel
+> jq '.batches|del(.[]|.Transactions)' $CHANNEL_FILE
 ```
 
 

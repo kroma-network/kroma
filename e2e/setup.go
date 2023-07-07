@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -12,21 +13,26 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	geth_eth "github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/bindings/predeploys"
-	batcher "github.com/kroma-network/kroma/components/batcher"
+	"github.com/kroma-network/kroma/components/batcher"
 	batchermetrics "github.com/kroma-network/kroma/components/batcher/metrics"
 	"github.com/kroma-network/kroma/components/node/chaincfg"
+	"github.com/kroma-network/kroma/components/node/client"
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/metrics"
 	rollupNode "github.com/kroma-network/kroma/components/node/node"
@@ -35,15 +41,30 @@ import (
 	"github.com/kroma-network/kroma/components/node/rollup/driver"
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
-	validator "github.com/kroma-network/kroma/components/validator"
+	"github.com/kroma-network/kroma/components/validator"
+	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
+	"github.com/kroma-network/kroma/e2e/testdata"
 	"github.com/kroma-network/kroma/utils/chain-ops/genesis"
 	klog "github.com/kroma-network/kroma/utils/service/log"
+	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
-var (
-	testingJWTSecret = [32]byte{123}
-)
+var testingJWTSecret = [32]byte{123}
+
+func newTxMgrConfig(l1Addr string, privKey *ecdsa.PrivateKey) txmgr.CLIConfig {
+	return txmgr.CLIConfig{
+		L1RPCURL:                  l1Addr,
+		PrivateKey:                hexPriv(privKey),
+		NumConfirmations:          1,
+		SafeAbortNonceTooLowCount: 3,
+		ResubmissionTimeout:       3 * time.Second,
+		ReceiptQueryInterval:      50 * time.Millisecond,
+		NetworkTimeout:            2 * time.Second,
+		TxSendTimeout:             10 * time.Minute,
+		TxNotInMempoolTimeout:     2 * time.Minute,
+	}
+}
 
 func DefaultSystemConfig(t *testing.T) SystemConfig {
 	secrets, err := e2eutils.DefaultMnemonicConfig.Secrets()
@@ -53,7 +74,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	deployConfig := &genesis.DeployConfig{
 		L1ChainID:   900,
 		L2ChainID:   901,
-		L2BlockTime: 2,
+		L2BlockTime: 1,
 
 		FinalizationPeriodSeconds: 60 * 60 * 24,
 		MaxProposerDrift:          10,
@@ -63,17 +84,21 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		BatchInboxAddress:         common.Address{0: 0x52, 19: 0xff}, // tbd
 		BatchSenderAddress:        addresses.Batcher,
 
+		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
+		ValidatorPoolMinBondAmount:    uint642big(1),
+		ValidatorPoolNonPenaltyPeriod: 2,
+		ValidatorPoolPenaltyPeriod:    2,
+
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
-		L2OutputOracleValidator:          addresses.Validator,
 
 		FinalSystemOwner: addresses.SysCfgOwner,
 
 		L1BlockTime:                 2,
 		L1GenesisBlockNonce:         4660,
-		CliqueSignerAddress:         addresses.CliqueSigner,
+		CliqueSignerAddress:         common.Address{}, // e2e used to run Clique, but now uses fake Proof of Stake.
 		L1GenesisBlockTimestamp:     hexutil.Uint64(time.Now().Unix()),
-		L1GenesisBlockGasLimit:      8_000_000,
+		L1GenesisBlockGasLimit:      30_000_000,
 		L1GenesisBlockDifficulty:    uint642big(1),
 		L1GenesisBlockMixHash:       common.Hash{},
 		L1GenesisBlockCoinbase:      common.Address{},
@@ -83,7 +108,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		L1GenesisBlockBaseFeePerGas: uint642big(7),
 
 		L2GenesisBlockNonce:         0,
-		L2GenesisBlockGasLimit:      8_000_000,
+		L2GenesisBlockGasLimit:      30_000_000,
 		L2GenesisBlockDifficulty:    uint642big(1),
 		L2GenesisBlockMixHash:       common.Hash{},
 		L2GenesisBlockNumber:        0,
@@ -91,17 +116,20 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		L2GenesisBlockParentHash:    common.Hash{},
 		L2GenesisBlockBaseFeePerGas: uint642big(7),
 
-		L2GenesisBlueTimeOffset: new(hexutil.Uint64),
-
-		ColosseumChallengeTimeout: 120,
+		ColosseumBisectionTimeout: 120,
+		ColosseumProvingTimeout:   480,
+		ColosseumDummyHash:        common.HexToHash("0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7"),
+		ColosseumMaxTxs:           25,
 		ColosseumSegmentsLengths:  "3,3",
+
+		SecurityCouncilNumConfirmationRequired: 1,
+		SecurityCouncilOwners:                  []common.Address{addresses.Challenger, addresses.Alice, addresses.Bob, addresses.Mallory},
 
 		GasPriceOracleOverhead: 2100,
 		GasPriceOracleScalar:   1_000_000,
 
-		ProposerFeeVaultRecipient: common.Address{19: 1},
-		BaseFeeVaultRecipient:     common.Address{19: 2},
-		L1FeeVaultRecipient:       common.Address{19: 3},
+		ProtocolVaultRecipient:       common.Address{19: 2},
+		ProposerRewardVaultRecipient: common.Address{19: 3},
 
 		DeploymentWaitConfirmations: 1,
 
@@ -149,21 +177,24 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			},
 		},
 		Loggers: map[string]log.Logger{
-			"syncer":    testlog.Logger(t, log.LvlInfo).New("role", "syncer"),
-			"proposer":  testlog.Logger(t, log.LvlInfo).New("role", "proposer"),
-			"batcher":   testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
-			"validator": testlog.Logger(t, log.LvlCrit).New("role", "validator"),
+			"syncer":     testlog.Logger(t, log.LvlInfo).New("role", "syncer"),
+			"proposer":   testlog.Logger(t, log.LvlInfo).New("role", "proposer"),
+			"batcher":    testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
+			"validator":  testlog.Logger(t, log.LvlInfo).New("role", "validator"),
+			"challenger": testlog.Logger(t, log.LvlInfo).New("role", "challenger"),
+			"guardian":   testlog.Logger(t, log.LvlInfo).New("role", "guardian"),
 		},
-		GethOptions:         map[string][]GethOption{},
-		P2PTopology:         nil, // no P2P connectivity by default
-		NonFinalizedOutputs: false,
+		GethOptions:               map[string][]GethOption{},
+		P2PTopology:               nil, // no P2P connectivity by default
+		NonFinalizedOutputs:       false,
+		OutputSubmitterBondAmount: 1,
 	}
 }
 
 func writeDefaultJWT(t *testing.T) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -195,8 +226,19 @@ type SystemConfig struct {
 	// Any node name not in the topology will not have p2p enabled.
 	P2PTopology map[string][]string
 
+	// Enables req-resp sync in the P2P nodes
+	P2PReqRespSync bool
+
 	// If the validator can make outputs for L2 blocks derived from L1 blocks which are not finalized on L1 yet.
 	NonFinalizedOutputs bool
+
+	// Explicitly disable batcher, for tests that rely on unsafe L2 payloads
+	DisableBatcher bool
+
+	OutputSubmitterBondAmount uint64
+
+	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
+	EnableMaliciousValidator bool
 }
 
 type System struct {
@@ -204,12 +246,16 @@ type System struct {
 
 	RollupConfig *rollup.Config
 
+	L2GenesisCfg *core.Genesis
+
 	// Connections to running nodes
 	Nodes       map[string]*node.Node
 	Backends    map[string]*geth_eth.Ethereum
 	Clients     map[string]*ethclient.Client
 	RollupNodes map[string]*rollupNode.KromaNode
 	Validator   *validator.Validator
+	Challenger  *validator.Validator
+	Guardian    *validator.Validator
 	Batcher     *batcher.Batcher
 	Mocknet     mocknet.Mocknet
 }
@@ -219,7 +265,9 @@ func (sys *System) Close() {
 		sys.Validator.Stop()
 	}
 	if sys.Batcher != nil {
-		sys.Batcher.Stop()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		sys.Batcher.Stop(ctx)
 	}
 
 	for _, node := range sys.RollupNodes {
@@ -313,6 +361,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	if err != nil {
 		return nil, err
 	}
+	sys.L2GenesisCfg = l2Genesis
 	for addr, amount := range cfg.Premine {
 		if existing, ok := l2Genesis.Alloc[addr]; ok {
 			l2Genesis.Alloc[addr] = core.GenesisAccount{
@@ -352,7 +401,6 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			BatchInboxAddress:      cfg.DeployConfig.BatchInboxAddress,
 			DepositContractAddress: predeploys.DevKromaPortalAddr,
 			L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
-			BlueTime:               cfg.DeployConfig.BlueTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 		}
 	}
 	defaultConfig := makeRollupConfig()
@@ -381,11 +429,6 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		didErrAfterStart = true
 		return nil, err
 	}
-	err = l1Backend.StartMining(1)
-	if err != nil {
-		didErrAfterStart = true
-		return nil, err
-	}
 	for name, node := range sys.Nodes {
 		if name == "l1" {
 			continue
@@ -400,26 +443,13 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	// Configure connections to L1 and L2 for rollup nodes.
 	// TODO: refactor testing to use in-process rpc connections instead of websockets.
 
-	l1EndpointConfig := l1Node.WSEndpoint()
-	useHTTP := os.Getenv("E2E_USE_HTTP") == "true"
-	if useHTTP {
-		log.Info("using HTTP client")
-		l1EndpointConfig = l1Node.HTTPEndpoint()
-	}
-
 	for name, rollupCfg := range cfg.Nodes {
-		l2EndpointConfig := sys.Nodes[name].WSAuthEndpoint()
-		if useHTTP {
-			l2EndpointConfig = sys.Nodes[name].HTTPAuthEndpoint()
-		}
-		rollupCfg.L1 = &rollupNode.L1EndpointConfig{
-			L1NodeAddr: l1EndpointConfig,
-			L1TrustRPC: false,
-			L1RPCKind:  sources.RPCKindBasic,
-		}
-		rollupCfg.L2 = &rollupNode.L2EndpointConfig{
-			L2EngineAddr:      l2EndpointConfig,
-			L2EngineJWTSecret: cfg.JWTSecret,
+		configureL1(rollupCfg, l1Node)
+		configureL2(rollupCfg, sys.Nodes[name], cfg.JWTSecret)
+
+		rollupCfg.L2Sync = &rollupNode.PreparedL2SyncEndpoint{
+			Client:   nil,
+			TrustRPC: false,
 		}
 	}
 
@@ -468,9 +498,10 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			// TODO we can enable discv5 in the testnodes to test discovery of new peers.
 			// Would need to mock though, and the discv5 implementation does not provide nice mocks here.
 			p := &p2p.Prepared{
-				HostP2P:   h,
-				LocalNode: nil,
-				UDPv5:     nil,
+				HostP2P:           h,
+				LocalNode:         nil,
+				UDPv5:             nil,
+				EnableReqRespSync: cfg.P2PReqRespSync,
 			}
 			p2pNodes[name] = p
 			return p, nil
@@ -561,58 +592,128 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		}
 	}
 
-	// Validator (L2 Output Submitter + Challenger)
+	// Run validator node (L2 Output Submitter, Asserter)
 	validatorCliCfg := validator.CLIConfig{
-		L1EthRpc:                  sys.Nodes["l1"].WSEndpoint(),
-		RollupRpc:                 sys.RollupNodes["proposer"].HTTPEndpoint(),
-		L2OOAddress:               predeploys.DevL2OutputOracleAddr.String(),
-		ColosseumAddress:          predeploys.DevColosseumAddr.String(),
-		PollInterval:              50 * time.Millisecond,
-		NumConfirmations:          1,
-		ResubmissionTimeout:       3 * time.Second,
-		SafeAbortNonceTooLowCount: 3,
-		AllowNonFinalized:         cfg.NonFinalizedOutputs,
+		L1EthRpc:                     sys.Nodes["l1"].WSEndpoint(),
+		RollupRpc:                    sys.RollupNodes["proposer"].HTTPEndpoint(),
+		L2OOAddress:                  predeploys.DevL2OutputOracleAddr.String(),
+		ColosseumAddress:             predeploys.DevColosseumAddr.String(),
+		ValPoolAddress:               predeploys.DevValidatorPoolAddr.String(),
+		ChallengerPollInterval:       500 * time.Millisecond,
+		ProverGrpc:                   "http://0.0.0.0:0",
+		TxMgrConfig:                  newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
+		AllowNonFinalized:            cfg.NonFinalizedOutputs,
+		OutputSubmitterBondAmount:    cfg.OutputSubmitterBondAmount,
+		OutputSubmitterRetryInterval: 50 * time.Millisecond,
+		OutputSubmitterRoundBuffer:   30,
+		ChallengerDisabled:           true,
+		SecurityCouncilAddress:       predeploys.DevSecurityCouncilAddr.String(),
 		LogConfig: klog.CLIConfig{
 			Level:  "info",
 			Format: "text",
 		},
-		PrivateKey: hexPriv(cfg.Secrets.Validator),
-		ProverGrpc: "http://0.0.0.0:0",
 	}
 
-	validatorCfg, err := validator.NewValidatorConfig(validatorCliCfg, sys.cfg.Loggers["validator"])
+	// deposit to ValidatorPool to be a validator
+	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.TrustedValidator, big.NewInt(params.Ether))
+	if err != nil {
+		return nil, fmt.Errorf("trusted validator unable to deposit to ValidatorPool: %w", err)
+	}
+
+	validatorCfg, err := validator.NewValidatorConfig(validatorCliCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("unable to init validator config: %w", err)
 	}
-	// replace to mock fetcher
-	validatorCfg.ProofFetcher = e2eutils.NewFetcher(sys.cfg.Loggers["validator"])
-	sys.Validator, err = validator.NewValidator(context.Background(), *validatorCfg, sys.cfg.Loggers["validator"])
+
+	// Replace to mock RPC client
+	cl, err := rpc.DialHTTP(validatorCliCfg.RollupRpc)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init validator rollup rpc client: %w", err)
+	}
+	rpcCl := client.NewBaseRPCClient(cl)
+	validatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
+	validatorCfg.RollupClient = sources.NewRollupClient(validatorMaliciousL2RPC)
+
+	// If malicious validator is turned on, set target block number for submitting invalid output
+	if cfg.EnableMaliciousValidator {
+		validatorMaliciousL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+	}
+
+	sys.Validator, err = validator.NewValidator(context.Background(), *validatorCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup validator: %w", err)
 	}
 
-	sys.Validator.Start()
+	if err := sys.Validator.Start(); err != nil {
+		return nil, fmt.Errorf("unable to start validator: %w", err)
+	}
 
-	// Batcher (Batch Submitter)
-	batcherCliCfg := batcher.CLIConfig{
-		L1EthRpc:                  sys.Nodes["l1"].WSEndpoint(),
-		L2EthRpc:                  sys.Nodes["proposer"].WSEndpoint(),
-		RollupRpc:                 sys.RollupNodes["proposer"].HTTPEndpoint(),
-		MaxChannelDuration:        1,
-		MaxL1TxSize:               120_000,
-		TargetL1TxSize:            100_000,
-		TargetNumFrames:           1,
-		ApproxComprRatio:          0.4,
-		SubSafetyMargin:           4,
-		PollInterval:              50 * time.Millisecond,
-		NumConfirmations:          1,
-		ResubmissionTimeout:       5 * time.Second,
-		SafeAbortNonceTooLowCount: 3,
+	// Run validator node (Challenger)
+	challengerCliCfg := validator.CLIConfig{
+		L1EthRpc:                sys.Nodes["l1"].WSEndpoint(),
+		RollupRpc:               sys.RollupNodes["proposer"].HTTPEndpoint(),
+		L2OOAddress:             predeploys.DevL2OutputOracleAddr.String(),
+		ColosseumAddress:        predeploys.DevColosseumAddr.String(),
+		ValPoolAddress:          predeploys.DevValidatorPoolAddr.String(),
+		ChallengerPollInterval:  500 * time.Millisecond,
+		ProverGrpc:              "http://0.0.0.0:0",
+		TxMgrConfig:             newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Challenger),
+		OutputSubmitterDisabled: true,
+		SecurityCouncilAddress:  predeploys.DevSecurityCouncilAddr.String(),
+		GuardianEnabled:         true,
 		LogConfig: klog.CLIConfig{
 			Level:  "info",
 			Format: "text",
 		},
-		PrivateKey: hexPriv(cfg.Secrets.Batcher),
+	}
+
+	challengerCfg, err := validator.NewValidatorConfig(challengerCliCfg, sys.cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init challenger config: %w", err)
+	}
+
+	// Replace to mock RPC client
+	cl, err = rpc.DialHTTP(challengerCliCfg.RollupRpc)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init challenger rollup rpc client: %w", err)
+	}
+	rpcCl = client.NewBaseRPCClient(cl)
+	challengerHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
+	challengerCfg.RollupClient = sources.NewRollupClient(challengerHonestL2RPC)
+
+	// If malicious validator is turned on, set target block number for challenge
+	if cfg.EnableMaliciousValidator {
+		challengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+	}
+
+	// Replace to mock fetcher
+	challengerCfg.ProofFetcher = e2eutils.NewFetcher(sys.cfg.Loggers["challenger"], "./testdata/proof")
+	sys.Challenger, err = validator.NewValidator(context.Background(), *challengerCfg, sys.cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("unable to setup challenger: %w", err)
+	}
+
+	if err := sys.Challenger.Start(); err != nil {
+		return nil, fmt.Errorf("unable to start challenger: %w", err)
+	}
+
+	// Batcher (Batch Submitter)
+	batcherCliCfg := batcher.CLIConfig{
+		L1EthRpc:           sys.Nodes["l1"].WSEndpoint(),
+		L2EthRpc:           sys.Nodes["proposer"].WSEndpoint(),
+		RollupRpc:          sys.RollupNodes["proposer"].HTTPEndpoint(),
+		MaxChannelDuration: 1,
+		MaxL1TxSize:        120_000,
+		TargetL1TxSize:     100_000,
+		TargetNumFrames:    1,
+		ApproxComprRatio:   0.4,
+		SubSafetyMargin:    4,
+		PollInterval:       50 * time.Millisecond,
+		TxMgrConfig:        newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Batcher),
+		LogConfig: klog.CLIConfig{
+			Level:  "info",
+			Format: "text",
+		},
 	}
 
 	batcherCfg, err := batcher.NewBatcherConfig(batcherCliCfg, sys.cfg.Loggers["batcher"], batchermetrics.NoopMetrics)
@@ -624,9 +725,44 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		return nil, fmt.Errorf("failed to setup batcher: %w", err)
 	}
 
-	sys.Batcher.Start()
+	// Batcher may be enabled later
+	if !sys.cfg.DisableBatcher {
+		if err := sys.Batcher.Start(); err != nil {
+			return nil, fmt.Errorf("unable to start batcher: %w", err)
+		}
+	}
 
 	return sys, nil
+}
+
+func configureL1(rollupNodeCfg *rollupNode.Config, l1Node *node.Node) {
+	l1EndpointConfig := l1Node.WSEndpoint()
+	useHTTP := os.Getenv("E2E_USE_HTTP") == "true"
+	if useHTTP {
+		log.Info("using HTTP client")
+		l1EndpointConfig = l1Node.HTTPEndpoint()
+	}
+	rollupNodeCfg.L1 = &rollupNode.L1EndpointConfig{
+		L1NodeAddr:       l1EndpointConfig,
+		L1TrustRPC:       false,
+		L1RPCKind:        sources.RPCKindBasic,
+		RateLimit:        0,
+		BatchSize:        20,
+		HttpPollInterval: time.Millisecond * 100,
+	}
+}
+
+func configureL2(rollupNodeCfg *rollupNode.Config, l2Node *node.Node, jwtSecret [32]byte) {
+	useHTTP := os.Getenv("E2E_USE_HTTP") == "true"
+	l2EndpointConfig := l2Node.WSAuthEndpoint()
+	if useHTTP {
+		l2EndpointConfig = l2Node.HTTPAuthEndpoint()
+	}
+
+	rollupNodeCfg.L2 = &rollupNode.L2EndpointConfig{
+		L2EngineAddr:      l2EndpointConfig,
+		L2EngineJWTSecret: jwtSecret,
+	}
 }
 
 func (cfg SystemConfig) L1ChainIDBig() *big.Int {
@@ -635,6 +771,71 @@ func (cfg SystemConfig) L1ChainIDBig() *big.Int {
 
 func (cfg SystemConfig) L2ChainIDBig() *big.Int {
 	return new(big.Int).SetUint64(cfg.DeployConfig.L2ChainID)
+}
+
+func (cfg SystemConfig) DepositValidatorPool(l1Client *ethclient.Client, priv *ecdsa.PrivateKey, value *big.Int) error {
+	valpoolContract, err := bindings.NewValidatorPool(predeploys.DevValidatorPoolAddr, l1Client)
+	if err != nil {
+		return fmt.Errorf("unable to create ValidatorPool instance: %w", err)
+	}
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(priv, cfg.L1ChainIDBig())
+	if err != nil {
+		return fmt.Errorf("unable to create transactor opts: %w", err)
+	}
+	transactOpts.Value = value
+	tx, err := valpoolContract.Deposit(transactOpts)
+	if err != nil {
+		return fmt.Errorf("unable to send deposit transaction: %w", err)
+	}
+	receipt, err := waitForTransaction(tx.Hash(), l1Client, time.Duration(3*cfg.DeployConfig.L1BlockTime)*time.Second)
+	if err != nil {
+		return fmt.Errorf("unable to wait for validator deposit tx on L1: %w", err)
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return errors.New("validator deposit tx failed")
+	}
+	return nil
+}
+
+func (cfg SystemConfig) SendTransferTx(l2Prop *ethclient.Client, l2Sync *ethclient.Client) (*types.Receipt, error) {
+	chainId := cfg.L2ChainIDBig()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	nonce, err := l2Prop.PendingNonceAt(ctx, cfg.Secrets.Addresses().Alice)
+	cancel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nonce: %w", err)
+	}
+	tx := types.MustSignNewTx(cfg.Secrets.Alice, types.LatestSignerForChainID(chainId), &types.DynamicFeeTx{
+		ChainID:   chainId,
+		Nonce:     nonce,
+		To:        &common.Address{0xff, 0xff},
+		Value:     common.Big1,
+		GasTipCap: big.NewInt(10),
+		GasFeeCap: big.NewInt(200),
+		Gas:       21000,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	err = l2Prop.SendTransaction(ctx, tx)
+	cancel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to send L2 tx to proposer: %w", err)
+	}
+
+	_, err = waitForL2Transaction(tx.Hash(), l2Prop, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait L2 tx on proposer: %w", err)
+	}
+
+	receipt, err := waitForL2Transaction(tx.Hash(), l2Sync, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait L2 tx on syncer: %w", err)
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, errors.New("tx was failed on L2")
+	}
+
+	return receipt, nil
 }
 
 func uint642big(in uint64) *hexutil.Big {

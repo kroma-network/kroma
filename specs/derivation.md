@@ -39,7 +39,6 @@
 [g-unsafe-l2-block]: glossary.md#unsafe-l2-block
 [g-unsafe-sync]: glossary.md#unsafe-sync
 [g-user-deposited]: glossary.md#user-deposited-transaction
-[g-validator]: glossary.md#validator
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -183,9 +182,9 @@ will still be considered part of the canonical L2 chain. Batches are still subje
 be encoded correctly), and so are individual transactions within the batch (e.g. signatures have to be valid). Invalid
 batches and invalid individual transactions within an otherwise valid batch are discarded by correct nodes.
 
-If a validator applies a state transition incorrectly and posts an [output root][g-l2-output], then
-this output root will be incorrect. The incorrect output root which will be challenged by a
-[ZK fault proof][g-zk-fault-proof], then replaced by a correct output root **for the existing proposer batches.**
+If a validator applies a state transition incorrectly and posts an [output root][g-l2-output],
+this output root will be incorrect. The incorrect output root, which will be challenged by a
+[ZK fault proof][g-zk-fault-proof], will then be replaced by a correct output root **for the existing proposer batches.**
 
 Refer to the [Batch Submission specification][batcher-spec] for more information.
 
@@ -280,9 +279,7 @@ As for the comment on "security types", it explains the classification of blocks
 
 - [Unsafe L2 blocks][g-unsafe-l2-block]:
 - [Safe L2 blocks][g-safe-l2-block]:
-- Finalized L2 blocks: currently the same as the safe L2 block, but could be changed in the future to refer to block
-  that have been derived from [finalized][g-finalized-l2-head] L1 data, or alternatively, from L1 blacks that are older
-  than the [challenge period].
+- Finalized L2 blocks: refer to block that have been derived from [finalized][g-finalized-l2-head] L1 data.
 
 These security levels map to the `headBlockHash`, `safeBlockHash` and `finalizedBlockHash` values transmitted when
 interacting with the [execution-engine API][exec-engine].
@@ -296,7 +293,7 @@ Batcher transactions are encoded as `version_byte ++ rollup_payload` (where `++`
 | 0              | `frame ...` (one or more frames, concatenated) |
 
 Unknown versions make the batcher transaction invalid (it must be ignored by the rollup node).
-All frames in a batcher transaction must be parseable. If any one frame fails to parse, the all frames in the
+All frames in a batcher transaction must be parsable. If any one frame fails to parse, the all frames in the
 transaction are rejected.
 
 Batch transactions are authenticated by verifying that the `to` address of the transaction matches the batch inbox
@@ -923,7 +920,8 @@ follows:
 
 - `timestamp` is set to the batch's timestamp.
 - `random` is set to the `prev_randao` L1 block attribute.
-- `suggestedFeeRecipient` is set to the Proposer Fee Vault address. See [Fee Vaults] specification.
+- `suggestedFeeRecipient` is set to the zero address because the transaction fee is distributed to the fee vaults.
+  See [Fee Vaults] specification.
 - `transactions` is the array of the derived transactions: deposited transactions and sequenced transactions, all
   encoded with [EIP-2718].
 - `noTxPool` is set to `true`, to use the exact above `transactions` list when constructing the block.

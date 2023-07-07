@@ -24,6 +24,7 @@ func TestL1Miner_BuildBlock(gt *testing.T) {
 	})
 
 	cl := miner.EthClient()
+	l1Cl := miner.L1Client(t, sd.RollupCfg)
 	signer := types.LatestSigner(sd.L1Cfg.Config)
 
 	// send a tx to the miner
@@ -31,7 +32,7 @@ func TestL1Miner_BuildBlock(gt *testing.T) {
 		ChainID:   sd.L1Cfg.Config.ChainID,
 		Nonce:     0,
 		GasTipCap: big.NewInt(2 * params.GWei),
-		GasFeeCap: new(big.Int).Add(miner.l1Chain.CurrentBlock().BaseFee(), big.NewInt(2*params.GWei)),
+		GasFeeCap: new(big.Int).Add(miner.l1Chain.CurrentBlock().BaseFee, big.NewInt(2*params.GWei)),
 		Gas:       params.TxGas,
 		To:        &dp.Addresses.Bob,
 		Value:     e2eutils.Ether(2),
@@ -42,17 +43,21 @@ func TestL1Miner_BuildBlock(gt *testing.T) {
 	miner.ActL1StartBlock(10)(t)
 	miner.ActL1EndBlock(t)
 	bl := miner.l1Chain.CurrentBlock()
-	require.Equal(t, uint64(1), bl.NumberU64())
-	require.Zero(gt, bl.Transactions().Len())
+	_, txs, err := l1Cl.InfoAndTxsByHash(t.Ctx(), bl.Hash())
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), bl.Number.Uint64())
+	require.Zero(gt, txs.Len())
 
 	// now include the tx when we want it to
 	miner.ActL1StartBlock(10)(t)
 	miner.ActL1IncludeTx(dp.Addresses.Alice)(t)
 	miner.ActL1EndBlock(t)
 	bl = miner.l1Chain.CurrentBlock()
-	require.Equal(t, uint64(2), bl.NumberU64())
-	require.Equal(t, 1, bl.Transactions().Len())
-	require.Equal(t, tx.Hash(), bl.Transactions()[0].Hash())
+	_, txs, err = l1Cl.InfoAndTxsByHash(t.Ctx(), bl.Hash())
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), bl.Number.Uint64())
+	require.Equal(t, 1, txs.Len())
+	require.Equal(t, tx.Hash(), txs[0].Hash())
 
 	// now make a replica that syncs these two blocks from the miner
 	replica := NewL1Replica(t, log, sd.L1Cfg)

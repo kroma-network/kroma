@@ -2,11 +2,13 @@ package batcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
@@ -19,7 +21,7 @@ import (
 	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
-// Main is the entrypoint into the Batch Submitter.
+// Main is the entrypoint into the Batcher.
 func Main(version string, cliCtx *cli.Context) error {
 	cliCfg := NewCLIConfig(cliCtx)
 	if err := cliCfg.Check(); err != nil {
@@ -28,10 +30,11 @@ func Main(version string, cliCtx *cli.Context) error {
 
 	l := klog.NewLogger(cliCfg.LogConfig)
 	m := metrics.NewMetrics("default")
-	l.Info("Initializing Batch Submitter")
+	l.Info("Initializing Batcher")
 
 	batcherCfg, err := NewBatcherConfig(cliCfg, l, m)
 	if err != nil {
+		l.Error("Unable to create batcher config", "err", err)
 		return err
 	}
 
@@ -39,36 +42,46 @@ func Main(version string, cliCtx *cli.Context) error {
 	defer cancel()
 
 	monitoring.MaybeStartPprof(ctx, cliCfg.PprofConfig, l)
-	monitoring.MaybeStartMetrics(ctx, cliCfg.MetricsConfig, l, batcherCfg.L1Client, batcherCfg.From)
+	monitoring.MaybeStartMetrics(ctx, cliCfg.MetricsConfig, l, m, batcherCfg.L1Client, batcherCfg.TxManager.From())
 	server, err := monitoring.StartRPC(cliCfg.RPCConfig.ToServiceCLIConfig(), version, krpc.WithLogger(l))
 	if err != nil {
 		return err
 	}
-	defer server.Stop()
+	defer func() {
+		if err = server.Stop(); err != nil {
+			l.Error("Error shutting down http server: %w", err)
+		}
+	}()
 
 	m.RecordInfo(version)
 	m.RecordUp()
 
 	batcher, err := NewBatcher(ctx, *batcherCfg, l, m)
 	if err != nil {
+		l.Error("Unable to create batcher", "err", err)
 		return err
 	}
 
-	batcher.Start()
+	if err := batcher.Start(); err != nil {
+		l.Error("Unable to start batcher", "err", err)
+		return err
+	}
 	<-utils.WaitInterrupt()
-	batcher.Stop()
+	batcher.Stop(context.Background())
 
 	return nil
 }
 
 type Batcher struct {
-	ctx    context.Context
-	cancel context.CancelFunc
+	shutdownCtx       context.Context
+	cancelShutdownCtx context.CancelFunc
+	killCtx           context.Context
+	cancelKillCtx     context.CancelFunc
+	running           bool
 
 	cfg            Config
 	l              log.Logger
 	batchSubmitter *BatchSubmitter
-	txMgr          txmgr.TxManager
 
 	wg sync.WaitGroup
 }
@@ -79,59 +92,68 @@ func NewBatcher(parentCtx context.Context, cfg Config, l log.Logger, m metrics.M
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(parentCtx)
-
 	batchSubmitter, err := NewBatchSubmitter(cfg, l, m)
 	if err != nil {
-		cancel()
 		return nil, fmt.Errorf("failed to init batch submitter: %w", err)
 	}
 
-	balance, err := cfg.L1Client.BalanceAt(ctx, cfg.From, nil)
+	balance, err := cfg.L1Client.BalanceAt(parentCtx, cfg.TxManager.From(), nil)
 	if err != nil {
-		cancel()
 		return nil, err
 	}
 
-	l.Info("creating batcher", "batcher_addr", cfg.From, "batcher_bal", balance)
+	l.Info("creating batcher", "batcher_addr", cfg.TxManager.From(), "batcher_bal", balance)
 
 	return &Batcher{
-		ctx:            ctx,
-		cancel:         cancel,
 		cfg:            cfg,
 		l:              l,
 		batchSubmitter: batchSubmitter,
-		txMgr:          txmgr.NewSimpleTxManager("batcher", l, cfg.TxManagerConfig, cfg.L1Client),
 	}, nil
 }
 
-func (b *Batcher) Start() {
-	b.l.Info("starting Batch Submitter")
+func (b *Batcher) Start() error {
+	b.l.Info("starting Batcher")
+
+	if b.running {
+		return errors.New("batcher is already running")
+	}
+	b.running = true
+
+	b.shutdownCtx, b.cancelShutdownCtx = context.WithCancel(context.Background())
+	b.killCtx, b.cancelKillCtx = context.WithCancel(context.Background())
+
 	b.wg.Add(1)
 	go b.loop()
+
+	b.l.Info("Batcher started")
+
+	return nil
 }
 
-func (b *Batcher) Stop() {
-	b.cancel()
-	b.wg.Wait()
-}
+func (b *Batcher) Stop(ctx context.Context) error {
+	b.l.Info("stopping Batcher")
 
-func (b *Batcher) loop() {
-	defer b.wg.Done()
-
-	ticker := time.NewTicker(b.cfg.PollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			if err := b.submitBatch(); err != nil {
-				b.l.Error("failed to submit batch channel frame", "err", err)
-			}
-		case <-b.ctx.Done():
-			return
-		}
+	if !b.running {
+		return errors.New("batcher is not running")
 	}
+	b.running = false
+
+	// go routine will call cancelKillCtx() if the passed in ctx is ever Done
+	cancelKill := b.cancelKillCtx
+	wrapped, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-wrapped.Done()
+		cancelKill()
+	}()
+
+	b.cancelShutdownCtx()
+	b.wg.Wait()
+	b.cancelKillCtx()
+
+	b.l.Info("Batcher stopped")
+
+	return nil
 }
 
 // The following things occur:
@@ -145,14 +167,51 @@ func (b *Batcher) loop() {
 // Submitted batch, but it is not valid
 // Missed L2 block somehow.
 
-func (b *Batcher) submitBatch() error {
-	b.batchSubmitter.LoadBlocksIntoState(b.ctx)
+func (b *Batcher) loop() {
+	defer b.wg.Done()
 
-blockLoop:
+	ticker := time.NewTicker(b.cfg.PollInterval)
+	defer ticker.Stop()
+
 	for {
-		l1tip, err := b.batchSubmitter.l1Tip(b.ctx)
+		select {
+		case <-ticker.C:
+			b.batchSubmitter.LoadBlocksIntoState(b.shutdownCtx)
+			if err := b.submitBatch(b.killCtx); err != nil {
+				b.l.Error("failed to submit batch channel frame", "err", err)
+			}
+		case <-b.shutdownCtx.Done():
+			if err := b.submitBatch(b.killCtx); err != nil {
+				b.l.Error("failed to submit batch channel frame", "err", err)
+			}
+			return
+		}
+	}
+}
+
+// submitBatch loops through the block data loaded into `state` and
+// submits the associated data to the L1 in the form of channel frames.
+func (b *Batcher) submitBatch(ctx context.Context) error {
+	for {
+		// Attempt to gracefully terminate the current channel, ensuring that no new frames will be
+		// produced. Any remaining frames must still be published to the L1 to prevent stalling.
+		select {
+		case <-ctx.Done():
+			err := b.batchSubmitter.state.Close()
+			if err != nil {
+				b.l.Error("failed to close the channel manager", "err", err)
+			}
+		case <-b.shutdownCtx.Done():
+			err := b.batchSubmitter.state.Close()
+			if err != nil {
+				b.l.Error("failed to close the channel manager", "err", err)
+			}
+		default:
+		}
+
+		l1tip, err := b.batchSubmitter.l1Tip(ctx)
 		if err != nil {
-			b.l.Error("Failed to query L1 tip", "error", err)
+			b.l.Error("failed to query L1 tip", "err", err)
 			break
 		}
 		b.batchSubmitter.recordL1Tip(l1tip)
@@ -167,45 +226,34 @@ blockLoop:
 			break
 		}
 
-		tx, err := b.batchSubmitter.CreateSubmitTx(txdata.Bytes())
-		if err != nil {
-			// record it as a failed TX to resubmit the transaction.
-			b.batchSubmitter.recordFailedTx(txdata.ID(), err)
-			return fmt.Errorf("failed to create batch submit transaction: %w", err)
-		}
-		b.l.Info("creating batch submit tx", "to", tx.To, "from", b.cfg.From)
 		// Record TX Status
-		receipt, err := b.SendTransaction(b.ctx, tx)
+		receipt, err := b.sendTransaction(ctx, txdata.Bytes())
 		if err != nil {
 			b.batchSubmitter.recordFailedTx(txdata.ID(), err)
-			return fmt.Errorf("failed to send batch transaction: %w", err)
+			return fmt.Errorf("failed to send batch submit transaction: %w", err)
 		}
 		b.batchSubmitter.recordConfirmedTx(txdata.ID(), receipt)
-
-		// hack to exit this loop. Proper fix is to do request another send tx or parallel tx sending
-		// from the channel manager rather than sending the channel in a loop. This stalls b/c if the
-		// context is cancelled while sending, it will never fully clearing the pending txns.
-		select {
-		case <-b.ctx.Done():
-			break blockLoop
-		default:
-		}
 	}
 
 	return nil
 }
 
-// SendTransaction sends a transaction through the transaction manager which handles automatic
-// price bumping, and returns transaction receipt.
-// It also hardcodes a timeout of 100s.
-func (b *Batcher) SendTransaction(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
-	// Wait until one of our submitted transactions confirms. If no
-	// receipt is received it's likely our gas price was too low.
-	cCtx, cancel := context.WithTimeout(ctx, 100*time.Second)
-	defer cancel()
+// sendTransaction creates & submits a transaction to the batch inbox address with the given `data`.
+// It currently uses the underlying `txmgr` to handle transaction sending & price management.
+// This is a blocking method. It should not be called concurrently.
+func (b *Batcher) sendTransaction(ctx context.Context, data []byte) (*types.Receipt, error) {
+	// Do the gas estimation offline. A value of 0 will cause the [txmgr] to estimate the gas limit.
+	intrinsicGas, err := core.IntrinsicGas(data, nil, false, true, true, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate intrinsic gas: %w", err)
+	}
 
-	b.l.Info("batcher sending transaction", "tx", tx.Hash())
-	receipt, err := b.txMgr.Send(cCtx, tx)
+	// Send the transaction through the txmgr
+	receipt, err := b.cfg.TxManager.Send(ctx, txmgr.TxCandidate{
+		To:       &b.batchSubmitter.Rollup.BatchInboxAddress,
+		TxData:   data,
+		GasLimit: intrinsicGas,
+	})
 	if err != nil {
 		b.l.Error("batcher unable to publish tx", "err", err)
 		return nil, err

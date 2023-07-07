@@ -3,6 +3,52 @@
 =======================
 
 =======================
+➡ contracts/L1/Colosseum.sol:Colosseum
+=======================
+
+| Name                 | Type                                       | Slot | Offset | Bytes | Contract                             |
+|----------------------|--------------------------------------------|------|--------|-------|--------------------------------------|
+| _initialized         | uint8                                      | 0    | 0      | 1     | contracts/L1/Colosseum.sol:Colosseum |
+| _initializing        | bool                                       | 0    | 1      | 1     | contracts/L1/Colosseum.sol:Colosseum |
+| segmentsLengths      | mapping(uint256 => uint256)                | 1    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| challenges           | mapping(uint256 => struct Types.Challenge) | 2    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| verifiedPublicInputs | mapping(bytes32 => bool)                   | 3    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+
+=======================
+➡ contracts/L1/SecurityCouncil.sol:SecurityCouncil
+=======================
+
+| Name                     | Type                                                 | Slot | Offset | Bytes | Contract                                         |
+|--------------------------|------------------------------------------------------|------|--------|-------|--------------------------------------------------|
+| _initialized             | uint8                                                | 0    | 0      | 1     | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| _initializing            | bool                                                 | 0    | 1      | 1     | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| _status                  | uint256                                              | 1    | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| __gap                    | uint256[49]                                          | 2    | 0      | 1568  | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| transactions             | mapping(uint256 => struct Types.MultiSigTransaction) | 51   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| confirmations            | mapping(uint256 => mapping(address => bool))         | 52   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| isOwner                  | mapping(address => bool)                             | 53   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| owners                   | address[]                                            | 54   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| numConfirmationsRequired | uint256                                              | 55   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| transactionCount         | uint256                                              | 56   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+
+=======================
+➡ contracts/L1/ValidatorPool.sol:ValidatorPool
+=======================
+
+| Name                  | Type                                  | Slot | Offset | Bytes | Contract                                     |
+|-----------------------|---------------------------------------|------|--------|-------|----------------------------------------------|
+| _initialized          | uint8                                 | 0    | 0      | 1     | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| _initializing         | bool                                  | 0    | 1      | 1     | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| _status               | uint256                               | 1    | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| __gap                 | uint256[49]                           | 2    | 0      | 1568  | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| balances              | mapping(address => uint256)           | 51   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| bonds                 | mapping(uint256 => struct Types.Bond) | 52   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| nextUnbondOutputIndex | uint256                               | 53   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| validators            | address[]                             | 54   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| validatorIndexes      | mapping(address => uint256)           | 55   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| nextPriorityValidator | address                               | 56   | 0      | 20    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+
+=======================
 ➡ contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger
 =======================
 
@@ -60,32 +106,34 @@
 ➡ contracts/L1/SystemConfig.sol:SystemConfig
 =======================
 
-| Name          | Type        | Slot | Offset | Bytes | Contract                                   |
-|---------------|-------------|------|--------|-------|--------------------------------------------|
-| _initialized  | uint8       | 0    | 0      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
-| _initializing | bool        | 0    | 1      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
-| __gap         | uint256[50] | 1    | 0      | 1600  | contracts/L1/SystemConfig.sol:SystemConfig |
-| _owner        | address     | 51   | 0      | 20    | contracts/L1/SystemConfig.sol:SystemConfig |
-| __gap         | uint256[49] | 52   | 0      | 1568  | contracts/L1/SystemConfig.sol:SystemConfig |
-| overhead      | uint256     | 101  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
-| scalar        | uint256     | 102  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
-| batcherHash   | bytes32     | 103  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
-| gasLimit      | uint64      | 104  | 0      | 8     | contracts/L1/SystemConfig.sol:SystemConfig |
+| Name            | Type                                   | Slot | Offset | Bytes | Contract                                   |
+|-----------------|----------------------------------------|------|--------|-------|--------------------------------------------|
+| _initialized    | uint8                                  | 0    | 0      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
+| _initializing   | bool                                   | 0    | 1      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
+| __gap           | uint256[50]                            | 1    | 0      | 1600  | contracts/L1/SystemConfig.sol:SystemConfig |
+| _owner          | address                                | 51   | 0      | 20    | contracts/L1/SystemConfig.sol:SystemConfig |
+| __gap           | uint256[49]                            | 52   | 0      | 1568  | contracts/L1/SystemConfig.sol:SystemConfig |
+| overhead        | uint256                                | 101  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| scalar          | uint256                                | 102  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| batcherHash     | bytes32                                | 103  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| gasLimit        | uint64                                 | 104  | 0      | 8     | contracts/L1/SystemConfig.sol:SystemConfig |
+| _resourceConfig | struct ResourceMetering.ResourceConfig | 105  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
 
 =======================
 ➡ contracts/L2/L1Block.sol:L1Block
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                         |
-|----------------|---------|------|--------|-------|----------------------------------|
-| number         | uint64  | 0    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
-| timestamp      | uint64  | 0    | 8      | 8     | contracts/L2/L1Block.sol:L1Block |
-| basefee        | uint256 | 1    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| hash           | bytes32 | 2    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| sequenceNumber | uint64  | 3    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
-| batcherHash    | bytes32 | 4    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| l1FeeOverhead  | uint256 | 5    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| l1FeeScalar    | uint256 | 6    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| Name                 | Type    | Slot | Offset | Bytes | Contract                         |
+|----------------------|---------|------|--------|-------|----------------------------------|
+| number               | uint64  | 0    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
+| timestamp            | uint64  | 0    | 8      | 8     | contracts/L2/L1Block.sol:L1Block |
+| basefee              | uint256 | 1    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| hash                 | bytes32 | 2    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| sequenceNumber       | uint64  | 3    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
+| batcherHash          | bytes32 | 4    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| l1FeeOverhead        | uint256 | 5    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| l1FeeScalar          | uint256 | 6    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| validatorRewardRatio | uint256 | 7    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 
 =======================
 ➡ contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger
@@ -124,28 +172,31 @@
 | msgNonce     | uint240                  | 1    | 0      | 30    | contracts/L2/L2ToL1MessagePasser.sol:L2ToL1MessagePasser |
 
 =======================
-➡ contracts/L2/ProposerFeeVault.sol:ProposerFeeVault
+➡ contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                                           |
-|----------------|---------|------|--------|-------|----------------------------------------------------|
-| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ProposerFeeVault.sol:ProposerFeeVault |
+| Name           | Type                        | Slot | Offset | Bytes | Contract                                                   |
+|----------------|-----------------------------|------|--------|-------|------------------------------------------------------------|
+| totalProcessed | uint256                     | 0    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
+| rewards        | mapping(address => uint256) | 1    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
+| isPaid         | mapping(uint256 => bool)    | 2    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
+| totalReserved  | uint256                     | 3    | 0      | 32    | contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault |
 
 =======================
-➡ contracts/L2/BaseFeeVault.sol:BaseFeeVault
+➡ contracts/L2/ProtocolVault.sol:ProtocolVault
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                                   |
-|----------------|---------|------|--------|-------|--------------------------------------------|
-| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/BaseFeeVault.sol:BaseFeeVault |
+| Name           | Type    | Slot | Offset | Bytes | Contract                                     |
+|----------------|---------|------|--------|-------|----------------------------------------------|
+| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ProtocolVault.sol:ProtocolVault |
 
 =======================
-➡ contracts/L2/L1FeeVault.sol:L1FeeVault
+➡ contracts/L2/ProposerRewardVault.sol:ProposerRewardVault
 =======================
 
-| Name           | Type    | Slot | Offset | Bytes | Contract                               |
-|----------------|---------|------|--------|-------|----------------------------------------|
-| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/L1FeeVault.sol:L1FeeVault |
+| Name           | Type    | Slot | Offset | Bytes | Contract                                                 |
+|----------------|---------|------|--------|-------|----------------------------------------------------------|
+| totalProcessed | uint256 | 0    | 0      | 32    | contracts/L2/ProposerRewardVault.sol:ProposerRewardVault |
 
 =======================
 ➡ contracts/vendor/WETH9.sol:WETH9

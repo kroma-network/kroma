@@ -8,10 +8,9 @@ on:
 jobs:
   test:
     name: Run tests
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on:
+      group: kroma-runners
+      labels: kroma-ubuntu-latest-8core
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -50,7 +49,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: nightly-e15e33a07c0920189fc336391f538c3dad53da73
 
       - name: Build
         run: yarn build

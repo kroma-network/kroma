@@ -23,7 +23,7 @@ var testingJWTSecret = [32]byte{123}
 func WriteDefaultJWT(t TestingBase) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -66,9 +66,13 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		BatchInboxAddress:  common.Address{0: 0x42, 19: 0xff}, // tbd
 		BatchSenderAddress: addresses.Batcher,
 
+		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
+		ValidatorPoolMinBondAmount:    uint64ToBig(1),
+		ValidatorPoolNonPenaltyPeriod: 3,
+		ValidatorPoolPenaltyPeriod:    3,
+
 		L2OutputOracleSubmissionInterval: 6,
 		L2OutputOracleStartingTimestamp:  -1,
-		L2OutputOracleValidator:          addresses.Validator,
 
 		FinalSystemOwner: addresses.SysCfgOwner,
 
@@ -76,7 +80,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L1GenesisBlockNonce:         0,
 		CliqueSignerAddress:         common.Address{}, // proof of stake, no clique
 		L1GenesisBlockTimestamp:     hexutil.Uint64(time.Now().Unix()),
-		L1GenesisBlockGasLimit:      15_000_000,
+		L1GenesisBlockGasLimit:      30_000_000,
 		L1GenesisBlockDifficulty:    uint64ToBig(1),
 		L1GenesisBlockMixHash:       common.Hash{},
 		L1GenesisBlockCoinbase:      common.Address{},
@@ -87,7 +91,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		FinalizationPeriodSeconds:   12,
 
 		L2GenesisBlockNonce:         0,
-		L2GenesisBlockGasLimit:      15_000_000,
+		L2GenesisBlockGasLimit:      30_000_000,
 		L2GenesisBlockDifficulty:    uint64ToBig(0),
 		L2GenesisBlockMixHash:       common.Hash{},
 		L2GenesisBlockNumber:        0,
@@ -95,18 +99,21 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L2GenesisBlockParentHash:    common.Hash{},
 		L2GenesisBlockBaseFeePerGas: uint64ToBig(1000_000_000),
 
-		L2GenesisBlueTimeOffset: new(hexutil.Uint64),
-
-		ColosseumChallengeTimeout: 120,
+		ColosseumBisectionTimeout: 120,
+		ColosseumProvingTimeout:   480,
+		ColosseumDummyHash:        common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
+		ColosseumMaxTxs:           25,
 		ColosseumSegmentsLengths:  "3,4",
+
+		SecurityCouncilNumConfirmationRequired: 1,
+		SecurityCouncilOwners:                  []common.Address{addresses.Challenger, addresses.Alice, addresses.Bob, addresses.Mallory},
 
 		GasPriceOracleOverhead:      2100,
 		GasPriceOracleScalar:        1000_000,
 		DeploymentWaitConfirmations: 1,
 
-		ProposerFeeVaultRecipient: common.Address{19: 1},
-		BaseFeeVaultRecipient:     common.Address{19: 2},
-		L1FeeVaultRecipient:       common.Address{19: 3},
+		ProtocolVaultRecipient:       common.Address{19: 2},
+		ProposerRewardVaultRecipient: common.Address{19: 3},
 
 		EIP1559Elasticity:  10,
 		EIP1559Denominator: 50,
@@ -134,8 +141,10 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 type DeploymentsL1 struct {
 	L1CrossDomainMessengerProxy common.Address
 	L1StandardBridgeProxy       common.Address
+	ValidatorPoolProxy          common.Address
 	L2OutputOracleProxy         common.Address
 	ColosseumProxy              common.Address
+	SecurityCouncilProxy        common.Address
 	KromaPortalProxy            common.Address
 	SystemConfigProxy           common.Address
 }
@@ -217,14 +226,15 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		BatchInboxAddress:      deployConf.BatchInboxAddress,
 		DepositContractAddress: predeploys.DevKromaPortalAddr,
 		L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
-		BlueTime:               deployConf.BlueTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 	}
 
 	deploymentsL1 := DeploymentsL1{
 		L1CrossDomainMessengerProxy: predeploys.DevL1CrossDomainMessengerAddr,
 		L1StandardBridgeProxy:       predeploys.DevL1StandardBridgeAddr,
+		ValidatorPoolProxy:          predeploys.DevValidatorPoolAddr,
 		L2OutputOracleProxy:         predeploys.DevL2OutputOracleAddr,
 		ColosseumProxy:              predeploys.DevColosseumAddr,
+		SecurityCouncilProxy:        predeploys.DevSecurityCouncilAddr,
 		KromaPortalProxy:            predeploys.DevKromaPortalAddr,
 		SystemConfigProxy:           predeploys.DevSystemConfigAddr,
 	}

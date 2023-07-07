@@ -24,6 +24,12 @@ func (r *RollupClient) OutputAtBlock(ctx context.Context, blockNum uint64) (*eth
 	return output, err
 }
 
+func (r *RollupClient) OutputWithProofAtBlock(ctx context.Context, blockNum uint64) (*eth.OutputResponse, error) {
+	var output *eth.OutputResponse
+	err := r.rpc.CallContext(ctx, &output, "kroma_outputWithProofAtBlock", hexutil.Uint64(blockNum))
+	return output, err
+}
+
 func (r *RollupClient) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
 	var output *eth.SyncStatus
 	err := r.rpc.CallContext(ctx, &output, "kroma_syncStatus")

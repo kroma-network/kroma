@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	gnode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -51,6 +52,7 @@ type L2API interface {
 	derive.Engine
 	L2BlockRefByNumber(ctx context.Context, num uint64) (eth.L2BlockRef, error)
 	InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error)
+	InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error)
 	// GetProof returns a proof of the account, it may return a nil result without error if the address was not found.
 	GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error)
 }
@@ -101,9 +103,12 @@ type l2SyncerBackend struct {
 
 func (s *l2SyncerBackend) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error) {
 	ref, err := s.syncer.eng.L2BlockRefByNumber(ctx, num)
-	nextRef := eth.L2BlockRef{}
-	if err == nil && s.syncer.rollupCfg.IsBlueBlock(num) {
-		nextRef, err = s.syncer.eng.L2BlockRefByNumber(ctx, num+1)
+	if err != nil {
+		return eth.L2BlockRef{}, eth.L2BlockRef{}, nil, err
+	}
+	nextRef, err := s.syncer.eng.L2BlockRefByNumber(ctx, num+1)
+	if err != nil {
+		return eth.L2BlockRef{}, eth.L2BlockRef{}, nil, err
 	}
 	return ref, nextRef, s.syncer.SyncStatus(), err
 }
@@ -147,6 +152,7 @@ func (s *L2Syncer) SyncStatus() *eth.SyncStatus {
 		UnsafeL2:           s.L2Unsafe(),
 		SafeL2:             s.L2Safe(),
 		FinalizedL2:        s.L2Finalized(),
+		UnsafeL2SyncTarget: s.derivation.UnsafeL2SyncTarget(),
 	}
 }
 

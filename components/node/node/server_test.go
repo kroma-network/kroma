@@ -106,17 +106,7 @@ func TestOutputAtBlock(t *testing.T) {
 	}
 
 	l2Client := &testutils.MockL2Client{}
-	info := &testutils.MockBlockInfo{
-		InfoHash:        header.Hash(),
-		InfoParentHash:  header.ParentHash,
-		InfoCoinbase:    header.Coinbase,
-		InfoRoot:        header.Root,
-		InfoNum:         header.Number.Uint64(),
-		InfoTime:        header.Time,
-		InfoMixDigest:   header.MixDigest,
-		InfoBaseFee:     header.BaseFee,
-		InfoReceiptRoot: header.ReceiptHash,
-	}
+	info := testutils.NewMockBlockInfoWithHeader(&header)
 	ref := eth.L2BlockRef{
 		Hash:           header.Hash(),
 		Number:         header.Number.Uint64(),
@@ -133,7 +123,7 @@ func TestOutputAtBlock(t *testing.T) {
 		L1Origin:       eth.BlockID{},
 		SequenceNumber: 0,
 	}
-	l2Client.ExpectInfoByHash(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), info, nil)
+	l2Client.ExpectInfoByHash(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), &info, nil)
 	l2Client.ExpectGetProof(predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, "0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524", &result, nil)
 
 	drClient := &mockDriverClient{}
@@ -145,7 +135,7 @@ func TestOutputAtBlock(t *testing.T) {
 	require.NoError(t, server.Start())
 	defer server.Stop()
 
-	client, err := rpcclient.DialRPCClientWithBackoff(context.Background(), log, "http://"+server.Addr().String())
+	client, err := rpcclient.NewRPC(context.Background(), log, "http://"+server.Addr().String(), rpcclient.WithDialBackoff(3))
 	require.NoError(t, err)
 
 	var out *eth.OutputResponse
@@ -153,7 +143,7 @@ func TestOutputAtBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000000", out.Version.String())
-	require.Equal(t, "0xc861dbdc5bf1d8bbbc0bca7cd876ab6a70748c50b2054a46e8f30e99002170ab", out.OutputRoot.String())
+	require.Equal(t, "0x3c476dc6a9c558c68e3d3811436181daafceb445bde053beb07702967a613c0c", out.OutputRoot.String())
 	require.Equal(t, "0xb46d4bcb0e471e1b8506031a1f34ebc6f200253cbaba56246dd2320e8e2c8f13", out.StateRoot.String())
 	require.Equal(t, "0xc1917a80cb25ccc50d0d1921525a44fb619b4601194ca726ae32312f08a799f8", out.WithdrawalStorageRoot.String())
 	require.Equal(t, *status, *out.Status)
@@ -177,7 +167,7 @@ func TestVersion(t *testing.T) {
 	assert.NoError(t, server.Start())
 	defer server.Stop()
 
-	client, err := rpcclient.DialRPCClientWithBackoff(context.Background(), log, "http://"+server.Addr().String())
+	client, err := rpcclient.NewRPC(context.Background(), log, "http://"+server.Addr().String(), rpcclient.WithDialBackoff(3))
 	assert.NoError(t, err)
 
 	var out string
@@ -196,6 +186,7 @@ func randomSyncStatus(rng *rand.Rand) *eth.SyncStatus {
 		UnsafeL2:           testutils.RandomL2BlockRef(rng),
 		SafeL2:             testutils.RandomL2BlockRef(rng),
 		FinalizedL2:        testutils.RandomL2BlockRef(rng),
+		UnsafeL2SyncTarget: testutils.RandomL2BlockRef(rng),
 	}
 }
 
@@ -219,7 +210,7 @@ func TestSyncStatus(t *testing.T) {
 	assert.NoError(t, server.Start())
 	defer server.Stop()
 
-	client, err := rpcclient.DialRPCClientWithBackoff(context.Background(), log, "http://"+server.Addr().String())
+	client, err := rpcclient.NewRPC(context.Background(), log, "http://"+server.Addr().String(), rpcclient.WithDialBackoff(3))
 	assert.NoError(t, err)
 
 	var out *eth.SyncStatus

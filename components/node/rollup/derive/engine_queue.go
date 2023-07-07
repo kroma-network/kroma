@@ -107,7 +107,7 @@ type EngineQueue struct {
 	// The queued-up attributes
 	safeAttributesParent eth.L2BlockRef
 	safeAttributes       *eth.PayloadAttributes
-	unsafePayloads       PayloadsQueue // queue of unsafe payloads, ordered by ascending block number, may have gaps
+	unsafePayloads       *PayloadsQueue // queue of unsafe payloads, ordered by ascending block number, may have gaps and duplicates
 
 	// Tracks which L2 blocks where last derived from which L1 block. At most finalityLookback large.
 	finalityData []FinalityData
@@ -127,18 +127,14 @@ var _ EngineControl = (*EngineQueue)(nil)
 // NewEngineQueue creates a new EngineQueue, which should be Reset(origin) before use.
 func NewEngineQueue(log log.Logger, cfg *rollup.Config, engine Engine, metrics Metrics, prev NextAttributesProvider, l1Fetcher L1Fetcher) *EngineQueue {
 	return &EngineQueue{
-		log:          log,
-		cfg:          cfg,
-		engine:       engine,
-		metrics:      metrics,
-		finalityData: make([]FinalityData, 0, finalityLookback),
-		unsafePayloads: PayloadsQueue{
-			MaxSize:  maxUnsafePayloadsMemory,
-			SizeFn:   payloadMemSize,
-			blockNos: make(map[uint64]bool),
-		},
-		prev:      prev,
-		l1Fetcher: l1Fetcher,
+		log:            log,
+		cfg:            cfg,
+		engine:         engine,
+		metrics:        metrics,
+		finalityData:   make([]FinalityData, 0, finalityLookback),
+		unsafePayloads: NewPayloadsQueue(maxUnsafePayloadsMemory, payloadMemSize),
+		prev:           prev,
+		l1Fetcher:      l1Fetcher,
 	}
 }
 
@@ -473,7 +469,7 @@ func (eq *EngineQueue) consolidateNextSafeAttributes(ctx context.Context) error 
 		return NewTemporaryError(fmt.Errorf("failed to get existing unsafe payload to compare against derived attributes from L1: %w", err))
 	}
 	if err := AttributesMatchBlock(eq.safeAttributes, eq.safeHead.Hash, payload, eq.log); err != nil {
-		eq.log.Warn("L2 reorg: existing unsafe block does not match derived attributes from L1", "err", err)
+		eq.log.Warn("L2 reorg: existing unsafe block does not match derived attributes from L1", "err", err, "unsafe", eq.unsafeHead, "safe", eq.safeHead)
 		// geth cannot wind back a chain without reorging to a new, previously non-canonical, block
 		return eq.forceNextSafeAttributes(ctx)
 	}
@@ -682,19 +678,15 @@ func (eq *EngineQueue) Reset(ctx context.Context, _ eth.L1BlockRef, _ eth.System
 	return io.EOF
 }
 
-// GetUnsafeQueueGap retrieves the current [start, end] range of the gap between the tip of the unsafe priority queue and the unsafe head.
-// If there is no gap, the difference between end and start will be 0.
-func (eq *EngineQueue) GetUnsafeQueueGap(expectedNumber uint64) (start uint64, end uint64) {
-	// The start of the gap is always the unsafe head + 1
-	start = eq.unsafeHead.Number + 1
-
-	// If the priority queue is empty, the end is the first block number at the top of the priority queue
-	// Otherwise, the end is the expected block number
+// UnsafeL2SyncTarget retrieves the first queued-up L2 unsafe payload, or a zeroed reference if there is none.
+func (eq *EngineQueue) UnsafeL2SyncTarget() eth.L2BlockRef {
 	if first := eq.unsafePayloads.Peek(); first != nil {
-		end = first.ID().Number
+		ref, err := PayloadToBlockRef(first, &eq.cfg.Genesis)
+		if err != nil {
+			return eth.L2BlockRef{}
+		}
+		return ref
 	} else {
-		end = expectedNumber
+		return eth.L2BlockRef{}
 	}
-
-	return start, end
 }

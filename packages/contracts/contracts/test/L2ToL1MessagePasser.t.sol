@@ -21,7 +21,7 @@ contract L2ToL1MessagePasserTest is CommonTest {
 
     event WithdrawerBalanceBurnt(uint256 indexed amount);
 
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
         messagePasser = new L2ToL1MessagePasser();
     }

@@ -107,7 +107,7 @@ liveness, availability, and validity.
    - All information required to derive the chain is embedded into layer 1 blocks. That way as long as the layer 1 chain
      is available, so is the rollup.
 3. **Validity** - All transactions must be correctly executed and all withdrawals correctly processed.
-   - The rollup state and withdrawals are managed on an L1 contract called the `L2 Output Oracle`. This oracle is
+   - The rollup state and withdrawals are managed on an L1 contract called the `L2OutputOracle`. This oracle is
      guaranteed to _only_ finalize correct (ie. valid) rollup block hashes given a **single honest validator**
      assumption. If there is ever an invalid block hash asserted on layer 1, an honest validator will prove it is
      invalid and win a bond.

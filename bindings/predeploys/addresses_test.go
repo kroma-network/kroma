@@ -6,8 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kroma-network/kroma/bindings/bindings"
 )
 
 func TestGethAddresses(t *testing.T) {

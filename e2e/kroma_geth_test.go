@@ -16,6 +16,7 @@ import (
 
 // TestMissingGasLimit tests that kroma-geth cannot build a block without gas limit while kroma is active in the chain config.
 func TestMissingGasLimit(t *testing.T) {
+	parallel(t)
 	cfg := DefaultSystemConfig(t)
 	cfg.DeployConfig.FundDevAccounts = false
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -38,6 +39,7 @@ func TestMissingGasLimit(t *testing.T) {
 // TestInvalidDepositInFCU runs an invalid deposit through a FCU/GetPayload/NewPayload/FCU set of calls.
 // This tests that deposits must always allow the block to be built even if they are invalid.
 func TestInvalidDepositInFCU(t *testing.T) {
+	parallel(t)
 	cfg := DefaultSystemConfig(t)
 	cfg.DeployConfig.FundDevAccounts = false
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

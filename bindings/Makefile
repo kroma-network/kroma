@@ -6,6 +6,7 @@ all: version mkdir bindings more
 
 bindings: basefee-vault-bindings \
 		colosseum-bindings \
+    security-council-bindings \
 		erc20-bindings \
 		gas-price-oracle-bindings \
 		kroma-mintable-erc20-bindings \
@@ -26,6 +27,7 @@ bindings: basefee-vault-bindings \
 		proxy-admin-bindings \
 		proxy-bindings \
 		system-config-bindings \
+		validator-pool-bindings \
 		weth9-bindings \
 		zk-merkle-trie-bindings \
 		zk-verifier-bindings
@@ -53,10 +55,12 @@ L2CrossDomainMessenger,\
 L2ERC721Bridge,\
 L2StandardBridge,\
 L2ToL1MessagePasser,\
-ProposerFeeVault,\
 Proxy,\
 ProxyAdmin,\
+SecurityCouncil,\
 SystemConfig,\
+ValidatorPool,\
+ValidatorRewardVault,\
 WETH9\
 		-package bindings
 
@@ -70,10 +74,13 @@ test:
 	go test ./...
 
 basefee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/BaseFeeVault.sol:BaseFeeVault $(pkg)
+	bash ./gen_bindings.sh contracts/L2/ProtocolVault.sol:ProtocolVault $(pkg)
 
 colosseum-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/Colosseum.sol:Colosseum $(pkg)
+
+security-council-bindings: compile
+	bash ./gen_bindings.sh contracts/L1/SecurityCouncil.sol:SecurityCouncil $(pkg)
 
 erc20-bindings: compile
 	bash ./gen_bindings.sh node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20 $(pkg)
@@ -100,7 +107,7 @@ l1-erc721-bridge-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/L1ERC721Bridge.sol:L1ERC721Bridge $(pkg)
 
 l1-fee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/L1FeeVault.sol:L1FeeVault $(pkg)
+	bash ./gen_bindings.sh contracts/L2/ProposerRewardVault.sol:ProposerRewardVault $(pkg)
 
 l1-standard-bridge-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/L1StandardBridge.sol:L1StandardBridge $(pkg)
@@ -124,7 +131,7 @@ l2-to-l1-message-passer-bindings: compile
 	bash ./gen_bindings.sh contracts/L2/L2ToL1MessagePasser.sol:L2ToL1MessagePasser $(pkg)
 
 proposer-fee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/ProposerFeeVault.sol:ProposerFeeVault $(pkg)
+	bash ./gen_bindings.sh contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault $(pkg)
 
 proxy-admin-bindings: compile
 	bash ./gen_bindings.sh contracts/universal/ProxyAdmin.sol:ProxyAdmin $(pkg)
@@ -134,6 +141,9 @@ proxy-bindings: compile
 
 system-config-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/SystemConfig.sol:SystemConfig $(pkg)
+
+validator-pool-bindings: compile
+	bash ./gen_bindings.sh contracts/L1/ValidatorPool.sol:ValidatorPool $(pkg)
 
 weth9-bindings: compile
 	bash ./gen_bindings.sh contracts/vendor/WETH9.sol:WETH9 $(pkg)

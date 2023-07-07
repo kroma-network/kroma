@@ -31,7 +31,7 @@ var (
 			ImplementationSlot: common.HexToHash("0x000000000000000000000000c0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d30007"),
 		},
 		predeploys.L2StandardBridgeAddr:          eip1967Slots(predeploys.L2StandardBridgeAddr),
-		predeploys.ProposerFeeVaultAddr:          eip1967Slots(predeploys.ProposerFeeVaultAddr),
+		predeploys.ValidatorRewardVaultAddr:      eip1967Slots(predeploys.ValidatorRewardVaultAddr),
 		predeploys.KromaMintableERC20FactoryAddr: eip1967Slots(predeploys.KromaMintableERC20FactoryAddr),
 		predeploys.GasPriceOracleAddr:            eip1967Slots(predeploys.GasPriceOracleAddr),
 		//predeploys.L1BlockAddr:                       eip1967Slots(predeploys.L1BlockAddr),
@@ -46,8 +46,8 @@ var (
 			AdminSlot:          common.HexToHash("0x0000000000000000000000004200000000000000000000000000000000000018"),
 			ImplementationSlot: common.HexToHash("0x000000000000000000000000c0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d30018"),
 		},
-		predeploys.BaseFeeVaultAddr: eip1967Slots(predeploys.BaseFeeVaultAddr),
-		predeploys.L1FeeVaultAddr:   eip1967Slots(predeploys.L1FeeVaultAddr),
+		predeploys.ProtocolVaultAddr:       eip1967Slots(predeploys.ProtocolVaultAddr),
+		predeploys.ProposerRewardVaultAddr: eip1967Slots(predeploys.ProposerRewardVaultAddr),
 	}
 )
 

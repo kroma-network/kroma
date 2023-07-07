@@ -6,12 +6,14 @@ import { sleep } from '@kroma-network/core-utils'
 import '@kroma-network/hardhat-deploy-config'
 import '@nomiclabs/hardhat-ethers'
 import { Contract, ethers } from 'ethers'
+import { ArtifactData } from 'hardhat-deploy/dist/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
-import { ArtifactData } from 'hardhat-deploy/dist/types'
 
-const IMPLEMENTATION_SLOT =
+const PROXY_IMPLEMENTATION_SLOT =
   '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
+const PROXY_OWNER_SLOT =
+  '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
 
 interface DeployOptions {
   contract?: string | ArtifactData
@@ -19,6 +21,7 @@ interface DeployOptions {
   postDeployAction?: (contract: Contract) => Promise<void>
   isProxyImpl?: boolean
   initArgs?: any[]
+  initializer?: string
 }
 
 /**
@@ -37,24 +40,16 @@ interface DeployOptions {
 export const deploy = async (
   hre: HardhatRuntimeEnvironment,
   name: string,
-  opts?: DeployOptions
+  opts: DeployOptions = {}
 ): Promise<Contract | null> => {
-  if (!opts) {
-    opts = {}
-  }
-
   const { deployer } = await hre.getNamedAccounts()
-  const { differences, address } = await hre.deployments.fetchIfDifferent(
-    name,
-    {
-      from: deployer,
-      args: opts.args,
-      contract: opts.contract,
-    }
-  )
-  if (!differences) {
-    console.log(`skipping ${name}, using existing deployment at ${address}`)
-    return null
+
+  // Wrap in a try/catch in case there is not a deployConfig for the current network.
+  let numDeployConfirmations: number
+  try {
+    numDeployConfirmations = hre.deployConfig.numDeployConfirmations
+  } catch (e) {
+    numDeployConfirmations = 1
   }
 
   const result = await hre.deployments.deploy(name, {
@@ -62,22 +57,12 @@ export const deploy = async (
     from: deployer,
     args: opts.args,
     log: true,
-    waitConfirmations: hre.deployConfig.numDeployConfirmations,
+    waitConfirmations: numDeployConfirmations,
   })
-
-  console.log(`deployed ${name} at ${result.address}`)
-  // Always wait for the transaction to be mined, just in case.
-  await hre.ethers.provider.waitForTransaction(result.transactionHash)
-
-  // Check to make sure there is code
-  const code = await hre.ethers.provider.getCode(result.address)
-  if (code === '0x') {
-    throw new Error(`no code for ${result.address}`)
-  }
 
   // Create the contract object to return.
   const created = asAdvancedContract({
-    confirmations: hre.deployConfig.numDeployConfirmations,
+    confirmations: numDeployConfirmations,
     contract: new Contract(
       result.address,
       result.abi,
@@ -85,17 +70,36 @@ export const deploy = async (
     ),
   })
 
-  if (result.newlyDeployed && typeof opts.postDeployAction === 'function') {
+  // If the contract is not newly deployed, do not proceed further.
+  if (!result.newlyDeployed) {
+    return created
+  }
+
+  // Always wait for the transaction to be mined, just in case.
+  await hre.ethers.provider.waitForTransaction(result.transactionHash)
+  console.log(`deployed "${name}" at ${result.address}`)
+
+  // Check to make sure there is code
+  const code = await hre.ethers.provider.getCode(result.address)
+  if (code === '0x') {
+    throw new Error(`no code for ${result.address}`)
+  }
+
+  if (typeof opts.postDeployAction === 'function') {
     await opts.postDeployAction(created)
   }
 
   if (opts.isProxyImpl) {
-    const proxyAdmin = await getContractFromArtifact(hre, 'ProxyAdmin', {
-      signerOrProvider: hre.ethers.provider.getSigner(deployer),
-    })
     const proxyName = name + 'Proxy'
-    const proxy = await getContractFromArtifact(hre, proxyName)
+    const proxy = await getContractFromArtifact(hre, proxyName, {
+      signerOrProvider: deployer,
+    })
     const hasImpl = await hasImplementation(hre, proxy.address)
+    const admin = await getProxyAdmin(hre, proxy.address)
+
+    let proxyAdmin = await hre.ethers.getContractAt('ProxyAdmin', admin)
+    const proxyOwner = await proxyAdmin.owner()
+    proxyAdmin = proxyAdmin.connect(hre.ethers.provider.getSigner(proxyOwner))
 
     if (!opts.initArgs || hasImpl) {
       console.log(`upgrading "${proxyName}" to ${created.address}`)
@@ -105,10 +109,15 @@ export const deploy = async (
       console.log(
         `upgrading "${proxyName}" to ${created.address} and initializing`
       )
+
+      if (!opts.initializer) {
+        opts.initializer = 'initialize'
+      }
+
       const tx = await proxyAdmin.upgradeAndCall(
         proxy.address,
         created.address,
-        created.interface.encodeFunctionData('initialize', opts.initArgs)
+        created.interface.encodeFunctionData(opts.initializer, opts.initArgs)
       )
       await hre.ethers.provider.waitForTransaction(tx.hash)
     }
@@ -175,7 +184,6 @@ export const asAdvancedContract = (opts: {
   // Now reset Object.defineProperty
   Object.defineProperty = def
 
-  // Override each function call to also `.wait()` so as to simplify the deploy scripts' syntax.
   for (const fnName of Object.keys(contract.functions)) {
     const fn = contract[fnName].bind(contract)
     ;(contract as any)[fnName] = async (...args: any) => {
@@ -255,8 +263,15 @@ export const getContractFromArtifact = async (
     }
   }
 
+  let numDeployConfirmations: number
+  try {
+    numDeployConfirmations = hre.deployConfig.numDeployConfirmations
+  } catch (e) {
+    numDeployConfirmations = 1
+  }
+
   return asAdvancedContract({
-    confirmations: hre.deployConfig.numDeployConfirmations,
+    confirmations: numDeployConfirmations,
     contract: new hre.ethers.Contract(
       artifact.address,
       iface,
@@ -319,6 +334,24 @@ export const getDeploymentAddress = async (
 }
 
 /**
+ * Returns the implementation address for a given proxy address.
+ *
+ * @param hre HardhatRuntimeEnvironment.
+ * @param proxyAddress Address of the proxy contract.
+ * @returns Address of the implementation.
+ */
+export const getImplementation = async (
+  hre: HardhatRuntimeEnvironment,
+  proxyAddress: string
+): Promise<string> => {
+  const slotValue = await hre.ethers.provider.getStorageAt(
+    proxyAddress,
+    PROXY_IMPLEMENTATION_SLOT
+  )
+  return ethers.utils.getAddress(ethers.utils.hexDataSlice(slotValue, 12))
+}
+
+/**
  * Returns whether a given proxy contract has an implementation address.
  *
  * @param hre HardhatRuntimeEnvironment.
@@ -329,9 +362,24 @@ export const hasImplementation = async (
   hre: HardhatRuntimeEnvironment,
   proxyAddress: string
 ): Promise<boolean> => {
-  const impl = await hre.ethers.provider.getStorageAt(
+  const impl = await getImplementation(hre, proxyAddress)
+  return impl !== ethers.constants.AddressZero
+}
+
+/**
+ * Returns the admin address for a given proxy address.
+ *
+ * @param hre HardhatRuntimeEnvironment.
+ * @param proxyAddress Address of the proxy contract.
+ * @returns Address of the proxy admin.
+ */
+export const getProxyAdmin = async (
+  hre: HardhatRuntimeEnvironment,
+  proxyAddress: string
+): Promise<string> => {
+  const slotValue = await hre.ethers.provider.getStorageAt(
     proxyAddress,
-    IMPLEMENTATION_SLOT
+    PROXY_OWNER_SLOT
   )
-  return impl !== ethers.constants.HashZero
+  return ethers.utils.getAddress(ethers.utils.hexDataSlice(slotValue, 12))
 }
