@@ -13,19 +13,19 @@ import (
 var Sepolia = rollup.Config{
 	Genesis: rollup.Genesis{
 		L1: eth.BlockID{
-			Hash:   common.HexToHash("0x6b586b77f3fc109ae0820c917eee034c373386f9a182d6e636257947852c2216"),
-			Number: 3197600,
+			Hash:   common.HexToHash("0xd15978faa2adb2fe8678ab7bba43d288b355240b64389ca65f67d41df2dc40ac"),
+			Number: 3835030,
 		},
 		L2: eth.BlockID{
-			Hash:   common.HexToHash("0xa0428513c59752e86b882020a097e738bd7bd4b50a64f28ea605641b61a41f91"),
+			Hash:   common.HexToHash("0x4d5e05fc1480f767a0a6a33a69c3b66ac3ec382337731db22b6714c632046faa"),
 			Number: 0,
 		},
-		L2Time: 1680199224,
+		L2Time: 1688629152,
 		SystemConfig: eth.SystemConfig{
-			BatcherAddr: common.HexToAddress("0xf1d8505e40e3f3dc57c104df7ad4e19b8f9d4165"),
+			BatcherAddr: common.HexToAddress("0xf15dc770221b99c98d4aaed568f2ab04b9d16e42"),
 			Overhead:    eth.Bytes32(common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000834")),
 			Scalar:      eth.Bytes32(common.HexToHash("0x000000000000000000000000000000000000000000000000000000000016e360")),
-			GasLimit:    25_000_000,
+			GasLimit:    30_000_000,
 		},
 	},
 	BlockTime:              2,
@@ -33,10 +33,10 @@ var Sepolia = rollup.Config{
 	ProposerWindowSize:     3600,
 	ChannelTimeout:         120,
 	L1ChainID:              big.NewInt(11155111),
-	L2ChainID:              big.NewInt(2357),
-	BatchInboxAddress:      common.HexToAddress("0xbac0000000000000000000000000000000000003"),
-	DepositContractAddress: common.HexToAddress("0x9c818e93c0884f75f48d93a9bdb2e994f8d77b86"),
-	L1SystemConfigAddress:  common.HexToAddress("0x472f1b9ea60e3ec09bc84b45b381d502a2ab51f6"),
+	L2ChainID:              big.NewInt(2358),
+	BatchInboxAddress:      common.HexToAddress("0xfa79000000000000000000000000000000000000"),
+	DepositContractAddress: common.HexToAddress("0x16ceb19a3abf1a8b56f53db50eb22695b6ef7bcc"),
+	L1SystemConfigAddress:  common.HexToAddress("0x29eeb4681bde3b2d0e739c5d82c5908dd0769b61"),
 }
 
 var NetworksByName = map[string]rollup.Config{
