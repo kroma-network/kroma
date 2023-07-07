@@ -10,7 +10,7 @@ import {
 export const DEPOSIT_CONFIRMATION_BLOCKS: {
   [ChainID in L2ChainID]: number
 } = {
-  [L2ChainID.KROMA_SEPOLIA]: 4 as const, // 2 epoch, 1 epoch = 32 slot
+  [L2ChainID.KROMA_SEPOLIA]: 4 as const, // 4 slot
   [L2ChainID.KROMA_LOCAL_DEVNET]: 2 as const,
 }
 
@@ -41,11 +41,11 @@ export const CONTRACT_ADDRESSES: {
 } = {
   [L2ChainID.KROMA_SEPOLIA]: {
     l1: {
-      KromaPortal: '0x16cEb19A3ABF1A8B56f53dB50eb22695b6eF7BcC' as const,
+      KromaPortal: '0x31ab8eD993A3BE9Aa2757C7D368Dc87101A868a4' as const,
       L1CrossDomainMessenger:
-        '0xCfE879a845b7bdb1fC51B84F7607fb41044f4004' as const,
-      L1StandardBridge: '0xB6a9294251FF3a920D7C0204A45B1F7FfE4D2983' as const,
-      L2OutputOracle: '0xB70D7dBa8ac50842820E703C63022Ef52220410B' as const,
+        '0x69786A10c1A153191BF5A50B61e70F6934fcc0A2' as const,
+      L1StandardBridge: '0x38C9a0a694AA0f92c05238484C3a9bdE1e85ddE4' as const,
+      L2OutputOracle: '0x7291913342063fd10d31651735BAF3877D2F9645' as const,
     },
     l2: DEFAULT_L2_CONTRACT_ADDRESSES,
   },
