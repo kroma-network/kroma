@@ -40,26 +40,9 @@ interface DeployOptions {
 export const deploy = async (
   hre: HardhatRuntimeEnvironment,
   name: string,
-  opts?: DeployOptions
+  opts: DeployOptions = {}
 ): Promise<Contract | null> => {
-  if (!opts) {
-    opts = {}
-  }
-
   const { deployer } = await hre.getNamedAccounts()
-  const deployment = await hre.deployments.getOrNull(name)
-
-  if (deployment?.address) {
-    const deployedBytecode = await hre.ethers.provider.getCode(
-      deployment.address
-    )
-    if (deployedBytecode === deployment.deployedBytecode) {
-      console.log(
-        `skipping ${name}, using existing deployment at ${deployment.address}`
-      )
-      return null
-    }
-  }
 
   // Wrap in a try/catch in case there is not a deployConfig for the current network.
   let numDeployConfirmations: number
@@ -77,16 +60,6 @@ export const deploy = async (
     waitConfirmations: numDeployConfirmations,
   })
 
-  console.log(`deployed ${name} at ${result.address}`)
-  // Always wait for the transaction to be mined, just in case.
-  await hre.ethers.provider.waitForTransaction(result.transactionHash)
-
-  // Check to make sure there is code
-  const code = await hre.ethers.provider.getCode(result.address)
-  if (code === '0x') {
-    throw new Error(`no code for ${result.address}`)
-  }
-
   // Create the contract object to return.
   const created = asAdvancedContract({
     confirmations: numDeployConfirmations,
@@ -97,7 +70,22 @@ export const deploy = async (
     ),
   })
 
-  if (result.newlyDeployed && typeof opts.postDeployAction === 'function') {
+  // If the contract is not newly deployed, do not proceed further.
+  if (!result.newlyDeployed) {
+    return created
+  }
+
+  // Always wait for the transaction to be mined, just in case.
+  await hre.ethers.provider.waitForTransaction(result.transactionHash)
+  console.log(`deployed "${name}" at ${result.address}`)
+
+  // Check to make sure there is code
+  const code = await hre.ethers.provider.getCode(result.address)
+  if (code === '0x') {
+    throw new Error(`no code for ${result.address}`)
+  }
+
+  if (typeof opts.postDeployAction === 'function') {
     await opts.postDeployAction(created)
   }
 
