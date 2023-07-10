@@ -3,7 +3,6 @@ package validator
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli"
@@ -13,7 +12,6 @@ import (
 	"github.com/kroma-network/kroma/utils/monitoring"
 	klog "github.com/kroma-network/kroma/utils/service/log"
 	krpc "github.com/kroma-network/kroma/utils/service/rpc"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 // Main is the entrypoint into the Validator. This method executes the
@@ -80,10 +78,6 @@ type Validator struct {
 	l2os       *L2OutputSubmitter
 	challenger *Challenger
 	guardian   *Guardian
-
-	txCandidatesChan chan txmgr.TxCandidate
-
-	wg sync.WaitGroup
 }
 
 func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Validator, error) {
@@ -121,32 +115,35 @@ func (v *Validator) Start() error {
 	v.ctx, v.cancel = context.WithCancel(context.Background())
 	v.l.Info("starting Validator")
 
-	v.txCandidatesChan = make(chan txmgr.TxCandidate, 10)
+	if err := v.cfg.TxManager.Start(v.ctx); err != nil {
+		return fmt.Errorf("cannot start TxManager: %w", err)
+	}
 
 	if v.cfg.OutputSubmitterEnabled {
-		if err := v.l2os.Start(v.ctx, v.txCandidatesChan); err != nil {
+		if err := v.l2os.Start(v.ctx); err != nil {
 			return fmt.Errorf("cannot start l2 output submitter: %w", err)
 		}
 	}
 
-	if err := v.challenger.Start(v.ctx, v.txCandidatesChan); err != nil {
+	if err := v.challenger.Start(v.ctx); err != nil {
 		return fmt.Errorf("cannot start challenger: %w", err)
 	}
 
 	if v.cfg.GuardianEnabled {
-		if err := v.guardian.Start(v.ctx, v.txCandidatesChan); err != nil {
+		if err := v.guardian.Start(v.ctx); err != nil {
 			return fmt.Errorf("cannot start guardian: %w", err)
 		}
 	}
-
-	v.wg.Add(1)
-	go v.loop()
 
 	return nil
 }
 
 func (v *Validator) Stop() error {
 	v.l.Info("stopping Validator")
+	if err := v.cfg.TxManager.Stop(); err != nil {
+		return fmt.Errorf("failed to stop TxManager: %w", err)
+	}
+
 	if v.cfg.ProofFetcher != nil {
 		if err := v.cfg.ProofFetcher.Close(); err != nil {
 			return fmt.Errorf("cannot close gRPC connection: %w", err)
@@ -170,34 +167,6 @@ func (v *Validator) Stop() error {
 	}
 
 	v.cancel()
-	v.wg.Wait()
 
-	close(v.txCandidatesChan)
-
-	return nil
-}
-
-func (v *Validator) loop() {
-	defer v.wg.Done()
-
-	for {
-		select {
-		case txCandidate := <-v.txCandidatesChan:
-			if err := v.sendTransaction(v.ctx, txCandidate); err != nil {
-				v.l.Error("failed to submit transaction of validator", "err", err)
-			}
-		case <-v.ctx.Done():
-			return
-		}
-	}
-}
-
-// sendTransaction creates & sends transactions through the underlying transaction manager.
-func (v *Validator) sendTransaction(ctx context.Context, txCandidate txmgr.TxCandidate) error {
-	receipt, err := v.cfg.TxManager.Send(ctx, txCandidate)
-	if err != nil {
-		return err
-	}
-	v.l.Info("validator tx successfully published", "tx_hash", receipt.TxHash)
 	return nil
 }
