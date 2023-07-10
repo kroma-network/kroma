@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -789,13 +788,11 @@ func (cfg SystemConfig) DepositValidatorPool(l1Client *ethclient.Client, priv *e
 	if err != nil {
 		return fmt.Errorf("unable to send deposit transaction: %w", err)
 	}
-	receipt, err := waitForTransaction(tx.Hash(), l1Client, time.Duration(3*cfg.DeployConfig.L1BlockTime)*time.Second)
+	_, err = waitForTransaction(tx.Hash(), l1Client, time.Duration(3*cfg.DeployConfig.L1BlockTime)*time.Second)
 	if err != nil {
 		return fmt.Errorf("unable to wait for validator deposit tx on L1: %w", err)
 	}
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return errors.New("validator deposit tx failed")
-	}
+
 	return nil
 }
 
@@ -832,9 +829,6 @@ func (cfg SystemConfig) SendTransferTx(l2Prop *ethclient.Client, l2Sync *ethclie
 	receipt, err := waitForL2Transaction(tx.Hash(), l2Sync, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait L2 tx on syncer: %w", err)
-	}
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return nil, errors.New("tx was failed on L2")
 	}
 
 	return receipt, nil

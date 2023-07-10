@@ -44,6 +44,7 @@ type L2Validator struct {
 	l2ooContractAddr    common.Address
 	valPoolContractAddr common.Address
 	lastTx              common.Hash
+	cfg                 *validator.Config
 }
 
 func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.Client, rollupCl *sources.RollupClient) *L2Validator {
@@ -76,10 +77,12 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		AllowNonFinalized:            cfg.AllowNonFinalized,
 		ProofFetcher:                 e2eutils.NewFetcher(log, "../testdata/proof"),
 		// We use custom signing here instead of using the transaction manager.
-		TxManager: &txmgr.SimpleTxManager{
-			Config: txmgr.Config{
-				From:   from,
-				Signer: signer(chainID),
+		TxManager: &txmgr.BufferedTxManager{
+			SimpleTxManager: txmgr.SimpleTxManager{
+				Config: txmgr.Config{
+					From:   from,
+					Signer: signer(chainID),
+				},
 			},
 		},
 	}
@@ -103,6 +106,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		privKey:             cfg.ValidatorKey,
 		l2ooContractAddr:    cfg.OutputOracleAddr,
 		valPoolContractAddr: cfg.ValidatorPoolAddr,
+		cfg:                 &validatorCfg,
 	}
 }
 
@@ -148,18 +152,16 @@ func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int
 	v.lastTx = tx.Hash()
 }
 
-func (v *L2Validator) CanSubmit(t Testing) bool {
-	_, shouldSubmit, err := v.l2os.CanSubmit(t.Ctx())
+func (v *L2Validator) CalculateWaitTime(t Testing) time.Duration {
+	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
 	require.NoError(t, err)
-	return shouldSubmit
+	calculatedWaitTime := v.l2os.CalculateWaitTime(t.Ctx(), nextBlockNumber)
+	return calculatedWaitTime
 }
 
 func (v *L2Validator) ActSubmitL2Output(t Testing) {
-	nextBlockNumber, canSubmit, err := v.l2os.CanSubmit(t.Ctx())
+	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
 	require.NoError(t, err)
-	if !canSubmit {
-		return
-	}
 
 	output, err := v.l2os.FetchOutput(t.Ctx(), nextBlockNumber)
 	require.NoError(t, err)

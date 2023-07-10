@@ -138,7 +138,11 @@ func TestCrossLayerUser(gt *testing.T) {
 	miner.includeL1Block(t, dp.Addresses.TrustedValidator)
 
 	// create l2 output submission transactions until there is nothing left to submit
-	for validator.CanSubmit(t) {
+	for {
+		waitTime := validator.CalculateWaitTime(t)
+		if waitTime > 0 {
+			break
+		}
 		// submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
