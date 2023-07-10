@@ -21,11 +21,6 @@ import (
 	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
-const (
-	GasLimitMultiplier  = 150
-	GasLimitDenominator = 100
-)
-
 // Guardian is responsible for validating outputs
 type Guardian struct {
 	log    log.Logger
@@ -38,8 +33,6 @@ type Guardian struct {
 	securityCouncilSub      ethereum.Subscription
 
 	validationRequestedChan chan *bindings.SecurityCouncilValidationRequested
-
-	txCandidatesChan chan<- txmgr.TxCandidate
 }
 
 // NewGuardian creates a new Guardian
@@ -57,7 +50,7 @@ func NewGuardian(cfg Config, l log.Logger) (*Guardian, error) {
 	}, nil
 }
 
-func (g *Guardian) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCandidate) error {
+func (g *Guardian) Start(ctx context.Context) error {
 	g.ctx, g.cancel = context.WithCancel(ctx)
 	g.log.Info("starting guardian")
 
@@ -70,7 +63,6 @@ func (g *Guardian) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCa
 		return g.securityCouncilContract.WatchValidationRequested(watchOpts, g.validationRequestedChan, nil)
 	})
 
-	g.txCandidatesChan = txCandidatesChan
 	g.wg.Add(1)
 	go g.handleValidationRequested(g.ctx)
 
@@ -83,8 +75,9 @@ func (g *Guardian) Stop() error {
 	if g.securityCouncilSub != nil {
 		g.securityCouncilSub.Unsubscribe()
 	}
-
-	g.cancel()
+	if g.cancel != nil {
+		g.cancel()
+	}
 	g.wg.Wait()
 
 	close(g.validationRequestedChan)
@@ -103,51 +96,7 @@ func (g *Guardian) ValidateL2Output(ctx context.Context, outputRoot eth.Bytes32,
 }
 
 func (g *Guardian) ConfirmTransaction(ctx context.Context, transactionId *big.Int) (*types.Transaction, error) {
-	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-	executionTx, err := g.securityCouncilContract.Transactions(&bind.CallOpts{Context: cCtx}, transactionId)
-	cCancel()
-	if err != nil {
-		return nil, err
-	}
-	if executionTx.Executed {
-		log.Warn("transaction %d already executed.", transactionId)
-		return nil, nil
-	}
-
-	cCtx, cCancel = context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-	executionGas, err := g.cfg.L1Client.EstimateGas(cCtx, ethereum.CallMsg{
-		From:  g.cfg.SecurityCouncilAddr,
-		To:    &executionTx.Destination,
-		Value: executionTx.Value,
-		Data:  executionTx.Data,
-	})
-	cCancel()
-	if err != nil {
-		return nil, fmt.Errorf("failed to estimate confirmation tx gas: %w", err)
-	}
-
-	cCtx, cCancel = context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-	txOpts := utils.NewSimpleTxOpts(cCtx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
-	confirmTx, err := g.securityCouncilContract.ConfirmTransaction(txOpts, transactionId)
-	cCancel()
-	if err != nil {
-		return nil, err
-	}
-
-	cCtx, cCancel = context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-	confirmationGas, err := g.cfg.L1Client.EstimateGas(cCtx, ethereum.CallMsg{
-		From:  txOpts.From,
-		To:    confirmTx.To(),
-		Data:  confirmTx.Data(),
-		Value: confirmTx.Value(),
-	})
-	cCancel()
-	if err != nil {
-		return nil, fmt.Errorf("failed to estimate confirmation tx gas: %w", err)
-	}
-
-	txOpts.Context = ctx
-	txOpts.GasLimit = (confirmationGas * GasLimitMultiplier / GasLimitDenominator) + executionGas
+	txOpts := utils.NewSimpleTxOpts(ctx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
 	return g.securityCouncilContract.ConfirmTransaction(txOpts, transactionId)
 }
 
@@ -164,7 +113,49 @@ func (g *Guardian) handleValidationRequested(ctx context.Context) {
 	}
 }
 
-// TODO(pangssu): Retry a failed or missed transaction.
+func (g *Guardian) tryConfirmTransaction(ctx context.Context, event *bindings.SecurityCouncilValidationRequested) error {
+	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+	callOpts := utils.NewCallOptsWithSender(cCtx, g.cfg.TxManager.From())
+	isConfirmed, err := g.securityCouncilContract.IsConfirmed(callOpts, event.TransactionId)
+	cCancel()
+	if err != nil {
+		g.log.Error("failed to get confirmation", "transactionId", event.TransactionId, "err", err)
+		return err
+	}
+
+	if isConfirmed {
+		g.log.Info("this transaction has already been confirmed", "transactionId", event.TransactionId)
+		return nil
+	}
+
+	isValid, err := g.ValidateL2Output(ctx, event.OutputRoot, event.L2BlockNumber.Uint64())
+	if err != nil {
+		g.log.Error("failed to verify the output to be replaced", "transactionId", event.TransactionId, "err", err)
+		return err
+	}
+
+	if isValid {
+		g.log.Info("the output to be replaced is valid")
+
+		cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+		tx, err := g.ConfirmTransaction(cCtx, event.TransactionId)
+		cCancel()
+		if err != nil {
+			g.log.Error("failed to create confirm tx", "transactionId", event.TransactionId, "err", err)
+			return err
+		}
+		if tx == nil {
+			return nil
+		}
+
+		if err := g.sendTransaction(ctx, tx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.SecurityCouncilValidationRequested) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer func() {
@@ -172,51 +163,15 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 		g.wg.Done()
 	}()
 
-	for {
-	Loop:
+	for ; ; <-ticker.C {
 		select {
-		case <-ticker.C:
-			cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-			callOpts := utils.NewCallOptsWithSender(cCtx, g.cfg.TxManager.From())
-			isConfirmed, err := g.securityCouncilContract.IsConfirmed(callOpts, event.TransactionId)
-			cCancel()
-			if err != nil {
-				g.log.Error("failed to get confirmation", "transactionId", event.TransactionId, "err", err)
-				break Loop
-			}
-
-			if isConfirmed {
-				g.log.Info("this transaction has already been confirmed", "transactionId", event.TransactionId)
-				return
-			}
-
-			isValid, err := g.ValidateL2Output(ctx, event.OutputRoot, event.L2BlockNumber.Uint64())
-			if err != nil {
-				g.log.Error("failed to verify the output to be replaced", "transactionId", event.TransactionId, "err", err)
-				break Loop
-			}
-
-			if isValid {
-				g.log.Info("the output to be replaced is valid")
-
-				cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-				tx, err := g.ConfirmTransaction(cCtx, event.TransactionId)
-				cCancel()
-				if err != nil {
-					g.log.Error("failed to create confirm tx", "transactionId", event.TransactionId, "err", err)
-					break Loop
-				}
-				if tx == nil {
-					g.log.Error("confirm tx is nil", "transactionId", event.TransactionId, "err", err)
-					return
-				}
-
-				g.sendTransaction(tx)
-			} else {
-				g.log.Info("ignore this challenge because the output to be replaced is invalid")
-			}
-			return
 		case <-ctx.Done():
+			return
+		default:
+			err := g.tryConfirmTransaction(ctx, event)
+			if err != nil {
+				continue
+			}
 			return
 		}
 	}
@@ -232,11 +187,16 @@ func (g *Guardian) outputRootAtBlock(ctx context.Context, blockNumber uint64) (e
 	return output.OutputRoot, nil
 }
 
-func (g *Guardian) sendTransaction(tx *types.Transaction) {
-	g.txCandidatesChan <- txmgr.TxCandidate{
-		TxData:     tx.Data(),
-		To:         tx.To(),
-		GasLimit:   tx.Gas(),
-		AccessList: nil,
+func (g *Guardian) sendTransaction(ctx context.Context, tx *types.Transaction) error {
+	txResponse := g.cfg.TxManager.SubmitTransaction(ctx, txmgr.TxCandidate{
+		TxData:   tx.Data(),
+		To:       tx.To(),
+		GasLimit: 0,
+	})
+	if txResponse.Err != nil {
+		g.log.Error("failed to send tx with response", "err", txResponse.Err)
+		return txResponse.Err
 	}
+
+	return nil
 }

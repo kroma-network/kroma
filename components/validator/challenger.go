@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,7 +52,6 @@ type Challenger struct {
 	l2OutputSub  ethereum.Subscription
 	challengeSub ethereum.Subscription
 
-	txCandidatesChan           chan<- txmgr.TxCandidate
 	l2OutputSubmittedEventChan chan *bindings.L2OutputOracleOutputSubmitted
 	challengeCreatedEventChan  chan *bindings.ColosseumChallengeCreated
 
@@ -132,14 +131,13 @@ func (c *Challenger) initSub(ctx context.Context) {
 	})
 }
 
-func (c *Challenger) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCandidate) error {
+func (c *Challenger) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
 	c.log.Info("start challenger")
 
 	c.l2OutputSubmittedEventChan = make(chan *bindings.L2OutputOracleOutputSubmitted)
 	c.challengeCreatedEventChan = make(chan *bindings.ColosseumChallengeCreated)
-	c.txCandidatesChan = txCandidatesChan
 	c.initSub(c.ctx)
 
 	// if checkpoint is behind the latest output index, scan the previous outputs from the checkpoint
@@ -183,7 +181,10 @@ func (c *Challenger) Stop() error {
 		c.challengeSub.Unsubscribe()
 	}
 
-	c.cancel()
+	if c.cancel != nil {
+		c.cancel()
+	}
+
 	c.wg.Wait()
 
 	close(c.l2OutputSubmittedEventChan)
@@ -339,8 +340,12 @@ func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
 				continue
 			}
 
-			c.submitChallengeTx(tx)
-			c.log.Info("submit challenge tx", "outputIndex", outputIndex)
+			if err := c.submitChallengeTx(ctx, tx); err != nil {
+				c.log.Error("failed to submit create challenge tx", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+
+			c.log.Info("submit create challenge tx", "outputIndex", outputIndex)
 			return
 		}
 	}
@@ -388,7 +393,10 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 						c.log.Error("asserter: failed to create bisect tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
-					c.submitChallengeTx(tx)
+					if err := c.submitChallengeTx(ctx, tx); err != nil {
+						c.log.Error("asserter: failed to submit bisect tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
 				}
 			}
 
@@ -401,27 +409,38 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 						c.log.Error("challenger: failed to create bisect tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
-					c.submitChallengeTx(tx)
+					if err := c.submitChallengeTx(ctx, tx); err != nil {
+						c.log.Error("challenger: failed to submit bisect tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
 				case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
 					skipSelectPosition := status == chal.StatusAsserterTimeout
 					tx, err := c.ProveFault(ctx, outputIndex, skipSelectPosition)
 					if err != nil {
-						c.log.Error("failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
+						c.log.Error("challenger: failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
-					c.submitChallengeTx(tx)
+					if err := c.submitChallengeTx(ctx, tx); err != nil {
+						c.log.Error("challenger: failed to submit challenge tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
 				}
 			}
 		}
 	}
 }
 
-func (c *Challenger) submitChallengeTx(tx *types.Transaction) {
-	c.txCandidatesChan <- txmgr.TxCandidate{
+func (c *Challenger) submitChallengeTx(ctx context.Context, tx *types.Transaction) error {
+	txResponse := c.cfg.TxManager.SubmitTransaction(ctx, txmgr.TxCandidate{
 		TxData:   tx.Data(),
 		To:       tx.To(),
 		GasLimit: 0,
+	})
+	if txResponse.Err != nil {
+		return txResponse.Err
 	}
+
+	return nil
 }
 
 func (c *Challenger) IsChallengeInProgress(ctx context.Context, outputIndex *big.Int) (bool, error) {

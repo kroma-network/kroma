@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/kroma-network/kroma/utils/service/txmgr/metrics"
 )
 
@@ -46,7 +47,7 @@ func (m *BufferedTxManager) Start(ctx context.Context) error {
 	m.txRequestChan = make(chan *TxRequest, m.Config.TxBufferSize)
 	m.ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(1)
-	go m.listen()
+	go m.listen(m.ctx)
 	return nil
 }
 
@@ -81,7 +82,7 @@ func (m *BufferedTxManager) SubmitTransaction(ctx context.Context, txCandidate T
 	return &TxResponse{txResponse.Receipt, txResponse.Err}
 }
 
-func (m *BufferedTxManager) listen() {
+func (m *BufferedTxManager) listen(ctx context.Context) {
 	defer m.wg.Done()
 	for {
 		select {
@@ -91,6 +92,8 @@ func (m *BufferedTxManager) listen() {
 				m.l.Error("failed to send transaction in buffered tx manager", "err", err)
 			}
 			txRequest.responseChan <- &TxResponse{txReceipt, err}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
