@@ -106,13 +106,12 @@ contract L2OutputOracle_Initializer is CommonTest {
     // ValidatorPool constructor arguments
     address internal trusted = 0x000000000000000000000000000000000000aaaa;
     uint256 internal minBond = 0.1 ether;
+    uint256 internal maxUnbond = 2;
     uint256 internal nonPenaltyPeriod = 10 minutes;
     uint256 internal penaltyPeriod = 20 minutes;
     uint256 internal roundDuration = nonPenaltyPeriod + penaltyPeriod;
 
     // Constructor arguments
-    address internal asserter = 0x000000000000000000000000000000000000aAaB;
-    address internal challenger = 0x000000000000000000000000000000000000AAaC;
     uint256 internal submissionInterval = 1800;
     uint256 internal l2BlockTime = 2;
     uint256 internal startingBlockNumber = 200;
@@ -120,6 +119,8 @@ contract L2OutputOracle_Initializer is CommonTest {
     address internal guardian = 0x000000000000000000000000000000000000AaaD;
 
     // Test data
+    address internal asserter = 0x000000000000000000000000000000000000aAaB;
+    address internal challenger = 0x000000000000000000000000000000000000AAaC;
     uint256 initL1Time;
 
     event OutputSubmitted(
@@ -176,6 +177,7 @@ contract L2OutputOracle_Initializer is CommonTest {
             _portal: mockPortal,
             _trustedValidator: trusted,
             _minBondAmount: minBond,
+            _maxUnbond: maxUnbond,
             _nonPenaltyPeriod: nonPenaltyPeriod,
             _penaltyPeriod: penaltyPeriod
         });

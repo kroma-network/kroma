@@ -21,6 +21,7 @@ const deployFn: DeployFunction = async (hre) => {
       portalProxyAddress,
       hre.deployConfig.validatorPoolTrustedValidator,
       hre.deployConfig.validatorPoolMinBondAmount,
+      hre.deployConfig.validatorPoolMaxUnbond,
       hre.deployConfig.validatorPoolNonPenaltyPeriod,
       hre.deployConfig.validatorPoolPenaltyPeriod,
     ],
@@ -42,6 +43,11 @@ const deployFn: DeployFunction = async (hre) => {
         contract,
         'MIN_BOND_AMOUNT',
         hre.deployConfig.validatorPoolMinBondAmount
+      )
+      await assertContractVariable(
+        contract,
+        'MAX_UNBOND',
+        hre.deployConfig.validatorPoolMaxUnbond
       )
       await assertContractVariable(
         contract,

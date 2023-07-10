@@ -14,6 +14,7 @@
   "batchSenderAddress": "0xf15dc770221b99c98d4aaed568f2ab04b9d16e42",
   "validatorPoolTrustedValidator": "0xc2da150ecfaa2e275577203bb177dd4de4a2536e",
   "validatorPoolMinBondAmount": "0x16345785d8a0000",
+  "validatorPoolMaxUnbond": 10,
   "validatorPoolNonPenaltyPeriod": 20,
   "validatorPoolPenaltyPeriod": 40,
   "protocolVaultRecipient": "0xb5d7c1921fdbdea614f264a75ca0be416cf63eb5",

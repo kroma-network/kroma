@@ -74,6 +74,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         assertEq(address(pool.L2_ORACLE()), address(oracle));
         assertEq(pool.TRUSTED_VALIDATOR(), trusted);
         assertEq(pool.MIN_BOND_AMOUNT(), minBond);
+        assertEq(pool.MAX_UNBOND(), maxUnbond);
         assertEq(pool.NON_PENALTY_PERIOD(), nonPenaltyPeriod);
         assertEq(pool.PENALTY_PERIOD(), penaltyPeriod);
         assertEq(pool.ROUND_DURATION(), nonPenaltyPeriod + penaltyPeriod);
@@ -193,7 +194,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
         uint128 expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
         vm.prank(address(oracle));
-        vm.expectEmit(true, true, false, false);
+        vm.expectEmit(true, true, false, true, address(pool));
         emit Bonded(validator, nextOutputIndex, uint128(minBond), expiresAt);
         pool.createBond(nextOutputIndex, uint128(minBond), expiresAt);
         assertEq(pool.balanceOf(validator), 0);
@@ -226,7 +227,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
         uint128 expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
         vm.prank(address(oracle));
-        vm.expectEmit(true, true, false, false);
+        vm.expectEmit(true, true, false, true, address(pool));
         emit Unbonded(0, firstOutput.submitter, uint128(firstBond.amount));
         pool.createBond(nextOutputIndex, uint128(minBond), expiresAt);
         assertEq(pool.balanceOf(firstOutput.submitter), minBond);
@@ -303,7 +304,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         // in this test, the penalty is always 0 because the output was submitted without delay.
         uint256 penalty = 0;
 
-        vm.expectEmit(true, true, false, false);
+        vm.expectEmit(true, true, false, true, address(pool));
         emit Unbonded(latestOutputIndex, output.submitter, bond.amount);
         vm.expectCall(
             address(pool.PORTAL()),
@@ -363,7 +364,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
             assertEq(penalty, delay - nonPenaltyPeriod);
         }
 
-        vm.expectEmit(true, true, false, false);
+        vm.expectEmit(true, true, false, true, address(pool));
         emit Unbonded(outputIndex, validator, bondAmount);
         vm.expectCall(
             address(pool.PORTAL()),
@@ -383,6 +384,125 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         vm.prank(trusted);
         pool.unbond();
         assertEq(pool.balanceOf(validator), bondAmount);
+    }
+
+    function test_unbond_multipleBonds_succeeds() public {
+        uint256 tries = 2;
+        uint256 deposit = minBond * tries;
+        vm.prank(trusted);
+        pool.deposit{ value: deposit }();
+
+        // submit 2 outputs, only trusted can submit outputs before at least one unbond.
+        uint256 blockNumber = 0;
+        uint128 expiresAt = 0;
+        for (uint256 i = 0; i < tries; i++) {
+            blockNumber = oracle.nextBlockNumber();
+            warpToSubmitTime(blockNumber);
+            expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
+            assertEq(pool.nextValidator(), trusted);
+            vm.prank(trusted);
+            mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
+            vm.prank(address(oracle));
+            pool.createBond(i, uint128(minBond), expiresAt);
+            assertEq(pool.balanceOf(trusted), deposit - minBond * (i + 1));
+        }
+
+        uint256 firstOutputIndex = 0;
+        Types.CheckpointOutput memory firstOutput = oracle.getL2Output(firstOutputIndex);
+        Types.Bond memory firstBond = pool.getBond(firstOutputIndex);
+
+        uint256 secondOutputIndex = 1;
+        Types.CheckpointOutput memory secondOutput = oracle.getL2Output(secondOutputIndex);
+        Types.Bond memory secondBond = pool.getBond(secondOutputIndex);
+
+        // warp to the time the second output is finalized and the two bonds are expired.
+        vm.warp(secondBond.expiresAt);
+
+        // in this test, the penalty is always 0 because the outputs were submitted without delay.
+        uint256 penalty = 0;
+
+        vm.expectEmit(true, true, false, true, address(pool));
+        emit Unbonded(firstOutputIndex, firstOutput.submitter, firstBond.amount);
+        vm.expectCall(
+            address(pool.PORTAL()),
+            abi.encodeWithSelector(
+                KromaPortal.depositTransactionByValidatorPool.selector,
+                Predeploys.VALIDATOR_REWARD_VAULT,
+                pool.VAULT_REWARD_GAS_LIMIT(),
+                abi.encodeWithSelector(
+                    ValidatorRewardVault.reward.selector,
+                    firstOutput.submitter,
+                    firstOutput.l2BlockNumber,
+                    penalty,
+                    penaltyPeriod
+                )
+            )
+        );
+        vm.expectEmit(true, true, false, true, address(pool));
+        emit Unbonded(secondOutputIndex, secondOutput.submitter, secondBond.amount);
+        vm.expectCall(
+            address(pool.PORTAL()),
+            abi.encodeWithSelector(
+                KromaPortal.depositTransactionByValidatorPool.selector,
+                Predeploys.VALIDATOR_REWARD_VAULT,
+                pool.VAULT_REWARD_GAS_LIMIT(),
+                abi.encodeWithSelector(
+                    ValidatorRewardVault.reward.selector,
+                    secondOutput.submitter,
+                    secondOutput.l2BlockNumber,
+                    penalty,
+                    penaltyPeriod
+                )
+            )
+        );
+        vm.prank(trusted);
+        pool.unbond();
+
+        // check whether bonds are deleted and trusted balance has increased.
+        for (uint256 i = 0; i < tries; i++) {
+            vm.expectRevert("ValidatorPool: the bond does not exist");
+            pool.getBond(i);
+        }
+        assertEq(pool.balanceOf(trusted), deposit);
+    }
+
+    function test_unbond_maxUnbond_succeeds() public {
+        uint256 tries = maxUnbond + 1;
+        uint256 deposit = minBond * tries;
+        vm.prank(trusted);
+        pool.deposit{ value: deposit }();
+
+        // submit (maxUnbond + 1) outputs, only trusted can submit outputs before at least one unbond.
+        uint256 blockNumber = 0;
+        uint128 expiresAt = 0;
+        for (uint256 i = 0; i < tries; i++) {
+            blockNumber = oracle.nextBlockNumber();
+            warpToSubmitTime(blockNumber);
+            expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
+            assertEq(pool.nextValidator(), trusted);
+            vm.prank(trusted);
+            mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
+            vm.prank(address(oracle));
+            pool.createBond(i, uint128(minBond), expiresAt);
+            assertEq(pool.balanceOf(trusted), deposit - minBond * (i + 1));
+        }
+
+        uint256 latestOutputIndex = oracle.latestOutputIndex();
+        Types.Bond memory bond = pool.getBond(latestOutputIndex);
+
+        // warp to the time the latest output is finalized and all bonds are expired.
+        vm.warp(bond.expiresAt);
+
+        vm.prank(trusted);
+        pool.unbond();
+
+        // check whether maxUnbond number of bonds are deleted and the last one is not.
+        for (uint256 i = 0; i < tries - 1; i++) {
+            vm.expectRevert("ValidatorPool: the bond does not exist");
+            pool.getBond(i);
+        }
+        bond = pool.getBond(tries - 1);
+        assertEq(bond.amount, minBond);
     }
 
     function test_unbond_notExpired_reverts() external {
@@ -407,7 +527,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         pool.deposit{ value: prevBond.amount }();
 
         vm.prank(oracle.COLOSSEUM());
-        vm.expectEmit(true, true, false, false);
+        vm.expectEmit(true, true, false, true, address(pool));
         emit BondIncreased(challenger, latestOutputIndex, prevBond.amount);
         pool.increaseBond(challenger, latestOutputIndex);
 

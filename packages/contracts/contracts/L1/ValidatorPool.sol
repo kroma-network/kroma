@@ -48,6 +48,11 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     uint256 public immutable MIN_BOND_AMOUNT;
 
     /**
+     * @notice The max number of unbonds when trying unbond.
+     */
+    uint256 public immutable MAX_UNBOND;
+
+    /**
      * @notice The period in a round that the penalty does not apply, after which it does (in seconds).
      */
     uint256 public immutable NON_PENALTY_PERIOD;
@@ -57,7 +62,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      */
     uint256 public immutable PENALTY_PERIOD;
 
-    /*
+    /**
      * @notice The duration of a submission round for one output (in seconds).
      *         Note that there are two submission rounds for an output: PRIORITY ROUND and PUBLIC ROUND.
      */
@@ -133,6 +138,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @param _portal           Address of the KromaPortal.
      * @param _trustedValidator Address of the trusted validator.
      * @param _minBondAmount    The minimum bond amount.
+     * @param _maxUnbond        The max number of unbonds when trying unbond.
      * @param _nonPenaltyPeriod The period during a submission round that is not penalized.
      * @param _penaltyPeriod    The period during a submission round when penalties are applied.
      */
@@ -141,6 +147,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         KromaPortal _portal,
         address _trustedValidator,
         uint256 _minBondAmount,
+        uint256 _maxUnbond,
         uint256 _nonPenaltyPeriod,
         uint256 _penaltyPeriod
     ) Semver(0, 1, 0) {
@@ -148,6 +155,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         PORTAL = _portal;
         TRUSTED_VALIDATOR = _trustedValidator;
         MIN_BOND_AMOUNT = _minBondAmount;
+        MAX_UNBOND = _maxUnbond;
         NON_PENALTY_PERIOD = _nonPenaltyPeriod;
         PENALTY_PERIOD = _penaltyPeriod;
 
@@ -178,7 +186,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     function withdraw(uint256 _amount) external nonReentrant {
         _decreaseBalance(msg.sender, _amount);
 
-        bool success = SafeCall.call(msg.sender, gasleft(), _amount, hex"");
+        bool success = SafeCall.call(msg.sender, gasleft(), _amount, "");
         require(success, "ValidatorPool: ETH transfer failed");
     }
 
@@ -243,32 +251,50 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     }
 
     /**
-     * @notice Attempts to unbond corresponding to nextUnbondOutputIndex and returns whether the unbond was successful.
-     *         When unbound, it updates the next priority validator and sends a reward message to L2.
+     * @notice Attempts to unbond starting from nextUnbondOutputIndex and returns whether at least
+     *         one unbond is executed. Tries unbond at most MAX_UNBOND number of bonds and sends
+     *         a reward message to L2 for each unbond.
+     *         Note that it updates the next priority validator using last unbond, and not updates
+     *         when no unbond.
      *
-     * @return Whether the bond has been successfully unbonded.
+     * @return Whether at least one unbond is executed.
      */
     function _tryUnbond() private returns (bool) {
         uint256 outputIndex = nextUnbondOutputIndex;
+        uint128 bondAmount;
+        Types.Bond storage bond;
+        Types.CheckpointOutput memory output;
 
-        Types.Bond storage bond = bonds[outputIndex];
-        uint128 bondAmount = bond.amount;
-        if (block.timestamp >= bond.expiresAt && bondAmount > 0) {
-            delete bonds[outputIndex];
+        uint256 unbondedNum = 0;
+        for (; unbondedNum < MAX_UNBOND; ) {
+            bond = bonds[outputIndex];
+            bondAmount = bond.amount;
 
-            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(outputIndex);
-            _increaseBalance(output.submitter, bondAmount);
-            emit Unbonded(outputIndex, output.submitter, bondAmount);
+            if (block.timestamp >= bond.expiresAt && bondAmount > 0) {
+                delete bonds[outputIndex];
+                output = L2_ORACLE.getL2Output(outputIndex);
+                _increaseBalance(output.submitter, bondAmount);
+                emit Unbonded(outputIndex, output.submitter, bondAmount);
 
-            unchecked {
-                ++nextUnbondOutputIndex;
+                // Send reward message to L2 ValidatorRewardVault.
+                _sendRewardMessageToL2Vault(output);
+
+                unchecked {
+                    ++unbondedNum;
+                    ++outputIndex;
+                }
+            } else {
+                break;
             }
+        }
 
+        if (unbondedNum > 0) {
             // Select the next priority validator.
             _updatePriorityValidator(output.outputRoot);
-            // Send reward message to L2 ValidatorRewardVault.
-            _sendRewardMessageToL2Vault(output);
 
+            unchecked {
+                nextUnbondOutputIndex = outputIndex;
+            }
             return true;
         }
 

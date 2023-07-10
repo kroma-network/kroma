@@ -376,6 +376,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			Args: []interface{}{
 				config.ValidatorPoolTrustedValidator,
 				config.ValidatorPoolMinBondAmount.ToInt(),
+				uint642Big(config.ValidatorPoolMaxUnbond),
 				uint642Big(config.ValidatorPoolNonPenaltyPeriod),
 				uint642Big(config.ValidatorPoolPenaltyPeriod),
 			},
@@ -472,8 +473,9 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			predeploys.DevKromaPortalAddr,
 			/* trustedValidator= */ deployment.Args[0].(common.Address),
 			/* minBondAmount= */ deployment.Args[1].(*big.Int),
-			/* nonPenaltyPeriod= */ deployment.Args[2].(*big.Int),
-			/* penaltyPeriod= */ deployment.Args[3].(*big.Int),
+			/* maxUnbond= */ deployment.Args[2].(*big.Int),
+			/* nonPenaltyPeriod= */ deployment.Args[3].(*big.Int),
+			/* penaltyPeriod= */ deployment.Args[4].(*big.Int),
 		)
 	case "L2OutputOracle":
 		_, tx, _, err = bindings.DeployL2OutputOracle(
