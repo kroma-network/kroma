@@ -261,6 +261,7 @@ func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*typ
 			if receipt.Status != types.ReceiptStatusSuccessful {
 				return receipt, ErrTxReceiptNotSucceed
 			}
+			m.l.Info("Transaction receipt status successful", "hash", receipt.TxHash)
 			return receipt, nil
 		}
 	}
