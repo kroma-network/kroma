@@ -67,7 +67,11 @@ func TestValidator(gt *testing.T) {
 
 	require.Equal(t, proposer.SyncStatus().UnsafeL2, proposer.SyncStatus().FinalizedL2)
 	// create l2 output submission transactions until there is nothing left to submit
-	for validator.CanSubmit(t) {
+	for {
+		waitTime := validator.CalculateWaitTime(t)
+		if waitTime > 0 {
+			break
+		}
 		// and submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
