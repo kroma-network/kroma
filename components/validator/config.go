@@ -37,11 +37,11 @@ type Config struct {
 	RollupClient                 *sources.RollupClient
 	RollupConfig                 *rollup.Config
 	AllowNonFinalized            bool
-	OutputSubmitterDisabled      bool
+	OutputSubmitterEnabled       bool
 	OutputSubmitterBondAmount    uint64
 	OutputSubmitterRetryInterval time.Duration
 	OutputSubmitterRoundBuffer   uint64
-	ChallengerDisabled           bool
+	ChallengerEnabled            bool
 	GuardianEnabled              bool
 	ProofFetcher                 ProofFetcher
 }
@@ -86,7 +86,7 @@ type CLIConfig struct {
 	// for L2 blocks derived from non-finalized L1 data.
 	AllowNonFinalized bool
 
-	OutputSubmitterDisabled bool
+	OutputSubmitterEnabled bool
 
 	// OutputSubmitterBondAmount is the amount to bond when submitting each output.
 	OutputSubmitterBondAmount uint64
@@ -97,7 +97,7 @@ type CLIConfig struct {
 	// OutputSubmitterRoundBuffer is how many blocks before each round to start trying submission.
 	OutputSubmitterRoundBuffer uint64
 
-	ChallengerDisabled bool
+	ChallengerEnabled bool
 
 	GuardianEnabled bool
 
@@ -138,18 +138,18 @@ func NewCLIConfig(ctx *cli.Context) CLIConfig {
 		L2OOAddress:            ctx.GlobalString(flags.L2OOAddressFlag.Name),
 		ColosseumAddress:       ctx.GlobalString(flags.ColosseumAddressFlag.Name),
 		ValPoolAddress:         ctx.GlobalString(flags.ValPoolAddressFlag.Name),
+		OutputSubmitterEnabled: ctx.GlobalBool(flags.OutputSubmitterEnabledFlag.Name),
+		ChallengerEnabled:      ctx.GlobalBool(flags.ChallengerEnabledFlag.Name),
 		ChallengerPollInterval: ctx.GlobalDuration(flags.ChallengerPollIntervalFlag.Name),
-		ProverGrpc:             ctx.GlobalString(flags.ProverGrpcFlag.Name),
 		TxMgrConfig:            txmgr.ReadCLIConfig(ctx),
 
 		// Optional Flags
 		AllowNonFinalized:            ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
-		OutputSubmitterDisabled:      ctx.GlobalBool(flags.OutputSubmitterDisabledFlag.Name),
 		OutputSubmitterBondAmount:    ctx.GlobalUint64(flags.OutputSubmitterBondAmountFlag.Name),
 		OutputSubmitterRetryInterval: ctx.GlobalDuration(flags.OutputSubmitterRetryIntervalFlag.Name),
 		OutputSubmitterRoundBuffer:   ctx.GlobalUint64(flags.OutputSubmitterRoundBufferFlag.Name),
-		ChallengerDisabled:           ctx.GlobalBool(flags.ChallengerDisabledFlag.Name),
 		SecurityCouncilAddress:       ctx.GlobalString(flags.SecurityCouncilAddressFlag.Name),
+		ProverGrpc:                   ctx.GlobalString(flags.ProverGrpcFlag.Name),
 		GuardianEnabled:              ctx.GlobalBool(flags.GuardianEnabledFlag.Name),
 		FetchingProofTimeout:         ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
 		RPCConfig:                    krpc.ReadCLIConfig(ctx),
@@ -189,12 +189,12 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
-	if cfg.OutputSubmitterDisabled && cfg.ChallengerDisabled {
+	if !cfg.OutputSubmitterEnabled && !cfg.ChallengerEnabled {
 		return nil, errors.New("output submitter and challenger are disabled. either output submitter or challenger must be enabled")
 	}
 
-	if !cfg.ChallengerDisabled && len(cfg.ProverGrpc) == 0 {
-		return nil, errors.New("ProverGrpc is required but given empty")
+	if cfg.ChallengerEnabled && len(cfg.ProverGrpc) == 0 {
+		return nil, errors.New("ProverGrpc is required when challenger enabled, but given empty")
 	}
 
 	var fetcher ProofFetcher
@@ -234,11 +234,11 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		RollupClient:                 rollupClient,
 		RollupConfig:                 rollupConfig,
 		AllowNonFinalized:            cfg.AllowNonFinalized,
-		OutputSubmitterDisabled:      cfg.OutputSubmitterDisabled,
+		OutputSubmitterEnabled:       cfg.OutputSubmitterEnabled,
 		OutputSubmitterBondAmount:    cfg.OutputSubmitterBondAmount,
 		OutputSubmitterRetryInterval: cfg.OutputSubmitterRetryInterval,
 		OutputSubmitterRoundBuffer:   cfg.OutputSubmitterRoundBuffer,
-		ChallengerDisabled:           cfg.ChallengerDisabled,
+		ChallengerEnabled:            cfg.ChallengerEnabled,
 		GuardianEnabled:              cfg.GuardianEnabled,
 		ProofFetcher:                 fetcher,
 	}, nil

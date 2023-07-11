@@ -123,7 +123,7 @@ func (v *Validator) Start() error {
 
 	v.txCandidatesChan = make(chan txmgr.TxCandidate, 10)
 
-	if !v.cfg.OutputSubmitterDisabled {
+	if v.cfg.OutputSubmitterEnabled {
 		if err := v.l2os.Start(v.ctx, v.txCandidatesChan); err != nil {
 			return fmt.Errorf("cannot start l2 output submitter: %w", err)
 		}
@@ -153,7 +153,7 @@ func (v *Validator) Stop() error {
 		}
 	}
 
-	if !v.cfg.OutputSubmitterDisabled {
+	if v.cfg.OutputSubmitterEnabled {
 		if err := v.l2os.Stop(); err != nil {
 			return fmt.Errorf("failed to stop l2 output submitter: %w", err)
 		}

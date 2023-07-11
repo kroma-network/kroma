@@ -115,7 +115,7 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, 
 func (c *Challenger) initSub(ctx context.Context) {
 	opts := &bind.WatchOpts{Context: ctx}
 
-	if !c.cfg.ChallengerDisabled {
+	if c.cfg.ChallengerEnabled {
 		c.l2OutputSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
 			if err != nil {
 				c.log.Warn("resubscribing after failed L2OutputSubmitted event", "err", err)
@@ -160,7 +160,7 @@ func (c *Challenger) Start(ctx context.Context, txCandidatesChan chan<- txmgr.Tx
 	}
 
 	// if challenge mode on, subscribe L2 output submission events
-	if !c.cfg.ChallengerDisabled {
+	if c.cfg.ChallengerEnabled {
 		c.wg.Add(1)
 		go c.subscribeL2OutputSubmitted(c.ctx)
 	}
@@ -214,7 +214,7 @@ func (c *Challenger) scanPrevOutputs(ctx context.Context) error {
 	topics := []common.Hash{challengeCreatedEvent.ID}
 
 	// scan OutputSubmittedEvents only when challenger mode is on
-	if !c.cfg.ChallengerDisabled {
+	if c.cfg.ChallengerEnabled {
 		addresses = append(addresses, c.cfg.L2OutputOracleAddr)
 		topics = append(topics, outputSubmittedEvent.ID)
 	}
@@ -381,7 +381,7 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 			}
 
 			// if asserter
-			if isAsserter && !c.cfg.OutputSubmitterDisabled {
+			if isAsserter && c.cfg.OutputSubmitterEnabled {
 				if status == chal.StatusAsserterTurn {
 					tx, err := c.Bisect(ctx, outputIndex)
 					if err != nil {
@@ -393,7 +393,7 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 			}
 
 			// if challenger
-			if isChallenger && !c.cfg.ChallengerDisabled {
+			if isChallenger && c.cfg.ChallengerEnabled {
 				switch status {
 				case chal.StatusChallengerTurn:
 					tx, err := c.Bisect(ctx, outputIndex)
