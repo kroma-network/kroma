@@ -67,11 +67,8 @@ interface Colosseum {
     uint256 _outputIndex,
     bytes32 _outputRoot,
     uint256 _pos,
-    Types.OutputRootProof calldata _srcOutputRootProof,
-    Types.OutputRootProof calldata _dstOutputRootProof,
-    Types.PublicInput calldata _publicInput,
-    Types.BlockHeaderRLP calldata _rlps,
-    uint256[] calldata _proof,
+    Types.PublicInputProof calldata _proof,
+    uint256[] calldata _zkproof,
     uint256[] calldata _pair
   ) external;
 
@@ -290,23 +287,19 @@ calculate as below and enclose the public input to the `proveFault` transaction.
   }
   ```
 
-The following is the verification process of invalid output:
+The following is the verification process of invalid output by
+[ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract):
 
-The `_pair[4]` and `_pair[5]` contain the public input, which must be processed before verification by
-[ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract) can be performed.
-
-1. Check whether `_srcOutputRootProof` is the preimage of the first output root of the segment.
-2. Check whether `_dstOutputRootProof` is the preimage of the next output root of the segment.
-3. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the `blockHash` in `_dstOutputRootProof`.
-4. Verify that the `stateRoot` in `_publicInput` matches the `stateRoot` in `_dstOutputRootProof`.
-5. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the block hash derived from `_publicInput` and
-   `_rlps`.
-6. Verify that the `withdrawalStorageRoot` in `_dstOutputRootProof` is contained in `stateRoot` in
-  `_dstOutputRootProof`.
-7. If the length of transaction hashes in `_publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
-8. Verify the computation of the `publicInputHash` by comparing it with the `expectedPublicInputHash`.
-   The `publicInputHash` is derived from the `_publicInput` mentioned earlier, while the `expectedPublicInputHash`
-   is constructed using `_pair[4]` and `_pair[5]`.
+1. Check whether `srcOutputRootProof` is the preimage of the first output root of the segment.
+2. Check whether `dstOutputRootProof` is the preimage of the next output root of the segment.
+3. Verify that the `nextBlockHash` in `srcOutputRootProof` matches the `blockHash` in `dstOutputRootProof`.
+4. Verify that the `stateRoot` in `publicInput` matches the `stateRoot` in `dstOutputRootProof`.
+5. Verify that the `nextBlockHash` in `srcOutputRootProof` matches the block hash derived from `publicInput` and `rlps`.
+6. Verify that the `withdrawalStorageRoot` in `dstOutputRootProof` is contained in `stateRoot` in `dstOutputRootProof`
+   using `merkleProof`.
+7. If the length of transaction hashes in `publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
+8. Verify the `_zkproof` using `_pair` and `publicInputHash`. The `publicInputHash` is derived from the `publicInput`
+   and `stateRoot` of `srcOutputRootProof`, while `_zkproof` and `_pair` are submitted by the challenger directly.
 
 ## Upgradeability
 
