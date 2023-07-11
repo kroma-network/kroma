@@ -135,14 +135,14 @@ func TestCrossLayerUser(gt *testing.T) {
 	proposer.ActL2PipelineFull(t)
 
 	validator.ActDeposit(t, 1000)
-	includeL1Block(t, miner, dp.Addresses.TrustedValidator)
+	miner.includeL1Block(t, dp.Addresses.TrustedValidator)
 
 	// create l2 output submission transactions until there is nothing left to submit
 	for validator.CanSubmit(t) {
 		// submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		includeL1Block(t, miner, dp.Addresses.TrustedValidator)
+		miner.includeL1Block(t, dp.Addresses.TrustedValidator)
 		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())

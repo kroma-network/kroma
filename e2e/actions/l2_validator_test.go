@@ -3,7 +3,6 @@ package actions
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -13,12 +12,6 @@ import (
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
-
-func includeL1Block(t StatefulTesting, miner *L1Miner, sender common.Address) {
-	miner.ActL1StartBlock(12)(t)
-	miner.ActL1IncludeTx(sender)(t)
-	miner.ActL1EndBlock(t)
-}
 
 func TestValidator(gt *testing.T) {
 	t := NewDefaultTesting(gt)
@@ -56,7 +49,7 @@ func TestValidator(gt *testing.T) {
 		proposer.ActBuildToL1Head(t)
 		// submit and include in L1
 		batcher.ActSubmitAll(t)
-		includeL1Block(t, miner, dp.Addresses.Batcher)
+		miner.includeL1Block(t, dp.Addresses.Batcher)
 		// finalize the first and second L1 blocks, including the batch
 		miner.ActL1SafeNext(t)
 		miner.ActL1SafeNext(t)
@@ -70,7 +63,7 @@ func TestValidator(gt *testing.T) {
 
 	// deposit bond for validator
 	validator.ActDeposit(t, 1_000)
-	includeL1Block(t, miner, validator.address)
+	miner.includeL1Block(t, validator.address)
 
 	require.Equal(t, proposer.SyncStatus().UnsafeL2, proposer.SyncStatus().FinalizedL2)
 	// create l2 output submission transactions until there is nothing left to submit
@@ -78,7 +71,7 @@ func TestValidator(gt *testing.T) {
 		// and submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		includeL1Block(t, miner, validator.address)
+		miner.includeL1Block(t, validator.address)
 		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())

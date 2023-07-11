@@ -183,5 +183,5 @@ func (v *L2Validator) ActDeposit(t Testing, depositAmount uint64) {
 	txData, err := valPoolABI.Pack("deposit")
 	require.NoError(t, err)
 
-	v.sendTx(t, &v.valPoolContractAddr, big.NewInt(int64(depositAmount)), txData)
+	v.sendTx(t, &v.valPoolContractAddr, new(big.Int).SetUint64(depositAmount), txData)
 }
