@@ -87,7 +87,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	l2os, err := validator.NewL2OutputSubmitter(context.Background(), validatorCfg, log, validatormetrics.NoopMetrics)
 	require.NoError(t, err)
 
-	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log)
+	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log, validatormetrics.NoopMetrics)
 	require.NoError(t, err)
 
 	guardian, err := validator.NewGuardian(validatorCfg, log)

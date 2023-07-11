@@ -240,6 +240,7 @@ func (l *L2OutputSubmitter) checkDeposit(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 	l.log.Info("validator deposit amount", "deposit", balance)
+	l.metr.RecordDepositAmount(balance)
 
 	return true, nil
 }
@@ -309,6 +310,8 @@ func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, e
 			isPriorityValidator: false,
 		}, err
 	}
+
+	l.metr.RecordNextValidator(nextValidator)
 
 	if bytes.Equal(nextValidator[:], PublicRoundAddress[:]) {
 		l.log.Info("current round is public round")

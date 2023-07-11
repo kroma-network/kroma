@@ -22,6 +22,7 @@ import (
 	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/components/node/eth"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
 	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
@@ -36,6 +37,7 @@ type Challenger struct {
 	cfg    Config
 	ctx    context.Context
 	cancel context.CancelFunc
+	metr   metrics.Metricer
 
 	l1Client *ethclient.Client
 
@@ -59,7 +61,7 @@ type Challenger struct {
 	wg sync.WaitGroup
 }
 
-func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, error) {
+func NewChallenger(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, error) {
 	colosseumContract, err := bindings.NewColosseum(cfg.ColosseumAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
@@ -95,8 +97,9 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, 
 	}
 
 	return &Challenger{
-		log: l,
-		cfg: cfg,
+		log:  l,
+		cfg:  cfg,
+		metr: m,
 
 		l1Client: cfg.L1Client,
 
@@ -154,6 +157,7 @@ func (c *Challenger) Start(ctx context.Context, txCandidatesChan chan<- txmgr.Tx
 		// set checkpoint to latestOutputIndex (nextOutputIndex - 1)
 		c.checkpoint = new(big.Int).Sub(nextOutputIndex, common.Big1)
 	}
+	c.metr.RecordChallengeCheckpoint(c.checkpoint)
 
 	if err := c.scanPrevOutputs(c.ctx); err != nil {
 		return fmt.Errorf("failed to scan previous outputs: %w", err)
@@ -270,6 +274,7 @@ func (c *Challenger) subscribeL2OutputSubmitted(ctx context.Context) {
 				go c.handleOutput(ctx, new(big.Int).Set(i))
 			}
 			c.checkpoint = ev.L2OutputIndex
+			c.metr.RecordChallengeCheckpoint(c.checkpoint)
 		case <-ctx.Done():
 			return
 		}

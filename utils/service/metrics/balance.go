@@ -13,8 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// weiToEther divides the wei value by 10^18 to get a number in ether as a float64
-func weiToEther(wei *big.Int) float64 {
+// WeiToEther divides the wei value by 10^18 to get a number in ether as a float64
+func WeiToEther(wei *big.Int) float64 {
 	num := new(big.Rat).SetInt(wei)
 	denom := big.NewRat(params.Ether, 1)
 	num = num.Quo(num, denom)
@@ -46,7 +46,7 @@ func LaunchBalanceMetrics(ctx context.Context, log log.Logger, r *prometheus.Reg
 					cancel()
 					continue
 				}
-				bal := weiToEther(bigBal)
+				bal := WeiToEther(bigBal)
 				balanceGuage.Set(bal)
 				cancel()
 			case <-ctx.Done():
@@ -54,6 +54,5 @@ func LaunchBalanceMetrics(ctx context.Context, log log.Logger, r *prometheus.Reg
 				return
 			}
 		}
-
 	}()
 }
