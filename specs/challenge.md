@@ -31,12 +31,15 @@
 
 ## Overview
 
-When a [challenger][g-validator] detects that a submitted [L2 output root][g-l2-output] contains an invalid state
-transition, it starts a challenge process by triggering the [Colosseum contract](#colosseum-contract). This involves the
-asserter and the challenger by force and continues until either one wins. Only one challenge can be on an output,
-and if the challenger wins, the existing output is replaced with the new output claimed by the challenger.
-All challenges must be approved by the Security Council. If the content of the challenge is untrue,
-the challenge may not be approved, even if the proof is verified by the contract.
+When a [validator][g-validator] detects that a submitted [L2 output root][g-l2-output] contains an invalid state
+transition, it can start a dispute challenge process by triggering the [Colosseum contract](#colosseum-contract). We
+refer to a validator who submits a dispute challenge as a "challenger" and a validator who initially submitted
+an L2 output as an "asserter." A dispute challenge entails a confrontational interaction between an asserter and a
+challenger, which persists until one of them emerges victorious. Only a single challenge can be directed at an output,
+and if the challenger succeeds, the existing output is substituted with a new output put forth by the challenger.
+
+All challenges necessitate approval from the Security Council. Even if the contract verifies the proof,
+a challenge may not be sanctioned if its contents are found to be false.
 
 ## Colosseum Contract
 
