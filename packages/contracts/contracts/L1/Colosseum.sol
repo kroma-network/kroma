@@ -176,6 +176,19 @@ contract Colosseum is Initializable, Semver {
     event Deleted(uint256 indexed outputIndex, uint256 timestamp);
 
     /**
+     * @notice Reverts if the output of given index is already finalized.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     */
+    modifier outputNotFinalized(uint256 _outputIndex) {
+        require(
+            !L2_ORACLE.isFinalized(_outputIndex),
+            "Colosseum: cannot progress challenge process about already finalized output"
+        );
+        _;
+    }
+
+    /**
      * @custom:semver 0.1.0
      *
      * @param _l2Oracle           Address of the L2OutputOracle contract.
@@ -226,7 +239,10 @@ contract Colosseum is Initializable, Semver {
      * @param _outputIndex Index of the invalid L2 checkpoint output.
      * @param _segments    Array of the segment. A segment is the first output root of a specific range.
      */
-    function createChallenge(uint256 _outputIndex, bytes32[] calldata _segments) external {
+    function createChallenge(uint256 _outputIndex, bytes32[] calldata _segments)
+        external
+        outputNotFinalized(_outputIndex)
+    {
         require(_outputIndex > 0, "Colosseum: challenge for genesis output is not allowed");
 
         Types.Challenge storage challenge = challenges[_outputIndex];
@@ -237,7 +253,6 @@ contract Colosseum is Initializable, Semver {
         );
 
         Types.CheckpointOutput memory targetOutput = L2_ORACLE.getL2Output(_outputIndex);
-        require(targetOutput.l2BlockNumber != 0, "Colosseum: output not found");
 
         require(
             msg.sender != targetOutput.submitter,
@@ -279,7 +294,7 @@ contract Colosseum is Initializable, Semver {
         uint256 _outputIndex,
         uint256 _pos,
         bytes32[] calldata _segments
-    ) external {
+    ) external outputNotFinalized(_outputIndex) {
         Types.Challenge storage challenge = challenges[_outputIndex];
 
         _validateTurn(challenge);
@@ -323,7 +338,7 @@ contract Colosseum is Initializable, Semver {
         Types.PublicInputProof calldata _proof,
         uint256[] calldata _zkproof,
         uint256[] calldata _pair
-    ) external {
+    ) external outputNotFinalized(_outputIndex) {
         Types.Challenge storage challenge = challenges[_outputIndex];
 
         _validateTurn(challenge);

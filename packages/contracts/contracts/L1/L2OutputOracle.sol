@@ -374,11 +374,22 @@ contract L2OutputOracle is Initializable, Semver {
     /**
      * @notice Returns the address of the L2 output submitter.
      *
-     * @param _outputIndex Index of the output.
+     * @param _outputIndex Index of an output.
      *
      * @return Address of the submitter.
      */
     function getSubmitter(uint256 _outputIndex) external view returns (address) {
         return l2Outputs[_outputIndex].submitter;
+    }
+
+    /**
+     * @notice Returns if the output of given index is finalized.
+     *
+     * @param _outputIndex Index of an output.
+     *
+     * @return If the given output is finalized or not.
+     */
+    function isFinalized(uint256 _outputIndex) external view returns (bool) {
+        return l2Outputs[_outputIndex].timestamp + FINALIZATION_PERIOD_SECONDS < block.timestamp;
     }
 }

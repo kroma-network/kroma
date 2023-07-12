@@ -254,12 +254,40 @@ contract ColosseumTest is Colosseum_Initializer {
         colosseum.createChallenge(0, new bytes32[](segLen));
     }
 
-    function test_createChallenge_sameOutput_reverts() external {
+    function test_createChallenge_finalizedOutput_reverts() external {
+        uint256 outputIndex = oracle.latestOutputIndex();
+        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
+        uint256 segLen = colosseum.getSegmentsLength(1);
+
+        vm.warp(targetOutput.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
+
+        vm.prank(challenger);
+        vm.expectRevert(
+            "Colosseum: cannot progress challenge process about already finalized output"
+        );
+        colosseum.createChallenge(outputIndex, new bytes32[](segLen));
+    }
+
+    function test_createChallenge_asAsserter_reverts() external {
+        uint256 outputIndex = oracle.latestOutputIndex();
+        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
+        uint256 segLen = colosseum.getSegmentsLength(1);
+
+        vm.prank(targetOutput.submitter);
+        vm.expectRevert("Colosseum: the asserter and challenger must be different");
+        colosseum.createChallenge(outputIndex, new bytes32[](segLen));
+    }
+
+    function test_createChallenge_ongoingChallenge_reverts() external {
         uint256 outputIndex = oracle.latestOutputIndex();
         _createChallenge(outputIndex);
 
-        uint256 segLen = colosseum.getSegmentsLength(1);
+        assertEq(
+            uint256(colosseum.getStatus(outputIndex)),
+            uint256(Colosseum.ChallengeStatus.ASSERTER_TURN)
+        );
 
+        uint256 segLen = colosseum.getSegmentsLength(1);
         vm.expectRevert(
             "Colosseum: the challenge for given output index is already in progress or approved."
         );
@@ -290,21 +318,13 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.stopPrank();
     }
 
-    function test_createChallenge_ongoingChallenge_reverts() external {
+    function test_createChallenge_notSubmittedOutput_reverts() external {
         uint256 outputIndex = oracle.latestOutputIndex();
-        _createChallenge(outputIndex);
+        uint256 segLen = colosseum.getSegmentsLength(1);
 
-        assertEq(
-            uint256(colosseum.getStatus(outputIndex)),
-            uint256(Colosseum.ChallengeStatus.ASSERTER_TURN)
-        );
-
-        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex);
         vm.prank(challenger);
-        vm.expectRevert(
-            "Colosseum: the challenge for given output index is already in progress or approved."
-        );
-        colosseum.createChallenge(outputIndex, challenge.segments);
+        vm.expectRevert();
+        colosseum.createChallenge(outputIndex + 1, new bytes32[](segLen));
     }
 
     function test_createChallenge_afterChallengeApproved_reverts() external {
@@ -369,6 +389,28 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(nextSender(challenge), challenge.asserter);
 
         _bisect(outputIndex, challenge.asserter);
+    }
+
+    function test_bisect_finalizedOutput_reverts() external {
+        uint256 outputIndex = oracle.latestOutputIndex();
+        _createChallenge(outputIndex);
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex);
+
+        assertEq(
+            uint256(colosseum.getStatus(outputIndex)),
+            uint256(Colosseum.ChallengeStatus.ASSERTER_TURN)
+        );
+
+        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
+        vm.warp(targetOutput.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
+
+        uint256 segLen = colosseum.getSegmentsLength(challenge.turn + 1);
+
+        vm.prank(challenge.asserter);
+        vm.expectRevert(
+            "Colosseum: cannot progress challenge process about already finalized output"
+        );
+        colosseum.bisect(outputIndex, 0, new bytes32[](segLen));
     }
 
     function test_bisect_withBadSegments_reverts() external {
@@ -486,6 +528,31 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(colosseum.isInProgress(outputIndex), true);
 
         _proveFault(outputIndex);
+    }
+
+    function test_proveFault_finalizedOutput_reverts() external {
+        uint256 outputIndex = oracle.latestOutputIndex();
+        _createChallenge(outputIndex);
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex);
+
+        while (colosseum.isAbleToBisect(outputIndex)) {
+            challenge = colosseum.getChallenge(outputIndex);
+            _bisect(outputIndex, nextSender(challenge));
+        }
+
+        assertEq(
+            uint256(colosseum.getStatus(outputIndex)),
+            uint256(Colosseum.ChallengeStatus.READY_TO_PROVE)
+        );
+
+        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
+        vm.warp(targetOutput.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
+
+        vm.expectRevert(
+            "Colosseum: cannot progress challenge process about already finalized output"
+        );
+        bytes32 newOutputRoot;
+        _doProveFault(challenger, outputIndex, newOutputRoot, 0);
     }
 
     function test_proveFault_whenAsserterTimedOut_succeeds() external {
