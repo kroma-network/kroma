@@ -672,11 +672,11 @@ func L1InfoFromState(ctx context.Context, contract *bindings.L1Block, l2Number *
 	}
 	out.BatcherAddr = common.BytesToAddress(batcherHash[:])
 
-	vRewardRatio, err := contract.ValidatorRewardRatio(&opts)
+	validatorRewardScalar, err := contract.ValidatorRewardScalar(&opts)
 	if err != nil {
-		return derive.L1BlockInfo{}, fmt.Errorf("failed to get validator reward ratio: %w", err)
+		return derive.L1BlockInfo{}, fmt.Errorf("failed to get validator reward scalar: %w", err)
 	}
-	out.ValidatorRewardRatio = eth.Bytes32(common.BigToHash(vRewardRatio))
+	out.ValidatorRewardScalar = eth.Bytes32(common.BigToHash(validatorRewardScalar))
 
 	return out, nil
 }
@@ -1188,15 +1188,15 @@ func TestL1InfoContract(t *testing.T) {
 		require.Nil(t, err)
 
 		l1blocks[h] = derive.L1BlockInfo{
-			Number:               b.NumberU64(),
-			Time:                 b.Time(),
-			BaseFee:              b.BaseFee(),
-			BlockHash:            h,
-			SequenceNumber:       0, // ignored, will be overwritten
-			BatcherAddr:          sys.RollupConfig.Genesis.SystemConfig.BatcherAddr,
-			L1FeeOverhead:        sys.RollupConfig.Genesis.SystemConfig.Overhead,
-			L1FeeScalar:          sys.RollupConfig.Genesis.SystemConfig.Scalar,
-			ValidatorRewardRatio: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(derive.CalcValidatorRewardRatio()))),
+			Number:                b.NumberU64(),
+			Time:                  b.Time(),
+			BaseFee:               b.BaseFee(),
+			BlockHash:             h,
+			SequenceNumber:        0, // ignored, will be overwritten
+			BatcherAddr:           sys.RollupConfig.Genesis.SystemConfig.BatcherAddr,
+			L1FeeOverhead:         sys.RollupConfig.Genesis.SystemConfig.Overhead,
+			L1FeeScalar:           sys.RollupConfig.Genesis.SystemConfig.Scalar,
+			ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(derive.CalcValidatorRewardScalar()))),
 		}
 
 		h = b.ParentHash()
@@ -1583,20 +1583,20 @@ func TestFees(t *testing.T) {
 	proposerRewardVaultDiff := new(big.Int).Sub(proposerRewardVaultEndBalance, proposerRewardVaultStartBalance)
 	validatorRewardVaultDiff := new(big.Int).Sub(validatorRewardVaultEndBalance, validatorRewardVaultStartBalance)
 
-	// get a validator reward ratio from L1Block contract
+	// get a validator reward scalar from L1Block contract
 	l1BlockContract, err := bindings.NewL1Block(predeploys.L1BlockAddr, l2Prop)
 	require.Nil(t, err)
 
-	vRewardRatio, err := l1BlockContract.ValidatorRewardRatio(&bind.CallOpts{})
-	require.Nil(t, err, "reading vRewardRatio")
-	require.True(t, vRewardRatio.Uint64() > 0, "wrong l1block vRewardRatio")
+	validatorRewardScalar, err := l1BlockContract.ValidatorRewardScalar(&bind.CallOpts{})
+	require.Nil(t, err, "reading validatorRewardScalar")
+	require.True(t, validatorRewardScalar.Uint64() > 0, "wrong l1block validatorRewardScalar")
 
 	gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
 	fee := new(big.Int)
 	fee.Mul(gasUsed, header.BaseFee)
 	fee.Add(fee, new(big.Int).Mul(gasTip, gasUsed))
 
-	R := big.NewRat(vRewardRatio.Int64(), 10000)
+	R := big.NewRat(validatorRewardScalar.Int64(), 10000)
 	reward := new(big.Int).Mul(fee, R.Num())
 	reward.Div(reward, R.Denom())
 
