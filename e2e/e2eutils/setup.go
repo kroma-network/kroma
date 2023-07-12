@@ -104,7 +104,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		ColosseumProvingTimeout:   480,
 		ColosseumDummyHash:        common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
 		ColosseumMaxTxs:           25,
-		ColosseumSegmentsLengths:  "3,4",
+		ColosseumSegmentsLengths:  "2,2,3,4",
 
 		SecurityCouncilNumConfirmationRequired: 1,
 		SecurityCouncilOwners:                  []common.Address{addresses.Challenger, addresses.Alice, addresses.Bob, addresses.Mallory},
