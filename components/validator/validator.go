@@ -97,7 +97,7 @@ func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metri
 		return nil, err
 	}
 
-	challenger, err := NewChallenger(ctx, cfg, l)
+	challenger, err := NewChallenger(ctx, cfg, l, m)
 	if err != nil {
 		return nil, err
 	}

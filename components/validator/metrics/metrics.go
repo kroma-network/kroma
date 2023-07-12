@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -29,6 +30,9 @@ type Metricer interface {
 	txmetrics.TxMetricer
 
 	RecordL2OutputSubmitted(l2ref eth.L2BlockRef)
+	RecordDepositAmount(amount *big.Int)
+	RecordNextValidator(address common.Address)
+	RecordChallengeCheckpoint(outputIndex *big.Int)
 }
 
 type Metrics struct {
@@ -39,8 +43,11 @@ type Metrics struct {
 	kmetrics.RefMetrics
 	txmetrics.TxMetrics
 
-	Info prometheus.GaugeVec
-	Up   prometheus.Gauge
+	Info                prometheus.GaugeVec
+	Up                  prometheus.Gauge
+	DepositAmount       prometheus.Gauge
+	NextValidator       prometheus.GaugeVec
+	ChallengeCheckpoint prometheus.Gauge
 }
 
 var _ Metricer = (*Metrics)(nil)
@@ -74,6 +81,23 @@ func NewMetrics(procName string) *Metrics {
 			Name:      "up",
 			Help:      "1 if the kroma-validator has finished starting up",
 		}),
+		DepositAmount: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace: ns,
+			Name:      "deposit_amount",
+			Help:      "The amount deposited into the ValidatorPool contract",
+		}),
+		NextValidator: *factory.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: ns,
+			Name:      "next_validator",
+			Help:      "The address of the next validator",
+		}, []string{
+			"address",
+		}),
+		ChallengeCheckpoint: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace: ns,
+			Name:      "challenge_checkpoint",
+			Help:      "The output index that the challenge function last checked",
+		}),
 	}
 }
 
@@ -102,4 +126,19 @@ func (m *Metrics) RecordUp() {
 // RecordL2OutputSubmitted should be called when new L2 output is submitted
 func (m *Metrics) RecordL2OutputSubmitted(l2ref eth.L2BlockRef) {
 	m.RecordL2Ref(L2OutputSubmitted, l2ref)
+}
+
+// RecordDepositAmount sets the amount deposited into the ValidatorPool contract.
+func (m *Metrics) RecordDepositAmount(amount *big.Int) {
+	m.DepositAmount.Set(kmetrics.WeiToEther(amount))
+}
+
+// RecordNextValidator sets the address of the next validator.
+func (m *Metrics) RecordNextValidator(address common.Address) {
+	m.NextValidator.WithLabelValues(address.String()).Set(1)
+}
+
+// RecordChallengeCheckpoint sets the output index that the challenge function last checked.
+func (m *Metrics) RecordChallengeCheckpoint(outputIndex *big.Int) {
+	m.ChallengeCheckpoint.Set(float64(outputIndex.Uint64()))
 }

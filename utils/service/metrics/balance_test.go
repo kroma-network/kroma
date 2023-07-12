@@ -31,10 +31,9 @@ func TestWeiToEther(t *testing.T) {
 	}
 
 	for i, tc := range tests {
-		out := weiToEther(tc.input)
+		out := WeiToEther(tc.input)
 		if out != tc.output {
 			t.Fatalf("test %v: expected %v but got %v", i, tc.output, out)
 		}
 	}
-
 }
