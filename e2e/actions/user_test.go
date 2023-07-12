@@ -6,10 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/stretchr/testify/require"
-
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
+	"github.com/stretchr/testify/require"
 )
 
 // TestCrossLayerUser tests that common actions of the CrossLayerUser actor work:
@@ -138,7 +137,11 @@ func TestCrossLayerUser(gt *testing.T) {
 	miner.includeL1Block(t, dp.Addresses.TrustedValidator)
 
 	// create l2 output submission transactions until there is nothing left to submit
-	for validator.CanSubmit(t) {
+	for {
+		waitTime := validator.CalculateWaitTime(t)
+		if waitTime > 0 {
+			break
+		}
 		// submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1

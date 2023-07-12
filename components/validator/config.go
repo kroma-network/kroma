@@ -32,7 +32,7 @@ type Config struct {
 	ValidatorPoolAddr            common.Address
 	ChallengerPollInterval       time.Duration
 	NetworkTimeout               time.Duration
-	TxManager                    *txmgr.SimpleTxManager
+	TxManager                    *txmgr.BufferedTxManager
 	L1Client                     *ethclient.Client
 	RollupClient                 *sources.RollupClient
 	RollupConfig                 *rollup.Config
@@ -184,7 +184,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
-	txManager, err := txmgr.NewSimpleTxManager("validator", l, m, cfg.TxMgrConfig)
+	txManager, err := txmgr.NewBufferedTxManager("validator", l, m, cfg.TxMgrConfig)
 	if err != nil {
 		return nil, err
 	}
