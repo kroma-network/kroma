@@ -66,7 +66,90 @@ interaction:
 	require.Equal(rt.t, chal.StatusApproved, status)
 }
 
-func TestChallengerProvingTimeout(t *testing.T) {
+func TestChallengerAsserterBisectTimeout(t *testing.T) {
+	rt := defaultRuntime(t)
+
+	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
+	rt.setupMaliciousValidator()
+	rt.setupHonestChallenger()
+
+	// bind contracts
+	rt.bindChallengeContracts()
+
+	// create challenge
+	rt.setupChallenge()
+
+interaction:
+	for {
+		status, err := rt.colosseumContract.GetStatus(nil, rt.outputIndex)
+		require.NoError(rt.t, err)
+
+		switch status {
+		case chal.StatusAsserterTurn:
+			// do nothing to trigger asserter timeout
+			rt.miner.ActEmptyBlock(rt.t)
+		case chal.StatusChallengerTurn:
+			rt.txHash = rt.challenger.ActProveFault(rt.t, rt.outputIndex, false)
+			rt.miner.includeL1Block(rt.t, rt.challenger.address)
+		default:
+			break interaction
+		}
+
+		// Check whether the submission was successful
+		rt.receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.txHash)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, types.ReceiptStatusSuccessful, rt.receipt.Status, "failed to progress interactive proof")
+	}
+
+	// Check the status of challenge is StatusChallengerTimeout(3)
+	status, err := rt.colosseumContract.GetStatus(nil, rt.outputIndex)
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, chal.StatusAsserterTimeout, status)
+}
+
+func TestChallengerChallengerBisectTimeout(t *testing.T) {
+	rt := defaultRuntime(t)
+
+	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
+	rt.setupMaliciousValidator()
+	rt.setupHonestChallenger()
+
+	// bind contracts
+	rt.bindChallengeContracts()
+
+	// create challenge
+	rt.setupChallenge()
+
+interaction:
+	for {
+		status, err := rt.colosseumContract.GetStatus(nil, rt.outputIndex)
+		require.NoError(rt.t, err)
+
+		switch status {
+		case chal.StatusChallengerTurn:
+			// do nothing to trigger challenger timeout
+			rt.miner.ActEmptyBlock(rt.t)
+		case chal.StatusAsserterTurn:
+			// call bisect by validator
+			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex)
+			rt.miner.includeL1Block(rt.t, rt.validator.address)
+		default:
+			break interaction
+		}
+
+		// Check whether the submission was successful
+		rt.receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.txHash)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, types.ReceiptStatusSuccessful, rt.receipt.Status, "failed to progress interactive proof")
+	}
+
+	// Check the status of challenge is StatusChallengerTimeout(3)
+	status, err := rt.colosseumContract.GetStatus(nil, rt.outputIndex)
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, chal.StatusChallengerTimeout, status)
+}
+
+func TestChallengerChallengerProvingTimeout(t *testing.T) {
 	rt := defaultRuntime(t)
 
 	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
@@ -96,9 +179,6 @@ interaction:
 		case chal.StatusReadyToProve:
 			// do nothing to trigger challenger proving timeout
 			rt.miner.ActEmptyBlock(rt.t)
-		case chal.StatusChallengerTimeout:
-			// break interaction when challenger timeout
-			break interaction
 		default:
 			break interaction
 		}
