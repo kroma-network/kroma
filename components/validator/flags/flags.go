@@ -48,17 +48,23 @@ var (
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "VALPOOL_ADDRESS"),
 	}
+	OutputSubmitterEnabledFlag = cli.BoolFlag{
+		Name:     "output-submitter.enabled",
+		Usage:    "Enable l2 output submitter",
+		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_ENABLED"),
+		Required: true,
+	}
+	ChallengerEnabledFlag = cli.BoolFlag{
+		Name:     "challenger.enabled",
+		Usage:    "Enable challenger",
+		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "CHALLENGER_ENABLED"),
+		Required: true,
+	}
 	ChallengerPollIntervalFlag = cli.DurationFlag{
 		Name:     "challenger.poll-interval",
 		Usage:    "Poll interval for challenge process",
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "CHALLENGER_POLL_INTERVAL"),
-	}
-	ProverGrpcFlag = cli.StringFlag{
-		Name:     "prover-grpc-url",
-		Usage:    "gRPC URL for kroma-prover.",
-		Required: false,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "PROVER_GRPC"),
 	}
 
 	// Optional flags
@@ -67,11 +73,6 @@ var (
 		Name:   "allow-non-finalized",
 		Usage:  "Allow the validator to submit outputs for L2 blocks derived from non-finalized L1 blocks.",
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "ALLOW_NON_FINALIZED"),
-	}
-	OutputSubmitterDisabledFlag = cli.BoolFlag{
-		Name:   "output-submitter.disabled",
-		Usage:  "Disable l2 output submitter",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_DISABLED"),
 	}
 	OutputSubmitterBondAmountFlag = cli.Uint64Flag{
 		Name:   "output-submitter.bond-amount",
@@ -91,10 +92,10 @@ var (
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_ROUND_BUFFER"),
 		Value:  30,
 	}
-	ChallengerDisabledFlag = cli.BoolFlag{
-		Name:   "challenger.disabled",
-		Usage:  "Disable challenger",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "CHALLENGER_DISABLED"),
+	ProverGrpcFlag = cli.StringFlag{
+		Name:   "prover-grpc-url",
+		Usage:  "gRPC URL for kroma-prover.",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "PROVER_GRPC"),
 	}
 	SecurityCouncilAddressFlag = cli.StringFlag{
 		Name:   "securitycouncil-address",
@@ -120,17 +121,17 @@ var requiredFlags = []cli.Flag{
 	L2OOAddressFlag,
 	ColosseumAddressFlag,
 	ValPoolAddressFlag,
+	OutputSubmitterEnabledFlag,
+	ChallengerEnabledFlag,
 	ChallengerPollIntervalFlag,
-	ProverGrpcFlag,
 }
 
 var optionalFlags = []cli.Flag{
 	AllowNonFinalizedFlag,
-	OutputSubmitterDisabledFlag,
 	OutputSubmitterBondAmountFlag,
 	OutputSubmitterRetryIntervalFlag,
 	OutputSubmitterRoundBufferFlag,
-	ChallengerDisabledFlag,
+	ProverGrpcFlag,
 	SecurityCouncilAddressFlag,
 	GuardianEnabledFlag,
 	FetchingProofTimeoutFlag,
