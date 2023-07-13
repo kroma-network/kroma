@@ -22,7 +22,9 @@ of the submitted output has passed, you can directly [trigger unbond by using th
   #try-unbond-in-validatorpool). For more details about submitting an output as a validator, see
 [here](../validations.md).
 
-This guide teaches you how to deposit, withdraw, or try to unbond in `ValidatorPool` via CLI.
+This guide teaches you how to deposit, withdraw, or try to unbond in `ValidatorPool` via CLI. You can find the proxy
+address of `ValidatorPool` on Sepolia [here](../../packages/contracts/deployments/sepolia/ValidatorPoolProxy.json),
+on Mainnet TBD.
 
 ## Deposit into `ValidatorPool`
 
