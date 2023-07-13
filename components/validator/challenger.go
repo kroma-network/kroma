@@ -32,11 +32,12 @@ type ProofFetcher interface {
 }
 
 type Challenger struct {
-	log    log.Logger
-	cfg    Config
-	ctx    context.Context
-	cancel context.CancelFunc
-	metr   metrics.Metricer
+	log      log.Logger
+	cfg      Config
+	ctx      context.Context
+	cancel   context.CancelFunc
+	metr     metrics.Metricer
+	callOpts *bind.CallOpts
 
 	l1Client *ethclient.Client
 
@@ -135,6 +136,7 @@ func (c *Challenger) initSub(ctx context.Context) {
 
 func (c *Challenger) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(ctx)
+	c.callOpts = utils.NewSimpleCallOpts(c.ctx)
 
 	c.log.Info("start challenger")
 
@@ -143,7 +145,7 @@ func (c *Challenger) Start(ctx context.Context) error {
 	c.initSub(c.ctx)
 
 	// if checkpoint is behind the latest output index, scan the previous outputs from the checkpoint
-	nextOutputIndex, err := c.l2ooContract.NextOutputIndex(&bind.CallOpts{Context: c.ctx})
+	nextOutputIndex, err := c.l2ooContract.NextOutputIndex(c.callOpts)
 	if err != nil {
 		return fmt.Errorf("failed to get the latest output index: %w", err)
 	}
@@ -296,7 +298,7 @@ func (c *Challenger) subscribeChallengeCreated(ctx context.Context) {
 	}
 }
 
-// handleOutput handles output when output submitted
+// handleOutput handles output when output submitted.
 func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
 	c.log.Info("handling output", "outputIndex", outputIndex)
 	defer c.wg.Done()
@@ -309,6 +311,17 @@ func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
 		case <-ctx.Done():
 			return
 		default:
+			outputFinalized, err := c.isOutputFinalized(outputIndex)
+			if err != nil {
+				c.log.Error("unable to get if output is finalized when handling output", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+
+			if outputFinalized {
+				c.log.Info("output is already finalized when handling output", "outputIndex", outputIndex)
+				return
+			}
+
 			outputRange, err := c.ValidateOutput(ctx, outputIndex)
 			if err != nil {
 				c.log.Error("unable to validate output", "err", err, "outputIndex", outputIndex)
@@ -322,7 +335,7 @@ func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
 			}
 
 			// check if the challenge is in progress already.
-			isInProgress, err := c.IsChallengeInProgress(ctx, outputIndex)
+			isInProgress, err := c.IsChallengeInProgress(outputIndex)
 			if err != nil {
 				c.log.Error("unable to get the status of challenge", "err", err, "outputIndex", outputIndex)
 				continue
@@ -364,7 +377,18 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 		case <-ctx.Done():
 			return
 		default:
-			challenge, err := c.GetChallenge(ctx, outputIndex)
+			outputFinalized, err := c.isOutputFinalized(outputIndex)
+			if err != nil {
+				c.log.Error("unable to get if output is finalized when handling challenge", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+
+			if outputFinalized {
+				c.log.Info("output is already finalized when handling challenge", "outputIndex", outputIndex)
+				return
+			}
+
+			challenge, err := c.GetChallenge(outputIndex)
 			if err != nil {
 				c.log.Error("failed to get challenge", "err", err, "outputIndex", outputIndex)
 				continue
@@ -374,7 +398,7 @@ func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) 
 			isChallenger := challenge.Challenger == c.cfg.TxManager.From()
 
 			// check the status of challenge
-			status, err := c.GetChallengeStatus(ctx, outputIndex)
+			status, err := c.GetChallengeStatus(outputIndex)
 			if err != nil {
 				c.log.Error("unable to get challenge status", "err", err, "outputIndex", outputIndex)
 				continue
@@ -435,12 +459,16 @@ func (c *Challenger) submitChallengeTx(ctx context.Context, tx *types.Transactio
 	return c.cfg.TxManager.SendTransaction(ctx, tx).Err
 }
 
-func (c *Challenger) IsChallengeInProgress(ctx context.Context, outputIndex *big.Int) (bool, error) {
-	return c.colosseumContract.IsInProgress(&bind.CallOpts{Context: ctx}, outputIndex)
+func (c *Challenger) isOutputFinalized(outputIndex *big.Int) (bool, error) {
+	return c.l2ooContract.IsFinalized(c.callOpts, outputIndex)
 }
 
-func (c *Challenger) GetChallenge(ctx context.Context, outputIndex *big.Int) (bindings.TypesChallenge, error) {
-	return c.colosseumContract.GetChallenge(&bind.CallOpts{Context: ctx}, outputIndex)
+func (c *Challenger) IsChallengeInProgress(outputIndex *big.Int) (bool, error) {
+	return c.colosseumContract.IsInProgress(c.callOpts, outputIndex)
+}
+
+func (c *Challenger) GetChallenge(outputIndex *big.Int) (bindings.TypesChallenge, error) {
+	return c.colosseumContract.GetChallenge(c.callOpts, outputIndex)
 }
 
 func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
@@ -504,7 +532,7 @@ type Outputs struct {
 }
 
 func (c *Challenger) outputsAtIndex(ctx context.Context, outputIndex *big.Int) (*Outputs, error) {
-	remoteOutput, err := c.l2ooContract.GetL2Output(&bind.CallOpts{Context: ctx}, outputIndex)
+	remoteOutput, err := c.l2ooContract.GetL2Output(c.callOpts, outputIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -523,7 +551,7 @@ type OutputRange struct {
 	EndBlock    uint64
 }
 
-// ValidateOutput validates the output given the outputIndex
+// ValidateOutput validates the output for the given outputIndex.
 func (c *Challenger) ValidateOutput(ctx context.Context, outputIndex *big.Int) (*OutputRange, error) {
 	outputs, err := c.outputsAtIndex(ctx, outputIndex)
 	if err != nil {
@@ -561,12 +589,12 @@ func (c *Challenger) isRelatedChallenge(asserter common.Address, challenger comm
 	return c.cfg.TxManager.From() == asserter || c.cfg.TxManager.From() == challenger
 }
 
-func (c *Challenger) GetChallengeStatus(ctx context.Context, outputIndex *big.Int) (uint8, error) {
-	return c.colosseumContract.GetStatus(&bind.CallOpts{Context: ctx}, outputIndex)
+func (c *Challenger) GetChallengeStatus(outputIndex *big.Int) (uint8, error) {
+	return c.colosseumContract.GetStatus(c.callOpts, outputIndex)
 }
 
 func (c *Challenger) BuildSegments(ctx context.Context, turn uint8, segStart, segSize uint64) (*chal.Segments, error) {
-	sections, err := c.colosseumContract.GetSegmentsLength(&bind.CallOpts{Context: ctx}, turn)
+	sections, err := c.colosseumContract.GetSegmentsLength(c.callOpts, turn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get segments length of turn %d: %w", turn, err)
 	}
@@ -620,7 +648,7 @@ func (c *Challenger) CreateChallenge(ctx context.Context, outputRange *OutputRan
 func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int) (*types.Transaction, error) {
 	c.log.Info("crafting bisect tx")
 
-	challenge, err := c.colosseumContract.GetChallenge(&bind.CallOpts{Context: ctx}, outputIndex)
+	challenge, err := c.colosseumContract.GetChallenge(c.callOpts, outputIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -657,7 +685,7 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, skipS
 		return nil, err
 	}
 
-	challenge, err := c.colosseumContract.GetChallenge(&bind.CallOpts{Context: ctx}, outputIndex)
+	challenge, err := c.colosseumContract.GetChallenge(c.callOpts, outputIndex)
 	if err != nil {
 		return nil, err
 	}

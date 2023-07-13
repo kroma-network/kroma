@@ -96,7 +96,7 @@ func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metri
 		return nil, err
 	}
 
-	guardian, err := NewGuardian(cfg, l)
+	guardian, err := NewGuardian(ctx, cfg, l)
 	if err != nil {
 		return nil, err
 	}
