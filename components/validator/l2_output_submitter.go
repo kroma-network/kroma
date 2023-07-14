@@ -46,8 +46,7 @@ type L2OutputSubmitter struct {
 	singleRoundInterval *big.Int
 	l2BlockTime         *big.Int
 
-	txCandidatesChan chan<- txmgr.TxCandidate
-	submitChan       chan struct{}
+	submitChan chan struct{}
 
 	wg sync.WaitGroup
 }
@@ -99,12 +98,11 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 	}, nil
 }
 
-func (l *L2OutputSubmitter) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCandidate) error {
+func (l *L2OutputSubmitter) Start(ctx context.Context) error {
 	l.ctx, l.cancel = context.WithCancel(ctx)
 	l.log.Info("starting L2 Output Submitter")
 
 	l.submitChan = make(chan struct{}, 1)
-	l.txCandidatesChan = txCandidatesChan
 	l.wg.Add(1)
 	go l.loop()
 
@@ -113,7 +111,6 @@ func (l *L2OutputSubmitter) Start(ctx context.Context, txCandidatesChan chan<- t
 
 func (l *L2OutputSubmitter) Stop() error {
 	l.log.Info("stopping L2 Output Submitter")
-
 	l.cancel()
 	l.wg.Wait()
 
@@ -125,17 +122,12 @@ func (l *L2OutputSubmitter) Stop() error {
 func (l *L2OutputSubmitter) loop() {
 	defer l.wg.Done()
 
-	l.submitChan <- struct{}{}
-
-	for {
+	for ; ; <-l.submitChan {
 		select {
-		case <-l.submitChan:
-			if err := l.trySubmitL2Output(l.ctx); err != nil {
-				l.log.Error("failed to submit l2 output", "err", err)
-				l.retryAfter(l.cfg.OutputSubmitterRetryInterval)
-			}
 		case <-l.ctx.Done():
 			return
+		default:
+			l.repeatSubmitL2Output(l.ctx)
 		}
 	}
 }
@@ -149,19 +141,41 @@ func (l *L2OutputSubmitter) retryAfter(d time.Duration) {
 	})
 }
 
-// TODO(seolaoh): return wait duration explicitly, and handle `retryAfter` function calls at once.
-func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) error {
-	nextBlockNumber, canSubmit, err := l.CanSubmit(ctx)
+func (l *L2OutputSubmitter) repeatSubmitL2Output(ctx context.Context) {
+	waitTime, err := l.trySubmitL2Output(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to check if it can submit: %w", err)
+		l.log.Error("failed to submit L2Output", "err", err)
 	}
-	if !canSubmit {
-		return nil
+	l.retryAfter(waitTime)
+}
+
+// trySubmitL2Output checks if the validator can submit l2 output and tries to submit it.
+// If it needs to wait, it will calculate how long the validator should wait and
+// try again after the delay.
+func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) (time.Duration, error) {
+	nextBlockNumber, err := l.FetchNextBlockNumber(ctx)
+	if err != nil {
+		return l.cfg.OutputSubmitterRetryInterval, err
 	}
 
+	calculatedWaitTime := l.CalculateWaitTime(ctx, nextBlockNumber)
+	if calculatedWaitTime > 0 {
+		return calculatedWaitTime, nil
+	}
+
+	if err = l.doSubmitL2Output(ctx, nextBlockNumber); err != nil {
+		return l.cfg.OutputSubmitterRetryInterval, err
+	}
+
+	// successfuly submitted. start next loop immediatly.
+	return 0, nil
+}
+
+// doSubmitL2Output submits l2 Output submission transaction.
+func (l *L2OutputSubmitter) doSubmitL2Output(ctx context.Context, nextBlockNumber *big.Int) error {
 	output, err := l.FetchOutput(ctx, nextBlockNumber)
 	if err != nil {
-		return fmt.Errorf("failed to fetch next output: %w", err)
+		return err
 	}
 
 	data, err := SubmitL2OutputTxData(l.l2ooABI, output, l.cfg.OutputSubmitterBondAmount)
@@ -169,29 +183,32 @@ func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) error {
 		return fmt.Errorf("failed to create submit l2 output transaction data: %w", err)
 	}
 
-	if err := l.submitL2OutputTx(data, nextBlockNumber); err != nil {
-		return fmt.Errorf("failed to submit l2 output transaction: %w", err)
+	if txResponse := l.submitL2OutputTx(data); txResponse.Err != nil {
+		return txResponse.Err
 	}
-	l.metr.RecordL2OutputSubmitted(output.BlockRef)
-	l.retryAfter(l.cfg.OutputSubmitterRetryInterval)
 
+	// Successfully submitted
+	l.log.Info("L2output successfully submitted", "blockNumber", output.BlockRef.Number)
+	l.metr.RecordL2OutputSubmitted(output.BlockRef)
+	// go to try next submission immediately
 	return nil
 }
 
-// CanSubmit checks if submission interval has elapsed and current round conditions.
-func (l *L2OutputSubmitter) CanSubmit(ctx context.Context) (*big.Int, bool, error) {
+// CalculateWaitTime checks the conditions for submitting L2Output and calculates the required latency.
+// Returns time 0 if the conditions are such that submission is possible immediately.
+func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumber *big.Int) time.Duration {
+	defaultWaitTime := l.cfg.OutputSubmitterRetryInterval
 	hasEnoughDeposit, err := l.checkDeposit(ctx)
 	if err != nil {
-		return nil, false, err
+		return defaultWaitTime
 	}
 	if !hasEnoughDeposit {
-		l.retryAfter(l.cfg.OutputSubmitterRetryInterval)
-		return nil, false, nil
+		return defaultWaitTime
 	}
 
-	currentBlockNumber, nextBlockNumber, err := l.fetchBlockNumbers(ctx)
+	currentBlockNumber, err := l.fetchCurrentBlockNumber(ctx)
 	if err != nil {
-		return nil, false, err
+		return defaultWaitTime
 	}
 	l.log.Info("current status before submit", "currentBlockNumber", currentBlockNumber, "nextBlockNumberToSubmit", nextBlockNumber)
 
@@ -201,28 +218,24 @@ func (l *L2OutputSubmitter) CanSubmit(ctx context.Context) (*big.Int, bool, erro
 	roundBuffer := new(big.Int).SetUint64(l.cfg.OutputSubmitterRoundBuffer)
 	if currentBlockNumber.Cmp(nextBlockNumberToWait) < 0 {
 		nextBlockNumberToWait = new(big.Int).Sub(nextBlockNumber, roundBuffer)
-		l.waitL2Blocks(currentBlockNumber, nextBlockNumberToWait)
-		return nil, false, nil
+		return l.getLeftTimeForL2Blocks(currentBlockNumber, nextBlockNumberToWait)
 	}
 
 	// Check if it's a public round, or selected for priority validator
 	roundInfo, err := l.fetchCurrentRound(ctx)
 	if err != nil {
-		return nil, false, err
-	}
-	// if it's a public round, try to submit right now
-	if roundInfo.isPublicRound {
-		return nextBlockNumber, true, nil
-	}
-	// if it's a priority round, wait for L2 blocks proceeding until public round when not selected for priority validator
-	if !roundInfo.isPriorityValidator {
-		roundIntervalToWait := new(big.Int).Sub(l.singleRoundInterval, roundBuffer)
-		nextBlockNumberToWait = new(big.Int).Add(nextBlockNumber, roundIntervalToWait)
-		l.waitL2Blocks(currentBlockNumber, nextBlockNumberToWait)
-		return nil, false, nil
+		return defaultWaitTime
 	}
 
-	return nextBlockNumber, true, nil
+	if !roundInfo.canJoinRound() {
+		// wait for L2 blocks proceeding until public round when not selected for priority validator
+		roundIntervalToWait := new(big.Int).Sub(l.singleRoundInterval, roundBuffer)
+		nextBlockNumberToWait = new(big.Int).Add(nextBlockNumber, roundIntervalToWait)
+		return l.getLeftTimeForL2Blocks(currentBlockNumber, nextBlockNumberToWait)
+	}
+
+	// no need to wait
+	return 0
 }
 
 func (l *L2OutputSubmitter) checkDeposit(ctx context.Context) (bool, error) {
@@ -245,24 +258,21 @@ func (l *L2OutputSubmitter) checkDeposit(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (l *L2OutputSubmitter) fetchBlockNumbers(ctx context.Context) (*big.Int, *big.Int, error) {
+func (l *L2OutputSubmitter) FetchNextBlockNumber(ctx context.Context) (*big.Int, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cCancel()
 	callOpts := utils.NewCallOptsWithSender(cCtx, l.cfg.TxManager.From())
-	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(callOpts)
-	if err != nil {
-		l.log.Error("validator unable to get next block number", "err", err)
-		cCancel()
-		return nil, nil, err
-	}
-	cCancel()
+	return l.l2ooContract.NextBlockNumber(callOpts)
+}
 
+func (l *L2OutputSubmitter) fetchCurrentBlockNumber(ctx context.Context) (*big.Int, error) {
 	// Fetch the current L2 heads
-	cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	status, err := l.cfg.RollupClient.SyncStatus(cCtx)
 	if err != nil {
 		l.log.Error("validator unable to get sync status", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Use either the finalized or safe head depending on the config. Finalized head is default & safer.
@@ -273,10 +283,10 @@ func (l *L2OutputSubmitter) fetchBlockNumbers(ctx context.Context) (*big.Int, *b
 		currentBlockNumber = new(big.Int).SetUint64(status.FinalizedL2.Number)
 	}
 
-	return currentBlockNumber, nextBlockNumber, nil
+	return currentBlockNumber, nil
 }
 
-func (l *L2OutputSubmitter) waitL2Blocks(currentBlockNumber *big.Int, targetBlockNumber *big.Int) {
+func (l *L2OutputSubmitter) getLeftTimeForL2Blocks(currentBlockNumber *big.Int, targetBlockNumber *big.Int) time.Duration {
 	l.log.Info("validator submission interval has not elapsed", "currentBlockNumber", currentBlockNumber, "targetBlockNumber", targetBlockNumber)
 	waitBlockNum := new(big.Int).Sub(targetBlockNumber, currentBlockNumber)
 
@@ -288,12 +298,18 @@ func (l *L2OutputSubmitter) waitL2Blocks(currentBlockNumber *big.Int, targetBloc
 	}
 
 	l.log.Info("wait for L2 blocks proceeding", "waitDuration", waitDuration)
-	l.retryAfter(waitDuration)
+	return waitDuration
 }
 
 type roundInfo struct {
 	isPublicRound       bool
 	isPriorityValidator bool
+}
+
+func (r *roundInfo) canJoinRound() bool {
+	joinPriority := !r.isPublicRound && r.isPriorityValidator
+	joinPublic := r.isPublicRound
+	return joinPriority || joinPublic
 }
 
 // fetchCurrentRound fetches next validator address from ValidatorPool contract.
@@ -370,10 +386,13 @@ func SubmitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse, bondAmount u
 }
 
 // submitL2OutputTx creates l2 output submit tx candidate and sends it to txCandidates channel to process validator's tx candidates in order.
-func (l *L2OutputSubmitter) submitL2OutputTx(data []byte, nextBlockNumber *big.Int) error {
+func (l *L2OutputSubmitter) submitL2OutputTx(data []byte) *txmgr.TxResponse {
 	layout, err := bindings.GetStorageLayout("ValidatorPool")
 	if err != nil {
-		return fmt.Errorf("failed to get storage layout: %w", err)
+		return &txmgr.TxResponse{
+			Receipt: nil,
+			Err:     fmt.Errorf("failed to get storage layout: %w", err),
+		}
 	}
 
 	var outputIndexSlot, priorityValidatorSlot common.Hash
@@ -396,14 +415,12 @@ func (l *L2OutputSubmitter) submitL2OutputTx(data []byte, nextBlockNumber *big.I
 		},
 	}
 
-	l.txCandidatesChan <- txmgr.TxCandidate{
+	return l.cfg.TxManager.SendTxCandidate(l.ctx, &txmgr.TxCandidate{
 		TxData:     data,
 		To:         &l.cfg.L2OutputOracleAddr,
 		GasLimit:   0,
 		AccessList: accessList,
-	}
-
-	return nil
+	})
 }
 
 func (l *L2OutputSubmitter) L2ooAbi() *abi.ABI {

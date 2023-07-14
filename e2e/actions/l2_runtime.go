@@ -185,7 +185,11 @@ func (rt *Runtime) setupChallenge() {
 	require.Equal(rt.t, rt.proposer.SyncStatus().UnsafeL2, rt.proposer.SyncStatus().FinalizedL2)
 
 	// create l2 output submission transactions until there is nothing left to submit
-	for rt.validator.CanSubmit(rt.t) {
+	for {
+		waitTime := rt.validator.CalculateWaitTime(rt.t)
+		if waitTime > 0 {
+			break
+		}
 		// and submit it to L1
 		rt.validator.ActSubmitL2Output(rt.t)
 		// include output on L1

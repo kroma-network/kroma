@@ -32,6 +32,7 @@ const (
 	TxSendTimeoutFlagName             = "txmgr.send-timeout"
 	TxNotInMempoolTimeoutFlagName     = "txmgr.not-in-mempool-timeout"
 	ReceiptQueryIntervalFlagName      = "txmgr.receipt-query-interval"
+	BufferSizeFlagName                = "txmgr.buffer-size"
 )
 
 func CLIFlags(envPrefix string) []cli.Flag {
@@ -93,6 +94,12 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			Value:  12 * time.Second,
 			EnvVar: kservice.PrefixEnvVar(envPrefix, "TXMGR_RECEIPT_QUERY_INTERVAL"),
 		},
+		cli.Uint64Flag{
+			Name:   BufferSizeFlagName,
+			Usage:  "Tx buffer size for buffered txmgr",
+			Value:  10,
+			EnvVar: kservice.PrefixEnvVar(envPrefix, "TXMGR_BUFFER_SIZE"),
+		},
 	}, client.CLIFlags(envPrefix)...)
 }
 
@@ -104,6 +111,7 @@ type CLIConfig struct {
 	SignerCLIConfig           client.CLIConfig
 	NumConfirmations          uint64
 	SafeAbortNonceTooLowCount uint64
+	TxBufferSize              uint64
 	ResubmissionTimeout       time.Duration
 	ReceiptQueryInterval      time.Duration
 	NetworkTimeout            time.Duration
@@ -153,6 +161,7 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		NetworkTimeout:            ctx.GlobalDuration(NetworkTimeoutFlagName),
 		TxSendTimeout:             ctx.GlobalDuration(TxSendTimeoutFlagName),
 		TxNotInMempoolTimeout:     ctx.GlobalDuration(TxNotInMempoolTimeoutFlagName),
+		TxBufferSize:              ctx.GlobalUint64(BufferSizeFlagName),
 	}
 }
 
@@ -190,6 +199,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		ReceiptQueryInterval:      cfg.ReceiptQueryInterval,
 		NumConfirmations:          cfg.NumConfirmations,
 		SafeAbortNonceTooLowCount: cfg.SafeAbortNonceTooLowCount,
+		TxBufferSize:              cfg.TxBufferSize,
 		Signer:                    signerFactory(chainID),
 		From:                      from,
 	}, nil
@@ -232,6 +242,10 @@ type Config struct {
 	// are required to give up on a tx at a particular nonce without receiving
 	// confirmation.
 	SafeAbortNonceTooLowCount uint64
+
+	// TxBufferSize specifies the size of the queue to use for transaction requests.
+	// Only used by buffered txmgr.
+	TxBufferSize uint64
 
 	// Signer is used to sign transactions when the gas price is increased.
 	Signer kcrypto.SignerFn
