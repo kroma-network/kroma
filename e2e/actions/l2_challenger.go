@@ -12,7 +12,7 @@ import (
 )
 
 func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common.Hash {
-	isInProgress, err := v.challenger.IsChallengeInProgress(t.Ctx(), outputIndex)
+	isInProgress, err := v.challenger.IsChallengeInProgress(outputIndex)
 	require.NoError(t, err)
 	require.False(t, isInProgress, "another challenge is in progress")
 
@@ -39,7 +39,7 @@ func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int) common.Hash {
 }
 
 func (v *L2Validator) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
-	status, err := v.challenger.GetChallengeStatus(t.Ctx(), outputIndex)
+	status, err := v.challenger.GetChallengeStatus(outputIndex)
 	require.NoError(t, err)
 
 	var tx *types.Transaction

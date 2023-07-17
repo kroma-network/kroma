@@ -167,7 +167,7 @@ func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) (time.Duratio
 		return l.cfg.OutputSubmitterRetryInterval, err
 	}
 
-	// successfuly submitted. start next loop immediatly.
+	// successfully submitted. start next loop immediately.
 	return 0, nil
 }
 
