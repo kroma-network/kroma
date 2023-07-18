@@ -69,8 +69,7 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 	}
 
 	cCtx, cCancel := context.WithTimeout(ctx, cfg.NetworkTimeout)
-	callOpts := utils.NewSimpleCallOpts(cCtx)
-	l2BlockTime, err := l2ooContract.L2BLOCKTIME(callOpts)
+	l2BlockTime, err := l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		cCancel()
 		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
@@ -79,8 +78,7 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 
 	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
 	defer cCancel()
-	callOpts = utils.NewSimpleCallOpts(cCtx)
-	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(callOpts)
+	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get submission interval: %w", err)
 	}
@@ -198,6 +196,20 @@ func (l *L2OutputSubmitter) doSubmitL2Output(ctx context.Context, nextBlockNumbe
 // Returns time 0 if the conditions are such that submission is possible immediately.
 func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumber *big.Int) time.Duration {
 	defaultWaitTime := l.cfg.OutputSubmitterRetryInterval
+
+	currentBlockNumber, err := l.fetchCurrentBlockNumber(ctx)
+	if err != nil {
+		return defaultWaitTime
+	}
+	latestBlockNumber, err := l.fetchLatestBlockNumber(ctx)
+	if err != nil {
+		return defaultWaitTime
+	}
+	if latestBlockNumber.Cmp(currentBlockNumber) == 1 {
+		l.log.Info("need to wait for L2 blocks sync completed", "currentBlockNumber", currentBlockNumber, "latestSubmittedBlockNumber", latestBlockNumber)
+		return defaultWaitTime
+	}
+
 	hasEnoughDeposit, err := l.checkDeposit(ctx)
 	if err != nil {
 		return defaultWaitTime
@@ -206,10 +218,6 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 		return defaultWaitTime
 	}
 
-	currentBlockNumber, err := l.fetchCurrentBlockNumber(ctx)
-	if err != nil {
-		return defaultWaitTime
-	}
 	l.log.Info("current status before submit", "currentBlockNumber", currentBlockNumber, "nextBlockNumberToSubmit", nextBlockNumber)
 
 	// Wait for L2 blocks proceeding when validator submission interval has not elapsed
@@ -242,8 +250,7 @@ func (l *L2OutputSubmitter) checkDeposit(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
-	callOpts := utils.NewCallOptsWithSender(cCtx, from)
-	balance, err := l.valpoolContract.BalanceOf(callOpts, from)
+	balance, err := l.valpoolContract.BalanceOf(utils.NewSimpleCallOpts(cCtx), from)
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch validator deposit amount: %w", err)
 	}
@@ -261,8 +268,25 @@ func (l *L2OutputSubmitter) checkDeposit(ctx context.Context) (bool, error) {
 func (l *L2OutputSubmitter) FetchNextBlockNumber(ctx context.Context) (*big.Int, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
-	callOpts := utils.NewCallOptsWithSender(cCtx, l.cfg.TxManager.From())
-	return l.l2ooContract.NextBlockNumber(callOpts)
+	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(utils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		l.log.Error("validator unable to get next block number", "err", err)
+		return nil, err
+	}
+
+	return nextBlockNumber, nil
+}
+
+func (l *L2OutputSubmitter) fetchLatestBlockNumber(ctx context.Context) (*big.Int, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cCancel()
+	latestBlockNumber, err := l.l2ooContract.LatestBlockNumber(utils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		l.log.Error("validator unable to get latest block number", "err", err)
+		return nil, err
+	}
+
+	return latestBlockNumber, nil
 }
 
 func (l *L2OutputSubmitter) fetchCurrentBlockNumber(ctx context.Context) (*big.Int, error) {
@@ -317,8 +341,7 @@ func (r *roundInfo) canJoinRound() bool {
 func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
-	callOpts := utils.NewCallOptsWithSender(cCtx, l.cfg.TxManager.From())
-	nextValidator, err := l.valpoolContract.NextValidator(callOpts)
+	nextValidator, err := l.valpoolContract.NextValidator(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		l.log.Error("validator unable to get next validator address", "err", err)
 		return roundInfo{

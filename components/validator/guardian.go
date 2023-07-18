@@ -238,6 +238,5 @@ func (g *Guardian) isOutputFinalized(ctx context.Context, outputIndex *big.Int) 
 func (g *Guardian) isTransactionConfirmed(ctx context.Context, transactionId *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
-	callOpts := utils.NewCallOptsWithSender(cCtx, g.cfg.TxManager.From())
-	return g.securityCouncilContract.IsConfirmed(callOpts, transactionId)
+	return g.securityCouncilContract.IsConfirmed(utils.NewSimpleCallOpts(cCtx), transactionId)
 }
