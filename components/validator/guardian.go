@@ -177,7 +177,7 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 		select {
 		case <-ticker.C:
 			cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-			callOpts := utils.NewCallOptsWithSender(cCtx, g.cfg.TxManager.From())
+			callOpts := utils.NewSimpleCallOpts(cCtx)
 			isConfirmed, err := g.securityCouncilContract.IsConfirmed(callOpts, event.TransactionId)
 			cCancel()
 			if err != nil {

@@ -70,8 +70,7 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 	}
 
 	cCtx, cCancel := context.WithTimeout(ctx, cfg.NetworkTimeout)
-	callOpts := utils.NewSimpleCallOpts(cCtx)
-	l2BlockTime, err := l2ooContract.L2BLOCKTIME(callOpts)
+	l2BlockTime, err := l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		cCancel()
 		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
@@ -80,8 +79,7 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 
 	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
 	defer cCancel()
-	callOpts = utils.NewSimpleCallOpts(cCtx)
-	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(callOpts)
+	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get submission interval: %w", err)
 	}
@@ -180,6 +178,20 @@ func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) error {
 
 // CanSubmit checks if submission interval has elapsed and current round conditions.
 func (l *L2OutputSubmitter) CanSubmit(ctx context.Context) (*big.Int, bool, error) {
+	currentBlockNumber, err := l.fetchCurrentBlockNumber(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	latestBlockNumber, err := l.fetchLatestBlockNumber(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	if latestBlockNumber.Cmp(currentBlockNumber) == 1 {
+		l.log.Info("need to wait for L2 blocks sync completed", "currentBlockNumber", currentBlockNumber, "latestSubmittedBlockNumber", latestBlockNumber)
+		l.retryAfter(l.cfg.OutputSubmitterRetryInterval)
+		return nil, false, nil
+	}
+
 	hasEnoughDeposit, err := l.checkDeposit(ctx)
 	if err != nil {
 		return nil, false, err
@@ -189,7 +201,7 @@ func (l *L2OutputSubmitter) CanSubmit(ctx context.Context) (*big.Int, bool, erro
 		return nil, false, nil
 	}
 
-	currentBlockNumber, nextBlockNumber, err := l.fetchBlockNumbers(ctx)
+	nextBlockNumber, err := l.fetchNextBlockNumber(ctx)
 	if err != nil {
 		return nil, false, err
 	}
@@ -225,12 +237,44 @@ func (l *L2OutputSubmitter) CanSubmit(ctx context.Context) (*big.Int, bool, erro
 	return nextBlockNumber, true, nil
 }
 
+func (l *L2OutputSubmitter) fetchCurrentBlockNumber(ctx context.Context) (*big.Int, error) {
+	// Fetch the current L2 heads
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cCancel()
+	status, err := l.cfg.RollupClient.SyncStatus(cCtx)
+	if err != nil {
+		l.log.Error("validator unable to get sync status", "err", err)
+		return nil, err
+	}
+
+	// Use either the finalized or safe head depending on the config. Finalized head is default & safer.
+	var currentBlockNumber *big.Int
+	if l.cfg.AllowNonFinalized {
+		currentBlockNumber = new(big.Int).SetUint64(status.SafeL2.Number)
+	} else {
+		currentBlockNumber = new(big.Int).SetUint64(status.FinalizedL2.Number)
+	}
+
+	return currentBlockNumber, nil
+}
+
+func (l *L2OutputSubmitter) fetchLatestBlockNumber(ctx context.Context) (*big.Int, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cCancel()
+	latestBlockNumber, err := l.l2ooContract.LatestBlockNumber(utils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		l.log.Error("validator unable to get latest block number", "err", err)
+		return nil, err
+	}
+
+	return latestBlockNumber, nil
+}
+
 func (l *L2OutputSubmitter) checkDeposit(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
-	callOpts := utils.NewCallOptsWithSender(cCtx, from)
-	balance, err := l.valpoolContract.BalanceOf(callOpts, from)
+	balance, err := l.valpoolContract.BalanceOf(utils.NewSimpleCallOpts(cCtx), from)
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch validator deposit amount: %w", err)
 	}
@@ -244,35 +288,16 @@ func (l *L2OutputSubmitter) checkDeposit(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (l *L2OutputSubmitter) fetchBlockNumbers(ctx context.Context) (*big.Int, *big.Int, error) {
+func (l *L2OutputSubmitter) fetchNextBlockNumber(ctx context.Context) (*big.Int, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
-	callOpts := utils.NewCallOptsWithSender(cCtx, l.cfg.TxManager.From())
-	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(callOpts)
+	defer cCancel()
+	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		l.log.Error("validator unable to get next block number", "err", err)
-		cCancel()
-		return nil, nil, err
-	}
-	cCancel()
-
-	// Fetch the current L2 heads
-	cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
-	defer cCancel()
-	status, err := l.cfg.RollupClient.SyncStatus(cCtx)
-	if err != nil {
-		l.log.Error("validator unable to get sync status", "err", err)
-		return nil, nil, err
+		return nil, err
 	}
 
-	// Use either the finalized or safe head depending on the config. Finalized head is default & safer.
-	var currentBlockNumber *big.Int
-	if l.cfg.AllowNonFinalized {
-		currentBlockNumber = new(big.Int).SetUint64(status.SafeL2.Number)
-	} else {
-		currentBlockNumber = new(big.Int).SetUint64(status.FinalizedL2.Number)
-	}
-
-	return currentBlockNumber, nextBlockNumber, nil
+	return nextBlockNumber, nil
 }
 
 func (l *L2OutputSubmitter) waitL2Blocks(currentBlockNumber *big.Int, targetBlockNumber *big.Int) {
@@ -300,8 +325,7 @@ type roundInfo struct {
 func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
-	callOpts := utils.NewCallOptsWithSender(cCtx, l.cfg.TxManager.From())
-	nextValidator, err := l.valpoolContract.NextValidator(callOpts)
+	nextValidator, err := l.valpoolContract.NextValidator(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		l.log.Error("validator unable to get next validator address", "err", err)
 		return roundInfo{
