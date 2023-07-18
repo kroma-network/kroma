@@ -446,15 +446,14 @@ func (d *Driver) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2Blo
 	wait := make(chan struct{})
 	select {
 	case d.stateReq <- wait:
+		nextRef := eth.L2BlockRef{}
+
 		resp := d.syncStatus()
 		ref, err := d.l2.L2BlockRefByNumber(ctx, num)
-		if err != nil {
-			return eth.L2BlockRef{}, eth.L2BlockRef{}, nil, err
+		if err == nil {
+			nextRef, err = d.l2.L2BlockRefByNumber(ctx, num+1)
 		}
-		nextRef, err := d.l2.L2BlockRefByNumber(ctx, num+1)
-		if err != nil {
-			return eth.L2BlockRef{}, eth.L2BlockRef{}, nil, err
-		}
+
 		<-wait
 		return ref, nextRef, resp, err
 	case <-ctx.Done():
