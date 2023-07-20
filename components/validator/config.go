@@ -34,6 +34,7 @@ type Config struct {
 	NetworkTimeout               time.Duration
 	TxManager                    *txmgr.BufferedTxManager
 	L1Client                     *ethclient.Client
+	L2Client                     *ethclient.Client
 	RollupClient                 *sources.RollupClient
 	RollupConfig                 *rollup.Config
 	AllowNonFinalized            bool
@@ -61,6 +62,9 @@ type CLIConfig struct {
 	// L1EthRpc is the Websocket provider URL for L1.
 	L1EthRpc string
 
+	// L2EthRpc is the HTTP provider URL for the L2 execution engine.
+	L2EthRpc string
+
 	// RollupRpc is the HTTP provider URL for the rollup node.
 	RollupRpc string
 
@@ -79,8 +83,8 @@ type CLIConfig struct {
 	// ChallengerPollInterval is how frequently to poll L2 for new finalized outputs.
 	ChallengerPollInterval time.Duration
 
-	// ProverGrpc is the URL of prover grpc server.
-	ProverGrpc string
+	// ProverRPC is the URL of prover jsonRPC server.
+	ProverRPC string
 
 	// AllowNonFinalized can be set to true to submit outputs
 	// for L2 blocks derived from non-finalized L1 data.
@@ -134,6 +138,7 @@ func NewCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		// Required Flags
 		L1EthRpc:               ctx.GlobalString(flags.L1EthRpcFlag.Name),
+		L2EthRpc:               ctx.GlobalString(flags.L2EthRpcFlag.Name),
 		RollupRpc:              ctx.GlobalString(flags.RollupRpcFlag.Name),
 		L2OOAddress:            ctx.GlobalString(flags.L2OOAddressFlag.Name),
 		ColosseumAddress:       ctx.GlobalString(flags.ColosseumAddressFlag.Name),
@@ -149,7 +154,7 @@ func NewCLIConfig(ctx *cli.Context) CLIConfig {
 		OutputSubmitterRetryInterval: ctx.GlobalDuration(flags.OutputSubmitterRetryIntervalFlag.Name),
 		OutputSubmitterRoundBuffer:   ctx.GlobalUint64(flags.OutputSubmitterRoundBufferFlag.Name),
 		SecurityCouncilAddress:       ctx.GlobalString(flags.SecurityCouncilAddressFlag.Name),
-		ProverGrpc:                   ctx.GlobalString(flags.ProverGrpcFlag.Name),
+		ProverRPC:                    ctx.GlobalString(flags.ProverRPCFlag.Name),
 		GuardianEnabled:              ctx.GlobalBool(flags.GuardianEnabledFlag.Name),
 		FetchingProofTimeout:         ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
 		RPCConfig:                    krpc.ReadCLIConfig(ctx),
@@ -193,13 +198,13 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, errors.New("output submitter and challenger are disabled. either output submitter or challenger must be enabled")
 	}
 
-	if cfg.ChallengerEnabled && len(cfg.ProverGrpc) == 0 {
-		return nil, errors.New("ProverGrpc is required when challenger enabled, but given empty")
+	if cfg.ChallengerEnabled && len(cfg.ProverRPC) == 0 {
+		return nil, errors.New("ProverRPC is required when challenger enabled, but given empty")
 	}
 
 	var fetcher ProofFetcher
-	if len(cfg.ProverGrpc) > 0 {
-		fetcher, err = chal.NewFetcher(cfg.ProverGrpc, cfg.FetchingProofTimeout, l)
+	if len(cfg.ProverRPC) > 0 {
+		fetcher, err = chal.NewFetcher(cfg.ProverRPC, cfg.FetchingProofTimeout, l)
 		if err != nil {
 			return nil, err
 		}
@@ -208,6 +213,11 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	// Connect to L1 and L2 providers. Perform these last since they are the most expensive.
 	ctx := context.Background()
 	l1Client, err := utils.DialEthClientWithTimeout(ctx, cfg.L1EthRpc)
+	if err != nil {
+		return nil, err
+	}
+
+	l2Client, err := utils.DialEthClientWithTimeout(ctx, cfg.L2EthRpc)
 	if err != nil {
 		return nil, err
 	}
@@ -231,6 +241,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		NetworkTimeout:               cfg.TxMgrConfig.NetworkTimeout,
 		TxManager:                    txManager,
 		L1Client:                     l1Client,
+		L2Client:                     l2Client,
 		RollupClient:                 rollupClient,
 		RollupConfig:                 rollupConfig,
 		AllowNonFinalized:            cfg.AllowNonFinalized,

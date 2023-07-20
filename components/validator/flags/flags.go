@@ -24,6 +24,12 @@ var (
 		Required: true,
 		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "L1_ETH_RPC"),
 	}
+	L2EthRpcFlag = cli.StringFlag{
+		Name:     "l2-eth-rpc",
+		Usage:    "HTTP provider URL for L2",
+		Required: true,
+		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "L2_ETH_RPC"),
+	}
 	RollupRpcFlag = cli.StringFlag{
 		Name:     "rollup-rpc",
 		Usage:    "HTTP provider URL for the rollup node",
@@ -92,10 +98,10 @@ var (
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_ROUND_BUFFER"),
 		Value:  30,
 	}
-	ProverGrpcFlag = cli.StringFlag{
-		Name:   "prover-grpc-url",
-		Usage:  "gRPC URL for kroma-prover.",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "PROVER_GRPC"),
+	ProverRPCFlag = cli.StringFlag{
+		Name:   "prover-rpc-url",
+		Usage:  "jsonRPC URL for kroma-prover.",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "PROVER_RPC"),
 	}
 	SecurityCouncilAddressFlag = cli.StringFlag{
 		Name:   "securitycouncil-address",
@@ -117,6 +123,7 @@ var (
 
 var requiredFlags = []cli.Flag{
 	L1EthRpcFlag,
+	L2EthRpcFlag,
 	RollupRpcFlag,
 	L2OOAddressFlag,
 	ColosseumAddressFlag,
@@ -131,7 +138,7 @@ var optionalFlags = []cli.Flag{
 	OutputSubmitterBondAmountFlag,
 	OutputSubmitterRetryIntervalFlag,
 	OutputSubmitterRoundBufferFlag,
-	ProverGrpcFlag,
+	ProverRPCFlag,
 	SecurityCouncilAddressFlag,
 	GuardianEnabledFlag,
 	FetchingProofTimeoutFlag,

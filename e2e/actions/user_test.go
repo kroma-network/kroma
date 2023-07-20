@@ -37,7 +37,7 @@ func TestCrossLayerUser(gt *testing.T) {
 		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
 		ValidatorKey:      dp.Secrets.TrustedValidator,
 		AllowNonFinalized: true,
-	}, miner.EthClient(), proposer.RollupClient())
+	}, miner.EthClient(), propEngine.EthClient(), proposer.RollupClient())
 
 	// need to start derivation before we can make L2 blocks
 	proposer.ActL2PipelineFull(t)

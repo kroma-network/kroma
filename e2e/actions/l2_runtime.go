@@ -112,7 +112,7 @@ func (rt *Runtime) honestValidator(pk *ecdsa.PrivateKey) *L2Validator {
 		SecurityCouncilAddr: rt.sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:        pk,
 		AllowNonFinalized:   false,
-	}, rt.miner.EthClient(), validatorRollupClient)
+	}, rt.miner.EthClient(), rt.propEngine.EthClient(), validatorRollupClient)
 	validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 	return validator
 }
@@ -128,7 +128,7 @@ func (rt *Runtime) maliciousValidator(pk *ecdsa.PrivateKey) *L2Validator {
 		SecurityCouncilAddr: rt.sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:        pk,
 		AllowNonFinalized:   false,
-	}, rt.miner.EthClient(), validatorRollupClient)
+	}, rt.miner.EthClient(), rt.propEngine.EthClient(), validatorRollupClient)
 	validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 	return validator
 }

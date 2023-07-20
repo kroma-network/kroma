@@ -33,7 +33,7 @@ func read(path string) ([]byte, error) {
 	return data, nil
 }
 
-func (f *Fetcher) FetchProofAndPair(blockNumber uint64) (*chal.ProofAndPair, error) {
+func (f *Fetcher) FetchProofAndPair(_ context.Context, _ string) (*chal.ProofAndPair, error) {
 	decoded := make([][]*big.Int, 2)
 	files := []string{"verify_circuit_proof.data", "verify_circuit_final_pair.data"}
 
@@ -64,8 +64,4 @@ func (f *Fetcher) FetchProofAndPair(blockNumber uint64) (*chal.ProofAndPair, err
 	}
 
 	return result, nil
-}
-
-func (f *Fetcher) Close() error {
-	return nil
 }

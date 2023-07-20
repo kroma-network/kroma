@@ -32,7 +32,7 @@ func TestValidator(gt *testing.T) {
 		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
 		ValidatorKey:      dp.Secrets.TrustedValidator,
 		AllowNonFinalized: false,
-	}, miner.EthClient(), proposer.RollupClient())
+	}, miner.EthClient(), propEngine.EthClient(), proposer.RollupClient())
 
 	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
 	// config is set) block to pass after each submission interval before submitting the output

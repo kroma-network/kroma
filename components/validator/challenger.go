@@ -3,6 +3,7 @@ package validator
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -28,8 +29,7 @@ import (
 var deletedOutputRoot = [32]byte{}
 
 type ProofFetcher interface {
-	FetchProofAndPair(blockRef uint64) (*chal.ProofAndPair, error)
-	Close() error
+	FetchProofAndPair(ctx context.Context, trace string) (*chal.ProofAndPair, error)
 }
 
 type Challenger struct {
@@ -40,6 +40,7 @@ type Challenger struct {
 	metr   metrics.Metricer
 
 	l1Client *ethclient.Client
+	l2Client *ethclient.Client
 
 	l2ooContract      *bindings.L2OutputOracle
 	l2ooABI           *abi.ABI
@@ -114,6 +115,7 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger, m metrics.Metr
 		metr: m,
 
 		l1Client: cfg.L1Client,
+		l2Client: cfg.L2Client,
 
 		l2ooContract:      l2ooContract,
 		l2ooABI:           l2ooABI,
@@ -806,23 +808,38 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 
 	// when asserter timeout, skip finding fault position since the same segments have been stored in colosseum
 	position := common.Big0
+	blockNumber := challenge.SegStart
 	if !skipSelectFaultPosition {
-		prevSegments := chal.NewSegments(challenge.SegStart.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
+		prevSegments := chal.NewSegments(blockNumber.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
 		position, err = c.selectFaultPosition(ctx, prevSegments)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to select fault position(outputIndex: %d, challengerAddress: %s): %w", outputIndex.Uint64(), challenger.String(), err)
 		}
-	}
-	blockNumber := challenge.SegStart.Uint64() + position.Uint64()
 
-	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(blockNumber + 1)
-	if err != nil {
-		return nil, fmt.Errorf("%w: fault position blockNumber: %d", err, blockNumber)
+		blockNumber = new(big.Int).Add(blockNumber, position)
 	}
 
-	proof, err := c.PublicInputProof(ctx, blockNumber)
+	proof, err := c.PublicInputProof(ctx, blockNumber.Uint64())
 	if err != nil {
-		return nil, fmt.Errorf("%w: fault position blockNumber: %d", err, blockNumber)
+		return nil, fmt.Errorf("failed to get public input proof(fault position blockNumber: %d): %w", blockNumber.Uint64(), err)
+	}
+
+	targetBlockNumber := new(big.Int).Add(blockNumber, common.Big1)
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	trace, err := c.l2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+	}
+
+	traceBz, err := json.Marshal(trace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+	}
+
+	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(ctx, string(traceBz))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
 	}
 
 	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
