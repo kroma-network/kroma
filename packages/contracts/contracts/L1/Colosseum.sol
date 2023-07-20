@@ -473,8 +473,7 @@ contract Colosseum is Initializable, Semver {
             "Colosseum: public input that has already been validated cannot be used again"
         );
 
-        // TODO(pangssu): waiting for the new Verifier.sol to complete.
-        // require(ZK_VERIFIER.verify(_zkproof, _pair), "Colosseum: invalid proof");
+        require(ZK_VERIFIER.verify(_zkproof, _pair, publicInputHash), "Colosseum: invalid proof");
         emit Proven(_outputIndex, msg.sender, block.timestamp);
 
         // Scope to call the security council, to avoid stack too deep.

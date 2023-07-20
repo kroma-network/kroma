@@ -35,12 +35,6 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.prank(pool.nextValidator());
         oracle.submitL2Output(bytes32(nextBlockNumber), nextBlockNumber, 0, 0, minBond);
 
-        // Submit valid output
-        nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
-        vm.prank(pool.nextValidator());
-        oracle.submitL2Output(bytes32(nextBlockNumber), nextBlockNumber, 0, 0, minBond);
-
         // Submit invalid output
         nextBlockNumber = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber);
