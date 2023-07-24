@@ -4,23 +4,38 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kroma-network/kroma/components/node/eth"
+	val "github.com/kroma-network/kroma/components/validator"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 )
 
 func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common.Hash {
-	isInProgress, err := v.challenger.IsChallengeInProgress(outputIndex)
-	require.NoError(t, err)
-	require.False(t, isInProgress, "another challenge is in progress")
+	inChallengeCreationPeriod, err := v.challenger.IsInChallengeCreationPeriod(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to check challenge creation period")
+	require.True(t, inChallengeCreationPeriod, "challenge creation period is past")
 
-	outputRange, err := v.challenger.ValidateOutput(t.Ctx(), outputIndex)
-	require.NoError(t, err)
-	require.NotNil(t, outputRange)
+	outputs, err := v.challenger.OutputsAtIndex(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to fetch outputs")
+
+	outputRange := v.challenger.ValidateOutput(outputIndex, outputs)
+	require.NotNil(t, outputRange, "output is valid")
+
+	outputDeleted := val.IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
+	require.False(t, outputDeleted, "output is already deleted")
+
+	status, err := v.challenger.GetChallengeStatus(t.Ctx(), outputIndex, v.address)
+	require.NoError(t, err, "unable to get challenge status")
+	require.Condition(t, func() bool {
+		return status == chal.StatusNone || status == chal.StatusChallengerTimeout
+	}, "challenge is already in progress")
+
+	hasEnoughDeposit, err := v.challenger.HasEnoughDeposit(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to check challenger deposit")
+	require.True(t, hasEnoughDeposit, "challenger not enough deposit to create challenge")
+
 	tx, err := v.challenger.CreateChallenge(t.Ctx(), outputRange)
-	require.NoError(t, err, "unable to create createChallenge tx")
+	require.NoError(t, err, "unable to create create challenge tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
@@ -28,8 +43,20 @@ func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common
 	return tx.Hash()
 }
 
-func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int) common.Hash {
-	tx, err := v.challenger.Bisect(t.Ctx(), outputIndex)
+func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int, challenger common.Address, isAsserter bool) common.Hash {
+	outputFinalized, err := v.challenger.IsOutputFinalized(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to get if output is finalized")
+	require.False(t, outputFinalized, "output is already finalized")
+
+	if isAsserter {
+		outputs, err := v.challenger.OutputsAtIndex(t.Ctx(), outputIndex)
+		require.NoError(t, err, "unable to fetch outputs")
+
+		outputDeleted := val.IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
+		require.False(t, outputDeleted, "output is already deleted")
+	}
+
+	tx, err := v.challenger.Bisect(t.Ctx(), outputIndex, challenger)
 	require.NoError(t, err, "unable to create bisect tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
@@ -38,20 +65,29 @@ func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int) common.Hash {
 	return tx.Hash()
 }
 
-func (v *L2Validator) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
-	status, err := v.challenger.GetChallengeStatus(outputIndex)
+func (v *L2Validator) ActCancelChallenge(t Testing, outputIndex *big.Int) common.Hash {
+	tx, err := v.challenger.CancelChallenge(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to create cancel challenge tx")
+
+	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
 
-	var tx *types.Transaction
+	return tx.Hash()
+}
 
-	if status == chal.StatusChallengerTimeout {
-		tx, err = v.challenger.ChallengerTimeout(t.Ctx(), outputIndex)
-		require.NoError(t, err)
-	} else {
-		require.Fail(t, "invalid challenge status")
-	}
+func (v *L2Validator) ActChallengerTimeout(t Testing, outputIndex *big.Int, challenger common.Address) common.Hash {
+	outputFinalized, err := v.challenger.IsOutputFinalized(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to get if output is finalized")
+	require.False(t, outputFinalized, "output is already finalized")
 
-	require.NoError(t, err, "unable to create tx")
+	outputs, err := v.challenger.OutputsAtIndex(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to fetch outputs")
+
+	outputDeleted := val.IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
+	require.False(t, outputDeleted, "output is already deleted")
+
+	tx, err := v.challenger.ChallengerTimeout(t.Ctx(), outputIndex, challenger)
+	require.NoError(t, err, "unable to create challenger timeout tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
@@ -60,18 +96,15 @@ func (v *L2Validator) ActTimeout(t Testing, outputIndex *big.Int) common.Hash {
 }
 
 func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int, skipSelectPosition bool) common.Hash {
-	tx, err := v.challenger.ProveFault(t.Ctx(), outputIndex, skipSelectPosition)
-	require.NoError(t, err, "unable to create proveFault tx")
+	outputFinalized, err := v.challenger.IsOutputFinalized(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to get if output is finalized")
+	require.False(t, outputFinalized, "output is already finalized")
+
+	tx, err := v.challenger.ProveFault(t.Ctx(), outputIndex, v.address, skipSelectPosition)
+	require.NoError(t, err, "unable to create prove fault tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
 
 	return tx.Hash()
-}
-
-func (v *L2Validator) ActOutputAtBlockSafe(t Testing, blockNumber uint64) *eth.OutputResponse {
-	output, err := v.challenger.OutputAtBlockSafe(t.Ctx(), blockNumber)
-	require.NoError(t, err, "unable get output at block safe")
-
-	return output
 }

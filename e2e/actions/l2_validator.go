@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/validator"
 	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
@@ -93,7 +94,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log, validatormetrics.NoopMetrics)
 	require.NoError(t, err)
 
-	guardian, err := validator.NewGuardian(t.Ctx(), validatorCfg, log)
+	guardian, err := validator.NewGuardian(validatorCfg, log)
 	require.NoError(t, err)
 
 	return &L2Validator{
@@ -186,4 +187,11 @@ func (v *L2Validator) ActDeposit(t Testing, depositAmount uint64) {
 	require.NoError(t, err)
 
 	v.sendTx(t, &v.valPoolContractAddr, new(big.Int).SetUint64(depositAmount), txData)
+}
+
+func (v *L2Validator) fetchOutput(t Testing, blockNumber *big.Int) *eth.OutputResponse {
+	output, err := v.l2os.FetchOutput(t.Ctx(), blockNumber)
+	require.NoError(t, err)
+
+	return output
 }

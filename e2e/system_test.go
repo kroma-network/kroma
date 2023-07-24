@@ -38,6 +38,7 @@ import (
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/components/node/withdrawals"
+	val "github.com/kroma-network/kroma/components/validator"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 	"github.com/kroma-network/kroma/e2e/testdata"
 	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
@@ -1786,7 +1787,7 @@ func TestChallenge(t *testing.T) {
 	l1Client := sys.Clients["l1"]
 
 	// deposit to ValidatorPool to be a challenger
-	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.Challenger, big.NewInt(1_000_000_000))
+	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.Challenger1, big.NewInt(1_000_000_000))
 	require.NoError(t, err, "Error challenger deposit to ValidatorPool")
 
 	// OutputOracle is already deployed
@@ -1801,43 +1802,59 @@ func TestChallenge(t *testing.T) {
 	securityCouncil, err := bindings.NewSecurityCouncilCaller(predeploys.DevSecurityCouncilAddr, l1Client)
 	require.NoError(t, err)
 
+	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
+
 	// set a timeout for one cycle of challenge
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
 	defer cancel()
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
-
-	for {
-		challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
-		require.NoError(t, err)
-
-		// APPROVED status
-		if challengeStatus == chal.StatusApproved {
-			// check tx executed
-			tx, err := securityCouncil.Transactions(&bind.CallOpts{}, new(big.Int).SetUint64(0))
-			require.NoError(t, err)
-			require.Equal(t, tx.Executed, true)
-
-			// check challenge status is approved
-			challenge, err := colosseum.GetChallenge(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
-			require.NoError(t, err)
-			require.Equal(t, challenge.Approved, true)
-
-			// check output replaced by challenger
-			output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
-			require.NoError(t, err)
-			require.Equal(t, output.Submitter, cfg.Secrets.Addresses().Challenger)
-
-			return
-		}
-
+	for ; ; <-ticker.C {
 		select {
 		case <-ctx.Done():
 			t.Fatalf("Timed out for challenge test")
-		case <-ticker.C:
+		default:
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), cfg.Secrets.Addresses().Challenger1)
+			require.NoError(t, err)
+
+			// wait until status becomes READY_TO_PROVE
+			if challengeStatus != chal.StatusReadyToProve {
+				continue
+			}
+		}
+		break
+	}
+	cancel()
+
+	// set a timeout for security council to validate output
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-ctx.Done():
+			// after security council timed out, the challenge is regarded to be correct
+			return
+		default:
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), cfg.Secrets.Addresses().Challenger1)
+			require.NoError(t, err)
+
+			// after challenge is proven, status is NONE
+			if challengeStatus == chal.StatusNone {
+				// check tx not executed
+				tx, err := securityCouncil.Transactions(&bind.CallOpts{}, new(big.Int).SetUint64(0))
+				require.NoError(t, err)
+				require.False(t, tx.Executed)
+
+				// check output is deleted by challenger
+				output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
+				require.NoError(t, err)
+				require.Equal(t, output.Submitter, cfg.Secrets.Addresses().Challenger1)
+				outputDeleted := val.IsOutputDeleted(output.OutputRoot)
+				require.True(t, outputDeleted)
+			}
 		}
 	}
 }

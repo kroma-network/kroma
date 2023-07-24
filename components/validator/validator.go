@@ -86,9 +86,13 @@ func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metri
 		return nil, err
 	}
 
-	l2OutputSubmitter, err := NewL2OutputSubmitter(ctx, cfg, l, m)
-	if err != nil {
-		return nil, err
+	var err error
+	var l2os *L2OutputSubmitter
+	if cfg.OutputSubmitterEnabled {
+		l2os, err = NewL2OutputSubmitter(ctx, cfg, l, m)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	challenger, err := NewChallenger(ctx, cfg, l, m)
@@ -96,16 +100,19 @@ func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metri
 		return nil, err
 	}
 
-	guardian, err := NewGuardian(ctx, cfg, l)
-	if err != nil {
-		return nil, err
+	var guardian *Guardian
+	if cfg.GuardianEnabled {
+		guardian, err = NewGuardian(cfg, l)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &Validator{
 		cfg:        cfg,
 		l:          l,
 		metr:       m,
-		l2os:       l2OutputSubmitter,
+		l2os:       l2os,
 		challenger: challenger,
 		guardian:   guardian,
 	}, nil
@@ -113,7 +120,7 @@ func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metri
 
 func (v *Validator) Start() error {
 	v.ctx, v.cancel = context.WithCancel(context.Background())
-	v.l.Info("starting Validator")
+	v.l.Info("starting Validator", "outputSubmitter", v.cfg.OutputSubmitterEnabled, "challenger", v.cfg.ChallengerEnabled, "guardian", v.cfg.GuardianEnabled)
 
 	if err := v.cfg.TxManager.Start(v.ctx); err != nil {
 		return fmt.Errorf("cannot start TxManager: %w", err)
