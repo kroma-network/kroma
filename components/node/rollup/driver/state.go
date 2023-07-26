@@ -292,7 +292,12 @@ func (d *Driver) eventLoop() {
 			err := d.derivation.Step(context.Background())
 			stepAttempts += 1 // count as attempt by default. We reset to 0 if we are making healthy progress.
 			if err == io.EOF {
-				d.log.Debug("Derivation process went idle", "progress", d.derivation.Origin())
+				d.log.Debug("Derivation process went idle", "progress", d.derivation.Origin(), "err", err)
+				stepAttempts = 0
+				d.metrics.SetDerivationIdle(true)
+				continue
+			} else if err != nil && errors.Is(err, derive.ErrEngineP2PSyncing) {
+				d.log.Debug("Derivation process went idle because the engine is syncing", "progress", d.derivation.Origin(), "sync_target", d.derivation.EngineSyncTarget(), "err", err)
 				stepAttempts = 0
 				d.metrics.SetDerivationIdle(true)
 				continue
@@ -309,7 +314,7 @@ func (d *Driver) eventLoop() {
 			} else if err != nil && errors.Is(err, derive.ErrCritical) {
 				d.log.Error("Derivation process critical error", "err", err)
 				return
-			} else if err != nil && errors.Is(err, derive.NotEnoughData) {
+			} else if err != nil && errors.Is(err, derive.ErrNotEnoughData) {
 				stepAttempts = 0 // don't do a backoff for this error
 				reqStep()
 				continue
@@ -424,6 +429,7 @@ func (d *Driver) syncStatus() *eth.SyncStatus {
 		SafeL2:             d.derivation.SafeL2Head(),
 		FinalizedL2:        d.derivation.Finalized(),
 		UnsafeL2SyncTarget: d.derivation.UnsafeL2SyncTarget(),
+		EngineSyncTarget:   d.derivation.EngineSyncTarget(),
 	}
 }
 

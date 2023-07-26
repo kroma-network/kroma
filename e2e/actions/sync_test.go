@@ -8,7 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/rollup/sync"
+	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
@@ -93,4 +96,75 @@ func TestFinalizeWhileSyncing(gt *testing.T) {
 
 	// Verify the syncer finalized something new
 	require.Less(t, syncerStartStatus.FinalizedL2.Number, syncer.SyncStatus().FinalizedL2.Number, "syncer finalized L2 blocks during sync")
+}
+
+func TestUnsafeSync(gt *testing.T) {
+	t := NewDefaultTesting(gt)
+	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
+	sd := e2eutils.Setup(t, dp, defaultAlloc)
+	log := testlog.Logger(t, log.LvlInfo)
+
+	sd, _, _, proposer, propEng, syncer, _, _ := setupReorgTestActors(t, dp, sd, log)
+	propEngCl, err := sources.NewEngineClient(propEng.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
+	require.NoError(t, err)
+
+	proposer.ActL2PipelineFull(t)
+	syncer.ActL2PipelineFull(t)
+
+	for i := 0; i < 10; i++ {
+		// Build a L2 block
+		proposer.ActL2StartBlock(t)
+		proposer.ActL2EndBlock(t)
+		// Notify new L2 block to syncer by unsafe gossip
+		propHead, err := propEngCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
+		require.NoError(t, err)
+		syncer.ActL2UnsafeGossipReceive(propHead)(t)
+		// Handle unsafe payload
+		syncer.ActL2PipelineFull(t)
+		// Syncer must advance its unsafe head and engine sync target.
+		require.Equal(t, proposer.L2Unsafe().Hash, syncer.L2Unsafe().Hash)
+		// Check engine sync target updated.
+		require.Equal(t, proposer.L2Unsafe().Hash, proposer.EngineSyncTarget().Hash)
+		require.Equal(t, syncer.L2Unsafe().Hash, syncer.EngineSyncTarget().Hash)
+	}
+}
+
+func TestEngineP2PSync(gt *testing.T) {
+	t := NewDefaultTesting(gt)
+	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
+	sd := e2eutils.Setup(t, dp, defaultAlloc)
+	log := testlog.Logger(t, log.LvlInfo)
+
+	miner, propEng, proposer := setupProposerTest(t, sd, log)
+	// Enable engine P2P sync
+	_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{EngineSync: true})
+
+	propEngCl, err := sources.NewEngineClient(propEng.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
+	require.NoError(t, err)
+
+	proposer.ActL2PipelineFull(t)
+	syncer.ActL2PipelineFull(t)
+
+	syncerUnsafeHead := syncer.L2Unsafe()
+
+	// Build a L2 block. This block will not be gossiped to syncer, so syncer can not advance chain by itself.
+	proposer.ActL2StartBlock(t)
+	proposer.ActL2EndBlock(t)
+
+	for i := 0; i < 10; i++ {
+		// Build a L2 block
+		proposer.ActL2StartBlock(t)
+		proposer.ActL2EndBlock(t)
+		// Notify new L2 block to syncer by unsafe gossip
+		propHead, err := propEngCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
+		require.NoError(t, err)
+		syncer.ActL2UnsafeGossipReceive(propHead)(t)
+		// Handle unsafe payload
+		syncer.ActL2PipelineFull(t)
+		// Syncer must advance only engine sync target.
+		require.NotEqual(t, proposer.L2Unsafe().Hash, syncer.L2Unsafe().Hash)
+		require.NotEqual(t, syncer.L2Unsafe().Hash, syncer.EngineSyncTarget().Hash)
+		require.Equal(t, syncer.L2Unsafe().Hash, syncerUnsafeHead.Hash)
+		require.Equal(t, proposer.L2Unsafe().Hash, syncer.EngineSyncTarget().Hash)
+	}
 }

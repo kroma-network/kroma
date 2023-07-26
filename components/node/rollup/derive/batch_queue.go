@@ -98,7 +98,7 @@ func (bq *BatchQueue) NextBatch(ctx context.Context, safeL2Head eth.L2BlockRef) 
 		if outOfData {
 			return nil, io.EOF
 		} else {
-			return nil, NotEnoughData
+			return nil, ErrNotEnoughData
 		}
 	}
 
@@ -107,7 +107,7 @@ func (bq *BatchQueue) NextBatch(ctx context.Context, safeL2Head eth.L2BlockRef) 
 	if err == io.EOF && outOfData {
 		return nil, io.EOF
 	} else if err == io.EOF {
-		return nil, NotEnoughData
+		return nil, ErrNotEnoughData
 	} else if err != nil {
 		return nil, err
 	}

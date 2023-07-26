@@ -15,6 +15,7 @@ import (
 
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/rollup/sync"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
@@ -30,7 +31,7 @@ func TestBatcher(gt *testing.T) {
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 	miner, propEngine, proposer := setupProposerTest(t, sd, log)
-	syncEngine, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg))
+	syncEngine, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
 
 	rollupPropCl := proposer.RollupClient()
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
@@ -271,7 +272,7 @@ func TestGarbageBatch(gt *testing.T) {
 		log := testlog.Logger(t, log.LvlError)
 		miner, engine, proposer := setupProposerTest(t, sd, log)
 
-		_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg))
+		_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
 
 		batcherCfg := &BatcherCfg{
 			MinL1TxSize: 0,
@@ -353,7 +354,7 @@ func TestExtendedTimeWithoutL1Batches(gt *testing.T) {
 	log := testlog.Logger(t, log.LvlError)
 	miner, engine, proposer := setupProposerTest(t, sd, log)
 
-	_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg))
+	_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
 
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
@@ -410,7 +411,7 @@ func TestBigL2Txs(gt *testing.T) {
 	log := testlog.Logger(t, log.LvlInfo)
 	miner, engine, proposer := setupProposerTest(t, sd, log)
 
-	_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg))
+	_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
 
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,

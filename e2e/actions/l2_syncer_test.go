@@ -8,22 +8,23 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/components/node/rollup/derive"
+	"github.com/kroma-network/kroma/components/node/rollup/sync"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
-func setupSyncer(t Testing, sd *e2eutils.SetupData, log log.Logger, l1F derive.L1Fetcher) (*L2Engine, *L2Syncer) {
+func setupSyncer(t Testing, sd *e2eutils.SetupData, log log.Logger, l1F derive.L1Fetcher, syncCfg *sync.Config) (*L2Engine, *L2Syncer) {
 	jwtPath := e2eutils.WriteDefaultJWT(t)
 	engine := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath)
 	engCl := engine.EngineClient(t, sd.RollupCfg)
-	syncer := NewL2Syncer(t, log, l1F, engCl, sd.RollupCfg)
+	syncer := NewL2Syncer(t, log, l1F, engCl, sd.RollupCfg, syncCfg)
 	return engine, syncer
 }
 
 func setupSyncerOnlyTest(t Testing, sd *e2eutils.SetupData, log log.Logger) (*L1Miner, *L2Engine, *L2Syncer) {
 	miner := NewL1Miner(t, log, sd.L1Cfg)
 	l1Cl := miner.L1Client(t, sd.RollupCfg)
-	engine, syncer := setupSyncer(t, sd, log, l1Cl)
+	engine, syncer := setupSyncer(t, sd, log, l1Cl, &sync.Config{})
 	return miner, engine, syncer
 }
 

@@ -198,7 +198,7 @@ func (n *KromaNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Log
 		return err
 	}
 
-	n.l2Driver = driver.NewDriver(&cfg.Driver, &cfg.Rollup, n.l2Source, n.l1Source, n, n, n.log, snapshotLog, n.metrics)
+	n.l2Driver = driver.NewDriver(&cfg.Driver, &cfg.Rollup, n.l2Source, n.l1Source, n, n, n.log, snapshotLog, n.metrics, &cfg.Sync)
 
 	return nil
 }

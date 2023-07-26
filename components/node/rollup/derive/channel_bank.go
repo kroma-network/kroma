@@ -157,7 +157,7 @@ func (cb *ChannelBank) NextData(ctx context.Context) ([]byte, error) {
 		return nil, err
 	} else {
 		cb.IngestFrame(frame)
-		return nil, NotEnoughData
+		return nil, ErrNotEnoughData
 	}
 }
 

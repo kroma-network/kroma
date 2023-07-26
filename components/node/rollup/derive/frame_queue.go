@@ -48,7 +48,7 @@ func (fq *FrameQueue) NextFrame(ctx context.Context) (Frame, error) {
 	}
 	// If we did not add more frames but still have more data, retry this function.
 	if len(fq.frames) == 0 {
-		return Frame{}, NotEnoughData
+		return Frame{}, ErrNotEnoughData
 	}
 
 	ret := fq.frames[0]
