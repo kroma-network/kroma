@@ -130,6 +130,11 @@ interface RequiredDeployConfig {
   finalizationPeriodSeconds: number
 
   /**
+   * The period seconds for which challenges can be created per each output.
+   */
+  colosseumCreationPeriodSeconds: number
+
+  /**
    * Dummy hash to be used to compute ZK fault proof as a padding if
    * the number of transaction is less than maximum number of transactions.
    */
@@ -385,6 +390,9 @@ export const deployConfigSpec: {
   gasPriceOracleScalar: {
     type: 'number',
     default: 1_000_000,
+  },
+  colosseumCreationPeriodSeconds: {
+    type: 'number',
   },
   colosseumBisectionTimeout: {
     type: 'number',

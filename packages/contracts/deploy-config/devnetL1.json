@@ -34,6 +34,7 @@
   "eip1559Denominator": 8,
   "eip1559Elasticity": 2,
   "l1GenesisBlockTimestamp": "0x638a4554",
+  "colosseumCreationPeriodSeconds": 500,
   "colosseumBisectionTimeout": 120,
   "colosseumProvingTimeout": 480,
   "colosseumDummyHash": "0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7",

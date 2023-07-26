@@ -19,7 +19,7 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
     event ValidationRequested(
         uint256 indexed transactionId,
         bytes32 outputRoot,
-        uint128 l2BlockNumber
+        uint256 l2BlockNumber
     );
 
     function test_initialize_succeeds() external {
@@ -132,11 +132,9 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
     }
 
     function test_requestValidation_reverts() external {
-        bytes32 outputRoot = bytes32("dummy output root");
-        uint128 l2BlockNumber = 3;
         vm.prank(makeAddr("not colosseum"));
         vm.expectRevert("SecurityCouncil: only the colosseum contract can be a sender");
-        securityCouncil.requestValidation(outputRoot, l2BlockNumber, bytes("anydata"));
+        securityCouncil.requestValidation(bytes32(0), 0, bytes("anydata"));
     }
 
     function test_requestValidation_succeeds() external {
@@ -174,7 +172,6 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
         address[] memory confirmList;
         confirmList = securityCouncil.getConfirmations(txId);
         assertEq(confirmList.length, 2);
-
 
         // check transaction executed
         (t.destination, t.executed, t.value, t.data) = securityCouncil.transactions(txId);
