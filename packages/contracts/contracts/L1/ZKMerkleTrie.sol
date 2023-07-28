@@ -99,7 +99,10 @@ contract ZKMerkleTrie is IZKMerkleTrie, ZKTrieHasher {
                 );
             } else if (currentNode.nodeType == NodeReader.NodeType.LEAF) {
                 require(!exists && !empty, "ZKMerkleTrie: duplicated terminal node");
-                exists = true;
+                exists = currentNode.nodeKey == key;
+                if (!exists) {
+                    break;
+                }
                 computedKey = _hashFixed3Elems(
                     bytes32(uint256(1)),
                     currentNode.nodeKey,
