@@ -48,7 +48,7 @@ To process deposited transactions safely, the deposits MUST be authenticated fir
 - Part of sync towards a trusted block hash (trusted through previous Engine API instruction).
 
 Deposited transactions MUST never be consumed from the transaction pool.
-*The transaction pool can be disabled in a validator or vanilla node.*
+*The transaction pool can be disabled in a validator node or full node.*
 
 ## Fees
 
