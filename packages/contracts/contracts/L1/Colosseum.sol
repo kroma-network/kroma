@@ -165,6 +165,14 @@ contract Colosseum is Initializable, Semver {
     );
 
     /**
+     * @notice Emitted when it is ready to be proved.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     */
+    event ReadyToProve(uint256 indexed outputIndex, address indexed challenger);
+
+    /**
      * @notice Emitted when proven fault.
      *
      * @param outputIndex Index of the L2 checkpoint output.
@@ -394,6 +402,10 @@ contract Colosseum is Initializable, Semver {
         _updateTimeout(challenge);
 
         emit Bisected(_outputIndex, _challenger, newTurn, block.timestamp);
+
+        if (!_isAbleToBisect(challenge)) {
+            emit ReadyToProve(_outputIndex, _challenger);
+        }
     }
 
     /**
@@ -420,11 +432,6 @@ contract Colosseum is Initializable, Semver {
         if (_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status)) {
             return;
         }
-
-        require(
-            msg.sender == challenge.challenger,
-            "Colosseum: only the challenger can prove fault"
-        );
 
         require(
             status == ChallengeStatus.READY_TO_PROVE || status == ChallengeStatus.ASSERTER_TIMEOUT,
@@ -567,6 +574,21 @@ contract Colosseum is Initializable, Semver {
         L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, _asserter);
 
         emit ChallengeDismissed(_outputIndex, _challenger, block.timestamp);
+    }
+
+    /**
+     * @notice Deletes the L2 output root forcefully by the Security Council
+     *         when zk-proving is not possible due to an undeniable bug.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     */
+    function forceDeleteOutput(uint256 _outputIndex)
+        external
+        onlySecurityCouncil
+        outputNotFinalized(_outputIndex)
+    {
+        // Delete output root.
+        L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, SECURITY_COUNCIL);
     }
 
     /**
@@ -774,7 +796,7 @@ contract Colosseum is Initializable, Semver {
         }
 
         // If the output is deleted, the asserter does not need to do anything further.
-        require(msg.sender == _challenger, "Colosseum: only the challenger can cancel a challenge");
+        require(msg.sender == _challenger, "Colosseum: sender is not a challenger");
 
         require(
             _status != ChallengeStatus.CHALLENGER_TIMEOUT,

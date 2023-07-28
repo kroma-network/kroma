@@ -14,6 +14,8 @@ contract ColosseumTest is Colosseum_Initializer {
     uint256 internal targetOutputIndex;
     mapping(address => bool) internal isChallenger;
 
+    event ReadyToProve(uint256 indexed outputIndex, address indexed challenger);
+
     function nextSender(Types.Challenge memory _challenge) internal pure returns (address) {
         return _challenge.turn % 2 == 0 ? _challenge.challenger : _challenge.asserter;
     }
@@ -165,6 +167,11 @@ contract ColosseumTest is Colosseum_Initializer {
         bytes32[] memory segments = _newSegments(_sender, challenge.turn + 1, segStart, segSize);
 
         vm.prank(_sender);
+        // check that ReadyToProve event was emitted on the last bisection.
+        if (challenge.turn + 1 == segmentsLengths.length) {
+            vm.expectEmit(true, true, false, false);
+            emit ReadyToProve(_outputIndex, _challenger);
+        }
         colosseum.bisect(_outputIndex, challenge.challenger, position, segments);
 
         Types.Challenge memory newChallenge = colosseum.getChallenge(_outputIndex, _challenger);
@@ -839,6 +846,49 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.prank(otherChallenger);
         vm.expectRevert("Colosseum: challenge cannot be cancelled if challenger timed out");
         colosseum.cancelChallenge(outputIndex);
+    }
+
+    function test_forceDeleteOutput_succeeds() external {
+        uint256 outputIndex = targetOutputIndex;
+
+        _createChallenge(outputIndex, challenger);
+
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex, challenger);
+
+        while (colosseum.isAbleToBisect(outputIndex, challenge.challenger)) {
+            challenge = colosseum.getChallenge(outputIndex, challenge.challenger);
+            _bisect(outputIndex, challenge.challenger, nextSender(challenge));
+        }
+
+        vm.prank(address(securityCouncil));
+        colosseum.forceDeleteOutput(outputIndex);
+    }
+
+    function test_forceDeleteOutput_notSecurityCouncil_reverts() external {
+        uint256 outputIndex = targetOutputIndex;
+
+        vm.prank(address(1));
+        vm.expectRevert("Colosseum: sender is not the security council");
+        colosseum.forceDeleteOutput(outputIndex);
+    }
+
+    function test_forceDeleteOutput_finalizedOutput_reverts() external {
+        uint256 outputIndex = targetOutputIndex;
+
+        _createChallenge(outputIndex, challenger);
+
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex, challenger);
+
+        while (colosseum.isAbleToBisect(outputIndex, challenge.challenger)) {
+            challenge = colosseum.getChallenge(outputIndex, challenge.challenger);
+            _bisect(outputIndex, challenge.challenger, nextSender(challenge));
+        }
+
+        vm.warp(oracle.finalizedAt(outputIndex) + 1);
+
+        vm.prank(address(securityCouncil));
+        vm.expectRevert("Colosseum: cannot progress challenge process about already finalized output");
+        colosseum.forceDeleteOutput(outputIndex);
     }
 
     function test_isInCreationPeriod_succeeds() external {
