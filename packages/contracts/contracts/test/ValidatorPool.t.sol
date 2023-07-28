@@ -52,8 +52,9 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint128 expiresAt
     );
 
-    event BondIncreased(address indexed challenger, uint256 indexed outputIndex, uint128 amount);
-
+    event BondIncreased(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
+    event PendingBondAdded(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
+    event PendingBondRefunded(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
     event Unbonded(uint256 indexed outputIndex, address indexed recipient, uint128 amount);
 
     function setUp() public override {
@@ -256,11 +257,11 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
     function test_createBond_existsBond_reverts() external {
         test_createBond_succeeds();
 
-        uint256 latestOutputIndex = oracle.latestOutputIndex();
-        Types.Bond memory bond = pool.getBond(latestOutputIndex);
+        uint256 outputIndex = oracle.latestOutputIndex();
+        Types.Bond memory bond = pool.getBond(outputIndex);
         assertTrue(bond.expiresAt > 0);
 
-        Types.CheckpointOutput memory output = oracle.getL2Output(latestOutputIndex);
+        Types.CheckpointOutput memory output = oracle.getL2Output(outputIndex);
 
         vm.prank(output.submitter);
         pool.deposit{ value: minBond }();
@@ -268,7 +269,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         vm.prank(address(oracle));
         vm.expectRevert("ValidatorPool: bond of the given output index already exists");
         pool.createBond(
-            latestOutputIndex,
+            outputIndex,
             uint128(minBond),
             uint128(block.timestamp + finalizationPeriodSeconds)
         );
@@ -294,9 +295,9 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
     function test_unbond_succeeds() public {
         test_createBond_succeeds();
 
-        uint256 latestOutputIndex = oracle.latestOutputIndex();
-        Types.CheckpointOutput memory output = oracle.getL2Output(latestOutputIndex);
-        Types.Bond memory bond = pool.getBond(latestOutputIndex);
+        uint256 outputIndex = oracle.latestOutputIndex();
+        Types.CheckpointOutput memory output = oracle.getL2Output(outputIndex);
+        Types.Bond memory bond = pool.getBond(outputIndex);
 
         // warp to the time the output is finalized and the bond is expires.
         vm.warp(bond.expiresAt);
@@ -305,7 +306,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint256 penalty = 0;
 
         vm.expectEmit(true, true, false, true, address(pool));
-        emit Unbonded(latestOutputIndex, output.submitter, bond.amount);
+        emit Unbonded(outputIndex, output.submitter, bond.amount);
         vm.expectCall(
             address(pool.PORTAL()),
             abi.encodeWithSelector(
@@ -487,8 +488,8 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
             assertEq(pool.balanceOf(trusted), deposit - minBond * (i + 1));
         }
 
-        uint256 latestOutputIndex = oracle.latestOutputIndex();
-        Types.Bond memory bond = pool.getBond(latestOutputIndex);
+        uint256 outputIndex = oracle.latestOutputIndex();
+        Types.Bond memory bond = pool.getBond(outputIndex);
 
         // warp to the time the latest output is finalized and all bonds are expired.
         vm.warp(bond.expiresAt);
@@ -517,46 +518,100 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         pool.unbond();
     }
 
-    function test_increaseBond_succeeds() public {
+    function test_addPendingBond_succeeds() public {
         test_createBond_succeeds();
 
-        uint256 latestOutputIndex = oracle.latestOutputIndex();
-        Types.Bond memory prevBond = pool.getBond(latestOutputIndex);
+        uint256 outputIndex = oracle.latestOutputIndex();
+        Types.Bond memory bond = pool.getBond(outputIndex);
 
         vm.prank(challenger);
-        pool.deposit{ value: prevBond.amount }();
+        pool.deposit{ value: bond.amount }();
 
         vm.prank(oracle.COLOSSEUM());
         vm.expectEmit(true, true, false, true, address(pool));
-        emit BondIncreased(challenger, latestOutputIndex, prevBond.amount);
-        pool.increaseBond(challenger, latestOutputIndex);
+        emit PendingBondAdded(outputIndex, challenger, bond.amount);
+        pool.addPendingBond(outputIndex, challenger);
 
         // check bond state
-        assertEq(pool.getBond(latestOutputIndex).amount, prevBond.amount * 2);
+        assertEq(pool.getPendingBond(outputIndex, challenger), bond.amount);
+        assertEq(pool.balanceOf(challenger), 0);
+    }
+
+    function test_addPendingBond_noBond_reverts() external {
+        vm.prank(oracle.COLOSSEUM());
+        vm.expectRevert("ValidatorPool: the output is already finalized");
+        pool.addPendingBond(0, challenger);
+    }
+
+    function test_addPendingBond_insufficientBalances_reverts() external {
+        test_createBond_succeeds();
+
+        uint256 outputIndex = oracle.latestOutputIndex();
+
+        vm.prank(oracle.COLOSSEUM());
+        vm.expectRevert("ValidatorPool: insufficient balances");
+        pool.addPendingBond(outputIndex, challenger);
+    }
+
+    function test_increaseBond_succeeds() public {
+        test_addPendingBond_succeeds();
+
+        uint256 outputIndex = oracle.latestOutputIndex();
+        Types.Bond memory prevBond = pool.getBond(outputIndex);
+        uint128 pendingBond = pool.getPendingBond(outputIndex, challenger);
+
+        vm.prank(oracle.COLOSSEUM());
+        vm.expectEmit(true, true, false, true, address(pool));
+        emit BondIncreased(outputIndex, challenger, pendingBond);
+        pool.increaseBond(outputIndex, challenger);
+
+        // check bond state
+        assertEq(pool.getBond(outputIndex).amount, prevBond.amount + pendingBond);
         assertEq(pool.balanceOf(challenger), 0);
     }
 
     function test_increaseBond_noBond_reverts() external {
         vm.prank(oracle.COLOSSEUM());
-        vm.expectRevert("ValidatorPool: the bond does not exist");
-        pool.increaseBond(challenger, 0);
+        vm.expectRevert("ValidatorPool: the output is already finalized");
+        pool.increaseBond(0, challenger);
     }
 
-    function test_increaseBond_insufficientBalances_reverts() external {
+    function test_increaseBond_noPendingBond_reverts() external {
         test_createBond_succeeds();
 
-        uint256 latestOutputIndex = oracle.latestOutputIndex();
+        vm.prank(oracle.COLOSSEUM());
+        vm.expectRevert("ValidatorPool: the pending bond does not exist");
+        pool.increaseBond(0, challenger);
+    }
+
+    function test_refundPendingBond_succeeds() external {
+        test_addPendingBond_succeeds();
+
+        uint256 outputIndex = oracle.latestOutputIndex();
+        uint128 pendingBond = pool.getPendingBond(outputIndex, challenger);
 
         vm.prank(oracle.COLOSSEUM());
-        vm.expectRevert("ValidatorPool: insufficient balances");
-        pool.increaseBond(challenger, latestOutputIndex);
+        vm.expectEmit(true, true, false, true, address(pool));
+        emit PendingBondRefunded(outputIndex, challenger, pendingBond);
+        pool.refundPendingBond(outputIndex, challenger);
+
+        assertEq(pool.balanceOf(challenger), pendingBond);
+
+        vm.expectRevert("ValidatorPool: the pending bond does not exist");
+        pool.getPendingBond(outputIndex, challenger);
+    }
+
+    function test_refundPendingBond_noPendingBond_succeeds() external {
+        vm.prank(oracle.COLOSSEUM());
+        vm.expectRevert("ValidatorPool: the pending bond does not exist");
+        pool.refundPendingBond(0, challenger);
     }
 
     function test_getBond_succeeds() external {
         test_createBond_succeeds();
 
-        uint256 latestOutputIndex = oracle.latestOutputIndex();
-        Types.Bond memory bond = pool.getBond(latestOutputIndex);
+        uint256 outputIndex = oracle.latestOutputIndex();
+        Types.Bond memory bond = pool.getBond(outputIndex);
 
         assertTrue(bond.amount > 0);
         assertTrue(bond.expiresAt > block.timestamp);

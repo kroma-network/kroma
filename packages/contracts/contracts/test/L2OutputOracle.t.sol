@@ -229,14 +229,14 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
 
         vm.roll(nextBlockNumber + 1);
 
-        uint128 finalizeAt = uint128(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
+        uint128 finalizedAt = uint128(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
         vm.expectCall(
             address(oracle.VALIDATOR_POOL()),
             abi.encodeWithSelector(
                 ValidatorPool.createBond.selector,
                 nextOutputIndex,
                 minBond,
-                finalizeAt
+                finalizedAt
             )
         );
         vm.expectEmit(true, true, true, true);

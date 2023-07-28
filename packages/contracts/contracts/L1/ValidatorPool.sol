@@ -99,6 +99,11 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     address internal nextPriorityValidator;
 
     /**
+     * @notice A mapping of pending bonds that have not yet been included in a bond.
+     */
+    mapping(uint256 => mapping(address => uint128)) internal pendingBonds;
+
+    /**
      * @notice Emitted when a validator bonds.
      *
      * @param submitter   Address of submitter.
@@ -114,13 +119,35 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     );
 
     /**
-     * @notice Emitted when the bond amount is increased.
+     * @notice Emitted when the pending bond is added.
      *
-     * @param challenger  Address of the challenger.
      * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param amount      Amount of bond added.
+     */
+    event PendingBondAdded(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
+
+    /**
+     * @notice Emitted when the bond is increased.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
      * @param amount      Amount of bond increased.
      */
-    event BondIncreased(address indexed challenger, uint256 indexed outputIndex, uint128 amount);
+    event BondIncreased(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
+
+    /**
+     * @notice Emitted when the pending bond is refunded.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param amount      Amount of bond refunded.
+     */
+    event PendingBondRefunded(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        uint128 amount
+    );
 
     /**
      * @notice Emitted when a validator unbonds.
@@ -130,6 +157,14 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @param amount      Amount of unbonded.
      */
     event Unbonded(uint256 indexed outputIndex, address indexed recipient, uint128 amount);
+
+    /**
+     * @notice A modifier that only allows the Colosseum contract to call
+     */
+    modifier onlyColosseum() {
+        require(msg.sender == L2_ORACLE.COLOSSEUM(), "ValidatorPool: sender is not Colosseum");
+        _;
+    }
 
     /**
      * @custom:semver 0.1.0
@@ -226,20 +261,59 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     }
 
     /**
-     * @notice Increases the bond amount corresponding to the given output index.
+     * @notice Adds a pending bond to the challenge corresponding to the given output index and challenger address.
+     *         The pending bond is added to the bond when the challenge is proven or challenger is timed out,
+     *         or refunded when the challenge is canceled.
      *
-     * @param _challenger  Address of the challenger.
      * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
      */
-    function increaseBond(address _challenger, uint256 _outputIndex) external {
+    function addPendingBond(uint256 _outputIndex, address _challenger) external onlyColosseum {
         Types.Bond storage bond = bonds[_outputIndex];
-        require(bond.expiresAt > 0, "ValidatorPool: the bond does not exist");
+        require(bond.expiresAt >= block.timestamp, "ValidatorPool: the output is already finalized");
 
         uint128 bonded = bond.amount;
         _decreaseBalance(_challenger, bonded);
-        bond.amount = bonded << 1;
+        pendingBonds[_outputIndex][_challenger] = bonded;
 
-        emit BondIncreased(_challenger, _outputIndex, bonded);
+        emit PendingBondAdded(_outputIndex, _challenger, bonded);
+    }
+
+    /**
+     * @notice Refunds the corresponding pending bond to the given output index and challenger address
+     *         if a challenge is canceled.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     */
+    function refundPendingBond(uint256 _outputIndex, address _challenger) external onlyColosseum {
+        uint128 bonded = pendingBonds[_outputIndex][_challenger];
+        require(bonded > 0, "ValidatorPool: the pending bond does not exist");
+        delete pendingBonds[_outputIndex][_challenger];
+
+        _increaseBalance(_challenger, bonded);
+        emit PendingBondRefunded(_outputIndex, _challenger, bonded);
+    }
+
+    /**
+     * @notice Increases the bond amount corresponding to the given output index by the pending bond amount.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     */
+    function increaseBond(uint256 _outputIndex, address _challenger) external onlyColosseum {
+        Types.Bond storage bond = bonds[_outputIndex];
+        require(bond.expiresAt >= block.timestamp, "ValidatorPool: the output is already finalized");
+
+        uint128 increased = pendingBonds[_outputIndex][_challenger];
+        require(increased > 0, "ValidatorPool: the pending bond does not exist");
+        delete pendingBonds[_outputIndex][_challenger];
+
+        unchecked {
+            bond.amount += increased;
+        }
+
+        emit BondIncreased(_outputIndex, _challenger, increased);
     }
 
     /**
@@ -409,6 +483,25 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         Types.Bond storage bond = bonds[_outputIndex];
         require(bond.amount > 0 && bond.expiresAt > 0, "ValidatorPool: the bond does not exist");
         return bond;
+    }
+
+    /**
+     * @notice Returns the pending bond corresponding to the output index and challenger address.
+     *         Reverts if the pending bond does not exist.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     *
+     * @return Amount of the pending bond.
+     */
+    function getPendingBond(uint256 _outputIndex, address _challenger)
+        external
+        view
+        returns (uint128)
+    {
+        uint128 pendingBond = pendingBonds[_outputIndex][_challenger];
+        require(pendingBond > 0, "ValidatorPool: the pending bond does not exist");
+        return pendingBond;
     }
 
     /**

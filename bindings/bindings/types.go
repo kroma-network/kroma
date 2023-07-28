@@ -26,13 +26,11 @@ type TypesBlockHeaderRLP struct {
 type TypesChallenge struct {
 	Turn       uint8
 	TimeoutAt  uint64
-	Approved   bool
 	Asserter   common.Address
 	Challenger common.Address
 	Segments   [][32]byte
 	SegSize    *big.Int
 	SegStart   *big.Int
-	OutputRoot [32]byte
 }
 
 // TypesOutputRootProof is an auto generated low-level Go binding around an user-defined struct.
@@ -81,6 +79,7 @@ type TypesBond struct {
 	Amount    *big.Int
 	ExpiresAt *big.Int
 }
+
 // TypesPublicInputProof is an auto generated low-level Go binding around an user-defined struct.
 type TypesPublicInputProof struct {
 	SrcOutputRootProof          TypesOutputRootProof
@@ -91,4 +90,3 @@ type TypesPublicInputProof struct {
 	L2ToL1MessagePasserCodeHash [32]byte
 	MerkleProof                 [][]byte
 }
-

@@ -392,4 +392,15 @@ contract L2OutputOracle is Initializable, Semver {
     function isFinalized(uint256 _outputIndex) external view returns (bool) {
         return l2Outputs[_outputIndex].timestamp + FINALIZATION_PERIOD_SECONDS < block.timestamp;
     }
+
+    /**
+     * @notice Returns the finalization time of given output index.
+     *
+     * @param _outputIndex Index of an output.
+     *
+     * @return The finalization time of given output index.
+     */
+    function finalizedAt(uint256 _outputIndex) external view returns (uint256) {
+        return l2Outputs[_outputIndex].timestamp + FINALIZATION_PERIOD_SECONDS;
+    }
 }

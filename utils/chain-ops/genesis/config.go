@@ -74,11 +74,12 @@ type DeployConfig struct {
 	L2GenesisBlockParentHash    common.Hash    `json:"l2GenesisBlockParentHash"`
 	L2GenesisBlockBaseFeePerGas *hexutil.Big   `json:"l2GenesisBlockBaseFeePerGas"`
 
-	ColosseumBisectionTimeout uint64      `json:"colosseumBisectionTimeout"`
-	ColosseumProvingTimeout   uint64      `json:"colosseumProvingTimeout"`
-	ColosseumSegmentsLengths  string      `json:"colosseumSegmentsLengths"`
-	ColosseumDummyHash        common.Hash `json:"colosseumDummyHash"`
-	ColosseumMaxTxs           uint64      `json:"colosseumMaxTxs"`
+	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
+	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`
+	ColosseumProvingTimeout        uint64      `json:"colosseumProvingTimeout"`
+	ColosseumSegmentsLengths       string      `json:"colosseumSegmentsLengths"`
+	ColosseumDummyHash             common.Hash `json:"colosseumDummyHash"`
+	ColosseumMaxTxs                uint64      `json:"colosseumMaxTxs"`
 
 	// The initial value of the number of confirmations in security council
 	SecurityCouncilNumConfirmationRequired uint64           `json:"securityCouncilNumConfirmationRequired"`

@@ -26,6 +26,7 @@ const deployFn: DeployFunction = async (hre) => {
       l2OutputOracleProxyAddress,
       zkVerifierAddress,
       hre.deployConfig.l2OutputOracleSubmissionInterval,
+      hre.deployConfig.colosseumCreationPeriodSeconds,
       hre.deployConfig.colosseumBisectionTimeout,
       hre.deployConfig.colosseumProvingTimeout,
       hre.deployConfig.colosseumDummyHash,
@@ -47,6 +48,11 @@ const deployFn: DeployFunction = async (hre) => {
         contract,
         'L2_ORACLE_SUBMISSION_INTERVAL',
         hre.deployConfig.l2OutputOracleSubmissionInterval
+      )
+      await assertContractVariable(
+        contract,
+        'CREATION_PERIOD_SECONDS',
+        hre.deployConfig.colosseumCreationPeriodSeconds
       )
       await assertContractVariable(
         contract,
