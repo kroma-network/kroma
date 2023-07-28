@@ -47,9 +47,11 @@ type L2Chain interface {
 	L2BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L2BlockRef, error)
 }
 
-var ReorgFinalizedErr = errors.New("cannot reorg finalized block")
-var WrongChainErr = errors.New("wrong chain")
-var TooDeepReorgErr = errors.New("reorg is too deep")
+var (
+	ErrReorgFinalized = errors.New("cannot reorg finalized block")
+	ErrWrongChain     = errors.New("wrong chain")
+	ErrReorgTooDeep   = errors.New("reorg is too deep")
+)
 
 const MaxReorgProposerWindows = 5
 
@@ -111,7 +113,7 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 	}
 
 	lgr.Info("Loaded current L2 heads", "unsafe", result.Unsafe, "safe", result.Safe, "finalized", result.Finalized,
-		"unsafe_origin", result.Unsafe.L1Origin, "unsafe_origin", result.Safe.L1Origin)
+		"unsafe_origin", result.Unsafe.L1Origin, "safe_origin", result.Safe.L1Origin)
 
 	// Remember original unsafe block to determine reorg depth
 	prevUnsafe := result.Unsafe
@@ -160,16 +162,16 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 		if n.Number == cfg.Genesis.L2.Number {
 			// Check L2 traversal against L2 Genesis data, to make sure the engine is on the correct chain, instead of attempting sync with different L2 destination.
 			if n.Hash != cfg.Genesis.L2.Hash {
-				return nil, fmt.Errorf("%w L2: genesis: %s, got %s", WrongChainErr, cfg.Genesis.L2, n)
+				return nil, fmt.Errorf("%w L2: genesis: %s, got %s", ErrWrongChain, cfg.Genesis.L2, n)
 			}
 			// Check L1 comparison against L1 Genesis data, to make sure the L1 data is from the correct chain, instead of attempting sync with different L1 source.
 			if !ahead && l1Block.Hash != cfg.Genesis.L1.Hash {
-				return nil, fmt.Errorf("%w L1: genesis: %s, got %s", WrongChainErr, cfg.Genesis.L1, l1Block)
+				return nil, fmt.Errorf("%w L1: genesis: %s, got %s", ErrWrongChain, cfg.Genesis.L1, l1Block)
 			}
 		}
 		// Check L2 traversal against finalized data
 		if (n.Number == result.Finalized.Number) && (n.Hash != result.Finalized.Hash) {
-			return nil, fmt.Errorf("%w: finalized %s, got: %s", ReorgFinalizedErr, result.Finalized, n)
+			return nil, fmt.Errorf("%w: finalized %s, got: %s", ErrReorgFinalized, result.Finalized, n)
 		}
 		// Check we are not reorging L2 incredibly deep
 		if n.L1Origin.Number+(MaxReorgProposerWindows*cfg.ProposerWindowSize) < prevUnsafe.L1Origin.Number {
@@ -177,7 +179,7 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 			// This can legitimately happen if L1 goes down for a while. But in that case,
 			// restarting the L2 node with a bigger configured MaxReorgDepth is an acceptable
 			// stopgap solution.
-			return nil, fmt.Errorf("%w: traversed back to L2 block %s, but too deep compared to previous unsafe block %s", TooDeepReorgErr, n, prevUnsafe)
+			return nil, fmt.Errorf("%w: traversed back to L2 block %s, but too deep compared to previous unsafe block %s", ErrReorgTooDeep, n, prevUnsafe)
 		}
 
 		// If we don't have a usable unsafe head, then set it
