@@ -17,6 +17,7 @@ contract UpgradeGovernorTest is UpgradeGovernor_Initializer {
         Expired,
         Executed
     }
+
     function setUp() public virtual override {
         super.setUp();
         _roll(1);
@@ -39,6 +40,7 @@ contract UpgradeGovernorTest is UpgradeGovernor_Initializer {
 
         _roll(1);
     }
+
     function test_initialize_succeeds() external {
         // check securityCouncilToken
         assertEq(securityCouncilToken.symbol(), "KSC");
@@ -66,7 +68,7 @@ contract UpgradeGovernorTest is UpgradeGovernor_Initializer {
         vm.stopPrank();
     }
 
-    function _createProposal() private returns (uint256){
+    function _createProposal() private returns (uint256) {
         address[] memory targetContracts = new address[](1);
         targetContracts[0] = address(upgradeGovernor);
         uint256[] memory values = new uint256[](1);
@@ -134,16 +136,9 @@ contract UpgradeGovernorTest is UpgradeGovernor_Initializer {
         values[0] = 0;
         bytes[] memory callDatas = new bytes[](1);
         callDatas[0] = abi.encodeCall(upgradeGovernor.setVotingDelay, 10);
-        vm.expectRevert(
-            "Governor: proposer votes below proposal threshold"
-        );
+        vm.expectRevert("Governor: proposer votes below proposal threshold");
         vm.prank(notGuardian);
-        upgradeGovernor.propose(
-            targetContracts,
-            values,
-            callDatas,
-            "test proposal"
-        );
+        upgradeGovernor.propose(targetContracts, values, callDatas, "test proposal");
     }
 
     function test_createProposal_succeeds() external {
@@ -168,9 +163,7 @@ contract UpgradeGovernorTest is UpgradeGovernor_Initializer {
         uint256 proposalId = _createProposal();
         _roll(initialVotingPeriod);
         vm.prank(guardian1);
-        vm.expectRevert(
-            "Governor: vote not currently active"
-        );
+        vm.expectRevert("Governor: vote not currently active");
         upgradeGovernor.castVote(proposalId, 1);
         uint8 state = uint8(upgradeGovernor.state(proposalId));
         assertEq(state, uint8(ProposalState.Defeated));
@@ -224,5 +217,4 @@ contract UpgradeGovernorTest is UpgradeGovernor_Initializer {
         uint256 votingDelay = upgradeGovernor.votingDelay();
         assertEq(votingDelay, 10);
     }
-
 }

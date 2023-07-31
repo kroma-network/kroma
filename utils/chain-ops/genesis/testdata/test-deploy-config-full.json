@@ -21,6 +21,7 @@
   "l1GenesisBlockGasLimit": "0x1c9c380",
   "l1GenesisBlockDifficulty": "0x1",
   "finalSystemOwner": "0x0000000000000000000000000000000000000111",
+  "securityCouncilTokenOwner": "0x0000000000000000000000000000000000000111",
   "portalGuardian": "0x0000000000000000000000000000000000000112",
   "finalizationPeriodSeconds": 600,
   "l1GenesisBlockMixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -69,5 +70,6 @@
   "votingDelayBlocks": 0,
   "votingPeriodBlocks": 25,
   "proposalThresholdTokens": 1,
-  "votesQuorumFractionPercent": 51
+  "votesQuorumFractionPercent": 51,
+  "proposalExecutingLatencySeconds": 1
 }

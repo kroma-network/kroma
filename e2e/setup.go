@@ -150,6 +150,12 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		EIP1559Denominator: 8,
 
 		FundDevAccounts: true,
+
+		VotingDelayBlocks:               0,
+		VotingPeriodBlocks:              25,
+		ProposalThresholdTokens:         1,
+		VotesQuorumFractionPercent:      51,
+		ProposalExecutingLatencySeconds: 1,
 	}
 
 	if err := deployConfig.InitDeveloperDeployedAddresses(); err != nil {

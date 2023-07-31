@@ -6,7 +6,7 @@ all: version mkdir bindings more
 
 bindings: basefee-vault-bindings \
 		colosseum-bindings \
-    	erc20-bindings \
+		erc20-bindings \
 		gas-price-oracle-bindings \
 		kroma-mintable-erc20-bindings \
 		kroma-mintable-erc20-factory-bindings \

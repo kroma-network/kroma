@@ -74,8 +74,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
 
-		FinalSystemOwner:   addresses.SysCfgOwner,
-		GuardianTokenOwner: addresses.Deployer,
+		FinalSystemOwner: addresses.SysCfgOwner,
 
 		L1BlockTime:                 tp.L1BlockTime,
 		L1GenesisBlockNonce:         0,
