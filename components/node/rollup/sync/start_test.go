@@ -14,8 +14,10 @@ import (
 	"github.com/kroma-network/kroma/components/node/testutils"
 )
 
-var _ L1Chain = (*testutils.FakeChainSource)(nil)
-var _ L2Chain = (*testutils.FakeChainSource)(nil)
+var (
+	_ L1Chain = (*testutils.FakeChainSource)(nil)
+	_ L2Chain = (*testutils.FakeChainSource)(nil)
+)
 
 // generateFakeL2 creates a fake L2 chain with the following conditions:
 // - The L2 chain is based off of the L1 chain
@@ -32,7 +34,6 @@ func (c *syncStartTestCase) generateFakeL2(t *testing.T) (*testutils.FakeChainSo
 		chain.AdvanceL1()
 	}
 	return chain, genesis
-
 }
 
 func runeToHash(id rune) common.Hash {
@@ -225,7 +226,7 @@ func TestFindSyncStart(t *testing.T) {
 			GenesisL2:          'A',
 			UnsafeL2Head:       0,
 			ProposerWindowSize: 2,
-			ExpectedErr:        WrongChainErr,
+			ExpectedErr:        ErrWrongChain,
 		},
 		{
 			Name:               "unexpected L2 chain",
@@ -239,7 +240,7 @@ func TestFindSyncStart(t *testing.T) {
 			GenesisL2:          'X',
 			UnsafeL2Head:       0,
 			ProposerWindowSize: 2,
-			ExpectedErr:        WrongChainErr,
+			ExpectedErr:        ErrWrongChain,
 		},
 		{
 			Name:               "offset L2 genesis",
@@ -284,7 +285,7 @@ func TestFindSyncStart(t *testing.T) {
 			UnsafeL2Head:       0,
 			ProposerWindowSize: 2,
 			SafeL2Head:         'D',
-			ExpectedErr:        WrongChainErr,
+			ExpectedErr:        ErrWrongChain,
 		},
 	}
 

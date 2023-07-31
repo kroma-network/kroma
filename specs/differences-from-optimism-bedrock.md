@@ -70,7 +70,7 @@ The followings are components that are used to run different types of nodes:
 |-------------|----------------------------------------------------------------------|
 | `Proposer`  | `L2 EL client` + `L2 CL client` + `kroma-batcher`                    |
 | `Validator` | `L2 EL client` + `L2 CL client` + `kroma-validator` + `kroma-prover` |
-| `Vanilla`   | `L2 EL client` + `L2 CL client`                                      |
+| `Full node` | `L2 EL client` + `L2 CL client`                                      |
 
 **NOTE:** Here `L2 EL client` means `kroma-geth` and `L2 CL client` means `kroma-node`. `L2 EL client` can
 be expanded to other clients for pragmatic decentralization.
