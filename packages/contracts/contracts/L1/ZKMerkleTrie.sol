@@ -98,8 +98,11 @@ contract ZKMerkleTrie is IZKMerkleTrie, ZKTrieHasher {
                     currentNode.childR
                 );
             } else if (currentNode.nodeType == NodeReader.NodeType.LEAF) {
-                require(!exists, "ZKMerkleTrie: duplicated leaf node");
-                exists = true;
+                require(!exists && !empty, "ZKMerkleTrie: duplicated terminal node");
+                exists = currentNode.nodeKey == key;
+                if (!exists) {
+                    break;
+                }
                 computedKey = _hashFixed3Elems(
                     bytes32(uint256(1)),
                     currentNode.nodeKey,
@@ -121,7 +124,7 @@ contract ZKMerkleTrie is IZKMerkleTrie, ZKTrieHasher {
                     );
                 }
             } else if (currentNode.nodeType == NodeReader.NodeType.EMPTY) {
-                require(!empty, "ZKMerkleTrie: duplicated empty node");
+                require(!exists && !empty, "ZKMerkleTrie: duplicated terminal node");
                 empty = true;
             }
             if (i == 0) {
