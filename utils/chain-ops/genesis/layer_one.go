@@ -35,6 +35,9 @@ var (
 		"KromaMintableERC20FactoryProxy",
 		"ColosseumProxy",
 		"SecurityCouncilProxy",
+		"SecurityCouncilTokenProxy",
+		"TimeLockProxy",
+		"UpgradeGovernorProxy",
 	}
 	// portalMeteringSlot is the storage slot containing the metering params.
 	portalMeteringSlot = common.Hash{31: 0x01}
@@ -254,6 +257,71 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		return nil, err
 	}
 
+	securityCouncilTokenABI, err := bindings.SecurityCouncilTokenMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = securityCouncilTokenABI.Pack("initialize", config.SecurityCouncilTokenOwner)
+	if err != nil {
+		return nil, fmt.Errorf("cannot abi encode initialize for securityCouncilToken: %w", err)
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["SecurityCouncilTokenProxy"].Address,
+		depsByName["SecurityCouncilToken"].Address,
+		data,
+	); err != nil {
+		return nil, err
+	}
+
+	timeLockABI, err := bindings.TimeLockMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = timeLockABI.Pack("initialize",
+		uint642Big(config.ProposalExecutingLatencySeconds),
+		[]common.Address{predeploys.DevUpgradeGovernorAddr},
+		[]common.Address{predeploys.DevUpgradeGovernorAddr},
+		predeploys.DevUpgradeGovernorAddr)
+	if err != nil {
+		return nil, fmt.Errorf("cannot abi encode initialize for kromaTimeLock: %w", err)
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["TimeLockProxy"].Address,
+		depsByName["TimeLock"].Address,
+		data,
+	); err != nil {
+		return nil, err
+	}
+
+	upgradeGovernorABI, err := bindings.UpgradeGovernorMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = upgradeGovernorABI.Pack(
+		"initialize",
+		depsByName["SecurityCouncilTokenProxy"].Address,
+		depsByName["TimeLockProxy"].Address,
+		uint642Big(config.VotingDelayBlocks),
+		uint642Big(config.VotingPeriodBlocks),
+		uint642Big(config.ProposalThresholdTokens),
+		uint642Big(config.VotesQuorumFractionPercent))
+	if err != nil {
+		return nil, fmt.Errorf("cannot abi encode initialize for kromaGovernor: %w", err)
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["UpgradeGovernorProxy"].Address,
+		depsByName["UpgradeGovernor"].Address,
+		data,
+	); err != nil {
+		return nil, err
+	}
+
 	var lastUpgradeTx *types.Transaction
 	if lastUpgradeTx, err = upgradeProxy(
 		backend,
@@ -344,6 +412,13 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 			memDB.SetState(depAddr, key, value)
 		}
 	}
+
+	// Update proxy addresses for UpgradeGovernor
+	securityCouncilTokenAddr, _ := state.EncodeAddressValue(predeploys.DevSecurityCouncilTokenAddr, 0)
+	memDB.SetState(predeploys.DevUpgradeGovernorAddr, common.Hash{30: 0x01, 31: 0x93}, securityCouncilTokenAddr)
+
+	timeLockAddr, _ := state.EncodeAddressValue(predeploys.DevTimeLockAddr, 0)
+	memDB.SetState(predeploys.DevUpgradeGovernorAddr, common.Hash{30: 0x01, 31: 0xf8}, timeLockAddr)
 	return memDB.Genesis(), nil
 }
 
@@ -435,6 +510,15 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		},
 		{
 			Name: "KromaMintableERC20Factory",
+		},
+		{
+			Name: "SecurityCouncilToken",
+		},
+		{
+			Name: "TimeLock",
+		},
+		{
+			Name: "UpgradeGovernor",
 		},
 		{
 			Name: "ProxyAdmin",
@@ -574,6 +658,21 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		)
 	case "ZKVerifier":
 		_, tx, _, err = bindings.DeployZKVerifier(
+			opts,
+			backend,
+		)
+	case "SecurityCouncilToken":
+		_, tx, _, err = bindings.DeploySecurityCouncilToken(
+			opts,
+			backend,
+		)
+	case "TimeLock":
+		_, tx, _, err = bindings.DeployTimeLock(
+			opts,
+			backend,
+		)
+	case "UpgradeGovernor":
+		_, tx, _, err = bindings.DeployUpgradeGovernor(
 			opts,
 			backend,
 		)

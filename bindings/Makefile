@@ -6,8 +6,7 @@ all: version mkdir bindings more
 
 bindings: basefee-vault-bindings \
 		colosseum-bindings \
-    security-council-bindings \
-		erc20-bindings \
+    	erc20-bindings \
 		gas-price-oracle-bindings \
 		kroma-mintable-erc20-bindings \
 		kroma-mintable-erc20-factory-bindings \
@@ -26,7 +25,11 @@ bindings: basefee-vault-bindings \
 		proposer-fee-vault-bindings \
 		proxy-admin-bindings \
 		proxy-bindings \
+		security-council-bindings \
+		security-council-token-bindings \
 		system-config-bindings \
+		timelock-bindings \
+		upgrade-governor-bindings \
 		validator-pool-bindings \
 		weth9-bindings \
 		zk-merkle-trie-bindings \
@@ -58,7 +61,10 @@ L2ToL1MessagePasser,\
 Proxy,\
 ProxyAdmin,\
 SecurityCouncil,\
+SecurityCouncilToken,\
 SystemConfig,\
+TimeLock,\
+UpgradeGovernor,\
 ValidatorPool,\
 ValidatorRewardVault,\
 WETH9\
@@ -79,9 +85,6 @@ basefee-vault-bindings: compile
 colosseum-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/Colosseum.sol:Colosseum $(pkg)
 
-security-council-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/SecurityCouncil.sol:SecurityCouncil $(pkg)
-
 erc20-bindings: compile
 	bash ./gen_bindings.sh node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20 $(pkg)
 
@@ -100,6 +103,9 @@ kroma-mintable-erc721-factory-bindings: compile
 kroma-portal-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/KromaPortal.sol:KromaPortal $(pkg)
 
+l1block-bindings: compile
+	bash ./gen_bindings.sh contracts/L2/L1Block.sol:L1Block $(pkg)
+
 l1-cross-domain-messenger-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger $(pkg)
 
@@ -111,9 +117,6 @@ l1-fee-vault-bindings: compile
 
 l1-standard-bridge-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/L1StandardBridge.sol:L1StandardBridge $(pkg)
-
-l1block-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/L1Block.sol:L1Block $(pkg)
 
 l2-cross-domain-messenger-bindings: compile
 	bash ./gen_bindings.sh contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger $(pkg)
@@ -139,8 +142,20 @@ proxy-admin-bindings: compile
 proxy-bindings: compile
 	bash ./gen_bindings.sh contracts/universal/Proxy.sol:Proxy $(pkg)
 
+security-council-bindings: compile
+	bash ./gen_bindings.sh contracts/L1/SecurityCouncil.sol:SecurityCouncil $(pkg)
+
+security-council-token-bindings: compile
+	bash ./gen_bindings.sh contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken $(pkg)
+
 system-config-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/SystemConfig.sol:SystemConfig $(pkg)
+
+timelock-bindings: compile
+	bash ./gen_bindings.sh contracts/governance/TimeLock.sol:TimeLock $(pkg)
+
+upgrade-governor-bindings: compile
+	bash ./gen_bindings.sh contracts/governance/UpgradeGovernor.sol:UpgradeGovernor $(pkg)
 
 validator-pool-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/ValidatorPool.sol:ValidatorPool $(pkg)

@@ -19,6 +19,9 @@ const ORDERED_FILE_NAMES = [
   'SecurityCouncil',
   'KromaPortal',
   'SystemConfig',
+  'SecurityCouncilToken',
+  'TimeLock',
+  'UpgradeGovernor',
 ]
 
 const main = async () => {

@@ -243,3 +243,98 @@
 
 | Name | Type | Slot | Offset | Bytes | Contract |
 |------|------|------|--------|-------|----------|
+
+=======================
+➡ contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken
+=======================
+
+| Name                 | Type                                                       | Slot | Offset | Bytes | Contract                                                           |
+|----------------------|------------------------------------------------------------|------|--------|-------|--------------------------------------------------------------------|
+| _initialized         | uint8                                                      | 0    | 0      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _initializing        | bool                                                       | 0    | 1      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[50]                                                | 1    | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[50]                                                | 51   | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _name                | string                                                     | 101  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _symbol              | string                                                     | 102  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _owners              | mapping(uint256 => address)                                | 103  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _balances            | mapping(address => uint256)                                | 104  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _tokenApprovals      | mapping(uint256 => address)                                | 105  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _operatorApprovals   | mapping(address => mapping(address => bool))               | 106  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[44]                                                | 107  | 0      | 1408  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _ownedTokens         | mapping(address => mapping(uint256 => uint256))            | 151  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _ownedTokensIndex    | mapping(uint256 => uint256)                                | 152  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _allTokens           | uint256[]                                                  | 153  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _allTokensIndex      | mapping(uint256 => uint256)                                | 154  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[46]                                                | 155  | 0      | 1472  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _tokenURIs           | mapping(uint256 => string)                                 | 201  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[49]                                                | 202  | 0      | 1568  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _paused              | bool                                                       | 251  | 0      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[49]                                                | 252  | 0      | 1568  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _owner               | address                                                    | 301  | 0      | 20    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[49]                                                | 302  | 0      | 1568  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[50]                                                | 351  | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _hashedName          | bytes32                                                    | 401  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _hashedVersion       | bytes32                                                    | 402  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _name                | string                                                     | 403  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _version             | string                                                     | 404  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[48]                                                | 405  | 0      | 1536  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _delegation          | mapping(address => address)                                | 453  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _delegateCheckpoints | mapping(address => struct CheckpointsUpgradeable.Trace224) | 454  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _totalCheckpoints    | struct CheckpointsUpgradeable.Trace224                     | 455  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _nonces              | mapping(address => struct CountersUpgradeable.Counter)     | 456  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[46]                                                | 457  | 0      | 1472  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[50]                                                | 503  | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _tokenIdCounter      | struct CountersUpgradeable.Counter                         | 553  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| isLocked             | bool                                                       | 554  | 0      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+
+=======================
+➡ contracts/governance/TimeLock.sol:TimeLock
+=======================
+
+| Name          | Type                                                         | Slot | Offset | Bytes | Contract                                   |
+|---------------|--------------------------------------------------------------|------|--------|-------|--------------------------------------------|
+| _initialized  | uint8                                                        | 0    | 0      | 1     | contracts/governance/TimeLock.sol:TimeLock |
+| _initializing | bool                                                         | 0    | 1      | 1     | contracts/governance/TimeLock.sol:TimeLock |
+| __gap         | uint256[50]                                                  | 1    | 0      | 1600  | contracts/governance/TimeLock.sol:TimeLock |
+| __gap         | uint256[50]                                                  | 51   | 0      | 1600  | contracts/governance/TimeLock.sol:TimeLock |
+| _roles        | mapping(bytes32 => struct AccessControlUpgradeable.RoleData) | 101  | 0      | 32    | contracts/governance/TimeLock.sol:TimeLock |
+| __gap         | uint256[49]                                                  | 102  | 0      | 1568  | contracts/governance/TimeLock.sol:TimeLock |
+| _timestamps   | mapping(bytes32 => uint256)                                  | 151  | 0      | 32    | contracts/governance/TimeLock.sol:TimeLock |
+| _minDelay     | uint256                                                      | 152  | 0      | 32    | contracts/governance/TimeLock.sol:TimeLock |
+| __gap         | uint256[48]                                                  | 153  | 0      | 1536  | contracts/governance/TimeLock.sol:TimeLock |
+
+=======================
+➡ contracts/governance/UpgradeGovernor.sol:UpgradeGovernor
+=======================
+
+| Name                    | Type                                                                      | Slot | Offset | Bytes | Contract                                                 |
+|-------------------------|---------------------------------------------------------------------------|------|--------|-------|----------------------------------------------------------|
+| _initialized            | uint8                                                                     | 0    | 0      | 1     | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _initializing           | bool                                                                      | 0    | 1      | 1     | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 1    | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 51   | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _hashedName             | bytes32                                                                   | 101  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _hashedVersion          | bytes32                                                                   | 102  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _name                   | string                                                                    | 103  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _version                | string                                                                    | 104  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[48]                                                               | 105  | 0      | 1536  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 153  | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 203  | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _name                   | string                                                                    | 253  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _proposals              | mapping(uint256 => struct GovernorUpgradeable.ProposalCore)               | 254  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _governanceCall         | struct DoubleEndedQueueUpgradeable.Bytes32Deque                           | 255  | 0      | 64    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[46]                                                               | 257  | 0      | 1472  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _votingDelay            | uint256                                                                   | 303  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _votingPeriod           | uint256                                                                   | 304  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _proposalThreshold      | uint256                                                                   | 305  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[47]                                                               | 306  | 0      | 1504  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _proposalVotes          | mapping(uint256 => struct GovernorCountingSimpleUpgradeable.ProposalVote) | 353  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[49]                                                               | 354  | 0      | 1568  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| token                   | contract IERC5805Upgradeable                                              | 403  | 0      | 20    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 404  | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _quorumNumerator        | uint256                                                                   | 454  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _quorumNumeratorHistory | struct CheckpointsUpgradeable.Trace224                                    | 455  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[48]                                                               | 456  | 0      | 1536  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _timelock               | contract TimelockControllerUpgradeable                                    | 504  | 0      | 20    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _timelockIds            | mapping(uint256 => bytes32)                                               | 505  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[48]                                                               | 506  | 0      | 1536  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |

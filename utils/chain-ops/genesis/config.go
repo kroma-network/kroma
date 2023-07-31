@@ -90,6 +90,8 @@ type DeployConfig struct {
 	FinalSystemOwner common.Address `json:"finalSystemOwner"`
 	// GUARDIAN account in the KromaPortal
 	PortalGuardian common.Address `json:"portalGuardian"`
+	// Owner of the Guardian Token
+	SecurityCouncilTokenOwner common.Address `json:"securityCouncilTokenOwner"`
 	// L1 recipient of fees accumulated in the ProtocolVault
 	ProtocolVaultRecipient common.Address `json:"protocolVaultRecipient"`
 	// L1 recipient of fees accumulated in the ProposerRewardVault
@@ -119,6 +121,17 @@ type DeployConfig struct {
 	EIP1559Denominator uint64 `json:"eip1559Denominator"`
 
 	FundDevAccounts bool `json:"fundDevAccounts"`
+
+	// The initial value of the voting delay(unit:block)
+	VotingDelayBlocks uint64 `json:"votingDelayBlocks"`
+	// The initial value of the voting period(unit:block)
+	VotingPeriodBlocks uint64 `json:"votingPeriodBlocks"`
+	// The initial value of the proposal threshold(unit:token)
+	ProposalThresholdTokens uint64 `json:"proposalThresholdTokens"`
+	// The initial value of the votes quorum fraction(unit:percent)
+	VotesQuorumFractionPercent uint64 `json:"votesQuorumFractionPercent"`
+	// The latency value of the proposal executing(unit:second)
+	ProposalExecutingLatencySeconds uint64 `json:"proposalExecutingLatencySeconds"`
 }
 
 // Check will ensure that the config is sane and return an error when it is not
@@ -250,6 +263,15 @@ func (d *DeployConfig) Check() error {
 	}
 	if len(strings.Split(d.ColosseumSegmentsLengths, ","))%2 > 0 {
 		return fmt.Errorf("%w: ColosseumSegmentsLengths length cannot be an odd number", ErrInvalidDeployConfig)
+	}
+	if d.VotingPeriodBlocks == 0 {
+		return fmt.Errorf("%w: VotingPeriodBlocks cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ProposalThresholdTokens == 0 {
+		return fmt.Errorf("%w: ProposalThresholdTokens cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.VotesQuorumFractionPercent > 100 {
+		return fmt.Errorf("%w: VotesQuorumFractionPercent cannot be greater than 100", ErrInvalidDeployConfig)
 	}
 	return nil
 }
