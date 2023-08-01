@@ -418,7 +418,6 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 				config.ColosseumDummyHash,
 				uint642Big(config.ColosseumMaxTxs),
 				parseSegsLengthsConfig(config.ColosseumSegmentsLengths),
-				predeploys.DevSystemConfigAddr,
 			},
 		},
 		{

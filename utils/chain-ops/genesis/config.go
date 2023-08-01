@@ -232,6 +232,9 @@ func (d *DeployConfig) Check() error {
 	if d.L2GenesisBlockBaseFeePerGas == nil {
 		return fmt.Errorf("%w: L2 genesis block base fee per gas cannot be nil", ErrInvalidDeployConfig)
 	}
+	if d.ColosseumCreationPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ColosseumCreationPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
 	if d.ColosseumBisectionTimeout == 0 {
 		return fmt.Errorf("%w: ColosseumBisectionTimeout cannot be 0", ErrInvalidDeployConfig)
 	}
