@@ -170,9 +170,9 @@ const check = {
     const MIN_GAS_CALLDATA_OVERHEAD =
       await L2CrossDomainMessenger.MIN_GAS_CALLDATA_OVERHEAD()
     console.log(`  - MIN_GAS_CALLDATA_OVERHEAD: ${MIN_GAS_CALLDATA_OVERHEAD}`)
-    const MIN_GAS_CONSTANT_OVERHEAD =
-      await L2CrossDomainMessenger.MIN_GAS_CONSTANT_OVERHEAD()
-    console.log(`  - MIN_GAS_CONSTANT_OVERHEAD: ${MIN_GAS_CONSTANT_OVERHEAD}`)
+    const RELAY_CONSTANT_OVERHEAD =
+      await L2CrossDomainMessenger.RELAY_CONSTANT_OVERHEAD()
+    console.log(`  - RELAY_CONSTANT_OVERHEAD: ${RELAY_CONSTANT_OVERHEAD}`)
     const MIN_GAS_DYNAMIC_OVERHEAD_DENOMINATOR =
       await L2CrossDomainMessenger.MIN_GAS_DYNAMIC_OVERHEAD_DENOMINATOR()
     console.log(
@@ -183,6 +183,14 @@ const check = {
     console.log(
       `  - MIN_GAS_DYNAMIC_OVERHEAD_NUMERATOR: ${MIN_GAS_DYNAMIC_OVERHEAD_NUMERATOR}`
     )
+    const RELAY_CALL_OVERHEAD =
+      await L2CrossDomainMessenger.RELAY_CALL_OVERHEAD()
+    console.log(`  - RELAY_CALL_OVERHEAD: ${RELAY_CALL_OVERHEAD}`)
+    const RELAY_RESERVED_GAS = await L2CrossDomainMessenger.RELAY_RESERVED_GAS()
+    console.log(`  - RELAY_RESERVED_GAS: ${RELAY_RESERVED_GAS}`)
+    const RELAY_GAS_CHECK_BUFFER =
+      await L2CrossDomainMessenger.RELAY_GAS_CHECK_BUFFER()
+    console.log(`  - RELAY_GAS_CHECK_BUFFER: ${RELAY_GAS_CHECK_BUFFER}`)
 
     const slot = await signer.provider.getStorageAt(
       predeploys.L2CrossDomainMessenger,
@@ -239,7 +247,10 @@ const check = {
   // ValidatorRewardVault
   // - check version
   // - check RECIPIENT
-  ValidatorRewardVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+  ValidatorRewardVault: async (
+    hre: HardhatRuntimeEnvironment,
+    signer: Signer
+  ) => {
     const ValidatorRewardVault = await hre.ethers.getContractAt(
       'ValidatorRewardVault',
       predeploys.ValidatorRewardVault,
@@ -252,7 +263,8 @@ const check = {
     assert(RECIPIENT !== hre.ethers.constants.AddressZero)
     yell(`  - RECIPIENT: ${RECIPIENT}`)
 
-    const MIN_WITHDRAWAL_AMOUNT = await ValidatorRewardVault.MIN_WITHDRAWAL_AMOUNT()
+    const MIN_WITHDRAWAL_AMOUNT =
+      await ValidatorRewardVault.MIN_WITHDRAWAL_AMOUNT()
     console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
 
     await checkProxy(hre, 'ValidatorRewardVault', signer.provider)
@@ -405,7 +417,10 @@ const check = {
   // - check version
   // - check MIN_WITHDRAWAL_AMOUNT
   // - check RECIPIENT
-  ProposerRewardVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+  ProposerRewardVault: async (
+    hre: HardhatRuntimeEnvironment,
+    signer: Signer
+  ) => {
     const ProposerRewardVault = await hre.ethers.getContractAt(
       'ProposerRewardVault',
       predeploys.ProposerRewardVault,
@@ -414,7 +429,8 @@ const check = {
 
     await assertSemver(ProposerRewardVault, 'ProposerRewardVault')
 
-    const MIN_WITHDRAWAL_AMOUNT = await ProposerRewardVault.MIN_WITHDRAWAL_AMOUNT()
+    const MIN_WITHDRAWAL_AMOUNT =
+      await ProposerRewardVault.MIN_WITHDRAWAL_AMOUNT()
     console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
 
     const RECIPIENT = await ProposerRewardVault.RECIPIENT()

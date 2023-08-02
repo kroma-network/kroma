@@ -304,7 +304,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
         );
 
         // Designate the withdrawalHash as proven by storing the `outputRoot`, `timestamp`, and
-        // `l2BlockNumber` in the `provenWithdrawals` mapping. A `withdrawalHash` can only be
+        // `l2OutputIndex` in the `provenWithdrawals` mapping. A `withdrawalHash` can only be
         // proven once unless it is submitted again with a different outputRoot.
         provenWithdrawals[withdrawalHash] = ProvenWithdrawal({
             outputRoot: outputRoot,
