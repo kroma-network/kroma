@@ -75,3 +75,7 @@ func NewSimpleTxOpts(ctx context.Context, from common.Address, signerFn crypto.S
 		NoSend:  true,
 	}
 }
+
+func NewSimpleWatchOpts(ctx context.Context) *bind.WatchOpts {
+	return &bind.WatchOpts{Context: ctx}
+}

@@ -20,6 +20,11 @@ contract Colosseum is Initializable, Semver {
     uint8 internal constant TURN_INIT = 1;
 
     /**
+     * @notice The constant value for the delete output root.
+     */
+    bytes32 internal constant DELETED_OUTPUT_ROOT = bytes32(0);
+
+    /**
      * @notice Enum of the challenge status.
      *
      * See the https://github.com/kroma-network/kroma/blob/dev/specs/challenge.md#state-diagram
@@ -33,12 +38,11 @@ contract Colosseum is Initializable, Semver {
      *  4) CHALLENGER_TURN    → bisect()                            → ASSERTER_TURN
      *  5) CHALLENGER_TURN    → when isAbleToBisect() returns false → READY_TO_PROVE
      *  6) CHALLENGER_TURN    → on bisection timeout                → CHALLENGER_TIMEOUT
-     *  7) ASSERTER_TIMEOUT   → when proveFault() succeeds          → PROVEN
+     *  7) ASSERTER_TIMEOUT   → when proveFault() succeeds          → NONE
      *  8) ASSERTER_TIMEOUT   → on proving timeout                  → CHALLENGER_TIMEOUT
-     *  9) READY_TO_PROVE     → when proveFault() succeeds          → PROVEN
+     *  9) READY_TO_PROVE     → when proveFault() succeeds          → NONE
      * 10) READY_TO_PROVE     → on proving timeout                  → CHALLENGER_TIMEOUT
      * 11) CHALLENGER_TIMEOUT → challengerTimeout()                 → NONE
-     * 12) PROVEN             → on approveChallenge() succeeds      → APPROVED
      */
     enum ChallengeStatus {
         NONE,
@@ -46,9 +50,7 @@ contract Colosseum is Initializable, Semver {
         ASSERTER_TURN,
         CHALLENGER_TIMEOUT,
         ASSERTER_TIMEOUT,
-        READY_TO_PROVE,
-        PROVEN,
-        APPROVED
+        READY_TO_PROVE
     }
 
     /**
@@ -60,6 +62,11 @@ contract Colosseum is Initializable, Semver {
      * @notice Address of the ZKVerifier.
      */
     ZKVerifier public immutable ZK_VERIFIER;
+
+    /**
+     * @notice The period seconds for which challenges can be created per each output.
+     */
+    uint256 public immutable CREATION_PERIOD_SECONDS;
 
     /**
      * @notice Timeout seconds for the bisection.
@@ -120,7 +127,7 @@ contract Colosseum is Initializable, Semver {
     /**
      * @notice A mapping of the challenge.
      */
-    mapping(uint256 => Types.Challenge) public challenges;
+    mapping(uint256 => mapping(address => Types.Challenge)) public challenges;
 
     /**
      * @notice A mapping indicating whether a public input is verified or not.
@@ -146,34 +153,80 @@ contract Colosseum is Initializable, Semver {
      * @notice Emitted when segments are bisected.
      *
      * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
      * @param turn        The current turn.
      * @param timestamp   The timestamp when bisected.
      */
-    event Bisected(uint256 indexed outputIndex, uint8 turn, uint256 timestamp);
+    event Bisected(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        uint8 turn,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Emitted when it is ready to be proved.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     */
+    event ReadyToProve(uint256 indexed outputIndex, address indexed challenger);
 
     /**
      * @notice Emitted when proven fault.
      *
-     * @param outputIndex   Index of the L2 checkpoint output.
-     * @param newOutputRoot Replaced L2 output root.
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param timestamp   The timestamp when proven.
      */
-    event Proven(uint256 indexed outputIndex, bytes32 newOutputRoot);
+    event Proven(uint256 indexed outputIndex, address indexed challenger, uint256 timestamp);
 
     /**
-     * @notice Emitted when challenge is approved.
+     * @notice Emitted when challenge is dismissed.
      *
      * @param outputIndex Index of the L2 checkpoint output.
-     * @param timestamp   The timestamp when approved.
+     * @param challenger  Address of the challenger.
+     * @param timestamp   The timestamp when dismissed.
      */
-    event Approved(uint256 indexed outputIndex, uint256 timestamp);
+    event ChallengeDismissed(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        uint256 timestamp
+    );
 
     /**
-     * @notice Emitted when challenge is deleted.
+     * @notice Emitted when challenge is canceled.
      *
      * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param timestamp   The timestamp when canceled.
+     */
+    event ChallengeCanceled(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Emitted when challenger timed out.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
      * @param timestamp   The timestamp when deleted.
      */
-    event Deleted(uint256 indexed outputIndex, uint256 timestamp);
+    event ChallengerTimedOut(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice A modifier that only allows the security council to call
+     */
+    modifier onlySecurityCouncil() {
+        require(msg.sender == SECURITY_COUNCIL, "Colosseum: sender is not the security council");
+        _;
+    }
 
     /**
      * @notice Reverts if the output of given index is already finalized.
@@ -191,21 +244,23 @@ contract Colosseum is Initializable, Semver {
     /**
      * @custom:semver 0.1.0
      *
-     * @param _l2Oracle           Address of the L2OutputOracle contract.
-     * @param _zkVerifier         Address of the ZKVerifier contract.
-     * @param _submissionInterval Interval in blocks at which checkpoints must be submitted.
-     * @param _bisectionTimeout   Timeout seconds for the bisection.
-     * @param _provingTimeout     Timeout seconds for the proving.
-     * @param _dummyHash          Dummy hash.
-     * @param _maxTxs             Number of max transactions per block.
-     * @param _segmentsLengths    Lengths of segments.
-     * @param _securityCouncil    Address of security council.
-     * @param _zkMerkleTrie       Address of zk merkle trie.
+     * @param _l2Oracle              Address of the L2OutputOracle contract.
+     * @param _zkVerifier            Address of the ZKVerifier contract.
+     * @param _submissionInterval    Interval in blocks at which checkpoints must be submitted.
+     * @param _creationPeriodSeconds Seconds The period seconds for which challenges can be created per each output.
+     * @param _bisectionTimeout      Timeout seconds for the bisection.
+     * @param _provingTimeout        Timeout seconds for the proving.
+     * @param _dummyHash             Dummy hash.
+     * @param _maxTxs                Number of max transactions per block.
+     * @param _segmentsLengths       Lengths of segments.
+     * @param _securityCouncil       Address of security council.
+     * @param _zkMerkleTrie          Address of zk merkle trie.
      */
     constructor(
         L2OutputOracle _l2Oracle,
         ZKVerifier _zkVerifier,
         uint256 _submissionInterval,
+        uint256 _creationPeriodSeconds,
         uint256 _bisectionTimeout,
         uint256 _provingTimeout,
         bytes32 _dummyHash,
@@ -216,6 +271,7 @@ contract Colosseum is Initializable, Semver {
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2Oracle;
         ZK_VERIFIER = _zkVerifier;
+        CREATION_PERIOD_SECONDS = _creationPeriodSeconds;
         BISECTION_TIMEOUT = _bisectionTimeout;
         PROVING_TIMEOUT = _provingTimeout;
         L2_ORACLE_SUBMISSION_INTERVAL = _submissionInterval;
@@ -245,28 +301,45 @@ contract Colosseum is Initializable, Semver {
     {
         require(_outputIndex > 0, "Colosseum: challenge for genesis output is not allowed");
 
-        Types.Challenge storage challenge = challenges[_outputIndex];
+        Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
 
-        require(
-            !_isInProgress(challenge),
-            "Colosseum: the challenge for given output index is already in progress or approved."
-        );
+        if (challenge.turn >= TURN_INIT) {
+            ChallengeStatus status = _challengeStatus(challenge);
+            require(
+                status == ChallengeStatus.CHALLENGER_TIMEOUT,
+                "Colosseum: the challenge for given output index is already in progress"
+            );
+
+            _challengerTimeout(_outputIndex, msg.sender);
+        }
 
         Types.CheckpointOutput memory targetOutput = L2_ORACLE.getL2Output(_outputIndex);
+
+        require(
+            targetOutput.timestamp + CREATION_PERIOD_SECONDS >= block.timestamp,
+            "Colosseum: cannot create a challenge after the creation period"
+        );
+
+        require(
+            targetOutput.outputRoot != DELETED_OUTPUT_ROOT,
+            "Colosseum: challenge for deleted output is not allowed"
+        );
 
         require(
             msg.sender != targetOutput.submitter,
             "Colosseum: the asserter and challenger must be different"
         );
 
-        // TODO(seolaoh): We do not check if the first segment is matched with previous output root
-        // when creating challenge currently. This is because a delay attack is possible that takes advantage
-        // of the fact that only one challenge is possible on one output. Not checking this logic is fine
-        // thanks to security council, but it needs to be improved in other ways in the future.
-        // Related issue: https://github.com/kroma-network/kroma/issues/54
-        _validateSegments(TURN_INIT, _segments[0], targetOutput.outputRoot, _segments);
+        Types.CheckpointOutput memory prevOutput = L2_ORACLE.getL2Output(_outputIndex - 1);
 
-        L2_ORACLE.VALIDATOR_POOL().increaseBond(msg.sender, _outputIndex);
+        // If the previous output has been deleted, the first segment will not be compared with the previous output.
+        if (prevOutput.outputRoot == DELETED_OUTPUT_ROOT) {
+            _validateSegments(TURN_INIT, _segments[0], targetOutput.outputRoot, _segments);
+        } else {
+            _validateSegments(TURN_INIT, prevOutput.outputRoot, targetOutput.outputRoot, _segments);
+        }
+
+        L2_ORACLE.VALIDATOR_POOL().addPendingBond(_outputIndex, msg.sender);
 
         _updateSegments(
             challenge,
@@ -286,18 +359,30 @@ contract Colosseum is Initializable, Semver {
      * @notice Selects an invalid section and submit segments of that section.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
      * @param _pos         Position of the last valid segment.
-     * @param _segments    Array of the segment. A segment is the first output root of a specific
-     *                     range.
+     * @param _segments    Array of the segment. A segment is the first output root of a specific range.
      */
     function bisect(
         uint256 _outputIndex,
+        address _challenger,
         uint256 _pos,
         bytes32[] calldata _segments
     ) external outputNotFinalized(_outputIndex) {
-        Types.Challenge storage challenge = challenges[_outputIndex];
+        Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
+        ChallengeStatus status = _challengeStatus(challenge);
 
-        _validateTurn(challenge);
+        if (_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status)) {
+            return;
+        }
+
+        address expectedSender;
+        if (status == ChallengeStatus.CHALLENGER_TURN) {
+            expectedSender = challenge.challenger;
+        } else if (status == ChallengeStatus.ASSERTER_TURN) {
+            expectedSender = challenge.asserter;
+        }
+        require(msg.sender == expectedSender, "Colosseum: not your turn");
 
         uint8 newTurn = challenge.turn + 1;
 
@@ -316,7 +401,11 @@ contract Colosseum is Initializable, Semver {
         challenge.turn = newTurn;
         _updateTimeout(challenge);
 
-        emit Bisected(_outputIndex, newTurn, block.timestamp);
+        emit Bisected(_outputIndex, _challenger, newTurn, block.timestamp);
+
+        if (!_isAbleToBisect(challenge)) {
+            emit ReadyToProve(_outputIndex, _challenger);
+        }
     }
 
     /**
@@ -324,7 +413,6 @@ contract Colosseum is Initializable, Semver {
      *         This function can only be called in the READY_TO_PROVE and ASSERTER_TIMEOUT states.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
-     * @param _outputRoot  The L2 output root to replace the existing one.
      * @param _pos         Position of the last valid segment.
      * @param _proof       Proof for public input validation.
      * @param _zkproof     Halo2 proofs composed of points and scalars.
@@ -333,18 +421,31 @@ contract Colosseum is Initializable, Semver {
      */
     function proveFault(
         uint256 _outputIndex,
-        bytes32 _outputRoot,
         uint256 _pos,
         Types.PublicInputProof calldata _proof,
         uint256[] calldata _zkproof,
         uint256[] calldata _pair
     ) external outputNotFinalized(_outputIndex) {
-        Types.Challenge storage challenge = challenges[_outputIndex];
+        Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
+        ChallengeStatus status = _challengeStatus(challenge);
 
-        _validateTurn(challenge);
+        if (_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status)) {
+            return;
+        }
+
+        require(
+            status == ChallengeStatus.READY_TO_PROVE || status == ChallengeStatus.ASSERTER_TIMEOUT,
+            "Colosseum: impossible to prove the fault in current status"
+        );
+
+        bytes32 srcOutputRoot = Hashing.hashOutputRootProof(_proof.srcOutputRootProof);
+        bytes32 dstOutputRoot = Hashing.hashOutputRootProof(_proof.dstOutputRootProof);
+
         _validateOutputRootProof(
             _pos,
             challenge,
+            srcOutputRoot,
+            dstOutputRoot,
             _proof.srcOutputRootProof,
             _proof.dstOutputRootProof
         );
@@ -369,96 +470,125 @@ contract Colosseum is Initializable, Semver {
 
         require(
             !verifiedPublicInputs[publicInputHash],
-            "Colosseum: public input that has already been validated cannot be used again."
+            "Colosseum: public input that has already been validated cannot be used again"
         );
 
         // TODO(pangssu): waiting for the new Verifier.sol to complete.
-        // require(ZK_VERIFIER.verify(_zkproof, _pair, publicInputHash), "Colosseum: invalid proof");
+        // require(ZK_VERIFIER.verify(_zkproof, _pair), "Colosseum: invalid proof");
+        emit Proven(_outputIndex, msg.sender, block.timestamp);
 
-        verifiedPublicInputs[publicInputHash] = true;
-        challenge.outputRoot = _outputRoot;
+        // Scope to call the security council, to avoid stack too deep.
+        {
+            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(_outputIndex);
 
-        _callSecurityCouncil(_outputIndex, _outputRoot);
-    }
+            bytes memory callbackData = abi.encodeWithSelector(
+                this.dismissChallenge.selector,
+                _outputIndex,
+                msg.sender,
+                challenge.asserter,
+                output.outputRoot
+            );
 
-    /**
-     * @notice Deletes the challenge because the challenger timed out.
-     *         The winner is the asserter.
-     *
-     * @param _outputIndex Index of the L2 checkpoint output.
-     */
-    function challengerTimeout(uint256 _outputIndex) external {
-        Types.Challenge storage challenge = challenges[_outputIndex];
-        _validateTurn(challenge);
-
-        delete challenges[_outputIndex];
-        emit Deleted(_outputIndex, block.timestamp);
-    }
-
-    /**
-     * @notice Approves the challenge to replace output, and cleans challenge storage slots.
-     *
-     * @param _outputIndex Index of the L2 checkpoint output.
-     */
-    function approveChallenge(uint256 _outputIndex) external {
-        require(msg.sender == SECURITY_COUNCIL, "Colosseum: sender is not the security council");
-
-        Types.Challenge storage challenge = challenges[_outputIndex];
-
-        require(
-            _challengeStatus(challenge) == ChallengeStatus.PROVEN,
-            "Colosseum: this challenge is not proven"
-        );
-
-        L2_ORACLE.replaceL2Output(_outputIndex, challenge.outputRoot, challenge.challenger);
-
-        delete challenges[_outputIndex];
-        challenges[_outputIndex].approved = true;
-        emit Approved(_outputIndex, block.timestamp);
-    }
-
-    /**
-     * @notice Calls SecurityCouncil to request validation of output to replace with.
-     *
-     * @param _outputIndex Index of the L2 checkpoint output.
-     * @param _outputRoot  The L2 output root to replace the existing one.
-     */
-    function _callSecurityCouncil(uint256 _outputIndex, bytes32 _outputRoot) private {
-        // request outputRoot validation to security council
-        SecurityCouncil(SECURITY_COUNCIL).requestValidation(
-            _outputRoot,
-            uint128(_outputIndex * L2_ORACLE_SUBMISSION_INTERVAL),
-            abi.encodeWithSignature("approveChallenge(uint256)", _outputIndex)
-        );
-        emit Proven(_outputIndex, _outputRoot);
-    }
-
-    /**
-     * @notice Reverts if it's not sender's turn.
-     *
-     * @param _challenge The challenge data.
-     */
-    function _validateTurn(Types.Challenge storage _challenge) private view {
-        ChallengeStatus status = _challengeStatus(_challenge);
-
-        address expectedSender;
-        if (
-            status == ChallengeStatus.CHALLENGER_TURN ||
-            status == ChallengeStatus.READY_TO_PROVE ||
-            status == ChallengeStatus.ASSERTER_TIMEOUT
-        ) {
-            expectedSender = _challenge.challenger;
-        } else if (
-            status == ChallengeStatus.ASSERTER_TURN || status == ChallengeStatus.CHALLENGER_TIMEOUT
-        ) {
-            expectedSender = _challenge.asserter;
-        } else {
-            revert("Colosseum: unable to be called");
+            // Request outputRoot validation to security council
+            SecurityCouncil(SECURITY_COUNCIL).requestValidation(
+                output.outputRoot,
+                output.l2BlockNumber,
+                callbackData
+            );
         }
 
-        // This should not be invoked via a message call, as it may alter the semantic of msg.sender,
-        // which is used for turn validation.
-        require(expectedSender == msg.sender, "Colosseum: not your turn");
+        verifiedPublicInputs[publicInputHash] = true;
+        delete challenges[_outputIndex][msg.sender];
+
+        // Delete output root.
+        L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, msg.sender);
+        // The challenger's bond is also included in the bond for that output.
+        L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, msg.sender);
+    }
+
+    /**
+     * @notice Calls a private function that deletes the challenge because the challenger has timed out.
+     *         Reverts if the challenger hasn't timed out.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     */
+    function challengerTimeout(uint256 _outputIndex, address _challenger)
+        external
+        outputNotFinalized(_outputIndex)
+    {
+        Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
+        ChallengeStatus status = _challengeStatus(challenge);
+
+        require(
+            status == ChallengeStatus.CHALLENGER_TIMEOUT,
+            "Colosseum: can only be called if the challenger is in timout"
+        );
+
+        _challengerTimeout(_outputIndex, _challenger);
+    }
+
+    /**
+     * @notice Cancels the challenge.
+     *         Reverts if is not possible to cancel the sender's challenge for the given output index.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     */
+    function cancelChallenge(uint256 _outputIndex) external {
+        Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
+        ChallengeStatus status = _challengeStatus(challenge);
+
+        require(status != ChallengeStatus.NONE, "Colosseum: the challenge does not exist");
+
+        require(
+            _cancelIfOutputDeleted(_outputIndex, challenge.challenger, status),
+            "Colosseum: challenge cannot be cancelled"
+        );
+    }
+
+    /**
+     * @notice Dismisses the challenge and rollback l2 output.
+     *         This function can only be called by Security Council contract.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     * @param _asserter    Address of the asserter.
+     * @param _outputRoot  The L2 output root to rollback.
+     */
+    function dismissChallenge(
+        uint256 _outputIndex,
+        address _challenger,
+        address _asserter,
+        bytes32 _outputRoot
+    ) external onlySecurityCouncil {
+        require(
+            _outputRoot != DELETED_OUTPUT_ROOT,
+            "Colosseum: cannot rollback output to zero hash"
+        );
+        require(
+            L2_ORACLE.getL2Output(_outputIndex).outputRoot == DELETED_OUTPUT_ROOT,
+            "Colosseum: only can rollback if the output has been deleted"
+        );
+
+        // Rollback output root.
+        L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, _asserter);
+
+        emit ChallengeDismissed(_outputIndex, _challenger, block.timestamp);
+    }
+
+    /**
+     * @notice Deletes the L2 output root forcefully by the Security Council
+     *         when zk-proving is not possible due to an undeniable bug.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     */
+    function forceDeleteOutput(uint256 _outputIndex)
+        external
+        onlySecurityCouncil
+        outputNotFinalized(_outputIndex)
+    {
+        // Delete output root.
+        L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, SECURITY_COUNCIL);
     }
 
     /**
@@ -527,7 +657,7 @@ contract Colosseum is Initializable, Semver {
         // invalidity proof at the last turn.
         require(
             _segmentsLengths.length % 2 == 0,
-            "Colosseum: length of segments lengths cannot be odd number."
+            "Colosseum: length of segments lengths cannot be odd number"
         );
 
         uint256 sum = 1;
@@ -583,27 +713,29 @@ contract Colosseum is Initializable, Semver {
      *
      * @param _pos                Position of the last valid segment.
      * @param _challenge          The challenge data.
+     * @param _srcOutputRoot      The source output root.
+     * @param _dstOutputRoot      The destination output root.
      * @param _srcOutputRootProof Proof of the source output root.
      * @param _dstOutputRootProof Proof of the destination output root.
      */
     function _validateOutputRootProof(
         uint256 _pos,
         Types.Challenge storage _challenge,
+        bytes32 _srcOutputRoot,
+        bytes32 _dstOutputRoot,
         Types.OutputRootProof calldata _srcOutputRootProof,
         Types.OutputRootProof calldata _dstOutputRootProof
     ) private view {
-        bytes32 srcOutputRoot = Hashing.hashOutputRootProof(_srcOutputRootProof);
-        bytes32 dstOutputRoot = Hashing.hashOutputRootProof(_dstOutputRootProof);
+        require(
+            _challenge.segments[_pos] == _srcOutputRoot,
+            "Colosseum: the source segment must be matched"
+        );
 
         // If asserter timeout, the bisection of segments may not have ended.
         // Therefore, segment validation only proceeds when bisection is not possible.
         if (!_isAbleToBisect(_challenge)) {
             require(
-                _challenge.segments[_pos] == srcOutputRoot,
-                "Colosseum: the source segment must be matched"
-            );
-            require(
-                _challenge.segments[_pos + 1] != dstOutputRoot,
+                _challenge.segments[_pos + 1] != _dstOutputRoot,
                 "Colosseum: the destination segment must not be matched"
             );
         }
@@ -640,6 +772,58 @@ contract Colosseum is Initializable, Semver {
             _srcOutputRootProof.nextBlockHash == blockHash,
             "Colosseum: the block hash must be matched"
         );
+    }
+
+    /**
+     * @notice Cancels the challenge if the output root to be challenged has already been deleted.
+     *         If the output root has been deleted, delete the challenge and refund the challenger's pending bond.
+     *         Reverts when challenger is timed out or called by non-challenger.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     * @param _status      Current status of the challenge.
+     *
+     * @return Whether the challenge was canceled.
+     */
+    function _cancelIfOutputDeleted(
+        uint256 _outputIndex,
+        address _challenger,
+        ChallengeStatus _status
+    ) private returns (bool) {
+        bytes32 outputRoot = L2_ORACLE.getL2Output(_outputIndex).outputRoot;
+        if (outputRoot != DELETED_OUTPUT_ROOT) {
+            return false;
+        }
+
+        // If the output is deleted, the asserter does not need to do anything further.
+        require(msg.sender == _challenger, "Colosseum: sender is not a challenger");
+
+        require(
+            _status != ChallengeStatus.CHALLENGER_TIMEOUT,
+            "Colosseum: challenge cannot be cancelled if challenger timed out"
+        );
+
+        delete challenges[_outputIndex][msg.sender];
+        emit ChallengeCanceled(_outputIndex, msg.sender, block.timestamp);
+
+        L2_ORACLE.VALIDATOR_POOL().refundPendingBond(_outputIndex, msg.sender);
+
+        return true;
+    }
+
+    /**
+     * @notice Deletes the challenge because the challenger timed out.
+     *         The winner is the asserter, and challenger loses the bond.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     */
+    function _challengerTimeout(uint256 _outputIndex, address _challenger) private {
+        delete challenges[_outputIndex][_challenger];
+        emit ChallengerTimedOut(_outputIndex, _challenger, block.timestamp);
+
+        // Because the challenger lost, the challenger's bond is included in the bond for that output.
+        L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, _challenger);
     }
 
     /**
@@ -732,12 +916,8 @@ contract Colosseum is Initializable, Semver {
         view
         returns (ChallengeStatus)
     {
-        if (_challenge.approved) {
-            return ChallengeStatus.APPROVED;
-        } else if (_challenge.turn < TURN_INIT) {
+        if (_challenge.turn < TURN_INIT) {
             return ChallengeStatus.NONE;
-        } else if (_challenge.outputRoot != bytes32(0)) {
-            return ChallengeStatus.PROVEN;
         }
 
         bool isChallengerTurn = _isNextForChallenger(_challenge.turn);
@@ -768,43 +948,35 @@ contract Colosseum is Initializable, Semver {
     }
 
     /**
-     * @notice Determines whether the challenge corresponding to the given challenge is in progress.
-     *         Note that the APPROVED state is also considered ongoing to prevent approved challenges
-     *         from being reopened.
-     *
-     * @param _challenge The challenge data.
-     *
-     * @return Whether the challenge is in progress.
-     */
-    function _isInProgress(Types.Challenge storage _challenge) private view returns (bool) {
-        ChallengeStatus status = _challengeStatus(_challenge);
-
-        // If the challenger turn times out, there is no motivation for the asserter
-        // to progress the challenge. The asserter only pays gas. So the challenger
-        // timeout status is considered to be closed, too.
-        return status != ChallengeStatus.NONE && status != ChallengeStatus.CHALLENGER_TIMEOUT;
-    }
-
-    /**
      * @notice Returns the challenge corresponding to the given L2 output index.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
      *
      * @return The challenge data.
      */
-    function getChallenge(uint256 _outputIndex) external view returns (Types.Challenge memory) {
-        return challenges[_outputIndex];
+    function getChallenge(uint256 _outputIndex, address _challenger)
+        external
+        view
+        returns (Types.Challenge memory)
+    {
+        return challenges[_outputIndex][_challenger];
     }
 
     /**
      * @notice Returns the challenge status corresponding to the given L2 output index.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
      *
      * @return The status of the challenge.
      */
-    function getStatus(uint256 _outputIndex) external view returns (ChallengeStatus) {
-        Types.Challenge storage challenge = challenges[_outputIndex];
+    function getStatus(uint256 _outputIndex, address _challenger)
+        external
+        view
+        returns (ChallengeStatus)
+    {
+        Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
         return _challengeStatus(challenge);
     }
 
@@ -825,38 +997,24 @@ contract Colosseum is Initializable, Semver {
      *         L2 output index.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
      *
      * @return Whether bisection is possible.
      */
-    function isAbleToBisect(uint256 _outputIndex) public view returns (bool) {
-        Types.Challenge storage challenge = challenges[_outputIndex];
+    function isAbleToBisect(uint256 _outputIndex, address _challenger) public view returns (bool) {
+        Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
         return _isAbleToBisect(challenge);
     }
 
     /**
-     * @notice Determines whether the challenge corresponding to the given L2 output index is in
-     *         progress.
+     * @notice Determines whether current timestamp is in challenge creation period corresponding to the given L2 output index.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      *
-     * @return Whether the challenge is in progress.
+     * @return Whether current timestamp is in challenge creation period.
      */
-    function isInProgress(uint256 _outputIndex) public view returns (bool) {
-        Types.Challenge storage challenge = challenges[_outputIndex];
-        return _isInProgress(challenge);
-    }
-
-    /**
-     * @notice Determines whether the given address is a participant in the challenge corresponding
-     *         to the given output index.
-     *
-     * @param _outputIndex Index of the L2 checkpoint output.
-     * @param _address     Address of a participant.
-     *
-     * @return Whether a given address is a participant.
-     */
-    function isChallengeRelated(uint256 _outputIndex, address _address) public view returns (bool) {
-        Types.Challenge storage challenge = challenges[_outputIndex];
-        return challenge.asserter == _address || challenge.challenger == _address;
+    function isInCreationPeriod(uint256 _outputIndex) external view returns (bool) {
+        Types.CheckpointOutput memory targetOutput = L2_ORACLE.getL2Output(_outputIndex);
+        return targetOutput.timestamp + CREATION_PERIOD_SECONDS >= block.timestamp;
     }
 }

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -20,7 +19,7 @@ import (
 	"github.com/kroma-network/kroma/utils"
 )
 
-// Guardian is responsible for validating outputs
+// Guardian is responsible for validating outputs.
 type Guardian struct {
 	log    log.Logger
 	cfg    Config
@@ -35,8 +34,8 @@ type Guardian struct {
 	validationRequestedChan chan *bindings.SecurityCouncilValidationRequested
 }
 
-// NewGuardian creates a new Guardian
-func NewGuardian(ctx context.Context, cfg Config, l log.Logger) (*Guardian, error) {
+// NewGuardian creates a new Guardian.
+func NewGuardian(cfg Config, l log.Logger) (*Guardian, error) {
 	securityCouncilContract, err := bindings.NewSecurityCouncil(cfg.SecurityCouncilAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
@@ -58,26 +57,22 @@ func NewGuardian(ctx context.Context, cfg Config, l log.Logger) (*Guardian, erro
 
 func (g *Guardian) Start(ctx context.Context) error {
 	g.ctx, g.cancel = context.WithCancel(ctx)
-	g.log.Info("starting guardian")
 
-	watchOpts := &bind.WatchOpts{Context: g.ctx, Start: nil}
-
+	watchOpts := utils.NewSimpleWatchOpts(g.ctx)
 	g.securityCouncilSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			g.log.Warn("resubscribing after failed SecurityCouncilValidationRequested event", "err", err)
+			g.log.Warn("resubscribing after failed ValidationRequested event", "err", err)
 		}
 		return g.securityCouncilContract.WatchValidationRequested(watchOpts, g.validationRequestedChan, nil)
 	})
 
 	g.wg.Add(1)
-	go g.handleValidationRequested(g.ctx)
+	go g.handleValidationRequested()
 
 	return nil
 }
 
 func (g *Guardian) Stop() error {
-	g.log.Info("stopping guardian")
-
 	if g.securityCouncilSub != nil {
 		g.securityCouncilSub.Unsubscribe()
 	}
@@ -89,20 +84,21 @@ func (g *Guardian) Stop() error {
 	return nil
 }
 
-func (g *Guardian) handleValidationRequested(ctx context.Context) {
+func (g *Guardian) handleValidationRequested() {
 	defer g.wg.Done()
+
 	for {
 		select {
 		case ev := <-g.validationRequestedChan:
 			g.wg.Add(1)
-			go g.processOutputValidation(ctx, ev)
-		case <-ctx.Done():
+			go g.processOutputValidation(ev)
+		case <-g.ctx.Done():
 			return
 		}
 	}
 }
 
-func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.SecurityCouncilValidationRequested) {
+func (g *Guardian) processOutputValidation(event *bindings.SecurityCouncilValidationRequested) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer func() {
 		ticker.Stop()
@@ -111,10 +107,10 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 
 	for ; ; <-ticker.C {
 		select {
-		case <-ctx.Done():
+		case <-g.ctx.Done():
 			return
 		default:
-			err := g.tryConfirmTransaction(ctx, event)
+			err := g.tryConfirmTransaction(event)
 			if err != nil {
 				g.log.Error(err.Error())
 				continue
@@ -124,49 +120,44 @@ func (g *Guardian) processOutputValidation(ctx context.Context, event *bindings.
 	}
 }
 
-func (g *Guardian) tryConfirmTransaction(ctx context.Context, event *bindings.SecurityCouncilValidationRequested) error {
-	needConfirm, err := g.checkConfirmCondition(ctx, event.TransactionId, event.L2BlockNumber)
+func (g *Guardian) tryConfirmTransaction(event *bindings.SecurityCouncilValidationRequested) error {
+	needConfirm, err := g.checkConfirmCondition(event.TransactionId, event.L2BlockNumber)
 	if err != nil {
-		// error occurred. go to retry.
-		return err
+		return fmt.Errorf("failed to check confirm condition. (transactionId: %d): %w", event.TransactionId.Int64(), err)
 	}
 	if !needConfirm {
 		return nil
 	}
 
-	isValid, err := g.ValidateL2Output(ctx, event.OutputRoot, event.L2BlockNumber.Uint64())
+	isEqual, err := g.ValidateL2Output(g.ctx, event.OutputRoot, event.L2BlockNumber.Uint64())
 	if err != nil {
-		return fmt.Errorf("failed to verify the output to be replaced. (transactionId: %d): %w", event.TransactionId.Int64(), err)
+		return fmt.Errorf("failed to validate the deleted output. (transactionId: %d): %w", event.TransactionId.Int64(), err)
 	}
-	if isValid {
-		g.log.Info("the output to be replaced is valid")
+	if isEqual {
+		g.log.Info("the deleted output is equal to guardian's output but deleted incorrectly, so confirm to dismiss challenge")
 
-		cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-		tx, err := g.ConfirmTransaction(cCtx, event.TransactionId)
-		cCancel()
+		tx, err := g.ConfirmTransaction(g.ctx, event.TransactionId)
 		if err != nil {
 			return fmt.Errorf("failed to create confirm tx. (transactionId: %d): %w", event.TransactionId.Int64(), err)
 		}
-		if tx == nil {
-			return nil
-		}
 
-		if txResponse := g.cfg.TxManager.SendTransaction(ctx, tx); txResponse.Err != nil {
+		if txResponse := g.cfg.TxManager.SendTransaction(g.ctx, tx); txResponse.Err != nil {
 			return fmt.Errorf("failed to send confirm tx. (transactionId: %d): %w", event.TransactionId.Int64(), txResponse.Err)
 		}
 	} else {
-		g.log.Info("ignore this challenge because the output to be replaced is invalid")
+		g.log.Info("do nothing because the deleted output is not equal to guardian's output so deleted correctly")
 	}
+
 	return nil
 }
 
-func (g *Guardian) checkConfirmCondition(ctx context.Context, transactionId *big.Int, l2BlockNumber *big.Int) (bool, error) {
-	outputIndex, err := g.getL2OutputIndexAfter(ctx, l2BlockNumber)
+func (g *Guardian) checkConfirmCondition(transactionId *big.Int, l2BlockNumber *big.Int) (bool, error) {
+	outputIndex, err := g.getL2OutputIndexAfter(l2BlockNumber)
 	if err != nil {
 		return true, fmt.Errorf("failed to get output index after. (l2BlockNumber: %d): %w", l2BlockNumber.Int64(), err)
 	}
 
-	outputFinalized, err := g.isOutputFinalized(ctx, outputIndex)
+	outputFinalized, err := g.IsOutputFinalized(g.ctx, outputIndex)
 	if err != nil {
 		return true, fmt.Errorf("failed to get if output is finalized. (outputIndex: %d): %w", outputIndex.Int64(), err)
 	}
@@ -175,7 +166,7 @@ func (g *Guardian) checkConfirmCondition(ctx context.Context, transactionId *big
 		return false, nil
 	}
 
-	isConfirmed, err := g.isTransactionConfirmed(ctx, transactionId)
+	isConfirmed, err := g.isTransactionConfirmed(transactionId)
 	if err != nil {
 		return true, fmt.Errorf("failed to get confirmation. (transactionId: %d): %w", transactionId.Int64(), err)
 	}
@@ -184,11 +175,11 @@ func (g *Guardian) checkConfirmCondition(ctx context.Context, transactionId *big
 		return false, nil
 	}
 
-	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	executionTx, err := g.securityCouncilContract.Transactions(utils.NewSimpleCallOpts(cCtx), transactionId)
 	cCancel()
 	if err != nil {
-		return true, fmt.Errorf("failed to get transaction with transactionId: %d: %w", transactionId.Int64(), err)
+		return true, fmt.Errorf("failed to get transaction with transactionId %d: %w", transactionId.Int64(), err)
 	}
 	if executionTx.Executed {
 		g.log.Info("transaction is already executed", "transactionId", transactionId)
@@ -199,13 +190,13 @@ func (g *Guardian) checkConfirmCondition(ctx context.Context, transactionId *big
 }
 
 func (g *Guardian) ValidateL2Output(ctx context.Context, outputRoot eth.Bytes32, l2BlockNumber uint64) (bool, error) {
-	g.log.Info("validating output...", "l2BlockNumber", l2BlockNumber, "outputRoot", outputRoot)
-	localOutputRoot, err := g.outputRootAtBlock(ctx, l2BlockNumber)
+	g.log.Info("validating deleted output as a result of challenge...", "l2BlockNumber", l2BlockNumber, "outputRoot", outputRoot)
+	localOutputRoot, err := g.OutputRootAtBlock(ctx, l2BlockNumber)
 	if err != nil {
-		return false, fmt.Errorf("failed to get output root at block %d: %w", l2BlockNumber, err)
+		return false, fmt.Errorf("failed to get output root at block number %d: %w", l2BlockNumber, err)
 	}
-	isValid := bytes.Equal(outputRoot[:], localOutputRoot[:])
-	return isValid, nil
+	isEqual := bytes.Equal(outputRoot[:], localOutputRoot[:])
+	return isEqual, nil
 }
 
 func (g *Guardian) ConfirmTransaction(ctx context.Context, transactionId *big.Int) (*types.Transaction, error) {
@@ -213,7 +204,7 @@ func (g *Guardian) ConfirmTransaction(ctx context.Context, transactionId *big.In
 	return g.securityCouncilContract.ConfirmTransaction(txOpts, transactionId)
 }
 
-func (g *Guardian) outputRootAtBlock(ctx context.Context, l2BlockNumber uint64) (eth.Bytes32, error) {
+func (g *Guardian) OutputRootAtBlock(ctx context.Context, l2BlockNumber uint64) (eth.Bytes32, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	output, err := g.cfg.RollupClient.OutputAtBlock(cCtx, l2BlockNumber)
@@ -223,20 +214,20 @@ func (g *Guardian) outputRootAtBlock(ctx context.Context, l2BlockNumber uint64) 
 	return output.OutputRoot, nil
 }
 
-func (g *Guardian) getL2OutputIndexAfter(ctx context.Context, l2BlockNumber *big.Int) (*big.Int, error) {
-	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+func (g *Guardian) getL2OutputIndexAfter(l2BlockNumber *big.Int) (*big.Int, error) {
+	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	return g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), l2BlockNumber)
 }
 
-func (g *Guardian) isOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {
+func (g *Guardian) IsOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	return g.l2ooContract.IsFinalized(utils.NewSimpleCallOpts(cCtx), outputIndex)
 }
 
-func (g *Guardian) isTransactionConfirmed(ctx context.Context, transactionId *big.Int) (bool, error) {
-	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+func (g *Guardian) isTransactionConfirmed(transactionId *big.Int) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	return g.securityCouncilContract.IsConfirmed(utils.NewSimpleCallOpts(cCtx), transactionId)
 }

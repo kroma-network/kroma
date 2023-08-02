@@ -100,14 +100,15 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L2GenesisBlockParentHash:    common.Hash{},
 		L2GenesisBlockBaseFeePerGas: uint64ToBig(1000_000_000),
 
-		ColosseumBisectionTimeout: 120,
-		ColosseumProvingTimeout:   480,
-		ColosseumDummyHash:        common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
-		ColosseumMaxTxs:           25,
-		ColosseumSegmentsLengths:  "2,2,3,4",
+		ColosseumCreationPeriodSeconds: 10,
+		ColosseumBisectionTimeout:      120,
+		ColosseumProvingTimeout:        480,
+		ColosseumDummyHash:             common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
+		ColosseumMaxTxs:                25,
+		ColosseumSegmentsLengths:       "2,2,3,4",
 
 		SecurityCouncilNumConfirmationRequired: 1,
-		SecurityCouncilOwners:                  []common.Address{addresses.Challenger, addresses.Alice, addresses.Bob, addresses.Mallory},
+		SecurityCouncilOwners:                  []common.Address{addresses.Challenger1, addresses.Alice, addresses.Bob, addresses.Mallory},
 
 		GasPriceOracleOverhead:      2100,
 		GasPriceOracleScalar:        1000_000,

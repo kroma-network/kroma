@@ -43,7 +43,6 @@ func NewBufferedTxManager(name string, l log.Logger, m metrics.TxMetricer, cfg C
 }
 
 func (m *BufferedTxManager) Start(ctx context.Context) error {
-	m.l.Info("starting BufferedTxManager")
 	m.txRequestChan = make(chan *TxRequest, m.Config.TxBufferSize)
 	m.ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(1)
@@ -52,7 +51,6 @@ func (m *BufferedTxManager) Start(ctx context.Context) error {
 }
 
 func (m *BufferedTxManager) Stop() error {
-	m.l.Info("stopping BufferedTxManager")
 	m.cancel()
 	m.wg.Wait()
 	close(m.txRequestChan)

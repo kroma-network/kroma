@@ -20,13 +20,13 @@ contract SecurityCouncil is MultiSigWallet, Semver {
      * @notice Emitted when a validation request is submitted.
      *
      * @param transactionId Index of the submitted transaction.
-     * @param outputRoot    L2 output root that was proven against.
-     * @param l2BlockNumber The L2 block number of the output root.
+     * @param outputRoot    The L2 output of the checkpoint block to be validated.
+     * @param l2BlockNumber The L2 block number to be validated.
      */
     event ValidationRequested(
         uint256 indexed transactionId,
         bytes32 outputRoot,
-        uint128 l2BlockNumber
+        uint256 l2BlockNumber
     );
 
     /**
@@ -68,13 +68,13 @@ contract SecurityCouncil is MultiSigWallet, Semver {
     /**
      * @notice Allows the Colosseum to request for validate output data.
      *
-     * @param _outputRoot    Output root byte data.
-     * @param _l2BlockNumber L2 block number corresponding to output.
+     * @param _outputRoot    The L2 output of the checkpoint block to be validated.
+     * @param _l2BlockNumber The L2 block number to be validated.
      * @param _data          Calldata for callback purpose.
      */
     function requestValidation(
         bytes32 _outputRoot,
-        uint128 _l2BlockNumber,
+        uint256 _l2BlockNumber,
         bytes memory _data
     ) public onlyColosseum {
         uint256 transactionId = _addTransaction(msg.sender, 0, _data);

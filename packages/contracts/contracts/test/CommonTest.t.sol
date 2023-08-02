@@ -538,6 +538,7 @@ contract Colosseum_Initializer is Portal_Initializer {
             _l2Oracle: oracle,
             _zkVerifier: zkVerifier,
             _submissionInterval: submissionInterval,
+            _creationPeriodSeconds: 6 days,
             _bisectionTimeout: 30 minutes,
             _provingTimeout: 1 hours,
             _dummyHash: DUMMY_HASH,

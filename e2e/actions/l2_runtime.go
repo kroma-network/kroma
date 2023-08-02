@@ -30,7 +30,8 @@ type Runtime struct {
 	proposer                 *L2Proposer
 	batcher                  *L2Batcher
 	validator                *L2Validator
-	challenger               *L2Validator
+	challenger1              *L2Validator
+	challenger2              *L2Validator
 	guardian                 *L2Validator
 	outputOracleContract     *bindings.L2OutputOracle
 	colosseumContract        *bindings.Colosseum
@@ -46,6 +47,7 @@ func defaultRuntime(gt *testing.T) Runtime {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.FinalizationPeriodSeconds = 60 * 60 * 24
+	dp.DeployConfig.ColosseumCreationPeriodSeconds = 60 * 60 * 20
 	dp.DeployConfig.ColosseumDummyHash = common.HexToHash(e2e.DummyHashSepolia)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	l := testlog.Logger(t, log.LvlDebug)
@@ -83,20 +85,20 @@ func (rt *Runtime) setupMaliciousValidator() {
 	rt.validator = rt.maliciousValidator(rt.dp.Secrets.TrustedValidator)
 }
 
-func (rt *Runtime) setupHonestChallenger() {
-	rt.challenger = rt.honestValidator(rt.dp.Secrets.Challenger)
+func (rt *Runtime) setupHonestChallenger1() {
+	rt.challenger1 = rt.honestValidator(rt.dp.Secrets.Challenger1)
 }
 
-func (rt *Runtime) setupMaliciousChallenger() {
-	rt.challenger = rt.maliciousValidator(rt.dp.Secrets.Challenger)
+func (rt *Runtime) setupHonestChallenger2() {
+	rt.challenger2 = rt.honestValidator(rt.dp.Secrets.Challenger2)
 }
 
 func (rt *Runtime) setupHonestGuardian() {
-	rt.guardian = rt.honestValidator(rt.dp.Secrets.Challenger)
+	rt.guardian = rt.honestValidator(rt.dp.Secrets.Challenger1)
 }
 
 func (rt *Runtime) setupMaliciousGuardian() {
-	rt.guardian = rt.maliciousValidator(rt.dp.Secrets.Challenger)
+	rt.guardian = rt.maliciousValidator(rt.dp.Secrets.Challenger1)
 }
 
 func (rt *Runtime) honestValidator(pk *ecdsa.PrivateKey) *L2Validator {
@@ -144,8 +146,8 @@ func (rt *Runtime) bindChallengeContracts() {
 	require.NoError(rt.t, err)
 }
 
-// setup challenge between asserter and challenger
-func (rt *Runtime) setupChallenge() {
+// setupOutputSubmitted sets output submission by validator
+func (rt *Runtime) setupOutputSubmitted() {
 	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
 	// config is set) block to pass after each submission interval before submitting the output
 	// root. For example, if the submission interval is set to 1800 blocks, the output root can
@@ -199,13 +201,17 @@ func (rt *Runtime) setupChallenge() {
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "submission failed")
 	}
+}
 
-	// check that L1 stored the expected output root
+// setupChallenge sets challenge by challenger
+func (rt *Runtime) setupChallenge(challenger *L2Validator) {
+	// check that the output root that L1 stores is different from challenger's output root
 	// NOTE(chokobole): Comment these 2 lines because of the reason above.
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
 	// block := proposer.SyncStatus().FinalizedL2
 	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
 	targetBlockNum := big.NewInt(int64(rt.targetInvalidBlockNumber))
+	var err error
 	rt.outputIndex, err = rt.outputOracleContract.GetL2OutputIndexAfter(nil, targetBlockNum)
 	require.NoError(rt.t, err)
 	rt.outputOnL1, err = rt.outputOracleContract.GetL2OutputAfter(nil, targetBlockNum)
@@ -213,13 +219,12 @@ func (rt *Runtime) setupChallenge() {
 	block, err := rt.propEngine.EthClient().BlockByNumber(rt.t.Ctx(), targetBlockNum)
 	require.NoError(rt.t, err)
 	require.Less(rt.t, block.Time(), rt.outputOnL1.Timestamp.Uint64(), "output is registered with L1 timestamp of L2 tx output submission, past L2 block")
-	outputComputed, err := rt.proposer.RollupClient().OutputAtBlock(rt.t.Ctx(), targetBlockNum.Uint64())
-	require.NoError(rt.t, err)
+	outputComputed := challenger.fetchOutput(rt.t, rt.outputOnL1.L2BlockNumber)
 	require.NotEqual(rt.t, eth.Bytes32(rt.outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
 	// deposit bond for challenger
-	rt.challenger.ActDeposit(rt.t, defaultDepositAmount)
-	rt.miner.includeL1Block(rt.t, rt.challenger.address)
+	challenger.ActDeposit(rt.t, defaultDepositAmount)
+	rt.miner.includeL1Block(rt.t, challenger.address)
 
 	// check bond amount before create challenge
 	bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
@@ -227,10 +232,10 @@ func (rt *Runtime) setupChallenge() {
 	require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt(), bond.Amount)
 
 	// submit create challenge tx
-	rt.txHash = rt.challenger.ActCreateChallenge(rt.t, rt.outputIndex)
+	rt.txHash = challenger.ActCreateChallenge(rt.t, rt.outputIndex)
 
 	// include tx on L1
-	rt.miner.includeL1Block(rt.t, rt.challenger.address)
+	rt.miner.includeL1Block(rt.t, challenger.address)
 
 	// Check whether the submission was successful
 	rt.receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.txHash)
@@ -238,17 +243,17 @@ func (rt *Runtime) setupChallenge() {
 	require.Equal(rt.t, types.ReceiptStatusSuccessful, rt.receipt.Status, "failed to create challenge")
 
 	// check challenge created
-	challenge, err := rt.colosseumContract.GetChallenge(nil, rt.outputIndex)
+	challenge, err := rt.colosseumContract.GetChallenge(nil, rt.outputIndex, challenger.address)
 	require.NoError(rt.t, err)
 	require.NotNil(rt.t, challenge, "challenge not found")
 
-	// check bond amount doubled after create challenge
-	bond, err = rt.valPoolContract.GetBond(nil, rt.outputIndex)
+	// check pending bond amount after create challenge
+	pendingBond, err := rt.valPoolContract.GetPendingBond(nil, rt.outputIndex, challenger.address)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt().Int64()), bond.Amount)
+	require.Equal(rt.t, pendingBond, rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt())
 
 	// check challenger balance decreased
-	cBal, err := rt.valPoolContract.BalanceOf(nil, rt.challenger.address)
+	cBal, err := rt.valPoolContract.BalanceOf(nil, challenger.address)
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, new(big.Int).Sub(new(big.Int).SetInt64(defaultDepositAmount), rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt()), cBal)
 }

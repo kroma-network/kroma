@@ -74,11 +74,12 @@ type DeployConfig struct {
 	L2GenesisBlockParentHash    common.Hash    `json:"l2GenesisBlockParentHash"`
 	L2GenesisBlockBaseFeePerGas *hexutil.Big   `json:"l2GenesisBlockBaseFeePerGas"`
 
-	ColosseumBisectionTimeout uint64      `json:"colosseumBisectionTimeout"`
-	ColosseumProvingTimeout   uint64      `json:"colosseumProvingTimeout"`
-	ColosseumSegmentsLengths  string      `json:"colosseumSegmentsLengths"`
-	ColosseumDummyHash        common.Hash `json:"colosseumDummyHash"`
-	ColosseumMaxTxs           uint64      `json:"colosseumMaxTxs"`
+	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
+	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`
+	ColosseumProvingTimeout        uint64      `json:"colosseumProvingTimeout"`
+	ColosseumSegmentsLengths       string      `json:"colosseumSegmentsLengths"`
+	ColosseumDummyHash             common.Hash `json:"colosseumDummyHash"`
+	ColosseumMaxTxs                uint64      `json:"colosseumMaxTxs"`
 
 	// The initial value of the number of confirmations in security council
 	SecurityCouncilNumConfirmationRequired uint64           `json:"securityCouncilNumConfirmationRequired"`
@@ -230,6 +231,9 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.L2GenesisBlockBaseFeePerGas == nil {
 		return fmt.Errorf("%w: L2 genesis block base fee per gas cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ColosseumCreationPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ColosseumCreationPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.ColosseumBisectionTimeout == 0 {
 		return fmt.Errorf("%w: ColosseumBisectionTimeout cannot be 0", ErrInvalidDeployConfig)

@@ -116,14 +116,15 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		L2GenesisBlockParentHash:    common.Hash{},
 		L2GenesisBlockBaseFeePerGas: uint642big(7),
 
-		ColosseumBisectionTimeout: 120,
-		ColosseumProvingTimeout:   480,
-		ColosseumDummyHash:        common.HexToHash("0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7"),
-		ColosseumMaxTxs:           25,
-		ColosseumSegmentsLengths:  "3,3",
+		ColosseumCreationPeriodSeconds: 60 * 60 * 20,
+		ColosseumBisectionTimeout:      120,
+		ColosseumProvingTimeout:        480,
+		ColosseumDummyHash:             common.HexToHash("0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7"),
+		ColosseumMaxTxs:                25,
+		ColosseumSegmentsLengths:       "3,3",
 
 		SecurityCouncilNumConfirmationRequired: 1,
-		SecurityCouncilOwners:                  []common.Address{addresses.Challenger, addresses.Alice, addresses.Bob, addresses.Mallory},
+		SecurityCouncilOwners:                  []common.Address{addresses.Challenger1, addresses.Alice, addresses.Bob, addresses.Mallory},
 
 		GasPriceOracleOverhead: 2100,
 		GasPriceOracleScalar:   1_000_000,
@@ -182,7 +183,6 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			"batcher":    testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
 			"validator":  testlog.Logger(t, log.LvlInfo).New("role", "validator"),
 			"challenger": testlog.Logger(t, log.LvlInfo).New("role", "challenger"),
-			"guardian":   testlog.Logger(t, log.LvlInfo).New("role", "guardian"),
 		},
 		GethOptions:               map[string][]GethOption{},
 		P2PTopology:               nil, // no P2P connectivity by default
@@ -255,7 +255,6 @@ type System struct {
 	RollupNodes map[string]*rollupNode.KromaNode
 	Validator   *validator.Validator
 	Challenger  *validator.Validator
-	Guardian    *validator.Validator
 	Batcher     *batcher.Batcher
 	Mocknet     mocknet.Mocknet
 }
@@ -263,6 +262,9 @@ type System struct {
 func (sys *System) Close() {
 	if sys.Validator != nil {
 		sys.Validator.Stop()
+	}
+	if sys.Challenger != nil {
+		sys.Challenger.Stop()
 	}
 	if sys.Batcher != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -657,7 +659,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		ValPoolAddress:         predeploys.DevValidatorPoolAddr.String(),
 		ChallengerPollInterval: 500 * time.Millisecond,
 		ProverGrpc:             "http://0.0.0.0:0",
-		TxMgrConfig:            newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Challenger),
+		TxMgrConfig:            newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
 		OutputSubmitterEnabled: false,
 		ChallengerEnabled:      true,
 		SecurityCouncilAddress: predeploys.DevSecurityCouncilAddr.String(),

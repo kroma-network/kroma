@@ -98,9 +98,8 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 
 func (l *L2OutputSubmitter) Start(ctx context.Context) error {
 	l.ctx, l.cancel = context.WithCancel(ctx)
-	l.log.Info("starting L2 Output Submitter")
-
 	l.submitChan = make(chan struct{}, 1)
+
 	l.wg.Add(1)
 	go l.loop()
 
@@ -108,10 +107,8 @@ func (l *L2OutputSubmitter) Start(ctx context.Context) error {
 }
 
 func (l *L2OutputSubmitter) Stop() error {
-	l.log.Info("stopping L2 Output Submitter")
 	l.cancel()
 	l.wg.Wait()
-
 	close(l.submitChan)
 
 	return nil
@@ -210,7 +207,7 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 		return defaultWaitTime
 	}
 
-	hasEnoughDeposit, err := l.checkDeposit(ctx)
+	hasEnoughDeposit, err := l.hasEnoughDeposit(ctx)
 	if err != nil {
 		return defaultWaitTime
 	}
@@ -246,7 +243,8 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 	return 0
 }
 
-func (l *L2OutputSubmitter) checkDeposit(ctx context.Context) (bool, error) {
+// hasEnoughDeposit checks if validator has enough deposit to bond when trying output submission.
+func (l *L2OutputSubmitter) hasEnoughDeposit(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
