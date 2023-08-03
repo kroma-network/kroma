@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/components/node/metrics"
 )
@@ -17,7 +17,7 @@ var Subcommands = cli.Commands{
 		Name:  "metrics",
 		Usage: "Dumps a list of supported metrics to stdout",
 		Flags: []cli.Flag{
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "format",
 				Value: "markdown",
 				Usage: "Output format (json|markdown)",

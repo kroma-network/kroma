@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/bindings/predeploys"
@@ -41,6 +42,7 @@ import (
 	val "github.com/kroma-network/kroma/components/validator"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 	"github.com/kroma-network/kroma/e2e/testdata"
+	"github.com/kroma-network/kroma/utils/service/backoff"
 	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 )
 
@@ -719,6 +721,24 @@ func TestSystemMockP2P(t *testing.T) {
 	// Enable the proposer now that everyone is ready to receive payloads.
 	rollupRPCClient, err := rpc.DialContext(context.Background(), sys.RollupNodes["proposer"].HTTPEndpoint())
 	require.NoError(t, err)
+
+	syncerPeerID := sys.RollupNodes["syncer"].P2P().Host().ID()
+	check := func() bool {
+		proposerBlocksTopicPeers := sys.RollupNodes["proposer"].P2P().GossipOut().BlocksTopicPeers()
+		return slices.Contains[peer.ID](proposerBlocksTopicPeers, syncerPeerID)
+	}
+
+	// poll to see if the validator node is connected & meshed on gossip.
+	// Without this validator, we shouldn't start sending blocks around, or we'll miss them and fail the test.
+	backOffStrategy := backoff.Exponential()
+	for i := 0; i < 10; i++ {
+		if check() {
+			break
+		}
+		time.Sleep(backOffStrategy.Duration(i))
+	}
+	require.True(t, check(), "validator must be meshed with proposer for gossip test to proceed")
+
 	require.NoError(t, rollupRPCClient.Call(nil, "admin_startProposer", sys.L2GenesisCfg.ToBlock().Hash()))
 
 	l2Prop := sys.Clients["proposer"]
@@ -935,7 +955,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 	snapLog.SetHandler(log.DiscardHandler())
 
 	// Create a peer, and hook up alice and bob
-	h, err := sys.Mocknet.GenPeer()
+	h, err := sys.newMockNetPeer()
 	require.NoError(t, err)
 	_, err = sys.Mocknet.LinkPeers(sys.RollupNodes["alice"].P2P().Host().ID(), h.ID())
 	require.NoError(t, err)
@@ -1002,7 +1022,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 
 // TestSystemDenseTopology sets up a dense p2p topology with 3 syncer nodes and 1 proposer node.
 func TestSystemDenseTopology(t *testing.T) {
-	t.Skip("Skipping dense topology test to avoid flakiness.")
+	t.Skip("Skipping dense topology test to avoid flakiness. @refcell address in p2p scoring pr.")
 
 	parallel(t)
 	if !verboseGethNodes {
@@ -1043,10 +1063,10 @@ func TestSystemDenseTopology(t *testing.T) {
 
 	// Set peer scoring for each node, but without banning
 	for _, node := range cfg.Nodes {
-		params, err := p2p.GetPeerScoreParams("light", 2)
+		params, err := p2p.GetScoringParams("light", &node.Rollup)
 		require.NoError(t, err)
 		node.P2P = &p2p.Config{
-			PeerScoring:    params,
+			ScoringParams:  params,
 			BanningEnabled: false,
 		}
 	}
