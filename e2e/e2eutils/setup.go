@@ -69,8 +69,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
 		ValidatorPoolMinBondAmount:    uint64ToBig(1),
 		ValidatorPoolMaxUnbond:        10,
-		ValidatorPoolNonPenaltyPeriod: 2,
-		ValidatorPoolPenaltyPeriod:    2,
+		ValidatorPoolRoundDuration:    4,
 
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,

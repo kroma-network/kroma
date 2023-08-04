@@ -65,19 +65,11 @@ contract ValidatorRewardVault is FeeVault, Semver {
     /**
      * @notice Rewards the validator for submitting the output.
      *         ValidatorPool contract on L1 calls this function over the portal when output is finalized.
-     *         As the submission of outputs is delayed, the amount of rewards decreases.
      *
      * @param _validator     Address of the validator.
      * @param _l2BlockNumber The L2 block number of the output root.
-     * @param _penaltyNum    The penalty period which reduces the reward amount.
-     * @param _penaltyDenom  The maximum value of the penalty period.
      */
-    function reward(
-        address _validator,
-        uint256 _l2BlockNumber,
-        uint256 _penaltyNum,
-        uint256 _penaltyDenom
-    ) external {
+    function reward(address _validator, uint256 _l2BlockNumber) external {
         require(
             AddressAliasHelper.undoL1ToL2Alias(msg.sender) == VALIDATOR_POOL,
             "ValidatorRewardVault: function can only be called from the ValidatorPool"
@@ -90,7 +82,7 @@ contract ValidatorRewardVault is FeeVault, Semver {
             "ValidatorRewardVault: the reward has already been paid for the L2 block number"
         );
 
-        uint256 amount = _determineRewardAmount(_penaltyNum, _penaltyDenom);
+        uint256 amount = _determineRewardAmount();
 
         unchecked {
             totalReserved += amount;
@@ -131,23 +123,12 @@ contract ValidatorRewardVault is FeeVault, Semver {
     }
 
     /**
-     * @notice Determines the reward amount penalized.
-     *         Note that if the penalty is 0, no penalty is applied.
-     *
-     * @param _penaltyNum   The penalty period which reduces the reward amount.
-     * @param _penaltyDenom The maximum value of the penalty period.
+     * @notice Determines the reward amount.
      *
      * @return Amount of the reward.
      */
-    function _determineRewardAmount(uint256 _penaltyNum, uint256 _penaltyDenom)
-        internal
-        view
-        returns (uint256)
-    {
-        require(_penaltyDenom != 0, "ValidatorRewardVault: denominator cannot be 0");
-
-        uint256 fullReward = (address(this).balance - totalReserved) / REWARD_DIVIDER;
-        return (fullReward * (_penaltyDenom - _penaltyNum)) / _penaltyDenom;
+    function _determineRewardAmount() internal view returns (uint256) {
+        return (address(this).balance - totalReserved) / REWARD_DIVIDER;
     }
 
     /**

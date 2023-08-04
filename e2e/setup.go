@@ -98,8 +98,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
 		ValidatorPoolMinBondAmount:    uint642big(1),
 		ValidatorPoolMaxUnbond:        10,
-		ValidatorPoolNonPenaltyPeriod: 2,
-		ValidatorPoolPenaltyPeriod:    2,
+		ValidatorPoolRoundDuration:    4,
 
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,

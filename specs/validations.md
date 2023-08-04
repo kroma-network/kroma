@@ -132,28 +132,28 @@ L2 Output Oracle Smart Contract implements the following interface:
 
 ```solidity
 interface L2OutputOracle {
-  event OutputSubmitted(
-    bytes32 indexed outputRoot,
-    uint256 indexed l2OutputIndex,
-    uint256 indexed l2BlockNumber,
-    uint256 l1Timestamp
-  );
+    event OutputSubmitted(
+        bytes32 indexed outputRoot,
+        uint256 indexed l2OutputIndex,
+        uint256 indexed l2BlockNumber,
+        uint256 l1Timestamp
+    );
 
-  event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
+    event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
 
-  function replaceL2Output(
-    uint256 _l2OutputIndex,
-    bytes32 _newOutputRoot,
-    address _submitter
-  ) external;
+    function replaceL2Output(
+        uint256 _l2OutputIndex,
+        bytes32 _newOutputRoot,
+        address _submitter
+    ) external;
 
-  function submitL2Output(
-    bytes32 _outputRoot,
-    uint256 _l2BlockNumber,
-    bytes32 _l1BlockHash,
-    uint256 _l1BlockNumber,
-    uint256 _bondAmount
-  ) external payable;
+    function submitL2Output(
+        bytes32 _outputRoot,
+        uint256 _l2BlockNumber,
+        bytes32 _l1BlockHash,
+        uint256 _l1BlockNumber,
+        uint256 _bondAmount
+    ) external payable;
 }
 ```
 
@@ -178,33 +178,33 @@ Validator Pool Smart Contract implements the following interface:
 
 ```solidity
 interface ValidatorPool {
-  event Bonded(
-    address indexed submitter,
-    uint256 indexed outputIndex,
-    uint128 amount,
-    uint128 expiresAt
-  );
+    event Bonded(
+        address indexed submitter,
+        uint256 indexed outputIndex,
+        uint128 amount,
+        uint128 expiresAt
+    );
 
-  event BondIncreased(address indexed challenger, uint256 indexed outputIndex, uint128 amount);
-  event Unbonded(uint256 indexed outputIndex, address indexed recipient, uint128 amount);
+    event BondIncreased(address indexed challenger, uint256 indexed outputIndex, uint128 amount);
+    event Unbonded(uint256 indexed outputIndex, address indexed recipient, uint128 amount);
 
-  function deposit() external payable;
+    function deposit() external payable;
 
-  function withdraw(uint256 _amount) external;
+    function withdraw(uint256 _amount) external;
 
-  function createBond(
-    uint256 _outputIndex,
-    uint128 _amount,
-    uint128 _expiresAt
-  ) external;
+    function createBond(
+        uint256 _outputIndex,
+        uint128 _amount,
+        uint128 _expiresAt
+    ) external;
 
-  function increaseBond(address _challenger, uint256 _outputIndex) external;
+    function increaseBond(address _challenger, uint256 _outputIndex) external;
 
-  function unbond() external;
+    function unbond() external;
 
-  function balanceOf(address _addr) external view returns (uint256);
+    function balanceOf(address _addr) external view returns (uint256);
 
-  function nextValidator() public view returns (address);
+    function nextValidator() public view returns (address);
 }
 ```
 
@@ -213,24 +213,13 @@ interface ValidatorPool {
 A validator who submits an output can receive a reward from L2 `ValidatorRewardVault` contract when the output is
 finalized, it is called validation reward. When the output is finalized, the `ValidatorPool` contract sends a message
 to pay the reward in the L2 `ValidatorRewardVault` via the `KromaPortal` contract.
-
-The `ROUND_DURATION` time is divided into `NON_PENALTY_PERIOD` and `PENALTY_PERIOD`.
-The `NON_PENALTY_PERIOD` is the time to guarantee that transaction will be included in the L1 block.
-If the validator submits the output within this time, it can receive the full reward.
-The full reward is the balance in the `ValidatorRewardVault` when the output is finalized, divided by `REWARD_DIVIDER`,
-which is a value equal to the number of outputs in a week. If the validator submits an output after the
-`NON_PENALTY_PERIOD`, the reward will gradually decrease, it is called a penalty. The percentage of the penalty is
-calculated using the time elapsed during the `PENALTY_PERIOD`, and the reward is reduced by this percentage.
-
+The reward is calculated by `ValidatorRewardVault` divided by `REWARD_DIVIDER`, which is the number of outputs
+in a week.
 Rewards received by the validator can be withdrawn to L1 via `withdraw()` in the ValidatorRewardVault.
 
 ### Configuration of ValidatorPool
 
-The `NON_PENALTY_PERIOD` is the period during a submission round that is not penalized (in seconds).
-The `PENALTY_PERIOD` is the period during a submission round that is penalized (in seconds).
-
-The sum of the two values, `NON_PENALTY_PERIOD` and `PENALTY_PERIOD`, must be equal to `ROUND_DURATION`.
-`ROUND_DURATION` is equal to `(L2_BLOCK_TIME * SUBMISSION_INTERVAL) / 2`
+`ROUND_DURATION` is equal to `(L2_BLOCK_TIME * SUBMISSION_INTERVAL) / 2`.
 
 ## Security Considerations
 
@@ -252,5 +241,3 @@ in the event of a reorg, the block hash will not match that of the block with th
 | `MIN_BOND_AMOUNT`     | TBD    | wei            |
 | `REWARD_DIVIDER`      | `168`  | num of outputs |
 | `ROUND_DURATION`      | `30`   | minutes        |
-| `NON_PENALTY_PERIOD`  | `10`   | minutes        |
-| `PENALTY_PERIOD`      | `20`   | minutes        |

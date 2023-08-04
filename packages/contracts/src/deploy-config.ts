@@ -98,14 +98,9 @@ interface RequiredDeployConfig {
   validatorPoolMaxUnbond: number
 
   /**
-   * The period during a submission round that is not penalized (in seconds).
+   * The duration of one submission round in seconds.
    */
-  validatorPoolNonPenaltyPeriod: number
-
-  /**
-   * The period during a submission round that is penalized (in seconds).
-   */
-  validatorPoolPenaltyPeriod: number
+  validatorPoolRoundDuration: number
 
   /**
    * Output Oracle submission interval in L2 blocks.
@@ -278,10 +273,7 @@ export const deployConfigSpec: {
   validatorPoolMaxUnbond: {
     type: 'number',
   },
-  validatorPoolNonPenaltyPeriod: {
-    type: 'number',
-  },
-  validatorPoolPenaltyPeriod: {
+  validatorPoolRoundDuration: {
     type: 'number',
   },
   l2OutputOracleSubmissionInterval: {

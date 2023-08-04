@@ -103,20 +103,18 @@ contract L2OutputOracle_Initializer is CommonTest {
     L2ToL1MessagePasser messagePasser =
         L2ToL1MessagePasser(payable(Predeploys.L2_TO_L1_MESSAGE_PASSER));
 
-    // ValidatorPool constructor arguments
-    address internal trusted = 0x000000000000000000000000000000000000aaaa;
-    uint256 internal minBond = 0.1 ether;
-    uint256 internal maxUnbond = 2;
-    uint256 internal nonPenaltyPeriod = 10 minutes;
-    uint256 internal penaltyPeriod = 20 minutes;
-    uint256 internal roundDuration = nonPenaltyPeriod + penaltyPeriod;
-
     // Constructor arguments
     uint256 internal submissionInterval = 1800;
     uint256 internal l2BlockTime = 2;
     uint256 internal startingBlockNumber = 1;
     uint256 internal startingTimestamp = 1000;
     address internal guardian = 0x000000000000000000000000000000000000AaaD;
+
+    // ValidatorPool constructor arguments
+    address internal trusted = 0x000000000000000000000000000000000000aaaa;
+    uint256 internal minBond = 0.1 ether;
+    uint256 internal maxUnbond = 2;
+    uint256 internal roundDuration = (submissionInterval * l2BlockTime) / 2;
 
     // Test data
     address internal asserter = 0x000000000000000000000000000000000000aAaB;
@@ -178,8 +176,7 @@ contract L2OutputOracle_Initializer is CommonTest {
             _trustedValidator: trusted,
             _minBondAmount: minBond,
             _maxUnbond: maxUnbond,
-            _nonPenaltyPeriod: nonPenaltyPeriod,
-            _penaltyPeriod: penaltyPeriod
+            _roundDuration: roundDuration
         });
 
         // By default the first block has timestamp and number zero, which will cause underflows in

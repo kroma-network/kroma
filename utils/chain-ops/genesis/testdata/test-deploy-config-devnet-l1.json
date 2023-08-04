@@ -14,8 +14,7 @@
   "validatorPoolTrustedValidator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   "validatorPoolMinBondAmount": "0x1",
   "validatorPoolMaxUnbond": 10,
-  "validatorPoolNonPenaltyPeriod": 10,
-  "validatorPoolPenaltyPeriod": 10,
+  "validatorPoolRoundDuration": 20,
 
   "l2OutputOracleSubmissionInterval": 20,
   "l2OutputOracleStartingTimestamp": -1,
