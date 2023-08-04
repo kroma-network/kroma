@@ -151,12 +151,6 @@ func (v *Validator) Stop() error {
 		return fmt.Errorf("failed to stop TxManager: %w", err)
 	}
 
-	if v.cfg.ProofFetcher != nil {
-		if err := v.cfg.ProofFetcher.Close(); err != nil {
-			return fmt.Errorf("cannot close gRPC connection: %w", err)
-		}
-	}
-
 	if v.cfg.OutputSubmitterEnabled {
 		if err := v.l2os.Stop(); err != nil {
 			return fmt.Errorf("failed to stop l2 output submitter: %w", err)

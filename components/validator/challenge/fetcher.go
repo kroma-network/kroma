@@ -1,39 +1,45 @@
 package challenge
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
+	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
-	pb "github.com/kroma-network/kroma/components/validator/challenge/prover-grpc-proto"
 )
 
-type Fetcher struct {
-	Client  pb.ProofClient
-	logger  log.Logger
-	conn    *grpc.ClientConn
-	timeout time.Duration
-}
+type (
+	ProofType int32
 
-func NewFetcher(grpcUrl string, timeout time.Duration, logger log.Logger) (*Fetcher, error) {
-	if grpcUrl == "" {
-		return nil, fmt.Errorf("no grpc url specified")
+	ProveResponse struct {
+		FinalPair []byte `json:"final_pair,omitempty"`
+		Proof     []byte `json:"proof,omitempty"`
 	}
 
-	conn, err := grpc.Dial(grpcUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to grpc server: %w", err)
+	ProverClient interface {
+		Prove(ctx context.Context, traceString string, proofType ProofType) (*ProveResponse, error)
+	}
+
+	Fetcher struct {
+		Client  JsonRPCProverClient
+		logger  log.Logger
+		timeout time.Duration
+	}
+)
+
+func NewFetcher(rpcURL string, timeout time.Duration, logger log.Logger) (*Fetcher, error) {
+	if rpcURL == "" {
+		return nil, fmt.Errorf("no RPC URL specified")
 	}
 
 	return &Fetcher{
-		Client:  pb.NewProofClient(conn),
+		Client:  JsonRPCProverClient{rpcURL},
 		logger:  logger,
-		conn:    conn,
 		timeout: timeout,
 	}, nil
 }
@@ -43,16 +49,15 @@ type ProofAndPair struct {
 	Pair  []*big.Int
 }
 
-func (f *Fetcher) FetchProofAndPair(blockNumber uint64) (*ProofAndPair, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), f.timeout)
-	defer cancel()
+func (f *Fetcher) FetchProofAndPair(ctx context.Context, trace string) (*ProofAndPair, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, f.timeout)
+	defer cCancel()
 
-	blockNumberHex := fmt.Sprintf("0x%x", blockNumber)
-	f.logger.Info("received block number hex", "hex", blockNumberHex)
-
-	response, err := f.Client.Prove(ctx, &pb.ProofRequest{BlockNumberHex: blockNumberHex})
+	// NOTE(0xHansLee): only ProofType_AGG(4) is used for proof.
+	// https://github.com/kroma-network/kroma-prover/blob/dev/prover-server/src/spec.rs#L10-L16
+	response, err := f.Client.Prove(cCtx, trace, 4)
 	if err != nil {
-		f.logger.Warn("could not request", "err", err)
+		f.logger.Error("could not request fault proof", "err", err)
 		return nil, err
 	}
 
@@ -62,11 +67,6 @@ func (f *Fetcher) FetchProofAndPair(blockNumber uint64) (*ProofAndPair, error) {
 	}
 
 	return result, nil
-}
-
-func (f *Fetcher) Close() error {
-	f.logger.Info("Closing grpc connection")
-	return f.conn.Close()
 }
 
 func Decode(data []byte) []*big.Int {
@@ -81,4 +81,52 @@ func Decode(data []byte) []*big.Int {
 	}
 
 	return result
+}
+
+var _ ProverClient = (*JsonRPCProverClient)(nil)
+
+type JsonRPCProverClient struct {
+	address string
+}
+
+func (c JsonRPCProverClient) Prove(ctx context.Context, traceString string, proofType ProofType) (*ProveResponse, error) {
+	reqBody := struct {
+		Jsonrpc string `json:"jsonrpc"`
+		Method  string `json:"method"`
+		Params  any    `json:"params"`
+		Id      string `json:"id"`
+	}{
+		Jsonrpc: "2.0",
+		Method:  "prove",
+		Params:  []any{traceString, proofType},
+		Id:      "0",
+	}
+
+	reqBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to json.Marshal %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.address, bytes.NewReader(reqBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new reqBody for proof: %w", err)
+	}
+
+	cli := http.Client{}
+	res, err := cli.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	respBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ProveResponse
+	if err := json.Unmarshal(respBytes, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }

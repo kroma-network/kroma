@@ -48,7 +48,7 @@ type L2Validator struct {
 	cfg                 *validator.Config
 }
 
-func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.Client, rollupCl *sources.RollupClient) *L2Validator {
+func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.Client, l2 *ethclient.Client, rollupCl *sources.RollupClient) *L2Validator {
 	signer := func(chainID *big.Int) kcrypto.SignerFn {
 		s := kcrypto.PrivateKeySignerFn(cfg.ValidatorKey, chainID)
 		return func(_ context.Context, addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -73,6 +73,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		OutputSubmitterRoundBuffer:   30,
 		NetworkTimeout:               time.Second,
 		L1Client:                     l1,
+		L2Client:                     l2,
 		RollupClient:                 rollupCl,
 		RollupConfig:                 rollupConfig,
 		AllowNonFinalized:            cfg.AllowNonFinalized,

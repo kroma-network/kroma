@@ -48,7 +48,7 @@ func defaultRuntime(gt *testing.T) Runtime {
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.FinalizationPeriodSeconds = 60 * 60 * 24
 	dp.DeployConfig.ColosseumCreationPeriodSeconds = 60 * 60 * 20
-	dp.DeployConfig.ColosseumDummyHash = common.HexToHash(e2e.DummyHashSepolia)
+	dp.DeployConfig.ColosseumDummyHash = common.HexToHash(e2e.DummyHashDev)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	l := testlog.Logger(t, log.LvlDebug)
 	rt := Runtime{
@@ -112,7 +112,7 @@ func (rt *Runtime) honestValidator(pk *ecdsa.PrivateKey) *L2Validator {
 		SecurityCouncilAddr: rt.sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:        pk,
 		AllowNonFinalized:   false,
-	}, rt.miner.EthClient(), validatorRollupClient)
+	}, rt.miner.EthClient(), rt.propEngine.EthClient(), validatorRollupClient)
 	validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 	return validator
 }
@@ -128,7 +128,7 @@ func (rt *Runtime) maliciousValidator(pk *ecdsa.PrivateKey) *L2Validator {
 		SecurityCouncilAddr: rt.sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:        pk,
 		AllowNonFinalized:   false,
-	}, rt.miner.EthClient(), validatorRollupClient)
+	}, rt.miner.EthClient(), rt.propEngine.EthClient(), validatorRollupClient)
 	validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 	return validator
 }
@@ -154,7 +154,7 @@ func (rt *Runtime) setupOutputSubmitted() {
 	// only be submitted at 1801 finalized blocks. In fact, the following code is designed to
 	// create one or more finalized L2 blocks in order to pass the test. If Proto Dank Sharding
 	// is introduced, the below code fix may no longer be necessary.
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		// L1 block
 		rt.miner.ActEmptyBlock(rt.t)
 		// L2 block

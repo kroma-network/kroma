@@ -426,17 +426,8 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 
 	// Start
-	err = l1Node.Start()
-	if err != nil {
-		didErrAfterStart = true
-		return nil, err
-	}
-	for name, node := range sys.Nodes {
-		if name == "l1" {
-			continue
-		}
-		err = node.Start()
-		if err != nil {
+	for _, sysNode := range sys.Nodes {
+		if err = sysNode.Start(); err != nil {
 			didErrAfterStart = true
 			return nil, err
 		}
@@ -456,25 +447,16 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 
 	// Geth Clients
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	l1Srv, err := l1Node.RPCHandler()
-	if err != nil {
-		didErrAfterStart = true
-		return nil, err
-	}
-	l1Client := ethclient.NewClient(rpc.DialInProc(l1Srv))
-	sys.Clients["l1"] = l1Client
 	for name, node := range sys.Nodes {
-		client, err := ethclient.DialContext(ctx, node.WSEndpoint())
+		rpcHandler, err := node.RPCHandler()
 		if err != nil {
 			didErrAfterStart = true
 			return nil, err
 		}
-		sys.Clients[name] = client
+		sys.Clients[name] = ethclient.NewClient(rpc.DialInProc(rpcHandler))
 	}
 
-	_, err = waitForBlock(big.NewInt(2), l1Client, 6*time.Second*time.Duration(cfg.DeployConfig.L1BlockTime))
+	_, err = waitForBlock(big.NewInt(2), sys.Clients["l1"], 6*time.Second*time.Duration(cfg.DeployConfig.L1BlockTime))
 	if err != nil {
 		return nil, fmt.Errorf("waiting for blocks: %w", err)
 	}
@@ -597,6 +579,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	// Run validator node (L2 Output Submitter, Asserter)
 	validatorCliCfg := validator.CLIConfig{
 		L1EthRpc:                     sys.Nodes["l1"].WSEndpoint(),
+		L2EthRpc:                     sys.Nodes["proposer"].HTTPEndpoint(),
 		RollupRpc:                    sys.RollupNodes["proposer"].HTTPEndpoint(),
 		L2OOAddress:                  predeploys.DevL2OutputOracleAddr.String(),
 		ColosseumAddress:             predeploys.DevColosseumAddr.String(),
@@ -617,7 +600,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 
 	// deposit to ValidatorPool to be a validator
-	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.TrustedValidator, big.NewInt(params.Ether))
+	err = cfg.DepositValidatorPool(sys.Clients["l1"], cfg.Secrets.TrustedValidator, big.NewInt(params.Ether))
 	if err != nil {
 		return nil, fmt.Errorf("trusted validator unable to deposit to ValidatorPool: %w", err)
 	}
@@ -635,6 +618,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	rpcCl := client.NewBaseRPCClient(cl)
 	validatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
 	validatorCfg.RollupClient = sources.NewRollupClient(validatorMaliciousL2RPC)
+	validatorCfg.L2Client = sys.Clients["proposer"]
 
 	// If malicious validator is turned on, set target block number for submitting invalid output
 	if cfg.EnableMaliciousValidator {
@@ -653,12 +637,13 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	// Run validator node (Challenger)
 	challengerCliCfg := validator.CLIConfig{
 		L1EthRpc:               sys.Nodes["l1"].WSEndpoint(),
+		L2EthRpc:               sys.Nodes["proposer"].HTTPEndpoint(),
 		RollupRpc:              sys.RollupNodes["proposer"].HTTPEndpoint(),
 		L2OOAddress:            predeploys.DevL2OutputOracleAddr.String(),
 		ColosseumAddress:       predeploys.DevColosseumAddr.String(),
 		ValPoolAddress:         predeploys.DevValidatorPoolAddr.String(),
 		ChallengerPollInterval: 500 * time.Millisecond,
-		ProverGrpc:             "http://0.0.0.0:0",
+		ProverRPC:              "http://0.0.0.0:0",
 		TxMgrConfig:            newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
 		OutputSubmitterEnabled: false,
 		ChallengerEnabled:      true,
@@ -683,6 +668,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	rpcCl = client.NewBaseRPCClient(cl)
 	challengerHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
 	challengerCfg.RollupClient = sources.NewRollupClient(challengerHonestL2RPC)
+	challengerCfg.L2Client = sys.Clients["proposer"]
 
 	// If malicious validator is turned on, set target block number for challenge
 	if cfg.EnableMaliciousValidator {

@@ -1,4 +1,0 @@
-[submodule "components/validator/challenge/prover-grpc-proto"]
-	path = components/validator/challenge/prover-grpc-proto
-	url = https://github.com/kroma-network/prover-grpc-proto
-	branch = main

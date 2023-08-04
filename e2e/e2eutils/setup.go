@@ -69,10 +69,10 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
 		ValidatorPoolMinBondAmount:    uint64ToBig(1),
 		ValidatorPoolMaxUnbond:        10,
-		ValidatorPoolNonPenaltyPeriod: 3,
-		ValidatorPoolPenaltyPeriod:    3,
+		ValidatorPoolNonPenaltyPeriod: 2,
+		ValidatorPoolPenaltyPeriod:    2,
 
-		L2OutputOracleSubmissionInterval: 6,
+		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
 
 		FinalSystemOwner: addresses.SysCfgOwner,
@@ -89,7 +89,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L1GenesisBlockGasUsed:       0,
 		L1GenesisBlockParentHash:    common.Hash{},
 		L1GenesisBlockBaseFeePerGas: uint64ToBig(1000_000_000), // 1 gwei
-		FinalizationPeriodSeconds:   12,
+		FinalizationPeriodSeconds:   10,
 
 		L2GenesisBlockNonce:         0,
 		L2GenesisBlockGasLimit:      30_000_000,
@@ -105,7 +105,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		ColosseumProvingTimeout:        480,
 		ColosseumDummyHash:             common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
 		ColosseumMaxTxs:                25,
-		ColosseumSegmentsLengths:       "2,2,3,4",
+		ColosseumSegmentsLengths:       "2,2,3,3",
 
 		SecurityCouncilNumConfirmationRequired: 1,
 		SecurityCouncilOwners:                  []common.Address{addresses.Challenger1, addresses.Alice, addresses.Bob, addresses.Mallory},
