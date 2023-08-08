@@ -176,8 +176,8 @@ func (g *Guardian) checkConfirmCondition(transactionId *big.Int, l2BlockNumber *
 	}
 
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+	defer cCancel()
 	executionTx, err := g.securityCouncilContract.Transactions(utils.NewSimpleCallOpts(cCtx), transactionId)
-	cCancel()
 	if err != nil {
 		return true, fmt.Errorf("failed to get transaction with transactionId %d: %w", transactionId.Int64(), err)
 	}

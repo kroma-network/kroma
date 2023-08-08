@@ -67,8 +67,8 @@ func (b *BatchSubmitter) LoadBlocksIntoState(ctx context.Context) {
 // loadBlockIntoState fetches & stores a single block into `state`. It returns the block it loaded.
 func (b *BatchSubmitter) loadBlockIntoState(ctx context.Context, blockNumber uint64) (eth.BlockID, error) {
 	ctx, cancel := context.WithTimeout(ctx, b.NetworkTimeout)
+	defer cancel()
 	block, err := b.L2Client.BlockByNumber(ctx, new(big.Int).SetUint64(blockNumber))
-	cancel()
 	if err != nil {
 		return eth.BlockID{}, err
 	}

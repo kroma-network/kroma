@@ -69,12 +69,11 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 	}
 
 	cCtx, cCancel := context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
 	l2BlockTime, err := l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
-		cCancel()
 		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
 	}
-	cCancel()
 
 	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
 	defer cCancel()

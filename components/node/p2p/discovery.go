@@ -275,14 +275,16 @@ func (n *NodeP2P) DiscoveryProcess(ctx context.Context, log log.Logger, cfg *rol
 			if !ok {
 				return
 			}
-			addrs := n.Host().Peerstore().Addrs(id)
-			log.Info("attempting connection", "peer", id)
-			ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-			err := n.Host().Connect(ctx, peer.AddrInfo{ID: id, Addrs: addrs})
-			cancel()
-			if err != nil {
-				log.Debug("failed connection attempt", "peer", id, "err", err)
-			}
+			func() {
+				addrs := n.Host().Peerstore().Addrs(id)
+				log.Info("attempting connection", "peer", id)
+				ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+				defer cancel()
+				err := n.Host().Connect(ctx, peer.AddrInfo{ID: id, Addrs: addrs})
+				if err != nil {
+					log.Debug("failed connection attempt", "peer", id, "err", err)
+				}
+			}()
 		}
 	}
 
