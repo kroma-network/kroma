@@ -702,7 +702,8 @@ contract ColosseumTest is Colosseum_Initializer {
             outputIndex,
             newOutput.submitter,
             output.submitter,
-            output.outputRoot
+            output.outputRoot,
+            bytes32(0)
         );
     }
 
@@ -711,13 +712,13 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(makeAddr("not_security_council"));
         vm.expectRevert("Colosseum: sender is not the security council");
-        colosseum.dismissChallenge(0, address(0), address(0), bytes32(0));
+        colosseum.dismissChallenge(0, address(0), address(0), bytes32(0), bytes32(0));
     }
 
     function test_dismissChallenge_outputNotDeleted_reverts() external {
         vm.prank(address(securityCouncil));
         vm.expectRevert("Colosseum: cannot rollback output to zero hash");
-        colosseum.dismissChallenge(0, address(0), address(0), bytes32(0));
+        colosseum.dismissChallenge(0, address(0), address(0), bytes32(0), bytes32(0));
     }
 
     function test_challengerTimeout_succeeds() public {

@@ -485,7 +485,8 @@ contract Colosseum is Initializable, Semver {
                 _outputIndex,
                 msg.sender,
                 challenge.asserter,
-                output.outputRoot
+                output.outputRoot,
+                publicInputHash
             );
 
             // Request outputRoot validation to security council
@@ -549,16 +550,18 @@ contract Colosseum is Initializable, Semver {
      * @notice Dismisses the challenge and rollback l2 output.
      *         This function can only be called by Security Council contract.
      *
-     * @param _outputIndex Index of the L2 checkpoint output.
-     * @param _challenger  Address of the challenger.
-     * @param _asserter    Address of the asserter.
-     * @param _outputRoot  The L2 output root to rollback.
+     * @param _outputIndex      Index of the L2 checkpoint output.
+     * @param _challenger       Address of the challenger.
+     * @param _asserter         Address of the asserter.
+     * @param _outputRoot       The L2 output root to rollback.
+     * @param _publicInputHash  Hash of public input.
      */
     function dismissChallenge(
         uint256 _outputIndex,
         address _challenger,
         address _asserter,
-        bytes32 _outputRoot
+        bytes32 _outputRoot,
+        bytes32 _publicInputHash
     ) external onlySecurityCouncil {
         require(
             _outputRoot != DELETED_OUTPUT_ROOT,
@@ -568,6 +571,7 @@ contract Colosseum is Initializable, Semver {
             L2_ORACLE.getL2Output(_outputIndex).outputRoot == DELETED_OUTPUT_ROOT,
             "Colosseum: only can rollback if the output has been deleted"
         );
+        verifiedPublicInputs[_publicInputHash] = false;
 
         // Rollback output root.
         L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, _asserter);
