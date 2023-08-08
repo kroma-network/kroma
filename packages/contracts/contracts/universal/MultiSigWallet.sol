@@ -169,6 +169,7 @@ abstract contract MultiSigWallet is IMultiSigWallet, ReentrancyGuardUpgradeable 
         onlyInitializing
         validNumConfirmations(_owners.length, _numConfirmationsRequired)
     {
+        __ReentrancyGuard_init_unchained();
         for (uint256 i = 0; i < _owners.length; ) {
             address owner = _owners[i];
             require(!isOwner[owner], "MultiSigWallet: owner already exists");

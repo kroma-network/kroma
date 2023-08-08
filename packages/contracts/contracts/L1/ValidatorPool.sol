@@ -204,7 +204,9 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     /**
      * @notice Initializer.
      */
-    function initialize() public initializer {}
+    function initialize() public initializer {
+        __ReentrancyGuard_init_unchained();
+    }
 
     /**
      * @notice Deposit ETH to be used as bond.
