@@ -283,10 +283,16 @@ func (c *Challenger) subscribeL2OutputSubmitted() {
 		select {
 		case ev := <-c.l2OutputSubmittedEventChan:
 			c.log.Info("watched output submitted event", "l2BlockNumber", ev.L2BlockNumber, "outputRoot", ev.OutputRoot, "outputIndex", ev.L2OutputIndex)
-			// validate all outputs between the checkpoint and the current outputIndex
-			for i := new(big.Int).Add(c.checkpoint, common.Big1); i.Cmp(ev.L2OutputIndex) != 1; i.Add(i, common.Big1) {
+			// if the emitted output index is less than or equal to the checkpoint, it is considered reorg occurred.
+			if ev.L2OutputIndex.Cmp(c.checkpoint) <= 0 {
 				c.wg.Add(1)
-				go c.handleOutput(new(big.Int).Set(i))
+				go c.handleOutput(new(big.Int).Set(ev.L2OutputIndex))
+			} else {
+				// validate all outputs between the checkpoint and the current outputIndex
+				for i := new(big.Int).Add(c.checkpoint, common.Big1); i.Cmp(ev.L2OutputIndex) != 1; i.Add(i, common.Big1) {
+					c.wg.Add(1)
+					go c.handleOutput(new(big.Int).Set(i))
+				}
 			}
 			c.checkpoint = ev.L2OutputIndex
 			c.metr.RecordChallengeCheckpoint(c.checkpoint)
