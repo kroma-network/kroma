@@ -1606,7 +1606,7 @@ func TestFees(t *testing.T) {
 
 	// Tally Protocol fund
 	protocolFee := new(big.Int).Sub(fee, reward)
-	require.Equal(t, protocolFee, protocolVaultDiff, "protocol fund mismatch")
+	require.Equal(t, protocolFee.Cmp(protocolVaultDiff), 0, "protocol fund mismatch")
 
 	// Tally proposer reward
 	bytes, err := tx.MarshalBinary()
