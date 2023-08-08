@@ -173,6 +173,7 @@ library NodeReader {
             // TODO(chokobole): Do the length check as much as possible at once and read the bytes.
             node.nodeKey = readBytes32(item);
             (uint32 compressedFlags, uint256 valuePreimageLen) = readCompressedFlags(item);
+            require((compressedFlags == 1 && valuePreimageLen == 1) || (compressedFlags == 4 && valuePreimageLen == 4), "NodeReader: invalid compressedFlags");
             node.compressedFlags = compressedFlags;
             node.valuePreimage = new bytes32[](valuePreimageLen);
             for (uint256 i = 0; i < valuePreimageLen; ) {
