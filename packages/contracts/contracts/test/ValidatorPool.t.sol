@@ -54,7 +54,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
     event BondIncreased(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
     event PendingBondAdded(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
-    event PendingBondRefunded(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
+    event PendingBondReleased(uint256 indexed outputIndex, address indexed challenger, address indexed recipient, uint128 amount);
     event Unbonded(uint256 indexed outputIndex, address indexed recipient, uint128 amount);
 
     function setUp() public override {
@@ -510,7 +510,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         pool.increaseBond(0, challenger);
     }
 
-    function test_refundPendingBond_succeeds() external {
+    function test_releasePendingBond_succeeds() external {
         test_addPendingBond_succeeds();
 
         uint256 outputIndex = oracle.latestOutputIndex();
@@ -518,8 +518,8 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
         vm.prank(oracle.COLOSSEUM());
         vm.expectEmit(true, true, false, true, address(pool));
-        emit PendingBondRefunded(outputIndex, challenger, pendingBond);
-        pool.refundPendingBond(outputIndex, challenger);
+        emit PendingBondReleased(outputIndex, challenger, challenger, pendingBond);
+        pool.releasePendingBond(outputIndex, challenger, challenger);
 
         assertEq(pool.balanceOf(challenger), pendingBond);
 
@@ -527,10 +527,10 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         pool.getPendingBond(outputIndex, challenger);
     }
 
-    function test_refundPendingBond_noPendingBond_succeeds() external {
+    function test_releasePendingBond_noPendingBond_succeeds() external {
         vm.prank(oracle.COLOSSEUM());
         vm.expectRevert("ValidatorPool: the pending bond does not exist");
-        pool.refundPendingBond(0, challenger);
+        pool.releasePendingBond(0, challenger, challenger);
     }
 
     function test_getBond_succeeds() external {
