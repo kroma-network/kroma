@@ -334,7 +334,7 @@ contract KromaPortal_Test is Portal_Initializer {
         vm.roll(checkpoint);
         vm.warp(oracle.computeL2Timestamp(checkpoint) + 1);
         vm.prank(trusted);
-        oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0, minBond);
+        oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0);
 
         // warp to the final second of the finalization period
         uint256 finalizationHorizon = block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS();
@@ -400,7 +400,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         // Configure the oracle to return the output root we've prepared.
         vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber + 1));
         vm.prank(trusted);
-        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
 
         // Warp beyond the finalization period for the block we've submitted.
         vm.warp(
@@ -567,8 +567,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             output.outputRoot,
             portal.L2_ORACLE().nextBlockNumber(),
             blockhash(block.number),
-            block.number,
-            minBond
+            block.number
         );
         vm.stopPrank();
 

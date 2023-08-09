@@ -79,7 +79,7 @@ interaction:
 	// check bond amount doubled after challenge proven
 	bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt().Int64()), bond.Amount)
+	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 }
 
 func TestChallengeAsserterBisectTimeout(t *testing.T) {
@@ -144,7 +144,7 @@ interaction:
 	// check bond amount doubled after challenge proven
 	bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt().Int64()), bond.Amount)
+	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 }
 
 func TestChallengeChallengerBisectTimeout(t *testing.T) {
@@ -207,7 +207,7 @@ interaction:
 	// check bond amount doubled after challenger timed out
 	bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt().Int64()), bond.Amount)
+	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 }
 
 func TestChallengeChallengerProvingTimeout(t *testing.T) {
@@ -274,7 +274,7 @@ interaction:
 	// check bond amount doubled after challenger timed out
 	bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt().Int64()), bond.Amount)
+	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 }
 
 func TestChallengeInvalidProofFail(t *testing.T) {
@@ -352,7 +352,7 @@ interaction:
 	// check bond amount doubled after challenge is proven incorrectly anyway
 	bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt().Int64()), bond.Amount)
+	require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 }
 
 func TestMultipleChallenges(t *testing.T) {
@@ -420,7 +420,7 @@ interaction1:
 	// check pending bond amount before challenge is canceled
 	balance, err := rt.valPoolContract.BalanceOf(nil, rt.challenger2.address)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, balance.Int64(), defaultDepositAmount-rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt().Int64())
+	require.Equal(rt.t, balance.Int64(), defaultDepositAmount-rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64())
 
 	// progress challenge by challenger 2
 interaction2:

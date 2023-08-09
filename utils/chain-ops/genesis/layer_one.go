@@ -375,7 +375,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			Name: "ValidatorPool",
 			Args: []interface{}{
 				config.ValidatorPoolTrustedValidator,
-				config.ValidatorPoolMinBondAmount.ToInt(),
+				config.ValidatorPoolRequiredBondAmount.ToInt(),
 				uint642Big(config.ValidatorPoolMaxUnbond),
 				uint642Big(config.ValidatorPoolRoundDuration),
 			},
@@ -471,7 +471,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			predeploys.DevL2OutputOracleAddr,
 			predeploys.DevKromaPortalAddr,
 			/* trustedValidator= */ deployment.Args[0].(common.Address),
-			/* minBondAmount= */ deployment.Args[1].(*big.Int),
+			/* requiredBond= */ deployment.Args[1].(*big.Int),
 			/* maxUnbond= */ deployment.Args[2].(*big.Int),
 			/* roundDuration= */ deployment.Args[3].(*big.Int),
 		)

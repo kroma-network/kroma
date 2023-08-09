@@ -33,13 +33,13 @@ contract ColosseumTest is Colosseum_Initializer {
         // Roll to after the block number we'll submit
         warpToSubmitTime(nextBlockNumber);
         vm.prank(pool.nextValidator());
-        oracle.submitL2Output(bytes32(nextBlockNumber), nextBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(bytes32(nextBlockNumber), nextBlockNumber, 0, 0);
 
         // Submit invalid output
         nextBlockNumber = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber);
         vm.prank(pool.nextValidator());
-        oracle.submitL2Output(keccak256(abi.encode()), nextBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(keccak256(abi.encode()), nextBlockNumber, 0, 0);
 
         vm.prank(challenger);
         pool.deposit{ value: challenger.balance }();
@@ -261,7 +261,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.deal(otherChallenger, 1 ether);
         vm.prank(otherChallenger);
-        pool.deposit{ value: minBond }();
+        pool.deposit{ value: requiredBondAmount }();
 
         _createChallenge(outputIndex, otherChallenger);
 
@@ -405,19 +405,6 @@ contract ColosseumTest is Colosseum_Initializer {
             uint256(colosseum.getStatus(outputIndex, challenge.challenger)),
             uint256(Colosseum.ChallengeStatus.ASSERTER_TURN)
         );
-    }
-
-    function test_createChallenge_x2BondAfterChallengerTimedOut_succeeds() external {
-        uint256 outputIndex = targetOutputIndex;
-        test_challengerTimeout_succeeds();
-
-        Types.Bond memory bond = pool.getBond(outputIndex);
-        assertEq(bond.amount, minBond * 2);
-
-        _createChallenge(outputIndex, challenger);
-
-        uint256 pendingBond = pool.getPendingBond(outputIndex, challenger);
-        assertEq(pendingBond, bond.amount);
     }
 
     function test_createChallenge_afterDismissed_succeeds() external {

@@ -45,6 +45,7 @@ type L2OutputSubmitter struct {
 
 	singleRoundInterval *big.Int
 	l2BlockTime         *big.Int
+	requiredBondAmount  *big.Int
 
 	submitChan chan struct{}
 
@@ -83,6 +84,13 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 	}
 	singleRoundInterval := new(big.Int).Div(submissionInterval, new(big.Int).SetUint64(roundNums))
 
+	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
+	requiredBondAmount, err := valpoolContract.REQUIREDBONDAMOUNT(utils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get required bond amount: %w", err)
+	}
+
 	return &L2OutputSubmitter{
 		cfg:                 cfg,
 		log:                 l,
@@ -92,6 +100,7 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 		valpoolContract:     valpoolContract,
 		singleRoundInterval: singleRoundInterval,
 		l2BlockTime:         l2BlockTime,
+		requiredBondAmount:  requiredBondAmount,
 	}, nil
 }
 
@@ -172,7 +181,7 @@ func (l *L2OutputSubmitter) doSubmitL2Output(ctx context.Context, nextBlockNumbe
 		return err
 	}
 
-	data, err := SubmitL2OutputTxData(l.l2ooABI, output, l.cfg.OutputSubmitterBondAmount)
+	data, err := SubmitL2OutputTxData(l.l2ooABI, output)
 	if err != nil {
 		return fmt.Errorf("failed to create submit l2 output transaction data: %w", err)
 	}
@@ -252,8 +261,12 @@ func (l *L2OutputSubmitter) hasEnoughDeposit(ctx context.Context) (bool, error) 
 		return false, fmt.Errorf("failed to fetch validator deposit amount: %w", err)
 	}
 
-	if balance.Cmp(new(big.Int).SetUint64(l.cfg.OutputSubmitterBondAmount)) == -1 {
-		l.log.Warn("validator deposit is less than bond attempt amount", "bondAttemptAmount", l.cfg.OutputSubmitterBondAmount, "deposit", balance)
+	if balance.Cmp(l.requiredBondAmount) == -1 {
+		l.log.Warn(
+			"validator deposit is less than bond attempt amount",
+			"requiredBondAmount", l.requiredBondAmount,
+			"deposit", balance,
+		)
 		return false, nil
 	}
 	l.log.Info("validator deposit amount", "deposit", balance)
@@ -395,14 +408,14 @@ func (l *L2OutputSubmitter) FetchOutput(ctx context.Context, blockNumber *big.In
 }
 
 // SubmitL2OutputTxData creates the transaction data for the submitL2OutputTx function.
-func SubmitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse, bondAmount uint64) ([]byte, error) {
+func SubmitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse) ([]byte, error) {
 	return abi.Pack(
 		"submitL2Output",
 		output.OutputRoot,
 		new(big.Int).SetUint64(output.BlockRef.Number),
 		output.Status.CurrentL1.Hash,
 		new(big.Int).SetUint64(output.Status.CurrentL1.Number),
-		new(big.Int).SetUint64(bondAmount))
+	)
 }
 
 // submitL2OutputTx creates l2 output submit tx candidate and sends it to txCandidates channel to process validator's tx candidates in order.

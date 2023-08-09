@@ -112,7 +112,7 @@ contract L2OutputOracle_Initializer is CommonTest {
 
     // ValidatorPool constructor arguments
     address internal trusted = 0x000000000000000000000000000000000000aaaa;
-    uint256 internal minBond = 0.1 ether;
+    uint256 internal requiredBondAmount = 0.1 ether;
     uint256 internal maxUnbond = 2;
     uint256 internal roundDuration = (submissionInterval * l2BlockTime) / 2;
 
@@ -138,9 +138,9 @@ contract L2OutputOracle_Initializer is CommonTest {
     function setUp() public virtual override {
         super.setUp();
 
-        vm.deal(trusted, minBond * 10);
-        vm.deal(asserter, minBond * 10);
-        vm.deal(challenger, minBond * 10);
+        vm.deal(trusted, requiredBondAmount * 10);
+        vm.deal(asserter, requiredBondAmount * 10);
+        vm.deal(challenger, requiredBondAmount * 10);
 
         // Deploy proxies
         pool = ValidatorPool(address(new Proxy(multisig)));
@@ -174,7 +174,7 @@ contract L2OutputOracle_Initializer is CommonTest {
             _l2OutputOracle: oracle,
             _portal: mockPortal,
             _trustedValidator: trusted,
-            _minBondAmount: minBond,
+            _requiredBondAmount: requiredBondAmount,
             _maxUnbond: maxUnbond,
             _roundDuration: roundDuration
         });
@@ -241,7 +241,7 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
     function setUp() public virtual override {
         super.setUp();
 
-        vm.deal(trusted, minBond * 100);
+        vm.deal(trusted, requiredBondAmount * 100);
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
 

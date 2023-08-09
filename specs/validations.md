@@ -151,8 +151,7 @@ interface L2OutputOracle {
         bytes32 _outputRoot,
         uint256 _l2BlockNumber,
         bytes32 _l1BlockHash,
-        uint256 _l1BlockNumber,
-        uint256 _bondAmount
+        uint256 _l1BlockNumber
     ) external payable;
 }
 ```
@@ -169,9 +168,9 @@ height incremented by `SUBMISSION_INTERVAL`.
 
 Only accounts registered as [Validator][g-validator] can submit [output][g-l2-output] to
 the [L2 Output Oracle](#l2-output-oracle-smart-contract).
-To register as a [Validator][g-validator], you must deposit at least `MIN_BOND_AMOUNT` of ETH into
+To register as a [Validator][g-validator], you must deposit at least `REQUIRED_BOND_AMOUNT` of ETH into
 the `ValidatorPool` contract.
-When submitting the output, the validator must bond at least `MIN_BOND_AMOUNT` of Ethereum, which will be unbonded and
+When submitting the output, the validator must bond Ethereum for `REQUIRED_BOND_AMOUNT`, which will be unbonded and
 rewarded to the L2 `ValidatorRewardVault` contract when the output is finalized.
 
 Validator Pool Smart Contract implements the following interface:
@@ -194,7 +193,6 @@ interface ValidatorPool {
 
     function createBond(
         uint256 _outputIndex,
-        uint128 _amount,
         uint128 _expiresAt
     ) external;
 
@@ -234,10 +232,10 @@ in the event of a reorg, the block hash will not match that of the block with th
 
 ### Constants
 
-| Name                  | Value  | Unit           |
-|-----------------------|--------|----------------|
-| `SUBMISSION_INTERVAL` | `1800` | blocks         |
-| `L2_BLOCK_TIME`       | `2`    | seconds        |
-| `MIN_BOND_AMOUNT`     | TBD    | wei            |
-| `REWARD_DIVIDER`      | `168`  | num of outputs |
-| `ROUND_DURATION`      | `30`   | minutes        |
+| Name                   | Value  | Unit           |
+|------------------------|--------|----------------|
+| `SUBMISSION_INTERVAL`  | `1800` | blocks         |
+| `L2_BLOCK_TIME`        | `2`    | seconds        |
+| `REQUIRED_BOND_AMOUNT` | TBD    | wei            |
+| `REWARD_DIVIDER`       | `168`  | num of outputs |
+| `ROUND_DURATION`       | `30`   | minutes        |

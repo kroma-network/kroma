@@ -39,7 +39,6 @@ type Config struct {
 	RollupConfig                 *rollup.Config
 	AllowNonFinalized            bool
 	OutputSubmitterEnabled       bool
-	OutputSubmitterBondAmount    uint64
 	OutputSubmitterRetryInterval time.Duration
 	OutputSubmitterRoundBuffer   uint64
 	ChallengerEnabled            bool
@@ -91,9 +90,6 @@ type CLIConfig struct {
 	AllowNonFinalized bool
 
 	OutputSubmitterEnabled bool
-
-	// OutputSubmitterBondAmount is the amount to bond when submitting each output.
-	OutputSubmitterBondAmount uint64
 
 	// OutputSubmitterRetryInterval is how frequently to retry output submission.
 	OutputSubmitterRetryInterval time.Duration
@@ -150,7 +146,6 @@ func NewCLIConfig(ctx *cli.Context) CLIConfig {
 
 		// Optional Flags
 		AllowNonFinalized:            ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
-		OutputSubmitterBondAmount:    ctx.GlobalUint64(flags.OutputSubmitterBondAmountFlag.Name),
 		OutputSubmitterRetryInterval: ctx.GlobalDuration(flags.OutputSubmitterRetryIntervalFlag.Name),
 		OutputSubmitterRoundBuffer:   ctx.GlobalUint64(flags.OutputSubmitterRoundBufferFlag.Name),
 		SecurityCouncilAddress:       ctx.GlobalString(flags.SecurityCouncilAddressFlag.Name),
@@ -246,7 +241,6 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		RollupConfig:                 rollupConfig,
 		AllowNonFinalized:            cfg.AllowNonFinalized,
 		OutputSubmitterEnabled:       cfg.OutputSubmitterEnabled,
-		OutputSubmitterBondAmount:    cfg.OutputSubmitterBondAmount,
 		OutputSubmitterRetryInterval: cfg.OutputSubmitterRetryInterval,
 		OutputSubmitterRoundBuffer:   cfg.OutputSubmitterRoundBuffer,
 		ChallengerEnabled:            cfg.ChallengerEnabled,
