@@ -17,27 +17,40 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/metrics"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/p2p/net/conngater"
 	cmgr "github.com/libp2p/go-libp2p/p2p/net/connmgr"
 
+	"github.com/kroma-network/kroma/components/node/p2p/gating"
 	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
 // TODO(chokobole): fill the default bootnodes.
 var DefaultBootnodes = []*enode.Node{}
 
+type HostMetrics interface {
+	gating.UnbanMetrics
+	gating.ConnectionGaterMetrics
+}
+
 // SetupP2P provides a host and discovery service for usage in the rollup node.
 type SetupP2P interface {
 	Check() error
 	Disabled() bool
 	// Host creates a libp2p host service. Returns nil, nil if p2p is disabled.
-	Host(log log.Logger, reporter metrics.Reporter) (host.Host, error)
+	Host(log log.Logger, reporter metrics.Reporter, metrics HostMetrics) (host.Host, error)
 	// Discovery creates a disc-v5 service. Returns nil, nil, nil if discovery is disabled.
 	Discovery(log log.Logger, rollupCfg *rollup.Config, tcpPort uint16) (*enode.LocalNode, *discover.UDPv5, error)
 	TargetPeers() uint
+	BanPeers() bool
+	BanThreshold() float64
+	BanDuration() time.Duration
 	GossipSetupConfigurables
 	ReqRespSyncEnabled() bool
+}
+
+// ScoringParams defines the various types of peer scoring parameters.
+type ScoringParams struct {
+	PeerScoring        pubsub.PeerScoreParams
+	ApplicationScoring ApplicationScoreParams
 }
 
 // Config sets up a p2p host and discv5 service from configuration.
@@ -48,18 +61,13 @@ type Config struct {
 	DisableP2P  bool
 	NoDiscovery bool
 
-	// Enable P2P-based alt-syncing method (req-resp protocol, not gossip)
-	AltSync bool
+	ScoringParams *ScoringParams
 
-	// Pubsub Scoring Parameters
-	PeerScoring  pubsub.PeerScoreParams
-	TopicScoring pubsub.TopicScoreParams
-
-	// Peer Score Band Thresholds
-	BandScoreThresholds BandScoreThresholds
-
-	// Whether to ban peers based on their [PeerScoring] score.
+	// Whether to ban peers based on their [PeerScoring] score. Should be negative.
 	BanningEnabled bool
+	// Minimum score before peers are disconnected and banned
+	BanningThreshold float64
+	BanningDuration  time.Duration
 
 	ListenIP      net.IP
 	ListenTCPPort uint16
@@ -103,37 +111,7 @@ type Config struct {
 	// Underlying store that hosts connection-gater and peerstore data.
 	Store ds.Batching
 
-	ConnGater func(conf *Config) (connmgr.ConnectionGater, error)
-	ConnMngr  func(conf *Config) (connmgr.ConnManager, error)
-
 	EnableReqRespSync bool
-}
-
-//go:generate mockery --name ConnectionGater
-type ConnectionGater interface {
-	connmgr.ConnectionGater
-
-	// BlockPeer adds a peer to the set of blocked peers.
-	// Note: active connections to the peer are not automatically closed.
-	BlockPeer(p peer.ID) error
-	UnblockPeer(p peer.ID) error
-	ListBlockedPeers() []peer.ID
-
-	// BlockAddr adds an IP address to the set of blocked addresses.
-	// Note: active connections to the IP address are not automatically closed.
-	BlockAddr(ip net.IP) error
-	UnblockAddr(ip net.IP) error
-	ListBlockedAddrs() []net.IP
-
-	// BlockSubnet adds an IP subnet to the set of blocked addresses.
-	// Note: active connections to the IP subnet are not automatically closed.
-	BlockSubnet(ipnet *net.IPNet) error
-	UnblockSubnet(ipnet *net.IPNet) error
-	ListBlockedSubnets() []*net.IPNet
-}
-
-func DefaultConnGater(conf *Config) (connmgr.ConnectionGater, error) {
-	return conngater.NewBasicConnectionGater(conf.Store)
 }
 
 func DefaultConnManager(conf *Config) (connmgr.ConnManager, error) {
@@ -153,20 +131,23 @@ func (conf *Config) Disabled() bool {
 	return conf.DisableP2P
 }
 
-func (conf *Config) PeerScoringParams() *pubsub.PeerScoreParams {
-	return &conf.PeerScoring
-}
-
-func (conf *Config) PeerBandScorer() *BandScoreThresholds {
-	return &conf.BandScoreThresholds
+func (conf *Config) PeerScoringParams() *ScoringParams {
+	if conf.ScoringParams == nil {
+		return nil
+	}
+	return conf.ScoringParams
 }
 
 func (conf *Config) BanPeers() bool {
 	return conf.BanningEnabled
 }
 
-func (conf *Config) TopicScoringParams() *pubsub.TopicScoreParams {
-	return &conf.TopicScoring
+func (conf *Config) BanThreshold() float64 {
+	return conf.BanningThreshold
+}
+
+func (conf *Config) BanDuration() time.Duration {
+	return conf.BanningDuration
 }
 
 func (conf *Config) ReqRespSyncEnabled() bool {
@@ -189,12 +170,6 @@ func (conf *Config) Check() error {
 	}
 	if conf.PeersLo == 0 || conf.PeersHi == 0 || conf.PeersLo > conf.PeersHi {
 		return fmt.Errorf("peers lo/hi tides are invalid: %d, %d", conf.PeersLo, conf.PeersHi)
-	}
-	if conf.ConnMngr == nil {
-		return errors.New("need a connection manager")
-	}
-	if conf.ConnGater == nil {
-		return errors.New("need a connection gater")
 	}
 	if conf.MeshD <= 0 || conf.MeshD > maxMeshParam {
 		return fmt.Errorf("mesh D param must not be 0 or exceed %d, but got %d", maxMeshParam, conf.MeshD)

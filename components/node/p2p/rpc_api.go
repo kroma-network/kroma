@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+
+	"github.com/kroma-network/kroma/components/node/p2p/store"
 )
 
 type PeerInfo struct {
@@ -18,15 +20,17 @@ type PeerInfo struct {
 	ENR             string   `json:"ENR"`       // might not always be known, e.g. if the peer connected us instead of us discovering them
 	Addresses       []string `json:"addresses"` // multi-addresses. may be mix of LAN / docker / external IPs. All of them are communicated.
 	Protocols       []string `json:"protocols"` // negotiated protocols list
-	//GossipScore float64
-	//PeerScore float64
+	// GossipScore float64
+	// PeerScore float64
 	Connectedness network.Connectedness `json:"connectedness"` // "NotConnected", "Connected", "CanConnect" (gracefully disconnected), or "CannotConnect" (tried but failed)
 	Direction     network.Direction     `json:"direction"`     // "Unknown", "Inbound" (if the peer contacted us), "Outbound" (if we connected to them)
 	Protected     bool                  `json:"protected"`     // Protected peers do not get
-	ChainID       uint64                `json:"chainID"`       // some peers might try to connect, but we figure out they are on a different chain later. This may be 0 if the peer is not a kroma node at all.
+	ChainID       uint64                `json:"chainID"`       // some peers might try to connect, but we figure out they are on a different chain later. This may be 0 if the peer is not an kroma node at all.
 	Latency       time.Duration         `json:"latency"`
 
 	GossipBlocks bool `json:"gossipBlocks"` // if the peer is in our gossip topic
+
+	PeerScores store.PeerScores `json:"scores"`
 }
 
 type PeerDump struct {

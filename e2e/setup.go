@@ -3,8 +3,10 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"path"
 	"sort"
@@ -23,7 +25,15 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	ds "github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/sync"
+	ic "github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/libp2p/go-libp2p/p2p/host/peerstore/pstoremem"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
@@ -36,6 +46,7 @@ import (
 	"github.com/kroma-network/kroma/components/node/metrics"
 	rollupNode "github.com/kroma-network/kroma/components/node/node"
 	"github.com/kroma-network/kroma/components/node/p2p"
+	"github.com/kroma-network/kroma/components/node/p2p/store"
 	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/node/rollup/driver"
 	"github.com/kroma-network/kroma/components/node/sources"
@@ -45,6 +56,7 @@ import (
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 	"github.com/kroma-network/kroma/e2e/testdata"
 	"github.com/kroma-network/kroma/utils/chain-ops/genesis"
+	"github.com/kroma-network/kroma/utils/service/clock"
 	klog "github.com/kroma-network/kroma/utils/service/log"
 	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
@@ -470,7 +482,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			if p, ok := p2pNodes[name]; ok {
 				return p, nil
 			}
-			h, err := sys.Mocknet.GenPeer()
+			h, err := sys.newMockNetPeer()
 			if err != nil {
 				return nil, fmt.Errorf("failed to init p2p host for node %s", name)
 			}
@@ -722,6 +734,51 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 
 	return sys, nil
+}
+
+// IP6 range that gets blackholed (in case our traffic ever makes it out onto
+// the internet).
+var blackholeIP6 = net.ParseIP("100::")
+
+// mocknet doesn't allow us to add a peerstore without fully creating the peer ourselves
+func (sys *System) newMockNetPeer() (host.Host, error) {
+	sk, _, err := ic.GenerateECDSAKeyPair(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	id, err := peer.IDFromPrivateKey(sk)
+	if err != nil {
+		return nil, err
+	}
+	suffix := id
+	if len(id) > 8 {
+		suffix = id[len(id)-8:]
+	}
+	ip := append(net.IP{}, blackholeIP6...)
+	copy(ip[net.IPv6len-len(suffix):], suffix)
+	a, err := ma.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/4242", ip))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create test multiaddr: %w", err)
+	}
+	p, err := peer.IDFromPublicKey(sk.GetPublic())
+	if err != nil {
+		return nil, err
+	}
+
+	ps, err := pstoremem.NewPeerstore()
+	if err != nil {
+		return nil, err
+	}
+	ps.AddAddr(p, a, peerstore.PermanentAddrTTL)
+	_ = ps.AddPrivKey(p, sk)
+	_ = ps.AddPubKey(p, sk.GetPublic())
+
+	ds := sync.MutexWrap(ds.NewMapDatastore())
+	eps, err := store.NewExtendedPeerstore(context.Background(), log.Root(), clock.SystemClock, ps, ds, 24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	return sys.Mocknet.AddPeerWithPeerstore(p, eps)
 }
 
 func configureL1(rollupNodeCfg *rollupNode.Config, l1Node *node.Node) {

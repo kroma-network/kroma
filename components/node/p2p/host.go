@@ -25,17 +25,25 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	ma "github.com/multiformats/go-multiaddr"
 	madns "github.com/multiformats/go-multiaddr-dns"
+
+	"github.com/kroma-network/kroma/components/node/p2p/gating"
+	"github.com/kroma-network/kroma/components/node/p2p/store"
+	"github.com/kroma-network/kroma/utils/service/clock"
+)
+
+const (
+	staticPeerTag = "static"
 )
 
 type ExtraHostFeatures interface {
 	host.Host
-	ConnectionGater() ConnectionGater
+	ConnectionGater() gating.BlockingConnectionGater
 	ConnectionManager() connmgr.ConnManager
 }
 
 type extraHost struct {
 	host.Host
-	gater   ConnectionGater
+	gater   gating.BlockingConnectionGater
 	connMgr connmgr.ConnManager
 	log     log.Logger
 
@@ -44,7 +52,7 @@ type extraHost struct {
 	quitC chan struct{}
 }
 
-func (e *extraHost) ConnectionGater() ConnectionGater {
+func (e *extraHost) ConnectionGater() gating.BlockingConnectionGater {
 	return e.gater
 }
 
@@ -62,7 +70,7 @@ func (e *extraHost) initStaticPeers() {
 		e.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Hour*24*7)
 		// We protect the peer, so the connection manager doesn't decide to prune it.
 		// We tag it with "static" so other protects/unprotects with different tags don't affect this protection.
-		e.connMgr.Protect(addr.ID, "static")
+		e.connMgr.Protect(addr.ID, staticPeerTag)
 		// Try to dial the node in the background
 		go func(addr *peer.AddrInfo) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -121,7 +129,7 @@ func (e *extraHost) monitorStaticPeers() {
 
 var _ ExtraHostFeatures = (*extraHost)(nil)
 
-func (conf *Config) Host(log log.Logger, reporter metrics.Reporter) (host.Host, error) {
+func (conf *Config) Host(log log.Logger, reporter metrics.Reporter, metrics HostMetrics) (host.Host, error) {
 	if conf.DisableP2P {
 		return nil, nil
 	}
@@ -131,9 +139,23 @@ func (conf *Config) Host(log log.Logger, reporter metrics.Reporter) (host.Host, 
 		return nil, fmt.Errorf("failed to derive pubkey from network priv key: %w", err)
 	}
 
-	ps, err := pstoreds.NewPeerstore(context.Background(), conf.Store, pstoreds.DefaultOpts())
+	basePs, err := pstoreds.NewPeerstore(context.Background(), conf.Store, pstoreds.DefaultOpts())
 	if err != nil {
 		return nil, fmt.Errorf("failed to open peerstore: %w", err)
+	}
+
+	peerScoreParams := conf.PeerScoringParams()
+	var scoreRetention time.Duration
+	if peerScoreParams != nil {
+		// Use the same retention period as gossip will if available
+		scoreRetention = peerScoreParams.PeerScoring.RetainScore
+	} else {
+		// Disable score GC if peer scoring is disabled
+		scoreRetention = 0
+	}
+	ps, err := store.NewExtendedPeerstore(context.Background(), log, clock.SystemClock, basePs, conf.Store, scoreRetention)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open extended peerstore: %w", err)
 	}
 
 	if err := ps.AddPrivKey(pid, conf.Priv); err != nil {
@@ -143,12 +165,15 @@ func (conf *Config) Host(log log.Logger, reporter metrics.Reporter) (host.Host, 
 		return nil, fmt.Errorf("failed to set up peerstore with pub key: %w", err)
 	}
 
-	connGtr, err := conf.ConnGater(conf)
+	var connGtr gating.BlockingConnectionGater
+	connGtr, err = gating.NewBlockingConnectionGater(conf.Store)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open connection gater: %w", err)
 	}
+	connGtr = gating.AddBanExpiry(connGtr, ps, log, clock.SystemClock, metrics)
+	connGtr = gating.AddMetering(connGtr, metrics)
 
-	connMngr, err := conf.ConnMngr(conf)
+	connMngr, err := DefaultConnManager(conf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open connection manager: %w", err)
 	}
@@ -160,6 +185,9 @@ func (conf *Config) Host(log log.Logger, reporter metrics.Reporter) (host.Host, 
 	tcpTransport := libp2p.Transport(
 		tcp.NewTCPTransport,
 		tcp.WithConnectionTimeout(time.Minute*60)) // break unused connections
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TCP transport: %w", err)
+	}
 	// TODO: technically we can also run the node on websocket and QUIC transports. Maybe in the future?
 
 	var nat lconf.NATManagerC // disabled if nil
@@ -179,7 +207,7 @@ func (conf *Config) Host(log log.Logger, reporter metrics.Reporter) (host.Host, 
 		libp2p.ListenAddrs(listenAddr),
 		libp2p.ConnectionGater(connGtr),
 		libp2p.ConnectionManager(connMngr),
-		//libp2p.ResourceManager(nil), // TODO use resource manager interface to manage resources per peer better.
+		// libp2p.ResourceManager(nil), // TODO use resource manager interface to manage resources per peer better.
 		libp2p.NATManager(nat),
 		libp2p.Peerstore(ps),
 		libp2p.BandwidthReporter(reporter), // may be nil if disabled
@@ -222,10 +250,7 @@ func (conf *Config) Host(log log.Logger, reporter metrics.Reporter) (host.Host, 
 		go out.monitorStaticPeers()
 	}
 
-	// Only add the connection gater if it offers the full interface we're looking for.
-	if g, ok := connGtr.(ConnectionGater); ok {
-		out.gater = g
-	}
+	out.gater = connGtr
 	return out, nil
 }
 

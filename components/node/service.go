@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/components/node/chaincfg"
 	"github.com/kroma-network/kroma/components/node/flags"
@@ -41,7 +41,7 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		return nil, fmt.Errorf("failed to load p2p signer: %w", err)
 	}
 
-	p2pConfig, err := p2pcli.NewConfig(ctx, rollupConfig.BlockTime)
+	p2pConfig, err := p2pcli.NewConfig(ctx, rollupConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load p2p config: %w", err)
 	}
@@ -62,27 +62,27 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		Rollup: *rollupConfig,
 		Driver: *driverConfig,
 		RPC: node.RPCConfig{
-			ListenAddr:  ctx.GlobalString(flags.RPCListenAddr.Name),
-			ListenPort:  ctx.GlobalInt(flags.RPCListenPort.Name),
-			EnableAdmin: ctx.GlobalBool(flags.RPCEnableAdmin.Name),
+			ListenAddr:  ctx.String(flags.RPCListenAddr.Name),
+			ListenPort:  ctx.Int(flags.RPCListenPort.Name),
+			EnableAdmin: ctx.Bool(flags.RPCEnableAdmin.Name),
 		},
 		Metrics: node.MetricsConfig{
-			Enabled:    ctx.GlobalBool(flags.MetricsEnabledFlag.Name),
-			ListenAddr: ctx.GlobalString(flags.MetricsAddrFlag.Name),
-			ListenPort: ctx.GlobalInt(flags.MetricsPortFlag.Name),
+			Enabled:    ctx.Bool(flags.MetricsEnabledFlag.Name),
+			ListenAddr: ctx.String(flags.MetricsAddrFlag.Name),
+			ListenPort: ctx.Int(flags.MetricsPortFlag.Name),
 		},
 		Pprof: kpprof.CLIConfig{
-			Enabled:    ctx.GlobalBool(flags.PprofEnabledFlag.Name),
-			ListenAddr: ctx.GlobalString(flags.PprofAddrFlag.Name),
-			ListenPort: ctx.GlobalInt(flags.PprofPortFlag.Name),
+			Enabled:    ctx.Bool(flags.PprofEnabledFlag.Name),
+			ListenAddr: ctx.String(flags.PprofAddrFlag.Name),
+			ListenPort: ctx.Int(flags.PprofPortFlag.Name),
 		},
 		P2P:                 p2pConfig,
 		P2PSigner:           p2pSignerSetup,
-		L1EpochPollInterval: ctx.GlobalDuration(flags.L1EpochPollIntervalFlag.Name),
+		L1EpochPollInterval: ctx.Duration(flags.L1EpochPollIntervalFlag.Name),
 		Heartbeat: node.HeartbeatConfig{
-			Enabled: ctx.GlobalBool(flags.HeartbeatEnabledFlag.Name),
-			Moniker: ctx.GlobalString(flags.HeartbeatMonikerFlag.Name),
-			URL:     ctx.GlobalString(flags.HeartbeatURLFlag.Name),
+			Enabled: ctx.Bool(flags.HeartbeatEnabledFlag.Name),
+			Moniker: ctx.String(flags.HeartbeatMonikerFlag.Name),
+			URL:     ctx.String(flags.HeartbeatURLFlag.Name),
 		},
 	}
 	if err := cfg.Check(); err != nil {
@@ -93,18 +93,18 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 
 func NewL1EndpointConfig(ctx *cli.Context) *node.L1EndpointConfig {
 	return &node.L1EndpointConfig{
-		L1NodeAddr:       ctx.GlobalString(flags.L1NodeAddr.Name),
-		L1TrustRPC:       ctx.GlobalBool(flags.L1TrustRPC.Name),
-		L1RPCKind:        sources.RPCProviderKind(strings.ToLower(ctx.GlobalString(flags.L1RPCProviderKind.Name))),
-		RateLimit:        ctx.GlobalFloat64(flags.L1RPCRateLimit.Name),
-		BatchSize:        ctx.GlobalInt(flags.L1RPCMaxBatchSize.Name),
+		L1NodeAddr:       ctx.String(flags.L1NodeAddr.Name),
+		L1TrustRPC:       ctx.Bool(flags.L1TrustRPC.Name),
+		L1RPCKind:        sources.RPCProviderKind(strings.ToLower(ctx.String(flags.L1RPCProviderKind.Name))),
+		RateLimit:        ctx.Float64(flags.L1RPCRateLimit.Name),
+		BatchSize:        ctx.Int(flags.L1RPCMaxBatchSize.Name),
 		HttpPollInterval: ctx.Duration(flags.L1HTTPPollInterval.Name),
 	}
 }
 
 func NewL2EndpointConfig(ctx *cli.Context, log log.Logger) (*node.L2EndpointConfig, error) {
-	l2Addr := ctx.GlobalString(flags.L2EngineAddr.Name)
-	fileName := ctx.GlobalString(flags.L2EngineJWTSecret.Name)
+	l2Addr := ctx.String(flags.L2EngineAddr.Name)
+	fileName := ctx.String(flags.L2EngineJWTSecret.Name)
 	var secret [32]byte
 	fileName = strings.TrimSpace(fileName)
 	if fileName == "" {
@@ -121,7 +121,7 @@ func NewL2EndpointConfig(ctx *cli.Context, log log.Logger) (*node.L2EndpointConf
 		if _, err := io.ReadFull(rand.Reader, secret[:]); err != nil {
 			return nil, fmt.Errorf("failed to generate jwt secret: %w", err)
 		}
-		if err := os.WriteFile(fileName, []byte(hexutil.Encode(secret[:])), 0600); err != nil {
+		if err := os.WriteFile(fileName, []byte(hexutil.Encode(secret[:])), 0o600); err != nil {
 			return nil, err
 		}
 	}
@@ -136,23 +136,23 @@ func NewL2EndpointConfig(ctx *cli.Context, log log.Logger) (*node.L2EndpointConf
 // flag is set, otherwise nil.
 func NewL2SyncEndpointConfig(ctx *cli.Context) *node.L2SyncEndpointConfig {
 	return &node.L2SyncEndpointConfig{
-		L2NodeAddr: ctx.GlobalString(flags.BackupL2UnsafeSyncRPC.Name),
-		TrustRPC:   ctx.GlobalBool(flags.BackupL2UnsafeSyncRPCTrustRPC.Name),
+		L2NodeAddr: ctx.String(flags.BackupL2UnsafeSyncRPC.Name),
+		TrustRPC:   ctx.Bool(flags.BackupL2UnsafeSyncRPCTrustRPC.Name),
 	}
 }
 
 func NewDriverConfig(ctx *cli.Context) *driver.Config {
 	return &driver.Config{
-		SyncerConfDepth:    ctx.GlobalUint64(flags.SyncerL1Confs.Name),
-		ProposerConfDepth:  ctx.GlobalUint64(flags.ProposerL1Confs.Name),
-		ProposerEnabled:    ctx.GlobalBool(flags.ProposerEnabledFlag.Name),
-		ProposerStopped:    ctx.GlobalBool(flags.ProposerStoppedFlag.Name),
-		ProposerMaxSafeLag: ctx.GlobalUint64(flags.ProposerMaxSafeLagFlag.Name),
+		SyncerConfDepth:    ctx.Uint64(flags.SyncerL1Confs.Name),
+		ProposerConfDepth:  ctx.Uint64(flags.ProposerL1Confs.Name),
+		ProposerEnabled:    ctx.Bool(flags.ProposerEnabledFlag.Name),
+		ProposerStopped:    ctx.Bool(flags.ProposerStoppedFlag.Name),
+		ProposerMaxSafeLag: ctx.Uint64(flags.ProposerMaxSafeLagFlag.Name),
 	}
 }
 
 func NewRollupConfig(ctx *cli.Context) (*rollup.Config, error) {
-	network := ctx.GlobalString(flags.Network.Name)
+	network := ctx.String(flags.Network.Name)
 	if network != "" {
 		config, err := chaincfg.GetRollupConfig(network)
 		if err != nil {
@@ -162,7 +162,7 @@ func NewRollupConfig(ctx *cli.Context) (*rollup.Config, error) {
 		return &config, nil
 	}
 
-	rollupConfigPath := ctx.GlobalString(flags.RollupConfig.Name)
+	rollupConfigPath := ctx.String(flags.RollupConfig.Name)
 	file, err := os.Open(rollupConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read rollup config: %w", err)
@@ -177,7 +177,7 @@ func NewRollupConfig(ctx *cli.Context) (*rollup.Config, error) {
 }
 
 func NewSnapshotLogger(ctx *cli.Context) (log.Logger, error) {
-	snapshotFile := ctx.GlobalString(flags.SnapshotLog.Name)
+	snapshotFile := ctx.String(flags.SnapshotLog.Name)
 	handler := log.DiscardHandler()
 	if snapshotFile != "" {
 		var err error
