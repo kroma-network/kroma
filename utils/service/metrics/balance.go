@@ -39,16 +39,17 @@ func LaunchBalanceMetrics(ctx context.Context, log log.Logger, r *prometheus.Reg
 		for {
 			select {
 			case <-ticker.C:
-				ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-				bigBal, err := client.BalanceAt(ctx, account, nil)
-				if err != nil {
-					log.Warn("failed to get balance of account", "err", err, "address", account)
-					cancel()
-					continue
-				}
-				bal := WeiToEther(bigBal)
-				balanceGuage.Set(bal)
-				cancel()
+				func() {
+					ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+					defer cancel()
+					bigBal, err := client.BalanceAt(ctx, account, nil)
+					if err != nil {
+						log.Warn("failed to get balance of account", "err", err, "address", account)
+						return
+					}
+					bal := WeiToEther(bigBal)
+					balanceGuage.Set(bal)
+				}()
 			case <-ctx.Done():
 				log.Info("balance metrics shutting down")
 				return

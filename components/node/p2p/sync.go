@@ -336,13 +336,17 @@ func (s *SyncClient) mainLoop() {
 	for {
 		select {
 		case req := <-s.requests:
-			ctx, cancel := context.WithTimeout(s.resCtx, maxRequestScheduling)
-			s.onRangeRequest(ctx, req)
-			cancel()
+			func() {
+				ctx, cancel := context.WithTimeout(s.resCtx, maxRequestScheduling)
+				defer cancel()
+				s.onRangeRequest(ctx, req)
+			}()
 		case res := <-s.results:
-			ctx, cancel := context.WithTimeout(s.resCtx, maxResultProcessing)
-			s.onResult(ctx, res)
-			cancel()
+			func() {
+				ctx, cancel := context.WithTimeout(s.resCtx, maxResultProcessing)
+				defer cancel()
+				s.onResult(ctx, res)
+			}()
 		case check := <-s.inFlightChecks:
 			s.log.Info("Checking in flight", "num", check.num)
 			complete, ok := s.inFlight[check.num]
@@ -573,8 +577,8 @@ func (r requestResultErr) ResultCode() byte {
 func (s *SyncClient) doRequest(ctx context.Context, id peer.ID, n uint64) error {
 	// open stream to peer
 	reqCtx, reqCancel := context.WithTimeout(ctx, streamTimeout)
+	defer reqCancel()
 	str, err := s.newStreamFn(reqCtx, id, s.payloadByNumber)
-	reqCancel()
 	if err != nil {
 		return fmt.Errorf("failed to open stream: %w", err)
 	}
@@ -705,8 +709,8 @@ func (srv *ReqRespServer) HandleSyncRequest(ctx context.Context, log log.Logger,
 	// We wait as long as necessary; we throttle the peer instead of disconnecting,
 	// unless the delay reaches a threshold that is unreasonable to wait for.
 	ctx, cancel := context.WithTimeout(ctx, maxThrottleDelay)
+	defer cancel()
 	req, err := srv.handleSyncRequest(ctx, stream)
-	cancel()
 
 	resultCode := byte(0)
 	if err != nil {

@@ -257,13 +257,15 @@ func (d *Driver) eventLoop() {
 			}
 			planProposerAction() // schedule the next proposer action to keep the proposing looping
 		case <-altSyncTicker.C:
-			// Check if there is a gap in the current unsafe payload queue.
-			ctx, cancel := context.WithTimeout(ctx, time.Second*2)
-			err := d.checkForGapInUnsafeQueue(ctx)
-			cancel()
-			if err != nil {
-				d.log.Warn("failed to check for unsafe L2 blocks to sync", "err", err)
-			}
+			func() {
+				// Check if there is a gap in the current unsafe payload queue.
+				ctx, cancel := context.WithTimeout(ctx, time.Second*2)
+				defer cancel()
+				err := d.checkForGapInUnsafeQueue(ctx)
+				if err != nil {
+					d.log.Warn("failed to check for unsafe L2 blocks to sync", "err", err)
+				}
+			}()
 		case payload := <-d.unsafeL2Payloads:
 			d.snapshot("New unsafe payload")
 			d.log.Info("Optimistically queueing unsafe L2 execution payload", "id", payload.ID())
