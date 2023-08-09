@@ -513,10 +513,7 @@ contract Colosseum is Initializable, Semver {
      * @param _outputIndex Index of the L2 checkpoint output.
      * @param _challenger  Address of the challenger.
      */
-    function challengerTimeout(uint256 _outputIndex, address _challenger)
-        external
-        outputNotFinalized(_outputIndex)
-    {
+    function challengerTimeout(uint256 _outputIndex, address _challenger) external {
         Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
         ChallengeStatus status = _challengeStatus(challenge);
 
@@ -809,7 +806,7 @@ contract Colosseum is Initializable, Semver {
         delete challenges[_outputIndex][msg.sender];
         emit ChallengeCanceled(_outputIndex, msg.sender, block.timestamp);
 
-        L2_ORACLE.VALIDATOR_POOL().refundPendingBond(_outputIndex, msg.sender);
+        L2_ORACLE.VALIDATOR_POOL().releasePendingBond(_outputIndex, msg.sender, msg.sender);
 
         return true;
     }
@@ -825,8 +822,18 @@ contract Colosseum is Initializable, Semver {
         delete challenges[_outputIndex][_challenger];
         emit ChallengerTimedOut(_outputIndex, _challenger, block.timestamp);
 
-        // Because the challenger lost, the challenger's bond is included in the bond for that output.
-        L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, _challenger);
+        // After output is finalized, the challenger's bond is included in the balance of output submitter.
+        if (L2_ORACLE.isFinalized(_outputIndex)) {
+            Types.CheckpointOutput memory targetOutput = L2_ORACLE.getL2Output(_outputIndex);
+            L2_ORACLE.VALIDATOR_POOL().releasePendingBond(
+                _outputIndex,
+                _challenger,
+                targetOutput.submitter
+            );
+        } else {
+            // Because the challenger lost, the challenger's bond is included in the bond for that output.
+            L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, _challenger);
+        }
     }
 
     /**

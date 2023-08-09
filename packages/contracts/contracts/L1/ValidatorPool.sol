@@ -127,15 +127,17 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     event BondIncreased(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
 
     /**
-     * @notice Emitted when the pending bond is refunded.
+     * @notice Emitted when the pending bond is released(refunded).
      *
-     * @param outputIndex Index of the L2 checkpoint output.
-     * @param challenger  Address of the challenger.
-     * @param amount      Amount of bond refunded.
+     * @param outputIndex  Index of the L2 checkpoint output.
+     * @param challenger   Address of the challenger.
+     * @param recipient    Address to receive amount from a pending bond.
+     * @param amount       Amount of bond released.
      */
-    event PendingBondRefunded(
+    event PendingBondReleased(
         uint256 indexed outputIndex,
         address indexed challenger,
+        address indexed recipient,
         uint128 amount
     );
 
@@ -257,7 +259,10 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      */
     function addPendingBond(uint256 _outputIndex, address _challenger) external onlyColosseum {
         Types.Bond storage bond = bonds[_outputIndex];
-        require(bond.expiresAt >= block.timestamp, "ValidatorPool: the output is already finalized");
+        require(
+            bond.expiresAt >= block.timestamp,
+            "ValidatorPool: the output is already finalized"
+        );
 
         uint128 bonded = bond.amount;
         _decreaseBalance(_challenger, bonded);
@@ -267,19 +272,24 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     }
 
     /**
-     * @notice Refunds the corresponding pending bond to the given output index and challenger address
+     * @notice Releases the corresponding pending bond to the given output index and challenger address
      *         if a challenge is canceled.
      *
-     * @param _outputIndex Index of the L2 checkpoint output.
-     * @param _challenger  Address of the challenger.
+     * @param _outputIndex  Index of the L2 checkpoint output.
+     * @param _challenger   Address of the challenger.
+     * @param _recipient    Address to receive amount from a pending bond.
      */
-    function refundPendingBond(uint256 _outputIndex, address _challenger) external onlyColosseum {
+    function releasePendingBond(
+        uint256 _outputIndex,
+        address _challenger,
+        address _recipient
+    ) external onlyColosseum {
         uint128 bonded = pendingBonds[_outputIndex][_challenger];
         require(bonded > 0, "ValidatorPool: the pending bond does not exist");
         delete pendingBonds[_outputIndex][_challenger];
 
-        _increaseBalance(_challenger, bonded);
-        emit PendingBondRefunded(_outputIndex, _challenger, bonded);
+        _increaseBalance(_recipient, bonded);
+        emit PendingBondReleased(_outputIndex, _challenger, _recipient, bonded);
     }
 
     /**
@@ -290,7 +300,10 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      */
     function increaseBond(uint256 _outputIndex, address _challenger) external onlyColosseum {
         Types.Bond storage bond = bonds[_outputIndex];
-        require(bond.expiresAt >= block.timestamp, "ValidatorPool: the output is already finalized");
+        require(
+            bond.expiresAt >= block.timestamp,
+            "ValidatorPool: the output is already finalized"
+        );
 
         uint128 increased = pendingBonds[_outputIndex][_challenger];
         require(increased > 0, "ValidatorPool: the pending bond does not exist");
@@ -301,6 +314,17 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         }
 
         emit BondIncreased(_outputIndex, _challenger, increased);
+    }
+
+    /**
+     * @notice Increases the balance of the given address, If the increased balance is at least
+     *         the minimum bond amount, add the given address to the validator set.
+     *
+     * @param _recipient Address to increase the balance.
+     * @param _amount    Amount of balance increased.
+     */
+    function increaseBalance(address _recipient, uint256 _amount) external onlyColosseum {
+        _increaseBalance(_recipient, _amount);
     }
 
     /**

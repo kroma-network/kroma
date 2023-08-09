@@ -448,18 +448,16 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 
 			// if asserter
 			if isAsserter {
-				// if output is already finalized, terminate handling
-				if isOutputFinalized {
-					c.log.Info("asserter: output is already finalized when handling challenge", "outputIndex", outputIndex, "challenger", challenger)
-					return
-				}
-
 				// if output is already deleted, asserter has no incentives to handle challenge any further
 				if isOutputDeleted {
 					c.log.Info("asserter: do nothing because output is already deleted", "outputIndex", outputIndex, "challenger", challenger)
 					return
 				}
-
+				// if output is already finalized and not `ChallengerTimeout` status, terminate handling
+				if isOutputFinalized && status != chal.StatusChallengerTimeout {
+					c.log.Info("asserter: output is already finalized when handling challenge", "outputIndex", outputIndex, "challenger", challenger)
+					return
+				}
 				switch status {
 				case chal.StatusAsserterTurn:
 					tx, err := c.Bisect(c.ctx, outputIndex, challenger)
