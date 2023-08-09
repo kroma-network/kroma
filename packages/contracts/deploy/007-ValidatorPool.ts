@@ -20,7 +20,7 @@ const deployFn: DeployFunction = async (hre) => {
       l2OutputOracleProxyAddress,
       portalProxyAddress,
       hre.deployConfig.validatorPoolTrustedValidator,
-      hre.deployConfig.validatorPoolMinBondAmount,
+      hre.deployConfig.validatorPoolRequiredBondAmount,
       hre.deployConfig.validatorPoolMaxUnbond,
       hre.deployConfig.validatorPoolRoundDuration,
     ],
@@ -40,8 +40,8 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'MIN_BOND_AMOUNT',
-        hre.deployConfig.validatorPoolMinBondAmount
+        'REQUIRED_BOND_AMOUNT',
+        hre.deployConfig.validatorPoolRequiredBondAmount
       )
       await assertContractVariable(
         contract,

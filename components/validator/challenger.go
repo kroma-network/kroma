@@ -52,6 +52,7 @@ type Challenger struct {
 	finalizationPeriodSeconds *big.Int
 	l2BlockTime               *big.Int
 	checkpoint                *big.Int
+	requiredBondAmount        *big.Int
 
 	l2OutputSubmittedSub ethereum.Subscription
 	challengeCreatedSub  ethereum.Subscription
@@ -89,24 +90,31 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger, m metrics.Metr
 	}
 
 	cCtx, cCancel := context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
 	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
-	cCancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get submission interval: %w", err)
 	}
 
 	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
 	finalizationPeriodSeconds, err := l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
-	cCancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get finalization period seconds: %w", err)
 	}
 
 	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
 	l2BlockTime, err := l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
-	cCancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
+	}
+
+	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
+	requiredBondAmount, err := valpoolContract.REQUIREDBONDAMOUNT(utils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get required bond amount: %w", err)
 	}
 
 	return &Challenger{
@@ -126,6 +134,7 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger, m metrics.Metr
 		submissionInterval:        submissionInterval,
 		finalizationPeriodSeconds: finalizationPeriodSeconds,
 		l2BlockTime:               l2BlockTime,
+		requiredBondAmount:        requiredBondAmount,
 	}, nil
 }
 
@@ -547,18 +556,11 @@ func (c *Challenger) HasEnoughDeposit(ctx context.Context, outputIndex *big.Int)
 		return false, fmt.Errorf("failed to fetch challenger deposit amount: %w", err)
 	}
 
-	cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-	bond, err := c.valpoolContract.GetBond(utils.NewSimpleCallOpts(cCtx), outputIndex)
-	cCancel()
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch bond amount of output index %d: %w", outputIndex, err)
-	}
-
-	if balance.Cmp(bond.Amount) == -1 {
-		c.log.Warn("challenger deposit is less than bond amount", "bondAmount", bond.Amount, "deposit", balance)
+	if balance.Cmp(c.requiredBondAmount) == -1 {
+		c.log.Warn("challenger deposit is less than bond amount", "required", c.requiredBondAmount, "deposit", balance)
 		return false, nil
 	}
-	c.log.Info("challenger deposit amount and bond amount", "deposit", balance, "bond", bond.Amount)
+	c.log.Info("challenger deposit amount and bond amount", "deposit", balance, "bond", c.requiredBondAmount)
 	c.metr.RecordDepositAmount(balance)
 
 	return true, nil

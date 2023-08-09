@@ -229,7 +229,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator) {
 	// check bond amount before create challenge
 	bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt(), bond.Amount)
+	require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt(), bond.Amount)
 
 	// submit create challenge tx
 	rt.txHash = challenger.ActCreateChallenge(rt.t, rt.outputIndex)
@@ -250,10 +250,10 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator) {
 	// check pending bond amount after create challenge
 	pendingBond, err := rt.valPoolContract.GetPendingBond(nil, rt.outputIndex, challenger.address)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, pendingBond, rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt())
+	require.Equal(rt.t, pendingBond, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt())
 
 	// check challenger balance decreased
 	cBal, err := rt.valPoolContract.BalanceOf(nil, challenger.address)
 	require.NoError(rt.t, err)
-	require.Equal(rt.t, new(big.Int).Sub(new(big.Int).SetInt64(defaultDepositAmount), rt.dp.DeployConfig.ValidatorPoolMinBondAmount.ToInt()), cBal)
+	require.Equal(rt.t, new(big.Int).Sub(new(big.Int).SetInt64(defaultDepositAmount), rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt()), cBal)
 }

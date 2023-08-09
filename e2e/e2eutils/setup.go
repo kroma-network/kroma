@@ -66,10 +66,10 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		BatchInboxAddress:  common.Address{0: 0x42, 19: 0xff}, // tbd
 		BatchSenderAddress: addresses.Batcher,
 
-		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
-		ValidatorPoolMinBondAmount:    uint64ToBig(1),
-		ValidatorPoolMaxUnbond:        10,
-		ValidatorPoolRoundDuration:    4,
+		ValidatorPoolTrustedValidator:   addresses.TrustedValidator,
+		ValidatorPoolRequiredBondAmount: uint64ToBig(1),
+		ValidatorPoolMaxUnbond:          10,
+		ValidatorPoolRoundDuration:      4,
 
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,

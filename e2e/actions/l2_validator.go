@@ -168,7 +168,7 @@ func (v *L2Validator) ActSubmitL2Output(t Testing) {
 	output, err := v.l2os.FetchOutput(t.Ctx(), nextBlockNumber)
 	require.NoError(t, err)
 
-	txData, err := validator.SubmitL2OutputTxData(v.l2os.L2ooAbi(), output, 1)
+	txData, err := validator.SubmitL2OutputTxData(v.l2os.L2ooAbi(), output)
 	require.NoError(t, err)
 
 	// Note: Use L1 instead of the output submitter's transaction manager because

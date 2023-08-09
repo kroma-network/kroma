@@ -80,12 +80,6 @@ var (
 		Usage:  "Allow the validator to submit outputs for L2 blocks derived from non-finalized L1 blocks.",
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "ALLOW_NON_FINALIZED"),
 	}
-	OutputSubmitterBondAmountFlag = cli.Uint64Flag{
-		Name:   "output-submitter.bond-amount",
-		Usage:  "Amount to bond when submitting each output (in wei)",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_BOND_AMOUNT"),
-		Value:  1,
-	}
 	OutputSubmitterRetryIntervalFlag = cli.DurationFlag{
 		Name:   "output-submitter.retry-interval",
 		Usage:  "Retry interval for output submission process",
@@ -135,7 +129,6 @@ var requiredFlags = []cli.Flag{
 
 var optionalFlags = []cli.Flag{
 	AllowNonFinalizedFlag,
-	OutputSubmitterBondAmountFlag,
 	OutputSubmitterRetryIntervalFlag,
 	OutputSubmitterRoundBufferFlag,
 	ProverRPCFlag,

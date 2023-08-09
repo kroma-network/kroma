@@ -43,10 +43,10 @@ type DeployConfig struct {
 	BatchInboxAddress         common.Address `json:"batchInboxAddress"`
 	BatchSenderAddress        common.Address `json:"batchSenderAddress"`
 
-	ValidatorPoolTrustedValidator common.Address `json:"validatorPoolTrustedValidator"`
-	ValidatorPoolMinBondAmount    *hexutil.Big   `json:"validatorPoolMinBondAmount"`
-	ValidatorPoolMaxUnbond        uint64         `json:"validatorPoolMaxUnbond"`
-	ValidatorPoolRoundDuration    uint64         `json:"validatorPoolRoundDuration"`
+	ValidatorPoolTrustedValidator   common.Address `json:"validatorPoolTrustedValidator"`
+	ValidatorPoolRequiredBondAmount *hexutil.Big   `json:"validatorPoolRequiredBondAmount"`
+	ValidatorPoolMaxUnbond          uint64         `json:"validatorPoolMaxUnbond"`
+	ValidatorPoolRoundDuration      uint64         `json:"validatorPoolRoundDuration"`
 
 	L2OutputOracleSubmissionInterval uint64 `json:"l2OutputOracleSubmissionInterval"`
 	L2OutputOracleStartingTimestamp  int    `json:"l2OutputOracleStartingTimestamp"`
@@ -160,8 +160,8 @@ func (d *DeployConfig) Check() error {
 	if d.ValidatorPoolTrustedValidator == (common.Address{}) {
 		return fmt.Errorf("%w: ValidatorPoolTrustedValidator cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorPoolMinBondAmount == nil {
-		return fmt.Errorf("%w: ValidatorPoolMinBondAmount cannot be nil", ErrInvalidDeployConfig)
+	if d.ValidatorPoolRequiredBondAmount == nil {
+		return fmt.Errorf("%w: ValidatorPoolRequiredBondAmount cannot be nil", ErrInvalidDeployConfig)
 	}
 	if d.ValidatorPoolMaxUnbond == 0 {
 		return fmt.Errorf("%w: ValidatorPoolMaxUnbond cannot be 0", ErrInvalidDeployConfig)

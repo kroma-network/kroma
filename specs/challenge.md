@@ -56,6 +56,8 @@ interface Colosseum {
 
   function createChallenge(
     uint256 _outputIndex,
+    bytes32 _l1BlockHash,
+    uint256 _l1BlockNumber,
     bytes32[] calldata _segments
   ) external;
 
@@ -144,7 +146,7 @@ motivation for the asserter to step further.
 ## Process
 
 We want the validator role to be decentralized. Like how the PoS mechanism works, to achieve this,
-the validator needs to bond more than `MIN_BOND_AMOUNT` at every output submission. A Validator can deposit at once
+the validator must bond `REQUIRED_BOND_AMOUNT` for every output submission. A Validator can deposit at once
 for convenience. The qualified validator now obtains the right to submit output.
 
 If outputs are submitted at the same time, only the first output is accepted. If no one submits during
@@ -154,7 +156,7 @@ Even though the output is challenged, validators still are able to submit an out
 to be valid. If the asserted output turns out to be invalid, it is replaced, but the bond for that remains untouched.
 This is because it's impossible to determine whether submitted outputs are invalid without a challenge game.
 
-We'll show an example. Let's say `MIN_BOND_AMOUNT` is 100.
+We'll show an example. Let's say `REQUIRED_BOND_AMOUNT` is 100.
 
 1. At time `t`, alice, bob, and carol are registered as validators, and they submitted outputs like following:
 
@@ -307,13 +309,13 @@ Colosseum should be behind upgradable proxies.
 
 ### Constants
 
-| Name                  | Value                                                              | Unit              |
-|-----------------------|--------------------------------------------------------------------|-------------------|
-| `MIN_BOND_AMOUNT`     | TBD                                                                | wei               |
-| `SUBMISSION_TIMEOUT`  | TBD                                                                | seconds           |
-| `BISECTION_TIMEOUT`   | TBD                                                                | seconds           |
-| `PROVING_TIMEOUT`     | TBD                                                                | seconds           |
-| `SEGMENTS_LENGTHS`    | [9, 6, 10, 6]                                                      | array of integers |
-| `MAX_TXS`             | 25                                                                 | uint256           |
-| `DUMMY_HASH`(sepolia) | 0xaf01bc158f9b35867aea1517e84cf67eedc6a397c0df380b4b139eb570ddb2fc | bytes32           |
-| `DUMMY_HASH`(devnet)  | 0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7 | bytes32           |
+| Name                   | Value                                                              | Unit              |
+|------------------------|--------------------------------------------------------------------|-------------------|
+| `REQUIRED_BOND_AMOUNT` | TBD                                                                | wei               |
+| `SUBMISSION_TIMEOUT`   | TBD                                                                | seconds           |
+| `BISECTION_TIMEOUT`    | TBD                                                                | seconds           |
+| `PROVING_TIMEOUT`      | TBD                                                                | seconds           |
+| `SEGMENTS_LENGTHS`     | [9, 6, 10, 6]                                                      | array of integers |
+| `MAX_TXS`              | 25                                                                 | uint256           |
+| `DUMMY_HASH`(sepolia)  | 0xaf01bc158f9b35867aea1517e84cf67eedc6a397c0df380b4b139eb570ddb2fc | bytes32           |
+| `DUMMY_HASH`(devnet)   | 0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7 | bytes32           |

@@ -15,7 +15,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function setUp() public virtual override {
         super.setUp();
 
-        vm.deal(trusted, minBond * 100);
+        vm.deal(trusted, requiredBondAmount * 100);
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
     }
@@ -79,7 +79,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         // Roll to after the block number we'll submit
         warpToSubmitTime(submittedNumber);
         vm.prank(trusted);
-        oracle.submitL2Output(submittedOutput1, submittedNumber, 0, 0, minBond);
+        oracle.submitL2Output(submittedOutput1, submittedNumber, 0, 0);
         assertEq(oracle.latestBlockNumber(), submittedNumber);
     }
 
@@ -89,7 +89,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 nextOutputIndex = oracle.nextOutputIndex();
         warpToSubmitTime(nextBlockNumber);
         vm.prank(trusted);
-        oracle.submitL2Output(submittedOutput1, nextBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(submittedOutput1, nextBlockNumber, 0, 0);
 
         Types.CheckpointOutput memory output = oracle.getL2Output(nextOutputIndex);
         assertEq(output.outputRoot, submittedOutput1);
@@ -106,7 +106,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 nextBlockNumber1 = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber1);
         vm.prank(trusted);
-        oracle.submitL2Output(output1, nextBlockNumber1, 0, 0, minBond);
+        oracle.submitL2Output(output1, nextBlockNumber1, 0, 0);
 
         // Querying with exact same block as submitted returns the output.
         uint256 index1 = oracle.getL2OutputIndexAfter(nextBlockNumber1);
@@ -119,7 +119,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 nextBlockNumber1 = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber1);
         vm.prank(trusted);
-        oracle.submitL2Output(output1, nextBlockNumber1, 0, 0, minBond);
+        oracle.submitL2Output(output1, nextBlockNumber1, 0, 0);
 
         // Querying with previous block returns the output too.
         uint256 index1 = oracle.getL2OutputIndexAfter(nextBlockNumber1 - 1);
@@ -132,25 +132,25 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 nextBlockNumber1 = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber1);
         vm.prank(trusted);
-        oracle.submitL2Output(output1, nextBlockNumber1, 0, 0, minBond);
+        oracle.submitL2Output(output1, nextBlockNumber1, 0, 0);
 
         bytes32 output2 = keccak256(abi.encode(2));
         uint256 nextBlockNumber2 = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber2);
         vm.prank(trusted);
-        oracle.submitL2Output(output2, nextBlockNumber2, 0, 0, minBond);
+        oracle.submitL2Output(output2, nextBlockNumber2, 0, 0);
 
         bytes32 output3 = keccak256(abi.encode(3));
         uint256 nextBlockNumber3 = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber3);
         vm.prank(trusted);
-        oracle.submitL2Output(output3, nextBlockNumber3, 0, 0, minBond);
+        oracle.submitL2Output(output3, nextBlockNumber3, 0, 0);
 
         bytes32 output4 = keccak256(abi.encode(4));
         uint256 nextBlockNumber4 = oracle.nextBlockNumber();
         warpToSubmitTime(nextBlockNumber4);
         vm.prank(trusted);
-        oracle.submitL2Output(output4, nextBlockNumber4, 0, 0, minBond);
+        oracle.submitL2Output(output4, nextBlockNumber4, 0, 0);
 
         // Querying with a block number between the first and second output
         uint256 index1 = oracle.getL2OutputIndexAfter(nextBlockNumber1 + 1);
@@ -235,14 +235,13 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
             abi.encodeWithSelector(
                 ValidatorPool.createBond.selector,
                 nextOutputIndex,
-                minBond,
                 finalizedAt
             )
         );
         vm.expectEmit(true, true, true, true);
         emit OutputSubmitted(submittedOutput2, nextOutputIndex, nextBlockNumber, block.timestamp);
         vm.prank(trusted);
-        oracle.submitL2Output(submittedOutput2, nextBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(submittedOutput2, nextBlockNumber, 0, 0);
     }
 
     // Test: submitL2Output succeeds when given valid input, and when a block hash and number are
@@ -259,8 +258,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
             nonZeroHash,
             nextBlockNumber,
             prevL1BlockHash,
-            prevL1BlockNumber,
-            minBond
+            prevL1BlockNumber
         );
     }
 
@@ -275,7 +273,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
 
         vm.prank(address(128));
         vm.expectRevert("L2OutputOracle: only the next selected validator can submit output");
-        oracle.submitL2Output(nonZeroHash, nextBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(nonZeroHash, nextBlockNumber, 0, 0);
     }
 
     // Test: submitL2Output fails given a zero blockhash.
@@ -285,7 +283,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         warpToSubmitTime(nextBlockNumber);
         vm.prank(trusted);
         vm.expectRevert("L2OutputOracle: L2 checkpoint output cannot be the zero hash");
-        oracle.submitL2Output(outputToSubmit, nextBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(outputToSubmit, nextBlockNumber, 0, 0);
     }
 
     // Test: submitL2Output fails if the block number doesn't match the next expected number.
@@ -294,7 +292,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         warpToSubmitTime(nextBlockNumber);
         vm.prank(trusted);
         vm.expectRevert("L2OutputOracle: block number must be equal to next expected block number");
-        oracle.submitL2Output(nonZeroHash, nextBlockNumber - 1, 0, 0, minBond);
+        oracle.submitL2Output(nonZeroHash, nextBlockNumber - 1, 0, 0);
     }
 
     // Test: submitL2Output fails if it would have a timestamp in the future.
@@ -304,7 +302,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         vm.warp(nextTimestamp);
         vm.prank(trusted);
         vm.expectRevert("L2OutputOracle: cannot submit L2 output in the future");
-        oracle.submitL2Output(nonZeroHash, nextBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(nonZeroHash, nextBlockNumber, 0, 0);
     }
 
     // Test: submitL2Output fails if a non-existent L1 block hash and number are provided for reorg
@@ -320,8 +318,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
             nonZeroHash,
             nextBlockNumber,
             bytes32(uint256(0x01)),
-            block.number - 1,
-            minBond
+            block.number - 1
         );
     }
 
@@ -347,8 +344,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
             nonZeroHash,
             nextBlockNumber,
             l1BlockHash,
-            l1BlockNumber - 1,
-            minBond
+            l1BlockNumber - 1
         );
     }
 

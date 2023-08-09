@@ -88,9 +88,9 @@ interface RequiredDeployConfig {
   validatorPoolTrustedValidator: string
 
   /**
-   * Minimum amount of the bond in hex value.
+   * Amount of the required bond in hex value.
    */
-  validatorPoolMinBondAmount: string
+  validatorPoolRequiredBondAmount: string
 
   /**
    * Max number of unbonds when trying unbond.
@@ -267,7 +267,7 @@ export const deployConfigSpec: {
   validatorPoolTrustedValidator: {
     type: 'address',
   },
-  validatorPoolMinBondAmount: {
+  validatorPoolRequiredBondAmount: {
     type: 'string', // uint256
   },
   validatorPoolMaxUnbond: {
