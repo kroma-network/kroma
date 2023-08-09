@@ -12,6 +12,7 @@ import (
 
 	"github.com/kroma-network/kroma/components/batcher/metrics"
 	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup/derive"
 )
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -44,13 +45,16 @@ func NewBatchSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*BatchSubm
 func (b *BatchSubmitter) LoadBlocksIntoState(ctx context.Context) {
 	start, end, err := b.calculateL2BlockRangeToStore(ctx)
 	if err != nil {
-		b.log.Trace("unable to calculate L2 block range", "err", err)
+		b.log.Warn("unable to calculate L2 block range", "err", err)
+		return
+	} else if start.Number >= end.Number {
 		return
 	}
 
+	var latestBlock *types.Block
 	// Add all blocks to "state"
 	for i := start.Number + 1; i < end.Number+1; i++ {
-		id, err := b.loadBlockIntoState(ctx, i)
+		block, err := b.loadBlockIntoState(ctx, i)
 		if errors.Is(err, ErrReorg) {
 			b.log.Warn("found L2 reorg", "block_number", i)
 			b.state.Clear()
@@ -60,24 +64,34 @@ func (b *BatchSubmitter) LoadBlocksIntoState(ctx context.Context) {
 			b.log.Warn("failed to load block into state", "err", err)
 			return
 		}
-		b.lastStoredBlock = id
+		b.lastStoredBlock = eth.ToBlockID(block)
+		latestBlock = block
 	}
+
+	l2ref, err := derive.L2BlockToBlockRef(latestBlock, &b.Rollup.Genesis)
+	if err != nil {
+		b.log.Warn("Invalid L2 block loaded into state", "err", err)
+		return
+	}
+
+	b.metr.RecordL2BlocksLoaded(l2ref)
 }
 
 // loadBlockIntoState fetches & stores a single block into `state`. It returns the block it loaded.
-func (b *BatchSubmitter) loadBlockIntoState(ctx context.Context, blockNumber uint64) (eth.BlockID, error) {
+func (b *BatchSubmitter) loadBlockIntoState(ctx context.Context, blockNumber uint64) (*types.Block, error) {
 	ctx, cancel := context.WithTimeout(ctx, b.NetworkTimeout)
+	defer cancel()
 	block, err := b.L2Client.BlockByNumber(ctx, new(big.Int).SetUint64(blockNumber))
-	cancel()
 	if err != nil {
-		return eth.BlockID{}, err
+		return nil, fmt.Errorf("getting L2 block: %w", err)
 	}
+
 	if err := b.state.AddL2Block(block); err != nil {
-		return eth.BlockID{}, err
+		return nil, fmt.Errorf("adding L2 block to state: %w", err)
 	}
-	id := eth.ToBlockID(block)
-	b.log.Info("added L2 block to local state", "block", id, "tx_count", len(block.Transactions()), "time", block.Time())
-	return id, nil
+
+	b.log.Info("added L2 block to local state", "block", eth.ToBlockID(block), "tx_count", len(block.Transactions()), "time", block.Time())
+	return block, nil
 }
 
 // calculateL2BlockRangeToStore determines the range (start,end) that should be loaded into the local state.

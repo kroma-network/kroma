@@ -83,7 +83,7 @@ func (c *channelManager) TxFailed(id txID) {
 	}
 
 	c.metr.RecordBatchTxFailed()
-	if c.closed && len(c.confirmedTransactions) == 0 && len(c.pendingTransactions) == 0 {
+	if c.closed && len(c.confirmedTransactions) == 0 && len(c.pendingTransactions) == 0 && c.pendingChannel != nil {
 		c.log.Info("Channel has no submitted transactions, clearing for shutdown", "chID", c.pendingChannel.ID())
 		c.clearPendingChannel()
 	}
