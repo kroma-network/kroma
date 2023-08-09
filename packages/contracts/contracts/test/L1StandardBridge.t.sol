@@ -13,10 +13,9 @@ import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 import { Bridge_Initializer } from "./CommonTest.t.sol";
 
 contract L1StandardBridge_Getter_Test is Bridge_Initializer {
-    function test_getters_succeeds() external {
+    function test_getters_succeeds() external view {
         assert(L1Bridge.OTHER_BRIDGE() == L2Bridge);
         assert(L1Bridge.MESSENGER() == L1Messenger);
-        assertEq(L1Bridge.version(), "0.1.0");
     }
 }
 
@@ -388,17 +387,6 @@ contract L1StandardBridge_BridgeERC20To_Test is Bridge_Initializer {
             hex""
         );
 
-        // the L1 bridge should call L1CrossDomainMessenger.sendMessage
-        vm.expectCall(
-            address(L1Messenger),
-            abi.encodeWithSelector(
-                CrossDomainMessenger.sendMessage.selector,
-                address(L2Bridge),
-                message,
-                10000
-            )
-        );
-
         bytes memory innerMessage = abi.encodeWithSelector(
             CrossDomainMessenger.relayMessage.selector,
             nonce,
@@ -410,18 +398,6 @@ contract L1StandardBridge_BridgeERC20To_Test is Bridge_Initializer {
         );
 
         uint64 baseGas = L1Messenger.baseGas(message, 10000);
-        vm.expectCall(
-            address(portal),
-            abi.encodeWithSelector(
-                KromaPortal.depositTransaction.selector,
-                address(L2Messenger),
-                0,
-                baseGas,
-                false,
-                innerMessage
-            )
-        );
-
         bytes memory opaqueData = abi.encodePacked(
             uint256(0),
             uint256(0),
@@ -429,6 +405,11 @@ contract L1StandardBridge_BridgeERC20To_Test is Bridge_Initializer {
             false,
             innerMessage
         );
+
+        deal(address(L1Token), alice, 100000, true);
+
+        vm.prank(alice);
+        L1Token.approve(address(L1Bridge), type(uint256).max);
 
         // ERC20BridgeInitiated event emitted by the StandardBridge
         vm.expectEmit(true, true, true, true, address(L1Bridge));
@@ -442,10 +423,28 @@ contract L1StandardBridge_BridgeERC20To_Test is Bridge_Initializer {
         vm.expectEmit(true, true, true, true, address(L1Messenger));
         emit SentMessage(address(L2Bridge), address(L1Bridge), 0, message, nonce, 10000);
 
-        deal(address(L1Token), alice, 100000, true);
-
-        vm.prank(alice);
-        L1Token.approve(address(L1Bridge), type(uint256).max);
+        // the L1 bridge should call L1CrossDomainMessenger.sendMessage
+        vm.expectCall(
+            address(L1Messenger),
+            abi.encodeWithSelector(
+                CrossDomainMessenger.sendMessage.selector,
+                address(L2Bridge),
+                message,
+                10000
+            )
+        );
+        // The L1 XDM should call KromaPortal.depositTransaction
+        vm.expectCall(
+            address(portal),
+            abi.encodeWithSelector(
+                KromaPortal.depositTransaction.selector,
+                address(L2Messenger),
+                0,
+                baseGas,
+                false,
+                innerMessage
+            )
+        );
 
         vm.expectCall(
             address(L1Token),
@@ -523,14 +522,7 @@ contract L1StandardBridge_FinalizeBridgeERC20Withdrawal_Test is Bridge_Initializ
             abi.encode(address(L1Bridge.OTHER_BRIDGE()))
         );
         vm.prank(address(L1Bridge.MESSENGER()));
-        L1Bridge.finalizeBridgeERC20(
-            address(L1Token),
-            address(L2Token),
-            alice,
-            alice,
-            100,
-            hex""
-        );
+        L1Bridge.finalizeBridgeERC20(address(L1Token), address(L2Token), alice, alice, 100, hex"");
 
         assertEq(L1Token.balanceOf(address(L1Bridge)), 0);
         assertEq(L1Token.balanceOf(address(alice)), 100);
@@ -546,14 +538,7 @@ contract L1StandardBridge_FinalizeBridgeERC20Withdrawal_TestFail is Bridge_Initi
         );
         vm.prank(address(28));
         vm.expectRevert("StandardBridge: function can only be called from the other bridge");
-        L1Bridge.finalizeBridgeERC20(
-            address(L1Token),
-            address(L2Token),
-            alice,
-            alice,
-            100,
-            hex""
-        );
+        L1Bridge.finalizeBridgeERC20(address(L1Token), address(L2Token), alice, alice, 100, hex"");
     }
 
     function test_finalizeBridgeERC20Withdrawal_notOtherBridge_reverts() external {
@@ -564,14 +549,7 @@ contract L1StandardBridge_FinalizeBridgeERC20Withdrawal_TestFail is Bridge_Initi
         );
         vm.prank(address(L1Bridge.MESSENGER()));
         vm.expectRevert("StandardBridge: function can only be called from the other bridge");
-        L1Bridge.finalizeBridgeERC20(
-            address(L1Token),
-            address(L2Token),
-            alice,
-            alice,
-            100,
-            hex""
-        );
+        L1Bridge.finalizeBridgeERC20(address(L1Token), address(L2Token), alice, alice, 100, hex"");
     }
 }
 

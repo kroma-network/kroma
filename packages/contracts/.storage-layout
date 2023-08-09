@@ -64,8 +64,7 @@
 | xDomainMsgSender   | address                  | 102  | 0      | 20    | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
 | msgNonce           | uint240                  | 103  | 0      | 30    | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
 | failedMessages     | mapping(bytes32 => bool) | 104  | 0      | 32    | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
-| reentrancyLocks    | mapping(bytes32 => bool) | 105  | 0      | 32    | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
-| __gap              | uint256[44]              | 106  | 0      | 1408  | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
+| __gap              | uint256[45]              | 105  | 0      | 1440  | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
 
 =======================
 ➡ contracts/L1/L1StandardBridge.sol:L1StandardBridge
@@ -151,8 +150,7 @@
 | xDomainMsgSender   | address                  | 102  | 0      | 20    | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
 | msgNonce           | uint240                  | 103  | 0      | 30    | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
 | failedMessages     | mapping(bytes32 => bool) | 104  | 0      | 32    | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
-| reentrancyLocks    | mapping(bytes32 => bool) | 105  | 0      | 32    | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
-| __gap              | uint256[44]              | 106  | 0      | 1408  | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
+| __gap              | uint256[45]              | 105  | 0      | 1440  | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
 
 =======================
 ➡ contracts/L2/L2StandardBridge.sol:L2StandardBridge

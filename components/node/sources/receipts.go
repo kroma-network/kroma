@@ -346,7 +346,8 @@ type receiptsFetchingJob struct {
 }
 
 func NewReceiptsFetchingJob(requester ReceiptsRequester, client rpcClient, maxBatchSize int, block eth.BlockID,
-	receiptHash common.Hash, txHashes []common.Hash) *receiptsFetchingJob {
+	receiptHash common.Hash, txHashes []common.Hash,
+) *receiptsFetchingJob {
 	return &receiptsFetchingJob{
 		requester:    requester,
 		client:       client,
@@ -373,6 +374,7 @@ func (job *receiptsFetchingJob) runFetcher(ctx context.Context) error {
 			job.txHashes,
 			makeReceiptRequest,
 			job.client.BatchCallContext,
+			job.client.CallContext,
 			job.maxBatchSize,
 		)
 	}

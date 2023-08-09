@@ -53,7 +53,7 @@ We work on this repository with a combination of [Hardhat](https://hardhat.org) 
    A specific version must be used.
 
    ```shell
-   > foundryup -C da2392e58bb8a7fefeba46b40c4df1afad8ccd22
+   > foundryup --version nightly-d369d2486f85576eec4ca41d277391dfdae21ba7
    ```
 
 2. Install node modules with yarn (v1) and Node.js (16+):

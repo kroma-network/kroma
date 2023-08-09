@@ -304,7 +304,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
         );
 
         // Designate the withdrawalHash as proven by storing the `outputRoot`, `timestamp`, and
-        // `l2BlockNumber` in the `provenWithdrawals` mapping. A `withdrawalHash` can only be
+        // `l2OutputIndex` in the `provenWithdrawals` mapping. A `withdrawalHash` can only be
         // proven once unless it is submitted again with a different outputRoot.
         provenWithdrawals[withdrawalHash] = ProvenWithdrawal({
             outputRoot: outputRoot,
@@ -395,11 +395,9 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
         // SafeCall.callWithMinGas to ensure two key properties
         //   1. Target contracts cannot force this call to run out of gas by returning a very large
         //      amount of data (and this is OK because we don't care about the returndata here).
-        //   2. The amount of gas provided to the call to the target contract is at least the gas
-        //      limit specified by the user. If there is not enough gas in the callframe to
-        //      accomplish this, `callWithMinGas` will revert.
-        // Additionally, if there is not enough gas remaining to complete the execution after the
-        // call returns, this function will revert.
+        //   2. The amount of gas provided to the execution context of the target is at least the
+        //      gas limit specified by the user. If there is not enough gas in the current context
+        //      to accomplish this, `callWithMinGas` will revert.
         bool success = SafeCall.callWithMinGas(_tx.target, _tx.gasLimit, _tx.value, _tx.data);
 
         // Reset the l2Sender back to the default value.
