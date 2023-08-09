@@ -396,7 +396,15 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         if (len > 0) {
             // TODO(pangssu): improve next validator selection
             uint256 validatorIndex = uint256(
-                keccak256(abi.encodePacked(_outputRoot, block.number, block.coinbase))
+                keccak256(
+                    abi.encodePacked(
+                        _outputRoot,
+                        block.number,
+                        block.coinbase,
+                        block.difficulty,
+                        blockhash(block.number - 1)
+                    )
+                )
             ) % len;
 
             nextPriorityValidator = validators[validatorIndex];
