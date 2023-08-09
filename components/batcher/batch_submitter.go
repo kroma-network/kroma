@@ -36,19 +36,21 @@ func NewBatchSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*BatchSubm
 	}, nil
 }
 
-// LoadBlocksIntoState loads all blocks since the previous stored block
+// loadBlocksIntoState loads all blocks since the previous stored block
 // It does the following:
 // 1. Fetch the sync status of the proposer
 // 2. Check if the sync status is valid or if we are all the way up to date
 // 3. Check if it needs to initialize state OR it is lagging (todo: lagging just means race condition?)
 // 4. Load all new blocks into the local state.
-func (b *BatchSubmitter) LoadBlocksIntoState(ctx context.Context) {
+// If there is a reorg, it will reset the last stored block but not clear the internal state so
+// the state can be flushed to L1.
+func (b *BatchSubmitter) loadBlocksIntoState(ctx context.Context) error {
 	start, end, err := b.calculateL2BlockRangeToStore(ctx)
 	if err != nil {
 		b.log.Warn("unable to calculate L2 block range", "err", err)
-		return
+		return err
 	} else if start.Number >= end.Number {
-		return
+		return errors.New("start number is >= end number")
 	}
 
 	var latestBlock *types.Block
@@ -57,12 +59,11 @@ func (b *BatchSubmitter) LoadBlocksIntoState(ctx context.Context) {
 		block, err := b.loadBlockIntoState(ctx, i)
 		if errors.Is(err, ErrReorg) {
 			b.log.Warn("found L2 reorg", "block_number", i)
-			b.state.Clear()
 			b.lastStoredBlock = eth.BlockID{}
-			return
+			return err
 		} else if err != nil {
 			b.log.Warn("failed to load block into state", "err", err)
-			return
+			return err
 		}
 		b.lastStoredBlock = eth.ToBlockID(block)
 		latestBlock = block
@@ -71,10 +72,11 @@ func (b *BatchSubmitter) LoadBlocksIntoState(ctx context.Context) {
 	l2ref, err := derive.L2BlockToBlockRef(latestBlock, &b.Rollup.Genesis)
 	if err != nil {
 		b.log.Warn("Invalid L2 block loaded into state", "err", err)
-		return
+		return err
 	}
 
 	b.metr.RecordL2BlocksLoaded(l2ref)
+	return nil
 }
 
 // loadBlockIntoState fetches & stores a single block into `state`. It returns the block it loaded.
