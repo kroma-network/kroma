@@ -53,16 +53,6 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     uint256 public immutable MAX_UNBOND;
 
     /**
-     * @notice The period in a round that the penalty does not apply, after which it does (in seconds).
-     */
-    uint256 public immutable NON_PENALTY_PERIOD;
-
-    /**
-     * @notice The period in a round that the penalty does apply (in seconds).
-     */
-    uint256 public immutable PENALTY_PERIOD;
-
-    /**
      * @notice The duration of a submission round for one output (in seconds).
      *         Note that there are two submission rounds for an output: PRIORITY ROUND and PUBLIC ROUND.
      */
@@ -174,8 +164,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @param _trustedValidator Address of the trusted validator.
      * @param _minBondAmount    The minimum bond amount.
      * @param _maxUnbond        The max number of unbonds when trying unbond.
-     * @param _nonPenaltyPeriod The period during a submission round that is not penalized.
-     * @param _penaltyPeriod    The period during a submission round when penalties are applied.
+     * @param _roundDuration    The duration of one submission round in seconds.
      */
     constructor(
         L2OutputOracle _l2OutputOracle,
@@ -183,20 +172,16 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         address _trustedValidator,
         uint256 _minBondAmount,
         uint256 _maxUnbond,
-        uint256 _nonPenaltyPeriod,
-        uint256 _penaltyPeriod
+        uint256 _roundDuration
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2OutputOracle;
         PORTAL = _portal;
         TRUSTED_VALIDATOR = _trustedValidator;
         MIN_BOND_AMOUNT = _minBondAmount;
         MAX_UNBOND = _maxUnbond;
-        NON_PENALTY_PERIOD = _nonPenaltyPeriod;
-        PENALTY_PERIOD = _penaltyPeriod;
 
-        // The submission round duration is the sum of the non-penalty time and the penalty time.
-        // Note that this value MUST NOT exceed (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
-        ROUND_DURATION = _nonPenaltyPeriod + _penaltyPeriod;
+        // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
+        ROUND_DURATION = _roundDuration;
 
         initialize();
     }
@@ -402,18 +387,6 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @param _output The finalized output.
      */
     function _sendRewardMessageToL2Vault(Types.CheckpointOutput memory _output) private {
-        // Calculate the elapsed time to submitting the output.
-        uint256 penaltyNumerator = 0;
-        uint256 elapsed = _output.timestamp -
-            L2_ORACLE.computeL2Timestamp(_output.l2BlockNumber + 1);
-        if (elapsed > ROUND_DURATION) {
-            elapsed -= ROUND_DURATION;
-        }
-        // Count from the time the penalty is applied.
-        if (elapsed >= NON_PENALTY_PERIOD) {
-            penaltyNumerator = Math.min(elapsed - NON_PENALTY_PERIOD, PENALTY_PERIOD);
-        }
-
         // Pay out rewards via L2 Vault now that the output is finalized.
         PORTAL.depositTransactionByValidatorPool(
             Predeploys.VALIDATOR_REWARD_VAULT,
@@ -421,9 +394,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
             abi.encodeWithSelector(
                 ValidatorRewardVault.reward.selector,
                 _output.submitter,
-                _output.l2BlockNumber,
-                penaltyNumerator,
-                PENALTY_PERIOD
+                _output.l2BlockNumber
             )
         );
     }

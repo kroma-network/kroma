@@ -151,75 +151,50 @@ func TestValidationReward(t *testing.T) {
 		log.Root().SetHandler(log.DiscardHandler())
 	}
 
-	runTest := func(t *testing.T, cfg SystemConfig) (*big.Int, *big.Int) {
-		sys, err := cfg.Start()
-		require.NoError(t, err, "Error starting up system")
-		defer sys.Close()
+	cfg := DefaultSystemConfig(t)
+	cfg.DeployConfig.FinalizationPeriodSeconds = 32
+	cfg.DeployConfig.L2OutputOracleSubmissionInterval = 16
+	cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
+	cfg.DeployConfig.ValidatorPoolRoundDuration = 16
 
-		l2Prop := sys.Clients["proposer"]
-		l2Sync := sys.Clients["syncer"]
+	sys, err := cfg.Start()
+	require.NoError(t, err, "Error starting up system")
+	defer sys.Close()
 
-		validatorVault, err := bindings.NewValidatorRewardVault(predeploys.ValidatorRewardVaultAddr, l2Sync)
-		require.NoError(t, err)
+	l2Prop := sys.Clients["proposer"]
+	l2Sync := sys.Clients["syncer"]
 
-		rewardDivider, err := validatorVault.REWARDDIVIDER(&bind.CallOpts{})
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, rewardDivider.Uint64(), uint64(1))
+	validatorVault, err := bindings.NewValidatorRewardVault(predeploys.ValidatorRewardVaultAddr, l2Sync)
+	require.NoError(t, err)
 
-		// Send a transaction to pay a fee.
-		_, err = cfg.SendTransferTx(l2Prop, l2Sync)
-		require.NoError(t, err)
+	rewardDivider, err := validatorVault.REWARDDIVIDER(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, rewardDivider.Uint64(), uint64(1))
 
-		l2RewardedCh := make(chan *bindings.ValidatorRewardVaultRewarded, 1)
-		rewardedSub, err := validatorVault.WatchRewarded(&bind.WatchOpts{}, l2RewardedCh, nil, nil)
-		require.NoError(t, err)
-		defer rewardedSub.Unsubscribe()
+	// Send a transaction to pay a fee.
+	_, err = cfg.SendTransferTx(l2Prop, l2Sync)
+	require.NoError(t, err)
 
-		timeout := time.Minute * 2
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		for {
-			select {
-			case <-ctx.Done():
-				t.Fatalf("not rewarded to validator")
-			case evt := <-l2RewardedCh:
-				vaultBalance, err := l2Sync.PendingBalanceAt(ctx, predeploys.ValidatorRewardVaultAddr)
-				require.NoError(t, err)
-				fullReward := new(big.Int).Div(vaultBalance, rewardDivider)
-				return fullReward, evt.Amount
-			}
+	l2RewardedCh := make(chan *bindings.ValidatorRewardVaultRewarded, 1)
+	rewardedSub, err := validatorVault.WatchRewarded(&bind.WatchOpts{}, l2RewardedCh, nil, nil)
+	require.NoError(t, err)
+	defer rewardedSub.Unsubscribe()
+
+	timeout := time.Minute * 2
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	for {
+		select {
+		case evt := <-l2RewardedCh:
+			vaultBalance, err := l2Sync.PendingBalanceAt(ctx, predeploys.ValidatorRewardVaultAddr)
+			require.NoError(t, err)
+			reward := new(big.Int).Div(vaultBalance, rewardDivider)
+			require.Equal(t, 0, reward.Cmp(evt.Amount))
+			return
+		case <-ctx.Done():
+			t.Fatalf("not rewarded to validator")
 		}
 	}
-
-	t.Run("non penalized", func(t *testing.T) {
-		parallel(t)
-
-		cfg := DefaultSystemConfig(t)
-		cfg.DeployConfig.FinalizationPeriodSeconds = 32
-		cfg.DeployConfig.L2OutputOracleSubmissionInterval = 16
-		cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
-		cfg.DeployConfig.ValidatorPoolNonPenaltyPeriod = 15
-		cfg.DeployConfig.ValidatorPoolPenaltyPeriod = 1
-
-		fullReward, rewardAmount := runTest(t, cfg)
-		require.Equal(t, 0, fullReward.Cmp(rewardAmount))
-	})
-
-	t.Run("penalized", func(t *testing.T) {
-		parallel(t)
-
-		cfg := DefaultSystemConfig(t)
-		cfg.DeployConfig.FinalizationPeriodSeconds = 32
-		cfg.DeployConfig.L2OutputOracleSubmissionInterval = 16
-		cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
-		cfg.DeployConfig.ValidatorPoolNonPenaltyPeriod = 1
-		cfg.DeployConfig.ValidatorPoolPenaltyPeriod = 15
-
-		fullReward, rewardAmount := runTest(t, cfg)
-		require.Equal(t, 1, fullReward.Cmp(rewardAmount))
-	})
-
-	// TODO(pangssu): test for public submission round
 }
 
 // TestSystemE2E sets up a L1 Geth node, a rollup node, and a L2 geth node and then confirms that L1 deposits are reflected on L2.

@@ -76,9 +76,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         assertEq(pool.TRUSTED_VALIDATOR(), trusted);
         assertEq(pool.MIN_BOND_AMOUNT(), minBond);
         assertEq(pool.MAX_UNBOND(), maxUnbond);
-        assertEq(pool.NON_PENALTY_PERIOD(), nonPenaltyPeriod);
-        assertEq(pool.PENALTY_PERIOD(), penaltyPeriod);
-        assertEq(pool.ROUND_DURATION(), nonPenaltyPeriod + penaltyPeriod);
+        assertEq(pool.ROUND_DURATION(), roundDuration);
     }
 
     function test_deposit_succeeds() public {
@@ -302,9 +300,6 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         // warp to the time the output is finalized and the bond is expires.
         vm.warp(bond.expiresAt);
 
-        // in this test, the penalty is always 0 because the output was submitted without delay.
-        uint256 penalty = 0;
-
         vm.expectEmit(true, true, false, true, address(pool));
         emit Unbonded(outputIndex, output.submitter, bond.amount);
         vm.expectCall(
@@ -316,75 +311,13 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
                 abi.encodeWithSelector(
                     ValidatorRewardVault.reward.selector,
                     output.submitter,
-                    output.l2BlockNumber,
-                    penalty,
-                    penaltyPeriod
+                    output.l2BlockNumber
                 )
             )
         );
         vm.prank(trusted);
         pool.unbond();
         assertEq(pool.balanceOf(output.submitter), uint256(bond.amount));
-    }
-
-    function test_unbond_penaltyByElapsed_succeeds() public {
-        test_deposit_succeeds();
-
-        uint256 outputIndex = oracle.nextOutputIndex();
-        uint256 l2BlockNumber = oracle.nextBlockNumber();
-        bytes32 outputRoot = keccak256(abi.encode(l2BlockNumber));
-        address validator = pool.nextValidator();
-
-        // warp to the submission time and then delay by a certain amount of time.
-        warpToSubmitTime(l2BlockNumber);
-        uint256 delay = nonPenaltyPeriod + penaltyPeriod / 2;
-        uint256 delayedSubmissionTime = block.timestamp + delay;
-        vm.warp(delayedSubmissionTime);
-
-        vm.prank(validator);
-        mockOracle.addOutput(outputRoot, l2BlockNumber);
-        uint128 expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
-        uint128 bondAmount = uint128(minBond);
-        vm.prank(address(oracle));
-        pool.createBond(outputIndex, bondAmount, expiresAt);
-
-        // warp to the time the output is finalized and the bond is expires.
-        vm.warp(expiresAt);
-
-        // test penalty calculation
-        // use block scope to avoid stack too deep.
-        uint256 penalty = 0;
-        {
-            uint256 elapsed = delayedSubmissionTime - oracle.computeL2Timestamp(l2BlockNumber + 1);
-            if (elapsed > nonPenaltyPeriod + penaltyPeriod) {
-                elapsed -= nonPenaltyPeriod + penaltyPeriod;
-            }
-            if (elapsed >= nonPenaltyPeriod) {
-                penalty = elapsed - nonPenaltyPeriod;
-            }
-            assertEq(penalty, delay - nonPenaltyPeriod);
-        }
-
-        vm.expectEmit(true, true, false, true, address(pool));
-        emit Unbonded(outputIndex, validator, bondAmount);
-        vm.expectCall(
-            address(pool.PORTAL()),
-            abi.encodeWithSelector(
-                KromaPortal.depositTransactionByValidatorPool.selector,
-                Predeploys.VALIDATOR_REWARD_VAULT,
-                pool.VAULT_REWARD_GAS_LIMIT(),
-                abi.encodeWithSelector(
-                    ValidatorRewardVault.reward.selector,
-                    validator,
-                    l2BlockNumber,
-                    penalty,
-                    penaltyPeriod
-                )
-            )
-        );
-        vm.prank(trusted);
-        pool.unbond();
-        assertEq(pool.balanceOf(validator), bondAmount);
     }
 
     function test_unbond_multipleBonds_succeeds() public {
@@ -419,9 +352,6 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         // warp to the time the second output is finalized and the two bonds are expired.
         vm.warp(secondBond.expiresAt);
 
-        // in this test, the penalty is always 0 because the outputs were submitted without delay.
-        uint256 penalty = 0;
-
         vm.expectEmit(true, true, false, true, address(pool));
         emit Unbonded(firstOutputIndex, firstOutput.submitter, firstBond.amount);
         vm.expectCall(
@@ -433,9 +363,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
                 abi.encodeWithSelector(
                     ValidatorRewardVault.reward.selector,
                     firstOutput.submitter,
-                    firstOutput.l2BlockNumber,
-                    penalty,
-                    penaltyPeriod
+                    firstOutput.l2BlockNumber
                 )
             )
         );
@@ -450,9 +378,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
                 abi.encodeWithSelector(
                     ValidatorRewardVault.reward.selector,
                     secondOutput.submitter,
-                    secondOutput.l2BlockNumber,
-                    penalty,
-                    penaltyPeriod
+                    secondOutput.l2BlockNumber
                 )
             )
         );

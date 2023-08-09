@@ -46,8 +46,7 @@ type DeployConfig struct {
 	ValidatorPoolTrustedValidator common.Address `json:"validatorPoolTrustedValidator"`
 	ValidatorPoolMinBondAmount    *hexutil.Big   `json:"validatorPoolMinBondAmount"`
 	ValidatorPoolMaxUnbond        uint64         `json:"validatorPoolMaxUnbond"`
-	ValidatorPoolNonPenaltyPeriod uint64         `json:"validatorPoolNonPenaltyPeriod"`
-	ValidatorPoolPenaltyPeriod    uint64         `json:"validatorPoolPenaltyPeriod"`
+	ValidatorPoolRoundDuration    uint64         `json:"validatorPoolRoundDuration"`
 
 	L2OutputOracleSubmissionInterval uint64 `json:"l2OutputOracleSubmissionInterval"`
 	L2OutputOracleStartingTimestamp  int    `json:"l2OutputOracleStartingTimestamp"`
@@ -167,17 +166,14 @@ func (d *DeployConfig) Check() error {
 	if d.ValidatorPoolMaxUnbond == 0 {
 		return fmt.Errorf("%w: ValidatorPoolMaxUnbond cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorPoolNonPenaltyPeriod == 0 {
-		return fmt.Errorf("%w: ValidatorPoolNonPenaltyPeriod cannot be 0", ErrInvalidDeployConfig)
-	}
-	if d.ValidatorPoolPenaltyPeriod == 0 {
-		return fmt.Errorf("%w: ValidatorPoolPenaltyPeriod cannot be 0", ErrInvalidDeployConfig)
+	if d.ValidatorPoolRoundDuration == 0 {
+		return fmt.Errorf("%w: ValidatorPoolRoundDuration cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleSubmissionInterval == 0 {
 		return fmt.Errorf("%w: L2OutputOracleSubmissionInterval cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != (d.ValidatorPoolNonPenaltyPeriod+d.ValidatorPoolPenaltyPeriod)*2 {
-		return fmt.Errorf("%w: sum of ValidatorPoolNonPenaltyPeriod and ValidatorPoolPenaltyPeriod must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
+	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorPoolRoundDuration*2 {
+		return fmt.Errorf("%w: double of ValidatorPoolRoundDuration must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleStartingTimestamp == 0 {
 		log.Warn("L2OutputOracleStartingTimestamp is 0")

@@ -3,15 +3,10 @@
 <!-- All glossary references in this file. -->
 
 [g-l1]: glossary.md#layer-1-l1
-
 [g-l2]: glossary.md#layer-2-l2
-
 [g-l2-output]: glossary.md#l2-output-root
-
 [g-trusted-validator]: glossary.md#trusted-validator
-
 [g-validator]: glossary.md#validator
-
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->

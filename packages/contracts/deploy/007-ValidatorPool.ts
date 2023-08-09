@@ -22,8 +22,7 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.validatorPoolTrustedValidator,
       hre.deployConfig.validatorPoolMinBondAmount,
       hre.deployConfig.validatorPoolMaxUnbond,
-      hre.deployConfig.validatorPoolNonPenaltyPeriod,
-      hre.deployConfig.validatorPoolPenaltyPeriod,
+      hre.deployConfig.validatorPoolRoundDuration,
     ],
     isProxyImpl: true,
     initArgs: [],
@@ -51,13 +50,8 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'NON_PENALTY_PERIOD',
-        hre.deployConfig.validatorPoolNonPenaltyPeriod
-      )
-      await assertContractVariable(
-        contract,
-        'PENALTY_PERIOD',
-        hre.deployConfig.validatorPoolPenaltyPeriod
+        'ROUND_DURATION',
+        hre.deployConfig.validatorPoolRoundDuration
       )
     },
   })
