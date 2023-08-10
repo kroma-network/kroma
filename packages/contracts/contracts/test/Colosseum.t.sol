@@ -134,7 +134,7 @@ contract ColosseumTest is Colosseum_Initializer {
         bytes32[] memory segments = _newSegments(_challenger, 1, start, end - start);
 
         vm.prank(_challenger);
-        colosseum.createChallenge(_outputIndex, segments);
+        colosseum.createChallenge(_outputIndex, bytes32(0), 0, segments);
 
         Types.Challenge memory challenge = colosseum.getChallenge(_outputIndex, _challenger);
 
@@ -281,7 +281,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(challenger);
         vm.expectRevert("Colosseum: challenge for genesis output is not allowed");
-        colosseum.createChallenge(0, new bytes32[](segLen));
+        colosseum.createChallenge(0, bytes32(0), 0, new bytes32[](segLen));
     }
 
     function test_createChallenge_finalizedOutput_reverts() external {
@@ -295,7 +295,7 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.expectRevert(
             "Colosseum: cannot progress challenge process about already finalized output"
         );
-        colosseum.createChallenge(outputIndex, new bytes32[](segLen));
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen));
     }
 
     function test_createChallenge_asAsserter_reverts() external {
@@ -305,7 +305,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(targetOutput.submitter);
         vm.expectRevert("Colosseum: the asserter and challenger must be different");
-        colosseum.createChallenge(outputIndex, new bytes32[](segLen));
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen));
     }
 
     function test_createChallenge_existedChallenge_reverts() external {
@@ -320,7 +320,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 segLen = colosseum.getSegmentsLength(1);
         vm.prank(challenger);
         vm.expectRevert("Colosseum: the challenge for given output index is already in progress");
-        colosseum.createChallenge(outputIndex, new bytes32[](segLen));
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen));
     }
 
     function test_createChallenge_withBadSegments_reverts() external {
@@ -332,7 +332,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         // invalid segments length
         vm.expectRevert("Colosseum: invalid segments length");
-        colosseum.createChallenge(outputIndex, new bytes32[](segLen + 1));
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen + 1));
 
         bytes32[] memory segments = new bytes32[](segLen);
 
@@ -342,7 +342,7 @@ contract ColosseumTest is Colosseum_Initializer {
         }
         segments[segLen - 1] = oracle.getL2Output(outputIndex).outputRoot;
         vm.expectRevert("Colosseum: the first segment must be matched");
-        colosseum.createChallenge(outputIndex, segments);
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, segments);
 
         // invalid output root of the last segment
         for (uint256 i = 0; i < segments.length; i++) {
@@ -351,7 +351,7 @@ contract ColosseumTest is Colosseum_Initializer {
         segments[0] = oracle.getL2Output(outputIndex - 1).outputRoot;
         segments[segLen - 1] = oracle.getL2Output(outputIndex).outputRoot;
         vm.expectRevert("Colosseum: the last segment must not be matched");
-        colosseum.createChallenge(outputIndex, segments);
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, segments);
 
         vm.stopPrank();
     }
@@ -362,7 +362,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(challenger);
         vm.expectRevert();
-        colosseum.createChallenge(outputIndex + 1, new bytes32[](segLen));
+        colosseum.createChallenge(outputIndex + 1, bytes32(0), 0, new bytes32[](segLen));
     }
 
     function test_createChallenge_afterChallengeProven_reverts() external {
@@ -378,7 +378,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(challenger);
         vm.expectRevert("Colosseum: challenge for deleted output is not allowed");
-        colosseum.createChallenge(outputIndex, new bytes32[](segLen));
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen));
     }
 
     function test_createChallenge_afterChallengerTimedOut_succeeds() external {
@@ -438,7 +438,21 @@ contract ColosseumTest is Colosseum_Initializer {
         bytes32[] memory segments = new bytes32[](0);
         vm.prank(challenger);
         vm.expectRevert("Colosseum: cannot create a challenge after the creation period");
-        colosseum.createChallenge(outputIndex, segments);
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, segments);
+    }
+
+    function test_createChallenge_wrongFork_reverts() external {
+        uint256 outputIndex = targetOutputIndex;
+        uint256 segLen = colosseum.getSegmentsLength(1);
+
+        vm.prank(challenger);
+        vm.expectRevert("Colosseum: block hash does not match the hash at the expected height");
+        colosseum.createChallenge(
+            outputIndex,
+            bytes32(uint256(0x01)),
+            block.number,
+            new bytes32[](segLen)
+        );
     }
 
     function test_bisect_succeeds() external {
@@ -882,7 +896,9 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.warp(oracle.finalizedAt(outputIndex) + 1);
 
         vm.prank(address(securityCouncil));
-        vm.expectRevert("Colosseum: cannot progress challenge process about already finalized output");
+        vm.expectRevert(
+            "Colosseum: cannot progress challenge process about already finalized output"
+        );
         colosseum.forceDeleteOutput(outputIndex);
     }
 

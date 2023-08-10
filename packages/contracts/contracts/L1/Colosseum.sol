@@ -292,13 +292,17 @@ contract Colosseum is Initializable, Semver {
     /**
      * @notice Creates a challenge against an invalid output.
      *
-     * @param _outputIndex Index of the invalid L2 checkpoint output.
-     * @param _segments    Array of the segment. A segment is the first output root of a specific range.
+     * @param _outputIndex   Index of the invalid L2 checkpoint output.
+     * @param _l1BlockHash   The block hash of L1 at the time the output L2 block was created.
+     * @param _l1BlockNumber The block number of L1 with the specified L1 block hash.
+     * @param _segments      Array of the segment. A segment is the first output root of a specific range.
      */
-    function createChallenge(uint256 _outputIndex, bytes32[] calldata _segments)
-        external
-        outputNotFinalized(_outputIndex)
-    {
+    function createChallenge(
+        uint256 _outputIndex,
+        bytes32 _l1BlockHash,
+        uint256 _l1BlockNumber,
+        bytes32[] calldata _segments
+    ) external outputNotFinalized(_outputIndex) {
         require(_outputIndex > 0, "Colosseum: challenge for genesis output is not allowed");
 
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
@@ -329,6 +333,14 @@ contract Colosseum is Initializable, Semver {
             msg.sender != targetOutput.submitter,
             "Colosseum: the asserter and challenger must be different"
         );
+
+        if (_l1BlockHash != bytes32(0)) {
+            // Like L2OutputOracle, it reverts transactions when L1 reorged.
+            require(
+                blockhash(_l1BlockNumber) == _l1BlockHash,
+                "Colosseum: block hash does not match the hash at the expected height"
+            );
+        }
 
         Types.CheckpointOutput memory prevOutput = L2_ORACLE.getL2Output(_outputIndex - 1);
 

@@ -662,6 +662,7 @@ type OutputRange struct {
 	OutputIndex *big.Int
 	StartBlock  uint64
 	EndBlock    uint64
+	L1Origin    eth.BlockID
 }
 
 // ValidateOutput validates the output for the given outputIndex.
@@ -681,6 +682,7 @@ func (c *Challenger) ValidateOutput(outputIndex *big.Int, outputs *Outputs) *Out
 			OutputIndex: outputIndex,
 			StartBlock:  start,
 			EndBlock:    end,
+			L1Origin:    outputs.LocalOutput.BlockRef.L1Origin,
 		}
 	} else {
 		c.log.Info("confirmed that the output is valid",
@@ -741,10 +743,16 @@ func (c *Challenger) selectFaultPosition(ctx context.Context, segments *chal.Seg
 }
 
 func (c *Challenger) CreateChallenge(ctx context.Context, outputRange *OutputRange) (*types.Transaction, error) {
+	outputIndex := outputRange.OutputIndex
+	l1BlockHash := outputRange.L1Origin.Hash
+	l1BlockNumber := new(big.Int).SetUint64(outputRange.L1Origin.Number)
+
 	c.log.Info("crafting createChallenge tx",
-		"index", outputRange.OutputIndex,
+		"index", outputIndex,
 		"start", outputRange.StartBlock,
 		"end", outputRange.EndBlock,
+		"l1BlockHash", l1BlockHash.TerminalString(),
+		"l1BlockNumber", l1BlockNumber,
 	)
 
 	segSize := outputRange.EndBlock - outputRange.StartBlock
@@ -754,7 +762,7 @@ func (c *Challenger) CreateChallenge(ctx context.Context, outputRange *OutputRan
 	}
 
 	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
-	return c.colosseumContract.CreateChallenge(txOpts, outputRange.OutputIndex, segments.Hashes)
+	return c.colosseumContract.CreateChallenge(txOpts, outputIndex, l1BlockHash, l1BlockNumber, segments.Hashes)
 }
 
 func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
