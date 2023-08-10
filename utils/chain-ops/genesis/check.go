@@ -9,7 +9,6 @@ import (
 type StorageCheckMap = map[common.Hash]common.Hash
 
 var (
-	L2XDMOwnerSlot      = common.Hash{31: 0x33}
 	ProxyAdminOwnerSlot = common.Hash{}
 
 	// ExpectedStorageSlots is a map of predeploy addresses to the storage slots and values that are
@@ -20,10 +19,6 @@ var (
 		predeploys.L2CrossDomainMessengerAddr: {
 			// Slot 0x00 (0) is a combination of spacer_0_0_20, _initialized, and _initializing
 			common.Hash{}: common.HexToHash("0x0000000000000000000000010000000000000000000000000000000000000000"),
-			// Slot 0x33 (51) is _owner. Requires custom check, so set to a garbage value
-			L2XDMOwnerSlot: common.HexToHash("0xbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbad0"),
-			// Slot 0x97 (151) is _status
-			common.Hash{31: 0x97}: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001"),
 			// Slot 0xcc (204) is xDomainMsgSender
 			common.Hash{31: 0xcc}: common.HexToHash("0x000000000000000000000000000000000000000000000000000000000000dead"),
 			// EIP-1967 storage slots
@@ -34,7 +29,7 @@ var (
 		predeploys.ValidatorRewardVaultAddr:      eip1967Slots(predeploys.ValidatorRewardVaultAddr),
 		predeploys.KromaMintableERC20FactoryAddr: eip1967Slots(predeploys.KromaMintableERC20FactoryAddr),
 		predeploys.GasPriceOracleAddr:            eip1967Slots(predeploys.GasPriceOracleAddr),
-		//predeploys.L1BlockAddr:                       eip1967Slots(predeploys.L1BlockAddr),
+		// predeploys.L1BlockAddr:                       eip1967Slots(predeploys.L1BlockAddr),
 		predeploys.L2ERC721BridgeAddr:             eip1967Slots(predeploys.L2ERC721BridgeAddr),
 		predeploys.KromaMintableERC721FactoryAddr: eip1967Slots(predeploys.KromaMintableERC721FactoryAddr),
 		// ProxyAdmin is not a proxy, and only has the _owner slot set.

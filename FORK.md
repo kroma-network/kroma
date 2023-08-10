@@ -12,16 +12,24 @@
 
 ### Others
 
+- <https://github.com/ethereum-optimism/optimism/pull/5106>
+- <https://github.com/ethereum-optimism/optimism/pull/5167>
+- <https://github.com/ethereum-optimism/optimism/pull/5400>
+- <https://github.com/ethereum-optimism/optimism/pull/5417>
 - <https://github.com/ethereum-optimism/optimism/pull/5421>
 - <https://github.com/ethereum-optimism/optimism/pull/5424>
 - <https://github.com/ethereum-optimism/optimism/pull/5434>
 - <https://github.com/ethereum-optimism/optimism/pull/5436>
 - <https://github.com/ethereum-optimism/optimism/pull/5444>
+- <https://github.com/ethereum-optimism/optimism/pull/5445>
 - <https://github.com/ethereum-optimism/optimism/pull/5459>
+- <https://github.com/ethereum-optimism/optimism/pull/5460>
 - <https://github.com/ethereum-optimism/optimism/pull/5470>
 - <https://github.com/ethereum-optimism/optimism/pull/5475>
 - <https://github.com/ethereum-optimism/optimism/pull/5493>
+- <https://github.com/ethereum-optimism/optimism/pull/5499>
 - <https://github.com/ethereum-optimism/optimism/pull/5508>
+- <https://github.com/ethereum-optimism/optimism/pull/5536>
 - <https://github.com/ethereum-optimism/optimism/pull/5540>
 - <https://github.com/ethereum-optimism/optimism/pull/6119>
 - <https://github.com/ethereum-optimism/optimism/pull/6128>
