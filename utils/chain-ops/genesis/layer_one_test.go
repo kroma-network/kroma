@@ -124,6 +124,9 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	unsafeBlockSigner, err := sysCfg.UnsafeBlockSigner(&bind.CallOpts{})
 	require.NoError(t, err)
 	require.Equal(t, unsafeBlockSigner, config.P2PProposerAddress)
+	validatorRewardScalar, err := sysCfg.ValidatorRewardScalar(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.Equal(t, validatorRewardScalar.Uint64(), config.ValidatorRewardScalar)
 
 	// test that we can do deposits, etc.
 	priv, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")

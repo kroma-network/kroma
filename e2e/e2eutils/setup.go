@@ -112,6 +112,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		GasPriceOracleOverhead:      2100,
 		GasPriceOracleScalar:        1000_000,
 		DeploymentWaitConfirmations: 1,
+		ValidatorRewardScalar:       5000,
 
 		ProtocolVaultRecipient:       common.Address{19: 2},
 		ProposerRewardVaultRecipient: common.Address{19: 3},
@@ -250,9 +251,10 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 
 func SystemConfigFromDeployConfig(deployConfig *genesis2.DeployConfig) eth.SystemConfig {
 	return eth.SystemConfig{
-		BatcherAddr: deployConfig.BatchSenderAddress,
-		Overhead:    eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleOverhead))),
-		Scalar:      eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleScalar))),
-		GasLimit:    uint64(deployConfig.L2GenesisBlockGasLimit),
+		BatcherAddr:           deployConfig.BatchSenderAddress,
+		Overhead:              eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleOverhead))),
+		Scalar:                eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleScalar))),
+		GasLimit:              uint64(deployConfig.L2GenesisBlockGasLimit),
+		ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.ValidatorRewardScalar))),
 	}
 }

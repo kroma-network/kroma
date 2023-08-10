@@ -157,7 +157,7 @@ func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfi
 		BatcherAddr:           sysCfg.BatcherAddr,
 		L1FeeOverhead:         sysCfg.Overhead,
 		L1FeeScalar:           sysCfg.Scalar,
-		ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(CalcValidatorRewardScalar()))),
+		ValidatorRewardScalar: sysCfg.ValidatorRewardScalar,
 	}
 	data, err := infoDat.MarshalBinary()
 	if err != nil {

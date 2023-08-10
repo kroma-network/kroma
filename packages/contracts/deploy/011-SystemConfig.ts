@@ -34,6 +34,7 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.l2GenesisBlockGasLimit,
       hre.deployConfig.p2pProposerAddress,
       defaultResourceConfig,
+      hre.deployConfig.validatorRewardScalar,
     ],
     isProxyImpl: true,
     initArgs: [
@@ -44,6 +45,7 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.l2GenesisBlockGasLimit,
       hre.deployConfig.p2pProposerAddress,
       defaultResourceConfig,
+      hre.deployConfig.validatorRewardScalar,
     ],
     postDeployAction: async (contract) => {
       await assertContractVariable(
@@ -66,6 +68,11 @@ const deployFn: DeployFunction = async (hre) => {
         contract,
         'unsafeBlockSigner',
         hre.deployConfig.p2pProposerAddress
+      )
+      await assertContractVariable(
+        contract,
+        'validatorRewardScalar',
+        hre.deployConfig.validatorRewardScalar
       )
 
       const config = await contract.resourceConfig()

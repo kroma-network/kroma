@@ -156,7 +156,8 @@ contract L2OutputOracle_Initializer is CommonTest {
             _batcherHash: bytes32(0),
             _gasLimit: 30_000_000,
             _unsafeBlockSigner: address(0),
-            _config: config
+            _config: config,
+            _validatorRewardScalar: 5000
         });
 
         // Mock KromaPortal

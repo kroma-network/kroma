@@ -206,6 +206,7 @@ interface OptionalL2DeployConfig {
   eip1559Elasticity: number
   gasPriceOracleOverhead: number
   gasPriceOracleScalar: number
+  validatorRewardScalar: number
 }
 
 /**
@@ -382,6 +383,10 @@ export const deployConfigSpec: {
   gasPriceOracleScalar: {
     type: 'number',
     default: 1_000_000,
+  },
+  validatorRewardScalar: {
+    type: 'number',
+    default: 0,
   },
   colosseumCreationPeriodSeconds: {
     type: 'number',

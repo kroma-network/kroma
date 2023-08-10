@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
+import { Constants } from "../libraries/Constants.sol";
 import { Semver } from "../universal/Semver.sol";
 
 /**
@@ -62,7 +63,7 @@ contract L1Block is Semver {
 
     /**
      * @notice The scalar value to distribute transaction fees as validator reward.
-     *         The denominator is 10,000, so the ratio is expressed in 4 decimal places.
+     *         The denominator is 10000, so the ratio is expressed in 4 decimal places.
      */
     uint256 public validatorRewardScalar;
 
@@ -100,8 +101,8 @@ contract L1Block is Semver {
             "L1Block: only the depositor account can set L1 block values"
         );
         require(
-            _validatorRewardScalar <= 10000,
-            "L1Block: the max value of validatior reward scalar has been exceeded"
+            _validatorRewardScalar <= Constants.VALIDATOR_REWARD_DENOMINATOR,
+            "L1Block: the max value of validator reward scalar has been exceeded"
         );
 
         number = _number;

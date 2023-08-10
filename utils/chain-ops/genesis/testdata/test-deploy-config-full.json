@@ -49,6 +49,7 @@
   "proxyAdminOwner": "0x0000000000000000000000000000000000000222",
   "gasPriceOracleOverhead": 2100,
   "gasPriceOracleScalar": 1000000,
+  "validatorRewardScalar": 5000,
   "deploymentWaitConfirmations": 1,
   "eip1559Denominator": 8,
   "eip1559Elasticity": 2,
