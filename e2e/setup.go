@@ -95,10 +95,10 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		BatchInboxAddress:         common.Address{0: 0x52, 19: 0xff}, // tbd
 		BatchSenderAddress:        addresses.Batcher,
 
-		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
-		ValidatorPoolMinBondAmount:    uint642big(1),
-		ValidatorPoolMaxUnbond:        10,
-		ValidatorPoolRoundDuration:    4,
+		ValidatorPoolTrustedValidator:   addresses.TrustedValidator,
+		ValidatorPoolRequiredBondAmount: uint642big(1),
+		ValidatorPoolMaxUnbond:          10,
+		ValidatorPoolRoundDuration:      4,
 
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
@@ -195,10 +195,9 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			"validator":  testlog.Logger(t, log.LvlInfo).New("role", "validator"),
 			"challenger": testlog.Logger(t, log.LvlInfo).New("role", "challenger"),
 		},
-		GethOptions:               map[string][]GethOption{},
-		P2PTopology:               nil, // no P2P connectivity by default
-		NonFinalizedOutputs:       false,
-		OutputSubmitterBondAmount: 1,
+		GethOptions:         map[string][]GethOption{},
+		P2PTopology:         nil, // no P2P connectivity by default
+		NonFinalizedOutputs: false,
 	}
 }
 
@@ -245,8 +244,6 @@ type SystemConfig struct {
 
 	// Explicitly disable batcher, for tests that rely on unsafe L2 payloads
 	DisableBatcher bool
-
-	OutputSubmitterBondAmount uint64
 
 	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
 	EnableMaliciousValidator bool
@@ -598,7 +595,6 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		ChallengerPollInterval:       500 * time.Millisecond,
 		TxMgrConfig:                  newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		AllowNonFinalized:            cfg.NonFinalizedOutputs,
-		OutputSubmitterBondAmount:    cfg.OutputSubmitterBondAmount,
 		OutputSubmitterRetryInterval: 50 * time.Millisecond,
 		OutputSubmitterRoundBuffer:   30,
 		ChallengerEnabled:            false,

@@ -43,9 +43,9 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     address public immutable TRUSTED_VALIDATOR;
 
     /**
-     * @notice The minimum bond amount. Can be updated via upgrade.
+     * @notice The required bond amount. Can be updated via upgrade.
      */
-    uint256 public immutable MIN_BOND_AMOUNT;
+    uint128 public immutable REQUIRED_BOND_AMOUNT;
 
     /**
      * @notice The max number of unbonds when trying unbond.
@@ -161,25 +161,25 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     /**
      * @custom:semver 0.1.0
      *
-     * @param _l2OutputOracle   Address of the L2OutputOracle.
-     * @param _portal           Address of the KromaPortal.
-     * @param _trustedValidator Address of the trusted validator.
-     * @param _minBondAmount    The minimum bond amount.
-     * @param _maxUnbond        The max number of unbonds when trying unbond.
-     * @param _roundDuration    The duration of one submission round in seconds.
+     * @param _l2OutputOracle     Address of the L2OutputOracle.
+     * @param _portal             Address of the KromaPortal.
+     * @param _trustedValidator   Address of the trusted validator.
+     * @param _requiredBondAmount The required bond amount.
+     * @param _maxUnbond          The max number of unbonds when trying unbond.
+     * @param _roundDuration      The duration of one submission round in seconds.
      */
     constructor(
         L2OutputOracle _l2OutputOracle,
         KromaPortal _portal,
         address _trustedValidator,
-        uint256 _minBondAmount,
+        uint256 _requiredBondAmount,
         uint256 _maxUnbond,
         uint256 _roundDuration
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2OutputOracle;
         PORTAL = _portal;
         TRUSTED_VALIDATOR = _trustedValidator;
-        MIN_BOND_AMOUNT = _minBondAmount;
+        REQUIRED_BOND_AMOUNT = uint128(_requiredBondAmount);
         MAX_UNBOND = _maxUnbond;
 
         // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
@@ -215,21 +215,14 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     }
 
     /**
-     * @notice Bond asset corresponding to the given output index. This function is called when submitting output.
-     *         Note that the amount to bond should be at least the minimum bond amount,
-     *         and the output root must also be given for later output root comparison.
+     * @notice Bond asset corresponding to the given output index.
+     *         This function is called when submitting output.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
-     * @param _amount      Amount of bond.
      * @param _expiresAt   The expiration timestamp of bond.
      */
-    function createBond(
-        uint256 _outputIndex,
-        uint128 _amount,
-        uint128 _expiresAt
-    ) external {
+    function createBond(uint256 _outputIndex, uint128 _expiresAt) external {
         require(msg.sender == address(L2_ORACLE), "ValidatorPool: sender is not L2OutputOracle");
-        require(_amount >= MIN_BOND_AMOUNT, "ValidatorPool: the bond amount is too small");
 
         Types.Bond storage bond = bonds[_outputIndex];
         require(
@@ -241,12 +234,12 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         _tryUnbond();
 
         address submitter = L2_ORACLE.getSubmitter(_outputIndex);
-        _decreaseBalance(submitter, _amount);
+        _decreaseBalance(submitter, REQUIRED_BOND_AMOUNT);
 
-        bond.amount = _amount;
+        bond.amount = REQUIRED_BOND_AMOUNT;
         bond.expiresAt = _expiresAt;
 
-        emit Bonded(submitter, _outputIndex, _amount, _expiresAt);
+        emit Bonded(submitter, _outputIndex, REQUIRED_BOND_AMOUNT, _expiresAt);
     }
 
     /**
@@ -264,11 +257,10 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
             "ValidatorPool: the output is already finalized"
         );
 
-        uint128 bonded = bond.amount;
-        _decreaseBalance(_challenger, bonded);
-        pendingBonds[_outputIndex][_challenger] = bonded;
+        _decreaseBalance(_challenger, REQUIRED_BOND_AMOUNT);
+        pendingBonds[_outputIndex][_challenger] = REQUIRED_BOND_AMOUNT;
 
-        emit PendingBondAdded(_outputIndex, _challenger, bonded);
+        emit PendingBondAdded(_outputIndex, _challenger, REQUIRED_BOND_AMOUNT);
     }
 
     /**
@@ -314,17 +306,6 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         }
 
         emit BondIncreased(_outputIndex, _challenger, increased);
-    }
-
-    /**
-     * @notice Increases the balance of the given address, If the increased balance is at least
-     *         the minimum bond amount, add the given address to the validator set.
-     *
-     * @param _recipient Address to increase the balance.
-     * @param _amount    Amount of balance increased.
-     */
-    function increaseBalance(address _recipient, uint256 _amount) external onlyColosseum {
-        _increaseBalance(_recipient, _amount);
     }
 
     /**
@@ -432,8 +413,8 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     }
 
     /**
-     * @notice Increases the balance of the given address, If the increased balance is at lease
-     *         the minimum bond amount, add the given address to the validator set.
+     * @notice Increases the balance of the given address. If the balance is greater than the required bond amount,
+     *         add the given address to the validator set.
      *
      * @param _validator Address to increase the balance.
      * @param _amount    Amount of balance increased.
@@ -441,7 +422,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     function _increaseBalance(address _validator, uint256 _amount) private {
         uint256 balance = balances[_validator] + _amount;
 
-        if (balance >= MIN_BOND_AMOUNT && !isValidator(_validator)) {
+        if (balance >= REQUIRED_BOND_AMOUNT && !isValidator(_validator)) {
             validatorIndexes[_validator] = validators.length;
             validators.push(_validator);
         }
@@ -450,8 +431,8 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     }
 
     /**
-     * @notice Deceases the balance of the given address. If the decreased balance is less than
-     *         the minimum bond amount, remove the given address from the validator set.
+     * @notice Deceases the balance of the given address. If the balance is less than the required bond amount,
+     *         remove the given address from the validator set.
      *
      * @param _validator Address to decrease the balance.
      * @param _amount    Amount of balance decreased.
@@ -461,7 +442,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         require(balance >= _amount, "ValidatorPool: insufficient balances");
         balance = balance - _amount;
 
-        if (balance < MIN_BOND_AMOUNT && isValidator(_validator)) {
+        if (balance < REQUIRED_BOND_AMOUNT && isValidator(_validator)) {
             uint256 lastValidatorIndex = validators.length - 1;
             if (lastValidatorIndex > 0) {
                 uint256 validatorIndex = validatorIndexes[_validator];

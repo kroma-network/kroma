@@ -182,14 +182,12 @@ contract L2OutputOracle is Initializable, Semver {
      * @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
      * @param _l1BlockHash   A block hash which must be included in the current chain.
      * @param _l1BlockNumber The block number with the specified block hash.
-     * @param _bondAmount    Amount of bond.
      */
     function submitL2Output(
         bytes32 _outputRoot,
         uint256 _l2BlockNumber,
         bytes32 _l1BlockHash,
-        uint256 _l1BlockNumber,
-        uint256 _bondAmount
+        uint256 _l1BlockNumber
     ) external payable {
         address nextValidator = VALIDATOR_POOL.nextValidator();
         // If it's not a public round, only selected validators can submit output.
@@ -245,7 +243,6 @@ contract L2OutputOracle is Initializable, Semver {
 
         VALIDATOR_POOL.createBond(
             outputIndex,
-            uint128(_bondAmount),
             uint128(block.timestamp + FINALIZATION_PERIOD_SECONDS)
         );
     }

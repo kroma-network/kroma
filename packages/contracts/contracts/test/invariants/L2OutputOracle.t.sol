@@ -21,12 +21,11 @@ contract L2OutputOracle_Validator {
         bytes32 _outputRoot,
         uint256 _l2BlockNumber,
         bytes32 _l1BlockHash,
-        uint256 _l1BlockNumber,
-        uint256 _bondAmount
+        uint256 _l1BlockNumber
     ) external {
         // Act as the validator and submit a new output.
         vm.prank(oracle.VALIDATOR_POOL().nextValidator());
-        oracle.submitL2Output(_outputRoot, _l2BlockNumber, _l1BlockHash, _l1BlockNumber, _bondAmount);
+        oracle.submitL2Output(_outputRoot, _l2BlockNumber, _l1BlockHash, _l1BlockNumber);
     }
 }
 

@@ -54,7 +54,12 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
     event BondIncreased(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
     event PendingBondAdded(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
-    event PendingBondReleased(uint256 indexed outputIndex, address indexed challenger, address indexed recipient, uint128 amount);
+    event PendingBondReleased(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        address indexed recipient,
+        uint128 amount
+    );
     event Unbonded(uint256 indexed outputIndex, address indexed recipient, uint128 amount);
 
     function setUp() public override {
@@ -74,7 +79,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
     function test_constructor_succeeds() external {
         assertEq(address(pool.L2_ORACLE()), address(oracle));
         assertEq(pool.TRUSTED_VALIDATOR(), trusted);
-        assertEq(pool.MIN_BOND_AMOUNT(), minBond);
+        assertEq(pool.REQUIRED_BOND_AMOUNT(), requiredBondAmount);
         assertEq(pool.MAX_UNBOND(), maxUnbond);
         assertEq(pool.ROUND_DURATION(), roundDuration);
     }
@@ -83,15 +88,15 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint256 trustedBalance = trusted.balance;
 
         vm.prank(trusted);
-        pool.deposit{ value: minBond }();
-        assertEq(pool.balanceOf(trusted), minBond);
-        assertEq(trusted.balance, trustedBalance - minBond);
+        pool.deposit{ value: requiredBondAmount }();
+        assertEq(pool.balanceOf(trusted), requiredBondAmount);
+        assertEq(trusted.balance, trustedBalance - requiredBondAmount);
         assertTrue(pool.isValidator(trusted));
         assertEq(pool.validatorCount(), 1);
 
         vm.prank(asserter);
-        pool.deposit{ value: minBond }();
-        assertEq(pool.balanceOf(asserter), minBond);
+        pool.deposit{ value: requiredBondAmount }();
+        assertEq(pool.balanceOf(asserter), requiredBondAmount);
         assertTrue(pool.isValidator(asserter));
         assertEq(pool.validatorCount(), 2);
     }
@@ -118,7 +123,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         vm.deal(asserter, 0);
         vm.prank(asserter);
         vm.expectRevert();
-        pool.deposit{ value: minBond }();
+        pool.deposit{ value: requiredBondAmount }();
     }
 
     function test_withdraw_loseValidatorEligibility_succeeds() external {
@@ -158,7 +163,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
     function test_withdraw_maintainValidatorEligibility_succeeds() external {
         uint256 trustedBalance = trusted.balance;
-        uint256 depositAmount = minBond * 2;
+        uint256 depositAmount = requiredBondAmount * 2;
 
         vm.prank(trusted);
         pool.deposit{ value: depositAmount }();
@@ -168,7 +173,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         assertEq(pool.validatorCount(), 1);
 
         trustedBalance = trusted.balance;
-        uint256 withdrawalAmount = minBond;
+        uint256 withdrawalAmount = requiredBondAmount;
 
         vm.prank(trusted);
         pool.withdraw(withdrawalAmount);
@@ -194,11 +199,11 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint128 expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
         vm.prank(address(oracle));
         vm.expectEmit(true, true, false, true, address(pool));
-        emit Bonded(validator, nextOutputIndex, uint128(minBond), expiresAt);
-        pool.createBond(nextOutputIndex, uint128(minBond), expiresAt);
+        emit Bonded(validator, nextOutputIndex, uint128(requiredBondAmount), expiresAt);
+        pool.createBond(nextOutputIndex, expiresAt);
         assertEq(pool.balanceOf(validator), 0);
         assertFalse(pool.isValidator(validator));
-        assertEq(pool.getBond(nextOutputIndex).amount, uint128(minBond));
+        assertEq(pool.getBond(nextOutputIndex).amount, uint128(requiredBondAmount));
         assertEq(pool.getBond(nextOutputIndex).expiresAt, expiresAt);
     }
 
@@ -221,15 +226,15 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         // deposit again & append new output
         vm.startPrank(validator);
         mockOracle.addOutput(outputRoot, nextBlockNumber);
-        pool.deposit{ value: minBond }();
+        pool.deposit{ value: requiredBondAmount }();
         vm.stopPrank();
 
         uint128 expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
         vm.prank(address(oracle));
         vm.expectEmit(true, true, false, true, address(pool));
         emit Unbonded(0, firstOutput.submitter, uint128(firstBond.amount));
-        pool.createBond(nextOutputIndex, uint128(minBond), expiresAt);
-        assertEq(pool.balanceOf(firstOutput.submitter), minBond);
+        pool.createBond(nextOutputIndex, expiresAt);
+        assertEq(pool.balanceOf(firstOutput.submitter), requiredBondAmount);
 
         // check whether bond is deleted
         vm.expectRevert("ValidatorPool: the bond does not exist");
@@ -241,15 +246,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
         vm.prank(trusted);
         vm.expectRevert("ValidatorPool: sender is not L2OutputOracle");
-        pool.createBond(0, uint128(minBond), uint128(block.timestamp + finalizationPeriodSeconds));
-    }
-
-    function test_createBond_zeroAmount_reverts() external {
-        test_deposit_succeeds();
-
-        vm.prank(address(oracle));
-        vm.expectRevert("ValidatorPool: the bond amount is too small");
-        pool.createBond(0, 0, uint128(block.timestamp + finalizationPeriodSeconds));
+        pool.createBond(0, uint128(block.timestamp + finalizationPeriodSeconds));
     }
 
     function test_createBond_existsBond_reverts() external {
@@ -262,15 +259,11 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         Types.CheckpointOutput memory output = oracle.getL2Output(outputIndex);
 
         vm.prank(output.submitter);
-        pool.deposit{ value: minBond }();
+        pool.deposit{ value: requiredBondAmount }();
 
         vm.prank(address(oracle));
         vm.expectRevert("ValidatorPool: bond of the given output index already exists");
-        pool.createBond(
-            outputIndex,
-            uint128(minBond),
-            uint128(block.timestamp + finalizationPeriodSeconds)
-        );
+        pool.createBond(outputIndex, uint128(block.timestamp + finalizationPeriodSeconds));
     }
 
     function test_createBond_insufficientBalances_reverts() external {
@@ -287,7 +280,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint128 expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
         vm.prank(address(oracle));
         vm.expectRevert("ValidatorPool: insufficient balances");
-        pool.createBond(nextOutputIndex, uint128(minBond), expiresAt);
+        pool.createBond(nextOutputIndex, expiresAt);
     }
 
     function test_unbond_succeeds() public {
@@ -322,7 +315,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
     function test_unbond_multipleBonds_succeeds() public {
         uint256 tries = 2;
-        uint256 deposit = minBond * tries;
+        uint256 deposit = requiredBondAmount * tries;
         vm.prank(trusted);
         pool.deposit{ value: deposit }();
 
@@ -337,8 +330,8 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
             vm.prank(trusted);
             mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
             vm.prank(address(oracle));
-            pool.createBond(i, uint128(minBond), expiresAt);
-            assertEq(pool.balanceOf(trusted), deposit - minBond * (i + 1));
+            pool.createBond(i, expiresAt);
+            assertEq(pool.balanceOf(trusted), deposit - requiredBondAmount * (i + 1));
         }
 
         uint256 firstOutputIndex = 0;
@@ -395,7 +388,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
     function test_unbond_maxUnbond_succeeds() public {
         uint256 tries = maxUnbond + 1;
-        uint256 deposit = minBond * tries;
+        uint256 deposit = requiredBondAmount * tries;
         vm.prank(trusted);
         pool.deposit{ value: deposit }();
 
@@ -410,8 +403,8 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
             vm.prank(trusted);
             mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
             vm.prank(address(oracle));
-            pool.createBond(i, uint128(minBond), expiresAt);
-            assertEq(pool.balanceOf(trusted), deposit - minBond * (i + 1));
+            pool.createBond(i, expiresAt);
+            assertEq(pool.balanceOf(trusted), deposit - requiredBondAmount * (i + 1));
         }
 
         uint256 outputIndex = oracle.latestOutputIndex();
@@ -429,7 +422,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
             pool.getBond(i);
         }
         bond = pool.getBond(tries - 1);
-        assertEq(bond.amount, minBond);
+        assertEq(bond.amount, requiredBondAmount);
     }
 
     function test_unbond_notExpired_reverts() external {
@@ -559,9 +552,9 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
     function test_isValidator_succeeds() external {
         vm.prank(trusted);
-        pool.deposit{ value: minBond }();
+        pool.deposit{ value: requiredBondAmount }();
         vm.prank(asserter);
-        pool.deposit{ value: minBond - 1 }();
+        pool.deposit{ value: requiredBondAmount - 1 }();
 
         assertTrue(pool.isValidator(trusted));
         assertFalse(pool.isValidator(asserter));
@@ -570,24 +563,24 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
     function test_validatorCount_succeeds() external {
         vm.prank(trusted);
-        pool.deposit{ value: minBond }();
+        pool.deposit{ value: requiredBondAmount }();
         assertEq(pool.validatorCount(), 1);
 
         vm.prank(asserter);
-        pool.deposit{ value: minBond }();
+        pool.deposit{ value: requiredBondAmount }();
         assertEq(pool.validatorCount(), 2);
 
         vm.prank(challenger);
-        pool.deposit{ value: minBond - 1 }();
+        pool.deposit{ value: requiredBondAmount - 1 }();
         assertEq(pool.validatorCount(), 2);
     }
 
     function test_nextValidator_succeeds() external {
         // deposit funds
         vm.prank(trusted);
-        pool.deposit{ value: minBond * 10 }();
+        pool.deposit{ value: requiredBondAmount * 10 }();
         vm.prank(asserter);
-        pool.deposit{ value: minBond * 10 }();
+        pool.deposit{ value: requiredBondAmount * 10 }();
 
         address prev = pool.nextValidator();
         assertEq(prev, trusted);
@@ -606,7 +599,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
             vm.prank(pool.nextValidator());
             mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
             vm.prank(address(oracle));
-            pool.createBond(outputIndex, uint128(minBond), expiresAt);
+            pool.createBond(outputIndex, expiresAt);
         }
 
         // warp to first finalization time and submit new output
@@ -618,7 +611,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         vm.prank(pool.nextValidator());
         mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
         vm.prank(address(oracle));
-        pool.createBond(outputIndex, uint128(minBond), expiresAt);
+        pool.createBond(outputIndex, expiresAt);
 
         bool changed = false;
         for (uint256 i = 0; i < tries - 1; i++) {
@@ -637,7 +630,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
             vm.prank(pool.nextValidator());
             mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
             vm.prank(address(oracle));
-            pool.createBond(outputIndex, uint128(minBond), expiresAt);
+            pool.createBond(outputIndex, expiresAt);
         }
 
         assertTrue(changed, "the next validator has not changed");
