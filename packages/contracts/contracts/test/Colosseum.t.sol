@@ -889,6 +889,26 @@ contract ColosseumTest is Colosseum_Initializer {
         colosseum.forceDeleteOutput(outputIndex);
     }
 
+    function test_forceDeleteOutput_alreadyDeletedOutput_reverts() external {
+        uint256 outputIndex = targetOutputIndex;
+
+        _createChallenge(outputIndex, challenger);
+
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex, challenger);
+
+        while (colosseum.isAbleToBisect(outputIndex, challenge.challenger)) {
+            challenge = colosseum.getChallenge(outputIndex, challenge.challenger);
+            _bisect(outputIndex, challenge.challenger, nextSender(challenge));
+        }
+
+        vm.prank(address(securityCouncil));
+        colosseum.forceDeleteOutput(outputIndex);
+
+        vm.prank(address(securityCouncil));
+        vm.expectRevert("Colosseum: the output has already been deleted");
+        colosseum.forceDeleteOutput(outputIndex);
+    }
+
     function test_isInCreationPeriod_succeeds() external {
         uint256 outputIndex = targetOutputIndex;
 

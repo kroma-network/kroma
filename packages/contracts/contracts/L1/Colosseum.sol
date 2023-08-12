@@ -599,6 +599,13 @@ contract Colosseum is Initializable, Semver {
         onlySecurityCouncil
         outputNotFinalized(_outputIndex)
     {
+        // Check if the output is deleted.
+        Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(_outputIndex);
+        require(
+            output.outputRoot != DELETED_OUTPUT_ROOT,
+            "Colosseum: the output has already been deleted"
+        );
+
         // Delete output root.
         L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, SECURITY_COUNCIL);
     }

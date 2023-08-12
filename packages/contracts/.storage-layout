@@ -30,6 +30,7 @@
 | owners                   | address[]                                            | 54   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
 | numConfirmationsRequired | uint256                                              | 55   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
 | transactionCount         | uint256                                              | 56   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| outputsDeleteRequested   | mapping(uint256 => bool)                             | 57   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
 
 =======================
 ➡ contracts/L1/ValidatorPool.sol:ValidatorPool
