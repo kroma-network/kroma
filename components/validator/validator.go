@@ -132,8 +132,10 @@ func (v *Validator) Start() error {
 		}
 	}
 
-	if err := v.challenger.Start(v.ctx); err != nil {
-		return fmt.Errorf("cannot start challenger: %w", err)
+	if v.cfg.OutputSubmitterEnabled || v.cfg.ChallengerEnabled {
+		if err := v.challenger.Start(v.ctx); err != nil {
+			return fmt.Errorf("cannot start challenger: %w", err)
+		}
 	}
 
 	if v.cfg.GuardianEnabled {
