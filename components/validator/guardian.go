@@ -29,7 +29,8 @@ type Guardian struct {
 
 	l2ooContract            *bindings.L2OutputOracle
 	securityCouncilContract *bindings.SecurityCouncil
-	securityCouncilSub      ethereum.Subscription
+
+	validationRequestedSub ethereum.Subscription
 
 	validationRequestedChan chan *bindings.SecurityCouncilValidationRequested
 }
@@ -51,20 +52,13 @@ func NewGuardian(cfg Config, l log.Logger) (*Guardian, error) {
 		cfg:                     cfg,
 		securityCouncilContract: securityCouncilContract,
 		l2ooContract:            l2ooContract,
-		validationRequestedChan: make(chan *bindings.SecurityCouncilValidationRequested),
 	}, nil
 }
 
 func (g *Guardian) Start(ctx context.Context) error {
 	g.ctx, g.cancel = context.WithCancel(ctx)
 
-	watchOpts := utils.NewSimpleWatchOpts(g.ctx)
-	g.securityCouncilSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			g.log.Warn("resubscribing after failed ValidationRequested event", "err", err)
-		}
-		return g.securityCouncilContract.WatchValidationRequested(watchOpts, g.validationRequestedChan, nil)
-	})
+	g.initSub()
 
 	g.wg.Add(1)
 	go g.handleValidationRequested()
@@ -73,8 +67,8 @@ func (g *Guardian) Start(ctx context.Context) error {
 }
 
 func (g *Guardian) Stop() error {
-	if g.securityCouncilSub != nil {
-		g.securityCouncilSub.Unsubscribe()
+	if g.validationRequestedSub != nil {
+		g.validationRequestedSub.Unsubscribe()
 	}
 
 	g.cancel()
@@ -82,6 +76,18 @@ func (g *Guardian) Stop() error {
 	close(g.validationRequestedChan)
 
 	return nil
+}
+
+func (g *Guardian) initSub() {
+	g.validationRequestedChan = make(chan *bindings.SecurityCouncilValidationRequested)
+
+	opts := utils.NewSimpleWatchOpts(g.ctx)
+	g.validationRequestedSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			g.log.Warn("resubscribing after failed ValidationRequested event", "err", err)
+		}
+		return g.securityCouncilContract.WatchValidationRequested(opts, g.validationRequestedChan, nil)
+	})
 }
 
 func (g *Guardian) handleValidationRequested() {
