@@ -11,7 +11,7 @@ jobs:
     name: Run tests
     runs-on:
       group: kroma-runners
-      labels: kroma-ubuntu-latest-8core
+      labels: kroma-ubuntu-22-04-16core
     steps:
       - name: Check out code
         uses: actions/checkout@v3

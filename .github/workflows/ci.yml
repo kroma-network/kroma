@@ -12,7 +12,7 @@ jobs:
     name: Run CI
     runs-on:
       group: kroma-runners
-      labels: kroma-ubuntu-latest-8core
+      labels: kroma-ubuntu-22-04-16core
 
     outputs:
       kroma-node: ${{ steps.packages.outputs.kroma-node }}
@@ -80,7 +80,9 @@ jobs:
   kroma-node:
     name: Kroma Node Version ${{ needs.prepare.outputs.docker-tag }}
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kroma-runners
+      labels: kroma-ubuntu-22-04-16core
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -109,7 +111,9 @@ jobs:
   kroma-validator:
     name: Kroma Validator Version ${{ needs.prepare.outputs.docker-tag }}
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kroma-runners
+      labels: kroma-ubuntu-22-04-16core
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -138,7 +142,9 @@ jobs:
   kroma-batcher:
     name: Kroma Batcher Version ${{ needs.prepare.outputs.docker-tag }}
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kroma-runners
+      labels: kroma-ubuntu-22-04-16core
     steps:
       - name: Checkout
         uses: actions/checkout@v3
