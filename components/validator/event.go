@@ -10,6 +10,7 @@ import (
 const (
 	KeyEventOutputSubmitted  = "OutputSubmitted"
 	KeyEventChallengeCreated = "ChallengeCreated"
+	KeyEventReadyToProve     = "ReadyToProve"
 )
 
 type ChallengeCreatedEvent struct {

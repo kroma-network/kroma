@@ -102,7 +102,7 @@ func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metri
 
 	var guardian *Guardian
 	if cfg.GuardianEnabled {
-		guardian, err = NewGuardian(cfg, l)
+		guardian, err = NewGuardian(ctx, cfg, l)
 		if err != nil {
 			return nil, err
 		}
@@ -159,8 +159,10 @@ func (v *Validator) Stop() error {
 		}
 	}
 
-	if err := v.challenger.Stop(); err != nil {
-		return fmt.Errorf("failed to stop challenger: %w", err)
+	if v.cfg.OutputSubmitterEnabled || v.cfg.ChallengerEnabled {
+		if err := v.challenger.Stop(); err != nil {
+			return fmt.Errorf("failed to stop challenger: %w", err)
+		}
 	}
 
 	if v.cfg.GuardianEnabled {

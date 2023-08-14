@@ -93,6 +93,14 @@ func (rt *Runtime) setupHonestChallenger2() {
 	rt.challenger2 = rt.honestValidator(rt.dp.Secrets.Challenger2)
 }
 
+func (rt *Runtime) setupMaliciousChallenger1() {
+	rt.challenger1 = rt.maliciousValidator(rt.dp.Secrets.Challenger1)
+}
+
+func (rt *Runtime) setupMaliciousChallenger2() {
+	rt.challenger2 = rt.maliciousValidator(rt.dp.Secrets.Challenger2)
+}
+
 func (rt *Runtime) setupHonestGuardian() {
 	rt.guardian = rt.honestValidator(rt.dp.Secrets.Challenger1)
 }
@@ -256,4 +264,18 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator) {
 	cBal, err := rt.valPoolContract.BalanceOf(nil, challenger.address)
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, new(big.Int).Sub(new(big.Int).SetInt64(defaultDepositAmount), rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt()), cBal)
+}
+
+// IsCreationEnded checks if the creation period of rt.outputIndex output is ended
+func (rt *Runtime) IsCreationEnded() bool {
+	output, err := rt.outputOracleContract.GetL2Output(nil, rt.outputIndex)
+	require.NoError(rt.t, err)
+
+	ended := output.Timestamp.Uint64() + rt.dp.DeployConfig.ColosseumCreationPeriodSeconds
+	isEnded := rt.miner.l1Chain.CurrentBlock().Time > ended
+	return isEnded
+}
+
+func (rt *Runtime) SetCreationPeriod(period uint64) {
+	rt.dp.DeployConfig.ColosseumCreationPeriodSeconds = period
 }

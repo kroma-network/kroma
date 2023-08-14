@@ -28,3 +28,13 @@ func (v *L2Validator) ActConfirmTransaction(t Testing, outputIndex *big.Int, tra
 
 	return tx.Hash()
 }
+
+func (v *L2Validator) ActForceDeleteOutput(t Testing, outputIndex *big.Int) common.Hash {
+	tx, err := v.guardian.RequestDeletion(t.Ctx(), outputIndex)
+	require.NoError(t, err, "failed to create force delete tx")
+
+	err = v.l1.SendTransaction(t.Ctx(), tx)
+	require.NoError(t, err)
+
+	return tx.Hash()
+}

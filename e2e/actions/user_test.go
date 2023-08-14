@@ -33,10 +33,12 @@ func TestCrossLayerUser(gt *testing.T) {
 		BatcherKey:  dp.Secrets.Batcher,
 	}, proposer.RollupClient(), miner.EthClient(), propEngine.EthClient())
 	validator := NewL2Validator(t, log, &ValidatorCfg{
-		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
-		ValidatorKey:      dp.Secrets.TrustedValidator,
-		AllowNonFinalized: true,
+		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr:   sd.DeploymentsL1.ValidatorPoolProxy,
+		ColosseumAddr:       sd.DeploymentsL1.ColosseumProxy,
+		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
+		ValidatorKey:        dp.Secrets.TrustedValidator,
+		AllowNonFinalized:   true,
 	}, miner.EthClient(), propEngine.EthClient(), proposer.RollupClient())
 
 	// need to start derivation before we can make L2 blocks
