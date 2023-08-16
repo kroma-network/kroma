@@ -334,7 +334,7 @@ contract Colosseum is Initializable, Semver {
             "Colosseum: the asserter and challenger must be different"
         );
 
-        if (_l1BlockHash != bytes32(0)) {
+        if (_l1BlockHash != bytes32(0) && blockhash(_l1BlockNumber) != bytes32(0)) {
             // Like L2OutputOracle, it reverts transactions when L1 reorged.
             require(
                 blockhash(_l1BlockNumber) == _l1BlockHash,
