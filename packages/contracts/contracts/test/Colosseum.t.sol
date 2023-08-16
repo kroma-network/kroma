@@ -437,7 +437,7 @@ contract ColosseumTest is Colosseum_Initializer {
         colosseum.createChallenge(
             outputIndex,
             bytes32(uint256(0x01)),
-            block.number,
+            block.number - 1,
             new bytes32[](segLen)
         );
     }
