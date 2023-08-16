@@ -16,6 +16,19 @@ import (
 type (
 	ProofType int32
 
+	JsonRpcError struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    any    `json:"data"`
+	}
+
+	response struct {
+		Jsonrpc string         `json:"jsonrpc"`
+		Result  *ProveResponse `json:"result"`
+		Error   *JsonRpcError  `json:"error"`
+		Id      string         `json:"id"`
+	}
+
 	ProveResponse struct {
 		FinalPair []byte `json:"final_pair,omitempty"`
 		Proof     []byte `json:"proof,omitempty"`
@@ -55,15 +68,15 @@ func (f *Fetcher) FetchProofAndPair(ctx context.Context, trace string) (*ProofAn
 
 	// NOTE(0xHansLee): only ProofType_AGG(4) is used for proof.
 	// https://github.com/kroma-network/kroma-prover/blob/dev/prover-server/src/spec.rs#L10-L16
-	response, err := f.Client.Prove(cCtx, trace, 4)
+	resp, err := f.Client.Prove(cCtx, trace, 4)
 	if err != nil {
 		f.logger.Error("could not request fault proof", "err", err)
 		return nil, err
 	}
 
 	result := &ProofAndPair{
-		Proof: Decode(response.Proof),
-		Pair:  Decode(response.FinalPair),
+		Proof: Decode(resp.Proof),
+		Pair:  Decode(resp.FinalPair),
 	}
 
 	return result, nil
@@ -123,10 +136,16 @@ func (c JsonRPCProverClient) Prove(ctx context.Context, traceString string, proo
 		return nil, err
 	}
 
-	var result ProveResponse
-	if err := json.Unmarshal(respBytes, &result); err != nil {
-		return nil, err
+	var resp response
+	if err := json.Unmarshal(respBytes, &resp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	return &result, nil
+	if resp.Error != nil {
+		return nil, fmt.Errorf("error occurs from zk prover: %s", resp.Error)
+	}
+
+	return resp.Result, nil
 }
+
+func (j *JsonRpcError) Error() string { return fmt.Sprintf("[%d] %s", j.Code, j.Message) }
