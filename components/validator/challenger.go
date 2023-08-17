@@ -170,8 +170,8 @@ func (c *Challenger) Start(ctx context.Context) error {
 		// checkpoint is the last checked output index, so the next output handling starts after this point.
 		// if checkpoint is behind the latest output index, handle the previous outputs from the checkpoint.
 		cCtx, cCancel := context.WithTimeout(c.ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
 		nextOutputIndex, err := c.l2ooContract.NextOutputIndex(utils.NewSimpleCallOpts(cCtx))
-		cCancel()
 		if err != nil {
 			return fmt.Errorf("failed to get the latest output index: %w", err)
 		}
@@ -550,8 +550,8 @@ func (c *Challenger) submitChallengeTx(tx *types.Transaction) error {
 // HasEnoughDeposit checks if challenger has enough deposit to bond when creating challenge.
 func (c *Challenger) HasEnoughDeposit(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
 	balance, err := c.valpoolContract.BalanceOf(utils.NewSimpleCallOpts(cCtx), c.cfg.TxManager.From())
-	cCancel()
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch challenger deposit amount: %w", err)
 	}
@@ -646,8 +646,8 @@ type Outputs struct {
 
 func (c *Challenger) OutputsAtIndex(ctx context.Context, outputIndex *big.Int) (*Outputs, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
 	RemoteOutput, err := c.l2ooContract.GetL2Output(utils.NewSimpleCallOpts(cCtx), outputIndex)
-	cCancel()
 	if err != nil {
 		return nil, err
 	}
@@ -709,8 +709,8 @@ func (c *Challenger) GetChallengeStatus(ctx context.Context, outputIndex *big.In
 
 func (c *Challenger) BuildSegments(ctx context.Context, turn uint8, segStart, segSize uint64) (*chal.Segments, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
 	sections, err := c.colosseumContract.GetSegmentsLength(utils.NewSimpleCallOpts(cCtx), turn)
-	cCancel()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get segments length of turn %d: %w", turn, err)
 	}
