@@ -13,12 +13,18 @@ interface ForgeVerifyArgs {
   contractAddress: string
   contractName: string
   etherscanApiKey: string
+  verifier: string
   verifierUrl: string
+  root: string
 }
 
 const verifyArgs = (opts: ForgeVerifyArgs): string[] => {
   const allArgs: string[] = []
 
+  if (!opts.etherscanApiKey) {
+    throw new Error('No Etherscan API key provided')
+  }
+  allArgs.push('--etherscan-api-key', opts.etherscanApiKey)
   if (!opts.chainId) {
     throw new Error(`No chain-id provided`)
   }
@@ -33,8 +39,14 @@ const verifyArgs = (opts: ForgeVerifyArgs): string[] => {
   if (typeof opts.optimizerRuns === 'number') {
     allArgs.push('--num-of-optimizations', opts.optimizerRuns.toString())
   }
+  if (opts.verifier) {
+    allArgs.push('--verifier', opts.verifier)
+  }
   if (opts.verifierUrl) {
     allArgs.push('--verifier-url', opts.verifierUrl)
+  }
+  if (opts.root) {
+    allArgs.push('--root', opts.root)
   }
   allArgs.push('--watch')
 
@@ -46,10 +58,6 @@ const verifyArgs = (opts: ForgeVerifyArgs): string[] => {
     throw new Error('No contract name provided')
   }
   allArgs.push(opts.contractName)
-  if (!opts.etherscanApiKey) {
-    throw new Error('No Etherscan API key provided')
-  }
-  allArgs.push(opts.etherscanApiKey)
   return allArgs
 }
 
@@ -79,7 +87,14 @@ task('forge-contract-verify', 'Verify contracts using forge')
     process.env.ETHERSCAN_API_KEY,
     types.string
   )
+  .addOptionalParam(
+    'verifier',
+    'Verification provider to use (etherscan, sourcify, blockscout)',
+    'etherscan',
+    types.string
+  )
   .addOptionalParam('verifierUrl', 'Verifier URL', '', types.string)
+  .addOptionalParam('root', "The project's root path", '', types.string)
   .setAction(async (args, hre) => {
     const deployments = await hre.deployments.all()
     if (args.contract !== '') {
@@ -90,6 +105,10 @@ task('forge-contract-verify', 'Verify contracts using forge')
       }
     }
 
+    if (args.root === '') {
+      args.root = hre.config.paths.root
+    }
+
     for (const [contract, deployment] of Object.entries(deployments)) {
       if (args.contract !== '' && args.contract !== contract) {
         continue
@@ -98,7 +117,9 @@ task('forge-contract-verify', 'Verify contracts using forge')
       const chainId = await hre.getChainId()
       const contractAddress = deployment.address
       const etherscanApiKey = args.etherscanApiKey
+      const verifier = args.verifier
       const verifierUrl = args.verifierUrl
+      const root = args.root
 
       let metadata = deployment.metadata as any
       // Handle double nested JSON stringify
@@ -128,7 +149,9 @@ task('forge-contract-verify', 'Verify contracts using forge')
         contractAddress,
         contractName,
         etherscanApiKey,
+        verifier,
         verifierUrl,
+        root,
       })
 
       if (success) {
