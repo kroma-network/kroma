@@ -28,7 +28,8 @@ contract L2OutputOracle is Initializable, Semver {
 
     /**
      * @notice The interval in L2 blocks at which checkpoints must be submitted. Although this is
-     *         immutable, it can safely be modified by upgrading the implementation contract.
+     *         immutable, it can be modified by upgrading the implementation contract.
+     *         Note that nodes that fetch and use this value need to restart when it is modified.
      */
     uint256 public immutable SUBMISSION_INTERVAL;
 
