@@ -26,6 +26,7 @@
   "l2GenesisBlockBaseFeePerGas": "0x3b9aca00",
   "gasPriceOracleOverhead": 2100,
   "gasPriceOracleScalar": 1500000,
+  "validatorRewardScalar": 2000,
   "eip1559Denominator": 50,
   "eip1559Elasticity": 10,
   "colosseumCreationPeriodSeconds": 500,

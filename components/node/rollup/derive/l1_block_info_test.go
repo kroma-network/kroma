@@ -24,10 +24,11 @@ type infoTest struct {
 
 func randomL1Cfg(rng *rand.Rand, l1Info eth.BlockInfo) eth.SystemConfig {
 	return eth.SystemConfig{
-		BatcherAddr: testutils.RandomAddress(rng),
-		Overhead:    [32]byte{},
-		Scalar:      [32]byte{},
-		GasLimit:    1234567,
+		BatcherAddr:           testutils.RandomAddress(rng),
+		Overhead:              [32]byte{},
+		Scalar:                [32]byte{},
+		GasLimit:              1234567,
+		ValidatorRewardScalar: [32]byte{},
 	}
 }
 
@@ -77,6 +78,7 @@ func TestParseL1InfoDepositTxData(t *testing.T) {
 			assert.Equal(t, res.BatcherAddr, l1Cfg.BatcherAddr)
 			assert.Equal(t, res.L1FeeOverhead, l1Cfg.Overhead)
 			assert.Equal(t, res.L1FeeScalar, l1Cfg.Scalar)
+			assert.Equal(t, res.ValidatorRewardScalar, l1Cfg.ValidatorRewardScalar)
 		})
 	}
 	t.Run("no data", func(t *testing.T) {

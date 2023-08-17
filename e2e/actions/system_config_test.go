@@ -354,3 +354,78 @@ func TestGasLimitChange(gt *testing.T) {
 
 	require.Equal(t, proposer.L2Unsafe(), syncer.L2Safe(), "syncer stays in sync, even with gaslimit changes")
 }
+
+func TestValidatorRewardScalarChange(gt *testing.T) {
+	t := NewDefaultTesting(gt)
+	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
+	sd := e2eutils.Setup(t, dp, defaultAlloc)
+	log := testlog.Logger(t, log.LvlDebug)
+	miner, propEngine, proposer := setupProposerTest(t, sd, log)
+
+	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
+		MinL1TxSize: 0,
+		MaxL1TxSize: 128_000,
+		BatcherKey:  dp.Secrets.Batcher,
+	}, proposer.RollupClient(), miner.EthClient(), propEngine.EthClient())
+
+	engCl := propEngine.EngineClient(t, sd.RollupCfg)
+
+	proposer.ActL2PipelineFull(t)
+	miner.ActEmptyBlock(t)
+	proposer.ActL1HeadSignal(t)
+	proposer.ActBuildToL1Head(t)
+
+	// change validator reward scalar on L1
+	sysCfgContract, err := bindings.NewSystemConfig(sd.RollupCfg.L1SystemConfigAddress, miner.EthClient())
+	require.NoError(t, err)
+
+	sysCfgOwner, err := bind.NewKeyedTransactorWithChainID(dp.Secrets.SysCfgOwner, sd.RollupCfg.L1ChainID)
+	require.NoError(t, err)
+
+	// if the validator reward scalar is not set on SystemConfig contract, the contract must have a value of 0.
+	validatorRewardScalar, err := sysCfgContract.ValidatorRewardScalar(nil)
+	require.NoError(t, err)
+	require.Equal(t, validatorRewardScalar.Uint64(), dp.DeployConfig.ValidatorRewardScalar)
+
+	// However, it should be set to the default value (2000) for L2 payload.
+	payload, err := engCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
+	require.NoError(t, err)
+	sysCfg, err := derive.PayloadToSystemConfig(payload, sd.RollupCfg)
+	require.NoError(t, err)
+	expected := eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(dp.DeployConfig.ValidatorRewardScalar)))
+	require.Equal(t, expected, sysCfg.ValidatorRewardScalar, "validator reward scalar changed")
+
+	// change validator reward scalar to 5000
+	newScalar := big.NewInt(int64(5000))
+	_, err = sysCfgContract.SetValidatorRewardScalar(sysCfgOwner, newScalar)
+	require.NoError(t, err)
+
+	// include the validator reward scalar update on L1
+	miner.ActL1StartBlock(12)(t)
+	miner.ActL1IncludeTx(dp.Addresses.SysCfgOwner)(t)
+	miner.ActL1EndBlock(t)
+
+	// build to latest L1, excluding the block that adopts the L1 block with the validator reward scalar change
+	proposer.ActL1HeadSignal(t)
+	proposer.ActBuildToL1HeadExcl(t)
+	// now include the L1 block with the gaslimit change, and see if it changes as expected
+	proposer.ActBuildToL1Head(t)
+
+	require.NoError(t, err)
+	payload, err = engCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
+	require.NoError(t, err)
+	sysCfg, err = derive.PayloadToSystemConfig(payload, sd.RollupCfg)
+	require.NoError(t, err)
+	require.Equal(t, eth.Bytes32(common.BigToHash(newScalar)), sysCfg.ValidatorRewardScalar, "validator reward scalar changed")
+
+	// now submit all this to L1, and see if a syncer can sync and reproduce it
+	batcher.ActSubmitAll(t)
+	miner.ActL1StartBlock(12)(t)
+	miner.ActL1IncludeTx(dp.Addresses.Batcher)(t)
+	miner.ActL1EndBlock(t)
+
+	_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg))
+	syncer.ActL2PipelineFull(t)
+
+	require.Equal(t, proposer.L2Unsafe(), syncer.L2Safe(), "syncer stays in sync, even with validator reward scalar changes")
+}

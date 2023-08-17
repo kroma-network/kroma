@@ -49,16 +49,18 @@ func TestAttributesQueue(t *testing.T) {
 	}}
 
 	parentL1Cfg := eth.SystemConfig{
-		BatcherAddr: common.Address{42},
-		Overhead:    [32]byte{},
-		Scalar:      [32]byte{},
-		GasLimit:    1234,
+		BatcherAddr:           common.Address{42},
+		Overhead:              [32]byte{},
+		Scalar:                [32]byte{},
+		GasLimit:              1234,
+		ValidatorRewardScalar: [32]byte{},
 	}
 	expectedL1Cfg := eth.SystemConfig{
-		BatcherAddr: common.Address{42},
-		Overhead:    [32]byte{},
-		Scalar:      [32]byte{},
-		GasLimit:    1234,
+		BatcherAddr:           common.Address{42},
+		Overhead:              [32]byte{},
+		Scalar:                [32]byte{},
+		GasLimit:              1234,
+		ValidatorRewardScalar: [32]byte{},
 	}
 
 	l2Fetcher := &testutils.MockL2Client{}

@@ -135,6 +135,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		gasLimit,
 		config.P2PProposerAddress,
 		defaultResourceConfig,
+		uint642Big(config.ValidatorRewardScalar),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cannot abi encode initialize for SystemConfig: %w", err)
@@ -369,6 +370,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 				gasLimit,
 				config.P2PProposerAddress,
 				defaultResourceConfig,
+				uint642Big(config.ValidatorRewardScalar),
 			},
 		},
 		{
@@ -463,6 +465,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			/* gasLimit= */ deployment.Args[4].(uint64),
 			/* unsafeBlockSigner= */ deployment.Args[5].(common.Address),
 			/* config= */ deployment.Args[6].(bindings.ResourceMeteringResourceConfig),
+			/* validatorRewardScalar= */ deployment.Args[7].(*big.Int),
 		)
 	case "ValidatorPool":
 		_, tx, _, err = bindings.DeployValidatorPool(

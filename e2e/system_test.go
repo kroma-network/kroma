@@ -1192,7 +1192,7 @@ func TestL1InfoContract(t *testing.T) {
 			BatcherAddr:           sys.RollupConfig.Genesis.SystemConfig.BatcherAddr,
 			L1FeeOverhead:         sys.RollupConfig.Genesis.SystemConfig.Overhead,
 			L1FeeScalar:           sys.RollupConfig.Genesis.SystemConfig.Scalar,
-			ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(derive.CalcValidatorRewardScalar()))),
+			ValidatorRewardScalar: sys.RollupConfig.Genesis.SystemConfig.ValidatorRewardScalar,
 		}
 
 		h = b.ParentHash()
@@ -1585,7 +1585,6 @@ func TestFees(t *testing.T) {
 
 	validatorRewardScalar, err := l1BlockContract.ValidatorRewardScalar(&bind.CallOpts{})
 	require.Nil(t, err, "reading validatorRewardScalar")
-	require.True(t, validatorRewardScalar.Uint64() > 0, "wrong l1block validatorRewardScalar")
 
 	gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
 	fee := new(big.Int)

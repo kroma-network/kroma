@@ -22,7 +22,8 @@ contract EchidnaFuzzKromaPortal {
             _batcherHash: bytes32(0),
             _gasLimit: 30_000_000,
             _unsafeBlockSigner: address(0),
-            _config: rcfg
+            _config: rcfg,
+            _validatorRewardScalar: 5000
         });
         portal = new KromaPortal({
             _l2Oracle: L2OutputOracle(address(0)),

@@ -110,6 +110,8 @@ type DeployConfig struct {
 	GasPriceOracleOverhead uint64 `json:"gasPriceOracleOverhead"`
 	// The initial value of the gas scalar
 	GasPriceOracleScalar uint64 `json:"gasPriceOracleScalar"`
+	// The initial value of the validator reward scalar
+	ValidatorRewardScalar uint64 `json:"validatorRewardScalar"`
 
 	DeploymentWaitConfirmations int `json:"deploymentWaitConfirmations"`
 
@@ -195,6 +197,9 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.GasPriceOracleScalar == 0 {
 		return fmt.Errorf("%w: GasPriceOracleScalar cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorRewardScalar == 0 {
+		log.Warn("ValidatorRewardScalar is 0")
 	}
 	if d.L1StandardBridgeProxy == (common.Address{}) {
 		return fmt.Errorf("%w: L1StandardBridgeProxy cannot be address(0)", ErrInvalidDeployConfig)
@@ -336,10 +341,11 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 			},
 			L2Time: l1StartBlock.Time(),
 			SystemConfig: eth.SystemConfig{
-				BatcherAddr: d.BatchSenderAddress,
-				Overhead:    eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleOverhead))),
-				Scalar:      eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleScalar))),
-				GasLimit:    uint64(d.L2GenesisBlockGasLimit),
+				BatcherAddr:           d.BatchSenderAddress,
+				Overhead:              eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleOverhead))),
+				Scalar:                eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleScalar))),
+				GasLimit:              uint64(d.L2GenesisBlockGasLimit),
+				ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.ValidatorRewardScalar))),
 			},
 		},
 		BlockTime:              d.L2BlockTime,
@@ -449,14 +455,15 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"msgNonce":         0,
 	}
 	storage["L1Block"] = state.StorageValues{
-		"number":         block.Number(),
-		"timestamp":      block.Time(),
-		"basefee":        block.BaseFee(),
-		"hash":           block.Hash(),
-		"sequenceNumber": 0,
-		"batcherHash":    config.BatchSenderAddress.Hash(),
-		"l1FeeOverhead":  config.GasPriceOracleOverhead,
-		"l1FeeScalar":    config.GasPriceOracleScalar,
+		"number":                block.Number(),
+		"timestamp":             block.Time(),
+		"basefee":               block.BaseFee(),
+		"hash":                  block.Hash(),
+		"sequenceNumber":        0,
+		"batcherHash":           config.BatchSenderAddress.Hash(),
+		"l1FeeOverhead":         config.GasPriceOracleOverhead,
+		"l1FeeScalar":           config.GasPriceOracleScalar,
+		"validatorRewardScalar": config.ValidatorRewardScalar,
 	}
 	storage["WETH9"] = state.StorageValues{
 		"name":     "Wrapped Ether",
