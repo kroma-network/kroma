@@ -14,11 +14,12 @@ const deployFn: DeployFunction = async (hre) => {
     'L2OutputOracleProxy'
   )
   const portalProxyAddress = await getDeploymentAddress(hre, 'KromaPortalProxy')
-
+  const scProxyAddress = await getDeploymentAddress(hre, 'SecurityCouncilProxy')
   await deploy(hre, 'ValidatorPool', {
     args: [
       l2OutputOracleProxyAddress,
       portalProxyAddress,
+      scProxyAddress,
       hre.deployConfig.validatorPoolTrustedValidator,
       hre.deployConfig.validatorPoolRequiredBondAmount,
       hre.deployConfig.validatorPoolMaxUnbond,
@@ -33,6 +34,7 @@ const deployFn: DeployFunction = async (hre) => {
         l2OutputOracleProxyAddress
       )
       await assertContractVariable(contract, 'PORTAL', portalProxyAddress)
+      await assertContractVariable(contract, 'SECURITY_COUNCIL', scProxyAddress)
       await assertContractVariable(
         contract,
         'TRUSTED_VALIDATOR',

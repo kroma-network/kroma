@@ -28,6 +28,16 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     uint64 public constant VAULT_REWARD_GAS_LIMIT = 100000;
 
     /**
+     * @notice The numerator of the tax.
+     */
+    uint128 public constant TAX_NUMERATOR = 20;
+
+    /**
+     * @notice The denominator of the tax.
+     */
+    uint128 public constant TAX_DENOMINATOR = 100;
+
+    /**
      * @notice The address of the L2OutputOracle contract. Can be updated via upgrade.
      */
     L2OutputOracle public immutable L2_ORACLE;
@@ -36,6 +46,11 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @notice The address of the KromaPortal contract. Can be updated via upgrade.
      */
     KromaPortal public immutable PORTAL;
+
+    /**
+     * @notice The address of the SecurityCouncil contract. Can be updated via upgrade.
+     */
+    address public immutable SECURITY_COUNCIL;
 
     /**
      * @notice The address of the trusted validator. Can be updated via upgrade.
@@ -163,6 +178,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      *
      * @param _l2OutputOracle     Address of the L2OutputOracle.
      * @param _portal             Address of the KromaPortal.
+     * @param _securityCouncil    Address of the security council.
      * @param _trustedValidator   Address of the trusted validator.
      * @param _requiredBondAmount The required bond amount.
      * @param _maxUnbond          The max number of unbonds when trying unbond.
@@ -171,6 +187,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     constructor(
         L2OutputOracle _l2OutputOracle,
         KromaPortal _portal,
+        address _securityCouncil,
         address _trustedValidator,
         uint256 _requiredBondAmount,
         uint256 _maxUnbond,
@@ -178,6 +195,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2OutputOracle;
         PORTAL = _portal;
+        SECURITY_COUNCIL = _securityCouncil;
         TRUSTED_VALIDATOR = _trustedValidator;
         REQUIRED_BOND_AMOUNT = uint128(_requiredBondAmount);
         MAX_UNBOND = _maxUnbond;
@@ -286,6 +304,8 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
 
     /**
      * @notice Increases the bond amount corresponding to the given output index by the pending bond amount.
+     *         This is when taxes are charged, and note that taxes are a means of preventing collusive attacks by
+     *         the asserter and challenger.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      * @param _challenger  Address of the challenger.
@@ -297,12 +317,15 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
             "ValidatorPool: the output is already finalized"
         );
 
-        uint128 increased = pendingBonds[_outputIndex][_challenger];
-        require(increased > 0, "ValidatorPool: the pending bond does not exist");
+        uint128 pendingBond = pendingBonds[_outputIndex][_challenger];
+        require(pendingBond > 0, "ValidatorPool: the pending bond does not exist");
+        uint128 tax = (pendingBond * TAX_NUMERATOR) / TAX_DENOMINATOR;
+        uint128 increased = pendingBond - tax;
         delete pendingBonds[_outputIndex][_challenger];
 
         unchecked {
             bond.amount += increased;
+            balances[SECURITY_COUNCIL] += tax;
         }
 
         emit BondIncreased(_outputIndex, _challenger, increased);
@@ -423,8 +446,10 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         uint256 balance = balances[_validator] + _amount;
 
         if (balance >= REQUIRED_BOND_AMOUNT && !isValidator(_validator)) {
-            validatorIndexes[_validator] = validators.length;
-            validators.push(_validator);
+            if (_validator != SECURITY_COUNCIL) {
+                validatorIndexes[_validator] = validators.length;
+                validators.push(_validator);
+            }
         }
 
         balances[_validator] = balance;
