@@ -121,6 +121,12 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		EIP1559Denominator: 50,
 
 		FundDevAccounts: false,
+
+		VotingDelayBlocks:               0,
+		VotingPeriodBlocks:              25,
+		ProposalThresholdTokens:         1,
+		VotesQuorumFractionPercent:      51,
+		ProposalExecutingLatencySeconds: 1,
 	}
 
 	// Configure the DeployConfig with the expected developer L1
@@ -149,6 +155,9 @@ type DeploymentsL1 struct {
 	SecurityCouncilProxy        common.Address
 	KromaPortalProxy            common.Address
 	SystemConfigProxy           common.Address
+	SecurityCouncilTokenProxy   common.Address
+	TimeLockProxy               common.Address
+	UpgradeGovernorProxy        common.Address
 }
 
 // SetupData bundles the L1, L2, rollup and deployment configuration data: everything for a full test setup.
@@ -239,6 +248,9 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		SecurityCouncilProxy:        predeploys.DevSecurityCouncilAddr,
 		KromaPortalProxy:            predeploys.DevKromaPortalAddr,
 		SystemConfigProxy:           predeploys.DevSystemConfigAddr,
+		SecurityCouncilTokenProxy:   predeploys.DevSecurityCouncilTokenAddr,
+		TimeLockProxy:               predeploys.DevTimeLockAddr,
+		UpgradeGovernorProxy:        predeploys.DevUpgradeGovernorAddr,
 	}
 
 	return &SetupData{

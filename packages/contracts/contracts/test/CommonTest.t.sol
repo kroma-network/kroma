@@ -7,6 +7,9 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { Test, StdUtils } from "forge-std/Test.sol";
 
+import { SecurityCouncilToken } from "../governance/SecurityCouncilToken.sol";
+import { TimeLock } from "../governance/TimeLock.sol";
+import { UpgradeGovernor } from "../governance/UpgradeGovernor.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
@@ -31,6 +34,7 @@ import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
 import { KromaMintableERC721Factory } from "../universal/KromaMintableERC721Factory.sol";
 import { Proxy } from "../universal/Proxy.sol";
+import { ProxyAdmin } from "../universal/ProxyAdmin.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 
 contract CommonTest is Test {
@@ -576,6 +580,85 @@ contract SecurityCouncil_Initializer is CommonTest {
             address(securityCouncilImpl),
             abi.encodeCall(SecurityCouncil.initialize, (true, owners, NUM_CONFIRMATIONS_REQUIRED))
         );
+    }
+}
+
+contract UpgradeGovernor_Initializer is CommonTest {
+    address superAdmin = makeAddr("superAdmin");
+    address owner = makeAddr("owner");
+
+    // Constructor arguments
+    uint256 internal initialVotingDelay = 0;
+    uint256 internal initialVotingPeriod = 30;
+    uint256 internal initialProposalThreshold = 1;
+    uint256 internal votesQuorumFraction = 51;
+    uint256 internal minDelaySeconds = 3;
+    string internal baseUri = "";
+
+    // Test data
+    address internal guardian1 = 0x0000000000000000000000000000000000001004;
+    address internal guardian2 = 0x0000000000000000000000000000000000001005;
+    address internal notGuardian = 0x0000000000000000000000000000000000001006;
+
+    address[] timeLockProposers = new address[](1);
+    address[] timeLockExecutors = new address[](1);
+
+    SecurityCouncilToken securityCouncilToken;
+    TimeLock timeLock;
+    UpgradeGovernor upgradeGovernor;
+
+    function setUp() public virtual override {
+        super.setUp();
+        vm.startPrank(multisig);
+
+        // setup SecurityCouncilToken
+        Proxy securityCouncilTokenProxy = new Proxy(multisig);
+        SecurityCouncilToken securityCouncilTokenImpl = new SecurityCouncilToken();
+        securityCouncilToken = SecurityCouncilToken(payable(address(securityCouncilTokenProxy)));
+        securityCouncilTokenProxy.upgradeToAndCall(
+            address(securityCouncilTokenImpl),
+            abi.encodeCall(SecurityCouncilToken.initialize, owner)
+        );
+
+        // setup TimeLock & UpgradeGovernor
+        Proxy timeLockProxy = new Proxy(multisig);
+        Proxy upgradeGovernorProxy = new Proxy(multisig);
+        TimeLock timeLockImpl = new TimeLock();
+        UpgradeGovernor upgradeGovernorImpl = new UpgradeGovernor();
+        timeLock = TimeLock(payable(address(timeLockProxy)));
+        upgradeGovernor = UpgradeGovernor(payable(address(upgradeGovernorProxy)));
+
+        timeLockProposers[0] = address(upgradeGovernor);
+        timeLockExecutors[0] = address(upgradeGovernor);
+
+        timeLockProxy.upgradeToAndCall(
+            address(timeLockImpl),
+            abi.encodeCall(
+                TimeLock.initialize,
+                (minDelaySeconds, timeLockProposers, timeLockExecutors, address(upgradeGovernor))
+            )
+        );
+
+        upgradeGovernorProxy.upgradeToAndCall(
+            address(upgradeGovernorImpl),
+            abi.encodeCall(
+                UpgradeGovernor.initialize,
+                (
+                    address(securityCouncilToken),
+                    payable(address(timeLock)),
+                    initialVotingDelay,
+                    initialVotingPeriod,
+                    initialProposalThreshold,
+                    votesQuorumFraction
+                )
+            )
+        );
+
+        //change proxy admin to upgradeGovernor
+        securityCouncilTokenProxy.changeAdmin(address(upgradeGovernor));
+        timeLockProxy.changeAdmin(address(upgradeGovernor));
+        upgradeGovernorProxy.changeAdmin(address(upgradeGovernor));
+        vm.stopPrank();
     }
 }
 

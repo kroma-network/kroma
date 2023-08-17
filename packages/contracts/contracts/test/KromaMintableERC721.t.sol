@@ -115,9 +115,9 @@ contract KromaMintableERC721_Test is ERC721Bridge_Initializer {
                     "ethereum:",
                     Strings.toHexString(uint160(address(L1Token)), 20),
                     "@",
-                    Strings.toString(1),
+                    Strings.toString(uint256(1)),
                     "/tokenURI?uint256=",
-                    Strings.toString(1)
+                    Strings.toString(uint256(1))
                 )
             )
         );

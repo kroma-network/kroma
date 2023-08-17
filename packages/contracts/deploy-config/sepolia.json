@@ -2,6 +2,7 @@
   "finalSystemOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "portalGuardian": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "proxyAdminOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
+  "securityCouncilTokenOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "l1StartingBlockTag": "0x936e490e33e6e136ecd9095090e30ed7def3903ef2bae3e05966b376e493ad76",
   "l1ChainID": 11155111,
   "l2ChainID": 2358,
@@ -46,5 +47,10 @@
     "0xa9a3af107fb75663b09c6ea7c22b8931b15a08da",
     "0x9fd58bb76cfa959bc8d2ff3c0101c1243e513da4",
     "0x9a886934e77d32acaa1af87cdc056d53fd84754e"
-  ]
+  ],
+  "votingDelayBlocks": 0,
+  "votingPeriodBlocks": 150,
+  "proposalThresholdTokens": 1,
+  "votesQuorumFractionPercent": 51,
+  "proposalExecutingLatencySeconds": 300
 }
