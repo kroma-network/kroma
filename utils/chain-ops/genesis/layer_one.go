@@ -479,7 +479,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		{
 			Name: "KromaPortal",
 			Args: []interface{}{
-				config.PortalGuardian,
+				predeploys.DevSecurityCouncilAddr,
 				true, // _paused
 				predeploys.DevSystemConfigAddr,
 			},

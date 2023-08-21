@@ -23,13 +23,18 @@ const deployFn: DeployFunction = async (hre) => {
     'SystemConfigProxy'
   )
 
+  const securityCouncilProxyAddress = await getDeploymentAddress(
+    hre,
+    'SecurityCouncilProxy'
+  )
+
   const ZKMerkleTrie = await getContractFromArtifact(hre, 'ZKMerkleTrie')
 
   await deploy(hre, 'KromaPortal', {
     args: [
       l2OutputOracleProxyAddress,
       validatorPoolProxyAddress,
-      hre.deployConfig.portalGuardian,
+      securityCouncilProxyAddress,
       false,
       Artifact__SystemConfigProxy.address,
       ZKMerkleTrie.address,
@@ -50,7 +55,7 @@ const deployFn: DeployFunction = async (hre) => {
       await assertContractVariable(
         contract,
         'GUARDIAN',
-        hre.deployConfig.portalGuardian
+        securityCouncilProxyAddress
       )
       await assertContractVariable(
         contract,

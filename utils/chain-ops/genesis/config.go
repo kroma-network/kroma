@@ -88,8 +88,6 @@ type DeployConfig struct {
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
 	// Owner of the system on L1
 	FinalSystemOwner common.Address `json:"finalSystemOwner"`
-	// GUARDIAN account in the KromaPortal
-	PortalGuardian common.Address `json:"portalGuardian"`
 	// Owner of the Guardian Token
 	SecurityCouncilTokenOwner common.Address `json:"securityCouncilTokenOwner"`
 	// L1 recipient of fees accumulated in the ProtocolVault
@@ -150,9 +148,6 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.FinalizationPeriodSeconds == 0 {
 		return fmt.Errorf("%w: FinalizationPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
-	}
-	if d.PortalGuardian == (common.Address{}) {
-		return fmt.Errorf("%w: PortalGuardian cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.MaxProposerDrift == 0 {
 		return fmt.Errorf("%w: MaxProposerDrift cannot be 0", ErrInvalidDeployConfig)

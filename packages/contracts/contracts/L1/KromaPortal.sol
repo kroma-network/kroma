@@ -62,7 +62,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
     SystemConfig public immutable SYSTEM_CONFIG;
 
     /**
-     * @notice Address that has the ability to pause and unpause withdrawals.
+     * @notice MultiSig wallet address that has the ability to pause and unpause withdrawals.
      */
     address public immutable GUARDIAN;
 
@@ -156,7 +156,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
      *
      * @param _l2Oracle                  Address of the L2OutputOracle contract.
      * @param _validatorPool             Address of the ValidatorPool contract.
-     * @param _guardian                  Address that can pause deposits and withdrawals.
+     * @param _guardian                  MultiSig wallet address that can pause deposits and withdrawals.
      * @param _paused                    Sets the contract's pausability state.
      * @param _config                    Address of the SystemConfig contract.
      * @param _zkMerkleTrie              Address of the ZKMerkleTrie contract.
