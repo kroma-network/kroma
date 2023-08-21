@@ -557,6 +557,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			backend,
 			predeploys.DevL2OutputOracleAddr,
 			predeploys.DevKromaPortalAddr,
+			predeploys.DevSecurityCouncilAddr,
 			/* trustedValidator= */ deployment.Args[0].(common.Address),
 			/* requiredBond= */ deployment.Args[1].(*big.Int),
 			/* maxUnbond= */ deployment.Args[2].(*big.Int),

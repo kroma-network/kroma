@@ -475,18 +475,25 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
     function test_increaseBond_succeeds() public {
         test_addPendingBond_succeeds();
 
+        uint256 prevScBalance = pool.balanceOf(pool.SECURITY_COUNCIL());
+
         uint256 outputIndex = oracle.latestOutputIndex();
         Types.Bond memory prevBond = pool.getBond(outputIndex);
         uint128 pendingBond = pool.getPendingBond(outputIndex, challenger);
+        uint128 tax = pendingBond * 20 / 100; // 20% tax
+        uint128 increased = pendingBond - tax;
 
         vm.prank(oracle.COLOSSEUM());
-        vm.expectEmit(true, true, false, true, address(pool));
-        emit BondIncreased(outputIndex, challenger, pendingBond);
+        vm.expectEmit(true, true, false, false);
+        emit BondIncreased(outputIndex, challenger, increased);
         pool.increaseBond(outputIndex, challenger);
 
         // check bond state
-        assertEq(pool.getBond(outputIndex).amount, prevBond.amount + pendingBond);
+        assertEq(pool.getBond(outputIndex).amount, prevBond.amount + increased);
         assertEq(pool.balanceOf(challenger), 0);
+
+        // check security council balance
+        assertEq(pool.balanceOf(pool.SECURITY_COUNCIL()), prevScBalance + tax);
     }
 
     function test_increaseBond_noBond_reverts() external {
@@ -639,5 +646,16 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint256 l2Timestamp = oracle.computeL2Timestamp(oracle.nextBlockNumber() + 1);
         vm.warp(l2Timestamp + roundDuration + 1);
         assertEq(pool.nextValidator(), Constants.VALIDATOR_PUBLIC_ROUND_ADDRESS);
+    }
+
+    function test_securityCouncilCannotBeValidator_succeeds() external {
+        address sc = pool.SECURITY_COUNCIL();
+        uint256 depositAmount = pool.REQUIRED_BOND_AMOUNT() * 100;
+        vm.deal(sc, depositAmount + 1 ether);
+
+        vm.prank(sc);
+        pool.deposit{value: depositAmount}();
+        assertEq(pool.balanceOf(sc), depositAmount);
+        assertFalse(pool.isValidator(sc));
     }
 }

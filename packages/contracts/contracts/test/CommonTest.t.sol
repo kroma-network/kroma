@@ -178,6 +178,7 @@ contract L2OutputOracle_Initializer is CommonTest {
         poolImpl = new ValidatorPool({
             _l2OutputOracle: oracle,
             _portal: mockPortal,
+            _securityCouncil: guardian,
             _trustedValidator: trusted,
             _requiredBondAmount: requiredBondAmount,
             _maxUnbond: maxUnbond,
