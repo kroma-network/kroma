@@ -768,7 +768,7 @@ func (c *Challenger) CreateChallenge(ctx context.Context, outputRange *OutputRan
 }
 
 func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
-	c.log.Info("crafting bisect tx")
+	c.log.Info("crafting bisect tx", "outputIndex", outputIndex, "challenger", challenger)
 
 	challenge, err := c.GetChallenge(ctx, outputIndex, challenger)
 	if err != nil {
@@ -797,14 +797,14 @@ func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int, challenge
 }
 
 func (c *Challenger) ChallengerTimeout(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
-	c.log.Info("crafting challenger timeout tx")
+	c.log.Info("crafting challenger timeout tx", "outputIndex", outputIndex, "challenger", challenger)
 
 	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
 	return c.colosseumContract.ChallengerTimeout(txOpts, outputIndex, challenger)
 }
 
 func (c *Challenger) CancelChallenge(ctx context.Context, outputIndex *big.Int) (*types.Transaction, error) {
-	c.log.Info("crafting cancel challenge tx")
+	c.log.Info("crafting cancel challenge tx", "outputIndex", outputIndex)
 
 	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
 	return c.colosseumContract.CancelChallenge(txOpts, outputIndex)
@@ -813,7 +813,7 @@ func (c *Challenger) CancelChallenge(ctx context.Context, outputIndex *big.Int) 
 // ProveFault creates proveFault transaction for invalid output root.
 // TODO: ProveFault will take long time, so that we may have to handle it carefully.
 func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, challenger common.Address, skipSelectFaultPosition bool) (*types.Transaction, error) {
-	c.log.Info("crafting proveFault tx")
+	c.log.Info("crafting proveFault tx", "outputIndex", outputIndex, "challenger", challenger)
 
 	challenge, err := c.GetChallenge(ctx, outputIndex, challenger)
 	if err != nil {
