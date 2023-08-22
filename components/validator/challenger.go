@@ -494,21 +494,21 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 
 			// if challenger
 			if isChallenger && c.cfg.ChallengerEnabled {
+				// if output has been already deleted, cancel challenge to refund pending bond
+				if isOutputDeleted && status != chal.StatusChallengerTimeout {
+					tx, err := c.CancelChallenge(c.ctx, outputIndex)
+					if err != nil {
+						c.log.Error("challenger: failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
+					if err := c.submitChallengeTx(tx); err != nil {
+						c.log.Error("challenger: failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
+				}
+
 				// if output is already finalized, terminate handling
 				if isOutputFinalized {
-					// if output has been deleted when finalized, cancel challenge to refund pending bond
-					if status != chal.StatusChallengerTimeout && isOutputDeleted {
-						tx, err := c.CancelChallenge(c.ctx, outputIndex)
-						if err != nil {
-							c.log.Error("challenger: failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
-							continue
-						}
-						if err := c.submitChallengeTx(tx); err != nil {
-							c.log.Error("challenger: failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
-							continue
-						}
-					}
-
 					c.log.Info("challenger: output is already finalized when handling challenge", "outputIndex", outputIndex)
 					return
 				}
