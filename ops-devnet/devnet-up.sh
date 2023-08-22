@@ -56,7 +56,7 @@ function wait_up {
   echo "Done!"
 }
 
-mkdir -p $DEVNET
+mkdir -p "$DEVNET"
 
 # Regenerate the L1 genesis file if necessary. The existence of the genesis
 # file is used to determine if we need to recreate the devnet's state folder.
@@ -79,7 +79,7 @@ fi
 
 # Bring up L1.
 (
-  cd $OPS_DEVNET
+  cd "$OPS_DEVNET"
   echo "Bringing up L1..."
   DOCKER_BUILDKIT=1 docker compose build --progress plain
   docker compose up -d l1
@@ -88,7 +88,7 @@ fi
 
 # Bring up L2.
 (
-  cd $OPS_DEVNET
+  cd "$OPS_DEVNET"
   echo "Bringing up L2..."
   docker compose up -d l2
   wait_up $L2_URL
@@ -101,7 +101,7 @@ SECURITYCOUNCIL_ADDRESS="0x690000000000000000000000000000000000000E"
 
 # Bring up everything else.
 (
-  cd $OPS_DEVNET
+  cd "$OPS_DEVNET"
   echo "Bringing up devnet..."
   L2OO_ADDRESS="$L2OO_ADDRESS" \
     COLOSSEUM_ADDRESS="$COLOSSEUM_ADDRESS" \
@@ -116,7 +116,7 @@ SECURITYCOUNCIL_ADDRESS="0x690000000000000000000000000000000000000E"
 # Deposit into ValidatorPool to be a validator.
 (
   echo "Deposit into ValidatorPool to be a validator..."
-  cd $OPS_DEVNET
+  cd "$OPS_DEVNET"
   docker compose exec kroma-validator kroma-validator deposit --amount 1000000000
 )
 
