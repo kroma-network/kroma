@@ -1,6 +1,5 @@
 {
   "finalSystemOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
-  "portalGuardian": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "proxyAdminOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "securityCouncilTokenOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "l1StartingBlockTag": "0x936e490e33e6e136ecd9095090e30ed7def3903ef2bae3e05966b376e493ad76",
