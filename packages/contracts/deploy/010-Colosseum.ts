@@ -8,9 +8,7 @@ import {
 } from '../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  await deploy(hre, 'ZKVerifier')
-
-  const zkVerifierAddress = await getDeploymentAddress(hre, 'ZKVerifier')
+  const zkVerifierProxyAddress = await getDeploymentAddress(hre, 'ZKVerifier')
   const l2OutputOracleProxyAddress = await getDeploymentAddress(
     hre,
     'L2OutputOracleProxy'
@@ -24,7 +22,7 @@ const deployFn: DeployFunction = async (hre) => {
   await deploy(hre, 'Colosseum', {
     args: [
       l2OutputOracleProxyAddress,
-      zkVerifierAddress,
+      zkVerifierProxyAddress,
       hre.deployConfig.l2OutputOracleSubmissionInterval,
       hre.deployConfig.colosseumCreationPeriodSeconds,
       hre.deployConfig.colosseumBisectionTimeout,
@@ -43,7 +41,11 @@ const deployFn: DeployFunction = async (hre) => {
         'L2_ORACLE',
         l2OutputOracleProxyAddress
       )
-      await assertContractVariable(contract, 'ZK_VERIFIER', zkVerifierAddress)
+      await assertContractVariable(
+        contract,
+        'ZK_VERIFIER',
+        zkVerifierProxyAddress
+      )
       await assertContractVariable(
         contract,
         'L2_ORACLE_SUBMISSION_INTERVAL',
@@ -88,6 +90,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['Colosseum', 'ZKVerifier', 'setup', 'l1']
+deployFn.tags = ['Colosseum', 'setup', 'l1']
 
 export default deployFn

@@ -33,6 +33,7 @@ var (
 		"L1StandardBridgeProxy",
 		"KromaPortalProxy",
 		"KromaMintableERC20FactoryProxy",
+		"ZKVerifierProxy",
 		"ColosseumProxy",
 		"SecurityCouncilProxy",
 		"SecurityCouncilTokenProxy",
@@ -189,6 +190,16 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		depsByName["L2OutputOracleProxy"].Address,
 		depsByName["L2OutputOracle"].Address,
 		data,
+	); err != nil {
+		return nil, err
+	}
+
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["ZKVerifierProxy"].Address,
+		depsByName["ZKVerifier"].Address,
+		nil,
 	); err != nil {
 		return nil, err
 	}
