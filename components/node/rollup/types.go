@@ -241,61 +241,61 @@ func (cfg *Config) Check() error {
 	return nil
 }
 
-func (c *Config) L1Signer() types.Signer {
-	return types.NewLondonSigner(c.L1ChainID)
+func (cfg *Config) L1Signer() types.Signer {
+	return types.NewLondonSigner(cfg.L1ChainID)
 }
 
-func (c *Config) ComputeTimestamp(blockNum uint64) uint64 {
-	return c.Genesis.L2Time + blockNum*c.BlockTime
+func (cfg *Config) ComputeTimestamp(blockNum uint64) uint64 {
+	return cfg.Genesis.L2Time + blockNum*cfg.BlockTime
 }
 
 // Description outputs a banner describing the important parts of rollup configuration in a human-readable form.
 // Optionally provide a mapping of L2 chain IDs to network names to label the L2 chain with if not unknown.
 // The config should be config.Check()-ed before creating a description.
-func (c *Config) Description(l2Chains map[string]string) string {
+func (cfg *Config) Description(l2Chains map[string]string) string {
 	// Find and report the network the user is running
 	var banner string
 	networkL2 := ""
 	if l2Chains != nil {
-		networkL2 = l2Chains[c.L2ChainID.String()]
+		networkL2 = l2Chains[cfg.L2ChainID.String()]
 	}
 	if networkL2 == "" {
 		networkL2 = "unknown L2"
 	}
-	networkL1 := params.NetworkNames[c.L1ChainID.String()]
+	networkL1 := params.NetworkNames[cfg.L1ChainID.String()]
 	if networkL1 == "" {
 		networkL1 = "unknown L1"
 	}
-	banner += fmt.Sprintf("L2 Chain ID: %v (%s)\n", c.L2ChainID, networkL2)
-	banner += fmt.Sprintf("L1 Chain ID: %v (%s)\n", c.L1ChainID, networkL1)
+	banner += fmt.Sprintf("L2 Chain ID: %v (%s)\n", cfg.L2ChainID, networkL2)
+	banner += fmt.Sprintf("L1 Chain ID: %v (%s)\n", cfg.L1ChainID, networkL1)
 	// Report the genesis configuration
 	banner += "Kroma starting point:\n"
-	banner += fmt.Sprintf("  L2 starting time: %d ~ %s\n", c.Genesis.L2Time, fmtTime(c.Genesis.L2Time))
-	banner += fmt.Sprintf("  L2 block: %s %d\n", c.Genesis.L2.Hash, c.Genesis.L2.Number)
-	banner += fmt.Sprintf("  L1 block: %s %d\n", c.Genesis.L1.Hash, c.Genesis.L1.Number)
+	banner += fmt.Sprintf("  L2 starting time: %d ~ %s\n", cfg.Genesis.L2Time, fmtTime(cfg.Genesis.L2Time))
+	banner += fmt.Sprintf("  L2 block: %s %d\n", cfg.Genesis.L2.Hash, cfg.Genesis.L2.Number)
+	banner += fmt.Sprintf("  L1 block: %s %d\n", cfg.Genesis.L1.Hash, cfg.Genesis.L1.Number)
 	return banner
 }
 
 // LogDescription outputs a banner describing the important parts of rollup configuration in a log format.
 // Optionally provide a mapping of L2 chain IDs to network names to label the L2 chain with if not unknown.
 // The config should be config.Check()-ed before creating a description.
-func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
+func (cfg *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 	// Find and report the network the user is running
 	networkL2 := ""
 	if l2Chains != nil {
-		networkL2 = l2Chains[c.L2ChainID.String()]
+		networkL2 = l2Chains[cfg.L2ChainID.String()]
 	}
 	if networkL2 == "" {
 		networkL2 = "unknown L2"
 	}
-	networkL1 := params.NetworkNames[c.L1ChainID.String()]
+	networkL1 := params.NetworkNames[cfg.L1ChainID.String()]
 	if networkL1 == "" {
 		networkL1 = "unknown L1"
 	}
-	log.Info("Rollup Config", "l2_chain_id", c.L2ChainID, "l2_network", networkL2, "l1_chain_id", c.L1ChainID,
-		"l1_network", networkL1, "l2_start_time", c.Genesis.L2Time, "l2_block_hash", c.Genesis.L2.Hash.String(),
-		"l2_block_number", c.Genesis.L2.Number, "l1_block_hash", c.Genesis.L1.Hash.String(),
-		"l1_block_number", c.Genesis.L1.Number)
+	log.Info("Rollup Config", "l2_chain_id", cfg.L2ChainID, "l2_network", networkL2, "l1_chain_id", cfg.L1ChainID,
+		"l1_network", networkL1, "l2_start_time", cfg.Genesis.L2Time, "l2_block_hash", cfg.Genesis.L2.Hash.String(),
+		"l2_block_number", cfg.Genesis.L2.Number, "l1_block_hash", cfg.Genesis.L1.Hash.String(),
+		"l1_block_number", cfg.Genesis.L1.Number)
 }
 
 func fmtForkTimeOrUnset(v *uint64) string {
