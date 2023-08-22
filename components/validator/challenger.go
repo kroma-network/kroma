@@ -118,7 +118,7 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger, m metrics.Metr
 	}
 
 	return &Challenger{
-		log:  l,
+		log:  l.New("service", "challenge"),
 		cfg:  cfg,
 		metr: m,
 
@@ -415,7 +415,7 @@ func (c *Challenger) handleOutput(outputIndex *big.Int) {
 				return
 			}
 
-			hasEnoughDeposit, err := c.HasEnoughDeposit(c.ctx, outputIndex)
+			hasEnoughDeposit, err := c.HasEnoughDeposit(c.ctx)
 			if err != nil {
 				c.log.Error(err.Error())
 				continue
@@ -487,34 +487,34 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 			if isAsserter {
 				// if output is already deleted, asserter has no incentives to handle challenge any further
 				if isOutputDeleted {
-					c.log.Info("asserter: do nothing because output is already deleted", "outputIndex", outputIndex, "challenger", challenger)
+					c.log.Info("do nothing because output is already deleted", "outputIndex", outputIndex, "challenger", challenger)
 					return
 				}
 				// if output is already finalized and not `ChallengerTimeout` status, terminate handling
 				if isOutputFinalized && status != chal.StatusChallengerTimeout {
-					c.log.Info("asserter: output is already finalized when handling challenge", "outputIndex", outputIndex, "challenger", challenger)
+					c.log.Info("output is already finalized when handling challenge", "outputIndex", outputIndex, "challenger", challenger)
 					return
 				}
 				switch status {
 				case chal.StatusAsserterTurn:
 					tx, err := c.Bisect(c.ctx, outputIndex, challenger)
 					if err != nil {
-						c.log.Error("asserter: failed to create bisect tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
+						c.log.Error("failed to create bisect tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 						continue
 					}
 					if err := c.submitChallengeTx(tx); err != nil {
-						c.log.Error("asserter: failed to submit bisect tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
+						c.log.Error("failed to submit bisect tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 						continue
 					}
 				case chal.StatusChallengerTimeout:
 					// call challenger timeout to increase bond from pending bond
 					tx, err := c.ChallengerTimeout(c.ctx, outputIndex, challenger)
 					if err != nil {
-						c.log.Error("asserter: failed to create challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
+						c.log.Error("failed to create challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 						continue
 					}
 					if err := c.submitChallengeTx(tx); err != nil {
-						c.log.Error("asserter: failed to submit challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
+						c.log.Error("failed to submit challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 						continue
 					}
 				}
@@ -526,18 +526,18 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 				if isOutputDeleted && status != chal.StatusChallengerTimeout {
 					tx, err := c.CancelChallenge(c.ctx, outputIndex)
 					if err != nil {
-						c.log.Error("challenger: failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
+						c.log.Error("failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
 					if err := c.submitChallengeTx(tx); err != nil {
-						c.log.Error("challenger: failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
+						c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
 				}
 
 				// if output is already finalized, terminate handling
 				if isOutputFinalized {
-					c.log.Info("challenger: output is already finalized when handling challenge", "outputIndex", outputIndex)
+					c.log.Info("output is already finalized when handling challenge", "outputIndex", outputIndex)
 					return
 				}
 
@@ -547,22 +547,22 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 				case chal.StatusChallengerTurn:
 					tx, err := c.Bisect(c.ctx, outputIndex, challenger)
 					if err != nil {
-						c.log.Error("challenger: failed to create bisect tx", "err", err, "outputIndex", outputIndex)
+						c.log.Error("failed to create bisect tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
 					if err := c.submitChallengeTx(tx); err != nil {
-						c.log.Error("challenger: failed to submit bisect tx", "err", err, "outputIndex", outputIndex)
+						c.log.Error("failed to submit bisect tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
 				case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
 					skipSelectFaultPosition := status == chal.StatusAsserterTimeout
 					tx, err := c.ProveFault(c.ctx, outputIndex, challenger, skipSelectFaultPosition)
 					if err != nil {
-						c.log.Error("challenger: failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
+						c.log.Error("failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
 					if err := c.submitChallengeTx(tx); err != nil {
-						c.log.Error("challenger: failed to submit prove fault tx", "err", err, "outputIndex", outputIndex)
+						c.log.Error("failed to submit prove fault tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
 				}
@@ -576,19 +576,19 @@ func (c *Challenger) submitChallengeTx(tx *types.Transaction) error {
 }
 
 // HasEnoughDeposit checks if challenger has enough deposit to bond when creating challenge.
-func (c *Challenger) HasEnoughDeposit(ctx context.Context, outputIndex *big.Int) (bool, error) {
+func (c *Challenger) HasEnoughDeposit(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
 	balance, err := c.valpoolContract.BalanceOf(utils.NewSimpleCallOpts(cCtx), c.cfg.TxManager.From())
 	if err != nil {
-		return false, fmt.Errorf("failed to fetch challenger deposit amount: %w", err)
+		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 	}
 
 	if balance.Cmp(c.requiredBondAmount) == -1 {
-		c.log.Warn("challenger deposit is less than bond amount", "required", c.requiredBondAmount, "deposit", balance)
+		c.log.Warn("deposit is less than bond amount", "required", c.requiredBondAmount, "deposit", balance)
 		return false, nil
 	}
-	c.log.Info("challenger deposit amount and bond amount", "deposit", balance, "bond", c.requiredBondAmount)
+	c.log.Info("deposit amount and bond amount", "deposit", balance, "bond", c.requiredBondAmount)
 	c.metr.RecordDepositAmount(balance)
 
 	return true, nil
@@ -898,6 +898,6 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 }
 
 // IsOutputDeleted checks if the output is deleted.
-func IsOutputDeleted(output [32]byte) bool {
-	return bytes.Equal(output[:], deletedOutputRoot[:])
+func IsOutputDeleted(outputRoot [32]byte) bool {
+	return bytes.Equal(outputRoot[:], deletedOutputRoot[:])
 }

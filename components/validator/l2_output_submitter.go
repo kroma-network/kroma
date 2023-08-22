@@ -93,7 +93,7 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 
 	return &L2OutputSubmitter{
 		cfg:                 cfg,
-		log:                 l,
+		log:                 l.New("service", "submitter"),
 		metr:                m,
 		l2ooContract:        l2ooContract,
 		l2ooABI:             parsed,
@@ -250,18 +250,18 @@ func (l *L2OutputSubmitter) HasEnoughDeposit(ctx context.Context) (bool, error) 
 	from := l.cfg.TxManager.From()
 	balance, err := l.valpoolContract.BalanceOf(utils.NewSimpleCallOpts(cCtx), from)
 	if err != nil {
-		return false, fmt.Errorf("failed to fetch validator deposit amount: %w", err)
+		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 	}
 
 	if balance.Cmp(l.requiredBondAmount) == -1 {
 		l.log.Warn(
-			"validator deposit is less than bond attempt amount",
+			"deposit is less than bond attempt amount",
 			"requiredBondAmount", l.requiredBondAmount,
 			"deposit", balance,
 		)
 		return false, nil
 	}
-	l.log.Info("validator deposit amount", "deposit", balance)
+	l.log.Info("deposit amount", "deposit", balance)
 	l.metr.RecordDepositAmount(balance)
 
 	return true, nil
@@ -272,7 +272,7 @@ func (l *L2OutputSubmitter) FetchNextBlockNumber(ctx context.Context) (*big.Int,
 	defer cCancel()
 	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
-		l.log.Error("validator unable to get next block number", "err", err)
+		l.log.Error("unable to get next block number", "err", err)
 		return nil, err
 	}
 
@@ -301,7 +301,7 @@ func (l *L2OutputSubmitter) FetchCurrentBlockNumber(ctx context.Context) (*big.I
 }
 
 func (l *L2OutputSubmitter) getLeftTimeForL2Blocks(currentBlockNumber *big.Int, targetBlockNumber *big.Int) time.Duration {
-	l.log.Info("validator submission interval has not elapsed", "currentBlockNumber", currentBlockNumber, "targetBlockNumber", targetBlockNumber)
+	l.log.Info("submission interval has not elapsed", "currentBlockNumber", currentBlockNumber, "targetBlockNumber", targetBlockNumber)
 	waitBlockNum := new(big.Int).Sub(targetBlockNumber, currentBlockNumber)
 
 	var waitDuration time.Duration
@@ -333,7 +333,7 @@ func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, e
 	defer cCancel()
 	nextValidator, err := l.valpoolContract.NextValidator(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
-		l.log.Error("validator unable to get next validator address", "err", err)
+		l.log.Error("unable to get next validator address", "err", err)
 		return roundInfo{
 			isPublicRound:       false,
 			isPriorityValidator: false,

@@ -30,7 +30,7 @@ func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common
 		return status == chal.StatusNone || status == chal.StatusChallengerTimeout
 	}, "challenge is already in progress")
 
-	hasEnoughDeposit, err := v.challenger.HasEnoughDeposit(t.Ctx(), outputIndex)
+	hasEnoughDeposit, err := v.challenger.HasEnoughDeposit(t.Ctx())
 	require.NoError(t, err, "unable to check challenger deposit")
 	require.True(t, hasEnoughDeposit, "challenger not enough deposit to create challenge")
 

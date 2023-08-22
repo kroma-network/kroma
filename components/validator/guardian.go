@@ -93,7 +93,7 @@ func NewGuardian(ctx context.Context, cfg Config, l log.Logger) (*Guardian, erro
 	}
 
 	return &Guardian{
-		log:                       l,
+		log:                       l.New("service", "guardian"),
 		cfg:                       cfg,
 		securityCouncilContract:   securityCouncilContract,
 		l2ooContract:              l2ooContract,
@@ -173,7 +173,7 @@ func (g *Guardian) inspectorLoop() {
 		default:
 			status, err := g.cfg.RollupClient.SyncStatus(g.ctx)
 			if err != nil {
-				g.log.Error("guardian: failed to get sync status", "err", err)
+				g.log.Error("failed to get sync status", "err", err)
 				continue
 			}
 
@@ -191,7 +191,7 @@ func (g *Guardian) inspectorLoop() {
 
 			creationPeriodL2 := new(big.Int).Div(g.creationPeriodSeconds, g.l2BlockTime)
 			if currentL2.Cmp(creationPeriodL2) != 1 {
-				g.log.Warn("guardian: there is no output when the creation period is over yet", "currentL1", currentL1, "currentL2", currentL2, "creationPeriodL2", creationPeriodL2)
+				g.log.Warn("there is no output when the creation period is over yet", "currentL1", currentL1, "currentL2", currentL2, "creationPeriodL2", creationPeriodL2)
 				continue
 			}
 
@@ -207,7 +207,7 @@ func (g *Guardian) inspectorLoop() {
 					defer cCancel()
 					startOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), finalizedL2)
 					if err != nil {
-						g.log.Error("guardian: failed to get output index after", "err", err, "afterL2Block", finalizedL2.Uint64())
+						g.log.Error("failed to get output index after", "err", err, "afterL2Block", finalizedL2.Uint64())
 						return
 					}
 
@@ -215,7 +215,7 @@ func (g *Guardian) inspectorLoop() {
 					defer cCancel()
 					endOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), creationEndedL2)
 					if err != nil {
-						g.log.Error("guardian: failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
+						g.log.Error("failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
 						return
 					}
 
@@ -232,7 +232,7 @@ func (g *Guardian) inspectorLoop() {
 					defer cCancel()
 					outputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), creationEndedL2)
 					if err != nil {
-						g.log.Error("guardian: failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
+						g.log.Error("failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
 						return
 					}
 
