@@ -184,12 +184,6 @@ func (g *Guardian) inspectorLoop() {
 				currentL2 = new(big.Int).SetUint64(status.FinalizedL2.Number)
 			}
 
-			latestOutputL2, err := g.fetchLatestOutputL2Block()
-			if latestOutputL2.Cmp(currentL2) == 1 {
-				g.log.Info("guardian: need to wait for L2 blocks sync completed", "currentL2", currentL2, "latestOutputL2", latestOutputL2)
-				continue
-			}
-
 			// currentL1 and finalizedL1 are used for searching events of ReadyToProve in L1 blocks
 			currentL1 := new(big.Int).SetUint64(status.CurrentL1.Number)
 			finalizedL1 := new(big.Int).Sub(currentL1, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
@@ -589,16 +583,4 @@ func (g *Guardian) isTransactionConfirmed(transactionId *big.Int) (bool, error) 
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	return g.securityCouncilContract.IsConfirmed(utils.NewSimpleCallOpts(cCtx), transactionId)
-}
-
-func (g *Guardian) fetchLatestOutputL2Block() (*big.Int, error) {
-	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
-	defer cCancel()
-	latestBlockNumber, err := g.l2ooContract.LatestBlockNumber(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		g.log.Error("guardian: unable to get latest block number", "err", err)
-		return nil, err
-	}
-
-	return latestBlockNumber, nil
 }

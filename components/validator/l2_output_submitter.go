@@ -202,20 +202,12 @@ func (l *L2OutputSubmitter) doSubmitL2Output(ctx context.Context, nextBlockNumbe
 func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumber *big.Int) time.Duration {
 	defaultWaitTime := l.cfg.OutputSubmitterRetryInterval
 
-	currentBlockNumber, err := l.fetchCurrentBlockNumber(ctx)
+	currentBlockNumber, err := l.FetchCurrentBlockNumber(ctx)
 	if err != nil {
-		return defaultWaitTime
-	}
-	latestBlockNumber, err := l.fetchLatestBlockNumber(ctx)
-	if err != nil {
-		return defaultWaitTime
-	}
-	if latestBlockNumber.Cmp(currentBlockNumber) == 1 {
-		l.log.Info("need to wait for L2 blocks sync completed", "currentBlockNumber", currentBlockNumber, "latestSubmittedBlockNumber", latestBlockNumber)
 		return defaultWaitTime
 	}
 
-	hasEnoughDeposit, err := l.hasEnoughDeposit(ctx)
+	hasEnoughDeposit, err := l.HasEnoughDeposit(ctx)
 	if err != nil {
 		return defaultWaitTime
 	}
@@ -251,8 +243,8 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 	return 0
 }
 
-// hasEnoughDeposit checks if validator has enough deposit to bond when trying output submission.
-func (l *L2OutputSubmitter) hasEnoughDeposit(ctx context.Context) (bool, error) {
+// HasEnoughDeposit checks if validator has enough deposit to bond when trying output submission.
+func (l *L2OutputSubmitter) HasEnoughDeposit(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
@@ -287,25 +279,13 @@ func (l *L2OutputSubmitter) FetchNextBlockNumber(ctx context.Context) (*big.Int,
 	return nextBlockNumber, nil
 }
 
-func (l *L2OutputSubmitter) fetchLatestBlockNumber(ctx context.Context) (*big.Int, error) {
-	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
-	defer cCancel()
-	latestBlockNumber, err := l.l2ooContract.LatestBlockNumber(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		l.log.Error("validator unable to get latest block number", "err", err)
-		return nil, err
-	}
-
-	return latestBlockNumber, nil
-}
-
-func (l *L2OutputSubmitter) fetchCurrentBlockNumber(ctx context.Context) (*big.Int, error) {
-	// Fetch the current L2 heads
+func (l *L2OutputSubmitter) FetchCurrentBlockNumber(ctx context.Context) (*big.Int, error) {
+	// fetch the current L2 heads
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	status, err := l.cfg.RollupClient.SyncStatus(cCtx)
 	if err != nil {
-		l.log.Error("validator unable to get sync status", "err", err)
+		l.log.Error("unable to get sync status", "err", err)
 		return nil, err
 	}
 

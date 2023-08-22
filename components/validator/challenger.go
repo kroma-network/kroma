@@ -166,38 +166,8 @@ func (c *Challenger) Start(ctx context.Context) error {
 
 	c.initSub()
 
-	if c.cfg.ChallengerEnabled {
-		// checkpoint is the last checked output index, so the next output handling starts after this point.
-		// if checkpoint is behind the latest output index, handle the previous outputs from the checkpoint.
-		cCtx, cCancel := context.WithTimeout(c.ctx, c.cfg.NetworkTimeout)
-		defer cCancel()
-		nextOutputIndex, err := c.l2ooContract.NextOutputIndex(utils.NewSimpleCallOpts(cCtx))
-		if err != nil {
-			return fmt.Errorf("failed to get the latest output index: %w", err)
-		}
-		if nextOutputIndex.Cmp(common.Big0) == 0 {
-			// if no outputs have been submitted, set checkpoint to 1 because genesis output cannot be challenged
-			c.checkpoint = common.Big1
-		} else {
-			// set checkpoint to latestOutputIndex (nextOutputIndex - 1)
-			c.checkpoint = new(big.Int).Sub(nextOutputIndex, common.Big1)
-		}
-		c.metr.RecordChallengeCheckpoint(c.checkpoint)
-	}
-
-	if err := c.scanPrevOutputs(); err != nil {
-		return fmt.Errorf("failed to scan previous outputs: %w", err)
-	}
-
-	// if challenge mode on, subscribe L2 output submission events
-	if c.cfg.ChallengerEnabled {
-		c.wg.Add(1)
-		go c.subscribeL2OutputSubmitted()
-	}
-
-	// subscribe challenge creation events
 	c.wg.Add(1)
-	go c.subscribeChallengeCreated()
+	go c.loop()
 
 	return nil
 }
@@ -216,6 +186,64 @@ func (c *Challenger) Stop() error {
 	}
 	close(c.challengeCreatedEventChan)
 
+	return nil
+}
+
+func (c *Challenger) loop() {
+	defer c.wg.Done()
+
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+			if c.cfg.ChallengerEnabled {
+				if err := c.updateCheckpoint(); err != nil {
+					c.log.Error(err.Error())
+					continue
+				}
+			}
+
+			if err := c.scanPrevOutputs(); err != nil {
+				c.log.Error("failed to scan previous outputs", "err", err)
+				continue
+			}
+
+			// if challenge mode on, subscribe L2 output submission events
+			if c.cfg.ChallengerEnabled {
+				c.wg.Add(1)
+				go c.subscribeL2OutputSubmitted()
+			}
+
+			// subscribe challenge creation events
+			c.wg.Add(1)
+			go c.subscribeChallengeCreated()
+
+			return
+		}
+	}
+}
+
+// updateCheckpoint updates checkpoint which is the last checked output index, so the next output handling starts after
+// this point. If checkpoint is behind the latest output index, handle the previous outputs from the checkpoint.
+func (c *Challenger) updateCheckpoint() error {
+	cCtx, cCancel := context.WithTimeout(c.ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	nextOutputIndex, err := c.l2ooContract.NextOutputIndex(utils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		return fmt.Errorf("failed to get the latest output index: %w", err)
+	}
+	if nextOutputIndex.Cmp(common.Big0) == 0 {
+		// if no outputs have been submitted, set checkpoint to 1 because genesis output cannot be challenged
+		c.checkpoint = common.Big1
+	} else {
+		// set checkpoint to latestOutputIndex (nextOutputIndex - 1)
+		c.checkpoint = new(big.Int).Sub(nextOutputIndex, common.Big1)
+	}
+	c.metr.RecordChallengeCheckpoint(c.checkpoint)
 	return nil
 }
 

@@ -111,6 +111,9 @@ type CLIConfig struct {
 }
 
 func (c CLIConfig) Check() error {
+	if !(c.OutputSubmitterEnabled || c.ChallengerEnabled || c.GuardianEnabled) {
+		return errors.New("one of output submitter, challenger, guardian should be enabled")
+	}
 	if err := c.RPCConfig.Check(); err != nil {
 		return err
 	}
