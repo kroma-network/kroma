@@ -316,6 +316,6 @@ Colosseum should be behind upgradable proxies.
 | `BISECTION_TIMEOUT`    | TBD                                                                | seconds           |
 | `PROVING_TIMEOUT`      | TBD                                                                | seconds           |
 | `SEGMENTS_LENGTHS`     | [9, 6, 10, 6]                                                      | array of integers |
-| `MAX_TXS`              | 25                                                                 | uint256           |
+| `MAX_TXS`              | 100                                                                | uint256           |
 | `DUMMY_HASH`(sepolia)  | 0xaf01bc158f9b35867aea1517e84cf67eedc6a397c0df380b4b139eb570ddb2fc | bytes32           |
 | `DUMMY_HASH`(devnet)   | 0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7 | bytes32           |

@@ -2,6 +2,16 @@
 pragma solidity 0.8.15;
 
 contract ZKVerifier {
+    uint256 internal immutable HASH_SCALAR_VALUE;
+    uint256 internal immutable M_56_PX_VALUE;
+    uint256 internal immutable M_56_PY_VALUE;
+
+    constructor(uint256 _hashScalar, uint256 _m56Px, uint256 _m56Py) {
+        HASH_SCALAR_VALUE = _hashScalar;
+        M_56_PX_VALUE = _m56Px;
+        M_56_PY_VALUE = _m56Py;
+    }
+
     function pairing(G1Point[] memory p1, G2Point[] memory p2) internal view returns (bool) {
         uint256 length = p1.length * 6;
         uint256[] memory input = new uint256[](length);
@@ -446,11 +456,7 @@ contract ZKVerifier {
                 t1
             )
         );
-        update_hash_scalar(
-            14523433211431174524389868863993690365141010513245706409377065114304218460986,
-            absorbing,
-            0
-        );
+        update_hash_scalar(HASH_SCALAR_VALUE, absorbing, 0);
         update_hash_point(m[0], m[1], absorbing, 2);
         for (t0 = 0; t0 <= 4; t0++) {
             update_hash_point(proof[0 + t0 * 2], proof[1 + t0 * 2], absorbing, 5 + t0 * 3);
@@ -1164,15 +1170,7 @@ contract ZKVerifier {
                 t1
             )
         );
-        (t0, t1) = (
-            ecc_mul_add(
-                4616778122792150218780382812396143832905328947307040502364327766326173155703,
-                1715078755142899395367703690683049275256965470385291428932481791418357695593,
-                m[56],
-                t0,
-                t1
-            )
-        );
+        (t0, t1) = (ecc_mul_add(M_56_PX_VALUE, M_56_PY_VALUE, m[56], t0, t1));
         (t0, t1) = (
             ecc_mul_add_pm(
                 m,
