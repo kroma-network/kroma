@@ -254,6 +254,8 @@ type SystemConfig struct {
 
 	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
 	EnableMaliciousValidator bool
+
+	EnableGuardian bool
 }
 
 type System struct {
@@ -662,7 +664,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		OutputSubmitterEnabled: false,
 		ChallengerEnabled:      true,
 		SecurityCouncilAddress: predeploys.DevSecurityCouncilAddr.String(),
-		GuardianEnabled:        true,
+		GuardianEnabled:        cfg.EnableGuardian,
 		LogConfig: klog.CLIConfig{
 			Level:  "info",
 			Format: "text",

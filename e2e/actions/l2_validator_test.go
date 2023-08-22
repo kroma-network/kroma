@@ -28,10 +28,12 @@ func TestValidator(gt *testing.T) {
 	}, rollupPropCl, miner.EthClient(), propEngine.EthClient())
 
 	validator := NewL2Validator(t, log, &ValidatorCfg{
-		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
-		ValidatorKey:      dp.Secrets.TrustedValidator,
-		AllowNonFinalized: false,
+		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr:   sd.DeploymentsL1.ValidatorPoolProxy,
+		ColosseumAddr:       sd.DeploymentsL1.ColosseumProxy,
+		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
+		ValidatorKey:        dp.Secrets.TrustedValidator,
+		AllowNonFinalized:   false,
 	}, miner.EthClient(), propEngine.EthClient(), proposer.RollupClient())
 
 	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized

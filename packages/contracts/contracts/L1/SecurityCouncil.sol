@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import { MultiSigWallet } from "../universal/MultiSigWallet.sol";
 import { Semver } from "../universal/Semver.sol";
+import { Colosseum } from "./Colosseum.sol";
 
 /**
  * @custom:proxied
@@ -17,6 +18,11 @@ contract SecurityCouncil is MultiSigWallet, Semver {
     address public immutable COLOSSEUM;
 
     /**
+     * @notice A mapping of outputs requested to be deleted.
+     */
+    mapping(uint256 => bool) public outputsDeleteRequested;
+
+    /**
      * @notice Emitted when a validation request is submitted.
      *
      * @param transactionId Index of the submitted transaction.
@@ -28,6 +34,14 @@ contract SecurityCouncil is MultiSigWallet, Semver {
         bytes32 outputRoot,
         uint256 l2BlockNumber
     );
+
+    /**
+     * @notice Emitted when an output is requested to be deleted.
+     *
+     * @param transactionId Index of the requested transaction.
+     * @param outputIndex   Index of output to be deleted.
+     */
+    event DeletionRequested(uint256 indexed transactionId, uint256 indexed outputIndex);
 
     /**
      * @notice Disallow calls from anyone except Colosseum.
@@ -79,5 +93,26 @@ contract SecurityCouncil is MultiSigWallet, Semver {
     ) public onlyColosseum {
         uint256 transactionId = _addTransaction(msg.sender, 0, _data);
         emit ValidationRequested(transactionId, _outputRoot, _l2BlockNumber);
+    }
+
+    /**
+     * @notice Requests to delete an output to Colosseum forcefully.
+     *         This should only be called by one of the Security Council when undeniable bugs occur.
+     *
+     * @param _outputIndex Index of output to be deleted.
+     * @param _force       Option to forcibly make a request to delete the output.
+     */
+    function requestDeletion(uint256 _outputIndex, bool _force) public ownerExists(msg.sender) {
+        require(
+            !outputsDeleteRequested[_outputIndex] || _force,
+            "SecurityCouncil: the output has already been requested to be deleted"
+        );
+        bytes memory message = abi.encodeWithSelector(
+            Colosseum.forceDeleteOutput.selector,
+            _outputIndex
+        );
+        uint256 transactionId = submitTransaction(COLOSSEUM, 0, message);
+        outputsDeleteRequested[_outputIndex] = true;
+        emit DeletionRequested(transactionId, _outputIndex);
     }
 }
