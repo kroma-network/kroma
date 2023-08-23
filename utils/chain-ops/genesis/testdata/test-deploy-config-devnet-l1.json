@@ -34,7 +34,7 @@
   "colosseumBisectionTimeout": 120,
   "colosseumProvingTimeout": 480,
   "colosseumDummyHash": "0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7",
-  "colosseumMaxTxs": 25,
+  "colosseumMaxTxs": 100,
   "colosseumSegmentsLengths": "3,11",
   "securityCouncilNumConfirmationRequired": 1,
   "securityCouncilOwners": [

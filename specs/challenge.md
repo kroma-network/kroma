@@ -255,7 +255,7 @@ calculate as below and enclose the public input to the `proveFault` transaction.
   }
 
   async function computePublicInput(block: RPCBlock, chainId: number): Promise<[string, string]> {
-    const maxTxs = 25;
+    const maxTxs = 100;
 
     const buf = Buffer.concat([
       hex.toFixedBuffer(prevStateRoot, 32),

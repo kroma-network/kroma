@@ -488,7 +488,7 @@ contract Colosseum_Initializer is Portal_Initializer {
     uint256 immutable CHAIN_ID = 901;
     bytes32 immutable DUMMY_HASH =
         hex"a1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7";
-    uint256 immutable MAX_TXS = 25;
+    uint256 immutable MAX_TXS = 100;
 
     // Test target
     Colosseum colosseumImpl;

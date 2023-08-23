@@ -103,7 +103,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		ColosseumBisectionTimeout:      120,
 		ColosseumProvingTimeout:        480,
 		ColosseumDummyHash:             common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
-		ColosseumMaxTxs:                25,
+		ColosseumMaxTxs:                100,
 		ColosseumSegmentsLengths:       "2,2,3,3",
 
 		SecurityCouncilNumConfirmationRequired: 1,
