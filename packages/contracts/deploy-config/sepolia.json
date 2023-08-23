@@ -47,9 +47,9 @@
     "0x9fd58bb76cfa959bc8d2ff3c0101c1243e513da4",
     "0x9a886934e77d32acaa1af87cdc056d53fd84754e"
   ],
-  "votingDelayBlocks": 0,
-  "votingPeriodBlocks": 150,
-  "proposalThresholdTokens": 1,
-  "votesQuorumFractionPercent": 51,
-  "proposalExecutingLatencySeconds": 300
+  "governorVotingDelayBlocks": 0,
+  "governorVotingPeriodBlocks": 150,
+  "governorProposalThreshold": 1,
+  "governorVotesQuorumFractionPercent": 51,
+  "timeLockMinDelaySeconds": 300
 }

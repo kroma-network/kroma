@@ -151,11 +151,11 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 
 		FundDevAccounts: true,
 
-		VotingDelayBlocks:               0,
-		VotingPeriodBlocks:              25,
-		ProposalThresholdTokens:         1,
-		VotesQuorumFractionPercent:      51,
-		ProposalExecutingLatencySeconds: 1,
+		GovernorVotingDelayBlocks:          0,
+		GovernorVotingPeriodBlocks:         25,
+		GovernorProposalThreshold:          1,
+		GovernorVotesQuorumFractionPercent: 51,
+		TimeLockMinDelaySeconds:            1,
 	}
 
 	if err := deployConfig.InitDeveloperDeployedAddresses(); err != nil {

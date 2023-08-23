@@ -280,7 +280,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		return nil, err
 	}
 	data, err = timeLockABI.Pack("initialize",
-		uint642Big(config.ProposalExecutingLatencySeconds),
+		uint642Big(config.TimeLockMinDelaySeconds),
 		[]common.Address{predeploys.DevUpgradeGovernorAddr},
 		[]common.Address{predeploys.DevUpgradeGovernorAddr},
 		predeploys.DevUpgradeGovernorAddr)
@@ -305,10 +305,10 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		"initialize",
 		depsByName["SecurityCouncilTokenProxy"].Address,
 		depsByName["TimeLockProxy"].Address,
-		uint642Big(config.VotingDelayBlocks),
-		uint642Big(config.VotingPeriodBlocks),
-		uint642Big(config.ProposalThresholdTokens),
-		uint642Big(config.VotesQuorumFractionPercent))
+		uint642Big(config.GovernorVotingDelayBlocks),
+		uint642Big(config.GovernorVotingPeriodBlocks),
+		uint642Big(config.GovernorProposalThreshold),
+		uint642Big(config.GovernorVotesQuorumFractionPercent))
 	if err != nil {
 		return nil, fmt.Errorf("cannot abi encode initialize for kromaGovernor: %w", err)
 	}

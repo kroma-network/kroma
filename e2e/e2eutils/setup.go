@@ -122,11 +122,11 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 
 		FundDevAccounts: false,
 
-		VotingDelayBlocks:               0,
-		VotingPeriodBlocks:              25,
-		ProposalThresholdTokens:         1,
-		VotesQuorumFractionPercent:      51,
-		ProposalExecutingLatencySeconds: 1,
+		GovernorVotingDelayBlocks:          0,
+		GovernorVotingPeriodBlocks:         25,
+		GovernorProposalThreshold:          1,
+		GovernorVotesQuorumFractionPercent: 51,
+		TimeLockMinDelaySeconds:            1,
 	}
 
 	// Configure the DeployConfig with the expected developer L1
