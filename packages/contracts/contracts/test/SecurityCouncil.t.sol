@@ -30,6 +30,7 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
         }
 
         assertEq(securityCouncil.COLOSSEUM(), colosseumAddr);
+        assertEq(securityCouncil.GOVERNOR(), upgradeGovernor);
         assertEq(securityCouncil.numConfirmationsRequired(), NUM_CONFIRMATIONS_REQUIRED);
         assertEq(securityCouncil.getTransactionCount(true, true), 0);
     }

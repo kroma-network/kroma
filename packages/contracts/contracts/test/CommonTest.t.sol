@@ -497,6 +497,7 @@ contract Colosseum_Initializer is Portal_Initializer {
 
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
+    address upgradeGovernor = makeAddr("upgradeGovernor");
     uint256 NUM_CONFIRMATIONS_REQUIRED = 2;
     address[] securityCouncilOwners = new address[](3);
 
@@ -523,7 +524,7 @@ contract Colosseum_Initializer is Portal_Initializer {
         // Deploy the SecurityCouncil (after Colosseum contract deployment)
         Proxy securityCouncilProxy = new Proxy(multisig);
         securityCouncil = SecurityCouncil(address(securityCouncilProxy));
-        securityCouncilImpl = new SecurityCouncil(address(colosseum));
+        securityCouncilImpl = new SecurityCouncil(address(colosseum), upgradeGovernor);
         vm.prank(multisig);
 
         securityCouncilOwners[0] = makeAddr("alice");
@@ -563,6 +564,7 @@ contract SecurityCouncil_Initializer is CommonTest {
     address[] owners = new address[](3);
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
+    address upgradeGovernor = makeAddr("upgradeGovernor");
     address colosseumAddr;
 
     function setUp() public virtual override {
@@ -571,7 +573,7 @@ contract SecurityCouncil_Initializer is CommonTest {
         Proxy proxy = new Proxy(multisig);
         securityCouncil = SecurityCouncil(address(proxy));
         colosseumAddr = makeAddr("colosseum");
-        securityCouncilImpl = new SecurityCouncil(colosseumAddr);
+        securityCouncilImpl = new SecurityCouncil(colosseumAddr, upgradeGovernor);
         vm.prank(multisig);
 
         owners[0] = makeAddr("alice");
