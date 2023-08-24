@@ -34,7 +34,8 @@ const deployFn: DeployFunction = async (hre) => {
 
   // Check variable
   assert(
-    (await timeLock.getMinDelay()) === hre.deployConfig.timeLockMinDelaySeconds
+    (await timeLock.getMinDelay()).toNumber() ===
+      hre.deployConfig.timeLockMinDelaySeconds
   )
 }
 

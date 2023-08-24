@@ -41,12 +41,16 @@ const deployFn: DeployFunction = async (hre) => {
 
   // Check variable
   assert((await governor.timelock()) === timeLockProxyAddress)
-  assert((await governor.votingDelay()) === hre.deployConfig.governorVotingDelayBlocks)
   assert(
-    (await governor.votingPeriod()) === hre.deployConfig.governorVotingPeriodBlocks
+    (await governor.votingDelay()).toNumber() ===
+      hre.deployConfig.governorVotingDelayBlocks
   )
   assert(
-    (await governor.proposalThreshold()) ===
+    (await governor.votingPeriod()).toNumber() ===
+      hre.deployConfig.governorVotingPeriodBlocks
+  )
+  assert(
+    (await governor.proposalThreshold()).toNumber() ===
       hre.deployConfig.governorProposalThreshold
   )
 }
