@@ -93,7 +93,7 @@ func NewGuardian(ctx context.Context, cfg Config, l log.Logger) (*Guardian, erro
 	}
 
 	return &Guardian{
-		log:                       l,
+		log:                       l.New("service", "guardian"),
 		cfg:                       cfg,
 		securityCouncilContract:   securityCouncilContract,
 		l2ooContract:              l2ooContract,
@@ -173,7 +173,7 @@ func (g *Guardian) inspectorLoop() {
 		default:
 			status, err := g.cfg.RollupClient.SyncStatus(g.ctx)
 			if err != nil {
-				g.log.Error("guardian: failed to get sync status", "err", err)
+				g.log.Error("failed to get sync status", "err", err)
 				continue
 			}
 
@@ -184,12 +184,6 @@ func (g *Guardian) inspectorLoop() {
 				currentL2 = new(big.Int).SetUint64(status.FinalizedL2.Number)
 			}
 
-			latestOutputL2, err := g.fetchLatestOutputL2Block()
-			if latestOutputL2.Cmp(currentL2) == 1 {
-				g.log.Info("guardian: need to wait for L2 blocks sync completed", "currentL2", currentL2, "latestOutputL2", latestOutputL2)
-				continue
-			}
-
 			// currentL1 and finalizedL1 are used for searching events of ReadyToProve in L1 blocks
 			currentL1 := new(big.Int).SetUint64(status.CurrentL1.Number)
 			finalizedL1 := new(big.Int).Sub(currentL1, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
@@ -197,7 +191,7 @@ func (g *Guardian) inspectorLoop() {
 
 			creationPeriodL2 := new(big.Int).Div(g.creationPeriodSeconds, g.l2BlockTime)
 			if currentL2.Cmp(creationPeriodL2) != 1 {
-				g.log.Warn("guardian: there is no output when the creation period is over yet", "currentL1", currentL1, "currentL2", currentL2, "creationPeriodL2", creationPeriodL2)
+				g.log.Warn("there is no output when the creation period is over yet", "currentL1", currentL1, "currentL2", currentL2, "creationPeriodL2", creationPeriodL2)
 				continue
 			}
 
@@ -213,7 +207,7 @@ func (g *Guardian) inspectorLoop() {
 					defer cCancel()
 					startOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), finalizedL2)
 					if err != nil {
-						g.log.Error("guardian: failed to get output index after", "err", err, "afterL2Block", finalizedL2.Uint64())
+						g.log.Error("failed to get output index after", "err", err, "afterL2Block", finalizedL2.Uint64())
 						return
 					}
 
@@ -221,7 +215,7 @@ func (g *Guardian) inspectorLoop() {
 					defer cCancel()
 					endOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), creationEndedL2)
 					if err != nil {
-						g.log.Error("guardian: failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
+						g.log.Error("failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
 						return
 					}
 
@@ -238,7 +232,7 @@ func (g *Guardian) inspectorLoop() {
 					defer cCancel()
 					outputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), creationEndedL2)
 					if err != nil {
-						g.log.Error("guardian: failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
+						g.log.Error("failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
 						return
 					}
 
@@ -594,16 +588,4 @@ func (g *Guardian) isTransactionConfirmed(transactionId *big.Int) (bool, error) 
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	return g.securityCouncilContract.IsConfirmed(utils.NewSimpleCallOpts(cCtx), transactionId)
-}
-
-func (g *Guardian) fetchLatestOutputL2Block() (*big.Int, error) {
-	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
-	defer cCancel()
-	latestBlockNumber, err := g.l2ooContract.LatestBlockNumber(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		g.log.Error("guardian: unable to get latest block number", "err", err)
-		return nil, err
-	}
-
-	return latestBlockNumber, nil
 }
