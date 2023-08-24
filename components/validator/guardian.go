@@ -533,6 +533,11 @@ func (g *Guardian) shouldBeDeleted(outputIndex, fromBlock, toBlock *big.Int) (bo
 		return false, fmt.Errorf("failed to get output from L2OutputOracle contract(outputIndex: %d): %w", outputIndex.Uint64(), err)
 	}
 
+	if IsOutputDeleted(output.OutputRoot) {
+		g.log.Info("output has already been deleted", "outputIndex", outputIndex)
+		return false, nil
+	}
+
 	isValid, err := g.ValidateL2Output(g.ctx, output.OutputRoot, output.L2BlockNumber.Uint64())
 	if err != nil {
 		return false, err
