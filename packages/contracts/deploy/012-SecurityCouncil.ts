@@ -13,8 +13,10 @@ const deployFn: DeployFunction = async (hre) => {
     'ColosseumProxy'
   )
 
+  const TimeLockProxyAddress = await getDeploymentAddress(hre, 'TimeLockProxy')
+
   await deploy(hre, 'SecurityCouncil', {
-    args: [ColosseumProxyAddress],
+    args: [ColosseumProxyAddress, TimeLockProxyAddress],
     isProxyImpl: true,
     initializer: 'initialize(bool,address[],uint256)',
     initArgs: [
@@ -24,6 +26,7 @@ const deployFn: DeployFunction = async (hre) => {
     ],
     postDeployAction: async (contract) => {
       await assertContractVariable(contract, 'COLOSSEUM', ColosseumProxyAddress)
+      await assertContractVariable(contract, 'GOVERNOR', TimeLockProxyAddress)
     },
   })
 }
