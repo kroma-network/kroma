@@ -25,10 +25,10 @@ const deployFn: DeployFunction = async (hre) => {
     initArgs: [
       securityCouncilTokenProxyAddress,
       timeLockProxyAddress,
-      hre.deployConfig.votingDelayBlocks,
-      hre.deployConfig.votingPeriodBlocks,
-      hre.deployConfig.proposalThresholdTokens,
-      hre.deployConfig.votesQuorumFractionPercent,
+      hre.deployConfig.governorVotingDelayBlocks,
+      hre.deployConfig.governorVotingPeriodBlocks,
+      hre.deployConfig.governorProposalThreshold,
+      hre.deployConfig.governorVotesQuorumFractionPercent,
     ],
   })
 
@@ -41,13 +41,13 @@ const deployFn: DeployFunction = async (hre) => {
 
   // Check variable
   assert((await governor.timelock()) === timeLockProxyAddress)
-  assert((await governor.votingDelay()) === hre.deployConfig.votingDelayBlocks)
+  assert((await governor.votingDelay()) === hre.deployConfig.governorVotingDelayBlocks)
   assert(
-    (await governor.votingPeriod()) === hre.deployConfig.votingPeriodBlocks
+    (await governor.votingPeriod()) === hre.deployConfig.governorVotingPeriodBlocks
   )
   assert(
     (await governor.proposalThreshold()) ===
-      hre.deployConfig.proposalThresholdTokens
+      hre.deployConfig.governorProposalThreshold
   )
 }
 

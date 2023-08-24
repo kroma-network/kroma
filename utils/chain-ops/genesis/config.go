@@ -121,15 +121,15 @@ type DeployConfig struct {
 	FundDevAccounts bool `json:"fundDevAccounts"`
 
 	// The initial value of the voting delay(unit:block)
-	VotingDelayBlocks uint64 `json:"votingDelayBlocks"`
+	GovernorVotingDelayBlocks uint64 `json:"governorVotingDelayBlocks"`
 	// The initial value of the voting period(unit:block)
-	VotingPeriodBlocks uint64 `json:"votingPeriodBlocks"`
+	GovernorVotingPeriodBlocks uint64 `json:"governorVotingPeriodBlocks"`
 	// The initial value of the proposal threshold(unit:token)
-	ProposalThresholdTokens uint64 `json:"proposalThresholdTokens"`
+	GovernorProposalThreshold uint64 `json:"governorProposalThreshold"`
 	// The initial value of the votes quorum fraction(unit:percent)
-	VotesQuorumFractionPercent uint64 `json:"votesQuorumFractionPercent"`
+	GovernorVotesQuorumFractionPercent uint64 `json:"governorVotesQuorumFractionPercent"`
 	// The latency value of the proposal executing(unit:second)
-	ProposalExecutingLatencySeconds uint64 `json:"proposalExecutingLatencySeconds"`
+	TimeLockMinDelaySeconds uint64 `json:"timeLockMinDelaySeconds"`
 }
 
 // Check will ensure that the config is sane and return an error when it is not
@@ -259,14 +259,14 @@ func (d *DeployConfig) Check() error {
 	if len(strings.Split(d.ColosseumSegmentsLengths, ","))%2 > 0 {
 		return fmt.Errorf("%w: ColosseumSegmentsLengths length cannot be an odd number", ErrInvalidDeployConfig)
 	}
-	if d.VotingPeriodBlocks == 0 {
-		return fmt.Errorf("%w: VotingPeriodBlocks cannot be 0", ErrInvalidDeployConfig)
+	if d.GovernorVotingPeriodBlocks == 0 {
+		return fmt.Errorf("%w: GovernorVotingPeriodBlocks cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.ProposalThresholdTokens == 0 {
-		return fmt.Errorf("%w: ProposalThresholdTokens cannot be 0", ErrInvalidDeployConfig)
+	if d.GovernorProposalThreshold == 0 {
+		return fmt.Errorf("%w: GovernorProposalThreshold cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.VotesQuorumFractionPercent > 100 {
-		return fmt.Errorf("%w: VotesQuorumFractionPercent cannot be greater than 100", ErrInvalidDeployConfig)
+	if d.GovernorVotesQuorumFractionPercent > 100 {
+		return fmt.Errorf("%w: GovernorVotesQuorumFractionPercent cannot be greater than 100", ErrInvalidDeployConfig)
 	}
 	return nil
 }

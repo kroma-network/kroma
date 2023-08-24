@@ -18,7 +18,7 @@ const deployFn: DeployFunction = async (hre) => {
     isProxyImpl: true,
     initializer: 'initialize(uint256,address[],address[],address)',
     initArgs: [
-      hre.deployConfig.proposalExecutingLatencySeconds,
+      hre.deployConfig.timeLockMinDelaySeconds,
       [upgradeGovernorProxyAddress],
       [upgradeGovernorProxyAddress],
       upgradeGovernorProxyAddress,
@@ -34,8 +34,7 @@ const deployFn: DeployFunction = async (hre) => {
 
   // Check variable
   assert(
-    (await timeLock.getMinDelay()) ===
-      hre.deployConfig.proposalExecutingLatencySeconds
+    (await timeLock.getMinDelay()) === hre.deployConfig.timeLockMinDelaySeconds
   )
 }
 
