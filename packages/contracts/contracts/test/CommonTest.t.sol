@@ -488,12 +488,13 @@ contract Colosseum_Initializer is Portal_Initializer {
     uint256 immutable CHAIN_ID = 901;
     bytes32 immutable DUMMY_HASH =
         hex"a1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7";
-    uint256 immutable MAX_TXS = 25;
+    uint256 immutable MAX_TXS = 100;
 
     // Test target
     Colosseum colosseumImpl;
 
     ZKVerifier zkVerifier;
+    ZKVerifier zkVerifierImpl;
 
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
@@ -504,10 +505,17 @@ contract Colosseum_Initializer is Portal_Initializer {
     uint256[] segmentsLengths;
 
     function setUp() public virtual override {
-        super.setUp();
-
         // Deploy the ZKVerifier
-        zkVerifier = new ZKVerifier();
+        // Chain ID 901
+        Proxy verifierProxy = new Proxy(multisig);
+        zkVerifier = ZKVerifier(payable(address(verifierProxy)));
+        zkVerifierImpl = new ZKVerifier({
+            _hashScalar: 14523433211431174524389868863993690365141010513245706409377065114304218460986,
+            _m56Px: 4616778122792150218780382812396143832905328947307040502364327766326173155703,
+            _m56Py: 1715078755142899395367703690683049275256965470385291428932481791418357695593
+        });
+        vm.prank(multisig);
+        verifierProxy.upgradeTo(address(zkVerifierImpl));
 
         // case - L2OutputOracle submissionInterval == 1800
         segmentsLengths.push(9);

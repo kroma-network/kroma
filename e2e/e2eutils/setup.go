@@ -55,8 +55,8 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	require.NoError(t, err)
 	addresses := secrets.Addresses()
 	deployConfig := &genesis2.DeployConfig{
-		L1ChainID:   901,
-		L2ChainID:   902,
+		L1ChainID:   900,
+		L2ChainID:   901,
 		L2BlockTime: 2,
 
 		MaxProposerDrift:   tp.MaxProposerDrift,
@@ -102,8 +102,8 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		ColosseumCreationPeriodSeconds: 10,
 		ColosseumBisectionTimeout:      120,
 		ColosseumProvingTimeout:        480,
-		ColosseumDummyHash:             common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
-		ColosseumMaxTxs:                25,
+		ColosseumDummyHash:             common.HexToHash("0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7"),
+		ColosseumMaxTxs:                100,
 		ColosseumSegmentsLengths:       "2,2,3,3",
 
 		SecurityCouncilNumConfirmationRequired: 1,
@@ -127,6 +127,10 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		GovernorProposalThreshold:          1,
 		GovernorVotesQuorumFractionPercent: 51,
 		TimeLockMinDelaySeconds:            1,
+
+		ZKVerifierHashScalar: (*hexutil.Big)(hexutil.MustDecodeBig("0x201bf8cdf8299a6ab7711b7ed71fb7ee9448728d1c41caa1577e4f8dd6a0f33a")),
+		ZKVerifierM56Px:      (*hexutil.Big)(hexutil.MustDecodeBig("0xa3500fa181d574a461035b8ae73a29e1aca62ea606eb8e4847dd74760d2c177")),
+		ZKVerifierM56Py:      (*hexutil.Big)(hexutil.MustDecodeBig("0x3cab33eacc5d51c399712707c5df1500c93ad67be0a3a45bebe9d96119ac469")),
 	}
 
 	// Configure the DeployConfig with the expected developer L1

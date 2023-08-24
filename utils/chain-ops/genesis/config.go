@@ -84,6 +84,21 @@ type DeployConfig struct {
 	SecurityCouncilNumConfirmationRequired uint64           `json:"securityCouncilNumConfirmationRequired"`
 	SecurityCouncilOwners                  []common.Address `json:"securityCouncilOwners"`
 
+	// The initial value of the voting delay(unit:block)
+	GovernorVotingDelayBlocks uint64 `json:"governorVotingDelayBlocks"`
+	// The initial value of the voting period(unit:block)
+	GovernorVotingPeriodBlocks uint64 `json:"governorVotingPeriodBlocks"`
+	// The initial value of the proposal threshold(unit:token)
+	GovernorProposalThreshold uint64 `json:"governorProposalThreshold"`
+	// The initial value of the votes quorum fraction(unit:percent)
+	GovernorVotesQuorumFractionPercent uint64 `json:"governorVotesQuorumFractionPercent"`
+	// The latency value of the proposal executing(unit:second)
+	TimeLockMinDelaySeconds uint64 `json:"timeLockMinDelaySeconds"`
+
+	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
+	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
+	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
+
 	// Owner of the ProxyAdmin predeploy
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
 	// Owner of the system on L1
@@ -119,17 +134,6 @@ type DeployConfig struct {
 	EIP1559Denominator uint64 `json:"eip1559Denominator"`
 
 	FundDevAccounts bool `json:"fundDevAccounts"`
-
-	// The initial value of the voting delay(unit:block)
-	GovernorVotingDelayBlocks uint64 `json:"governorVotingDelayBlocks"`
-	// The initial value of the voting period(unit:block)
-	GovernorVotingPeriodBlocks uint64 `json:"governorVotingPeriodBlocks"`
-	// The initial value of the proposal threshold(unit:token)
-	GovernorProposalThreshold uint64 `json:"governorProposalThreshold"`
-	// The initial value of the votes quorum fraction(unit:percent)
-	GovernorVotesQuorumFractionPercent uint64 `json:"governorVotesQuorumFractionPercent"`
-	// The latency value of the proposal executing(unit:second)
-	TimeLockMinDelaySeconds uint64 `json:"timeLockMinDelaySeconds"`
 }
 
 // Check will ensure that the config is sane and return an error when it is not
@@ -267,6 +271,15 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.GovernorVotesQuorumFractionPercent > 100 {
 		return fmt.Errorf("%w: GovernorVotesQuorumFractionPercent cannot be greater than 100", ErrInvalidDeployConfig)
+	}
+	if d.ZKVerifierHashScalar == nil {
+		return fmt.Errorf("%w: ZKVerifierHashScalar cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ZKVerifierM56Px == nil {
+		return fmt.Errorf("%w: ZKVerifierM56Px cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ZKVerifierM56Py == nil {
+		return fmt.Errorf("%w: ZKVerifierM56Py cannot be nil", ErrInvalidDeployConfig)
 	}
 	return nil
 }

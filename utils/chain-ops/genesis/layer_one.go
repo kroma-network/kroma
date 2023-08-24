@@ -33,6 +33,7 @@ var (
 		"L1StandardBridgeProxy",
 		"KromaPortalProxy",
 		"KromaMintableERC20FactoryProxy",
+		"ZKVerifierProxy",
 		"ColosseumProxy",
 		"SecurityCouncilProxy",
 		"SecurityCouncilTokenProxy",
@@ -189,6 +190,16 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		depsByName["L2OutputOracleProxy"].Address,
 		depsByName["L2OutputOracle"].Address,
 		data,
+	); err != nil {
+		return nil, err
+	}
+
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["ZKVerifierProxy"].Address,
+		depsByName["ZKVerifier"].Address,
+		nil,
 	); err != nil {
 		return nil, err
 	}
@@ -475,6 +486,11 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		},
 		{
 			Name: "ZKVerifier",
+			Args: []interface{}{
+				config.ZKVerifierHashScalar.ToInt(),
+				config.ZKVerifierM56Px.ToInt(),
+				config.ZKVerifierM56Py.ToInt(),
+			},
 		},
 		{
 			Name: "KromaPortal",
@@ -662,6 +678,9 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		_, tx, _, err = bindings.DeployZKVerifier(
 			opts,
 			backend,
+			/* hashScalar= */ deployment.Args[0].(*big.Int),
+			/* m56Px= */ deployment.Args[1].(*big.Int),
+			/* m56Py= */ deployment.Args[2].(*big.Int),
 		)
 	case "SecurityCouncilToken":
 		_, tx, _, err = bindings.DeploySecurityCouncilToken(

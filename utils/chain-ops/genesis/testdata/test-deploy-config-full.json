@@ -1,7 +1,7 @@
 {
   "l1StartingBlockTag": "earliest",
-  "l1ChainID": 901,
-  "l2ChainID": 902,
+  "l1ChainID": 900,
+  "l2ChainID": 901,
   "l2BlockTime": 2,
   "maxProposerDrift": 20,
   "proposerWindowSize": 100,
@@ -57,8 +57,8 @@
   "colosseumCreationPeriodSeconds": 500,
   "colosseumBisectionTimeout": 120,
   "colosseumProvingTimeout": 480,
-  "colosseumDummyHash": "0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760",
-  "colosseumMaxTxs": 25,
+  "colosseumDummyHash": "0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7",
+  "colosseumMaxTxs": 100,
   "colosseumSegmentsLengths": "3,4",
   "securityCouncilNumConfirmationRequired": 1,
   "securityCouncilOwners": [
@@ -70,5 +70,8 @@
   "governorVotingPeriodBlocks": 25,
   "governorProposalThreshold": 1,
   "governorVotesQuorumFractionPercent": 51,
-  "timeLockMinDelaySeconds": 1
+  "timeLockMinDelaySeconds": 1,
+  "zkVerifierHashScalar": "0x201bf8cdf8299a6ab7711b7ed71fb7ee9448728d1c41caa1577e4f8dd6a0f33a",
+  "zkVerifierM56Px": "0xa3500fa181d574a461035b8ae73a29e1aca62ea606eb8e4847dd74760d2c177",
+  "zkVerifierM56Py": "0x3cab33eacc5d51c399712707c5df1500c93ad67be0a3a45bebe9d96119ac469"
 }

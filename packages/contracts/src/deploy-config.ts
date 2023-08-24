@@ -164,6 +164,21 @@ interface RequiredDeployConfig {
    * Timeout seconds of proving in the Colosseum.
    */
   colosseumProvingTimeout: number
+
+  /**
+   * The value used by line 459 of the ZK verifier contract
+   */
+  zkVerifierHashScalar: string
+
+  /**
+   * The value used by line 1173 of the ZK verifier contract
+   */
+  zkVerifierM56Px: string
+
+  /**
+   * The value used by line 1173 of the ZK verifier contract
+   */
+  zkVerifierM56Py: string
 }
 
 /**
@@ -400,5 +415,14 @@ export const deployConfigSpec: {
   },
   colosseumSegmentsLengths: {
     type: 'string', // comma-separated segments lengths
+  },
+  zkVerifierHashScalar: {
+    type: 'string', // uint256
+  },
+  zkVerifierM56Px: {
+    type: 'string', // uint256
+  },
+  zkVerifierM56Py: {
+    type: 'string', // uint256
   },
 }

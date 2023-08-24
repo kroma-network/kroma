@@ -33,7 +33,7 @@
   "colosseumBisectionTimeout": 120,
   "colosseumProvingTimeout": 480,
   "colosseumDummyHash": "0x87379d11e537ac64cf7b1bff157e504c71d50ec8713e72936dbae1de9fa07356",
-  "colosseumMaxTxs": 25,
+  "colosseumMaxTxs": 100,
   "colosseumSegmentsLengths": "4,3,6,3",
   "numDeployConfirmations": 1,
   "securityCouncilNumConfirmationRequired": 5,
@@ -51,5 +51,8 @@
   "governorVotingPeriodBlocks": 150,
   "governorProposalThreshold": 1,
   "governorVotesQuorumFractionPercent": 51,
-  "timeLockMinDelaySeconds": 300
+  "timeLockMinDelaySeconds": 1,
+  "zkVerifierHashScalar": "0xd907773b4a293b9611f702740a7073d51fb10d829c76edb2549b0c6124dafe2",
+  "zkVerifierM56Px": "0x1bce0d26fba9adb40a4fe83372a22e39e411abee59ae6de6797f510a72685ff4",
+  "zkVerifierM56Py": "0x28df57c0622042dbe9e0b406661434f5f8eac87d9998d5283661c38e7d9925f8"
 }
