@@ -17,6 +17,11 @@ import { IMultiSigWallet } from "./IMultiSigWallet.sol";
  */
 abstract contract MultiSigWallet is IMultiSigWallet, ReentrancyGuardUpgradeable {
     /**
+     * @notice The address of the governor contract. Can be updated via upgrade.
+     */
+    address public immutable GOVERNOR;
+
+    /**
      * @notice A mapping of transactions submitted.
      */
     mapping(uint256 => Types.MultiSigTransaction) public transactions;
@@ -47,13 +52,13 @@ abstract contract MultiSigWallet is IMultiSigWallet, ReentrancyGuardUpgradeable 
     uint256 public transactionCount;
 
     /**
-     * @notice Only allow this contract to call the functions.
-     *         This ensures that function is only executed through a multisig-based process.
+     * @notice Only allow the specified governor contract to call the functions.
+     *         This ensures that function is only executed through a governor process.
      */
-    modifier onlyWallet() {
+    modifier onlyGovernor() {
         require(
-            msg.sender == address(this),
-            "MultiSigWallet: only allow this contract to call the functions"
+            msg.sender == GOVERNOR,
+            "MultiSigWallet: only allow specified governor contract to call the functions"
         );
         _;
     }
@@ -159,6 +164,13 @@ abstract contract MultiSigWallet is IMultiSigWallet, ReentrancyGuardUpgradeable 
     }
 
     /**
+     * @param _governor Address of the Governor contract.
+     */
+    constructor(address _governor) {
+        GOVERNOR = _governor;
+    }
+
+    /**
      * @notice Initializer.
      *
      * @param _owners                   List of initial owners.
@@ -169,6 +181,7 @@ abstract contract MultiSigWallet is IMultiSigWallet, ReentrancyGuardUpgradeable 
         onlyInitializing
         validNumConfirmations(_owners.length, _numConfirmationsRequired)
     {
+        __ReentrancyGuard_init_unchained();
         for (uint256 i = 0; i < _owners.length; ) {
             address owner = _owners[i];
             require(!isOwner[owner], "MultiSigWallet: owner already exists");
@@ -189,7 +202,7 @@ abstract contract MultiSigWallet is IMultiSigWallet, ReentrancyGuardUpgradeable 
     function addOwner(address _owner)
         external
         validAddress(_owner)
-        onlyWallet
+        onlyGovernor
         ownerDoesNotExist(_owner)
     {
         isOwner[_owner] = true;
@@ -200,7 +213,7 @@ abstract contract MultiSigWallet is IMultiSigWallet, ReentrancyGuardUpgradeable 
     /**
      * @inheritdoc IMultiSigWallet
      */
-    function removeOwner(address _owner) external onlyWallet ownerExists(_owner) {
+    function removeOwner(address _owner) external onlyGovernor ownerExists(_owner) {
         isOwner[_owner] = false;
         // find & delete item
         for (uint256 i = 0; i < owners.length - 1; ) {
@@ -226,7 +239,7 @@ abstract contract MultiSigWallet is IMultiSigWallet, ReentrancyGuardUpgradeable 
      */
     function replaceOwner(address _owner, address _newOwner)
         external
-        onlyWallet
+        onlyGovernor
         validAddress(_newOwner)
         ownerExists(_owner)
         ownerDoesNotExist(_newOwner)
@@ -263,7 +276,7 @@ abstract contract MultiSigWallet is IMultiSigWallet, ReentrancyGuardUpgradeable 
     /**
      * @inheritdoc IMultiSigWallet
      */
-    function changeRequirement(uint256 _numConfirmationsRequired) external onlyWallet {
+    function changeRequirement(uint256 _numConfirmationsRequired) external onlyGovernor {
         _changeNumConfirmationRequirement(_numConfirmationsRequired);
         emit RequirementChange(_numConfirmationsRequired);
     }

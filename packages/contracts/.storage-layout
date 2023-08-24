@@ -6,13 +6,13 @@
 ➡ contracts/L1/Colosseum.sol:Colosseum
 =======================
 
-| Name                 | Type                                       | Slot | Offset | Bytes | Contract                             |
-|----------------------|--------------------------------------------|------|--------|-------|--------------------------------------|
-| _initialized         | uint8                                      | 0    | 0      | 1     | contracts/L1/Colosseum.sol:Colosseum |
-| _initializing        | bool                                       | 0    | 1      | 1     | contracts/L1/Colosseum.sol:Colosseum |
-| segmentsLengths      | mapping(uint256 => uint256)                | 1    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
-| challenges           | mapping(uint256 => struct Types.Challenge) | 2    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
-| verifiedPublicInputs | mapping(bytes32 => bool)                   | 3    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| Name                 | Type                                                           | Slot | Offset | Bytes | Contract                             |
+|----------------------|----------------------------------------------------------------|------|--------|-------|--------------------------------------|
+| _initialized         | uint8                                                          | 0    | 0      | 1     | contracts/L1/Colosseum.sol:Colosseum |
+| _initializing        | bool                                                           | 0    | 1      | 1     | contracts/L1/Colosseum.sol:Colosseum |
+| segmentsLengths      | mapping(uint256 => uint256)                                    | 1    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| challenges           | mapping(uint256 => mapping(address => struct Types.Challenge)) | 2    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| verifiedPublicInputs | mapping(bytes32 => bool)                                       | 3    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 
 =======================
 ➡ contracts/L1/SecurityCouncil.sol:SecurityCouncil
@@ -30,23 +30,25 @@
 | owners                   | address[]                                            | 54   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
 | numConfirmationsRequired | uint256                                              | 55   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
 | transactionCount         | uint256                                              | 56   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| outputsDeleteRequested   | mapping(uint256 => bool)                             | 57   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
 
 =======================
 ➡ contracts/L1/ValidatorPool.sol:ValidatorPool
 =======================
 
-| Name                  | Type                                  | Slot | Offset | Bytes | Contract                                     |
-|-----------------------|---------------------------------------|------|--------|-------|----------------------------------------------|
-| _initialized          | uint8                                 | 0    | 0      | 1     | contracts/L1/ValidatorPool.sol:ValidatorPool |
-| _initializing         | bool                                  | 0    | 1      | 1     | contracts/L1/ValidatorPool.sol:ValidatorPool |
-| _status               | uint256                               | 1    | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
-| __gap                 | uint256[49]                           | 2    | 0      | 1568  | contracts/L1/ValidatorPool.sol:ValidatorPool |
-| balances              | mapping(address => uint256)           | 51   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
-| bonds                 | mapping(uint256 => struct Types.Bond) | 52   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
-| nextUnbondOutputIndex | uint256                               | 53   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
-| validators            | address[]                             | 54   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
-| validatorIndexes      | mapping(address => uint256)           | 55   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
-| nextPriorityValidator | address                               | 56   | 0      | 20    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| Name                  | Type                                            | Slot | Offset | Bytes | Contract                                     |
+|-----------------------|-------------------------------------------------|------|--------|-------|----------------------------------------------|
+| _initialized          | uint8                                           | 0    | 0      | 1     | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| _initializing         | bool                                            | 0    | 1      | 1     | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| _status               | uint256                                         | 1    | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| __gap                 | uint256[49]                                     | 2    | 0      | 1568  | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| balances              | mapping(address => uint256)                     | 51   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| bonds                 | mapping(uint256 => struct Types.Bond)           | 52   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| nextUnbondOutputIndex | uint256                                         | 53   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| validators            | address[]                                       | 54   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| validatorIndexes      | mapping(address => uint256)                     | 55   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| nextPriorityValidator | address                                         | 56   | 0      | 20    | contracts/L1/ValidatorPool.sol:ValidatorPool |
+| pendingBonds          | mapping(uint256 => mapping(address => uint128)) | 57   | 0      | 32    | contracts/L1/ValidatorPool.sol:ValidatorPool |
 
 =======================
 ➡ contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger
@@ -63,8 +65,7 @@
 | xDomainMsgSender   | address                  | 102  | 0      | 20    | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
 | msgNonce           | uint240                  | 103  | 0      | 30    | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
 | failedMessages     | mapping(bytes32 => bool) | 104  | 0      | 32    | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
-| reentrancyLocks    | mapping(bytes32 => bool) | 105  | 0      | 32    | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
-| __gap              | uint256[44]              | 106  | 0      | 1408  | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
+| __gap              | uint256[45]              | 105  | 0      | 1440  | contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger |
 
 =======================
 ➡ contracts/L1/L1StandardBridge.sol:L1StandardBridge
@@ -106,34 +107,35 @@
 ➡ contracts/L1/SystemConfig.sol:SystemConfig
 =======================
 
-| Name            | Type                                   | Slot | Offset | Bytes | Contract                                   |
-|-----------------|----------------------------------------|------|--------|-------|--------------------------------------------|
-| _initialized    | uint8                                  | 0    | 0      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
-| _initializing   | bool                                   | 0    | 1      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
-| __gap           | uint256[50]                            | 1    | 0      | 1600  | contracts/L1/SystemConfig.sol:SystemConfig |
-| _owner          | address                                | 51   | 0      | 20    | contracts/L1/SystemConfig.sol:SystemConfig |
-| __gap           | uint256[49]                            | 52   | 0      | 1568  | contracts/L1/SystemConfig.sol:SystemConfig |
-| overhead        | uint256                                | 101  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
-| scalar          | uint256                                | 102  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
-| batcherHash     | bytes32                                | 103  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
-| gasLimit        | uint64                                 | 104  | 0      | 8     | contracts/L1/SystemConfig.sol:SystemConfig |
-| _resourceConfig | struct ResourceMetering.ResourceConfig | 105  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| Name                  | Type                                   | Slot | Offset | Bytes | Contract                                   |
+|-----------------------|----------------------------------------|------|--------|-------|--------------------------------------------|
+| _initialized          | uint8                                  | 0    | 0      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
+| _initializing         | bool                                   | 0    | 1      | 1     | contracts/L1/SystemConfig.sol:SystemConfig |
+| __gap                 | uint256[50]                            | 1    | 0      | 1600  | contracts/L1/SystemConfig.sol:SystemConfig |
+| _owner                | address                                | 51   | 0      | 20    | contracts/L1/SystemConfig.sol:SystemConfig |
+| __gap                 | uint256[49]                            | 52   | 0      | 1568  | contracts/L1/SystemConfig.sol:SystemConfig |
+| overhead              | uint256                                | 101  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| scalar                | uint256                                | 102  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| batcherHash           | bytes32                                | 103  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| gasLimit              | uint64                                 | 104  | 0      | 8     | contracts/L1/SystemConfig.sol:SystemConfig |
+| _resourceConfig       | struct ResourceMetering.ResourceConfig | 105  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
+| validatorRewardScalar | uint256                                | 106  | 0      | 32    | contracts/L1/SystemConfig.sol:SystemConfig |
 
 =======================
 ➡ contracts/L2/L1Block.sol:L1Block
 =======================
 
-| Name                 | Type    | Slot | Offset | Bytes | Contract                         |
-|----------------------|---------|------|--------|-------|----------------------------------|
-| number               | uint64  | 0    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
-| timestamp            | uint64  | 0    | 8      | 8     | contracts/L2/L1Block.sol:L1Block |
-| basefee              | uint256 | 1    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| hash                 | bytes32 | 2    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| sequenceNumber       | uint64  | 3    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
-| batcherHash          | bytes32 | 4    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| l1FeeOverhead        | uint256 | 5    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| l1FeeScalar          | uint256 | 6    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
-| validatorRewardRatio | uint256 | 7    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| Name                  | Type    | Slot | Offset | Bytes | Contract                         |
+|-----------------------|---------|------|--------|-------|----------------------------------|
+| number                | uint64  | 0    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
+| timestamp             | uint64  | 0    | 8      | 8     | contracts/L2/L1Block.sol:L1Block |
+| basefee               | uint256 | 1    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| hash                  | bytes32 | 2    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| sequenceNumber        | uint64  | 3    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
+| batcherHash           | bytes32 | 4    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| l1FeeOverhead         | uint256 | 5    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| l1FeeScalar           | uint256 | 6    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| validatorRewardScalar | uint256 | 7    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 
 =======================
 ➡ contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger
@@ -150,8 +152,7 @@
 | xDomainMsgSender   | address                  | 102  | 0      | 20    | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
 | msgNonce           | uint240                  | 103  | 0      | 30    | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
 | failedMessages     | mapping(bytes32 => bool) | 104  | 0      | 32    | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
-| reentrancyLocks    | mapping(bytes32 => bool) | 105  | 0      | 32    | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
-| __gap              | uint256[44]              | 106  | 0      | 1408  | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
+| __gap              | uint256[45]              | 105  | 0      | 1440  | contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger |
 
 =======================
 ➡ contracts/L2/L2StandardBridge.sol:L2StandardBridge
@@ -243,3 +244,98 @@
 
 | Name | Type | Slot | Offset | Bytes | Contract |
 |------|------|------|--------|-------|----------|
+
+=======================
+➡ contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken
+=======================
+
+| Name                 | Type                                                       | Slot | Offset | Bytes | Contract                                                           |
+|----------------------|------------------------------------------------------------|------|--------|-------|--------------------------------------------------------------------|
+| _initialized         | uint8                                                      | 0    | 0      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _initializing        | bool                                                       | 0    | 1      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[50]                                                | 1    | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[50]                                                | 51   | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _name                | string                                                     | 101  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _symbol              | string                                                     | 102  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _owners              | mapping(uint256 => address)                                | 103  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _balances            | mapping(address => uint256)                                | 104  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _tokenApprovals      | mapping(uint256 => address)                                | 105  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _operatorApprovals   | mapping(address => mapping(address => bool))               | 106  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[44]                                                | 107  | 0      | 1408  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _ownedTokens         | mapping(address => mapping(uint256 => uint256))            | 151  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _ownedTokensIndex    | mapping(uint256 => uint256)                                | 152  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _allTokens           | uint256[]                                                  | 153  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _allTokensIndex      | mapping(uint256 => uint256)                                | 154  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[46]                                                | 155  | 0      | 1472  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _tokenURIs           | mapping(uint256 => string)                                 | 201  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[49]                                                | 202  | 0      | 1568  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _paused              | bool                                                       | 251  | 0      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[49]                                                | 252  | 0      | 1568  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _owner               | address                                                    | 301  | 0      | 20    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[49]                                                | 302  | 0      | 1568  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[50]                                                | 351  | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _hashedName          | bytes32                                                    | 401  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _hashedVersion       | bytes32                                                    | 402  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _name                | string                                                     | 403  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _version             | string                                                     | 404  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[48]                                                | 405  | 0      | 1536  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _delegation          | mapping(address => address)                                | 453  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _delegateCheckpoints | mapping(address => struct CheckpointsUpgradeable.Trace224) | 454  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _totalCheckpoints    | struct CheckpointsUpgradeable.Trace224                     | 455  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _nonces              | mapping(address => struct CountersUpgradeable.Counter)     | 456  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[46]                                                | 457  | 0      | 1472  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[50]                                                | 503  | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _tokenIdCounter      | struct CountersUpgradeable.Counter                         | 553  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| isLocked             | bool                                                       | 554  | 0      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+
+=======================
+➡ contracts/governance/TimeLock.sol:TimeLock
+=======================
+
+| Name          | Type                                                         | Slot | Offset | Bytes | Contract                                   |
+|---------------|--------------------------------------------------------------|------|--------|-------|--------------------------------------------|
+| _initialized  | uint8                                                        | 0    | 0      | 1     | contracts/governance/TimeLock.sol:TimeLock |
+| _initializing | bool                                                         | 0    | 1      | 1     | contracts/governance/TimeLock.sol:TimeLock |
+| __gap         | uint256[50]                                                  | 1    | 0      | 1600  | contracts/governance/TimeLock.sol:TimeLock |
+| __gap         | uint256[50]                                                  | 51   | 0      | 1600  | contracts/governance/TimeLock.sol:TimeLock |
+| _roles        | mapping(bytes32 => struct AccessControlUpgradeable.RoleData) | 101  | 0      | 32    | contracts/governance/TimeLock.sol:TimeLock |
+| __gap         | uint256[49]                                                  | 102  | 0      | 1568  | contracts/governance/TimeLock.sol:TimeLock |
+| _timestamps   | mapping(bytes32 => uint256)                                  | 151  | 0      | 32    | contracts/governance/TimeLock.sol:TimeLock |
+| _minDelay     | uint256                                                      | 152  | 0      | 32    | contracts/governance/TimeLock.sol:TimeLock |
+| __gap         | uint256[48]                                                  | 153  | 0      | 1536  | contracts/governance/TimeLock.sol:TimeLock |
+
+=======================
+➡ contracts/governance/UpgradeGovernor.sol:UpgradeGovernor
+=======================
+
+| Name                    | Type                                                                      | Slot | Offset | Bytes | Contract                                                 |
+|-------------------------|---------------------------------------------------------------------------|------|--------|-------|----------------------------------------------------------|
+| _initialized            | uint8                                                                     | 0    | 0      | 1     | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _initializing           | bool                                                                      | 0    | 1      | 1     | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 1    | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 51   | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _hashedName             | bytes32                                                                   | 101  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _hashedVersion          | bytes32                                                                   | 102  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _name                   | string                                                                    | 103  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _version                | string                                                                    | 104  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[48]                                                               | 105  | 0      | 1536  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 153  | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 203  | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _name                   | string                                                                    | 253  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _proposals              | mapping(uint256 => struct GovernorUpgradeable.ProposalCore)               | 254  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _governanceCall         | struct DoubleEndedQueueUpgradeable.Bytes32Deque                           | 255  | 0      | 64    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[46]                                                               | 257  | 0      | 1472  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _votingDelay            | uint256                                                                   | 303  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _votingPeriod           | uint256                                                                   | 304  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _proposalThreshold      | uint256                                                                   | 305  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[47]                                                               | 306  | 0      | 1504  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _proposalVotes          | mapping(uint256 => struct GovernorCountingSimpleUpgradeable.ProposalVote) | 353  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[49]                                                               | 354  | 0      | 1568  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| token                   | contract IERC5805Upgradeable                                              | 403  | 0      | 20    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[50]                                                               | 404  | 0      | 1600  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _quorumNumerator        | uint256                                                                   | 454  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _quorumNumeratorHistory | struct CheckpointsUpgradeable.Trace224                                    | 455  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[48]                                                               | 456  | 0      | 1536  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _timelock               | contract TimelockControllerUpgradeable                                    | 504  | 0      | 20    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| _timelockIds            | mapping(uint256 => bytes32)                                               | 505  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+| __gap                   | uint256[48]                                                               | 506  | 0      | 1536  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |

@@ -5,30 +5,33 @@ import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
+import { Constants } from "../libraries/Constants.sol";
 import { Semver } from "../universal/Semver.sol";
 import { ResourceMetering } from "./ResourceMetering.sol";
 
 /**
  * @title SystemConfig
  * @notice The SystemConfig contract is used to manage configuration of a Kroma network. All
- *         configuration is stored on L1 and picked up by L2 as part of the derviation of the L2
+ *         configuration is stored on L1 and picked up by L2 as part of the derivation of the L2
  *         chain.
  */
 contract SystemConfig is OwnableUpgradeable, Semver {
     /**
      * @notice Enum representing different types of updates.
      *
-     * @custom:value BATCHER              Represents an update to the batcher hash.
-     * @custom:value GAS_CONFIG           Represents an update to txn fee config on L2.
-     * @custom:value GAS_LIMIT            Represents an update to gas limit on L2.
-     * @custom:value UNSAFE_BLOCK_SIGNER  Represents an update to the signer key for unsafe
-     *                                    block distrubution.
+     * @custom:value BATCHER                 Represents an update to the batcher hash.
+     * @custom:value GAS_CONFIG              Represents an update to txn fee config on L2.
+     * @custom:value GAS_LIMIT               Represents an update to gas limit on L2.
+     * @custom:value UNSAFE_BLOCK_SIGNER     Represents an update to the signer key for unsafe
+     *                                       block distribution.
+     * @custom:value VALIDATOR_REWARD_SCALAR Represents an update to validator reward scalar.
      */
     enum UpdateType {
         BATCHER,
         GAS_CONFIG,
         GAS_LIMIT,
-        UNSAFE_BLOCK_SIGNER
+        UNSAFE_BLOCK_SIGNER,
+        VALIDATOR_REWARD_SCALAR
     }
 
     /**
@@ -72,6 +75,12 @@ contract SystemConfig is OwnableUpgradeable, Semver {
     ResourceMetering.ResourceConfig internal _resourceConfig;
 
     /**
+     * @notice The scalar value to distribute transaction fees as validator reward.
+     *         The denominator is 10000, so the ratio is expressed in 4 decimal places.
+     */
+    uint256 public validatorRewardScalar;
+
+    /**
      * @notice Emitted when configuration is updated
      *
      * @param version    SystemConfig version.
@@ -83,13 +92,14 @@ contract SystemConfig is OwnableUpgradeable, Semver {
     /**
      * @custom:semver 0.1.0
      *
-     * @param _owner             Initial owner of the contract.
-     * @param _overhead          Initial overhead value.
-     * @param _scalar            Initial scalar value.
-     * @param _batcherHash       Initial batcher hash.
-     * @param _gasLimit          Initial gas limit.
-     * @param _unsafeBlockSigner Initial unsafe block signer address.
-     * @param _config            Initial resource config.
+     * @param _owner                 Initial owner of the contract.
+     * @param _overhead              Initial overhead value.
+     * @param _scalar                Initial scalar value.
+     * @param _batcherHash           Initial batcher hash.
+     * @param _gasLimit              Initial gas limit.
+     * @param _unsafeBlockSigner     Initial unsafe block signer address.
+     * @param _config                Initial resource config.
+     * @param _validatorRewardScalar Initial validator reward scalar.
      */
     constructor(
         address _owner,
@@ -98,7 +108,8 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         bytes32 _batcherHash,
         uint64 _gasLimit,
         address _unsafeBlockSigner,
-        ResourceMetering.ResourceConfig memory _config
+        ResourceMetering.ResourceConfig memory _config,
+        uint256 _validatorRewardScalar
     ) Semver(0, 1, 0) {
         initialize(
             _owner,
@@ -107,7 +118,8 @@ contract SystemConfig is OwnableUpgradeable, Semver {
             _batcherHash,
             _gasLimit,
             _unsafeBlockSigner,
-            _config
+            _config,
+            _validatorRewardScalar
         );
     }
 
@@ -115,13 +127,14 @@ contract SystemConfig is OwnableUpgradeable, Semver {
      * @notice Initializer. The resource config must be set before the
      *         require check.
      *
-     * @param _owner             Initial owner of the contract.
-     * @param _overhead          Initial overhead value.
-     * @param _scalar            Initial scalar value.
-     * @param _batcherHash       Initial batcher hash.
-     * @param _gasLimit          Initial gas limit.
-     * @param _unsafeBlockSigner Initial unsafe block signer address.
-     * @param _config            Initial ResourceConfig.
+     * @param _owner                 Initial owner of the contract.
+     * @param _overhead              Initial overhead value.
+     * @param _scalar                Initial scalar value.
+     * @param _batcherHash           Initial batcher hash.
+     * @param _gasLimit              Initial gas limit.
+     * @param _unsafeBlockSigner     Initial unsafe block signer address.
+     * @param _config                Initial ResourceConfig.
+     * @param _validatorRewardScalar Initial validator reward scalar.
      */
     function initialize(
         address _owner,
@@ -130,7 +143,8 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         bytes32 _batcherHash,
         uint64 _gasLimit,
         address _unsafeBlockSigner,
-        ResourceMetering.ResourceConfig memory _config
+        ResourceMetering.ResourceConfig memory _config,
+        uint256 _validatorRewardScalar
     ) public initializer {
         __Ownable_init();
         transferOwnership(_owner);
@@ -141,6 +155,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         _setUnsafeBlockSigner(_unsafeBlockSigner);
         _setResourceConfig(_config);
         require(_gasLimit >= minimumGasLimit(), "SystemConfig: gas limit too low");
+        validatorRewardScalar = _validatorRewardScalar;
     }
 
     /**
@@ -270,8 +285,11 @@ contract SystemConfig is OwnableUpgradeable, Semver {
             _config.minimumBaseFee <= _config.maximumBaseFee,
             "SystemConfig: min base fee must be less than max base"
         );
-        // Base fee change denominator must be greater than 0.
-        require(_config.baseFeeMaxChangeDenominator > 0, "SystemConfig: denominator cannot be 0");
+        // Base fee change denominator must be greater than 1.
+        require(
+            _config.baseFeeMaxChangeDenominator > 1,
+            "SystemConfig: denominator must be larger than 1"
+        );
         // Max resource limit plus system tx gas must be less than or equal to the L2 gas limit.
         // The gas limit must be increased before these values can be increased.
         require(
@@ -291,5 +309,22 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         );
 
         _resourceConfig = _config;
+    }
+
+    /**
+     * @notice Updates the validator reward scalar.
+     *
+     * @param _validatorRewardScalar New validator reward scalar.
+     */
+    function setValidatorRewardScalar(uint256 _validatorRewardScalar) external onlyOwner {
+        require(
+            _validatorRewardScalar <= Constants.VALIDATOR_REWARD_DENOMINATOR,
+            "SystemConfig: the max value of validator reward scalar has been exceeded"
+        );
+
+        validatorRewardScalar = _validatorRewardScalar;
+
+        bytes memory data = abi.encode(_validatorRewardScalar);
+        emit ConfigUpdate(VERSION, UpdateType.VALIDATOR_REWARD_SCALAR, data);
     }
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/components/node/flags"
 	"github.com/kroma-network/kroma/components/node/p2p"
@@ -15,7 +15,7 @@ import (
 
 // LoadSignerSetup loads a configuration for a Signer to be set up later
 func LoadSignerSetup(ctx *cli.Context) (p2p.SignerSetup, error) {
-	key := ctx.GlobalString(flags.ProposerP2PKeyFlag.Name)
+	key := ctx.String(flags.ProposerP2PKeyFlag.Name)
 	if key != "" {
 		// Mnemonics are bad because they leak *all* keys when they leak.
 		// Unencrypted keys from file are bad because they are easy to leak (and we are not checking file permissions).

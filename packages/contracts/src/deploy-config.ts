@@ -15,12 +15,6 @@ interface RequiredDeployConfig {
   finalSystemOwner?: string
 
   /**
-   * Address that is deployed as the GUARDIAN in the KromaPortal. Has the
-   * ability to pause withdrawals.
-   */
-  portalGuardian: string
-
-  /**
    * Address that will own the entire system on L1 during the deployment process. This address will
    * not own the system after the deployment is complete, ownership will be transferred to the
    * final system owner.
@@ -88,19 +82,19 @@ interface RequiredDeployConfig {
   validatorPoolTrustedValidator: string
 
   /**
-   * Minimum amount of the bond in hex value.
+   * Amount of the required bond in hex value.
    */
-  validatorPoolMinBondAmount: string
+  validatorPoolRequiredBondAmount: string
 
   /**
-   * The period during a submission round that is not penalized (in seconds).
+   * Max number of unbonds when trying unbond.
    */
-  validatorPoolNonPenaltyPeriod: number
+  validatorPoolMaxUnbond: number
 
   /**
-   * The period during a submission round that is penalized (in seconds).
+   * The duration of one submission round in seconds.
    */
-  validatorPoolPenaltyPeriod: number
+  validatorPoolRoundDuration: number
 
   /**
    * Output Oracle submission interval in L2 blocks.
@@ -123,6 +117,11 @@ interface RequiredDeployConfig {
    * Output finalization period in seconds.
    */
   finalizationPeriodSeconds: number
+
+  /**
+   * The period seconds for which challenges can be created per each output.
+   */
+  colosseumCreationPeriodSeconds: number
 
   /**
    * Dummy hash to be used to compute ZK fault proof as a padding if
@@ -165,6 +164,21 @@ interface RequiredDeployConfig {
    * Timeout seconds of proving in the Colosseum.
    */
   colosseumProvingTimeout: number
+
+  /**
+   * The value used by line 459 of the ZK verifier contract
+   */
+  zkVerifierHashScalar: string
+
+  /**
+   * The value used by line 1173 of the ZK verifier contract
+   */
+  zkVerifierM56Px: string
+
+  /**
+   * The value used by line 1173 of the ZK verifier contract
+   */
+  zkVerifierM56Py: string
 }
 
 /**
@@ -201,6 +215,7 @@ interface OptionalL2DeployConfig {
   eip1559Elasticity: number
   gasPriceOracleOverhead: number
   gasPriceOracleScalar: number
+  validatorRewardScalar: number
 }
 
 /**
@@ -224,9 +239,6 @@ export const deployConfigSpec: {
     default: 1,
   },
   finalSystemOwner: {
-    type: 'address',
-  },
-  portalGuardian: {
     type: 'address',
   },
   l1StartingBlockTag: {
@@ -262,13 +274,13 @@ export const deployConfigSpec: {
   validatorPoolTrustedValidator: {
     type: 'address',
   },
-  validatorPoolMinBondAmount: {
+  validatorPoolRequiredBondAmount: {
     type: 'string', // uint256
   },
-  validatorPoolNonPenaltyPeriod: {
+  validatorPoolMaxUnbond: {
     type: 'number',
   },
-  validatorPoolPenaltyPeriod: {
+  validatorPoolRoundDuration: {
     type: 'number',
   },
   l2OutputOracleSubmissionInterval: {
@@ -378,6 +390,13 @@ export const deployConfigSpec: {
     type: 'number',
     default: 1_000_000,
   },
+  validatorRewardScalar: {
+    type: 'number',
+    default: 0,
+  },
+  colosseumCreationPeriodSeconds: {
+    type: 'number',
+  },
   colosseumBisectionTimeout: {
     type: 'number',
     default: 3600,
@@ -396,5 +415,14 @@ export const deployConfigSpec: {
   },
   colosseumSegmentsLengths: {
     type: 'string', // comma-separated segments lengths
+  },
+  zkVerifierHashScalar: {
+    type: 'string', // uint256
+  },
+  zkVerifierM56Px: {
+    type: 'string', // uint256
+  },
+  zkVerifierM56Py: {
+    type: 'string', // uint256
   },
 }

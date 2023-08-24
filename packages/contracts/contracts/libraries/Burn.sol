@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
+import { SafeCall } from "./SafeCall.sol";
+
 /**
  * @title Burn
  * @notice Utilities for burning stuff.
@@ -8,11 +10,12 @@ pragma solidity 0.8.15;
 library Burn {
     /**
      * Burns a given amount of ETH.
+     * Note that execution engine of Kroma does not support SELFDESTRUCT opcode, so it sends ETH to zero address.
      *
      * @param _amount Amount of ETH to burn.
      */
     function eth(uint256 _amount) internal {
-        new Burner{ value: _amount }();
+        SafeCall.call(address(0), gasleft(), _amount, "");
     }
 
     /**
@@ -26,17 +29,5 @@ library Burn {
         while (initialGas - gasleft() < _amount) {
             ++i;
         }
-    }
-}
-
-/**
- * @title Burner
- * @notice Burner self-destructs on creation and sends all ETH to itself, removing all ETH given to
- *         the contract from the circulating supply. Self-destructing is the only way to remove ETH
- *         from the circulating supply.
- */
-contract Burner {
-    constructor() payable {
-        selfdestruct(payable(address(this)));
     }
 }

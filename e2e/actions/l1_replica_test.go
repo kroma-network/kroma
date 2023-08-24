@@ -18,15 +18,6 @@ import (
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
-var defaultRollupTestParams = &e2eutils.TestParams{
-	MaxProposerDrift:   40,
-	ProposerWindowSize: 120,
-	ChannelTimeout:     120,
-	L1BlockTime:        15,
-}
-
-var defaultAlloc = &e2eutils.AllocParams{PrefundTestUsers: true}
-
 // Test if we can mock an RPC failure
 func TestL1Replica_ActL1RPCFail(gt *testing.T) {
 	t := NewDefaultTesting(gt)

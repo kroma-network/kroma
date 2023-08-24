@@ -58,12 +58,13 @@ type Metrics struct {
 	PendingBlocksCount prometheus.GaugeVec
 	BlocksAddedCount   prometheus.Gauge
 
-	ChannelInputBytes   prometheus.GaugeVec
-	ChannelReadyBytes   prometheus.Gauge
-	ChannelOutputBytes  prometheus.Gauge
-	ChannelClosedReason prometheus.Gauge
-	ChannelNumFrames    prometheus.Gauge
-	ChannelComprRatio   prometheus.Histogram
+	ChannelInputBytes      prometheus.GaugeVec
+	ChannelReadyBytes      prometheus.Gauge
+	ChannelOutputBytes     prometheus.Gauge
+	ChannelClosedReason    prometheus.Gauge
+	ChannelNumFrames       prometheus.Gauge
+	ChannelComprRatio      prometheus.Histogram
+	ChannelComprRatioValue prometheus.Gauge
 
 	BatcherTxEvs kmetrics.EventVec
 }
@@ -143,6 +144,11 @@ func NewMetrics(procName string) *Metrics {
 			Name:      "channel_compr_ratio",
 			Help:      "Compression ratios of closed channel.",
 			Buckets:   append([]float64{0.1, 0.2}, prometheus.LinearBuckets(0.3, 0.05, 14)...),
+		}),
+		ChannelComprRatioValue: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace: ns,
+			Name:      "channel_compr_ratio_value",
+			Help:      "Compression ratios of closed channel.",
 		}),
 
 		BatcherTxEvs: kmetrics.NewEventVec(factory, ns, "batcher_tx", "BatcherTx", []string{"stage"}),
@@ -226,6 +232,7 @@ func (m *Metrics) RecordChannelClosed(id derive.ChannelID, numPendingBlocks int,
 		comprRatio = float64(outputComprBytes) / float64(inputBytes)
 	}
 	m.ChannelComprRatio.Observe(comprRatio)
+	m.ChannelComprRatioValue.Set(comprRatio)
 
 	m.ChannelClosedReason.Set(float64(ClosedReasonToNum(reason)))
 }

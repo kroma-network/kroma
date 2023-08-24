@@ -28,7 +28,8 @@ contract L2OutputOracle is Initializable, Semver {
 
     /**
      * @notice The interval in L2 blocks at which checkpoints must be submitted. Although this is
-     *         immutable, it can safely be modified by upgrading the implementation contract.
+     *         immutable, it can be modified by upgrading the implementation contract.
+     *         Note that nodes that fetch and use this value need to restart when it is modified.
      */
     uint256 public immutable SUBMISSION_INTERVAL;
 
@@ -182,14 +183,12 @@ contract L2OutputOracle is Initializable, Semver {
      * @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
      * @param _l1BlockHash   A block hash which must be included in the current chain.
      * @param _l1BlockNumber The block number with the specified block hash.
-     * @param _bondAmount    Amount of bond.
      */
     function submitL2Output(
         bytes32 _outputRoot,
         uint256 _l2BlockNumber,
         bytes32 _l1BlockHash,
-        uint256 _l1BlockNumber,
-        uint256 _bondAmount
+        uint256 _l1BlockNumber
     ) external payable {
         address nextValidator = VALIDATOR_POOL.nextValidator();
         // If it's not a public round, only selected validators can submit output.
@@ -215,15 +214,11 @@ contract L2OutputOracle is Initializable, Semver {
             "L2OutputOracle: L2 checkpoint output cannot be the zero hash"
         );
 
-        if (_l1BlockHash != bytes32(0)) {
+        if (_l1BlockHash != bytes32(0) && blockhash(_l1BlockNumber) != bytes32(0)) {
             // This check allows the validator to submit an output based on a given L1 block,
             // without fear that it will be reorged out.
-            // It will also revert if the blockheight provided is more than 256 blocks behind the
-            // chain tip (as the hash will return as zero). This does open the door to a griefing
-            // attack in which the validator's submission is censored until the block is no longer
-            // retrievable, if the validator is experiencing this attack it can simply leave out the
-            // blockhash value, and delay submission until it is confident that the L1 block is
-            // finalized.
+            // It will be skipped if the blockheight provided is more than 256 blocks behind the
+            // chain tip (as the hash will return as zero).
             require(
                 blockhash(_l1BlockNumber) == _l1BlockHash,
                 "L2OutputOracle: block hash does not match the hash at the expected height"
@@ -245,7 +240,6 @@ contract L2OutputOracle is Initializable, Semver {
 
         VALIDATOR_POOL.createBond(
             outputIndex,
-            uint128(_bondAmount),
             uint128(block.timestamp + FINALIZATION_PERIOD_SECONDS)
         );
     }
@@ -374,11 +368,33 @@ contract L2OutputOracle is Initializable, Semver {
     /**
      * @notice Returns the address of the L2 output submitter.
      *
-     * @param _outputIndex Index of the output.
+     * @param _outputIndex Index of an output.
      *
      * @return Address of the submitter.
      */
     function getSubmitter(uint256 _outputIndex) external view returns (address) {
         return l2Outputs[_outputIndex].submitter;
+    }
+
+    /**
+     * @notice Returns if the output of given index is finalized.
+     *
+     * @param _outputIndex Index of an output.
+     *
+     * @return If the given output is finalized or not.
+     */
+    function isFinalized(uint256 _outputIndex) external view returns (bool) {
+        return l2Outputs[_outputIndex].timestamp + FINALIZATION_PERIOD_SECONDS < block.timestamp;
+    }
+
+    /**
+     * @notice Returns the finalization time of given output index.
+     *
+     * @param _outputIndex Index of an output.
+     *
+     * @return The finalization time of given output index.
+     */
+    function finalizedAt(uint256 _outputIndex) external view returns (uint256) {
+        return l2Outputs[_outputIndex].timestamp + FINALIZATION_PERIOD_SECONDS;
     }
 }

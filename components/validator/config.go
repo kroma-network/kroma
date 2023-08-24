@@ -32,16 +32,16 @@ type Config struct {
 	ValidatorPoolAddr            common.Address
 	ChallengerPollInterval       time.Duration
 	NetworkTimeout               time.Duration
-	TxManager                    *txmgr.SimpleTxManager
+	TxManager                    *txmgr.BufferedTxManager
 	L1Client                     *ethclient.Client
+	L2Client                     *ethclient.Client
 	RollupClient                 *sources.RollupClient
 	RollupConfig                 *rollup.Config
 	AllowNonFinalized            bool
-	OutputSubmitterDisabled      bool
-	OutputSubmitterBondAmount    uint64
+	OutputSubmitterEnabled       bool
 	OutputSubmitterRetryInterval time.Duration
 	OutputSubmitterRoundBuffer   uint64
-	ChallengerDisabled           bool
+	ChallengerEnabled            bool
 	GuardianEnabled              bool
 	ProofFetcher                 ProofFetcher
 }
@@ -61,6 +61,9 @@ type CLIConfig struct {
 	// L1EthRpc is the Websocket provider URL for L1.
 	L1EthRpc string
 
+	// L2EthRpc is the HTTP provider URL for the L2 execution engine.
+	L2EthRpc string
+
 	// RollupRpc is the HTTP provider URL for the rollup node.
 	RollupRpc string
 
@@ -79,17 +82,14 @@ type CLIConfig struct {
 	// ChallengerPollInterval is how frequently to poll L2 for new finalized outputs.
 	ChallengerPollInterval time.Duration
 
-	// ProverGrpc is the URL of prover grpc server.
-	ProverGrpc string
+	// ProverRPC is the URL of prover jsonRPC server.
+	ProverRPC string
 
 	// AllowNonFinalized can be set to true to submit outputs
 	// for L2 blocks derived from non-finalized L1 data.
 	AllowNonFinalized bool
 
-	OutputSubmitterDisabled bool
-
-	// OutputSubmitterBondAmount is the amount to bond when submitting each output.
-	OutputSubmitterBondAmount uint64
+	OutputSubmitterEnabled bool
 
 	// OutputSubmitterRetryInterval is how frequently to retry output submission.
 	OutputSubmitterRetryInterval time.Duration
@@ -97,7 +97,7 @@ type CLIConfig struct {
 	// OutputSubmitterRoundBuffer is how many blocks before each round to start trying submission.
 	OutputSubmitterRoundBuffer uint64
 
-	ChallengerDisabled bool
+	ChallengerEnabled bool
 
 	GuardianEnabled bool
 
@@ -111,6 +111,9 @@ type CLIConfig struct {
 }
 
 func (c CLIConfig) Check() error {
+	if !(c.OutputSubmitterEnabled || c.ChallengerEnabled || c.GuardianEnabled) {
+		return errors.New("one of output submitter, challenger, guardian should be enabled")
+	}
 	if err := c.RPCConfig.Check(); err != nil {
 		return err
 	}
@@ -134,22 +137,22 @@ func NewCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		// Required Flags
 		L1EthRpc:               ctx.GlobalString(flags.L1EthRpcFlag.Name),
+		L2EthRpc:               ctx.GlobalString(flags.L2EthRpcFlag.Name),
 		RollupRpc:              ctx.GlobalString(flags.RollupRpcFlag.Name),
 		L2OOAddress:            ctx.GlobalString(flags.L2OOAddressFlag.Name),
 		ColosseumAddress:       ctx.GlobalString(flags.ColosseumAddressFlag.Name),
 		ValPoolAddress:         ctx.GlobalString(flags.ValPoolAddressFlag.Name),
+		OutputSubmitterEnabled: ctx.GlobalBool(flags.OutputSubmitterEnabledFlag.Name),
+		ChallengerEnabled:      ctx.GlobalBool(flags.ChallengerEnabledFlag.Name),
 		ChallengerPollInterval: ctx.GlobalDuration(flags.ChallengerPollIntervalFlag.Name),
-		ProverGrpc:             ctx.GlobalString(flags.ProverGrpcFlag.Name),
 		TxMgrConfig:            txmgr.ReadCLIConfig(ctx),
 
 		// Optional Flags
 		AllowNonFinalized:            ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
-		OutputSubmitterDisabled:      ctx.GlobalBool(flags.OutputSubmitterDisabledFlag.Name),
-		OutputSubmitterBondAmount:    ctx.GlobalUint64(flags.OutputSubmitterBondAmountFlag.Name),
 		OutputSubmitterRetryInterval: ctx.GlobalDuration(flags.OutputSubmitterRetryIntervalFlag.Name),
 		OutputSubmitterRoundBuffer:   ctx.GlobalUint64(flags.OutputSubmitterRoundBufferFlag.Name),
-		ChallengerDisabled:           ctx.GlobalBool(flags.ChallengerDisabledFlag.Name),
 		SecurityCouncilAddress:       ctx.GlobalString(flags.SecurityCouncilAddressFlag.Name),
+		ProverRPC:                    ctx.GlobalString(flags.ProverRPCFlag.Name),
 		GuardianEnabled:              ctx.GlobalBool(flags.GuardianEnabledFlag.Name),
 		FetchingProofTimeout:         ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
 		RPCConfig:                    krpc.ReadCLIConfig(ctx),
@@ -184,22 +187,18 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
-	txManager, err := txmgr.NewSimpleTxManager("validator", l, m, cfg.TxMgrConfig)
+	txManager, err := txmgr.NewBufferedTxManager("validator", l, m, cfg.TxMgrConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	if cfg.OutputSubmitterDisabled && cfg.ChallengerDisabled {
-		return nil, errors.New("output submitter and challenger are disabled. either output submitter or challenger must be enabled")
-	}
-
-	if !cfg.ChallengerDisabled && len(cfg.ProverGrpc) == 0 {
-		return nil, errors.New("ProverGrpc is required but given empty")
+	if cfg.ChallengerEnabled && len(cfg.ProverRPC) == 0 {
+		return nil, errors.New("ProverRPC is required when challenger enabled, but given empty")
 	}
 
 	var fetcher ProofFetcher
-	if len(cfg.ProverGrpc) > 0 {
-		fetcher, err = chal.NewFetcher(cfg.ProverGrpc, cfg.FetchingProofTimeout, l)
+	if len(cfg.ProverRPC) > 0 {
+		fetcher, err = chal.NewFetcher(cfg.ProverRPC, cfg.FetchingProofTimeout, l)
 		if err != nil {
 			return nil, err
 		}
@@ -208,6 +207,11 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	// Connect to L1 and L2 providers. Perform these last since they are the most expensive.
 	ctx := context.Background()
 	l1Client, err := utils.DialEthClientWithTimeout(ctx, cfg.L1EthRpc)
+	if err != nil {
+		return nil, err
+	}
+
+	l2Client, err := utils.DialEthClientWithTimeout(ctx, cfg.L2EthRpc)
 	if err != nil {
 		return nil, err
 	}
@@ -231,14 +235,14 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		NetworkTimeout:               cfg.TxMgrConfig.NetworkTimeout,
 		TxManager:                    txManager,
 		L1Client:                     l1Client,
+		L2Client:                     l2Client,
 		RollupClient:                 rollupClient,
 		RollupConfig:                 rollupConfig,
 		AllowNonFinalized:            cfg.AllowNonFinalized,
-		OutputSubmitterDisabled:      cfg.OutputSubmitterDisabled,
-		OutputSubmitterBondAmount:    cfg.OutputSubmitterBondAmount,
+		OutputSubmitterEnabled:       cfg.OutputSubmitterEnabled,
 		OutputSubmitterRetryInterval: cfg.OutputSubmitterRetryInterval,
 		OutputSubmitterRoundBuffer:   cfg.OutputSubmitterRoundBuffer,
-		ChallengerDisabled:           cfg.ChallengerDisabled,
+		ChallengerEnabled:            cfg.ChallengerEnabled,
 		GuardianEnabled:              cfg.GuardianEnabled,
 		ProofFetcher:                 fetcher,
 	}, nil

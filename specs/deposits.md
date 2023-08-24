@@ -278,7 +278,7 @@ The predeploy stores the following values:
   - `overhead` (`uint256`): The L1 fee overhead to apply to L1 cost computation of transactions in this L2 block.
   - `scalar` (`uint256`): The L1 fee scalar to apply to L1 cost computation of transactions in this L2 block.
 - Parameters to calculate a validator reward.
-  - `validatorRewardRatio` (`uint256`): A number between 0 and 10000. A [validator reward][g-validator-reward] is
+  - `validatorRewardScalar` (`uint256`): A number between 0 and 10000. A [validator reward][g-validator-reward] is
   calculated with the expression.
 
 The contract implements an authorization scheme, such that it only accepts state-changing calls from

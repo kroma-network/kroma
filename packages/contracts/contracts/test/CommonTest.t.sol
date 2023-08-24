@@ -7,6 +7,9 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { Test, StdUtils } from "forge-std/Test.sol";
 
+import { SecurityCouncilToken } from "../governance/SecurityCouncilToken.sol";
+import { TimeLock } from "../governance/TimeLock.sol";
+import { UpgradeGovernor } from "../governance/UpgradeGovernor.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
@@ -31,6 +34,7 @@ import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
 import { KromaMintableERC721Factory } from "../universal/KromaMintableERC721Factory.sol";
 import { Proxy } from "../universal/Proxy.sol";
+import { ProxyAdmin } from "../universal/ProxyAdmin.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 
 contract CommonTest is Test {
@@ -103,23 +107,22 @@ contract L2OutputOracle_Initializer is CommonTest {
     L2ToL1MessagePasser messagePasser =
         L2ToL1MessagePasser(payable(Predeploys.L2_TO_L1_MESSAGE_PASSER));
 
-    // ValidatorPool constructor arguments
-    address internal trusted = 0x000000000000000000000000000000000000aaaa;
-    uint256 internal minBond = 0.1 ether;
-    uint256 internal nonPenaltyPeriod = 10 minutes;
-    uint256 internal penaltyPeriod = 20 minutes;
-    uint256 internal roundDuration = nonPenaltyPeriod + penaltyPeriod;
-
     // Constructor arguments
-    address internal asserter = 0x000000000000000000000000000000000000aAaB;
-    address internal challenger = 0x000000000000000000000000000000000000AAaC;
     uint256 internal submissionInterval = 1800;
     uint256 internal l2BlockTime = 2;
-    uint256 internal startingBlockNumber = 200;
+    uint256 internal startingBlockNumber = 10;
     uint256 internal startingTimestamp = 1000;
     address internal guardian = 0x000000000000000000000000000000000000AaaD;
 
+    // ValidatorPool constructor arguments
+    address internal trusted = 0x000000000000000000000000000000000000aaaa;
+    uint256 internal requiredBondAmount = 0.1 ether;
+    uint256 internal maxUnbond = 2;
+    uint256 internal roundDuration = (submissionInterval * l2BlockTime) / 2;
+
     // Test data
+    address internal asserter = 0x000000000000000000000000000000000000aAaB;
+    address internal challenger = 0x000000000000000000000000000000000000AAaC;
     uint256 initL1Time;
 
     event OutputSubmitted(
@@ -139,9 +142,9 @@ contract L2OutputOracle_Initializer is CommonTest {
     function setUp() public virtual override {
         super.setUp();
 
-        vm.deal(trusted, minBond * 10);
-        vm.deal(asserter, minBond * 10);
-        vm.deal(challenger, minBond * 10);
+        vm.deal(trusted, requiredBondAmount * 10);
+        vm.deal(asserter, requiredBondAmount * 10);
+        vm.deal(challenger, requiredBondAmount * 10);
 
         // Deploy proxies
         pool = ValidatorPool(address(new Proxy(multisig)));
@@ -157,7 +160,8 @@ contract L2OutputOracle_Initializer is CommonTest {
             _batcherHash: bytes32(0),
             _gasLimit: 30_000_000,
             _unsafeBlockSigner: address(0),
-            _config: config
+            _config: config,
+            _validatorRewardScalar: 5000
         });
 
         // Mock KromaPortal
@@ -174,10 +178,11 @@ contract L2OutputOracle_Initializer is CommonTest {
         poolImpl = new ValidatorPool({
             _l2OutputOracle: oracle,
             _portal: mockPortal,
+            _securityCouncil: guardian,
             _trustedValidator: trusted,
-            _minBondAmount: minBond,
-            _nonPenaltyPeriod: nonPenaltyPeriod,
-            _penaltyPeriod: penaltyPeriod
+            _requiredBondAmount: requiredBondAmount,
+            _maxUnbond: maxUnbond,
+            _roundDuration: roundDuration
         });
 
         // By default the first block has timestamp and number zero, which will cause underflows in
@@ -242,7 +247,7 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
     function setUp() public virtual override {
         super.setUp();
 
-        vm.deal(trusted, minBond * 100);
+        vm.deal(trusted, requiredBondAmount * 100);
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
 
@@ -483,25 +488,34 @@ contract Colosseum_Initializer is Portal_Initializer {
     uint256 immutable CHAIN_ID = 901;
     bytes32 immutable DUMMY_HASH =
         hex"a1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7";
-    uint256 immutable MAX_TXS = 25;
+    uint256 immutable MAX_TXS = 100;
 
     // Test target
     Colosseum colosseumImpl;
 
     ZKVerifier zkVerifier;
+    ZKVerifier zkVerifierImpl;
 
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
+    address upgradeGovernor = makeAddr("upgradeGovernor");
     uint256 NUM_CONFIRMATIONS_REQUIRED = 2;
     address[] securityCouncilOwners = new address[](3);
 
     uint256[] segmentsLengths;
 
     function setUp() public virtual override {
-        super.setUp();
-
         // Deploy the ZKVerifier
-        zkVerifier = new ZKVerifier();
+        // Chain ID 901
+        Proxy verifierProxy = new Proxy(multisig);
+        zkVerifier = ZKVerifier(payable(address(verifierProxy)));
+        zkVerifierImpl = new ZKVerifier({
+            _hashScalar: 14523433211431174524389868863993690365141010513245706409377065114304218460986,
+            _m56Px: 4616778122792150218780382812396143832905328947307040502364327766326173155703,
+            _m56Py: 1715078755142899395367703690683049275256965470385291428932481791418357695593
+        });
+        vm.prank(multisig);
+        verifierProxy.upgradeTo(address(zkVerifierImpl));
 
         // case - L2OutputOracle submissionInterval == 1800
         segmentsLengths.push(9);
@@ -518,7 +532,7 @@ contract Colosseum_Initializer is Portal_Initializer {
         // Deploy the SecurityCouncil (after Colosseum contract deployment)
         Proxy securityCouncilProxy = new Proxy(multisig);
         securityCouncil = SecurityCouncil(address(securityCouncilProxy));
-        securityCouncilImpl = new SecurityCouncil(address(colosseum));
+        securityCouncilImpl = new SecurityCouncil(address(colosseum), upgradeGovernor);
         vm.prank(multisig);
 
         securityCouncilOwners[0] = makeAddr("alice");
@@ -536,6 +550,7 @@ contract Colosseum_Initializer is Portal_Initializer {
             _l2Oracle: oracle,
             _zkVerifier: zkVerifier,
             _submissionInterval: submissionInterval,
+            _creationPeriodSeconds: 6 days,
             _bisectionTimeout: 30 minutes,
             _provingTimeout: 1 hours,
             _dummyHash: DUMMY_HASH,
@@ -557,6 +572,7 @@ contract SecurityCouncil_Initializer is CommonTest {
     address[] owners = new address[](3);
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
+    address upgradeGovernor = makeAddr("upgradeGovernor");
     address colosseumAddr;
 
     function setUp() public virtual override {
@@ -565,7 +581,7 @@ contract SecurityCouncil_Initializer is CommonTest {
         Proxy proxy = new Proxy(multisig);
         securityCouncil = SecurityCouncil(address(proxy));
         colosseumAddr = makeAddr("colosseum");
-        securityCouncilImpl = new SecurityCouncil(colosseumAddr);
+        securityCouncilImpl = new SecurityCouncil(colosseumAddr, upgradeGovernor);
         vm.prank(multisig);
 
         owners[0] = makeAddr("alice");
@@ -575,6 +591,85 @@ contract SecurityCouncil_Initializer is CommonTest {
             address(securityCouncilImpl),
             abi.encodeCall(SecurityCouncil.initialize, (true, owners, NUM_CONFIRMATIONS_REQUIRED))
         );
+    }
+}
+
+contract UpgradeGovernor_Initializer is CommonTest {
+    address superAdmin = makeAddr("superAdmin");
+    address owner = makeAddr("owner");
+
+    // Constructor arguments
+    uint256 internal initialVotingDelay = 0;
+    uint256 internal initialVotingPeriod = 30;
+    uint256 internal initialProposalThreshold = 1;
+    uint256 internal votesQuorumFraction = 51;
+    uint256 internal minDelaySeconds = 3;
+    string internal baseUri = "";
+
+    // Test data
+    address internal guardian1 = 0x0000000000000000000000000000000000001004;
+    address internal guardian2 = 0x0000000000000000000000000000000000001005;
+    address internal notGuardian = 0x0000000000000000000000000000000000001006;
+
+    address[] timeLockProposers = new address[](1);
+    address[] timeLockExecutors = new address[](1);
+
+    SecurityCouncilToken securityCouncilToken;
+    TimeLock timeLock;
+    UpgradeGovernor upgradeGovernor;
+
+    function setUp() public virtual override {
+        super.setUp();
+        vm.startPrank(multisig);
+
+        // setup SecurityCouncilToken
+        Proxy securityCouncilTokenProxy = new Proxy(multisig);
+        SecurityCouncilToken securityCouncilTokenImpl = new SecurityCouncilToken();
+        securityCouncilToken = SecurityCouncilToken(payable(address(securityCouncilTokenProxy)));
+        securityCouncilTokenProxy.upgradeToAndCall(
+            address(securityCouncilTokenImpl),
+            abi.encodeCall(SecurityCouncilToken.initialize, owner)
+        );
+
+        // setup TimeLock & UpgradeGovernor
+        Proxy timeLockProxy = new Proxy(multisig);
+        Proxy upgradeGovernorProxy = new Proxy(multisig);
+        TimeLock timeLockImpl = new TimeLock();
+        UpgradeGovernor upgradeGovernorImpl = new UpgradeGovernor();
+        timeLock = TimeLock(payable(address(timeLockProxy)));
+        upgradeGovernor = UpgradeGovernor(payable(address(upgradeGovernorProxy)));
+
+        timeLockProposers[0] = address(upgradeGovernor);
+        timeLockExecutors[0] = address(upgradeGovernor);
+
+        timeLockProxy.upgradeToAndCall(
+            address(timeLockImpl),
+            abi.encodeCall(
+                TimeLock.initialize,
+                (minDelaySeconds, timeLockProposers, timeLockExecutors, address(upgradeGovernor))
+            )
+        );
+
+        upgradeGovernorProxy.upgradeToAndCall(
+            address(upgradeGovernorImpl),
+            abi.encodeCall(
+                UpgradeGovernor.initialize,
+                (
+                    address(securityCouncilToken),
+                    payable(address(timeLock)),
+                    initialVotingDelay,
+                    initialVotingPeriod,
+                    initialProposalThreshold,
+                    votesQuorumFraction
+                )
+            )
+        );
+
+        //change proxy admin to upgradeGovernor
+        securityCouncilTokenProxy.changeAdmin(address(upgradeGovernor));
+        timeLockProxy.changeAdmin(address(upgradeGovernor));
+        upgradeGovernorProxy.changeAdmin(address(upgradeGovernor));
+        vm.stopPrank();
     }
 }
 

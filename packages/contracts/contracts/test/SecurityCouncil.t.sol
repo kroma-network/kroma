@@ -19,8 +19,9 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
     event ValidationRequested(
         uint256 indexed transactionId,
         bytes32 outputRoot,
-        uint128 l2BlockNumber
+        uint256 l2BlockNumber
     );
+    event DeletionRequested(uint256 indexed transactionId, uint256 indexed outputIndex);
 
     function test_initialize_succeeds() external {
         address[] memory _owners = securityCouncil.getOwners();
@@ -29,6 +30,7 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
         }
 
         assertEq(securityCouncil.COLOSSEUM(), colosseumAddr);
+        assertEq(securityCouncil.GOVERNOR(), upgradeGovernor);
         assertEq(securityCouncil.numConfirmationsRequired(), NUM_CONFIRMATIONS_REQUIRED);
         assertEq(securityCouncil.getTransactionCount(true, true), 0);
     }
@@ -132,11 +134,9 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
     }
 
     function test_requestValidation_reverts() external {
-        bytes32 outputRoot = bytes32("dummy output root");
-        uint128 l2BlockNumber = 3;
         vm.prank(makeAddr("not colosseum"));
         vm.expectRevert("SecurityCouncil: only the colosseum contract can be a sender");
-        securityCouncil.requestValidation(outputRoot, l2BlockNumber, bytes("anydata"));
+        securityCouncil.requestValidation(bytes32(0), 0, bytes("anydata"));
     }
 
     function test_requestValidation_succeeds() external {
@@ -175,9 +175,65 @@ contract SecurityCouncilTest is SecurityCouncil_Initializer {
         confirmList = securityCouncil.getConfirmations(txId);
         assertEq(confirmList.length, 2);
 
+        // check transaction executed
+        (t.destination, t.executed, t.value, t.data) = securityCouncil.transactions(txId);
+        assertEq(t.executed, true);
+    }
+
+    function test_requestDeletion_succeeds() external {
+        // request output deletion
+        uint256 _outputIndex = 1;
+        uint256 txId = 0;
+        vm.prank(owners[0]);
+        vm.expectEmit(true, true, false, false);
+        emit DeletionRequested(txId, _outputIndex);
+        securityCouncil.requestDeletion(_outputIndex, false);
+
+        // check transaction not executed
+        Types.MultiSigTransaction memory t;
+        (t.destination, t.executed, t.value, t.data) = securityCouncil.transactions(txId);
+        assertEq(t.executed, false);
+
+        // confirm transaction to execute
+        vm.prank(owners[1]);
+        securityCouncil.confirmTransaction(txId);
+
+        // check transaction confirmed
+        address[] memory confirmList;
+        confirmList = securityCouncil.getConfirmations(txId);
+        assertEq(confirmList.length, 2);
 
         // check transaction executed
         (t.destination, t.executed, t.value, t.data) = securityCouncil.transactions(txId);
         assertEq(t.executed, true);
+    }
+
+    function test_requestDeletion_alreadyRequested_reverts() external {
+        // request output deletion
+        uint256 _outputIndex = 1;
+        vm.prank(owners[0]);
+        vm.expectEmit(true, true, false, false);
+        emit DeletionRequested(0, _outputIndex);
+        securityCouncil.requestDeletion(_outputIndex, false);
+
+        // try to request the same output index
+        vm.prank(owners[0]);
+        vm.expectRevert("SecurityCouncil: the output has already been requested to be deleted");
+        securityCouncil.requestDeletion(_outputIndex, false);
+    }
+
+    function test_requestDeletion_force_succeeds() external {
+        // request output deletion
+        uint256 _outputIndex = 1;
+        vm.prank(owners[0]);
+        vm.expectEmit(true, true, false, false);
+        emit DeletionRequested(0, _outputIndex);
+        securityCouncil.requestDeletion(_outputIndex, false);
+
+        // try to request the same output index
+        vm.prank(owners[0]);
+        vm.expectEmit(true, true, false, false);
+        emit DeletionRequested(1, _outputIndex);
+        securityCouncil.requestDeletion(_outputIndex, true);
     }
 }

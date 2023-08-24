@@ -57,64 +57,43 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
 
         uint256 reserved = vault.totalReserved();
         uint256 balance = vault.balanceOf(recipient);
-        uint256 penalty = 0;
         uint256 rewardAmount = (address(vault).balance - reserved) / rewardDivider;
 
         vm.expectEmit(true, true, false, false, address(Predeploys.VALIDATOR_REWARD_VAULT));
         emit Rewarded(recipient, l2BlockNumber, rewardAmount);
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
-        vault.reward(recipient, l2BlockNumber, penalty, penaltyPeriod);
+        vault.reward(recipient, l2BlockNumber);
         // Check the balance was increased.
         assertEq(vault.balanceOf(recipient), balance + rewardAmount);
         assertEq(vault.totalReserved(), reserved + rewardAmount);
     }
 
-    function test_reward_penalized_succeeds() external {
-        vm.deal(address(vault), vault.MIN_WITHDRAWAL_AMOUNT());
-
-        uint256 penalty = penaltyPeriod / 2;
-
-        uint256 reserved = vault.totalReserved();
-        uint256 balance = vault.balanceOf(recipient);
-        uint256 rewardAmount = (address(vault).balance - reserved) / rewardDivider;
-        uint256 penalizedAmount = (rewardAmount * penalty) / penaltyPeriod;
-        assertTrue(rewardAmount > penalizedAmount);
-
-        vm.expectEmit(true, true, false, false, address(Predeploys.VALIDATOR_REWARD_VAULT));
-        emit Rewarded(recipient, l2BlockNumber, penalizedAmount);
-        vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
-        vault.reward(recipient, l2BlockNumber, penalty, penaltyPeriod);
-        // Check the balance was increased.
-        assertEq(vault.balanceOf(recipient), balance + penalizedAmount);
-        assertEq(vault.totalReserved(), reserved + penalizedAmount);
-    }
-
     function test_reward_senderNotValidatorPool_reverts() external {
         vm.expectRevert("ValidatorRewardVault: function can only be called from the ValidatorPool");
-        vault.reward(address(0), 0, 0, penaltyPeriod);
+        vault.reward(address(0), 0);
     }
 
     function test_reward_zeroValidatorAddress_reverts() external {
         vm.expectRevert("ValidatorRewardVault: validator address cannot be 0");
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
-        vault.reward(address(0), 0, 0, penaltyPeriod);
+        vault.reward(address(0), 0);
     }
 
     function test_reward_alreadyPaidBlockNumber_reverts() external {
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
-        vault.reward(recipient, l2BlockNumber, 0, penaltyPeriod);
+        vault.reward(recipient, l2BlockNumber);
 
         vm.expectRevert(
             "ValidatorRewardVault: the reward has already been paid for the L2 block number"
         );
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
-        vault.reward(recipient, l2BlockNumber, 0, penaltyPeriod);
+        vault.reward(recipient, l2BlockNumber);
     }
 
     function test_withdraw_succeeds() external {
         vm.deal(address(vault), vault.REWARD_DIVIDER() * vault.MIN_WITHDRAWAL_AMOUNT());
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
-        vault.reward(recipient, l2BlockNumber, 0, penaltyPeriod);
+        vault.reward(recipient, l2BlockNumber);
 
         uint256 amount = vault.balanceOf(recipient);
         uint256 reserved = vault.totalReserved();
@@ -159,7 +138,7 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
         uint256 vaultBalance = vault.MIN_WITHDRAWAL_AMOUNT();
         vm.deal(address(vault), vaultBalance);
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
-        vault.reward(recipient, l2BlockNumber, 0, penaltyPeriod);
+        vault.reward(recipient, l2BlockNumber);
 
         uint256 expectedBalance = vaultBalance / vault.REWARD_DIVIDER();
         assertEq(vault.balanceOf(recipient), expectedBalance);

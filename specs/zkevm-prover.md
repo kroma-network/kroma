@@ -55,22 +55,18 @@ interface ZKVerifier {
 
 ## Prover as an RPC Server
 
-[kroma-prover](https://github.com/kroma-network/kroma-prover) is implemented as a gRPC server that generates a zkevm
+[kroma-prover](https://github.com/kroma-network/kroma-prover) is implemented as a jsonRPC server that generates a zkevm
 proof for the requested height block. It can be utilized as a local component on the challenger's machine
-or as a remote [gRPC] server (prover as a service).
+or as a remote jsonRPC server (prover as a service).
 
 - Step 1:  An user (e.g., challenger) requests a zkevm-proof for a block of specific height to kroma-prover with
   a desired block height value.
 - Step 2: A kroma-prover obtains the trace of the corresponding block from kroma-geth RPC.
 - Step 3: And then a kroma-prover generates zkevm-proof for the target block, and return it to the user.
 
-Operating a grpc-kroma-prover, which is launched only when necessary, can alleviate the situation where
+Operating a kroma-prover, which is launched only when necessary, can alleviate the situation where
 regular challengers need to allocate excessive system resources due to the proof generation process
 that is occasionally executed (perhaps rarely executed).
 
-The detailed gRPC specification can be available at [prover-grpc-proto].
-
 [zkevm-circuits]: https://github.com/kroma-network/zkevm-circuits
-[gRPC]: https://grpc.io/
 [zkevm-specs]: https://github.com/kroma-network/zkevm-specs
-[prover-grpc-proto]: https://github.com/kroma-network/prover-grpc-proto

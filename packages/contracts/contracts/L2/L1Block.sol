@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
+import { Constants } from "../libraries/Constants.sol";
 import { Semver } from "../universal/Semver.sol";
 
 /**
@@ -56,13 +57,15 @@ contract L1Block is Semver {
 
     /**
      * @notice The scalar value applied to the L1 portion of the transaction fee.
+     *         The denominator is 1,000,000, so the ratio is expressed in 6 decimal places.
      */
     uint256 public l1FeeScalar;
 
     /**
-     * @notice The ratio to distribute transaction fees as validator reward. 4 decimal.
+     * @notice The scalar value to distribute transaction fees as validator reward.
+     *         The denominator is 10000, so the ratio is expressed in 4 decimal places.
      */
-    uint256 public validatorRewardRatio;
+    uint256 public validatorRewardScalar;
 
     /**
      * @custom:semver 0.1.0
@@ -72,15 +75,15 @@ contract L1Block is Semver {
     /**
      * @notice Updates the L1 block values.
      *
-     * @param _number         L1 blocknumber.
-     * @param _timestamp      L1 timestamp.
-     * @param _basefee        L1 basefee.
-     * @param _hash           L1 blockhash.
-     * @param _sequenceNumber Number of L2 blocks since epoch start.
-     * @param _batcherHash    Versioned hash to authenticate batcher by.
-     * @param _l1FeeOverhead  L1 fee overhead.
-     * @param _l1FeeScalar    L1 fee scalar.
-     * @param _vRewardRatio   Validator reward ratio.
+     * @param _number                  L1 blocknumber.
+     * @param _timestamp               L1 timestamp.
+     * @param _basefee                 L1 basefee.
+     * @param _hash                    L1 blockhash.
+     * @param _sequenceNumber          Number of L2 blocks since epoch start.
+     * @param _batcherHash             Versioned hash to authenticate batcher by.
+     * @param _l1FeeOverhead           L1 fee overhead.
+     * @param _l1FeeScalar             L1 fee scalar.
+     * @param _validatorRewardScalar   Validator reward scalar.
      */
     function setL1BlockValues(
         uint64 _number,
@@ -91,15 +94,15 @@ contract L1Block is Semver {
         bytes32 _batcherHash,
         uint256 _l1FeeOverhead,
         uint256 _l1FeeScalar,
-        uint256 _vRewardRatio
+        uint256 _validatorRewardScalar
     ) external {
         require(
             msg.sender == DEPOSITOR_ACCOUNT,
             "L1Block: only the depositor account can set L1 block values"
         );
         require(
-            _vRewardRatio <= 10000,
-            "L1Block: the max value of validation reward ratio has been exceeded"
+            _validatorRewardScalar <= Constants.VALIDATOR_REWARD_DENOMINATOR,
+            "L1Block: the max value of validator reward scalar has been exceeded"
         );
 
         number = _number;
@@ -110,6 +113,6 @@ contract L1Block is Semver {
         batcherHash = _batcherHash;
         l1FeeOverhead = _l1FeeOverhead;
         l1FeeScalar = _l1FeeScalar;
-        validatorRewardRatio = _vRewardRatio;
+        validatorRewardScalar = _validatorRewardScalar;
     }
 }

@@ -15,10 +15,14 @@ const ORDERED_FILE_NAMES = [
   'KromaMintableERC20Factory',
   'ValidatorPool',
   'L2OutputOracle',
+  'ZKVerifier',
   'Colosseum',
   'SecurityCouncil',
   'KromaPortal',
   'SystemConfig',
+  'SecurityCouncilToken',
+  'TimeLock',
+  'UpgradeGovernor',
 ]
 
 const main = async () => {

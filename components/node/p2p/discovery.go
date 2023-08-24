@@ -66,14 +66,14 @@ func (conf *Config) Discovery(log log.Logger, rollupCfg *rollup.Config, tcpPort 
 	}
 	if conf.AdvertiseTCPPort != 0 { // explicitly advertised port gets priority
 		localNode.Set(enr.TCP(conf.AdvertiseTCPPort))
-	} else if tcpPort != 0 { // otherwise try to pick up whatever port LibP2P bound to (listen port, or dynamically picked)
+	} else if tcpPort != 0 { // otherwise try to pick up whatever port LibP2P binded to (listen port, or dynamically picked)
 		localNode.Set(enr.TCP(tcpPort))
 	} else if conf.ListenTCPPort != 0 { // otherwise default to the port we configured it to listen on
 		localNode.Set(enr.TCP(conf.ListenTCPPort))
 	} else {
 		return nil, nil, fmt.Errorf("no TCP port to put in discovery record")
 	}
-	dat := KromaStackENRData{
+	dat := OpStackENRData{
 		chainID: rollupCfg.L2ChainID.Uint64(),
 		version: 0,
 	}
@@ -165,18 +165,18 @@ func enrToAddrInfo(r *enode.Node) (*peer.AddrInfo, *crypto.Secp256k1PublicKey, e
 	}, pub, nil
 }
 
-// The discovery ENRs are just key-value lists, and we filter them by records tagged with the "kroma-stack" key,
+// The discovery ENRs are just key-value lists, and we filter them by records tagged with the "opstack" key,
 // and then check the chain ID and version.
-type KromaStackENRData struct {
+type OpStackENRData struct {
 	chainID uint64
 	version uint64
 }
 
-func (o *KromaStackENRData) ENRKey() string {
-	return "kroma-stack"
+func (o *OpStackENRData) ENRKey() string {
+	return "opstack"
 }
 
-func (o *KromaStackENRData) EncodeRLP(w io.Writer) error {
+func (o *OpStackENRData) EncodeRLP(w io.Writer) error {
 	out := make([]byte, 2*binary.MaxVarintLen64)
 	offset := binary.PutUvarint(out, o.chainID)
 	offset += binary.PutUvarint(out[offset:], o.version)
@@ -185,13 +185,13 @@ func (o *KromaStackENRData) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, out)
 }
 
-func (o *KromaStackENRData) DecodeRLP(s *rlp.Stream) error {
+func (o *OpStackENRData) DecodeRLP(s *rlp.Stream) error {
 	b, err := s.Bytes()
 	if err != nil {
 		return fmt.Errorf("failed to decode outer ENR entry: %w", err)
 	}
 	// We don't check the byte length: the below readers are limited, and the ENR itself has size limits.
-	// Future "kroma-stack" entries may contain additional data, and will be tagged with a newer version etc.
+	// Future "opstack" entries may contain additional data, and will be tagged with a newer version etc.
 	r := bytes.NewReader(b)
 	chainID, err := binary.ReadUvarint(r)
 	if err != nil {
@@ -206,15 +206,15 @@ func (o *KromaStackENRData) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-var _ enr.Entry = (*KromaStackENRData)(nil)
+var _ enr.Entry = (*OpStackENRData)(nil)
 
 func FilterEnodes(log log.Logger, cfg *rollup.Config) func(node *enode.Node) bool {
 	return func(node *enode.Node) bool {
-		var dat KromaStackENRData
+		var dat OpStackENRData
 		err := node.Load(&dat)
 		// if the entry does not exist, or if it is invalid, then ignore the node
 		if err != nil {
-			log.Trace("discovered node record has no kroma-stack info", "node", node.ID(), "err", err)
+			log.Trace("discovered node record has no opstack info", "node", node.ID(), "err", err)
 			return false
 		}
 		// check chain ID matches
@@ -275,14 +275,16 @@ func (n *NodeP2P) DiscoveryProcess(ctx context.Context, log log.Logger, cfg *rol
 			if !ok {
 				return
 			}
-			addrs := n.Host().Peerstore().Addrs(id)
-			log.Info("attempting connection", "peer", id)
-			ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-			err := n.Host().Connect(ctx, peer.AddrInfo{ID: id, Addrs: addrs})
-			cancel()
-			if err != nil {
-				log.Debug("failed connection attempt", "peer", id, "err", err)
-			}
+			func() {
+				addrs := n.Host().Peerstore().Addrs(id)
+				log.Info("attempting connection", "peer", id)
+				ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+				defer cancel()
+				err := n.Host().Connect(ctx, peer.AddrInfo{ID: id, Addrs: addrs})
+				if err != nil {
+					log.Debug("failed connection attempt", "peer", id, "err", err)
+				}
+			}()
 		}
 	}
 
@@ -345,7 +347,7 @@ func (n *NodeP2P) DiscoveryProcess(ctx context.Context, log log.Logger, cfg *rol
 			log.Info("stopped peer discovery")
 			return // no ctx error, expected close
 		case found := <-randomNodesCh:
-			var dat KromaStackENRData
+			var dat OpStackENRData
 			if err := found.Load(&dat); err != nil { // we already filtered on chain ID and version
 				continue
 			}
@@ -354,13 +356,13 @@ func (n *NodeP2P) DiscoveryProcess(ctx context.Context, log log.Logger, cfg *rol
 				continue
 			}
 			// We add the addresses to the peerstore, and update the address TTL.
-			//After that we stop using the address, assuming it may not be valid anymore (until we rediscover the node)
+			// After that we stop using the address, assuming it may not be valid anymore (until we rediscover the node)
 			pstore.AddAddrs(info.ID, info.Addrs, discoveredAddrTTL)
 			_ = pstore.AddPubKey(info.ID, pub)
 			// Tag the peer, we'd rather have the connection manager prune away old peers,
 			// or peers on different chains, or anyone we have not seen via discovery.
 			// There is no tag score decay yet, so just set it to 42.
-			n.ConnectionManager().TagPeer(info.ID, fmt.Sprintf("kroma-stack-%d-%d", dat.chainID, dat.version), 42)
+			n.ConnectionManager().TagPeer(info.ID, fmt.Sprintf("opstack-%d-%d", dat.chainID, dat.version), 42)
 			log.Debug("discovered peer", "peer", info.ID, "nodeID", found.ID(), "addr", info.Addrs[0])
 		case <-connectTicker.C:
 			connected := n.Host().Network().Peers()

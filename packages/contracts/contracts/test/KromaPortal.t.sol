@@ -334,7 +334,7 @@ contract KromaPortal_Test is Portal_Initializer {
         vm.roll(checkpoint);
         vm.warp(oracle.computeL2Timestamp(checkpoint) + 1);
         vm.prank(trusted);
-        oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0, minBond);
+        oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0);
 
         // warp to the final second of the finalization period
         uint256 finalizationHorizon = block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS();
@@ -400,7 +400,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         // Configure the oracle to return the output root we've prepared.
         vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber + 1));
         vm.prank(trusted);
-        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
 
         // Warp beyond the finalization period for the block we've submitted.
         vm.warp(
@@ -567,8 +567,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             output.outputRoot,
             portal.L2_ORACLE().nextBlockNumber(),
             blockhash(block.number),
-            block.number,
-            minBond
+            block.number
         );
         vm.stopPrank();
 
@@ -968,8 +967,6 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         assert(address(bob).balance == bobBalanceBefore);
     }
 
-    /*
-    NOTE(chokobole): disable this test as Optimism also fails.
     function testDiff_finalizeWithdrawalTransaction_succeeds(
         address _sender,
         address _target,
@@ -977,12 +974,21 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         uint256 _gasLimit,
         bytes memory _data
     ) external {
-        // Cannot call the kroma portal
-        vm.assume(_target != address(portal));
+        vm.assume(
+            _target != address(portal) && // Cannot call the kroma portal or a contract
+                _target.code.length == 0 && // No accounts with code
+                _target != CONSOLE && // The console has no code but behaves like a contract
+                uint160(_target) > 9 // No precompiles (or zero address)
+        );
+
         // Total ETH supply is currently about 120M ETH.
         uint256 value = bound(_value, 0, 200_000_000 ether);
+        vm.deal(address(portal), value);
+
         uint256 gasLimit = bound(_gasLimit, 0, 50_000_000);
         uint256 nonce = messagePasser.messageNonce();
+
+        // Get a withdrawal transaction and mock proof from the differential testing script.
         Types.WithdrawalTransaction memory _tx = Types.WithdrawalTransaction({
             nonce: nonce,
             sender: _sender,
@@ -999,11 +1005,12 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             bytes[] memory withdrawalProof
         ) = ffi.getProveWithdrawalTransactionInputs(_tx);
 
+        // Create the output root proof
         Types.OutputRootProof memory proof = Types.OutputRootProof({
             version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            blockhash: bytes32(uint256(0)),
+            blockHash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
 
@@ -1011,31 +1018,31 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         assertEq(outputRoot, Hashing.hashOutputRootProof(proof));
         assertEq(withdrawalHash, Hashing.hashWithdrawal(_tx));
 
-        // Mock the call to the oracle
+        // Setup the Oracle to return the outputRoot
         vm.mockCall(
             address(oracle),
             abi.encodeWithSelector(oracle.getL2Output.selector),
-            abi.encode(outputRoot, 0)
+            abi.encode(address(0), outputRoot, block.timestamp, 100)
         );
 
-        // Start the withdrawal, it must be initiated by the _sender and the
-        // correct value must be passed along
-        vm.deal(_tx.sender, _tx.value);
-        vm.prank(_tx.sender);
-        messagePasser.initiateWithdrawal{ value: _tx.value }(_tx.target, _tx.gasLimit, _tx.data);
-
-        // Ensure that the sentMessages is correct
-        assertEq(messagePasser.sentMessages(withdrawalHash), true);
-
-        vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
+        // Prove the withdrawal transaction
         portal.proveWithdrawalTransaction(
             _tx,
-            100, // l2BlockNumber
+            1, // l2OutputIndex
             proof,
             withdrawalProof
         );
+        (bytes32 _root, , ) = portal.provenWithdrawals(withdrawalHash);
+        assertTrue(_root != bytes32(0));
+
+        // Warp past the finalization period
+        vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
+
+        // Finalize the withdrawal transaction
+        vm.expectCallMinGas(_tx.target, _tx.value, uint64(_tx.gasLimit), _tx.data);
+        portal.finalizeWithdrawalTransaction(_tx);
+        assertTrue(portal.finalizedWithdrawals(withdrawalHash));
     }
-    */
 }
 
 contract KromaPortalUpgradeable_Test is Portal_Initializer {
@@ -1085,5 +1092,90 @@ contract KromaPortalUpgradeable_Test is Portal_Initializer {
         bytes32 slot21After = vm.load(address(portal), bytes32(uint256(21)));
         bytes32 slot21Expected = NextImpl(address(portal)).slot21Init();
         assertEq(slot21Expected, slot21After);
+    }
+}
+
+/**
+ * @title KromaPortalResourceFuzz_Test
+ * @dev Test various values of the resource metering config to ensure that deposits cannot be
+ *         broken by changing the config.
+ */
+contract KromaPortalResourceFuzz_Test is Portal_Initializer {
+    /**
+     * @dev The max gas limit observed throughout this test. Setting this too high can cause
+     *      the test to take too long to run.
+     */
+    uint256 constant MAX_GAS_LIMIT = 30_000_000;
+
+    /**
+     * @dev Test that various values of the resource metering config will not break deposits.
+     */
+    function testFuzz_systemConfigDeposit_succeeds(
+        uint32 _maxResourceLimit,
+        uint8 _elasticityMultiplier,
+        uint8 _baseFeeMaxChangeDenominator,
+        uint32 _minimumBaseFee,
+        uint32 _systemTxMaxGas,
+        uint128 _maximumBaseFee,
+        uint64 _gasLimit,
+        uint64 _prevBoughtGas,
+        uint128 _prevBaseFee,
+        uint8 _blockDiff
+    ) external {
+        // Get the set system gas limit
+        uint64 gasLimit = systemConfig.gasLimit();
+        // Bound resource config
+        _maxResourceLimit = uint32(bound(_maxResourceLimit, 21000, MAX_GAS_LIMIT / 8));
+        _gasLimit = uint64(bound(_gasLimit, 21000, _maxResourceLimit));
+        _prevBaseFee = uint128(bound(_prevBaseFee, 0, 5 gwei));
+        // Prevent values that would cause reverts
+        vm.assume(gasLimit >= _gasLimit);
+        vm.assume(_minimumBaseFee < _maximumBaseFee);
+        vm.assume(_baseFeeMaxChangeDenominator > 1);
+        vm.assume(uint256(_maxResourceLimit) + uint256(_systemTxMaxGas) <= gasLimit);
+        vm.assume(_elasticityMultiplier > 0);
+        vm.assume(
+            ((_maxResourceLimit / _elasticityMultiplier) * _elasticityMultiplier) ==
+                _maxResourceLimit
+        );
+        _prevBoughtGas = uint64(bound(_prevBoughtGas, 0, _maxResourceLimit - _gasLimit));
+        _blockDiff = uint8(bound(_blockDiff, 0, 3));
+
+        // Create a resource config to mock the call to the system config with
+        ResourceMetering.ResourceConfig memory rcfg = ResourceMetering.ResourceConfig({
+            maxResourceLimit: _maxResourceLimit,
+            elasticityMultiplier: _elasticityMultiplier,
+            baseFeeMaxChangeDenominator: _baseFeeMaxChangeDenominator,
+            minimumBaseFee: _minimumBaseFee,
+            systemTxMaxGas: _systemTxMaxGas,
+            maximumBaseFee: _maximumBaseFee
+        });
+        vm.mockCall(
+            address(systemConfig),
+            abi.encodeWithSelector(systemConfig.resourceConfig.selector),
+            abi.encode(rcfg)
+        );
+
+        // Set the resource params
+        uint256 _prevBlockNum = block.number - _blockDiff;
+        vm.store(
+            address(portal),
+            bytes32(uint256(1)),
+            bytes32((_prevBlockNum << 192) | (uint256(_prevBoughtGas) << 128) | _prevBaseFee)
+        );
+        // Ensure that the storage setting is correct
+        (uint128 prevBaseFee, uint64 prevBoughtGas, uint64 prevBlockNum) = portal.params();
+        assertEq(prevBaseFee, _prevBaseFee);
+        assertEq(prevBoughtGas, _prevBoughtGas);
+        assertEq(prevBlockNum, _prevBlockNum);
+
+        // Do a deposit, should not revert
+        portal.depositTransaction{ gas: MAX_GAS_LIMIT }({
+            _to: address(0x20),
+            _value: 0x40,
+            _gasLimit: _gasLimit,
+            _isCreation: false,
+            _data: hex""
+        });
     }
 }

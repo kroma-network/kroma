@@ -33,8 +33,12 @@ var (
 		"L1StandardBridgeProxy",
 		"KromaPortalProxy",
 		"KromaMintableERC20FactoryProxy",
+		"ZKVerifierProxy",
 		"ColosseumProxy",
 		"SecurityCouncilProxy",
+		"SecurityCouncilTokenProxy",
+		"TimeLockProxy",
+		"UpgradeGovernorProxy",
 	}
 	// portalMeteringSlot is the storage slot containing the metering params.
 	portalMeteringSlot = common.Hash{31: 0x01}
@@ -135,6 +139,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		gasLimit,
 		config.P2PProposerAddress,
 		defaultResourceConfig,
+		uint642Big(config.ValidatorRewardScalar),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cannot abi encode initialize for SystemConfig: %w", err)
@@ -185,6 +190,16 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		depsByName["L2OutputOracleProxy"].Address,
 		depsByName["L2OutputOracle"].Address,
 		data,
+	); err != nil {
+		return nil, err
+	}
+
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["ZKVerifierProxy"].Address,
+		depsByName["ZKVerifier"].Address,
+		nil,
 	); err != nil {
 		return nil, err
 	}
@@ -249,6 +264,71 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		depsByName["L1StandardBridgeProxy"].Address,
 		depsByName["L1StandardBridge"].Address,
 		nil,
+	); err != nil {
+		return nil, err
+	}
+
+	securityCouncilTokenABI, err := bindings.SecurityCouncilTokenMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = securityCouncilTokenABI.Pack("initialize", config.SecurityCouncilTokenOwner)
+	if err != nil {
+		return nil, fmt.Errorf("cannot abi encode initialize for securityCouncilToken: %w", err)
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["SecurityCouncilTokenProxy"].Address,
+		depsByName["SecurityCouncilToken"].Address,
+		data,
+	); err != nil {
+		return nil, err
+	}
+
+	timeLockABI, err := bindings.TimeLockMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = timeLockABI.Pack("initialize",
+		uint642Big(config.TimeLockMinDelaySeconds),
+		[]common.Address{predeploys.DevUpgradeGovernorAddr},
+		[]common.Address{predeploys.DevUpgradeGovernorAddr},
+		predeploys.DevUpgradeGovernorAddr)
+	if err != nil {
+		return nil, fmt.Errorf("cannot abi encode initialize for kromaTimeLock: %w", err)
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["TimeLockProxy"].Address,
+		depsByName["TimeLock"].Address,
+		data,
+	); err != nil {
+		return nil, err
+	}
+
+	upgradeGovernorABI, err := bindings.UpgradeGovernorMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	data, err = upgradeGovernorABI.Pack(
+		"initialize",
+		depsByName["SecurityCouncilTokenProxy"].Address,
+		depsByName["TimeLockProxy"].Address,
+		uint642Big(config.GovernorVotingDelayBlocks),
+		uint642Big(config.GovernorVotingPeriodBlocks),
+		uint642Big(config.GovernorProposalThreshold),
+		uint642Big(config.GovernorVotesQuorumFractionPercent))
+	if err != nil {
+		return nil, fmt.Errorf("cannot abi encode initialize for kromaGovernor: %w", err)
+	}
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["UpgradeGovernorProxy"].Address,
+		depsByName["UpgradeGovernor"].Address,
+		data,
 	); err != nil {
 		return nil, err
 	}
@@ -343,6 +423,13 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 			memDB.SetState(depAddr, key, value)
 		}
 	}
+
+	// Update proxy addresses for UpgradeGovernor
+	securityCouncilTokenAddr, _ := state.EncodeAddressValue(predeploys.DevSecurityCouncilTokenAddr, 0)
+	memDB.SetState(predeploys.DevUpgradeGovernorAddr, common.Hash{30: 0x01, 31: 0x93}, securityCouncilTokenAddr)
+
+	timeLockAddr, _ := state.EncodeAddressValue(predeploys.DevTimeLockAddr, 0)
+	memDB.SetState(predeploys.DevUpgradeGovernorAddr, common.Hash{30: 0x01, 31: 0xf8}, timeLockAddr)
 	return memDB.Genesis(), nil
 }
 
@@ -369,15 +456,16 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 				gasLimit,
 				config.P2PProposerAddress,
 				defaultResourceConfig,
+				uint642Big(config.ValidatorRewardScalar),
 			},
 		},
 		{
 			Name: "ValidatorPool",
 			Args: []interface{}{
 				config.ValidatorPoolTrustedValidator,
-				config.ValidatorPoolMinBondAmount.ToInt(),
-				uint642Big(config.ValidatorPoolNonPenaltyPeriod),
-				uint642Big(config.ValidatorPoolPenaltyPeriod),
+				config.ValidatorPoolRequiredBondAmount.ToInt(),
+				uint642Big(config.ValidatorPoolMaxUnbond),
+				uint642Big(config.ValidatorPoolRoundDuration),
 			},
 		},
 		{
@@ -398,11 +486,16 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		},
 		{
 			Name: "ZKVerifier",
+			Args: []interface{}{
+				config.ZKVerifierHashScalar.ToInt(),
+				config.ZKVerifierM56Px.ToInt(),
+				config.ZKVerifierM56Py.ToInt(),
+			},
 		},
 		{
 			Name: "KromaPortal",
 			Args: []interface{}{
-				config.PortalGuardian,
+				predeploys.DevSecurityCouncilAddr,
 				true, // _paused
 				predeploys.DevSystemConfigAddr,
 			},
@@ -411,12 +504,12 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			Name: "Colosseum",
 			Args: []interface{}{
 				uint642Big(config.L2OutputOracleSubmissionInterval),
+				uint642Big(config.ColosseumCreationPeriodSeconds),
 				uint642Big(config.ColosseumBisectionTimeout),
 				uint642Big(config.ColosseumProvingTimeout),
 				config.ColosseumDummyHash,
 				uint642Big(config.ColosseumMaxTxs),
 				parseSegsLengthsConfig(config.ColosseumSegmentsLengths),
-				predeploys.DevSystemConfigAddr,
 			},
 		},
 		{
@@ -433,6 +526,15 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		},
 		{
 			Name: "KromaMintableERC20Factory",
+		},
+		{
+			Name: "SecurityCouncilToken",
+		},
+		{
+			Name: "TimeLock",
+		},
+		{
+			Name: "UpgradeGovernor",
 		},
 		{
 			Name: "ProxyAdmin",
@@ -463,6 +565,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			/* gasLimit= */ deployment.Args[4].(uint64),
 			/* unsafeBlockSigner= */ deployment.Args[5].(common.Address),
 			/* config= */ deployment.Args[6].(bindings.ResourceMeteringResourceConfig),
+			/* validatorRewardScalar= */ deployment.Args[7].(*big.Int),
 		)
 	case "ValidatorPool":
 		_, tx, _, err = bindings.DeployValidatorPool(
@@ -470,10 +573,11 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			backend,
 			predeploys.DevL2OutputOracleAddr,
 			predeploys.DevKromaPortalAddr,
+			predeploys.DevSecurityCouncilAddr,
 			/* trustedValidator= */ deployment.Args[0].(common.Address),
-			/* minBondAmount= */ deployment.Args[1].(*big.Int),
-			/* nonPenaltyPeriod= */ deployment.Args[2].(*big.Int),
-			/* penaltyPeriod= */ deployment.Args[3].(*big.Int),
+			/* requiredBond= */ deployment.Args[1].(*big.Int),
+			/* maxUnbond= */ deployment.Args[2].(*big.Int),
+			/* roundDuration= */ deployment.Args[3].(*big.Int),
 		)
 	case "L2OutputOracle":
 		_, tx, _, err = bindings.DeployL2OutputOracle(
@@ -505,11 +609,12 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			predeploys.DevL2OutputOracleAddr,
 			predeploys.DevZKVerifierAddr,
 			/* submissionInterval= */ deployment.Args[0].(*big.Int),
-			/* bisectionTimeout= */ deployment.Args[1].(*big.Int),
-			/* provingTimeout= */ deployment.Args[2].(*big.Int),
-			/* dummyHash= */ deployment.Args[3].(common.Hash),
-			/* maxTxs= */ deployment.Args[4].(*big.Int),
-			/* segmentsLengths= */ deployment.Args[5].([]*big.Int),
+			/* creationPeriodSeconds= */ deployment.Args[1].(*big.Int),
+			/* bisectionTimeout= */ deployment.Args[2].(*big.Int),
+			/* provingTimeout= */ deployment.Args[3].(*big.Int),
+			/* dummyHash= */ deployment.Args[4].(common.Hash),
+			/* maxTxs= */ deployment.Args[5].(*big.Int),
+			/* segmentsLengths= */ deployment.Args[6].([]*big.Int),
 			predeploys.DevSecurityCouncilAddr,
 			predeploys.DevZKMerkleTrieAddr,
 		)
@@ -518,6 +623,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			opts,
 			backend,
 			predeploys.DevColosseumAddr,
+			predeploys.DevTimeLockAddr,
 		)
 	case "L1CrossDomainMessenger":
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(
@@ -570,6 +676,24 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 		)
 	case "ZKVerifier":
 		_, tx, _, err = bindings.DeployZKVerifier(
+			opts,
+			backend,
+			/* hashScalar= */ deployment.Args[0].(*big.Int),
+			/* m56Px= */ deployment.Args[1].(*big.Int),
+			/* m56Py= */ deployment.Args[2].(*big.Int),
+		)
+	case "SecurityCouncilToken":
+		_, tx, _, err = bindings.DeploySecurityCouncilToken(
+			opts,
+			backend,
+		)
+	case "TimeLock":
+		_, tx, _, err = bindings.DeployTimeLock(
+			opts,
+			backend,
+		)
+	case "UpgradeGovernor":
+		_, tx, _, err = bindings.DeployUpgradeGovernor(
 			opts,
 			backend,
 		)

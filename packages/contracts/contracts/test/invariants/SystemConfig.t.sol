@@ -19,7 +19,8 @@ contract SystemConfig_GasLimitLowerBound_Invariant is Test {
             _batcherHash: bytes32(hex"abcd"),
             _gasLimit: 30_000_000,
             _unsafeBlockSigner: address(1),
-            _config: cfg
+            _config: cfg,
+            _validatorRewardScalar: 5000
         });
 
         // Set the target contract to the `config`

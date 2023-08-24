@@ -18,6 +18,9 @@ const (
 	DevZKVerifier                = "0x690000000000000000000000000000000000000C"
 	DevColosseum                 = "0x690000000000000000000000000000000000000D"
 	DevSecurityCouncil           = "0x690000000000000000000000000000000000000E"
+	DevSecurityCouncilToken      = "0x690000000000000000000000000000000000000F"
+	DevTimeLock                  = "0x6900000000000000000000000000000000000010"
+	DevUpgradeGovernor           = "0x6900000000000000000000000000000000000011"
 )
 
 var (
@@ -36,6 +39,9 @@ var (
 	DevZKVerifierAddr                = common.HexToAddress(DevZKVerifier)
 	DevColosseumAddr                 = common.HexToAddress(DevColosseum)
 	DevSecurityCouncilAddr           = common.HexToAddress(DevSecurityCouncil)
+	DevSecurityCouncilTokenAddr      = common.HexToAddress(DevSecurityCouncilToken)
+	DevTimeLockAddr                  = common.HexToAddress(DevTimeLock)
+	DevUpgradeGovernorAddr           = common.HexToAddress(DevUpgradeGovernor)
 
 	DevPredeploys = make(map[string]*common.Address)
 )
@@ -56,4 +62,7 @@ func init() {
 	DevPredeploys["ZKVerifier"] = &DevZKVerifierAddr
 	DevPredeploys["Colosseum"] = &DevColosseumAddr
 	DevPredeploys["SecurityCouncil"] = &DevSecurityCouncilAddr
+	DevPredeploys["SecurityCouncilToken"] = &DevSecurityCouncilTokenAddr
+	DevPredeploys["TimeLock"] = &DevTimeLockAddr
+	DevPredeploys["UpgradeGovernor"] = &DevUpgradeGovernorAddr
 }

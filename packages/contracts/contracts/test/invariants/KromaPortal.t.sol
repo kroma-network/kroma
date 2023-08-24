@@ -45,7 +45,7 @@ contract KromaPortal_Invariant_Harness is Portal_Initializer {
         // Configure the oracle to return the output root we've prepared.
         vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber) + 1);
         vm.prank(trusted);
-        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0, minBond);
+        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
 
         // Warp beyond the finalization period for the block we've submitted.
         vm.warp(

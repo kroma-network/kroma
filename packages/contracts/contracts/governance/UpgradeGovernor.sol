@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.15;
+
+import "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+
+import "../vendor/GovernorTimelockControlUpgradeable.sol";
+import { Semver } from "../universal/Semver.sol";
+
+/**
+ * @custom:proxied
+ * @title UpgradeGovernor
+ * @notice The UpgradeGovernor is a basic ERC20, ERC721 based DAO using OpenZeppelin Governor.
+ */
+contract UpgradeGovernor is
+    Initializable,
+    GovernorUpgradeable,
+    GovernorSettingsUpgradeable,
+    GovernorCountingSimpleUpgradeable,
+    GovernorVotesUpgradeable,
+    GovernorVotesQuorumFractionUpgradeable,
+    GovernorTimelockControlUpgradeable,
+    Semver
+{
+    /**
+     * @custom:semver 0.1.0
+     */
+    constructor() Semver(0, 1, 0) {
+        _disableInitializers();
+    }
+
+    /**
+     * @notice Initializer.
+     *
+     * @param _token                    Address of the token(ERC20 or ERC721).
+     * @param _timelock                 Address of the timelock controller.
+     * @param _initialVotingDelay       Voting delay.(unit: 1 block = 12 seconds on L1)
+     * @param _initialVotingPeriod      Voting period.(unit: 1 block = 12 seconds on L1)
+     * @param _initialProposalThreshold Proposal threshold.
+     * @param _votesQuorumFraction      Quorum as a fraction of the token's total supply.
+     */
+    function initialize(
+        address _token,
+        address payable _timelock,
+        uint256 _initialVotingDelay,
+        uint256 _initialVotingPeriod,
+        uint256 _initialProposalThreshold,
+        uint256 _votesQuorumFraction
+    ) public initializer {
+        __Governor_init("UpgradeGovernor");
+        __GovernorSettings_init(
+            _initialVotingDelay,
+            _initialVotingPeriod,
+            _initialProposalThreshold
+        );
+        __GovernorCountingSimple_init();
+        __GovernorVotes_init(IVotesUpgradeable(_token));
+        __GovernorVotesQuorumFraction_init(_votesQuorumFraction);
+        __GovernorTimelockControl_init(TimelockControllerUpgradeable(_timelock));
+    }
+
+    /**
+     * @notice Function to queue a proposal to the timelock.
+     *         Added protocol for using custom time-lock zero delay for urgent situations.
+     *
+     * @param _targets         The destination address that send the message to.
+     * @param _values          Amount of ether sent with the message.
+     * @param _calldatas       The data portion of the message.
+     * @param _descriptionHash A hashed form of the description string.
+     *
+     * @return Whether the challenge was canceled.
+     */
+    function queue(
+        address[] memory _targets,
+        uint256[] memory _values,
+        bytes[] memory _calldatas,
+        bytes32 _descriptionHash
+    ) public virtual override returns (uint256) {
+        uint256 proposalId = hashProposal(_targets, _values, _calldatas, _descriptionHash);
+
+        require(
+            state(proposalId) == ProposalState.Succeeded,
+            "UpgradeGovernor: proposal not successful"
+        );
+
+        uint256 delay = _timelock.getMinDelay();
+        // Protocol for reflecting urgent decisions on proposals.
+        // A zero delay is applied if the first element of the argument satisfies conditions.
+        if (_targets[0] == address(0) && _values[0] == 0) {
+            delay = 0;
+        }
+
+        _timelockIds[proposalId] = _timelock.hashOperationBatch(
+            _targets,
+            _values,
+            _calldatas,
+            0,
+            _descriptionHash
+        );
+        _timelock.scheduleBatch(_targets, _values, _calldatas, 0, _descriptionHash, delay);
+
+        emit ProposalQueued(proposalId, block.timestamp + delay);
+
+        return proposalId;
+    }
+
+    // The following functions are overridden cause required by Solidity.
+
+    function votingDelay()
+        public
+        view
+        override(IGovernorUpgradeable, GovernorSettingsUpgradeable)
+        returns (uint256)
+    {
+        return super.votingDelay();
+    }
+
+    function votingPeriod()
+        public
+        view
+        override(IGovernorUpgradeable, GovernorSettingsUpgradeable)
+        returns (uint256)
+    {
+        return super.votingPeriod();
+    }
+
+    function quorum(uint256 blockNumber)
+        public
+        view
+        override(IGovernorUpgradeable, GovernorVotesQuorumFractionUpgradeable)
+        returns (uint256)
+    {
+        return super.quorum(blockNumber);
+    }
+
+    function state(uint256 proposalId)
+        public
+        view
+        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
+        returns (ProposalState)
+    {
+        return super.state(proposalId);
+    }
+
+    function propose(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        string memory description
+    ) public override(GovernorUpgradeable, IGovernorUpgradeable) returns (uint256) {
+        return super.propose(targets, values, calldatas, description);
+    }
+
+    function proposalThreshold()
+        public
+        view
+        override(GovernorUpgradeable, GovernorSettingsUpgradeable)
+        returns (uint256)
+    {
+        return super.proposalThreshold();
+    }
+
+    /**
+     * @notice Returns the full contract version.
+     *
+     * @return contract version as a string.
+     */
+    function version()
+        public
+        view
+        override(IGovernorUpgradeable, GovernorUpgradeable, Semver)
+        returns (string memory)
+    {
+        return Semver.version();
+    }
+
+    function _execute(
+        uint256 proposalId,
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) {
+        super._execute(proposalId, targets, values, calldatas, descriptionHash);
+    }
+
+    function _cancel(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (uint256) {
+        return super._cancel(targets, values, calldatas, descriptionHash);
+    }
+
+    function _executor()
+        internal
+        view
+        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
+        returns (address)
+    {
+        return super._executor();
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+}

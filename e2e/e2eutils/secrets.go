@@ -19,13 +19,14 @@ var DefaultMnemonicConfig = &MnemonicConfig{
 	Deployer:         "m/44'/60'/0'/0/1",
 	CliqueSigner:     "m/44'/60'/0'/0/2",
 	TrustedValidator: "m/44'/60'/0'/0/3",
-	Challenger:       "m/44'/60'/0'/0/4",
-	Batcher:          "m/44'/60'/0'/0/5",
-	ProposerP2P:      "m/44'/60'/0'/0/6",
-	Alice:            "m/44'/60'/0'/0/7",
-	Bob:              "m/44'/60'/0'/0/8",
-	Mallory:          "m/44'/60'/0'/0/9",
-	SysCfgOwner:      "m/44'/60'/0'/0/10",
+	Challenger1:      "m/44'/60'/0'/0/4",
+	Challenger2:      "m/44'/60'/0'/0/5",
+	Batcher:          "m/44'/60'/0'/0/6",
+	ProposerP2P:      "m/44'/60'/0'/0/7",
+	Alice:            "m/44'/60'/0'/0/8",
+	Bob:              "m/44'/60'/0'/0/9",
+	Mallory:          "m/44'/60'/0'/0/10",
+	SysCfgOwner:      "m/44'/60'/0'/0/11",
 }
 
 // MnemonicConfig configures the private keys for the hive testnet.
@@ -39,7 +40,8 @@ type MnemonicConfig struct {
 
 	// rollup actors
 	TrustedValidator string
-	Challenger       string
+	Challenger1      string
+	Challenger2      string
 	Batcher          string
 	ProposerP2P      string
 
@@ -76,7 +78,11 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	if err != nil {
 		return nil, err
 	}
-	challenger, err := wallet.PrivateKey(account(m.Challenger))
+	challenger1, err := wallet.PrivateKey(account(m.Challenger1))
+	if err != nil {
+		return nil, err
+	}
+	challenger2, err := wallet.PrivateKey(account(m.Challenger2))
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +112,8 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 		CliqueSigner:     cliqueSigner,
 		SysCfgOwner:      sysCfgOwner,
 		TrustedValidator: trustedValidator,
-		Challenger:       challenger,
+		Challenger1:      challenger1,
+		Challenger2:      challenger2,
 		Batcher:          batcher,
 		ProposerP2P:      proposerP2P,
 		Alice:            alice,
@@ -124,7 +131,8 @@ type Secrets struct {
 
 	// rollup actors
 	TrustedValidator *ecdsa.PrivateKey
-	Challenger       *ecdsa.PrivateKey
+	Challenger1      *ecdsa.PrivateKey
+	Challenger2      *ecdsa.PrivateKey
 	Batcher          *ecdsa.PrivateKey
 	ProposerP2P      *ecdsa.PrivateKey
 
@@ -153,7 +161,8 @@ func (s *Secrets) Addresses() *Addresses {
 		CliqueSigner:     crypto.PubkeyToAddress(s.CliqueSigner.PublicKey),
 		SysCfgOwner:      crypto.PubkeyToAddress(s.SysCfgOwner.PublicKey),
 		TrustedValidator: crypto.PubkeyToAddress(s.TrustedValidator.PublicKey),
-		Challenger:       crypto.PubkeyToAddress(s.Challenger.PublicKey),
+		Challenger1:      crypto.PubkeyToAddress(s.Challenger1.PublicKey),
+		Challenger2:      crypto.PubkeyToAddress(s.Challenger2.PublicKey),
 		Batcher:          crypto.PubkeyToAddress(s.Batcher.PublicKey),
 		ProposerP2P:      crypto.PubkeyToAddress(s.ProposerP2P.PublicKey),
 		Alice:            crypto.PubkeyToAddress(s.Alice.PublicKey),
@@ -170,7 +179,8 @@ type Addresses struct {
 
 	// rollup actors
 	TrustedValidator common.Address
-	Challenger       common.Address
+	Challenger1      common.Address
+	Challenger2      common.Address
 	Batcher          common.Address
 	ProposerP2P      common.Address
 
@@ -186,7 +196,8 @@ func (a *Addresses) All() []common.Address {
 		a.CliqueSigner,
 		a.SysCfgOwner,
 		a.TrustedValidator,
-		a.Challenger,
+		a.Challenger1,
+		a.Challenger2,
 		a.Batcher,
 		a.ProposerP2P,
 		a.Alice,

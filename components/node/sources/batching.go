@@ -23,6 +23,7 @@ type IterativeBatchCall[K any, V any] struct {
 
 	makeRequest func(K) (V, rpc.BatchElem)
 	getBatch    BatchCallContextFn
+	getSingle   CallContextFn
 
 	requestsValues []V
 	scheduled      chan rpc.BatchElem
@@ -34,8 +35,9 @@ func NewIterativeBatchCall[K any, V any](
 	requestsKeys []K,
 	makeRequest func(K) (V, rpc.BatchElem),
 	getBatch BatchCallContextFn,
-	batchSize int) *IterativeBatchCall[K, V] {
-
+	getSingle CallContextFn,
+	batchSize int,
+) *IterativeBatchCall[K, V] {
 	if len(requestsKeys) < batchSize {
 		batchSize = len(requestsKeys)
 	}
@@ -46,6 +48,7 @@ func NewIterativeBatchCall[K any, V any](
 	out := &IterativeBatchCall[K, V]{
 		completed:    0,
 		getBatch:     getBatch,
+		getSingle:    getSingle,
 		requestsKeys: requestsKeys,
 		batchSize:    batchSize,
 		makeRequest:  makeRequest,
@@ -83,6 +86,11 @@ func (ibc *IterativeBatchCall[K, V]) Fetch(ctx context.Context) error {
 	ibc.resetLock.RLock()
 	defer ibc.resetLock.RUnlock()
 
+	// return early if context is Done
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	// collect a batch from the requests channel
 	batch := make([]rpc.BatchElem, 0, ibc.batchSize)
 	// wait for first element
@@ -118,11 +126,23 @@ func (ibc *IterativeBatchCall[K, V]) Fetch(ctx context.Context) error {
 		break
 	}
 
-	if err := ibc.getBatch(ctx, batch); err != nil {
-		for _, r := range batch {
-			ibc.scheduled <- r
+	if len(batch) == 0 {
+		return nil
+	}
+
+	if ibc.batchSize == 1 {
+		first := batch[0]
+		if err := ibc.getSingle(ctx, &first.Result, first.Method, first.Args...); err != nil {
+			ibc.scheduled <- first
+			return err
 		}
-		return fmt.Errorf("failed batch-retrieval: %w", err)
+	} else {
+		if err := ibc.getBatch(ctx, batch); err != nil {
+			for _, r := range batch {
+				ibc.scheduled <- r
+			}
+			return fmt.Errorf("failed batch-retrieval: %w", err)
+		}
 	}
 	var result error
 	for _, elem := range batch {

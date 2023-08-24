@@ -14,15 +14,16 @@ const deployFn: DeployFunction = async (hre) => {
     'L2OutputOracleProxy'
   )
   const portalProxyAddress = await getDeploymentAddress(hre, 'KromaPortalProxy')
-
+  const scProxyAddress = await getDeploymentAddress(hre, 'SecurityCouncilProxy')
   await deploy(hre, 'ValidatorPool', {
     args: [
       l2OutputOracleProxyAddress,
       portalProxyAddress,
+      scProxyAddress,
       hre.deployConfig.validatorPoolTrustedValidator,
-      hre.deployConfig.validatorPoolMinBondAmount,
-      hre.deployConfig.validatorPoolNonPenaltyPeriod,
-      hre.deployConfig.validatorPoolPenaltyPeriod,
+      hre.deployConfig.validatorPoolRequiredBondAmount,
+      hre.deployConfig.validatorPoolMaxUnbond,
+      hre.deployConfig.validatorPoolRoundDuration,
     ],
     isProxyImpl: true,
     initArgs: [],
@@ -33,6 +34,7 @@ const deployFn: DeployFunction = async (hre) => {
         l2OutputOracleProxyAddress
       )
       await assertContractVariable(contract, 'PORTAL', portalProxyAddress)
+      await assertContractVariable(contract, 'SECURITY_COUNCIL', scProxyAddress)
       await assertContractVariable(
         contract,
         'TRUSTED_VALIDATOR',
@@ -40,18 +42,18 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'MIN_BOND_AMOUNT',
-        hre.deployConfig.validatorPoolMinBondAmount
+        'REQUIRED_BOND_AMOUNT',
+        hre.deployConfig.validatorPoolRequiredBondAmount
       )
       await assertContractVariable(
         contract,
-        'NON_PENALTY_PERIOD',
-        hre.deployConfig.validatorPoolNonPenaltyPeriod
+        'MAX_UNBOND',
+        hre.deployConfig.validatorPoolMaxUnbond
       )
       await assertContractVariable(
         contract,
-        'PENALTY_PERIOD',
-        hre.deployConfig.validatorPoolPenaltyPeriod
+        'ROUND_DURATION',
+        hre.deployConfig.validatorPoolRoundDuration
       )
     },
   })

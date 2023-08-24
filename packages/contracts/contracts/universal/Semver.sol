@@ -43,7 +43,7 @@ contract Semver {
      *
      * @return Semver contract version as a string.
      */
-    function version() public view returns (string memory) {
+    function version() public view virtual returns (string memory) {
         return
             string(
                 abi.encodePacked(

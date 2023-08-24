@@ -1,10 +1,10 @@
-name: Issue Template
-description: To report any issue, please use this template.
+name: Issue template
+description: Report any issue or idea for this project to help us improve.
 body:
   - type: dropdown
     id: issue-type
     attributes:
-      label: Issue Type
+      label: Issue type
       description: What type of issue would you like to report?
       multiple: false
       options:
@@ -22,58 +22,66 @@ body:
   - type: input
     id: kroma-version
     attributes:
-      label: Kroma Version
-      description:
-      placeholder: e.g., 1.0.1
+      label: Kroma version
+      placeholder: e.g. v1.0.1
     validations:
       required: true
+
   - type: input
-    id: OS
+    id: os
     attributes:
-      label: OS Platform and Distribution
-      description:
-      placeholder: e.g., Linux Ubuntu 16.04
+      label: OS platform and distribution
+      placeholder: e.g. Linux Ubuntu 16.04
     validations:
       required: false
+
   - type: input
-    id: Go
+    id: go-version
     attributes:
       label: Go version
-      description:
-      placeholder: e.g., go1.19.3 linux/amd64(go version)
+      description: Type go version in terminal.
+      placeholder: e.g. go1.19.3 linux/amd64
     validations:
       required: false
+
   - type: input
-    id: Node
+    id: node-version
     attributes:
       label: Node version
-      description:
-      placeholder: e.g., v16.14.2(node --version)
+      description: Type node -v in terminal.
+      placeholder: e.g. v16.14.2
     validations:
       required: false
+
   - type: textarea
-    id: what-happened
+    id: current-behavior
     attributes:
-      label: Current Behaviour?
-      description: Also tell us, what did you expect to happen?
-      placeholder: Tell us what you see!
-      value: "A bug happened!"
-      render: shell
+      label: Current behavior?
+      description: Describe the bug or the problem related to a feature request.
+      placeholder: A bug happened when I do something, or currently this feature is not supported.
     validations:
       required: true
+
   - type: textarea
-    id: code-to-reproduce
+    id: expected-behavior
     attributes:
-      label: Standalone code to reproduce the issue
-      description: Provide a reproducible test case that is the bare minimum necessary to generate the problem. If possible, please share a link to Colab/Jupyter/any notebook.
-      placeholder: Tell us what you see!
-      value:
-      render: shell
+      label: Expected Behavior?
+      description: What did you expect to happen?
+      placeholder: A bug should not happen when I do something, or this feature should be supported.
     validations:
       required: true
+
   - type: textarea
-    id: logs
+    id: step-to-reproduce
     attributes:
-      label: Relevant log output
-      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
-      render: shell
+      label: Standalone code or description to reproduce the issue
+      description: Provide a reproducible test case that is the bare minimum necessary to generate the problem.
+      placeholder: Use this code, or follow these steps to reproduce the issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Please copy and paste any relevant log output. Or add any other context or screenshots about the feature request.

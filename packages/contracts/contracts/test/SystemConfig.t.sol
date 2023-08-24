@@ -28,7 +28,8 @@ contract SystemConfig_Init is CommonTest {
             _batcherHash: bytes32(hex"abcd"),
             _gasLimit: 30_000_000,
             _unsafeBlockSigner: address(1),
-            _config: config
+            _config: config,
+            _validatorRewardScalar: 5000
         });
     }
 }
@@ -55,7 +56,8 @@ contract SystemConfig_Initialize_TestFail is SystemConfig_Init {
             _batcherHash: bytes32(hex""),
             _gasLimit: minimumGasLimit - 1,
             _unsafeBlockSigner: address(1),
-            _config: cfg
+            _config: cfg,
+            _validatorRewardScalar: 5000
         });
     }
 }
@@ -111,7 +113,7 @@ contract SystemConfig_Setters_TestFail is SystemConfig_Init {
             maximumBaseFee: 2 gwei
         });
         vm.prank(sysConf.owner());
-        vm.expectRevert("SystemConfig: denominator cannot be 0");
+        vm.expectRevert("SystemConfig: denominator must be larger than 1");
         sysConf.setResourceConfig(config);
     }
 
@@ -143,6 +145,12 @@ contract SystemConfig_Setters_TestFail is SystemConfig_Init {
         vm.prank(sysConf.owner());
         vm.expectRevert("SystemConfig: precision loss with target resource limit");
         sysConf.setResourceConfig(config);
+    }
+
+    function test_setValidatorRewardScalar_outOfRange_reverts() external {
+        vm.prank(sysConf.owner());
+        vm.expectRevert("SystemConfig: the max value of validator reward scalar has been exceeded");
+        sysConf.setValidatorRewardScalar(type(uint32).max);
     }
 }
 
@@ -201,5 +209,23 @@ contract SystemConfig_Setters_Test is SystemConfig_Init {
         vm.prank(sysConf.owner());
         sysConf.setUnsafeBlockSigner(newUnsafeSigner);
         assertEq(sysConf.unsafeBlockSigner(), newUnsafeSigner);
+    }
+
+    function testFuzz_setValidatorRewardScalar_succeeds(uint256 validatorRewardScalar) external {
+        validatorRewardScalar = bound(
+            validatorRewardScalar,
+            0,
+            Constants.VALIDATOR_REWARD_DENOMINATOR
+        );
+        vm.expectEmit(true, true, true, true);
+        emit ConfigUpdate(
+            0,
+            SystemConfig.UpdateType.VALIDATOR_REWARD_SCALAR,
+            abi.encode(validatorRewardScalar)
+        );
+
+        vm.prank(sysConf.owner());
+        sysConf.setValidatorRewardScalar(validatorRewardScalar);
+        assertEq(sysConf.validatorRewardScalar(), validatorRewardScalar);
     }
 }

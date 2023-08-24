@@ -28,6 +28,16 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     uint64 public constant VAULT_REWARD_GAS_LIMIT = 100000;
 
     /**
+     * @notice The numerator of the tax.
+     */
+    uint128 public constant TAX_NUMERATOR = 20;
+
+    /**
+     * @notice The denominator of the tax.
+     */
+    uint128 public constant TAX_DENOMINATOR = 100;
+
+    /**
      * @notice The address of the L2OutputOracle contract. Can be updated via upgrade.
      */
     L2OutputOracle public immutable L2_ORACLE;
@@ -38,26 +48,26 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     KromaPortal public immutable PORTAL;
 
     /**
+     * @notice The address of the SecurityCouncil contract. Can be updated via upgrade.
+     */
+    address public immutable SECURITY_COUNCIL;
+
+    /**
      * @notice The address of the trusted validator. Can be updated via upgrade.
      */
     address public immutable TRUSTED_VALIDATOR;
 
     /**
-     * @notice The minimum bond amount. Can be updated via upgrade.
+     * @notice The required bond amount. Can be updated via upgrade.
      */
-    uint256 public immutable MIN_BOND_AMOUNT;
+    uint128 public immutable REQUIRED_BOND_AMOUNT;
 
     /**
-     * @notice The period in a round that the penalty does not apply, after which it does (in seconds).
+     * @notice The max number of unbonds when trying unbond.
      */
-    uint256 public immutable NON_PENALTY_PERIOD;
+    uint256 public immutable MAX_UNBOND;
 
     /**
-     * @notice The period in a round that the penalty does apply (in seconds).
-     */
-    uint256 public immutable PENALTY_PERIOD;
-
-    /*
      * @notice The duration of a submission round for one output (in seconds).
      *         Note that there are two submission rounds for an output: PRIORITY ROUND and PUBLIC ROUND.
      */
@@ -94,6 +104,11 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     address internal nextPriorityValidator;
 
     /**
+     * @notice A mapping of pending bonds that have not yet been included in a bond.
+     */
+    mapping(uint256 => mapping(address => uint128)) internal pendingBonds;
+
+    /**
      * @notice Emitted when a validator bonds.
      *
      * @param submitter   Address of submitter.
@@ -109,13 +124,37 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     );
 
     /**
-     * @notice Emitted when the bond amount is increased.
+     * @notice Emitted when the pending bond is added.
      *
-     * @param challenger  Address of the challenger.
      * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param amount      Amount of bond added.
+     */
+    event PendingBondAdded(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
+
+    /**
+     * @notice Emitted when the bond is increased.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
      * @param amount      Amount of bond increased.
      */
-    event BondIncreased(address indexed challenger, uint256 indexed outputIndex, uint128 amount);
+    event BondIncreased(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
+
+    /**
+     * @notice Emitted when the pending bond is released(refunded).
+     *
+     * @param outputIndex  Index of the L2 checkpoint output.
+     * @param challenger   Address of the challenger.
+     * @param recipient    Address to receive amount from a pending bond.
+     * @param amount       Amount of bond released.
+     */
+    event PendingBondReleased(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        address indexed recipient,
+        uint128 amount
+    );
 
     /**
      * @notice Emitted when a validator unbonds.
@@ -127,33 +166,42 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     event Unbonded(uint256 indexed outputIndex, address indexed recipient, uint128 amount);
 
     /**
+     * @notice A modifier that only allows the Colosseum contract to call
+     */
+    modifier onlyColosseum() {
+        require(msg.sender == L2_ORACLE.COLOSSEUM(), "ValidatorPool: sender is not Colosseum");
+        _;
+    }
+
+    /**
      * @custom:semver 0.1.0
      *
-     * @param _l2OutputOracle   Address of the L2OutputOracle.
-     * @param _portal           Address of the KromaPortal.
-     * @param _trustedValidator Address of the trusted validator.
-     * @param _minBondAmount    The minimum bond amount.
-     * @param _nonPenaltyPeriod The period during a submission round that is not penalized.
-     * @param _penaltyPeriod    The period during a submission round when penalties are applied.
+     * @param _l2OutputOracle     Address of the L2OutputOracle.
+     * @param _portal             Address of the KromaPortal.
+     * @param _securityCouncil    Address of the security council.
+     * @param _trustedValidator   Address of the trusted validator.
+     * @param _requiredBondAmount The required bond amount.
+     * @param _maxUnbond          The max number of unbonds when trying unbond.
+     * @param _roundDuration      The duration of one submission round in seconds.
      */
     constructor(
         L2OutputOracle _l2OutputOracle,
         KromaPortal _portal,
+        address _securityCouncil,
         address _trustedValidator,
-        uint256 _minBondAmount,
-        uint256 _nonPenaltyPeriod,
-        uint256 _penaltyPeriod
+        uint256 _requiredBondAmount,
+        uint256 _maxUnbond,
+        uint256 _roundDuration
     ) Semver(0, 1, 0) {
         L2_ORACLE = _l2OutputOracle;
         PORTAL = _portal;
+        SECURITY_COUNCIL = _securityCouncil;
         TRUSTED_VALIDATOR = _trustedValidator;
-        MIN_BOND_AMOUNT = _minBondAmount;
-        NON_PENALTY_PERIOD = _nonPenaltyPeriod;
-        PENALTY_PERIOD = _penaltyPeriod;
+        REQUIRED_BOND_AMOUNT = uint128(_requiredBondAmount);
+        MAX_UNBOND = _maxUnbond;
 
-        // The submission round duration is the sum of the non-penalty time and the penalty time.
-        // Note that this value MUST NOT exceed (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
-        ROUND_DURATION = _nonPenaltyPeriod + _penaltyPeriod;
+        // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
+        ROUND_DURATION = _roundDuration;
 
         initialize();
     }
@@ -161,7 +209,9 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     /**
      * @notice Initializer.
      */
-    function initialize() public initializer {}
+    function initialize() public initializer {
+        __ReentrancyGuard_init_unchained();
+    }
 
     /**
      * @notice Deposit ETH to be used as bond.
@@ -178,26 +228,19 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     function withdraw(uint256 _amount) external nonReentrant {
         _decreaseBalance(msg.sender, _amount);
 
-        bool success = SafeCall.call(msg.sender, gasleft(), _amount, hex"");
+        bool success = SafeCall.call(msg.sender, gasleft(), _amount, "");
         require(success, "ValidatorPool: ETH transfer failed");
     }
 
     /**
-     * @notice Bond asset corresponding to the given output index. This function is called when submitting output.
-     *         Note that the amount to bond should be at least the minimum bond amount,
-     *         and the output root must also be given for later output root comparison.
+     * @notice Bond asset corresponding to the given output index.
+     *         This function is called when submitting output.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
-     * @param _amount      Amount of bond.
      * @param _expiresAt   The expiration timestamp of bond.
      */
-    function createBond(
-        uint256 _outputIndex,
-        uint128 _amount,
-        uint128 _expiresAt
-    ) external {
+    function createBond(uint256 _outputIndex, uint128 _expiresAt) external {
         require(msg.sender == address(L2_ORACLE), "ValidatorPool: sender is not L2OutputOracle");
-        require(_amount >= MIN_BOND_AMOUNT, "ValidatorPool: the bond amount is too small");
 
         Types.Bond storage bond = bonds[_outputIndex];
         require(
@@ -209,29 +252,83 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         _tryUnbond();
 
         address submitter = L2_ORACLE.getSubmitter(_outputIndex);
-        _decreaseBalance(submitter, _amount);
+        _decreaseBalance(submitter, REQUIRED_BOND_AMOUNT);
 
-        bond.amount = _amount;
+        bond.amount = REQUIRED_BOND_AMOUNT;
         bond.expiresAt = _expiresAt;
 
-        emit Bonded(submitter, _outputIndex, _amount, _expiresAt);
+        emit Bonded(submitter, _outputIndex, REQUIRED_BOND_AMOUNT, _expiresAt);
     }
 
     /**
-     * @notice Increases the bond amount corresponding to the given output index.
+     * @notice Adds a pending bond to the challenge corresponding to the given output index and challenger address.
+     *         The pending bond is added to the bond when the challenge is proven or challenger is timed out,
+     *         or refunded when the challenge is canceled.
      *
-     * @param _challenger  Address of the challenger.
      * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
      */
-    function increaseBond(address _challenger, uint256 _outputIndex) external {
+    function addPendingBond(uint256 _outputIndex, address _challenger) external onlyColosseum {
         Types.Bond storage bond = bonds[_outputIndex];
-        require(bond.expiresAt > 0, "ValidatorPool: the bond does not exist");
+        require(
+            bond.expiresAt >= block.timestamp,
+            "ValidatorPool: the output is already finalized"
+        );
 
-        uint128 bonded = bond.amount;
-        _decreaseBalance(_challenger, bonded);
-        bond.amount = bonded << 1;
+        _decreaseBalance(_challenger, REQUIRED_BOND_AMOUNT);
+        pendingBonds[_outputIndex][_challenger] = REQUIRED_BOND_AMOUNT;
 
-        emit BondIncreased(_challenger, _outputIndex, bonded);
+        emit PendingBondAdded(_outputIndex, _challenger, REQUIRED_BOND_AMOUNT);
+    }
+
+    /**
+     * @notice Releases the corresponding pending bond to the given output index and challenger address
+     *         if a challenge is canceled.
+     *
+     * @param _outputIndex  Index of the L2 checkpoint output.
+     * @param _challenger   Address of the challenger.
+     * @param _recipient    Address to receive amount from a pending bond.
+     */
+    function releasePendingBond(
+        uint256 _outputIndex,
+        address _challenger,
+        address _recipient
+    ) external onlyColosseum {
+        uint128 bonded = pendingBonds[_outputIndex][_challenger];
+        require(bonded > 0, "ValidatorPool: the pending bond does not exist");
+        delete pendingBonds[_outputIndex][_challenger];
+
+        _increaseBalance(_recipient, bonded);
+        emit PendingBondReleased(_outputIndex, _challenger, _recipient, bonded);
+    }
+
+    /**
+     * @notice Increases the bond amount corresponding to the given output index by the pending bond amount.
+     *         This is when taxes are charged, and note that taxes are a means of preventing collusive attacks by
+     *         the asserter and challenger.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     */
+    function increaseBond(uint256 _outputIndex, address _challenger) external onlyColosseum {
+        Types.Bond storage bond = bonds[_outputIndex];
+        require(
+            bond.expiresAt >= block.timestamp,
+            "ValidatorPool: the output is already finalized"
+        );
+
+        uint128 pendingBond = pendingBonds[_outputIndex][_challenger];
+        require(pendingBond > 0, "ValidatorPool: the pending bond does not exist");
+        uint128 tax = (pendingBond * TAX_NUMERATOR) / TAX_DENOMINATOR;
+        uint128 increased = pendingBond - tax;
+        delete pendingBonds[_outputIndex][_challenger];
+
+        unchecked {
+            bond.amount += increased;
+            balances[SECURITY_COUNCIL] += tax;
+        }
+
+        emit BondIncreased(_outputIndex, _challenger, increased);
     }
 
     /**
@@ -243,32 +340,50 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     }
 
     /**
-     * @notice Attempts to unbond corresponding to nextUnbondOutputIndex and returns whether the unbond was successful.
-     *         When unbound, it updates the next priority validator and sends a reward message to L2.
+     * @notice Attempts to unbond starting from nextUnbondOutputIndex and returns whether at least
+     *         one unbond is executed. Tries unbond at most MAX_UNBOND number of bonds and sends
+     *         a reward message to L2 for each unbond.
+     *         Note that it updates the next priority validator using last unbond, and not updates
+     *         when no unbond.
      *
-     * @return Whether the bond has been successfully unbonded.
+     * @return Whether at least one unbond is executed.
      */
     function _tryUnbond() private returns (bool) {
         uint256 outputIndex = nextUnbondOutputIndex;
+        uint128 bondAmount;
+        Types.Bond storage bond;
+        Types.CheckpointOutput memory output;
 
-        Types.Bond storage bond = bonds[outputIndex];
-        uint128 bondAmount = bond.amount;
-        if (block.timestamp >= bond.expiresAt && bondAmount > 0) {
-            delete bonds[outputIndex];
+        uint256 unbondedNum = 0;
+        for (; unbondedNum < MAX_UNBOND; ) {
+            bond = bonds[outputIndex];
+            bondAmount = bond.amount;
 
-            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(outputIndex);
-            _increaseBalance(output.submitter, bondAmount);
-            emit Unbonded(outputIndex, output.submitter, bondAmount);
+            if (block.timestamp >= bond.expiresAt && bondAmount > 0) {
+                delete bonds[outputIndex];
+                output = L2_ORACLE.getL2Output(outputIndex);
+                _increaseBalance(output.submitter, bondAmount);
+                emit Unbonded(outputIndex, output.submitter, bondAmount);
 
-            unchecked {
-                ++nextUnbondOutputIndex;
+                // Send reward message to L2 ValidatorRewardVault.
+                _sendRewardMessageToL2Vault(output);
+
+                unchecked {
+                    ++unbondedNum;
+                    ++outputIndex;
+                }
+            } else {
+                break;
             }
+        }
 
+        if (unbondedNum > 0) {
             // Select the next priority validator.
             _updatePriorityValidator(output.outputRoot);
-            // Send reward message to L2 ValidatorRewardVault.
-            _sendRewardMessageToL2Vault(output);
 
+            unchecked {
+                nextUnbondOutputIndex = outputIndex;
+            }
             return true;
         }
 
@@ -285,7 +400,15 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         if (len > 0) {
             // TODO(pangssu): improve next validator selection
             uint256 validatorIndex = uint256(
-                keccak256(abi.encodePacked(_outputRoot, block.number, block.coinbase))
+                keccak256(
+                    abi.encodePacked(
+                        _outputRoot,
+                        block.number,
+                        block.coinbase,
+                        block.difficulty,
+                        blockhash(block.number - 1)
+                    )
+                )
             ) % len;
 
             nextPriorityValidator = validators[validatorIndex];
@@ -300,18 +423,6 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @param _output The finalized output.
      */
     function _sendRewardMessageToL2Vault(Types.CheckpointOutput memory _output) private {
-        // Calculate the elapsed time to submitting the output.
-        uint256 penaltyNumerator = 0;
-        uint256 elapsed = _output.timestamp -
-            L2_ORACLE.computeL2Timestamp(_output.l2BlockNumber + 1);
-        if (elapsed > ROUND_DURATION) {
-            elapsed -= ROUND_DURATION;
-        }
-        // Count from the time the penalty is applied.
-        if (elapsed >= NON_PENALTY_PERIOD) {
-            penaltyNumerator = Math.min(elapsed - NON_PENALTY_PERIOD, PENALTY_PERIOD);
-        }
-
         // Pay out rewards via L2 Vault now that the output is finalized.
         PORTAL.depositTransactionByValidatorPool(
             Predeploys.VALIDATOR_REWARD_VAULT,
@@ -319,16 +430,14 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
             abi.encodeWithSelector(
                 ValidatorRewardVault.reward.selector,
                 _output.submitter,
-                _output.l2BlockNumber,
-                penaltyNumerator,
-                PENALTY_PERIOD
+                _output.l2BlockNumber
             )
         );
     }
 
     /**
-     * @notice Increases the balance of the given address, If the increased balance is at lease
-     *         the minimum bond amount, add the given address to the validator set.
+     * @notice Increases the balance of the given address. If the balance is greater than the required bond amount,
+     *         add the given address to the validator set.
      *
      * @param _validator Address to increase the balance.
      * @param _amount    Amount of balance increased.
@@ -336,17 +445,19 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     function _increaseBalance(address _validator, uint256 _amount) private {
         uint256 balance = balances[_validator] + _amount;
 
-        if (balance >= MIN_BOND_AMOUNT && !isValidator(_validator)) {
-            validatorIndexes[_validator] = validators.length;
-            validators.push(_validator);
+        if (balance >= REQUIRED_BOND_AMOUNT && !isValidator(_validator)) {
+            if (_validator != SECURITY_COUNCIL) {
+                validatorIndexes[_validator] = validators.length;
+                validators.push(_validator);
+            }
         }
 
         balances[_validator] = balance;
     }
 
     /**
-     * @notice Deceases the balance of the given address. If the decreased balance is less than
-     *         the minimum bond amount, remove the given address from the validator set.
+     * @notice Deceases the balance of the given address. If the balance is less than the required bond amount,
+     *         remove the given address from the validator set.
      *
      * @param _validator Address to decrease the balance.
      * @param _amount    Amount of balance decreased.
@@ -356,7 +467,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         require(balance >= _amount, "ValidatorPool: insufficient balances");
         balance = balance - _amount;
 
-        if (balance < MIN_BOND_AMOUNT && isValidator(_validator)) {
+        if (balance < REQUIRED_BOND_AMOUNT && isValidator(_validator)) {
             uint256 lastValidatorIndex = validators.length - 1;
             if (lastValidatorIndex > 0) {
                 uint256 validatorIndex = validatorIndexes[_validator];
@@ -383,6 +494,25 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         Types.Bond storage bond = bonds[_outputIndex];
         require(bond.amount > 0 && bond.expiresAt > 0, "ValidatorPool: the bond does not exist");
         return bond;
+    }
+
+    /**
+     * @notice Returns the pending bond corresponding to the output index and challenger address.
+     *         Reverts if the pending bond does not exist.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     *
+     * @return Amount of the pending bond.
+     */
+    function getPendingBond(uint256 _outputIndex, address _challenger)
+        external
+        view
+        returns (uint128)
+    {
+        uint128 pendingBond = pendingBonds[_outputIndex][_challenger];
+        require(pendingBond > 0, "ValidatorPool: the pending bond does not exist");
+        return pendingBond;
     }
 
     /**

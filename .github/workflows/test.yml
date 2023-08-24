@@ -4,20 +4,19 @@ on:
   pull_request:
     branches:
     - dev
+    - main
 
 jobs:
   test:
     name: Run tests
     runs-on:
       group: kroma-runners
-      labels: kroma-ubuntu-latest-8core
+      labels: kroma-ubuntu-22-04-16core
     steps:
       - name: Check out code
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          submodules: true
-          token: ${{ secrets.KROMA_GITHUB_TOKEN }}
 
       - name: Setup Go 1.19
         uses: actions/setup-go@v4
@@ -49,7 +48,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-e15e33a07c0920189fc336391f538c3dad53da73
+          version: nightly-d369d2486f85576eec4ca41d277391dfdae21ba7
 
       - name: Build
         run: yarn build

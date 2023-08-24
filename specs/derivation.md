@@ -879,7 +879,7 @@ For every L2 block derived from L1 data, we need to build [payload attributes][g
 represented by an [expanded version][expanded-payload] of the [`PayloadAttributesV1`][eth-payload] object,
 which includes additional `transactions` and `noTxPool` fields.
 
-This process happens during the payloads-attributes queue ran by a vanilla or validator node, as well as during
+This process happens during the payloads-attributes queue ran by a full node or validator node, as well as during
 block-production ran by a proposer node (the proposer may enable the tx-pool usage if the transactions are
 batch-submitted).
 

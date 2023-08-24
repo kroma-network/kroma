@@ -43,10 +43,10 @@ type DeployConfig struct {
 	BatchInboxAddress         common.Address `json:"batchInboxAddress"`
 	BatchSenderAddress        common.Address `json:"batchSenderAddress"`
 
-	ValidatorPoolTrustedValidator common.Address `json:"validatorPoolTrustedValidator"`
-	ValidatorPoolMinBondAmount    *hexutil.Big   `json:"validatorPoolMinBondAmount"`
-	ValidatorPoolNonPenaltyPeriod uint64         `json:"validatorPoolNonPenaltyPeriod"`
-	ValidatorPoolPenaltyPeriod    uint64         `json:"validatorPoolPenaltyPeriod"`
+	ValidatorPoolTrustedValidator   common.Address `json:"validatorPoolTrustedValidator"`
+	ValidatorPoolRequiredBondAmount *hexutil.Big   `json:"validatorPoolRequiredBondAmount"`
+	ValidatorPoolMaxUnbond          uint64         `json:"validatorPoolMaxUnbond"`
+	ValidatorPoolRoundDuration      uint64         `json:"validatorPoolRoundDuration"`
 
 	L2OutputOracleSubmissionInterval uint64 `json:"l2OutputOracleSubmissionInterval"`
 	L2OutputOracleStartingTimestamp  int    `json:"l2OutputOracleStartingTimestamp"`
@@ -73,22 +73,38 @@ type DeployConfig struct {
 	L2GenesisBlockParentHash    common.Hash    `json:"l2GenesisBlockParentHash"`
 	L2GenesisBlockBaseFeePerGas *hexutil.Big   `json:"l2GenesisBlockBaseFeePerGas"`
 
-	ColosseumBisectionTimeout uint64      `json:"colosseumBisectionTimeout"`
-	ColosseumProvingTimeout   uint64      `json:"colosseumProvingTimeout"`
-	ColosseumSegmentsLengths  string      `json:"colosseumSegmentsLengths"`
-	ColosseumDummyHash        common.Hash `json:"colosseumDummyHash"`
-	ColosseumMaxTxs           uint64      `json:"colosseumMaxTxs"`
+	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
+	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`
+	ColosseumProvingTimeout        uint64      `json:"colosseumProvingTimeout"`
+	ColosseumSegmentsLengths       string      `json:"colosseumSegmentsLengths"`
+	ColosseumDummyHash             common.Hash `json:"colosseumDummyHash"`
+	ColosseumMaxTxs                uint64      `json:"colosseumMaxTxs"`
 
 	// The initial value of the number of confirmations in security council
 	SecurityCouncilNumConfirmationRequired uint64           `json:"securityCouncilNumConfirmationRequired"`
 	SecurityCouncilOwners                  []common.Address `json:"securityCouncilOwners"`
 
+	// The initial value of the voting delay(unit:block)
+	GovernorVotingDelayBlocks uint64 `json:"governorVotingDelayBlocks"`
+	// The initial value of the voting period(unit:block)
+	GovernorVotingPeriodBlocks uint64 `json:"governorVotingPeriodBlocks"`
+	// The initial value of the proposal threshold(unit:token)
+	GovernorProposalThreshold uint64 `json:"governorProposalThreshold"`
+	// The initial value of the votes quorum fraction(unit:percent)
+	GovernorVotesQuorumFractionPercent uint64 `json:"governorVotesQuorumFractionPercent"`
+	// The latency value of the proposal executing(unit:second)
+	TimeLockMinDelaySeconds uint64 `json:"timeLockMinDelaySeconds"`
+
+	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
+	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
+	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
+
 	// Owner of the ProxyAdmin predeploy
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
 	// Owner of the system on L1
 	FinalSystemOwner common.Address `json:"finalSystemOwner"`
-	// GUARDIAN account in the KromaPortal
-	PortalGuardian common.Address `json:"portalGuardian"`
+	// Owner of the Guardian Token
+	SecurityCouncilTokenOwner common.Address `json:"securityCouncilTokenOwner"`
 	// L1 recipient of fees accumulated in the ProtocolVault
 	ProtocolVaultRecipient common.Address `json:"protocolVaultRecipient"`
 	// L1 recipient of fees accumulated in the ProposerRewardVault
@@ -109,6 +125,8 @@ type DeployConfig struct {
 	GasPriceOracleOverhead uint64 `json:"gasPriceOracleOverhead"`
 	// The initial value of the gas scalar
 	GasPriceOracleScalar uint64 `json:"gasPriceOracleScalar"`
+	// The initial value of the validator reward scalar
+	ValidatorRewardScalar uint64 `json:"validatorRewardScalar"`
 
 	DeploymentWaitConfirmations int `json:"deploymentWaitConfirmations"`
 
@@ -135,9 +153,6 @@ func (d *DeployConfig) Check() error {
 	if d.FinalizationPeriodSeconds == 0 {
 		return fmt.Errorf("%w: FinalizationPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.PortalGuardian == (common.Address{}) {
-		return fmt.Errorf("%w: PortalGuardian cannot be address(0)", ErrInvalidDeployConfig)
-	}
 	if d.MaxProposerDrift == 0 {
 		return fmt.Errorf("%w: MaxProposerDrift cannot be 0", ErrInvalidDeployConfig)
 	}
@@ -159,20 +174,20 @@ func (d *DeployConfig) Check() error {
 	if d.ValidatorPoolTrustedValidator == (common.Address{}) {
 		return fmt.Errorf("%w: ValidatorPoolTrustedValidator cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorPoolMinBondAmount == nil {
-		return fmt.Errorf("%w: ValidatorPoolMinBondAmount cannot be nil", ErrInvalidDeployConfig)
+	if d.ValidatorPoolRequiredBondAmount == nil {
+		return fmt.Errorf("%w: ValidatorPoolRequiredBondAmount cannot be nil", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorPoolNonPenaltyPeriod == 0 {
-		return fmt.Errorf("%w: ValidatorPoolNonPenaltyPeriod cannot be 0", ErrInvalidDeployConfig)
+	if d.ValidatorPoolMaxUnbond == 0 {
+		return fmt.Errorf("%w: ValidatorPoolMaxUnbond cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorPoolPenaltyPeriod == 0 {
-		return fmt.Errorf("%w: ValidatorPoolPenaltyPeriod cannot be 0", ErrInvalidDeployConfig)
+	if d.ValidatorPoolRoundDuration == 0 {
+		return fmt.Errorf("%w: ValidatorPoolRoundDuration cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleSubmissionInterval == 0 {
 		return fmt.Errorf("%w: L2OutputOracleSubmissionInterval cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != (d.ValidatorPoolNonPenaltyPeriod+d.ValidatorPoolPenaltyPeriod)*2 {
-		return fmt.Errorf("%w: sum of ValidatorPoolNonPenaltyPeriod and ValidatorPoolPenaltyPeriod must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
+	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorPoolRoundDuration*2 {
+		return fmt.Errorf("%w: double of ValidatorPoolRoundDuration must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleStartingTimestamp == 0 {
 		log.Warn("L2OutputOracleStartingTimestamp is 0")
@@ -194,6 +209,9 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.GasPriceOracleScalar == 0 {
 		return fmt.Errorf("%w: GasPriceOracleScalar cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorRewardScalar == 0 {
+		log.Warn("ValidatorRewardScalar is 0")
 	}
 	if d.L1StandardBridgeProxy == (common.Address{}) {
 		return fmt.Errorf("%w: L1StandardBridgeProxy cannot be address(0)", ErrInvalidDeployConfig)
@@ -227,6 +245,9 @@ func (d *DeployConfig) Check() error {
 	if d.L2GenesisBlockBaseFeePerGas == nil {
 		return fmt.Errorf("%w: L2 genesis block base fee per gas cannot be nil", ErrInvalidDeployConfig)
 	}
+	if d.ColosseumCreationPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ColosseumCreationPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
 	if d.ColosseumBisectionTimeout == 0 {
 		return fmt.Errorf("%w: ColosseumBisectionTimeout cannot be 0", ErrInvalidDeployConfig)
 	}
@@ -241,6 +262,24 @@ func (d *DeployConfig) Check() error {
 	}
 	if len(strings.Split(d.ColosseumSegmentsLengths, ","))%2 > 0 {
 		return fmt.Errorf("%w: ColosseumSegmentsLengths length cannot be an odd number", ErrInvalidDeployConfig)
+	}
+	if d.GovernorVotingPeriodBlocks == 0 {
+		return fmt.Errorf("%w: GovernorVotingPeriodBlocks cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.GovernorProposalThreshold == 0 {
+		return fmt.Errorf("%w: GovernorProposalThreshold cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.GovernorVotesQuorumFractionPercent > 100 {
+		return fmt.Errorf("%w: GovernorVotesQuorumFractionPercent cannot be greater than 100", ErrInvalidDeployConfig)
+	}
+	if d.ZKVerifierHashScalar == nil {
+		return fmt.Errorf("%w: ZKVerifierHashScalar cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ZKVerifierM56Px == nil {
+		return fmt.Errorf("%w: ZKVerifierM56Px cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ZKVerifierM56Py == nil {
+		return fmt.Errorf("%w: ZKVerifierM56Py cannot be nil", ErrInvalidDeployConfig)
 	}
 	return nil
 }
@@ -332,10 +371,11 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 			},
 			L2Time: l1StartBlock.Time(),
 			SystemConfig: eth.SystemConfig{
-				BatcherAddr: d.BatchSenderAddress,
-				Overhead:    eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleOverhead))),
-				Scalar:      eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleScalar))),
-				GasLimit:    uint64(d.L2GenesisBlockGasLimit),
+				BatcherAddr:           d.BatchSenderAddress,
+				Overhead:              eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleOverhead))),
+				Scalar:                eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleScalar))),
+				GasLimit:              uint64(d.L2GenesisBlockGasLimit),
+				ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.ValidatorRewardScalar))),
 			},
 		},
 		BlockTime:              d.L2BlockTime,
@@ -445,14 +485,15 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"msgNonce":         0,
 	}
 	storage["L1Block"] = state.StorageValues{
-		"number":         block.Number(),
-		"timestamp":      block.Time(),
-		"basefee":        block.BaseFee(),
-		"hash":           block.Hash(),
-		"sequenceNumber": 0,
-		"batcherHash":    config.BatchSenderAddress.Hash(),
-		"l1FeeOverhead":  config.GasPriceOracleOverhead,
-		"l1FeeScalar":    config.GasPriceOracleScalar,
+		"number":                block.Number(),
+		"timestamp":             block.Time(),
+		"basefee":               block.BaseFee(),
+		"hash":                  block.Hash(),
+		"sequenceNumber":        0,
+		"batcherHash":           config.BatchSenderAddress.Hash(),
+		"l1FeeOverhead":         config.GasPriceOracleOverhead,
+		"l1FeeScalar":           config.GasPriceOracleScalar,
+		"validatorRewardScalar": config.ValidatorRewardScalar,
 	}
 	storage["WETH9"] = state.StorageValues{
 		"name":     "Wrapped Ether",

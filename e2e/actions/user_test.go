@@ -33,11 +33,13 @@ func TestCrossLayerUser(gt *testing.T) {
 		BatcherKey:  dp.Secrets.Batcher,
 	}, proposer.RollupClient(), miner.EthClient(), propEngine.EthClient())
 	validator := NewL2Validator(t, log, &ValidatorCfg{
-		OutputOracleAddr:  sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorPoolAddr: sd.DeploymentsL1.ValidatorPoolProxy,
-		ValidatorKey:      dp.Secrets.TrustedValidator,
-		AllowNonFinalized: true,
-	}, miner.EthClient(), proposer.RollupClient())
+		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr:   sd.DeploymentsL1.ValidatorPoolProxy,
+		ColosseumAddr:       sd.DeploymentsL1.ColosseumProxy,
+		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
+		ValidatorKey:        dp.Secrets.TrustedValidator,
+		AllowNonFinalized:   true,
+	}, miner.EthClient(), propEngine.EthClient(), proposer.RollupClient())
 
 	// need to start derivation before we can make L2 blocks
 	proposer.ActL2PipelineFull(t)
@@ -135,14 +137,18 @@ func TestCrossLayerUser(gt *testing.T) {
 	proposer.ActL2PipelineFull(t)
 
 	validator.ActDeposit(t, 1000)
-	includeL1Block(t, miner, dp.Addresses.TrustedValidator)
+	miner.includeL1Block(t, dp.Addresses.TrustedValidator)
 
 	// create l2 output submission transactions until there is nothing left to submit
-	for validator.CanSubmit(t) {
+	for {
+		waitTime := validator.CalculateWaitTime(t)
+		if waitTime > 0 {
+			break
+		}
 		// submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		includeL1Block(t, miner, dp.Addresses.TrustedValidator)
+		miner.includeL1Block(t, dp.Addresses.TrustedValidator)
 		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())

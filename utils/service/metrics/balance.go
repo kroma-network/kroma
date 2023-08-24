@@ -13,8 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// weiToEther divides the wei value by 10^18 to get a number in ether as a float64
-func weiToEther(wei *big.Int) float64 {
+// WeiToEther divides the wei value by 10^18 to get a number in ether as a float64
+func WeiToEther(wei *big.Int) float64 {
 	num := new(big.Rat).SetInt(wei)
 	denom := big.NewRat(params.Ether, 1)
 	num = num.Quo(num, denom)
@@ -39,21 +39,21 @@ func LaunchBalanceMetrics(ctx context.Context, log log.Logger, r *prometheus.Reg
 		for {
 			select {
 			case <-ticker.C:
-				ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-				bigBal, err := client.BalanceAt(ctx, account, nil)
-				if err != nil {
-					log.Warn("failed to get balance of account", "err", err, "address", account)
-					cancel()
-					continue
-				}
-				bal := weiToEther(bigBal)
-				balanceGuage.Set(bal)
-				cancel()
+				func() {
+					ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+					defer cancel()
+					bigBal, err := client.BalanceAt(ctx, account, nil)
+					if err != nil {
+						log.Warn("failed to get balance of account", "err", err, "address", account)
+						return
+					}
+					bal := WeiToEther(bigBal)
+					balanceGuage.Set(bal)
+				}()
 			case <-ctx.Done():
 				log.Info("balance metrics shutting down")
 				return
 			}
 		}
-
 	}()
 }

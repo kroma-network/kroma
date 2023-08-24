@@ -17,8 +17,8 @@ rely on higher-latency data from L1 to serve.
 
 In summary, the P2P stack looks like:
 
-- Discovery to find peers: [Discv5]
-- Connections, peering, transport security, multiplexing, gossip: [LibP2P]
+- Discovery to find peers: [Discv5][discv5]
+- Connections, peering, transport security, multiplexing, gossip: [LibP2P][libp2p]
 - Application-layer publishing and validation of gossiped messages like L2 blocks.
 
 This document only specifies the composition and configuration of these network libraries.
@@ -81,20 +81,19 @@ Common representations of network identity:
 
 #### Structure
 
-The [Ethereum Node Record (ENR)][enr] for a Kroma rollup node must contain the following values, identified by unique
-keys:
+The Ethereum Node Record (ENR) for an Kroma rollup node must contain the following values, identified by unique keys:
 
 - An IPv4 address (`ip` field) and/or IPv6 address (`ip6` field).
-- A TCP port (`tcp` field) representing the local [libp2p] listening port.
-- A UDP port (`udp` field) representing the local [discv5] listening port.
-- A KromaStack (`kroma-stack` field) L2 network identifier
+- A TCP port (`tcp` field) representing the local libp2p listening port.
+- A UDP port (`udp` field) representing the local discv5 listening port.
+- An OpStack (`opstack` field) L2 network identifier
 
-The `kroma-stack` value is encoded as a single RLP `bytes` value, the concatenation of:
+The `opstack` value is encoded as a single RLP `bytes` value, the concatenation of:
 
 - chain ID (`unsigned varint`)
 - fork ID (`unsigned varint`)
 
-Note that DiscV5 is a shared [DHT (Distributed Hash Table)][dht]: the L1 consensus and execution nodes,
+Note that DiscV5 is a shared DHT (Distributed Hash Table): the L1 consensus and execution nodes,
 as well as testnet nodes, and even external IOT nodes, all communicate records in this large common DHT.
 This makes it more difficult to censor the discovery of node records.
 
@@ -104,15 +103,14 @@ The discovery process in Kroma is a pipeline of node records:
 2. Pull additional records with searches to random Node IDs if necessary
    (e.g. iterate [`RandomNodes()`][discv5-random-nodes] in Go implementation)
 3. Pull records from the DiscV5 module when looking for peers
-4. Check if the record contains the `kroma-stack` entry, verify it matches the chain ID and current or
-   future fork number
+4. Check if the record contains the `opstack` entry, verify it matches the chain ID and current or future fork number
 5. If not already connected, and not recently disconnected or put on deny-list, attempt to dial.
 
 ### LibP2P
 
 #### Transport
 
-TCP transport. Additional transports are supported by [LibP2P], but not required.
+TCP transport. Additional transports are supported by LibP2P, but not required.
 
 #### Dialing
 
@@ -171,7 +169,7 @@ This should be enabled to help provide insight into the network health.
 #### Multiplexing
 
 For async communication over different channels over the same connection, multiplexing is used.
-[mplex] (`/mplex/6.7.0`) is required, and [yamux] (`/yamux/1.0.0`) is recommended but optional
+[mplex][mplex] (`/mplex/6.7.0`) is required, and [yamux][yamux] (`/yamux/1.0.0`) is recommended but optional
 
 #### GossipSub
 
@@ -189,7 +187,7 @@ multiple network identities for redundancy.
 
 ##### Message compression and limits
 
-The application contents are compressed with [snappy] single-block-compression
+The application contents are compressed with [snappy][snappy] single-block-compression
 (as opposed to frame-compression), and constrained to 10 MiB.
 
 ##### Message ID computation
@@ -258,7 +256,7 @@ The primary topic of the L2, to distribute blocks to other nodes faster than pro
 A block is structured as the concatenation of:
 
 - `signature`: A `secp256k1` signature, always 65 bytes, `r (uint256), s (uint256), y_parity (uint8)`
-- `payload`: A [SSZ]-encoded `ExecutionPayload`, always the remaining bytes.
+- `payload`: A SSZ-encoded `ExecutionPayload`, always the remaining bytes.
 
 The topic uses Snappy block-compression (i.e. no snappy frames):
 the above needs to be compressed after encoding, and decompressed before decoding.
@@ -332,7 +330,7 @@ except the trailing encoding schema part, which is now message-specific:
 /ProtocolPrefix/MessageName/SchemaVersion/
 ```
 
-The req-resp protocols served by the kroma-node all have `/ProtocolPrefix` set to `/kroma-stack/req`.
+The req-resp protocols served by the kroma-node all have `/ProtocolPrefix` set to `/opstack/req`.
 
 Individual methods may include the chain ID as part of the `/MessageName` segment,
 so it's immediately clear which chain the method applies to, if the communication is chain-specific.
@@ -346,7 +344,7 @@ Each segment starts with a `/`, and may contain multiple `/`, and the final prot
 This is an optional chain syncing method, to request/serve execution payloads by number.
 This serves as a method to fill gaps upon missed gossip, and sync short to medium ranges of unsafe L2 blocks.
 
-Protocol ID: `/kroma-stack/req/payload_by_number/<chain-id>/0/`
+Protocol ID: `/opstack/req/payload_by_number/<chain-id>/0/`
 
 - `/MessageName` is `/block_by_number/<chain-id>` where `<chain-id>` is set to the kroma-node L2 chain ID.
 - `/SchemaVersion` is `/0`
@@ -395,21 +393,18 @@ but the client should regard any error like any any other unanswered request, as
 ----
 
 [libp2p]: https://libp2p.io/
-[dht]: https://en.wikipedia.org/wiki/Distributed_hash_table
 [discv5]: https://github.com/ethereum/devp2p/blob/master/discv5/discv5.md
 [discv5-random-nodes]: https://pkg.go.dev/github.com/ethereum/go-ethereum@v1.10.12/p2p/discover#UDPv5.RandomNodes
-[enr]: https://github.com/ethereum/devp2p/blob/master/enr.md
 [eth2-p2p]: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md
 [eth2-p2p-reqresp]: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
 [eth2-p2p-altair-reqresp]: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/p2p-interface.md#the-reqresp-domain
-[extended-validator]: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#extended-validators
-[gossip-parameters]: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.0.md#parameters
-[gossipsub]: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md
-[l1-message-id]: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#topics-and-messages
 [libp2p-noise]: https://github.com/libp2p/specs/tree/master/noise
-[mplex]: https://github.com/libp2p/specs/tree/master/mplex
 [multistream-select]: https://github.com/multiformats/multistream-select/
+[mplex]: https://github.com/libp2p/specs/tree/master/mplex
+[yamux]: https://github.com/hashicorp/yamux/blob/master/spec.md
+[gossipsub]: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md
 [signature-policy]: https://github.com/libp2p/specs/blob/master/pubsub/README.md#signature-policy-options
 [snappy]: https://github.com/google/snappy
-[ssz]: https://ethereum.org/en/developers/docs/data-structures-and-encoding/ssz/
-[yamux]: https://github.com/hashicorp/yamux/blob/master/spec.md
+[l1-message-id]: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#topics-and-messages
+[gossip-parameters]: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.0.md#parameters
+[extended-validator]: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#extended-validators

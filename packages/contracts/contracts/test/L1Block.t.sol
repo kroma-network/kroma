@@ -23,7 +23,7 @@ contract L1BlockTest is CommonTest {
             _batcherHash: bytes32(0),
             _l1FeeOverhead: 2,
             _l1FeeScalar: 3,
-            _vRewardRatio: 1
+            _validatorRewardScalar: 1
         });
     }
 
@@ -49,7 +49,7 @@ contract L1BlockTest is CommonTest {
         assertEq(lb.batcherHash(), bt);
         assertEq(lb.l1FeeOverhead(), fo);
         assertEq(lb.l1FeeScalar(), fs);
-        assertEq(lb.validatorRewardRatio(), vrr);
+        assertEq(lb.validatorRewardScalar(), vrr);
     }
 
     function test_number_succeeds() external {
@@ -83,7 +83,7 @@ contract L1BlockTest is CommonTest {
             _batcherHash: bytes32(type(uint256).max),
             _l1FeeOverhead: type(uint256).max,
             _l1FeeScalar: type(uint256).max,
-            _vRewardRatio: 10000
+            _validatorRewardScalar: 10000
         });
     }
 }

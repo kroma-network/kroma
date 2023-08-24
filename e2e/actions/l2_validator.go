@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/validator"
 	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
@@ -44,9 +45,10 @@ type L2Validator struct {
 	l2ooContractAddr    common.Address
 	valPoolContractAddr common.Address
 	lastTx              common.Hash
+	cfg                 *validator.Config
 }
 
-func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.Client, rollupCl *sources.RollupClient) *L2Validator {
+func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.Client, l2 *ethclient.Client, rollupCl *sources.RollupClient) *L2Validator {
 	signer := func(chainID *big.Int) kcrypto.SignerFn {
 		s := kcrypto.PrivateKeySignerFn(cfg.ValidatorKey, chainID)
 		return func(_ context.Context, addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -71,15 +73,18 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		OutputSubmitterRoundBuffer:   30,
 		NetworkTimeout:               time.Second,
 		L1Client:                     l1,
+		L2Client:                     l2,
 		RollupClient:                 rollupCl,
 		RollupConfig:                 rollupConfig,
 		AllowNonFinalized:            cfg.AllowNonFinalized,
 		ProofFetcher:                 e2eutils.NewFetcher(log, "../testdata/proof"),
 		// We use custom signing here instead of using the transaction manager.
-		TxManager: &txmgr.SimpleTxManager{
-			Config: txmgr.Config{
-				From:   from,
-				Signer: signer(chainID),
+		TxManager: &txmgr.BufferedTxManager{
+			SimpleTxManager: txmgr.SimpleTxManager{
+				Config: txmgr.Config{
+					From:   from,
+					Signer: signer(chainID),
+				},
 			},
 		},
 	}
@@ -87,10 +92,10 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	l2os, err := validator.NewL2OutputSubmitter(context.Background(), validatorCfg, log, validatormetrics.NoopMetrics)
 	require.NoError(t, err)
 
-	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log)
+	challenger, err := validator.NewChallenger(t.Ctx(), validatorCfg, log, validatormetrics.NoopMetrics)
 	require.NoError(t, err)
 
-	guardian, err := validator.NewGuardian(validatorCfg, log)
+	guardian, err := validator.NewGuardian(t.Ctx(), validatorCfg, log)
 	require.NoError(t, err)
 
 	return &L2Validator{
@@ -103,6 +108,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		privKey:             cfg.ValidatorKey,
 		l2ooContractAddr:    cfg.OutputOracleAddr,
 		valPoolContractAddr: cfg.ValidatorPoolAddr,
+		cfg:                 &validatorCfg,
 	}
 }
 
@@ -148,23 +154,21 @@ func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int
 	v.lastTx = tx.Hash()
 }
 
-func (v *L2Validator) CanSubmit(t Testing) bool {
-	_, shouldSubmit, err := v.l2os.CanSubmit(t.Ctx())
+func (v *L2Validator) CalculateWaitTime(t Testing) time.Duration {
+	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
 	require.NoError(t, err)
-	return shouldSubmit
+	calculatedWaitTime := v.l2os.CalculateWaitTime(t.Ctx(), nextBlockNumber)
+	return calculatedWaitTime
 }
 
 func (v *L2Validator) ActSubmitL2Output(t Testing) {
-	nextBlockNumber, canSubmit, err := v.l2os.CanSubmit(t.Ctx())
+	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
 	require.NoError(t, err)
-	if !canSubmit {
-		return
-	}
 
 	output, err := v.l2os.FetchOutput(t.Ctx(), nextBlockNumber)
 	require.NoError(t, err)
 
-	txData, err := validator.SubmitL2OutputTxData(v.l2os.L2ooAbi(), output, 1)
+	txData, err := validator.SubmitL2OutputTxData(v.l2os.L2ooAbi(), output)
 	require.NoError(t, err)
 
 	// Note: Use L1 instead of the output submitter's transaction manager because
@@ -183,5 +187,12 @@ func (v *L2Validator) ActDeposit(t Testing, depositAmount uint64) {
 	txData, err := valPoolABI.Pack("deposit")
 	require.NoError(t, err)
 
-	v.sendTx(t, &v.valPoolContractAddr, big.NewInt(int64(depositAmount)), txData)
+	v.sendTx(t, &v.valPoolContractAddr, new(big.Int).SetUint64(depositAmount), txData)
+}
+
+func (v *L2Validator) fetchOutput(t Testing, blockNumber *big.Int) *eth.OutputResponse {
+	output, err := v.l2os.FetchOutput(t.Ctx(), blockNumber)
+	require.NoError(t, err)
+
+	return output
 }

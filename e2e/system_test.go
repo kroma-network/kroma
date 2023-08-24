@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/bindings/predeploys"
@@ -38,8 +39,10 @@ import (
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/components/node/withdrawals"
+	val "github.com/kroma-network/kroma/components/validator"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 	"github.com/kroma-network/kroma/e2e/testdata"
+	"github.com/kroma-network/kroma/utils/service/backoff"
 	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 )
 
@@ -148,75 +151,50 @@ func TestValidationReward(t *testing.T) {
 		log.Root().SetHandler(log.DiscardHandler())
 	}
 
-	runTest := func(t *testing.T, cfg SystemConfig) (*big.Int, *big.Int) {
-		sys, err := cfg.Start()
-		require.NoError(t, err, "Error starting up system")
-		defer sys.Close()
+	cfg := DefaultSystemConfig(t)
+	cfg.DeployConfig.FinalizationPeriodSeconds = 32
+	cfg.DeployConfig.L2OutputOracleSubmissionInterval = 16
+	cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
+	cfg.DeployConfig.ValidatorPoolRoundDuration = 16
 
-		l2Prop := sys.Clients["proposer"]
-		l2Sync := sys.Clients["syncer"]
+	sys, err := cfg.Start()
+	require.NoError(t, err, "Error starting up system")
+	defer sys.Close()
 
-		validatorVault, err := bindings.NewValidatorRewardVault(predeploys.ValidatorRewardVaultAddr, l2Sync)
-		require.NoError(t, err)
+	l2Prop := sys.Clients["proposer"]
+	l2Sync := sys.Clients["syncer"]
 
-		rewardDivider, err := validatorVault.REWARDDIVIDER(&bind.CallOpts{})
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, rewardDivider.Uint64(), uint64(1))
+	validatorVault, err := bindings.NewValidatorRewardVault(predeploys.ValidatorRewardVaultAddr, l2Sync)
+	require.NoError(t, err)
 
-		// Send a transaction to pay a fee.
-		_, err = cfg.SendTransferTx(l2Prop, l2Sync)
-		require.NoError(t, err)
+	rewardDivider, err := validatorVault.REWARDDIVIDER(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, rewardDivider.Uint64(), uint64(1))
 
-		l2RewardedCh := make(chan *bindings.ValidatorRewardVaultRewarded, 1)
-		rewardedSub, err := validatorVault.WatchRewarded(&bind.WatchOpts{}, l2RewardedCh, nil, nil)
-		require.NoError(t, err)
-		defer rewardedSub.Unsubscribe()
+	// Send a transaction to pay a fee.
+	_, err = cfg.SendTransferTx(l2Prop, l2Sync)
+	require.NoError(t, err)
 
-		timeout := time.Minute * 2
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		for {
-			select {
-			case <-ctx.Done():
-				t.Fatalf("not rewarded to validator")
-			case evt := <-l2RewardedCh:
-				vaultBalance, err := l2Sync.PendingBalanceAt(ctx, predeploys.ValidatorRewardVaultAddr)
-				require.NoError(t, err)
-				fullReward := new(big.Int).Div(vaultBalance, rewardDivider)
-				return fullReward, evt.Amount
-			}
+	l2RewardedCh := make(chan *bindings.ValidatorRewardVaultRewarded, 1)
+	rewardedSub, err := validatorVault.WatchRewarded(&bind.WatchOpts{}, l2RewardedCh, nil, nil)
+	require.NoError(t, err)
+	defer rewardedSub.Unsubscribe()
+
+	timeout := time.Minute * 2
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	for {
+		select {
+		case evt := <-l2RewardedCh:
+			vaultBalance, err := l2Sync.PendingBalanceAt(ctx, predeploys.ValidatorRewardVaultAddr)
+			require.NoError(t, err)
+			reward := new(big.Int).Div(vaultBalance, rewardDivider)
+			require.Equal(t, 0, reward.Cmp(evt.Amount))
+			return
+		case <-ctx.Done():
+			t.Fatalf("not rewarded to validator")
 		}
 	}
-
-	t.Run("non penalized", func(t *testing.T) {
-		parallel(t)
-
-		cfg := DefaultSystemConfig(t)
-		cfg.DeployConfig.FinalizationPeriodSeconds = 32
-		cfg.DeployConfig.L2OutputOracleSubmissionInterval = 16
-		cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
-		cfg.DeployConfig.ValidatorPoolNonPenaltyPeriod = 15
-		cfg.DeployConfig.ValidatorPoolPenaltyPeriod = 1
-
-		fullReward, rewardAmount := runTest(t, cfg)
-		require.Equal(t, 0, fullReward.Cmp(rewardAmount))
-	})
-
-	t.Run("penalized", func(t *testing.T) {
-		parallel(t)
-
-		cfg := DefaultSystemConfig(t)
-		cfg.DeployConfig.FinalizationPeriodSeconds = 32
-		cfg.DeployConfig.L2OutputOracleSubmissionInterval = 16
-		cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
-		cfg.DeployConfig.ValidatorPoolNonPenaltyPeriod = 1
-		cfg.DeployConfig.ValidatorPoolPenaltyPeriod = 15
-
-		fullReward, rewardAmount := runTest(t, cfg)
-		require.Equal(t, 1, fullReward.Cmp(rewardAmount))
-	})
-
-	// TODO(pangssu): test for public submission round
 }
 
 // TestSystemE2E sets up a L1 Geth node, a rollup node, and a L2 geth node and then confirms that L1 deposits are reflected on L2.
@@ -672,11 +650,11 @@ func L1InfoFromState(ctx context.Context, contract *bindings.L1Block, l2Number *
 	}
 	out.BatcherAddr = common.BytesToAddress(batcherHash[:])
 
-	vRewardRatio, err := contract.ValidatorRewardRatio(&opts)
+	validatorRewardScalar, err := contract.ValidatorRewardScalar(&opts)
 	if err != nil {
-		return derive.L1BlockInfo{}, fmt.Errorf("failed to get validator reward ratio: %w", err)
+		return derive.L1BlockInfo{}, fmt.Errorf("failed to get validator reward scalar: %w", err)
 	}
-	out.ValidatorRewardRatio = eth.Bytes32(common.BigToHash(vRewardRatio))
+	out.ValidatorRewardScalar = eth.Bytes32(common.BigToHash(validatorRewardScalar))
 
 	return out, nil
 }
@@ -718,6 +696,24 @@ func TestSystemMockP2P(t *testing.T) {
 	// Enable the proposer now that everyone is ready to receive payloads.
 	rollupRPCClient, err := rpc.DialContext(context.Background(), sys.RollupNodes["proposer"].HTTPEndpoint())
 	require.NoError(t, err)
+
+	syncerPeerID := sys.RollupNodes["syncer"].P2P().Host().ID()
+	check := func() bool {
+		proposerBlocksTopicPeers := sys.RollupNodes["proposer"].P2P().GossipOut().BlocksTopicPeers()
+		return slices.Contains[peer.ID](proposerBlocksTopicPeers, syncerPeerID)
+	}
+
+	// poll to see if the validator node is connected & meshed on gossip.
+	// Without this validator, we shouldn't start sending blocks around, or we'll miss them and fail the test.
+	backOffStrategy := backoff.Exponential()
+	for i := 0; i < 10; i++ {
+		if check() {
+			break
+		}
+		time.Sleep(backOffStrategy.Duration(i))
+	}
+	require.True(t, check(), "validator must be meshed with proposer for gossip test to proceed")
+
 	require.NoError(t, rollupRPCClient.Call(nil, "admin_startProposer", sys.L2GenesisCfg.ToBlock().Hash()))
 
 	l2Prop := sys.Clients["proposer"]
@@ -934,7 +930,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 	snapLog.SetHandler(log.DiscardHandler())
 
 	// Create a peer, and hook up alice and bob
-	h, err := sys.Mocknet.GenPeer()
+	h, err := sys.newMockNetPeer()
 	require.NoError(t, err)
 	_, err = sys.Mocknet.LinkPeers(sys.RollupNodes["alice"].P2P().Host().ID(), h.ID())
 	require.NoError(t, err)
@@ -1001,7 +997,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 
 // TestSystemDenseTopology sets up a dense p2p topology with 3 syncer nodes and 1 proposer node.
 func TestSystemDenseTopology(t *testing.T) {
-	t.Skip("Skipping dense topology test to avoid flakiness.")
+	t.Skip("Skipping dense topology test to avoid flakiness. @refcell address in p2p scoring pr.")
 
 	parallel(t)
 	if !verboseGethNodes {
@@ -1042,10 +1038,10 @@ func TestSystemDenseTopology(t *testing.T) {
 
 	// Set peer scoring for each node, but without banning
 	for _, node := range cfg.Nodes {
-		params, err := p2p.GetPeerScoreParams("light", 2)
+		params, err := p2p.GetScoringParams("light", &node.Rollup)
 		require.NoError(t, err)
 		node.P2P = &p2p.Config{
-			PeerScoring:    params,
+			ScoringParams:  params,
 			BanningEnabled: false,
 		}
 	}
@@ -1188,15 +1184,15 @@ func TestL1InfoContract(t *testing.T) {
 		require.Nil(t, err)
 
 		l1blocks[h] = derive.L1BlockInfo{
-			Number:               b.NumberU64(),
-			Time:                 b.Time(),
-			BaseFee:              b.BaseFee(),
-			BlockHash:            h,
-			SequenceNumber:       0, // ignored, will be overwritten
-			BatcherAddr:          sys.RollupConfig.Genesis.SystemConfig.BatcherAddr,
-			L1FeeOverhead:        sys.RollupConfig.Genesis.SystemConfig.Overhead,
-			L1FeeScalar:          sys.RollupConfig.Genesis.SystemConfig.Scalar,
-			ValidatorRewardRatio: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(derive.CalcValidatorRewardRatio()))),
+			Number:                b.NumberU64(),
+			Time:                  b.Time(),
+			BaseFee:               b.BaseFee(),
+			BlockHash:             h,
+			SequenceNumber:        0, // ignored, will be overwritten
+			BatcherAddr:           sys.RollupConfig.Genesis.SystemConfig.BatcherAddr,
+			L1FeeOverhead:         sys.RollupConfig.Genesis.SystemConfig.Overhead,
+			L1FeeScalar:           sys.RollupConfig.Genesis.SystemConfig.Scalar,
+			ValidatorRewardScalar: sys.RollupConfig.Genesis.SystemConfig.ValidatorRewardScalar,
 		}
 
 		h = b.ParentHash()
@@ -1583,20 +1579,19 @@ func TestFees(t *testing.T) {
 	proposerRewardVaultDiff := new(big.Int).Sub(proposerRewardVaultEndBalance, proposerRewardVaultStartBalance)
 	validatorRewardVaultDiff := new(big.Int).Sub(validatorRewardVaultEndBalance, validatorRewardVaultStartBalance)
 
-	// get a validator reward ratio from L1Block contract
+	// get a validator reward scalar from L1Block contract
 	l1BlockContract, err := bindings.NewL1Block(predeploys.L1BlockAddr, l2Prop)
 	require.Nil(t, err)
 
-	vRewardRatio, err := l1BlockContract.ValidatorRewardRatio(&bind.CallOpts{})
-	require.Nil(t, err, "reading vRewardRatio")
-	require.True(t, vRewardRatio.Uint64() > 0, "wrong l1block vRewardRatio")
+	validatorRewardScalar, err := l1BlockContract.ValidatorRewardScalar(&bind.CallOpts{})
+	require.Nil(t, err, "reading validatorRewardScalar")
 
 	gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
 	fee := new(big.Int)
 	fee.Mul(gasUsed, header.BaseFee)
 	fee.Add(fee, new(big.Int).Mul(gasTip, gasUsed))
 
-	R := big.NewRat(vRewardRatio.Int64(), 10000)
+	R := big.NewRat(validatorRewardScalar.Int64(), 10000)
 	reward := new(big.Int).Mul(fee, R.Num())
 	reward.Div(reward, R.Denom())
 
@@ -1605,7 +1600,7 @@ func TestFees(t *testing.T) {
 
 	// Tally Protocol fund
 	protocolFee := new(big.Int).Sub(fee, reward)
-	require.Equal(t, protocolFee, protocolVaultDiff, "protocol fund mismatch")
+	require.Equal(t, protocolFee.Cmp(protocolVaultDiff), 0, "protocol fund mismatch")
 
 	// Tally proposer reward
 	bytes, err := tx.MarshalBinary()
@@ -1778,6 +1773,7 @@ func TestChallenge(t *testing.T) {
 
 	cfg := DefaultSystemConfig(t)
 	cfg.EnableMaliciousValidator = true
+	cfg.EnableGuardian = true
 
 	sys, err := cfg.Start()
 	require.NoError(t, err, "Error starting up system")
@@ -1786,7 +1782,7 @@ func TestChallenge(t *testing.T) {
 	l1Client := sys.Clients["l1"]
 
 	// deposit to ValidatorPool to be a challenger
-	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.Challenger, big.NewInt(1_000_000_000))
+	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.Challenger1, big.NewInt(1_000_000_000))
 	require.NoError(t, err, "Error challenger deposit to ValidatorPool")
 
 	// OutputOracle is already deployed
@@ -1801,43 +1797,59 @@ func TestChallenge(t *testing.T) {
 	securityCouncil, err := bindings.NewSecurityCouncilCaller(predeploys.DevSecurityCouncilAddr, l1Client)
 	require.NoError(t, err)
 
+	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
+
 	// set a timeout for one cycle of challenge
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
 	defer cancel()
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
-
-	for {
-		challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
-		require.NoError(t, err)
-
-		// APPROVED status
-		if challengeStatus == chal.StatusApproved {
-			// check tx executed
-			tx, err := securityCouncil.Transactions(&bind.CallOpts{}, new(big.Int).SetUint64(0))
-			require.NoError(t, err)
-			require.Equal(t, tx.Executed, true)
-
-			// check challenge status is approved
-			challenge, err := colosseum.GetChallenge(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
-			require.NoError(t, err)
-			require.Equal(t, challenge.Approved, true)
-
-			// check output replaced by challenger
-			output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
-			require.NoError(t, err)
-			require.Equal(t, output.Submitter, cfg.Secrets.Addresses().Challenger)
-
-			return
-		}
-
+	for ; ; <-ticker.C {
 		select {
 		case <-ctx.Done():
 			t.Fatalf("Timed out for challenge test")
-		case <-ticker.C:
+		default:
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), cfg.Secrets.Addresses().Challenger1)
+			require.NoError(t, err)
+
+			// wait until status becomes READY_TO_PROVE
+			if challengeStatus != chal.StatusReadyToProve {
+				continue
+			}
+		}
+		break
+	}
+	cancel()
+
+	// set a timeout for security council to validate output
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-ctx.Done():
+			// after security council timed out, the challenge is regarded to be correct
+			return
+		default:
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), cfg.Secrets.Addresses().Challenger1)
+			require.NoError(t, err)
+
+			// after challenge is proven, status is NONE
+			if challengeStatus == chal.StatusNone {
+				// check tx not executed
+				tx, err := securityCouncil.Transactions(&bind.CallOpts{}, new(big.Int).SetUint64(0))
+				require.NoError(t, err)
+				require.False(t, tx.Executed)
+
+				// check output is deleted by challenger
+				output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
+				require.NoError(t, err)
+				require.Equal(t, output.Submitter, cfg.Secrets.Addresses().Challenger1)
+				outputDeleted := val.IsOutputDeleted(output.OutputRoot)
+				require.True(t, outputDeleted)
+			}
 		}
 	}
 }

@@ -55,8 +55,8 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	require.NoError(t, err)
 	addresses := secrets.Addresses()
 	deployConfig := &genesis2.DeployConfig{
-		L1ChainID:   901,
-		L2ChainID:   902,
+		L1ChainID:   900,
+		L2ChainID:   901,
 		L2BlockTime: 2,
 
 		MaxProposerDrift:   tp.MaxProposerDrift,
@@ -66,12 +66,12 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		BatchInboxAddress:  common.Address{0: 0x42, 19: 0xff}, // tbd
 		BatchSenderAddress: addresses.Batcher,
 
-		ValidatorPoolTrustedValidator: addresses.TrustedValidator,
-		ValidatorPoolMinBondAmount:    uint64ToBig(1),
-		ValidatorPoolNonPenaltyPeriod: 3,
-		ValidatorPoolPenaltyPeriod:    3,
+		ValidatorPoolTrustedValidator:   addresses.TrustedValidator,
+		ValidatorPoolRequiredBondAmount: uint64ToBig(1),
+		ValidatorPoolMaxUnbond:          10,
+		ValidatorPoolRoundDuration:      4,
 
-		L2OutputOracleSubmissionInterval: 6,
+		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
 
 		FinalSystemOwner: addresses.SysCfgOwner,
@@ -88,7 +88,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L1GenesisBlockGasUsed:       0,
 		L1GenesisBlockParentHash:    common.Hash{},
 		L1GenesisBlockBaseFeePerGas: uint64ToBig(1000_000_000), // 1 gwei
-		FinalizationPeriodSeconds:   12,
+		FinalizationPeriodSeconds:   10,
 
 		L2GenesisBlockNonce:         0,
 		L2GenesisBlockGasLimit:      30_000_000,
@@ -99,18 +99,20 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L2GenesisBlockParentHash:    common.Hash{},
 		L2GenesisBlockBaseFeePerGas: uint64ToBig(1000_000_000),
 
-		ColosseumBisectionTimeout: 120,
-		ColosseumProvingTimeout:   480,
-		ColosseumDummyHash:        common.HexToHash("0x6cf9919fd9dfe923ed2f2e4d980d677a88d17c74f8f6604ffac1512ff306e760"),
-		ColosseumMaxTxs:           25,
-		ColosseumSegmentsLengths:  "3,4",
+		ColosseumCreationPeriodSeconds: 10,
+		ColosseumBisectionTimeout:      120,
+		ColosseumProvingTimeout:        480,
+		ColosseumDummyHash:             common.HexToHash("0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7"),
+		ColosseumMaxTxs:                100,
+		ColosseumSegmentsLengths:       "2,2,3,3",
 
 		SecurityCouncilNumConfirmationRequired: 1,
-		SecurityCouncilOwners:                  []common.Address{addresses.Challenger, addresses.Alice, addresses.Bob, addresses.Mallory},
+		SecurityCouncilOwners:                  []common.Address{addresses.Challenger1, addresses.Alice, addresses.Bob, addresses.Mallory},
 
 		GasPriceOracleOverhead:      2100,
 		GasPriceOracleScalar:        1000_000,
 		DeploymentWaitConfirmations: 1,
+		ValidatorRewardScalar:       5000,
 
 		ProtocolVaultRecipient:       common.Address{19: 2},
 		ProposerRewardVaultRecipient: common.Address{19: 3},
@@ -119,6 +121,16 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		EIP1559Denominator: 50,
 
 		FundDevAccounts: false,
+
+		GovernorVotingDelayBlocks:          0,
+		GovernorVotingPeriodBlocks:         25,
+		GovernorProposalThreshold:          1,
+		GovernorVotesQuorumFractionPercent: 51,
+		TimeLockMinDelaySeconds:            1,
+
+		ZKVerifierHashScalar: (*hexutil.Big)(hexutil.MustDecodeBig("0x201bf8cdf8299a6ab7711b7ed71fb7ee9448728d1c41caa1577e4f8dd6a0f33a")),
+		ZKVerifierM56Px:      (*hexutil.Big)(hexutil.MustDecodeBig("0xa3500fa181d574a461035b8ae73a29e1aca62ea606eb8e4847dd74760d2c177")),
+		ZKVerifierM56Py:      (*hexutil.Big)(hexutil.MustDecodeBig("0x3cab33eacc5d51c399712707c5df1500c93ad67be0a3a45bebe9d96119ac469")),
 	}
 
 	// Configure the DeployConfig with the expected developer L1
@@ -147,6 +159,9 @@ type DeploymentsL1 struct {
 	SecurityCouncilProxy        common.Address
 	KromaPortalProxy            common.Address
 	SystemConfigProxy           common.Address
+	SecurityCouncilTokenProxy   common.Address
+	TimeLockProxy               common.Address
+	UpgradeGovernorProxy        common.Address
 }
 
 // SetupData bundles the L1, L2, rollup and deployment configuration data: everything for a full test setup.
@@ -237,6 +252,9 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		SecurityCouncilProxy:        predeploys.DevSecurityCouncilAddr,
 		KromaPortalProxy:            predeploys.DevKromaPortalAddr,
 		SystemConfigProxy:           predeploys.DevSystemConfigAddr,
+		SecurityCouncilTokenProxy:   predeploys.DevSecurityCouncilTokenAddr,
+		TimeLockProxy:               predeploys.DevTimeLockAddr,
+		UpgradeGovernorProxy:        predeploys.DevUpgradeGovernorAddr,
 	}
 
 	return &SetupData{
@@ -249,9 +267,10 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 
 func SystemConfigFromDeployConfig(deployConfig *genesis2.DeployConfig) eth.SystemConfig {
 	return eth.SystemConfig{
-		BatcherAddr: deployConfig.BatchSenderAddress,
-		Overhead:    eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleOverhead))),
-		Scalar:      eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleScalar))),
-		GasLimit:    uint64(deployConfig.L2GenesisBlockGasLimit),
+		BatcherAddr:           deployConfig.BatchSenderAddress,
+		Overhead:              eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleOverhead))),
+		Scalar:                eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleScalar))),
+		GasLimit:              uint64(deployConfig.L2GenesisBlockGasLimit),
+		ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.ValidatorRewardScalar))),
 	}
 }

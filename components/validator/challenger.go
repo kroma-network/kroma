@@ -3,6 +3,7 @@ package validator
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -22,13 +22,14 @@ import (
 	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/components/node/eth"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
+var deletedOutputRoot = [32]byte{}
+
 type ProofFetcher interface {
-	FetchProofAndPair(blockRef uint64) (*chal.ProofAndPair, error)
-	Close() error
+	FetchProofAndPair(ctx context.Context, trace string) (*chal.ProofAndPair, error)
 }
 
 type Challenger struct {
@@ -36,30 +37,33 @@ type Challenger struct {
 	cfg    Config
 	ctx    context.Context
 	cancel context.CancelFunc
+	metr   metrics.Metricer
 
 	l1Client *ethclient.Client
+	l2Client *ethclient.Client
 
 	l2ooContract      *bindings.L2OutputOracle
 	l2ooABI           *abi.ABI
 	colosseumContract *bindings.Colosseum
 	colosseumABI      *abi.ABI
+	valpoolContract   *bindings.ValidatorPoolCaller
 
 	submissionInterval        *big.Int
 	finalizationPeriodSeconds *big.Int
 	l2BlockTime               *big.Int
 	checkpoint                *big.Int
+	requiredBondAmount        *big.Int
 
-	l2OutputSub  ethereum.Subscription
-	challengeSub ethereum.Subscription
+	l2OutputSubmittedSub ethereum.Subscription
+	challengeCreatedSub  ethereum.Subscription
 
-	txCandidatesChan           chan<- txmgr.TxCandidate
 	l2OutputSubmittedEventChan chan *bindings.L2OutputOracleOutputSubmitted
 	challengeCreatedEventChan  chan *bindings.ColosseumChallengeCreated
 
 	wg sync.WaitGroup
 }
 
-func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, error) {
+func NewChallenger(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, error) {
 	colosseumContract, err := bindings.NewColosseum(cfg.ColosseumAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
@@ -80,51 +84,76 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger) (*Challenger, 
 		return nil, err
 	}
 
-	callOpts := utils.NewSimpleCallOpts(ctx)
-	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(callOpts)
+	valpoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, cfg.L1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	cCtx, cCancel := context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
+	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get submission interval: %w", err)
 	}
-	finalizationPeriodSeconds, err := l2ooContract.FINALIZATIONPERIODSECONDS(callOpts)
+
+	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
+	finalizationPeriodSeconds, err := l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get finalization period seconds: %w", err)
 	}
-	l2BlockTime, err := l2ooContract.L2BLOCKTIME(callOpts)
+
+	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
+	l2BlockTime, err := l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
 	}
 
+	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
+	defer cCancel()
+	requiredBondAmount, err := valpoolContract.REQUIREDBONDAMOUNT(utils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get required bond amount: %w", err)
+	}
+
 	return &Challenger{
-		log: l,
-		cfg: cfg,
+		log:  l.New("service", "challenge"),
+		cfg:  cfg,
+		metr: m,
 
 		l1Client: cfg.L1Client,
+		l2Client: cfg.L2Client,
 
 		l2ooContract:      l2ooContract,
 		l2ooABI:           l2ooABI,
 		colosseumContract: colosseumContract,
 		colosseumABI:      colosseumABI,
+		valpoolContract:   valpoolContract,
 
 		submissionInterval:        submissionInterval,
 		finalizationPeriodSeconds: finalizationPeriodSeconds,
 		l2BlockTime:               l2BlockTime,
+		requiredBondAmount:        requiredBondAmount,
 	}, nil
 }
 
 // initSub initialize subscriptions
-func (c *Challenger) initSub(ctx context.Context) {
-	opts := &bind.WatchOpts{Context: ctx}
+func (c *Challenger) initSub() {
+	opts := utils.NewSimpleWatchOpts(c.ctx)
 
-	if !c.cfg.ChallengerDisabled {
-		c.l2OutputSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
+	if c.cfg.ChallengerEnabled {
+		c.l2OutputSubmittedEventChan = make(chan *bindings.L2OutputOracleOutputSubmitted)
+		c.l2OutputSubmittedSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
 			if err != nil {
-				c.log.Warn("resubscribing after failed L2OutputSubmitted event", "err", err)
+				c.log.Warn("resubscribing after failed OutputSubmitted event", "err", err)
 			}
 			return c.l2ooContract.WatchOutputSubmitted(opts, c.l2OutputSubmittedEventChan, nil, nil, nil)
 		})
 	}
 
-	c.challengeSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
+	c.challengeCreatedEventChan = make(chan *bindings.ColosseumChallengeCreated)
+	c.challengeCreatedSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
 			c.log.Warn("resubscribing after failed ChallengeCreated event", "err", err)
 		}
@@ -132,71 +161,97 @@ func (c *Challenger) initSub(ctx context.Context) {
 	})
 }
 
-func (c *Challenger) Start(ctx context.Context, txCandidatesChan chan<- txmgr.TxCandidate) error {
+func (c *Challenger) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
-	c.log.Info("start challenger")
+	c.initSub()
 
-	c.l2OutputSubmittedEventChan = make(chan *bindings.L2OutputOracleOutputSubmitted)
-	c.challengeCreatedEventChan = make(chan *bindings.ColosseumChallengeCreated)
-	c.txCandidatesChan = txCandidatesChan
-	c.initSub(c.ctx)
-
-	// if checkpoint is behind the latest output index, scan the previous outputs from the checkpoint
-	nextOutputIndex, err := c.l2ooContract.NextOutputIndex(&bind.CallOpts{Context: c.ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get the latest output index: %w", err)
-	}
-	if nextOutputIndex.Cmp(common.Big0) == 0 {
-		// if no outputs have been submitted, set checkpoint to 1 because genesis output cannot be challenged.
-		c.checkpoint = common.Big1
-	} else {
-		// set checkpoint to latestOutputIndex (nextOutputIndex - 1)
-		c.checkpoint = new(big.Int).Sub(nextOutputIndex, common.Big1)
-	}
-
-	if err := c.scanPrevOutputs(c.ctx); err != nil {
-		return fmt.Errorf("failed to scan previous outputs: %w", err)
-	}
-
-	// if challenge mode on, subscribe L2 output submission events
-	if !c.cfg.ChallengerDisabled {
-		c.wg.Add(1)
-		go c.subscribeL2OutputSubmitted(c.ctx)
-	}
-
-	// subscribe challenge creation events
 	c.wg.Add(1)
-	go c.subscribeChallengeCreated(c.ctx)
+	go c.loop()
 
 	return nil
 }
 
 func (c *Challenger) Stop() error {
-	c.log.Info("stop challenger")
-
-	if c.l2OutputSub != nil {
-		c.l2OutputSub.Unsubscribe()
+	if c.l2OutputSubmittedSub != nil {
+		c.l2OutputSubmittedSub.Unsubscribe()
 	}
-
-	if c.challengeSub != nil {
-		c.challengeSub.Unsubscribe()
-	}
+	c.challengeCreatedSub.Unsubscribe()
 
 	c.cancel()
 	c.wg.Wait()
 
-	close(c.l2OutputSubmittedEventChan)
+	if c.l2OutputSubmittedEventChan != nil {
+		close(c.l2OutputSubmittedEventChan)
+	}
 	close(c.challengeCreatedEventChan)
 
 	return nil
 }
 
-// scanPrevOutputs scans all the previous outputs since the checkpoint within the finalization window.
+func (c *Challenger) loop() {
+	defer c.wg.Done()
+
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+			if c.cfg.ChallengerEnabled {
+				if err := c.updateCheckpoint(); err != nil {
+					c.log.Error(err.Error())
+					continue
+				}
+			}
+
+			if err := c.scanPrevOutputs(); err != nil {
+				c.log.Error("failed to scan previous outputs", "err", err)
+				continue
+			}
+
+			// if challenge mode on, subscribe L2 output submission events
+			if c.cfg.ChallengerEnabled {
+				c.wg.Add(1)
+				go c.subscribeL2OutputSubmitted()
+			}
+
+			// subscribe challenge creation events
+			c.wg.Add(1)
+			go c.subscribeChallengeCreated()
+
+			return
+		}
+	}
+}
+
+// updateCheckpoint updates checkpoint which is the last checked output index, so the next output handling starts after
+// this point. If checkpoint is behind the latest output index, handle the previous outputs from the checkpoint.
+func (c *Challenger) updateCheckpoint() error {
+	cCtx, cCancel := context.WithTimeout(c.ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	nextOutputIndex, err := c.l2ooContract.NextOutputIndex(utils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		return fmt.Errorf("failed to get the latest output index: %w", err)
+	}
+	if nextOutputIndex.Cmp(common.Big0) == 0 {
+		// if no outputs have been submitted, set checkpoint to 1 because genesis output cannot be challenged
+		c.checkpoint = common.Big1
+	} else {
+		// set checkpoint to latestOutputIndex (nextOutputIndex - 1)
+		c.checkpoint = new(big.Int).Sub(nextOutputIndex, common.Big1)
+	}
+	c.metr.RecordChallengeCheckpoint(c.checkpoint)
+	return nil
+}
+
+// scanPrevOutputs scans all the previous outputs before current L1 block within the finalization window.
 // If there are invalid outputs, create challenge.
 // If there are challenges in progress, keep handling them.
-func (c *Challenger) scanPrevOutputs(ctx context.Context) error {
-	status, err := c.cfg.RollupClient.SyncStatus(ctx)
+func (c *Challenger) scanPrevOutputs() error {
+	status, err := c.cfg.RollupClient.SyncStatus(c.ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get sync status: %w", err)
 	}
@@ -214,7 +269,7 @@ func (c *Challenger) scanPrevOutputs(ctx context.Context) error {
 	topics := []common.Hash{challengeCreatedEvent.ID}
 
 	// scan OutputSubmittedEvents only when challenger mode is on
-	if !c.cfg.ChallengerDisabled {
+	if c.cfg.ChallengerEnabled {
 		addresses = append(addresses, c.cfg.L2OutputOracleAddr)
 		topics = append(topics, outputSubmittedEvent.ID)
 	}
@@ -226,7 +281,7 @@ func (c *Challenger) scanPrevOutputs(ctx context.Context) error {
 		Topics:    [][]common.Hash{topics},
 	}
 
-	logs, err := c.l1Client.FilterLogs(ctx, query)
+	logs, err := c.l1Client.FilterLogs(c.ctx, query)
 	if err != nil {
 		return fmt.Errorf("failed to get event logs related to outputs: %w", err)
 	}
@@ -238,13 +293,13 @@ func (c *Challenger) scanPrevOutputs(ctx context.Context) error {
 			ev := NewOutputSubmittedEvent(vLog)
 			// handle output
 			c.wg.Add(1)
-			go c.handleOutput(ctx, ev.OutputIndex)
+			go c.handleOutput(ev.OutputIndex)
 		// for ChallengeCreated event
 		case c.cfg.ColosseumAddr:
 			ev := NewChallengeCreatedEvent(vLog)
 			if ev.OutputIndex.Sign() == 1 && c.isRelatedChallenge(ev.Asserter, ev.Challenger) {
 				c.wg.Add(1)
-				go c.handleChallenge(ctx, ev.OutputIndex)
+				go c.handleChallenge(ev.OutputIndex, ev.Asserter, ev.Challenger)
 			}
 		default:
 			c.log.Warn("unknown event log", "logs", vLog)
@@ -255,48 +310,58 @@ func (c *Challenger) scanPrevOutputs(ctx context.Context) error {
 }
 
 // subscribeL2OutputSubmitted subscribes the OutputSubmitted event from L2OutputOracle contract.
+// It handles all the outputs between the checkpoint output index and the output index from the watched event.
 // If the L2 output root is invalid, create challenge.
 // This function should be called only when challenger mode is on.
-func (c *Challenger) subscribeL2OutputSubmitted(ctx context.Context) {
+func (c *Challenger) subscribeL2OutputSubmitted() {
 	defer c.wg.Done()
 
 	for {
 		select {
 		case ev := <-c.l2OutputSubmittedEventChan:
 			c.log.Info("watched output submitted event", "l2BlockNumber", ev.L2BlockNumber, "outputRoot", ev.OutputRoot, "outputIndex", ev.L2OutputIndex)
-			// validate all outputs in between the checkpoint and the current outputIndex
-			for i := new(big.Int).Add(c.checkpoint, common.Big1); i.Cmp(ev.L2OutputIndex) != 1; i.Add(i, common.Big1) {
+			// if the emitted output index is less than or equal to the checkpoint, it is considered reorg occurred.
+			if ev.L2OutputIndex.Cmp(c.checkpoint) <= 0 {
 				c.wg.Add(1)
-				go c.handleOutput(ctx, new(big.Int).Set(i))
+				go c.handleOutput(new(big.Int).Set(ev.L2OutputIndex))
+			} else {
+				// validate all outputs between the checkpoint and the current outputIndex
+				for i := new(big.Int).Add(c.checkpoint, common.Big1); i.Cmp(ev.L2OutputIndex) != 1; i.Add(i, common.Big1) {
+					c.wg.Add(1)
+					go c.handleOutput(new(big.Int).Set(i))
+				}
 			}
 			c.checkpoint = ev.L2OutputIndex
-		case <-ctx.Done():
+			c.metr.RecordChallengeCheckpoint(c.checkpoint)
+		case <-c.ctx.Done():
 			return
 		}
 	}
 }
 
 // subscribeChallengeCreated subscribes the ChallengeCreated event from Colosseum contract and handle challenge.
-func (c *Challenger) subscribeChallengeCreated(ctx context.Context) {
+func (c *Challenger) subscribeChallengeCreated() {
 	defer c.wg.Done()
 
 	for {
 		select {
 		case ev := <-c.challengeCreatedEventChan:
+			c.log.Info("watched challenge created event", "outputIndex", ev.OutputIndex, "challenger", ev.Challenger)
 			// when challenge created, handle it
 			if ev.OutputIndex.Sign() == 1 && c.isRelatedChallenge(ev.Asserter, ev.Challenger) {
 				c.wg.Add(1)
-				go c.handleChallenge(ctx, ev.OutputIndex)
+				go c.handleChallenge(ev.OutputIndex, ev.Asserter, ev.Challenger)
 			}
-		case <-ctx.Done():
+		case <-c.ctx.Done():
 			return
 		}
 	}
 }
 
-// handleOutput handles output when output submitted
-func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
-	c.log.Info("handling output", "outputIndex", outputIndex)
+// handleOutput handles output when output submitted, creates challenge if the output is invalid.
+// This function should be called only when challenger mode is on.
+func (c *Challenger) handleOutput(outputIndex *big.Int) {
+	c.log.Info("handling output to detect invalid output", "outputIndex", outputIndex)
 	defer c.wg.Done()
 
 	ticker := time.NewTicker(time.Minute)
@@ -304,144 +369,259 @@ func (c *Challenger) handleOutput(ctx context.Context, outputIndex *big.Int) {
 
 	for ; ; <-ticker.C {
 		select {
-		case <-ctx.Done():
+		case <-c.ctx.Done():
 			return
 		default:
-			outputRange, err := c.ValidateOutput(ctx, outputIndex)
+			// check if challenge creation period is not past
+			isInCreationPeriod, err := c.IsInChallengeCreationPeriod(c.ctx, outputIndex)
 			if err != nil {
-				c.log.Error("unable to validate output", "err", err, "outputIndex", outputIndex)
+				c.log.Error("unable to get if challenge creation period is not past", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+			// if challenge creation period is past, terminate handling
+			if !isInCreationPeriod {
+				c.log.Info("challenge creation period is already past", "outputIndex", outputIndex)
+				return
+			}
+
+			outputs, err := c.OutputsAtIndex(c.ctx, outputIndex)
+			if err != nil {
+				c.log.Error("unable to get outputs when handling output", "err", err, "outputIndex", outputIndex)
 				continue
 			}
 
+			outputRange := c.ValidateOutput(outputIndex, outputs)
 			// if output is valid, terminate handling
 			if outputRange == nil {
 				c.log.Info("output is validated", "outputIndex", outputIndex)
 				return
 			}
 
-			// check if the challenge is in progress already.
-			isInProgress, err := c.IsChallengeInProgress(ctx, outputIndex)
-			if err != nil {
-				c.log.Error("unable to get the status of challenge", "err", err, "outputIndex", outputIndex)
-				continue
-			}
-
-			// if challenge is in progress, terminate handling
-			if isInProgress {
-				c.log.Info("found invalid output, but is already in progress", "outputIndex", outputIndex)
+			// if challenge from another challenger is already proven and output is deleted, terminate handling
+			if IsOutputDeleted(outputs.RemoteOutput.OutputRoot) {
+				c.log.Info("found invalid output, but output is already deleted", "outputIndex", outputIndex)
 				return
 			}
 
-			// if there is no challenge on invalid output, create a new challenge
-			tx, err := c.CreateChallenge(ctx, outputRange)
+			// check the status of my challenge
+			status, err := c.GetChallengeStatus(c.ctx, outputIndex, c.cfg.TxManager.From())
+			if err != nil {
+				c.log.Error("unable to get challenge status", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+			// if challenge is already in progress, terminate handing
+			if status != chal.StatusNone && status != chal.StatusChallengerTimeout {
+				c.log.Info("found invalid output, but challenge is already in progress", "outputIndex", outputIndex)
+				return
+			}
+
+			hasEnoughDeposit, err := c.HasEnoughDeposit(c.ctx)
+			if err != nil {
+				c.log.Error(err.Error())
+				continue
+			}
+			if !hasEnoughDeposit {
+				continue
+			}
+
+			// if all of the above conditions are satisfied, create a new challenge
+			tx, err := c.CreateChallenge(c.ctx, outputRange)
 			if err != nil {
 				c.log.Error("failed to create createChallenge tx", "err", err, "outputIndex", outputIndex)
 				continue
 			}
 
-			c.submitChallengeTx(tx)
-			c.log.Info("submit challenge tx", "outputIndex", outputIndex)
+			if err := c.submitChallengeTx(tx); err != nil {
+				c.log.Error("failed to submit create challenge tx", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+
+			c.log.Info("submit create challenge tx", "outputIndex", outputIndex)
 			return
 		}
 	}
 }
 
-// handleChallenge handles challenge according to its status and role.
-func (c *Challenger) handleChallenge(ctx context.Context, outputIndex *big.Int) {
+// handleChallenge handles related challenge according to its status and role when challenge created.
+func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Address, challenger common.Address) {
+	c.log.Info("handling related challenge", "outputIndex", outputIndex, "asserter", asserter, "challenger", challenger)
 	defer c.wg.Done()
+
+	isAsserter := asserter == c.cfg.TxManager.From()
+	isChallenger := challenger == c.cfg.TxManager.From()
 
 	ticker := time.NewTicker(c.cfg.ChallengerPollInterval)
 	defer ticker.Stop()
 
 	for ; ; <-ticker.C {
 		select {
-		case <-ctx.Done():
+		case <-c.ctx.Done():
 			return
 		default:
-			challenge, err := c.GetChallenge(ctx, outputIndex)
-			if err != nil {
-				c.log.Error("failed to get challenge", "err", err, "outputIndex", outputIndex)
-				continue
-			}
-
-			isAsserter := challenge.Asserter == c.cfg.TxManager.From()
-			isChallenger := challenge.Challenger == c.cfg.TxManager.From()
-
 			// check the status of challenge
-			status, err := c.GetChallengeStatus(ctx, outputIndex)
+			status, err := c.GetChallengeStatus(c.ctx, outputIndex, challenger)
 			if err != nil {
-				c.log.Error("unable to get challenge status", "err", err, "outputIndex", outputIndex)
+				c.log.Error("unable to get challenge status", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 				continue
 			}
-
-			// if the challenge is inactivated, terminate handling
-			if isInactivated(status) {
-				c.log.Error("challenge is not in progress", "challengeStatus", status)
+			// if challenge is not in progress, terminate handling
+			if status == chal.StatusNone {
+				c.log.Info("challenge is not in progress", "outputIndex", outputIndex, "challenger", challenger)
 				return
 			}
 
+			outputs, err := c.OutputsAtIndex(c.ctx, outputIndex)
+			if err != nil {
+				c.log.Error("unable to get outputs when handling challenge", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+			isOutputDeleted := IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
+
+			isOutputFinalized, err := c.IsOutputFinalized(c.ctx, outputIndex)
+			if err != nil {
+				c.log.Error("unable to get if output is finalized when handling challenge", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+
 			// if asserter
-			if isAsserter && !c.cfg.OutputSubmitterDisabled {
-				if status == chal.StatusAsserterTurn {
-					tx, err := c.Bisect(ctx, outputIndex)
+			if isAsserter {
+				// if output is already deleted, asserter has no incentives to handle challenge any further
+				if isOutputDeleted {
+					c.log.Info("do nothing because output is already deleted", "outputIndex", outputIndex, "challenger", challenger)
+					return
+				}
+				// if output is already finalized and not `ChallengerTimeout` status, terminate handling
+				if isOutputFinalized && status != chal.StatusChallengerTimeout {
+					c.log.Info("output is already finalized when handling challenge", "outputIndex", outputIndex, "challenger", challenger)
+					return
+				}
+				switch status {
+				case chal.StatusAsserterTurn:
+					tx, err := c.Bisect(c.ctx, outputIndex, challenger)
 					if err != nil {
-						c.log.Error("asserter: failed to create bisect tx", "err", err, "outputIndex", outputIndex)
+						c.log.Error("failed to create bisect tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 						continue
 					}
-					c.submitChallengeTx(tx)
+					if err := c.submitChallengeTx(tx); err != nil {
+						c.log.Error("failed to submit bisect tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
+						continue
+					}
+				case chal.StatusChallengerTimeout:
+					// call challenger timeout to increase bond from pending bond
+					tx, err := c.ChallengerTimeout(c.ctx, outputIndex, challenger)
+					if err != nil {
+						c.log.Error("failed to create challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
+						continue
+					}
+					if err := c.submitChallengeTx(tx); err != nil {
+						c.log.Error("failed to submit challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
+						continue
+					}
 				}
 			}
 
 			// if challenger
-			if isChallenger && !c.cfg.ChallengerDisabled {
-				switch status {
-				case chal.StatusChallengerTurn:
-					tx, err := c.Bisect(ctx, outputIndex)
+			if isChallenger && c.cfg.ChallengerEnabled {
+				// if output has been already deleted, cancel challenge to refund pending bond
+				if isOutputDeleted && status != chal.StatusChallengerTimeout {
+					tx, err := c.CancelChallenge(c.ctx, outputIndex)
 					if err != nil {
-						c.log.Error("challenger: failed to create bisect tx", "err", err, "outputIndex", outputIndex)
+						c.log.Error("failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
-					c.submitChallengeTx(tx)
+					if err := c.submitChallengeTx(tx); err != nil {
+						c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
+				}
+
+				// if output is already finalized, terminate handling
+				if isOutputFinalized {
+					c.log.Info("output is already finalized when handling challenge", "outputIndex", outputIndex)
+					return
+				}
+
+				// Challenger doesn't need to check if output is already deleted or not. Because when trying to bisect or prove fault with deleted output index,
+				// the contract automatically cancels the challenge.
+				switch status {
+				case chal.StatusChallengerTurn:
+					tx, err := c.Bisect(c.ctx, outputIndex, challenger)
+					if err != nil {
+						c.log.Error("failed to create bisect tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
+					if err := c.submitChallengeTx(tx); err != nil {
+						c.log.Error("failed to submit bisect tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
 				case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
-					skipSelectPosition := status == chal.StatusAsserterTimeout
-					tx, err := c.ProveFault(ctx, outputIndex, skipSelectPosition)
+					skipSelectFaultPosition := status == chal.StatusAsserterTimeout
+					tx, err := c.ProveFault(c.ctx, outputIndex, challenger, skipSelectFaultPosition)
 					if err != nil {
 						c.log.Error("failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
-					c.submitChallengeTx(tx)
+					if err := c.submitChallengeTx(tx); err != nil {
+						c.log.Error("failed to submit prove fault tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
 				}
 			}
 		}
 	}
 }
 
-func (c *Challenger) submitChallengeTx(tx *types.Transaction) {
-	c.txCandidatesChan <- txmgr.TxCandidate{
-		TxData:   tx.Data(),
-		To:       tx.To(),
-		GasLimit: 0,
+func (c *Challenger) submitChallengeTx(tx *types.Transaction) error {
+	return c.cfg.TxManager.SendTransaction(c.ctx, tx).Err
+}
+
+// HasEnoughDeposit checks if challenger has enough deposit to bond when creating challenge.
+func (c *Challenger) HasEnoughDeposit(ctx context.Context) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	balance, err := c.valpoolContract.BalanceOf(utils.NewSimpleCallOpts(cCtx), c.cfg.TxManager.From())
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 	}
+
+	if balance.Cmp(c.requiredBondAmount) == -1 {
+		c.log.Warn("deposit is less than bond amount", "required", c.requiredBondAmount, "deposit", balance)
+		return false, nil
+	}
+	c.log.Info("deposit amount and bond amount", "deposit", balance, "bond", c.requiredBondAmount)
+	c.metr.RecordDepositAmount(balance)
+
+	return true, nil
 }
 
-func (c *Challenger) IsChallengeInProgress(ctx context.Context, outputIndex *big.Int) (bool, error) {
-	return c.colosseumContract.IsInProgress(&bind.CallOpts{Context: ctx}, outputIndex)
+func (c *Challenger) IsInChallengeCreationPeriod(ctx context.Context, outputIndex *big.Int) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	return c.colosseumContract.IsInCreationPeriod(utils.NewSimpleCallOpts(cCtx), outputIndex)
 }
 
-func (c *Challenger) GetChallenge(ctx context.Context, outputIndex *big.Int) (bindings.TypesChallenge, error) {
-	return c.colosseumContract.GetChallenge(&bind.CallOpts{Context: ctx}, outputIndex)
+func (c *Challenger) IsOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	return c.l2ooContract.IsFinalized(utils.NewSimpleCallOpts(cCtx), outputIndex)
+}
+
+func (c *Challenger) GetChallenge(ctx context.Context, outputIndex *big.Int, challenger common.Address) (bindings.TypesChallenge, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	return c.colosseumContract.GetChallenge(utils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
 }
 
 func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-	defer cancel()
-	return c.cfg.RollupClient.OutputAtBlock(ctx, blockNumber)
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	return c.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber)
 }
 
 func (c *Challenger) OutputWithProofAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-	defer cancel()
-	return c.cfg.RollupClient.OutputWithProofAtBlock(ctx, blockNumber)
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	return c.cfg.RollupClient.OutputWithProofAtBlock(cCtx, blockNumber)
 }
 
 func (c *Challenger) PublicInputProof(ctx context.Context, blockNumber uint64) (bindings.TypesPublicInputProof, error) {
@@ -488,61 +668,60 @@ func (c *Challenger) PublicInputProof(ctx context.Context, blockNumber uint64) (
 }
 
 type Outputs struct {
-	remoteOutput bindings.TypesCheckpointOutput
-	localOutput  *eth.OutputResponse
+	RemoteOutput bindings.TypesCheckpointOutput
+	LocalOutput  *eth.OutputResponse
 }
 
-func (c *Challenger) outputsAtIndex(ctx context.Context, outputIndex *big.Int) (*Outputs, error) {
-	remoteOutput, err := c.l2ooContract.GetL2Output(&bind.CallOpts{Context: ctx}, outputIndex)
+func (c *Challenger) OutputsAtIndex(ctx context.Context, outputIndex *big.Int) (*Outputs, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	RemoteOutput, err := c.l2ooContract.GetL2Output(utils.NewSimpleCallOpts(cCtx), outputIndex)
 	if err != nil {
 		return nil, err
 	}
 
-	localOutput, err := c.OutputAtBlockSafe(ctx, remoteOutput.L2BlockNumber.Uint64())
+	LocalOutput, err := c.OutputAtBlockSafe(ctx, RemoteOutput.L2BlockNumber.Uint64())
 	if err != nil {
 		return nil, err
 	}
 
-	return &Outputs{remoteOutput, localOutput}, nil
+	return &Outputs{RemoteOutput, LocalOutput}, nil
 }
 
 type OutputRange struct {
 	OutputIndex *big.Int
 	StartBlock  uint64
 	EndBlock    uint64
+	L1Origin    eth.BlockID
 }
 
-// ValidateOutput validates the output given the outputIndex
-func (c *Challenger) ValidateOutput(ctx context.Context, outputIndex *big.Int) (*OutputRange, error) {
-	outputs, err := c.outputsAtIndex(ctx, outputIndex)
-	if err != nil {
-		return nil, err
-	}
+// ValidateOutput validates the output for the given outputIndex.
+func (c *Challenger) ValidateOutput(outputIndex *big.Int, outputs *Outputs) *OutputRange {
+	start := outputs.RemoteOutput.L2BlockNumber.Uint64() - c.submissionInterval.Uint64()
+	end := outputs.RemoteOutput.L2BlockNumber.Uint64()
 
-	start := outputs.remoteOutput.L2BlockNumber.Uint64() - c.submissionInterval.Uint64()
-	end := outputs.remoteOutput.L2BlockNumber.Uint64()
-
-	if !bytes.Equal(outputs.localOutput.OutputRoot[:], outputs.remoteOutput.OutputRoot[:]) {
+	if !bytes.Equal(outputs.LocalOutput.OutputRoot[:], outputs.RemoteOutput.OutputRoot[:]) {
 		c.log.Info(
 			"found invalid output",
-			"blockNumber", outputs.remoteOutput.L2BlockNumber,
+			"blockNumber", outputs.RemoteOutput.L2BlockNumber,
 			"outputIndex", outputIndex,
-			"local", outputs.localOutput.OutputRoot,
-			"invalid", common.BytesToHash(outputs.remoteOutput.OutputRoot[:]),
+			"local", outputs.LocalOutput.OutputRoot,
+			"invalid", common.BytesToHash(outputs.RemoteOutput.OutputRoot[:]),
 		)
 		return &OutputRange{
 			OutputIndex: outputIndex,
 			StartBlock:  start,
 			EndBlock:    end,
-		}, nil
+			L1Origin:    outputs.LocalOutput.BlockRef.L1Origin,
+		}
 	} else {
 		c.log.Info("confirmed that the output is valid",
 			"outputIndex", outputIndex,
 			"start", start,
 			"end", end,
-			"outputRoot", common.BytesToHash(outputs.remoteOutput.OutputRoot[:]),
+			"outputRoot", common.BytesToHash(outputs.RemoteOutput.OutputRoot[:]),
 		)
-		return nil, nil
+		return nil
 	}
 }
 
@@ -550,12 +729,16 @@ func (c *Challenger) isRelatedChallenge(asserter common.Address, challenger comm
 	return c.cfg.TxManager.From() == asserter || c.cfg.TxManager.From() == challenger
 }
 
-func (c *Challenger) GetChallengeStatus(ctx context.Context, outputIndex *big.Int) (uint8, error) {
-	return c.colosseumContract.GetStatus(&bind.CallOpts{Context: ctx}, outputIndex)
+func (c *Challenger) GetChallengeStatus(ctx context.Context, outputIndex *big.Int, challenger common.Address) (uint8, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	return c.colosseumContract.GetStatus(utils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
 }
 
 func (c *Challenger) BuildSegments(ctx context.Context, turn uint8, segStart, segSize uint64) (*chal.Segments, error) {
-	sections, err := c.colosseumContract.GetSegmentsLength(&bind.CallOpts{Context: ctx}, turn)
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	sections, err := c.colosseumContract.GetSegmentsLength(utils.NewSimpleCallOpts(cCtx), turn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get segments length of turn %d: %w", turn, err)
 	}
@@ -590,10 +773,16 @@ func (c *Challenger) selectFaultPosition(ctx context.Context, segments *chal.Seg
 }
 
 func (c *Challenger) CreateChallenge(ctx context.Context, outputRange *OutputRange) (*types.Transaction, error) {
+	outputIndex := outputRange.OutputIndex
+	l1BlockHash := outputRange.L1Origin.Hash
+	l1BlockNumber := new(big.Int).SetUint64(outputRange.L1Origin.Number)
+
 	c.log.Info("crafting createChallenge tx",
-		"index", outputRange.OutputIndex,
+		"index", outputIndex,
 		"start", outputRange.StartBlock,
 		"end", outputRange.EndBlock,
+		"l1BlockHash", l1BlockHash.TerminalString(),
+		"l1BlockNumber", l1BlockNumber,
 	)
 
 	segSize := outputRange.EndBlock - outputRange.StartBlock
@@ -603,13 +792,13 @@ func (c *Challenger) CreateChallenge(ctx context.Context, outputRange *OutputRan
 	}
 
 	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
-	return c.colosseumContract.CreateChallenge(txOpts, outputRange.OutputIndex, segments.Hashes)
+	return c.colosseumContract.CreateChallenge(txOpts, outputIndex, l1BlockHash, l1BlockNumber, segments.Hashes)
 }
 
-func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int) (*types.Transaction, error) {
-	c.log.Info("crafting bisect tx")
+func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
+	c.log.Info("crafting bisect tx", "outputIndex", outputIndex, "challenger", challenger)
 
-	challenge, err := c.colosseumContract.GetChallenge(&bind.CallOpts{Context: ctx}, outputIndex)
+	challenge, err := c.GetChallenge(ctx, outputIndex, challenger)
 	if err != nil {
 		return nil, err
 	}
@@ -619,6 +808,11 @@ func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int) (*types.T
 	if err != nil {
 		return nil, err
 	}
+	// if the first segment is different between challenger and asserter, return error
+	if position.Cmp(common.Big0) == -1 {
+		return nil, errors.New("the first segment must be matched when bisecting")
+	}
+
 	nextTurn := challenge.Turn + 1
 	start, size := prevSegments.NextSegmentsRange(position.Uint64())
 	nextSegments, err := c.BuildSegments(ctx, nextTurn, start, size)
@@ -627,58 +821,73 @@ func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int) (*types.T
 	}
 
 	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
-	return c.colosseumContract.Bisect(txOpts, outputIndex, position, nextSegments.Hashes)
+	return c.colosseumContract.Bisect(txOpts, outputIndex, challenger, position, nextSegments.Hashes)
 }
 
-func (c *Challenger) ChallengerTimeout(ctx context.Context, outputIndex *big.Int) (*types.Transaction, error) {
-	c.log.Info("crafting timeout tx")
+func (c *Challenger) ChallengerTimeout(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
+	c.log.Info("crafting challenger timeout tx", "outputIndex", outputIndex, "challenger", challenger)
+
 	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
-	return c.colosseumContract.ChallengerTimeout(txOpts, outputIndex)
+	return c.colosseumContract.ChallengerTimeout(txOpts, outputIndex, challenger)
 }
 
-// ProveFault creates proveFault transaction for invalid output root
-// TODO: ProveFault will take long time, so that we may have to handle it carefully
-func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, skipSelectPosition bool) (*types.Transaction, error) {
-	c.log.Info("crafting proveFault tx")
+func (c *Challenger) CancelChallenge(ctx context.Context, outputIndex *big.Int) (*types.Transaction, error) {
+	c.log.Info("crafting cancel challenge tx", "outputIndex", outputIndex)
 
-	outputs, err := c.outputsAtIndex(ctx, outputIndex)
+	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
+	return c.colosseumContract.CancelChallenge(txOpts, outputIndex)
+}
+
+// ProveFault creates proveFault transaction for invalid output root.
+// TODO: ProveFault will take long time, so that we may have to handle it carefully.
+func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, challenger common.Address, skipSelectFaultPosition bool) (*types.Transaction, error) {
+	c.log.Info("crafting proveFault tx", "outputIndex", outputIndex, "challenger", challenger)
+
+	challenge, err := c.GetChallenge(ctx, outputIndex, challenger)
 	if err != nil {
 		return nil, err
 	}
 
-	challenge, err := c.colosseumContract.GetChallenge(&bind.CallOpts{Context: ctx}, outputIndex)
-	if err != nil {
-		return nil, err
-	}
-
-	// When asserter timeout, skip finding fault position since the same segments have been stored in colosseum.
+	// when asserter timeout, skip finding fault position since the same segments have been stored in colosseum
 	position := common.Big0
-	blockNumber := challenge.SegStart.Uint64()
-	if !skipSelectPosition {
-		segments := chal.NewSegments(challenge.SegStart.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
-		position, err = c.selectFaultPosition(ctx, segments)
+	blockNumber := challenge.SegStart
+	if !skipSelectFaultPosition {
+		prevSegments := chal.NewSegments(blockNumber.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
+		position, err = c.selectFaultPosition(ctx, prevSegments)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to select fault position(outputIndex: %d, challengerAddress: %s): %w", outputIndex.Uint64(), challenger.String(), err)
 		}
 
-		blockNumber = challenge.SegStart.Uint64() + position.Uint64()
+		blockNumber = new(big.Int).Add(blockNumber, position)
 	}
 
-	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(blockNumber + 1)
+	proof, err := c.PublicInputProof(ctx, blockNumber.Uint64())
 	if err != nil {
-		return nil, fmt.Errorf("%w: blockNumber: %d", err, blockNumber)
+		return nil, fmt.Errorf("failed to get public input proof(fault position blockNumber: %d): %w", blockNumber.Uint64(), err)
 	}
 
-	proof, err := c.PublicInputProof(ctx, blockNumber)
+	targetBlockNumber := new(big.Int).Add(blockNumber, common.Big1)
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	trace, err := c.l2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+	}
+
+	traceBz, err := json.Marshal(trace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+	}
+
+	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(ctx, string(traceBz))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
 	}
 
 	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
 	return c.colosseumContract.ProveFault(
 		txOpts,
 		outputIndex,
-		outputs.localOutput.OutputRoot,
 		position,
 		proof,
 		fetchResult.Proof,
@@ -688,10 +897,7 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, skipS
 	)
 }
 
-// isInactivated checks if the challenge is inactivated.
-func isInactivated(status uint8) bool {
-	return status == chal.StatusNone ||
-		status == chal.StatusChallengerTimeout ||
-		status == chal.StatusProven ||
-		status == chal.StatusApproved
+// IsOutputDeleted checks if the output is deleted.
+func IsOutputDeleted(outputRoot [32]byte) bool {
+	return bytes.Equal(outputRoot[:], deletedOutputRoot[:])
 }

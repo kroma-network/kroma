@@ -3,15 +3,10 @@
 <!-- All glossary references in this file. -->
 
 [g-l1]: glossary.md#layer-1-l1
-
 [g-l2]: glossary.md#layer-2-l2
-
 [g-l2-output]: glossary.md#l2-output-root
-
 [g-trusted-validator]: glossary.md#trusted-validator
-
 [g-validator]: glossary.md#validator
-
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -31,12 +26,15 @@
 
 ## Overview
 
-When a [challenger][g-validator] detects that a submitted [L2 output root][g-l2-output] contains an invalid state
-transition, it starts a challenge process by triggering the [Colosseum contract](#colosseum-contract). This involves the
-asserter and the challenger by force and continues until either one wins. Only one challenge can be on an output,
-and if the challenger wins, the existing output is replaced with the new output claimed by the challenger.
-All challenges must be approved by the Security Council. If the content of the challenge is untrue,
-the challenge may not be approved, even if the proof is verified by the contract.
+When a [validator][g-validator] detects that a submitted [L2 output root][g-l2-output] contains an invalid state
+transition, it can start a dispute challenge process by triggering the [Colosseum contract](#colosseum-contract). We
+refer to a validator who submits a dispute challenge as a "challenger" and a validator who initially submitted
+an L2 output as an "asserter." A dispute challenge entails a confrontational interaction between an asserter and a
+challenger, which persists until one of them emerges victorious. Only a single challenge can be directed at an output,
+and if the challenger succeeds, the existing output is substituted with a new output put forth by the challenger.
+
+All challenges necessitate approval from the Security Council. Even if the contract verifies the proof,
+a challenge may not be sanctioned if its contents are found to be false.
 
 ## Colosseum Contract
 
@@ -58,6 +56,8 @@ interface Colosseum {
 
   function createChallenge(
     uint256 _outputIndex,
+    bytes32 _l1BlockHash,
+    uint256 _l1BlockNumber,
     bytes32[] calldata _segments
   ) external;
 
@@ -67,11 +67,8 @@ interface Colosseum {
     uint256 _outputIndex,
     bytes32 _outputRoot,
     uint256 _pos,
-    Types.OutputRootProof calldata _srcOutputRootProof,
-    Types.OutputRootProof calldata _dstOutputRootProof,
-    Types.PublicInput calldata _publicInput,
-    Types.BlockHeaderRLP calldata _rlps,
-    uint256[] calldata _proof,
+    Types.PublicInputProof calldata _proof,
+    uint256[] calldata _zkproof,
     uint256[] calldata _pair
   ) external;
 
@@ -149,7 +146,7 @@ motivation for the asserter to step further.
 ## Process
 
 We want the validator role to be decentralized. Like how the PoS mechanism works, to achieve this,
-the validator needs to bond more than `MIN_BOND_AMOUNT` at every output submission. A Validator can deposit at once
+the validator must bond `REQUIRED_BOND_AMOUNT` for every output submission. A Validator can deposit at once
 for convenience. The qualified validator now obtains the right to submit output.
 
 If outputs are submitted at the same time, only the first output is accepted. If no one submits during
@@ -159,7 +156,7 @@ Even though the output is challenged, validators still are able to submit an out
 to be valid. If the asserted output turns out to be invalid, it is replaced, but the bond for that remains untouched.
 This is because it's impossible to determine whether submitted outputs are invalid without a challenge game.
 
-We'll show an example. Let's say `MIN_BOND_AMOUNT` is 100.
+We'll show an example. Let's say `REQUIRED_BOND_AMOUNT` is 100.
 
 1. At time `t`, alice, bob, and carol are registered as validators, and they submitted outputs like following:
 
@@ -258,7 +255,7 @@ calculate as below and enclose the public input to the `proveFault` transaction.
   }
 
   async function computePublicInput(block: RPCBlock, chainId: number): Promise<[string, string]> {
-    const maxTxs = 25;
+    const maxTxs = 100;
 
     const buf = Buffer.concat([
       hex.toFixedBuffer(prevStateRoot, 32),
@@ -290,23 +287,19 @@ calculate as below and enclose the public input to the `proveFault` transaction.
   }
   ```
 
-The following is the verification process of invalid output:
+The following is the verification process of invalid output by
+[ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract):
 
-The `_pair[4]` and `_pair[5]` contain the public input, which must be processed before verification by
-[ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract) can be performed.
-
-1. Check whether `_srcOutputRootProof` is the preimage of the first output root of the segment.
-2. Check whether `_dstOutputRootProof` is the preimage of the next output root of the segment.
-3. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the `blockHash` in `_dstOutputRootProof`.
-4. Verify that the `stateRoot` in `_publicInput` matches the `stateRoot` in `_dstOutputRootProof`.
-5. Verify that the `nextBlockHash` in `_srcOutputRootProof` matches the block hash derived from `_publicInput` and
-   `_rlps`.
-6. Verify that the `withdrawalStorageRoot` in `_dstOutputRootProof` is contained in `stateRoot` in
-  `_dstOutputRootProof`.
-7. If the length of transaction hashes in `_publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
-8. Verify the computation of the `publicInputHash` by comparing it with the `expectedPublicInputHash`.
-   The `publicInputHash` is derived from the `_publicInput` mentioned earlier, while the `expectedPublicInputHash`
-   is constructed using `_pair[4]` and `_pair[5]`.
+1. Check whether `srcOutputRootProof` is the preimage of the first output root of the segment.
+2. Check whether `dstOutputRootProof` is the preimage of the next output root of the segment.
+3. Verify that the `nextBlockHash` in `srcOutputRootProof` matches the `blockHash` in `dstOutputRootProof`.
+4. Verify that the `stateRoot` in `publicInput` matches the `stateRoot` in `dstOutputRootProof`.
+5. Verify that the `nextBlockHash` in `srcOutputRootProof` matches the block hash derived from `publicInput` and `rlps`.
+6. Verify that the `withdrawalStorageRoot` in `dstOutputRootProof` is contained in `stateRoot` in `dstOutputRootProof`
+   using `merkleProof`.
+7. If the length of transaction hashes in `publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
+8. Verify the `_zkproof` using `_pair` and `publicInputHash`. The `publicInputHash` is derived from the `publicInput`
+   and `stateRoot` of `srcOutputRootProof`, while `_zkproof` and `_pair` are submitted by the challenger directly.
 
 ## Upgradeability
 
@@ -316,13 +309,13 @@ Colosseum should be behind upgradable proxies.
 
 ### Constants
 
-| Name                  | Value                                                              | Unit              |
-|-----------------------|--------------------------------------------------------------------|-------------------|
-| `MIN_BOND_AMOUNT`     | TBD                                                                | wei               |
-| `SUBMISSION_TIMEOUT`  | TBD                                                                | seconds           |
-| `BISECTION_TIMEOUT`   | TBD                                                                | seconds           |
-| `PROVING_TIMEOUT`     | TBD                                                                | seconds           |
-| `SEGMENTS_LENGTHS`    | [9, 6, 10, 6]                                                      | array of integers |
-| `MAX_TXS`             | 25                                                                 | uint256           |
-| `DUMMY_HASH`(sepolia) | 0xaf01bc158f9b35867aea1517e84cf67eedc6a397c0df380b4b139eb570ddb2fc | bytes32           |
-| `DUMMY_HASH`(devnet)  | 0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7 | bytes32           |
+| Name                   | Value                                                              | Unit              |
+|------------------------|--------------------------------------------------------------------|-------------------|
+| `REQUIRED_BOND_AMOUNT` | TBD                                                                | wei               |
+| `SUBMISSION_TIMEOUT`   | TBD                                                                | seconds           |
+| `BISECTION_TIMEOUT`    | TBD                                                                | seconds           |
+| `PROVING_TIMEOUT`      | TBD                                                                | seconds           |
+| `SEGMENTS_LENGTHS`     | [9, 6, 10, 6]                                                      | array of integers |
+| `MAX_TXS`              | 100                                                                | uint256           |
+| `DUMMY_HASH`(sepolia)  | 0xaf01bc158f9b35867aea1517e84cf67eedc6a397c0df380b4b139eb570ddb2fc | bytes32           |
+| `DUMMY_HASH`(devnet)   | 0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7 | bytes32           |
