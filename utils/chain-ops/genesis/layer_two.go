@@ -8,6 +8,8 @@ import (
 	"github.com/kroma-network/kroma/utils/chain-ops/state"
 )
 
+var genesisMessage = "Kroma embodies the limitless potential of blockchain, advancing computation to a future of boundless innovation. This Genesis Block marks the start of a journey towards a harmonious blend of technology and society."
+
 // BuildL2DeveloperGenesis will build the developer Kroma Genesis
 // Block. Suitable for devnets.
 func BuildL2DeveloperGenesis(config *DeployConfig, l1StartBlock *types.Block, zktrie bool) (*core.Genesis, error) {
@@ -15,6 +17,7 @@ func BuildL2DeveloperGenesis(config *DeployConfig, l1StartBlock *types.Block, zk
 	if err != nil {
 		return nil, err
 	}
+	genspec.ExtraData = []byte(genesisMessage)
 
 	db := state.NewMemoryStateDB(genspec)
 
