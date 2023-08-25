@@ -3,22 +3,23 @@ import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
-import { assertContractVariable, deploy } from '../src/deploy-utils'
+import { predeploys } from '../../src/constants'
+import { assertContractVariable, deploy } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  await deploy(hre, 'L1Block', {
-    args: [],
+  await deploy(hre, 'KromaMintableERC20Factory', {
+    args: [predeploys.L2StandardBridge],
     isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,
-        'DEPOSITOR_ACCOUNT',
-        ethers.utils.getAddress('0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001')
+        'BRIDGE',
+        ethers.utils.getAddress(predeploys.L2StandardBridge)
       )
     },
   })
 }
 
-deployFn.tags = ['L1Block', 'l2']
+deployFn.tags = ['KromaMintableERC20Factory', 'l2']
 
 export default deployFn

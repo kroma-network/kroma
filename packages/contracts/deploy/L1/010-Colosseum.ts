@@ -5,7 +5,7 @@ import {
   assertContractVariable,
   deploy,
   getDeploymentAddress,
-} from '../src/deploy-utils'
+} from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
   const zkVerifierProxyAddress = await getDeploymentAddress(hre, 'ZKVerifier')

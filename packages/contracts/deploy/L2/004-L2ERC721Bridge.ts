@@ -3,8 +3,8 @@ import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
-import { predeploys } from '../src/constants'
-import { assertContractVariable, deploy } from '../src/deploy-utils'
+import { predeploys } from '../../src/constants'
+import { assertContractVariable, deploy } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
   const Artifact__L1ERC721Bridge = await hre.companionNetworks[

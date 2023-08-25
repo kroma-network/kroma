@@ -30,6 +30,7 @@ const config: HardhatUserConfig = {
       accounts: [
         process.env.PRIVATE_KEY_DEPLOYER_MAINNET || ethers.constants.HashZero,
       ],
+      deploy: ['./deploy/L1'],
     },
     sepolia: {
       chainId: 11155111,
@@ -40,6 +41,7 @@ const config: HardhatUserConfig = {
       companionNetworks: {
         l2: 'kromaSepolia',
       },
+      deploy: ['./deploy/L1'],
     },
     kromaSepolia: {
       chainId: 2358,
@@ -50,6 +52,7 @@ const config: HardhatUserConfig = {
       companionNetworks: {
         l1: 'sepolia',
       },
+      deploy: ['./deploy/L2'],
     },
     devnetL1: {
       live: false,

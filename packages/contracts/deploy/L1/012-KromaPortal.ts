@@ -6,7 +6,7 @@ import {
   deploy,
   getContractFromArtifact,
   getDeploymentAddress,
-} from '../src/deploy-utils'
+} from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
   const l2OutputOracleProxyAddress = await getDeploymentAddress(

@@ -4,7 +4,7 @@ import assert from 'assert'
 import { ethers } from 'ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
-import { deploy, getDeploymentAddress } from '../src/deploy-utils'
+import { deploy, getDeploymentAddress } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
   const securityCouncilTokenProxyAddress = await getDeploymentAddress(

@@ -3,7 +3,7 @@ import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
-import { assertContractVariable, deploy } from '../src/deploy-utils'
+import { assertContractVariable, deploy } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
   const Artifact__L1CrossDomainMessenger = await hre.companionNetworks[

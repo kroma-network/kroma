@@ -4,7 +4,7 @@ import {
   assertContractVariable,
   deploy,
   getContractFromArtifact,
-} from '../src/deploy-utils'
+} from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
   const KromaPortalProxy = await getContractFromArtifact(
