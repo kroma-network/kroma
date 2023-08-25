@@ -7,7 +7,6 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721VotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
@@ -47,7 +46,6 @@ abstract contract KromaSoulBoundERC721 is
     ERC721URIStorageUpgradeable,
     PausableUpgradeable,
     OwnableUpgradeable,
-    ERC721BurnableUpgradeable,
     EIP712Upgradeable,
     ERC721VotesUpgradeable
 {
@@ -86,7 +84,6 @@ abstract contract KromaSoulBoundERC721 is
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
         __Pausable_init();
-        __ERC721Burnable_init();
         __EIP712_init(_name, "1");
         __ERC721Votes_init();
         _transferOwnership(_owner);
@@ -109,6 +106,10 @@ abstract contract KromaSoulBoundERC721 is
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
+    }
+
+    function burn(uint256 tokenId) public onlyOwner {
+        _burn(tokenId);
     }
 
     function _beforeTokenTransfer(

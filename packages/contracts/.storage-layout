@@ -273,20 +273,19 @@
 | __gap                | uint256[49]                                                | 252  | 0      | 1568  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
 | _owner               | address                                                    | 301  | 0      | 20    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
 | __gap                | uint256[49]                                                | 302  | 0      | 1568  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| __gap                | uint256[50]                                                | 351  | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| _hashedName          | bytes32                                                    | 401  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| _hashedVersion       | bytes32                                                    | 402  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| _name                | string                                                     | 403  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| _version             | string                                                     | 404  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| __gap                | uint256[48]                                                | 405  | 0      | 1536  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| _delegation          | mapping(address => address)                                | 453  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| _delegateCheckpoints | mapping(address => struct CheckpointsUpgradeable.Trace224) | 454  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| _totalCheckpoints    | struct CheckpointsUpgradeable.Trace224                     | 455  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| _nonces              | mapping(address => struct CountersUpgradeable.Counter)     | 456  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| __gap                | uint256[46]                                                | 457  | 0      | 1472  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| __gap                | uint256[50]                                                | 503  | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| _tokenIdCounter      | struct CountersUpgradeable.Counter                         | 553  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
-| isLocked             | bool                                                       | 554  | 0      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _hashedName          | bytes32                                                    | 351  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _hashedVersion       | bytes32                                                    | 352  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _name                | string                                                     | 353  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _version             | string                                                     | 354  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[48]                                                | 355  | 0      | 1536  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _delegation          | mapping(address => address)                                | 403  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _delegateCheckpoints | mapping(address => struct CheckpointsUpgradeable.Trace224) | 404  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _totalCheckpoints    | struct CheckpointsUpgradeable.Trace224                     | 405  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _nonces              | mapping(address => struct CountersUpgradeable.Counter)     | 406  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[46]                                                | 407  | 0      | 1472  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| __gap                | uint256[50]                                                | 453  | 0      | 1600  | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| _tokenIdCounter      | struct CountersUpgradeable.Counter                         | 503  | 0      | 32    | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
+| isLocked             | bool                                                       | 504  | 0      | 1     | contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken |
 
 =======================
 ➡ contracts/governance/TimeLock.sol:TimeLock
