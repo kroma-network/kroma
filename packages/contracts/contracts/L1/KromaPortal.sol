@@ -152,7 +152,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
     }
 
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      *
      * @param _l2Oracle                  Address of the L2OutputOracle contract.
      * @param _validatorPool             Address of the ValidatorPool contract.
@@ -168,7 +168,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
         bool _paused,
         SystemConfig _config,
         ZKMerkleTrie _zkMerkleTrie
-    ) Semver(0, 1, 0) {
+    ) Semver(1, 0, 0) {
         L2_ORACLE = _l2Oracle;
         VALIDATOR_POOL = _validatorPool;
         GUARDIAN = _guardian;

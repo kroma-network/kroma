@@ -21,13 +21,13 @@ contract L1ERC721Bridge is ERC721Bridge, Semver {
     mapping(address => mapping(address => mapping(uint256 => bool))) public deposits;
 
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      *
      * @param _messenger   Address of the CrossDomainMessenger on this network.
      * @param _otherBridge Address of the ERC721 bridge on the other network.
      */
     constructor(address _messenger, address _otherBridge)
-        Semver(0, 1, 0)
+        Semver(1, 0, 0)
         ERC721Bridge(_messenger, _otherBridge)
     {}
 

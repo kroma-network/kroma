@@ -82,7 +82,7 @@ contract L2OutputOracle is Initializable, Semver {
     event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
 
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      *
      * @param _validatorPool             The address of the ValidatorPool contract.
      * @param _colosseum                 The address of the Colosseum contract.
@@ -100,7 +100,7 @@ contract L2OutputOracle is Initializable, Semver {
         uint256 _startingBlockNumber,
         uint256 _startingTimestamp,
         uint256 _finalizationPeriodSeconds
-    ) Semver(0, 1, 0) {
+    ) Semver(1, 0, 0) {
         require(_l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
         require(
             _submissionInterval > 0,

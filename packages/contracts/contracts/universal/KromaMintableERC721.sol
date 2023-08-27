@@ -47,7 +47,7 @@ contract KromaMintableERC721 is ERC721Enumerable, IKromaMintableERC721, Semver {
     }
 
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      *
      * @param _bridge        Address of the bridge on this network.
      * @param _remoteChainId Chain ID where the remote token is deployed.
@@ -61,7 +61,7 @@ contract KromaMintableERC721 is ERC721Enumerable, IKromaMintableERC721, Semver {
         address _remoteToken,
         string memory _name,
         string memory _symbol
-    ) ERC721(_name, _symbol) Semver(0, 1, 0) {
+    ) ERC721(_name, _symbol) Semver(1, 0, 0) {
         require(_bridge != address(0), "KromaMintableERC721: bridge cannot be address(0)");
         require(_remoteChainId != 0, "KromaMintableERC721: remote chain id cannot be zero");
         require(

@@ -11,9 +11,9 @@ import "../universal/KromaSoulBoundERC721.sol";
  */
 contract SecurityCouncilToken is KromaSoulBoundERC721, Semver {
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      */
-    constructor() Semver(0, 1, 0) {}
+    constructor() Semver(1, 0, 0) {}
 
     /**
      * @notice Initializer.
