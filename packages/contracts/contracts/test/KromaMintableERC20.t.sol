@@ -13,7 +13,7 @@ contract KromaMintableERC20_Test is Bridge_Initializer {
     event Burn(address indexed account, uint256 amount);
 
     function test_semver_succeeds() external {
-        assertEq(L2Token.version(), "0.1.0");
+        assertEq(L2Token.version(), "1.0.0");
     }
 
     function test_remoteToken_succeeds() external {

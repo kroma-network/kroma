@@ -28,9 +28,9 @@ contract UpgradeGovernor is
     Semver
 {
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      */
-    constructor() Semver(0, 1, 0) {
+    constructor() Semver(1, 0, 0) {
         _disableInitializers();
     }
 

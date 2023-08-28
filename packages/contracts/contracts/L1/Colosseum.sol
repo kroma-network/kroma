@@ -242,7 +242,7 @@ contract Colosseum is Initializable, Semver {
     }
 
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      *
      * @param _l2Oracle              Address of the L2OutputOracle contract.
      * @param _zkVerifier            Address of the ZKVerifier contract.
@@ -268,7 +268,7 @@ contract Colosseum is Initializable, Semver {
         uint256[] memory _segmentsLengths,
         address _securityCouncil,
         address _zkMerkleTrie
-    ) Semver(0, 1, 0) {
+    ) Semver(1, 0, 0) {
         L2_ORACLE = _l2Oracle;
         ZK_VERIFIER = _zkVerifier;
         CREATION_PERIOD_SECONDS = _creationPeriodSeconds;

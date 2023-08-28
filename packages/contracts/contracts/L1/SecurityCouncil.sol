@@ -55,12 +55,12 @@ contract SecurityCouncil is MultiSigWallet, Semver {
     }
 
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      *
      * @param _colosseum Address of the Colosseum contract.
      * @param _governor  Address of governor contract.
      */
-    constructor(address _colosseum, address _governor) MultiSigWallet(_governor) Semver(0, 1, 0) {
+    constructor(address _colosseum, address _governor) MultiSigWallet(_governor) Semver(1, 0, 0) {
         COLOSSEUM = _colosseum;
     }
 
