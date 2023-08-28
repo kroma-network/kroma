@@ -4,8 +4,8 @@ import '@kroma-network/hardhat-deploy-config'
 import { BigNumber } from 'ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
-import { defaultResourceConfig } from '../src'
-import { assertContractVariable, deploy } from '../src/deploy-utils'
+import { defaultResourceConfig } from '../../src'
+import { assertContractVariable, deploy } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
   const batcherHash = hre.ethers.utils
