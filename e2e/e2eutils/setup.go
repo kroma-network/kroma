@@ -74,8 +74,6 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
 
-		FinalSystemOwner: addresses.SysCfgOwner,
-
 		L1BlockTime:                 tp.L1BlockTime,
 		L1GenesisBlockNonce:         0,
 		CliqueSignerAddress:         common.Address{}, // proof of stake, no clique
@@ -114,6 +112,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		DeploymentWaitConfirmations: 1,
 		ValidatorRewardScalar:       5000,
 
+		SecurityCouncilTokenOwner:    addresses.SysCfgOwner,
 		ProtocolVaultRecipient:       common.Address{19: 2},
 		ProposerRewardVaultRecipient: common.Address{19: 3},
 

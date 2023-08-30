@@ -8,15 +8,13 @@ import {
 } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const ColosseumProxyAddress = await getDeploymentAddress(
+  const colosseumProxyAddress = await getDeploymentAddress(
     hre,
     'ColosseumProxy'
   )
 
-  const TimeLockProxyAddress = await getDeploymentAddress(hre, 'TimeLockProxy')
-
   await deploy(hre, 'SecurityCouncil', {
-    args: [ColosseumProxyAddress, TimeLockProxyAddress],
+    args: [colosseumProxyAddress, hre.deployConfig.securityCouncilTokenOwner],
     isProxyImpl: true,
     initializer: 'initialize(bool,address[],uint256)',
     initArgs: [
@@ -25,8 +23,12 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.securityCouncilNumConfirmationRequired,
     ],
     postDeployAction: async (contract) => {
-      await assertContractVariable(contract, 'COLOSSEUM', ColosseumProxyAddress)
-      await assertContractVariable(contract, 'GOVERNOR', TimeLockProxyAddress)
+      await assertContractVariable(contract, 'COLOSSEUM', colosseumProxyAddress)
+      await assertContractVariable(
+        contract,
+        'GOVERNOR',
+        hre.deployConfig.securityCouncilTokenOwner
+      )
     },
   })
 }

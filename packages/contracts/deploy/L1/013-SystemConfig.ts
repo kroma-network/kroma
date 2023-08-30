@@ -5,9 +5,15 @@ import { BigNumber } from 'ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
 import { defaultResourceConfig } from '../../src'
-import { assertContractVariable, deploy } from '../../src/deploy-utils'
+import {
+  assertContractVariable,
+  deploy,
+  getDeploymentAddress,
+} from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
+  const timeLockProxyAddress = await getDeploymentAddress(hre, 'TimeLockProxy')
+
   const batcherHash = hre.ethers.utils
     .hexZeroPad(hre.deployConfig.batchSenderAddress, 32)
     .toLowerCase()
@@ -27,7 +33,7 @@ const deployFn: DeployFunction = async (hre) => {
 
   await deploy(hre, 'SystemConfig', {
     args: [
-      hre.deployConfig.finalSystemOwner,
+      timeLockProxyAddress,
       hre.deployConfig.gasPriceOracleOverhead,
       hre.deployConfig.gasPriceOracleScalar,
       batcherHash,
@@ -38,7 +44,7 @@ const deployFn: DeployFunction = async (hre) => {
     ],
     isProxyImpl: true,
     initArgs: [
-      hre.deployConfig.finalSystemOwner,
+      timeLockProxyAddress,
       hre.deployConfig.gasPriceOracleOverhead,
       hre.deployConfig.gasPriceOracleScalar,
       batcherHash,
@@ -48,11 +54,7 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.validatorRewardScalar,
     ],
     postDeployAction: async (contract) => {
-      await assertContractVariable(
-        contract,
-        'owner',
-        hre.deployConfig.finalSystemOwner
-      )
+      await assertContractVariable(contract, 'owner', timeLockProxyAddress)
       await assertContractVariable(
         contract,
         'overhead',

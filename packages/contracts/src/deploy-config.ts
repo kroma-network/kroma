@@ -10,11 +10,6 @@ interface RequiredDeployConfig {
   numDeployConfirmations?: number
 
   /**
-   * Address that will own the entire system on L1 when the deploy is complete.
-   */
-  finalSystemOwner?: string
-
-  /**
    * Address that will own the entire system on L1 during the deployment process. This address will
    * not own the system after the deployment is complete, ownership will be transferred to the
    * final system owner.
@@ -237,9 +232,6 @@ export const deployConfigSpec: {
   numDeployConfirmations: {
     type: 'number',
     default: 1,
-  },
-  finalSystemOwner: {
-    type: 'address',
   },
   l1StartingBlockTag: {
     type: 'string',

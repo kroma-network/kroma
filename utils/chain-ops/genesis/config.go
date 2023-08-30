@@ -101,8 +101,6 @@ type DeployConfig struct {
 
 	// Owner of the ProxyAdmin predeploy
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
-	// Owner of the system on L1
-	FinalSystemOwner common.Address `json:"finalSystemOwner"`
 	// Owner of the Guardian Token
 	SecurityCouncilTokenOwner common.Address `json:"securityCouncilTokenOwner"`
 	// L1 recipient of fees accumulated in the ProtocolVault
@@ -192,11 +190,11 @@ func (d *DeployConfig) Check() error {
 	if d.L2OutputOracleStartingTimestamp == 0 {
 		log.Warn("L2OutputOracleStartingTimestamp is 0")
 	}
-	if d.FinalSystemOwner == (common.Address{}) {
-		return fmt.Errorf("%w: FinalSystemOwner cannot be address(0)", ErrInvalidDeployConfig)
-	}
 	if d.ProxyAdminOwner == (common.Address{}) {
 		return fmt.Errorf("%w: ProxyAdminOwner cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.SecurityCouncilTokenOwner == (common.Address{}) {
+		return fmt.Errorf("%w: SecurityCouncilTokenOwner cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.ProtocolVaultRecipient == (common.Address{}) {
 		return fmt.Errorf("%w: ProtocolVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)

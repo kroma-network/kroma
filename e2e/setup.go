@@ -103,8 +103,6 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
 
-		FinalSystemOwner: addresses.SysCfgOwner,
-
 		L1BlockTime:                 2,
 		L1GenesisBlockNonce:         4660,
 		CliqueSignerAddress:         common.Address{}, // e2e used to run Clique, but now uses fake Proof of Stake.
@@ -141,6 +139,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		GasPriceOracleScalar:   1_000_000,
 		ValidatorRewardScalar:  5000,
 
+		SecurityCouncilTokenOwner:    addresses.SysCfgOwner,
 		ProtocolVaultRecipient:       common.Address{19: 2},
 		ProposerRewardVaultRecipient: common.Address{19: 3},
 

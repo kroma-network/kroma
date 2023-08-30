@@ -132,7 +132,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 
 	data, err = sysCfgABI.Pack(
 		"initialize",
-		config.FinalSystemOwner,
+		config.SecurityCouncilTokenOwner,
 		uint642Big(config.GasPriceOracleOverhead),
 		uint642Big(config.GasPriceOracleScalar),
 		config.BatchSenderAddress.Hash(),
@@ -449,7 +449,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		{
 			Name: "SystemConfig",
 			Args: []interface{}{
-				config.FinalSystemOwner,
+				config.SecurityCouncilTokenOwner,
 				uint642Big(config.GasPriceOracleOverhead),
 				uint642Big(config.GasPriceOracleScalar),
 				config.BatchSenderAddress.Hash(), // left-padded 32 bytes value, version is zero anyway
@@ -514,6 +514,9 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		},
 		{
 			Name: "SecurityCouncil",
+			Args: []interface{}{
+				config.SecurityCouncilTokenOwner,
+			},
 		},
 		{
 			Name: "L1CrossDomainMessenger",
@@ -623,7 +626,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			opts,
 			backend,
 			predeploys.DevColosseumAddr,
-			predeploys.DevTimeLockAddr,
+			/* governor= */ deployment.Args[0].(common.Address),
 		)
 	case "L1CrossDomainMessenger":
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(
