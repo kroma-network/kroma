@@ -8,7 +8,7 @@ import {
 } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const zkVerifierProxyAddress = await getDeploymentAddress(hre, 'ZKVerifier')
+  const zkVerifierProxyAddress = await getDeploymentAddress(hre, 'ZKVerifierProxy')
   const l2OutputOracleProxyAddress = await getDeploymentAddress(
     hre,
     'L2OutputOracleProxy'
