@@ -7,20 +7,20 @@ You can find detailed specifications for the contracts contained within this pac
 
 ### Contracts deployed to L1
 
-| Name                                                                                     | Proxy Type                                                              | Description                                                                                         |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| [`L1CrossDomainMessenger`](../../specs/messengers.md)                                    | [`Proxy`](./contracts/universal/Proxy.sol) |
- High-level interface for sending messages to and receiving messages from Kroma                   |
-| [`L1StandardBridge`](../../specs/bridges.md)                                             | [`Proxy`](./contracts/universal/Proxy.sol) |
- Standardized system for transfering ERC20 tokens to/from Kroma                                   |
-| [`L2OutputOracle`](../../specs/validations.md#l2-output-oracle-smart-contract)             | [`Proxy`](./contracts/universal/Proxy.sol) |
- Stores commitments to the state of Kroma which can be used by contracts on L1 to access L2 state |
-| [`KromaPortal`](../../specs/deposits.md#deposit-contract)                               | [`Proxy`](./contracts/universal/Proxy.sol) |
-Low-level message passing interface                                                                 |
-| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory)     | [`Proxy`](./contracts/universal/Proxy.sol) |
-Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge`    |
-| [`ProxyAdmin`](../../specs/TODO)                                                         | -                                           |
-Contract that can upgrade L1 contracts                                                              |
+| Name                                                                                             | Proxy Type                                 | Description |
+|--------------------------------------------------------------------------------------------------|--------------------------------------------|-------------|
+| [`L1CrossDomainMessenger`](../../specs/messengers.md)                                            | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| High-level interface for sending messages to and receiving messages from Kroma                   |                                            |             |
+| [`L1StandardBridge`](../../specs/bridges.md)                                                     | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| Standardized system for transfering ERC20 tokens to/from Kroma                                   |                                            |             |
+| [`L2OutputOracle`](../../specs/validator.md#l2-output-oracle-smart-contract)                     | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| Stores commitments to the state of Kroma which can be used by contracts on L1 to access L2 state |                                            |             |
+| [`KromaPortal`](../../specs/deposits.md#deposit-contract)                                        | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| Low-level message passing interface                                                              |                                            |             |
+| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory)               | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge`    |                                            |             |
+| [`ProxyAdmin`](../../specs/TODO)                                                                 | -                                          |             |
+| Contract that can upgrade L1 contracts                                                           |                                            |             |
 
 ### Contracts deployed to L2
 
@@ -191,7 +191,7 @@ implementation contract:
 ### Versioning
 
 All (non-library and non-abstract) contracts MUST extend the `Semver` base contract which exposes a `version()` function
- that returns a semver-compliant version string.
+that returns a semver-compliant version string.
 Before mainnet release, the development process the `Semver` value for all contracts SHOULD return `0.1.0`
 
 After the mainnet release, contracts MUST use the following versioning scheme:
@@ -225,7 +225,7 @@ These guidelines are also encoded in a script which can be run with:
 
 - Solidity `contract`s are used to organize the test suite similar to how mocha uses describe.
 - Every non-trivial state changing function should have a separate contract for happy and sad path
-   tests. This helps to make it very obvious where there are not yet sad path tests.
+  tests. This helps to make it very obvious where there are not yet sad path tests.
 - Simpler functions like getters and setters are grouped together into test contracts.
 
 #### Test function naming convention
@@ -239,11 +239,11 @@ The parts are: `[method]_[FunctionName]_[reason]_[success]`, where:
 - `[FunctionName]` is the name of the function or higher level behavior being tested.
 - `[reason]` is an optional description for the behavior being tested.
 - `[status]` must be one of:
-  - `succeeds`: used for most happy path cases
-  - `reverts`: used for most sad path cases
-  - `works`: used for tests which include a mix of happy and sad assertions (these should be broken up if possible)
-  - `fails`: used for tests which 'fail' in some way other than reverting
-  - `benchmark`: used for tests intended to establish gas costs
+    - `succeeds`: used for most happy path cases
+    - `reverts`: used for most sad path cases
+    - `works`: used for tests which include a mix of happy and sad assertions (these should be broken up if possible)
+    - `fails`: used for tests which 'fail' in some way other than reverting
+    - `benchmark`: used for tests intended to establish gas costs
 
 #### Contract Naming Conventions
 

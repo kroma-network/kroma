@@ -84,6 +84,7 @@
   - [Validator Pool Contract](#validator-pool-contract)
   - [Colosseum Contract](#colosseum-contract)
   - [ZK Fault Proof](#zk-fault-proof)
+  - [Security Council](#security-council)
   - [Time Slot](#time-slot)
   - [Block Time](#block-time)
   - [Unsafe Sync](#unsafe-sync)
@@ -890,7 +891,7 @@ cf. [L1 Attributes Predeployed Contract Specification](deposits.md#l1-attributes
 
 A 32 byte value which serves as a commitment to the current state of the [L2] chain.
 
-cf. [Submitting L2 output commitments](validations.md#submitting-l2-output-commitments)
+cf. [Submitting L2 output commitments](validator.md#submitting-l2-output-commitments)
 
 ## L2 Output Oracle Contract
 
@@ -920,6 +921,13 @@ invalid [L2 output roots][l2-output].
 
 An on-chain _interactive_ proof, performed by [validators][validator], that demonstrates that a [proposer] provided
 erroneous [output roots][l2-output] using zkEVM.
+
+## Security Council
+
+[security-council]: glossary.md#security-council
+
+A group of entities composed of trusted parties responsible for the security of blockchain, such as fault-proof system,
+withdrawals, and contract upgrades.
 
 ## Time Slot
 

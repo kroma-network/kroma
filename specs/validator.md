@@ -173,10 +173,22 @@ the `ValidatorPool` contract.
 When submitting the output, the validator must bond Ethereum for `REQUIRED_BOND_AMOUNT`, which will be unbonded and
 rewarded to the L2 `ValidatorRewardVault` contract when the output is finalized.
 
+Also, validators should stake their bond for disputing challenge. This bond will be given to the winner of the challenge
+as a reward. When this reward distributed, a [tax](./challenge.md) is imposed to prevent collusive attacks of asserter 
+and challenger. 
+
 Validator Pool Smart Contract implements the following interface:
 
 ```solidity
 interface ValidatorPool {
+    /**
+     * @notice Emitted when a validator bonds.
+     *
+     * @param submitter   Address of submitter.
+     * @param outputIndex Index of the L2 checkpoint output index.
+     * @param amount      Amount of bonded.
+     * @param expiresAt   The expiration timestamp of bond.
+     */
     event Bonded(
         address indexed submitter,
         uint256 indexed outputIndex,
@@ -184,24 +196,125 @@ interface ValidatorPool {
         uint128 expiresAt
     );
 
-    event BondIncreased(address indexed challenger, uint256 indexed outputIndex, uint128 amount);
+    /**
+     * @notice Emitted when the pending bond is added.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param amount      Amount of bond added.
+     */
+    event PendingBondAdded(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
+
+    /**
+ * @notice Emitted when the bond is increased.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param amount      Amount of bond increased.
+     */
+    event BondIncreased(uint256 indexed outputIndex, address indexed challenger, uint128 amount);
+
+    /**
+     * @notice Emitted when the pending bond is released(refunded).
+     *
+     * @param outputIndex  Index of the L2 checkpoint output.
+     * @param challenger   Address of the challenger.
+     * @param recipient    Address to receive amount from a pending bond.
+     * @param amount       Amount of bond released.
+     */
+    event PendingBondReleased(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        address indexed recipient,
+        uint128 amount
+    );
+
+    /**
+     * @notice Emitted when a validator unbonds.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param recipient   Address of the recipient.
+     * @param amount      Amount of unbonded.
+     */
     event Unbonded(uint256 indexed outputIndex, address indexed recipient, uint128 amount);
 
+    /**
+     * @notice Deposit ETH to be used as bond.
+     */
     function deposit() external payable;
 
+    /**
+     * @notice Withdraw a given amount.
+     *
+     * @param _amount Amount to withdraw.
+     */
     function withdraw(uint256 _amount) external;
 
+    /**
+     * @notice Bond asset corresponding to the given output index.
+     *         This function is called when submitting output.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _expiresAt   The expiration timestamp of bond.
+     */
     function createBond(
         uint256 _outputIndex,
         uint128 _expiresAt
     ) external;
 
-    function increaseBond(address _challenger, uint256 _outputIndex) external;
+    /**
+     * @notice Adds a pending bond to the challenge corresponding to the given output index and challenger address.
+     *         The pending bond is added to the bond when the challenge is proven or challenger is timed out,
+     *         or refunded when the challenge is canceled.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     */
+    function addPendingBond(uint256 _outputIndex, address _challenger) external;
 
+    /**
+     * @notice Releases the corresponding pending bond to the given output index and challenger address
+     *         if a challenge is canceled.
+     *
+     * @param _outputIndex  Index of the L2 checkpoint output.
+     * @param _challenger   Address of the challenger.
+     * @param _recipient    Address to receive amount from a pending bond.
+     */
+    function releasePendingBond(
+        uint256 _outputIndex,
+        address _challenger,
+        address _recipient
+    ) external;
+
+    /**
+     * @notice Increases the bond amount corresponding to the given output index by the pending bond amount.
+     *         This is when taxes are charged, and note that taxes are a means of preventing collusive attacks by
+     *         the asserter and challenger.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     */
+    function increaseBond(uint256 _outputIndex, address _challenger) external;
+
+    /**
+     * @notice Attempt to unbond. Reverts if unbond is not possible.
+     */
     function unbond() external;
 
+    /**
+     * @notice Returns the balance of given address.
+     *
+     * @param _addr Address of validator.
+     *
+     * @return Balance of given address.
+     */
     function balanceOf(address _addr) external view returns (uint256);
 
+    /**
+     * @notice Determines who can submit the L2 output next.
+     *
+     * @return The address of the validator.
+     */
     function nextValidator() public view returns (address);
 }
 ```
