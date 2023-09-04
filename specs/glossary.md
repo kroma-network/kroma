@@ -418,6 +418,20 @@ A priority round is the period during which validator with output submission pri
 
 A public round is the time period during which any account registered as a Validator can submit the output.
 
+Any validator can participate in the public round, but only one validator is fully recognized as an output submitter.
+
+Consider a case where multiple validators competitively submit output in a public round.
+
+Except for the first-place validator with a valid output submission transaction in the L1 block,
+
+the remaining validators' transactions will fail and will not be recognized as output submitters.
+
+However, some of them will have already spent their gas.
+
+To handle this situation, we provide a option flag to indicate whether or not to participate in the public round.
+
+Since we're taking a conservative approach, the default value is set to false.
+
 ## Validator Reward
 
 [validator-reward]: glossary.md#validator-reward
