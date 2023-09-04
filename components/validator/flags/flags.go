@@ -140,6 +140,7 @@ var optionalFlags = []cli.Flag{
 	AllowNonFinalizedFlag,
 	OutputSubmitterRetryIntervalFlag,
 	OutputSubmitterRoundBufferFlag,
+	OutputSubmitterJoinPREnabledFlag,
 	ProverRPCFlag,
 	SecurityCouncilAddressFlag,
 	GuardianEnabledFlag,
