@@ -24,8 +24,7 @@ contract SecurityCouncilToken is KromaSoulBoundERC721, Semver {
         __KromaSoulBoundERC721_init("KromaSecurityCouncil", "KSC", _owner);
     }
 
-    // TODO(ayaan): set base URI for security council SBT
     function _baseURI() internal pure override returns (string memory) {
-        return "";
+        return "https://nft.kroma.network/sc/";
     }
 }

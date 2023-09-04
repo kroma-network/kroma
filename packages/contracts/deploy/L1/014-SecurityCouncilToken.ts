@@ -31,11 +31,14 @@ const deployFn: DeployFunction = async (hre) => {
   assert((await token.owner()) === deployer)
 
   // Minting to guardians
-  for (const guardian of hre.deployConfig.securityCouncilOwners) {
+  for (const [
+    index,
+    guardian,
+  ] of hre.deployConfig.securityCouncilOwners.entries()) {
     const balance = await token.balanceOf(guardian)
     if (balance.toNumber() === 0) {
-      // TODO(ayaan): set URI for security council SBT
-      await token.safeMint(guardian, '')
+      const res = `${index + 1}.png`
+      await token.safeMint(guardian, res)
     }
   }
 }
