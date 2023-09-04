@@ -3,9 +3,8 @@ package flags
 import (
 	"time"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
-	kservice "github.com/kroma-network/kroma/utils/service"
 	klog "github.com/kroma-network/kroma/utils/service/log"
 	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
 	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
@@ -13,105 +12,115 @@ import (
 	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
-const envVarPrefix = "VALIDATOR"
+const EnvVarPrefix = "VALIDATOR"
+
+func prefixEnvVars(name string) []string {
+	return []string{EnvVarPrefix + "_" + name}
+}
 
 var (
 	// Required Flags
 
-	L1EthRpcFlag = cli.StringFlag{
+	L1EthRpcFlag = &cli.StringFlag{
 		Name:     "l1-eth-rpc",
 		Usage:    "Websocket provider URL for L1",
 		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "L1_ETH_RPC"),
+		EnvVars:  prefixEnvVars("L1_ETH_RPC"),
 	}
-	L2EthRpcFlag = cli.StringFlag{
+	L2EthRpcFlag = &cli.StringFlag{
 		Name:     "l2-eth-rpc",
 		Usage:    "HTTP provider URL for L2",
 		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "L2_ETH_RPC"),
+		EnvVars:  prefixEnvVars("L2_ETH_RPC"),
 	}
-	RollupRpcFlag = cli.StringFlag{
+	RollupRpcFlag = &cli.StringFlag{
 		Name:     "rollup-rpc",
 		Usage:    "HTTP provider URL for the rollup node",
 		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "ROLLUP_RPC"),
+		EnvVars:  prefixEnvVars("ROLLUP_RPC"),
 	}
-	L2OOAddressFlag = cli.StringFlag{
+	L2OOAddressFlag = &cli.StringFlag{
 		Name:     "l2oo-address",
 		Usage:    "Address of the L2OutputOracle contract",
 		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "L2OO_ADDRESS"),
+		EnvVars:  prefixEnvVars("L2OO_ADDRESS"),
 	}
-	ColosseumAddressFlag = cli.StringFlag{
+	ColosseumAddressFlag = &cli.StringFlag{
 		Name:     "colosseum-address",
 		Usage:    "Address of the Colosseum contract",
 		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "COLOSSEUM_ADDRESS"),
+		EnvVars:  prefixEnvVars("COLOSSEUM_ADDRESS"),
 	}
-	ValPoolAddressFlag = cli.StringFlag{
+	ValPoolAddressFlag = &cli.StringFlag{
 		Name:     "valpool-address",
 		Usage:    "Address of the ValidatorPool contract",
 		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "VALPOOL_ADDRESS"),
+		EnvVars:  prefixEnvVars("VALPOOL_ADDRESS"),
 	}
-	OutputSubmitterEnabledFlag = cli.BoolFlag{
+	OutputSubmitterEnabledFlag = &cli.BoolFlag{
 		Name:     "output-submitter.enabled",
 		Usage:    "Enable l2 output submitter",
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_ENABLED"),
+		EnvVars:  prefixEnvVars("OUTPUT_SUBMITTER_ENABLED"),
 		Required: true,
 	}
-	ChallengerEnabledFlag = cli.BoolFlag{
+	ChallengerEnabledFlag = &cli.BoolFlag{
 		Name:     "challenger.enabled",
 		Usage:    "Enable challenger",
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "CHALLENGER_ENABLED"),
+		EnvVars:  prefixEnvVars("CHALLENGER_ENABLED"),
 		Required: true,
 	}
-	ChallengerPollIntervalFlag = cli.DurationFlag{
+	ChallengerPollIntervalFlag = &cli.DurationFlag{
 		Name:     "challenger.poll-interval",
 		Usage:    "Poll interval for challenge process",
 		Required: true,
-		EnvVar:   kservice.PrefixEnvVar(envVarPrefix, "CHALLENGER_POLL_INTERVAL"),
+		EnvVars:  prefixEnvVars("CHALLENGER_POLL_INTERVAL"),
 	}
 
 	// Optional flags
 
-	AllowNonFinalizedFlag = cli.BoolFlag{
-		Name:   "allow-non-finalized",
-		Usage:  "Allow the validator to submit outputs for L2 blocks derived from non-finalized L1 blocks.",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "ALLOW_NON_FINALIZED"),
+	AllowNonFinalizedFlag = &cli.BoolFlag{
+		Name:    "allow-non-finalized",
+		Usage:   "Allow the validator to submit outputs for L2 blocks derived from non-finalized L1 blocks.",
+		EnvVars: prefixEnvVars("ALLOW_NON_FINALIZED"),
 	}
-	OutputSubmitterRetryIntervalFlag = cli.DurationFlag{
-		Name:   "output-submitter.retry-interval",
-		Usage:  "Retry interval for output submission process",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_RETRY_INTERVAL"),
-		Value:  time.Second * 1,
+	OutputSubmitterRetryIntervalFlag = &cli.DurationFlag{
+		Name:    "output-submitter.retry-interval",
+		Usage:   "Retry interval for output submission process",
+		EnvVars: prefixEnvVars("OUTPUT_SUBMITTER_RETRY_INTERVAL"),
+		Value:   time.Second * 1,
 	}
-	OutputSubmitterRoundBufferFlag = cli.Uint64Flag{
-		Name:   "output-submitter.round-buffer",
-		Usage:  "Number of blocks before each round to start trying submission",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_ROUND_BUFFER"),
-		Value:  30,
+	OutputSubmitterRoundBufferFlag = &cli.Uint64Flag{
+		Name:    "output-submitter.round-buffer",
+		Usage:   "Number of blocks before each round to start trying submission",
+		EnvVars: prefixEnvVars("OUTPUT_SUBMITTER_ROUND_BUFFER"),
+		Value:   30,
 	}
-	ProverRPCFlag = cli.StringFlag{
-		Name:   "prover-rpc-url",
-		Usage:  "jsonRPC URL for kroma-prover.",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "PROVER_RPC"),
+	OutputSubmitterJoinPREnabledFlag = &cli.BoolFlag{
+		Name:    "output-submitter-join-pr.enabled",
+		Usage:   "Enable l2 output submitter in public round",
+		EnvVars: prefixEnvVars("OUTPUT_SUBMITTER_JOIN_PR_ENABLED"),
+		Value:   false,
 	}
-	SecurityCouncilAddressFlag = cli.StringFlag{
-		Name:   "securitycouncil-address",
-		Usage:  "Address of the SecurityCouncil contract",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "SECURITYCOUNCIL_ADDRESS"),
+	ProverRPCFlag = &cli.StringFlag{
+		Name:    "prover-rpc-url",
+		Usage:   "jsonRPC URL for kroma-prover.",
+		EnvVars: prefixEnvVars("PROVER_RPC"),
 	}
-	GuardianEnabledFlag = cli.BoolFlag{
-		Name:   "guardian.enabled",
-		Usage:  "Enable guardian",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "GUARDIAN_ENABLED"),
+	SecurityCouncilAddressFlag = &cli.StringFlag{
+		Name:    "securitycouncil-address",
+		Usage:   "Address of the SecurityCouncil contract",
+		EnvVars: prefixEnvVars("SECURITYCOUNCIL_ADDRESS"),
 	}
-	FetchingProofTimeoutFlag = cli.DurationFlag{
-		Name:   "fetching-proof-timeout",
-		Usage:  "Duration we will wait to fetching proof",
-		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "FETCHING_PROOF_TIMEOUT"),
-		Value:  time.Hour * 2,
+	GuardianEnabledFlag = &cli.BoolFlag{
+		Name:    "guardian.enabled",
+		Usage:   "Enable guardian",
+		EnvVars: prefixEnvVars("GUARDIAN_ENABLED"),
+	}
+	FetchingProofTimeoutFlag = &cli.DurationFlag{
+		Name:    "fetching-proof-timeout",
+		Usage:   "Duration we will wait to fetching proof",
+		EnvVars: prefixEnvVars("FETCHING_PROOF_TIMEOUT"),
+		Value:   time.Hour * 2,
 	}
 )
 
@@ -138,12 +147,12 @@ var optionalFlags = []cli.Flag{
 }
 
 func init() {
-	requiredFlags = append(requiredFlags, krpc.CLIFlags(envVarPrefix)...)
+	requiredFlags = append(requiredFlags, krpc.CLIFlags(EnvVarPrefix)...)
 
-	optionalFlags = append(optionalFlags, klog.CLIFlags(envVarPrefix)...)
-	optionalFlags = append(optionalFlags, kmetrics.CLIFlags(envVarPrefix)...)
-	optionalFlags = append(optionalFlags, kpprof.CLIFlags(envVarPrefix)...)
-	optionalFlags = append(optionalFlags, txmgr.CLIFlags(envVarPrefix)...)
+	optionalFlags = append(optionalFlags, klog.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, kmetrics.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, kpprof.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, txmgr.CLIFlags(EnvVarPrefix)...)
 
 	Flags = append(requiredFlags, optionalFlags...)
 }

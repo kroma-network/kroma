@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/node/sources"
@@ -39,6 +39,7 @@ type Config struct {
 	RollupConfig                 *rollup.Config
 	AllowNonFinalized            bool
 	OutputSubmitterEnabled       bool
+	OutputSubmitterJoinPREnabled bool
 	OutputSubmitterRetryInterval time.Duration
 	OutputSubmitterRoundBuffer   uint64
 	ChallengerEnabled            bool
@@ -91,6 +92,8 @@ type CLIConfig struct {
 
 	OutputSubmitterEnabled bool
 
+	OutputSubmitterJoinPREnabled bool
+
 	// OutputSubmitterRetryInterval is how frequently to retry output submission.
 	OutputSubmitterRetryInterval time.Duration
 
@@ -136,25 +139,26 @@ func (c CLIConfig) Check() error {
 func NewCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		// Required Flags
-		L1EthRpc:               ctx.GlobalString(flags.L1EthRpcFlag.Name),
-		L2EthRpc:               ctx.GlobalString(flags.L2EthRpcFlag.Name),
-		RollupRpc:              ctx.GlobalString(flags.RollupRpcFlag.Name),
-		L2OOAddress:            ctx.GlobalString(flags.L2OOAddressFlag.Name),
-		ColosseumAddress:       ctx.GlobalString(flags.ColosseumAddressFlag.Name),
-		ValPoolAddress:         ctx.GlobalString(flags.ValPoolAddressFlag.Name),
-		OutputSubmitterEnabled: ctx.GlobalBool(flags.OutputSubmitterEnabledFlag.Name),
-		ChallengerEnabled:      ctx.GlobalBool(flags.ChallengerEnabledFlag.Name),
-		ChallengerPollInterval: ctx.GlobalDuration(flags.ChallengerPollIntervalFlag.Name),
-		TxMgrConfig:            txmgr.ReadCLIConfig(ctx),
+		L1EthRpc:                     ctx.String(flags.L1EthRpcFlag.Name),
+		L2EthRpc:                     ctx.String(flags.L2EthRpcFlag.Name),
+		RollupRpc:                    ctx.String(flags.RollupRpcFlag.Name),
+		L2OOAddress:                  ctx.String(flags.L2OOAddressFlag.Name),
+		ColosseumAddress:             ctx.String(flags.ColosseumAddressFlag.Name),
+		ValPoolAddress:               ctx.String(flags.ValPoolAddressFlag.Name),
+		OutputSubmitterEnabled:       ctx.Bool(flags.OutputSubmitterEnabledFlag.Name),
+		OutputSubmitterJoinPREnabled: ctx.Bool(flags.OutputSubmitterJoinPREnabledFlag.Name),
+		ChallengerEnabled:            ctx.Bool(flags.ChallengerEnabledFlag.Name),
+		ChallengerPollInterval:       ctx.Duration(flags.ChallengerPollIntervalFlag.Name),
+		TxMgrConfig:                  txmgr.ReadCLIConfig(ctx),
 
 		// Optional Flags
-		AllowNonFinalized:            ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
-		OutputSubmitterRetryInterval: ctx.GlobalDuration(flags.OutputSubmitterRetryIntervalFlag.Name),
-		OutputSubmitterRoundBuffer:   ctx.GlobalUint64(flags.OutputSubmitterRoundBufferFlag.Name),
-		SecurityCouncilAddress:       ctx.GlobalString(flags.SecurityCouncilAddressFlag.Name),
-		ProverRPC:                    ctx.GlobalString(flags.ProverRPCFlag.Name),
-		GuardianEnabled:              ctx.GlobalBool(flags.GuardianEnabledFlag.Name),
-		FetchingProofTimeout:         ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
+		AllowNonFinalized:            ctx.Bool(flags.AllowNonFinalizedFlag.Name),
+		OutputSubmitterRetryInterval: ctx.Duration(flags.OutputSubmitterRetryIntervalFlag.Name),
+		OutputSubmitterRoundBuffer:   ctx.Uint64(flags.OutputSubmitterRoundBufferFlag.Name),
+		SecurityCouncilAddress:       ctx.String(flags.SecurityCouncilAddressFlag.Name),
+		ProverRPC:                    ctx.String(flags.ProverRPCFlag.Name),
+		GuardianEnabled:              ctx.Bool(flags.GuardianEnabledFlag.Name),
+		FetchingProofTimeout:         ctx.Duration(flags.FetchingProofTimeoutFlag.Name),
 		RPCConfig:                    krpc.ReadCLIConfig(ctx),
 		LogConfig:                    klog.ReadCLIConfig(ctx),
 		MetricsConfig:                kmetrics.ReadCLIConfig(ctx),
@@ -240,6 +244,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		RollupConfig:                 rollupConfig,
 		AllowNonFinalized:            cfg.AllowNonFinalized,
 		OutputSubmitterEnabled:       cfg.OutputSubmitterEnabled,
+		OutputSubmitterJoinPREnabled: cfg.OutputSubmitterJoinPREnabled,
 		OutputSubmitterRetryInterval: cfg.OutputSubmitterRetryInterval,
 		OutputSubmitterRoundBuffer:   cfg.OutputSubmitterRoundBuffer,
 		ChallengerEnabled:            cfg.ChallengerEnabled,

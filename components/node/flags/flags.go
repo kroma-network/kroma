@@ -251,7 +251,7 @@ var Flags []cli.Flag
 
 func init() {
 	optionalFlags = append(optionalFlags, p2pFlags...)
-	optionalFlags = append(optionalFlags, klog.CLIFlagsV2(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, klog.CLIFlags(EnvVarPrefix)...)
 	Flags = append(requiredFlags, optionalFlags...)
 }
 

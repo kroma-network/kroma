@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/components/batcher/flags"
 	"github.com/kroma-network/kroma/components/batcher/metrics"
@@ -122,18 +122,18 @@ func (c CLIConfig) Check() error {
 func NewCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		// Required Flags
-		L1EthRpc:        ctx.GlobalString(flags.L1EthRpcFlag.Name),
-		L2EthRpc:        ctx.GlobalString(flags.L2EthRpcFlag.Name),
-		RollupRpc:       ctx.GlobalString(flags.RollupRpcFlag.Name),
-		SubSafetyMargin: ctx.GlobalUint64(flags.SubSafetyMarginFlag.Name),
-		PollInterval:    ctx.GlobalDuration(flags.PollIntervalFlag.Name),
+		L1EthRpc:        ctx.String(flags.L1EthRpcFlag.Name),
+		L2EthRpc:        ctx.String(flags.L2EthRpcFlag.Name),
+		RollupRpc:       ctx.String(flags.RollupRpcFlag.Name),
+		SubSafetyMargin: ctx.Uint64(flags.SubSafetyMarginFlag.Name),
+		PollInterval:    ctx.Duration(flags.PollIntervalFlag.Name),
 
 		// Optional Flags
-		MaxChannelDuration: ctx.GlobalUint64(flags.MaxChannelDurationFlag.Name),
-		MaxL1TxSize:        ctx.GlobalUint64(flags.MaxL1TxSizeBytesFlag.Name),
-		TargetL1TxSize:     ctx.GlobalUint64(flags.TargetL1TxSizeBytesFlag.Name),
-		TargetNumFrames:    ctx.GlobalInt(flags.TargetNumFramesFlag.Name),
-		ApproxComprRatio:   ctx.GlobalFloat64(flags.ApproxComprRatioFlag.Name),
+		MaxChannelDuration: ctx.Uint64(flags.MaxChannelDurationFlag.Name),
+		MaxL1TxSize:        ctx.Uint64(flags.MaxL1TxSizeBytesFlag.Name),
+		TargetL1TxSize:     ctx.Uint64(flags.TargetL1TxSizeBytesFlag.Name),
+		TargetNumFrames:    ctx.Int(flags.TargetNumFramesFlag.Name),
+		ApproxComprRatio:   ctx.Float64(flags.ApproxComprRatioFlag.Name),
 		TxMgrConfig:        txmgr.ReadCLIConfig(ctx),
 		RPCConfig:          rpc.ReadCLIConfig(ctx),
 		LogConfig:          klog.ReadCLIConfig(ctx),
