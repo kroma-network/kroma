@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/components/batcher/metrics"
 	"github.com/kroma-network/kroma/utils"

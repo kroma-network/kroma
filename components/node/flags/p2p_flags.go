@@ -10,7 +10,7 @@ import (
 )
 
 func p2pEnv(v string) []string {
-	return prefixEnvVars("P2P_" + v)
+	return prefixEnvVar("P2P_" + v)
 }
 
 var (
