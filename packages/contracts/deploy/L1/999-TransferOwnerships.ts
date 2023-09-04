@@ -7,16 +7,18 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { getDeploymentAddress } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const timelockProxyAddress = await getDeploymentAddress(hre, 'TimeLockProxy')
+  const timeLockProxyAddress = await getDeploymentAddress(hre, 'TimeLockProxy')
+  await transferProxyAdminOwnership(hre, timeLockProxyAddress)
 
-  await transferProxyAdminOwnership(hre, timelockProxyAddress)
-  await transferSystemConfigOwnership(hre, timelockProxyAddress)
+  const scTokenOwnerAddress = hre.deployConfig.securityCouncilTokenOwner
+  await transferSecurityCouncilTokenOwnership(hre, scTokenOwnerAddress)
 }
 
 const transferProxyAdminOwnership = async (
   hre: HardhatRuntimeEnvironment,
   newOwner: string
 ) => {
+  console.log('transfer ProxyAdmin ownership to TimeLock')
   const proxyAdminAddress = await getDeploymentAddress(hre, 'ProxyAdmin')
   let proxyAdmin = await hre.ethers.getContractAt(
     'ProxyAdmin',
@@ -40,37 +42,40 @@ const transferProxyAdminOwnership = async (
   await tx.wait()
 
   assert((await proxyAdmin.owner()) === newOwner)
+  console.log('successfully transferred ownership of ProxyAdmin')
 }
 
-const transferSystemConfigOwnership = async (
+const transferSecurityCouncilTokenOwnership = async (
   hre: HardhatRuntimeEnvironment,
   newOwner: string
 ) => {
-  const systemConfigProxyAddress = await getDeploymentAddress(
+  console.log(
+    'transfer SecurityCouncilToken ownership to SecurityCouncilTokenOwner'
+  )
+  const scTokenProxyAddress = await getDeploymentAddress(
     hre,
-    'SystemConfigProxy'
+    'SecurityCouncilTokenProxy'
   )
-  let systemConfig = await hre.ethers.getContractAt(
-    'SystemConfig',
-    systemConfigProxyAddress
+  let scToken = await hre.ethers.getContractAt(
+    'SecurityCouncilToken',
+    scTokenProxyAddress
   )
-  const currentSystemConfigOwner = await systemConfig.owner()
-  if (currentSystemConfigOwner === newOwner) {
+  const currentScTokenOwner = await scToken.owner()
+  if (currentScTokenOwner === newOwner) {
     console.log(
-      'skip the SystemConfig owner transfer process because the owner has already been transferred.'
+      'skip the SecurityCouncilToken owner transfer process because the owner has already been transferred.'
     )
   }
 
-  systemConfig = systemConfig.connect(
-    hre.ethers.provider.getSigner(currentSystemConfigOwner)
-  )
+  scToken = scToken.connect(hre.ethers.provider.getSigner(currentScTokenOwner))
 
-  const tx = await systemConfig.transferOwnership(newOwner, {
-    from: currentSystemConfigOwner,
+  const tx = await scToken.transferOwnership(newOwner, {
+    from: currentScTokenOwner,
   })
   await tx.wait()
 
-  assert((await systemConfig.owner()) === newOwner)
+  assert((await scToken.owner()) === newOwner)
+  console.log('successfully transferred ownership of SecurityCouncilToken')
 }
 
 deployFn.runAtTheEnd = true

@@ -21,7 +21,6 @@
   "protocolVaultRecipient": "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
   "proposerRewardVaultRecipient": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
   "proxyAdminOwner": "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
-  "finalSystemOwner": "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
   "securityCouncilTokenOwner": "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
   "controller": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
   "finalizationPeriodSeconds": 600,
