@@ -1,6 +1,6 @@
 {
   "name": "@kroma-network/contracts",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Contracts for Kroma",
   "main": "dist/index",
   "types": "dist/index",

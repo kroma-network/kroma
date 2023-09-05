@@ -1,6 +1,6 @@
 {
   "name": "@kroma-network/common-ts",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "[Kroma] Advanced typescript tooling used by various services",
   "main": "dist/index",
   "types": "dist/index",
