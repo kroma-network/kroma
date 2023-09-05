@@ -174,7 +174,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     }
 
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      *
      * @param _l2OutputOracle     Address of the L2OutputOracle.
      * @param _portal             Address of the KromaPortal.
@@ -192,7 +192,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         uint256 _requiredBondAmount,
         uint256 _maxUnbond,
         uint256 _roundDuration
-    ) Semver(0, 1, 0) {
+    ) Semver(1, 0, 0) {
         L2_ORACLE = _l2OutputOracle;
         PORTAL = _portal;
         SECURITY_COUNCIL = _securityCouncil;

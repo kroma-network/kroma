@@ -318,11 +318,12 @@ func (l *L2OutputSubmitter) getLeftTimeForL2Blocks(currentBlockNumber *big.Int, 
 type roundInfo struct {
 	isPublicRound       bool
 	isPriorityValidator bool
+	canJoinPublicRound  bool
 }
 
 func (r *roundInfo) canJoinRound() bool {
 	joinPriority := !r.isPublicRound && r.isPriorityValidator
-	joinPublic := r.isPublicRound
+	joinPublic := r.isPublicRound && r.canJoinPublicRound
 	return joinPriority || joinPublic
 }
 
@@ -331,38 +332,35 @@ func (r *roundInfo) canJoinRound() bool {
 func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
+	ri := roundInfo{canJoinPublicRound: l.cfg.OutputSubmitterAllowPublicRound}
 	nextValidator, err := l.valpoolContract.NextValidator(utils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		l.log.Error("unable to get next validator address", "err", err)
-		return roundInfo{
-			isPublicRound:       false,
-			isPriorityValidator: false,
-		}, err
+		ri.isPublicRound = false
+		ri.isPriorityValidator = false
+		return ri, err
 	}
 
 	l.metr.RecordNextValidator(nextValidator)
 
 	if bytes.Equal(nextValidator[:], PublicRoundAddress[:]) {
 		l.log.Info("current round is public round")
-		return roundInfo{
-			isPublicRound:       true,
-			isPriorityValidator: false,
-		}, nil
+		ri.isPublicRound = true
+		ri.isPriorityValidator = false
+		return ri, nil
 	}
 
 	if nextValidator == l.cfg.TxManager.From() {
 		l.log.Info("current round is priority round, and selected for priority validator")
-		return roundInfo{
-			isPublicRound:       false,
-			isPriorityValidator: true,
-		}, nil
+		ri.isPublicRound = false
+		ri.isPriorityValidator = true
+		return ri, nil
 	}
 
 	l.log.Info("current round is priority round, and not selected for priority validator")
-	return roundInfo{
-		isPublicRound:       false,
-		isPriorityValidator: false,
-	}, nil
+	ri.isPublicRound = false
+	ri.isPriorityValidator = false
+	return ri, nil
 }
 
 // FetchOutput gets the output information to the corresponding block number.

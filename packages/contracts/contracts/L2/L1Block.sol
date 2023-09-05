@@ -68,9 +68,9 @@ contract L1Block is Semver {
     uint256 public validatorRewardScalar;
 
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      */
-    constructor() Semver(0, 1, 0) {}
+    constructor() Semver(1, 0, 0) {}
 
     /**
      * @notice Updates the L1 block values.

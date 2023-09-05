@@ -51,7 +51,7 @@ contract KromaMintableERC20 is IKromaMintableERC20, ERC20, Semver {
     }
 
     /**
-    * @custom:semver 0.1.0
+    * @custom:semver 1.0.0
      *
      * @param _bridge      Address of the L2 standard bridge.
      * @param _remoteToken Address of the corresponding L1 token.
@@ -63,7 +63,7 @@ contract KromaMintableERC20 is IKromaMintableERC20, ERC20, Semver {
         address _remoteToken,
         string memory _name,
         string memory _symbol
-    ) ERC20(_name, _symbol) Semver(0, 1, 0) {
+    ) ERC20(_name, _symbol) Semver(1, 0, 0) {
         REMOTE_TOKEN = _remoteToken;
         BRIDGE = _bridge;
     }

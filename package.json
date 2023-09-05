@@ -1,6 +1,6 @@
 {
   "name": "kroma",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "author": "Lightscale Inc.",
   "license": "MIT",
   "workspaces": {

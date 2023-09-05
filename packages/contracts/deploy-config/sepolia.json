@@ -1,5 +1,4 @@
 {
-  "finalSystemOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "proxyAdminOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "securityCouncilTokenOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "l1StartingBlockTag": "0x936e490e33e6e136ecd9095090e30ed7def3903ef2bae3e05966b376e493ad76",
@@ -52,7 +51,7 @@
   "governorProposalThreshold": 1,
   "governorVotesQuorumFractionPercent": 30,
   "timeLockMinDelaySeconds": 300,
-  "zkVerifierHashScalar": "0xd907773b4a293b9611f702740a7073d51fb10d829c76edb2549b0c6124dafe2",
-  "zkVerifierM56Px": "0x1bce0d26fba9adb40a4fe83372a22e39e411abee59ae6de6797f510a72685ff4",
-  "zkVerifierM56Py": "0x28df57c0622042dbe9e0b406661434f5f8eac87d9998d5283661c38e7d9925f8"
+  "zkVerifierHashScalar": "0x8a18470eb27ae5b84622ad66cc5607a7ce6b876569d2fb9ce5aa32cdda5cfc6",
+  "zkVerifierM56Px": "0x1b43785e34e12914d2e6fea816de6821f802c1ecf0bbeacba23600352027fcfd",
+  "zkVerifierM56Py": "0xb8e6f17043e36148aa467bea5a21b670072446b89f9612c229af2709dc83a28"
 }

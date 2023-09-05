@@ -7,6 +7,7 @@
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
 
 - [Foundations](#foundations)
   - [Blockchain Trilemma](#blockchain-trilemma)
@@ -177,8 +178,8 @@ Links to components mentioned in this diagram:
 - [Rollup Node](./rollup-node.md)
 - [Execution Engine](./exec-engine.md)
 - [Batcher](./batcher.md)
-- [L2 Output Oracle](./validations.md#the-l2-output-oracle-contract)
-- [Validator](./validations.md#submitting-l2-output-commitments)
+- [L2 Output Oracle](./validator.md#the-l2-output-oracle-contract)
+- [Validator](./validator.md#submitting-l2-output-commitments)
 
 ### Withdrawing
 
@@ -190,4 +191,4 @@ normal transactions on L2, but then completed using a transaction on L1 after th
 Links to components mentioned in this diagram:
 
 - [Kroma Portal](./deposits.md#deposit-contract)
-- [L2 Output Oracle](./validations.md#l2-output-oracle-smart-contract)
+- [L2 Output Oracle](./validator.md#l2-output-oracle-smart-contract)

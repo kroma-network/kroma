@@ -8,16 +8,20 @@
 [g-trusted-validator]: glossary.md#trusted-validator
 [g-validator]: glossary.md#validator
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
+[g-security-council]: glossary.md#security-council
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**
 
 - [Overview](#overview)
-- [Colosseum Contract](#colosseum-contract)
-- [Bisection](#bisection)
 - [State Diagram](#state-diagram)
-- [Process](#process)
-- [Public Input Verification](#public-input-verification)
+- [Challenge Creation](#challenge-creation)
+- [Bisection](#bisection)
+- [Proving Fault](#proving-fault)
+- [Dismiss Challenge](#dismiss-challenge)
+- [Force Delete Output](#force-delete-output)
+- [Contract Interface](#contract-interface)
 - [Upgradeability](#upgradeability)
 - [Summary of Definitions](#summary-of-definitions)
   - [Constants](#constants)
@@ -30,54 +34,82 @@ When a [validator][g-validator] detects that a submitted [L2 output root][g-l2-o
 transition, it can start a dispute challenge process by triggering the [Colosseum contract](#colosseum-contract). We
 refer to a validator who submits a dispute challenge as a "challenger" and a validator who initially submitted
 an L2 output as an "asserter." A dispute challenge entails a confrontational interaction between an asserter and a
-challenger, which persists until one of them emerges victorious. Only a single challenge can be directed at an output,
-and if the challenger succeeds, the existing output is substituted with a new output put forth by the challenger.
+challenger, which persists until one of them emerges victorious. If the challenger wins, the corresponding L2 output 
+will be deleted.
 
-All challenges necessitate approval from the Security Council. Even if the contract verifies the proof,
-a challenge may not be sanctioned if its contents are found to be false.
+A single output can be subject to multiple challenges. Challengers also need to stake their bonds equivalent to those 
+staked by asserter when submitting L2 outputs to generate challenges. Should the asserter emerge victorious in a 
+challenge, they receive the staked bonds of all the challengers as reward. On the other hand, if a challenger prevails, 
+the one who submitted the first valid ZK fault proof is given the asserter's staked bond. As a preventive measure 
+against collusion between asserters and challengers, tax is imposed. If there are any ongoing challenges, 
+the challenges are canceled, and staked bonds are refunded to the respective challengers.
 
-## Colosseum Contract
+In the ZK fault-proof challenge process, the following undeniable bug might arise, prompting the intervention of the 
+[Security Council][g-security-council]:
 
-The Colosseum contract implements the following interface:
+- The deletion of a valid output due to two valid and contradictory zk proofs
+- The failure to delete an invalid output due to the bugs in prover/verifier or ZK completeness error
+- The deletion of a valid output due to two valid and contradictory ZK proofs
+- The failure to delete an invalid output due to the bugs in prover/verifier or ZK completeness error
 
-```solidity
-interface Colosseum {
-  event ChallengeCreated(
-    uint256 indexed outputIndex,
-    address indexed asserter,
-    address indexed challenger,
-    uint256 timestamp
-  );
+In the former case, the Security Council validates the legitimacy of the deleted output and, if the aforementioned 
+error is identified, dismisses the challenge and initiates a rollback of the deleted output. 
+In the latter scenario, all challengers will fail in proving the fault. In such cases, the Security Council verifies 
+the output and, if deemed invalid, delete the output forcibly. All interventions by the Security Council are executed 
+through multi-sig transactions.
 
-  event Bisected(uint256 indexed outputIndex, uint256 turn, uint256 timestamp);
-  event Proven(uint256 indexed outputIndex, bytes32 newOutputRoot);
-  event Approved(uint256 indexed outputIndex, uint256 timestamp);
-  event Deleted(uint256 indexed outputIndex, uint256 timestamp);
+## State Diagram
 
-  function createChallenge(
-    uint256 _outputIndex,
-    bytes32 _l1BlockHash,
-    uint256 _l1BlockNumber,
-    bytes32[] calldata _segments
-  ) external;
+![state-diagram](assets/colosseum-state-diagram.svg)
 
-  function bisect(uint256 _outputIndex, uint256 _pos, bytes32[] calldata _segments) external;
+1. If the challenge is created, at the same time, the challenger needs to submit the first segments(9 outputs).
+   The state is set to `ASSERTER_TURN`.
+2. Then the asserter picks the first invalid segment and submits the next segments(6 outputs) for the picked segment.
+   `ASSERTER_TURN` state goes to `CHALLENGER_TURN`.
+3. If there's more segments to be interacted with, the challenger picks the first invalid segment and submits the next
+   segments(10 outputs) for the picked segment. `CHALLENGER_TURN` state goes to `ASSERTER_TURN` and repeat from step 2.
+   If the output has already been deleted by other challenger, the challenger cancel challenge and refund bond.
+4. Both `ASSERTER_TURN` and `CHALLENGER_TURN` states have a timeout called `BISECTION_TIMEOUT` and if it happens, the
+   state goes to `ASSERTER_TIMEOUT` and `CHALLENGER_TIMEOUT` respectively. This is to mitigate _liveness attack_.
+   This is because we want to give a penalty to one who doesn't respond timely.
+5. When the asserter timed out or bisection is completed, the state of challenge will be `READY_TO_PROVE` automatically.
+   At this state, the challenger is now able to pick the first invalid output and submit ZK fault proof.
+   Likewise, the challenge is canceled if the output is already been deleted.
+6. If the submitted proof is turned out to be invalid, the state stays at `READY_TO_PROVE` until `PROVING_TIMEOUT` is
+   occurred.
+7. Otherwise, `READY_TO_PROVE` state goes to `PROVEN`, and the L2 output is deleted.
+8. The deleted output would be validated by the **[Security Council][g-security-council]** to mitigate ZK soundness 
+   attack.
+9. If the deleted output was invalid, so it should have been, the Security Council do nothing.
+10. Otherwise, the **Security council** will dismiss the challenge and rollback the valid output.
+1. If the challenge is created, at the same time, the challenger needs to submit the first segments(9 outputs).
+   The state is set to `ASSERTER_TURN`.
+2. Then the asserter picks the first invalid segment and submits the next segments(6 outputs) for the picked segment.
+   `ASSERTER_TURN` state goes to `CHALLENGER_TURN`.
+3. If there's more segments to be interacted with, the challenger picks the first invalid segment and submits the next
+   segments(10 outputs) for the picked segment. `CHALLENGER_TURN` state goes to `ASSERTER_TURN` and repeat from step 2.
+   If the output has already been deleted by other challenger, the challenger cancel challenge and refund bond.
+4. Both `ASSERTER_TURN` and `CHALLENGER_TURN` states have a timeout called `BISECTION_TIMEOUT` and if it happens, the
+   state goes to `ASSERTER_TIMEOUT` and `CHALLENGER_TIMEOUT` respectively. This is to mitigate _liveness attack_.
+   This is because we want to give a penalty to one who doesn't respond timely.
+5. When the asserter timed out or bisection is completed, the state of challenge will be `READY_TO_PROVE` automatically.
+   At this state, the challenger is now able to pick the first invalid output and submit ZK fault proof.
+   Likewise, the challenge is canceled if the output is already been deleted.
+6. If the submitted proof is turned out to be invalid, the state stays at `READY_TO_PROVE` until `PROVING_TIMEOUT` is
+   occurred.
+7. Otherwise, `READY_TO_PROVE` state goes to `PROVEN`, and the L2 output is deleted.
+8. The deleted output would be validated by the **[Security Council][g-security-council]** to mitigate ZK soundness attack.
+9. If the deleted output was invalid, so it should have been, the Security Council do nothing.
+10. Otherwise, the **Security council** will dismiss the challenge and rollback the valid output.
 
-  function proveFault(
-    uint256 _outputIndex,
-    bytes32 _outputRoot,
-    uint256 _pos,
-    Types.PublicInputProof calldata _proof,
-    uint256[] calldata _zkproof,
-    uint256[] calldata _pair
-  ) external;
+## Challenge Creation
 
-  function challengerTimeout(uint256 _outputIndex) external;
+Validators can initiate challenges when they suspect that an invalid output has been submitted. In their role as 
+challengers, they start the challenge process with initial segments for interactive fault proof.
 
-  function approveChallenge(uint256 _outputIndex) external;
-}
-
-```
+> **Note** Challenges can only be initiated within the `CREATION_PERIOD` (< `FINALIZATION_PERIOD`) since the output 
+> is submitted. This restriction aims to prevent malicious challengers from deleting outputs just before finalization, 
+> causing a delay attack. 
 
 ## Bisection
 
@@ -110,212 +142,325 @@ You can notice that in each turn, the first element of the segments must be same
 the previous segments. Whereas, the last element of the segments must be different from the element at the same index of
 the previous segments. In this way, both parties are able to agree with a single step of block.
 
-## State Diagram
+When the challenge process is completed and the corresponding output is deleted by other challenger during bisection,
+the challenge will be canceled automatically.
 
-![state-diagram](assets/colosseum-state-diagram.svg)
+## Proving Fault
 
-1. If the challenge is created, at the same time, the challenger needs to submit the first segments(9 outputs).
-   The state is set to `ASSERTER_TURN`.
-2. Then the asserter picks the first invalid segment and submits the next segments(6 outputs) for the picked segment.
-   `ASSERTER_TURN` state goes to `CHALLENGER_TURN`.
-3. If there's more segments to be interacted with, the challenger picks the first invalid segment and submits the next
-   segments(10 outputs) for the picked segment. `CHALLENGER_TURN` state goes to `ASSERTER_TURN` and repeat from step 2.
-4. Otherwise, `CHALLENGER_TURN` state goes to `READY_TO_PROVE` automatically. At this state, the challenger is now able
-   to pick the first invalid output and submit ZK fault proof.
-5. Both `ASSERTER_TURN` and `CHALLENGER_TURN` states have a timeout called `BISECTION_TIMEOUT` and if it happens, the
-   state goes to `ASSERTER_TIMEOUT` and `CHALLENGER_TIMEOUT` respectively. This is to mitigate _liveness attack_.
-   This is because we want to give a penalty to one who doesn't respond timely.
-6. If the submitted proof is turned out to be invalid, the state stays at `READY_TO_PROVE` until `PROVING_TIMEOUT` is
-   occurred.
-7. Otherwise, `READY_TO_PROVE` state goes to `PROVEN`.
-8. At `PROVEN` state, the challenge must be approved by the **Security Council** to mitigate _ZK soundness attack_.
-   Which means there are more than one proof that prove different state transitions. This will be removed once we ensure
-   the possibility of soundness is extremely low in the production environment.
-9. As `PROVEN` state goes to `APPROVED`, The L2 output root is replaced by the one claimed by the challenger,
-   and the challenger takes all the bonds for that output.
-10. The `ASSERTER_TIMEOUT` state is similar to `READY_TO_PROVE`, it requires the proof to be submitted and verified as
-    in step 6 to complete the challenge.
-11. At `ASSERTER_TIMEOUT` state, if the challenger doesn't prove the fault within the timeout called `PROVING_TIMEOUT`,
-    the state goes to `CHALLENGER_TIMEOUT`.
-12. At `PROVEN` state, the **Security Council** verifies the authenticity of the challenge and approves it.
-    If the challenge is incorrect, it will not be approved and the challenge will fail.
-
-**Note:** `CHALLENGER_TIMEOUT` state is treated specially. It is regarded as `CHALLENGE_FAIL` state because there's no
-motivation for the asserter to step further.
-
-## Process
-
-We want the validator role to be decentralized. Like how the PoS mechanism works, to achieve this,
-the validator must bond `REQUIRED_BOND_AMOUNT` for every output submission. A Validator can deposit at once
-for convenience. The qualified validator now obtains the right to submit output.
-
-If outputs are submitted at the same time, only the first output is accepted. If no one submits during
-`SUBMISSION_TIMEOUT`, [trusted validator][g-trusted-validator] will submit an output.
-
-Even though the output is challenged, validators still are able to submit an output if the asserted output is thought
-to be valid. If the asserted output turns out to be invalid, it is replaced, but the bond for that remains untouched.
-This is because it's impossible to determine whether submitted outputs are invalid without a challenge game.
-
-We'll show an example. Let's say `REQUIRED_BOND_AMOUNT` is 100.
-
-1. At time `t`, alice, bob, and carol are registered as validators, and they submitted outputs like following:
-
-   | Name  | Output | Challenge | Bond | Lock                     |
-   |-------|--------|-----------|------|--------------------------|
-   | alice | O_1800 | N         | 100  | L_{t + 7 days}           |
-   | bob   | O_3600 | N         | 100  | L_{t + 7 days + 1 hours} |
-   | bob   | O_5400 | N         | 100  | L_{t + 7 days + 2 hours} |
-   | carol | O_7200 | N         | 100  | L_{t + 7 days + 3 hours} |
-
-   **NOTE:** `O_number` denotes the output at specific block `number`. `L_t` denotes "the bond should be locked
-   until time `t`".
-
-2. At `t + 3 hours 30 minutes`, david initiates a challenge to the output at 5400.
-
-   | Name  | Output | Challenge    | Bond | Lock                     |
-   |-------|--------|--------------|------|--------------------------|
-   | alice | O_1800 | N            | 100  | L_{t + 7 days}           |
-   | bob   | O_3600 | N            | 100  | L_{t + 7 days + 1 hours} |
-   | bob   | O_5400 | Y (by david) | 200  | L_{t + 7 days + 2 hours} |
-   | carol | O_7200 | N            | 100  | L_{t + 7 days + 3 hours} |
-
-3. At `t + 4 hours`, emma submits a output at 9000.
-
-   | Name  | Output | Challenge    | Bond | Lock                     |
-   |-------|--------|--------------|------|--------------------------|
-   | alice | O_1800 | N            | 100  | L_{t + 7 days}           |
-   | bob   | O_3600 | N            | 100  | L_{t + 7 days + 1 hours} |
-   | bob   | O_5400 | Y (by david) | 200  | L_{t + 7 days + 2 hours} |
-   | carol | O_7200 | N            | 100  | L_{t + 7 days + 3 hours} |
-   | emma  | O_9000 | N            | 100  | L_{t + 7 days + 4 hours} |
-
-4. If the challenger wins:
-
-   | Name  | Output | Challenge | Bond | Lock                     |
-   |-------|--------|-----------|------|--------------------------|
-   | alice | O_1800 | N         | 100  | L_{t + 7 days}           |
-   | bob   | O_3600 | N         | 100  | L_{t + 7 days + 1 hours} |
-   | david | O_5400 | N         | 200  | L_{t + 7 days + 2 hours} |
-   | carol | O_7200 | N         | 100  | L_{t + 7 days + 3 hours} |
-   | emma  | O_9000 | N         | 100  | L_{t + 7 days + 4 hours} |
-
-5. Otherwise:
-
-   | Name  | Output | Challenge | Bond | Lock                     |
-   |-------|--------|-----------|------|--------------------------|
-   | alice | O_1800 | N         | 100  | L_{t + 7 days}           |
-   | bob   | O_3600 | N         | 100  | L_{t + 7 days + 1 hours} |
-   | bob   | O_5400 | N         | 200  | L_{t + 7 days + 2 hours} |
-   | carol | O_7200 | N         | 100  | L_{t + 7 days + 3 hours} |
-   | emma  | O_9000 | N         | 100  | L_{t + 7 days + 4 hours} |
-
-## Public Input Verification
-
-Since Colosseum verifies public input along with [zkevm-proof](./zkevm-prover.md#zkevm-proof), challengers should
+Since Colosseum verifies public input along with [zkEVM-proof](./zkevm-prover.md#zkevm-proof), challengers should
 calculate as below and enclose the public input to the `proveFault` transaction.
 
 ```ts
-  import { DataOptions, hexlify } from '@ethersproject/bytes';
-  import { Wallet, constants } from 'ethers';
-  import { keccak256 } from 'ethers/lib/utils';
+import { DataOptions, hexlify } from '@ethersproject/bytes';
+import { Wallet, constants } from 'ethers';
+import { keccak256 } from 'ethers/lib/utils';
 
-  function strip0x(str: string): string {
-    if (str.startsWith('0x')) {
-      return str.slice(2);
-    }
-    return str;
+function strip0x(str: string): string {
+  if (str.startsWith('0x')) {
+    return str.slice(2);
   }
+  return str;
+}
 
-  function toFixedBuffer(
-    value: string | number,
-    length,
-    padding = '0',
-  ): Buffer {
-    const options: DataOptions = {
+function toFixedBuffer(
+  value: string | number,
+  length,
+  padding = '0',
+): Buffer {
+  const options: DataOptions = {
       hexPad: 'left',
-    };
-    return hexToBuffer(
+  };
+  return hexToBuffer(
       strip0x(hexlify(value, options)).padStart(length * 2, padding),
-    );
-  }
+  );
+}
 
-  async function getDummyTxHash(chainId: number): Promise<string> {
-    const sk = hex.toFixedBuffer(1, 32);
-    const signer = new Wallet(sk);
-    const rlp = await signer.signTransaction({
-      nonce: 0,
-      gasLimit: 0,
-      gasPrice: 0,
-      to: constants.AddressZero,
-      value: 0,
-      data: '0x',
-      chainId,
-    });
-    return keccak256(rlp);
-  }
+async function getDummyTxHash(chainId: number): Promise<string> {
+  const sk = hex.toFixedBuffer(1, 32);
+  const signer = new Wallet(sk);
+  const rlp = await signer.signTransaction({
+    nonce: 0,
+    gasLimit: 0,
+    gasPrice: 0,
+    to: constants.AddressZero,
+    value: 0,
+    data: '0x',
+    chainId,
+  });
+  return keccak256(rlp);
+}
 
-  async function computePublicInput(block: RPCBlock, chainId: number): Promise<[string, string]> {
-    const maxTxs = 100;
+async function computePublicInput(block: RPCBlock, chainId: number): Promise<[string, string]> {
+  const maxTxs = 100;
 
-    const buf = Buffer.concat([
-      hex.toFixedBuffer(prevStateRoot, 32),
-      hex.toFixedBuffer(block.stateRoot, 32),
-      hex.toFixedBuffer(block.withdrawalsRoot ?? 0, 32),
-      hex.toFixedBuffer(block.hash, 32),
-      hex.toFixedBuffer(block.parentHash, 32),
-      hex.toFixedBuffer(block.number, 8),
-      hex.toFixedBuffer(block.timestamp, 8),
-      hex.toFixedBuffer(block.baseFeePerGas ?? 0, 32),
-      hex.toFixedBuffer(block.gasLimit, 8),
-      hex.toFixedBuffer(block.transactions.length, 2),
-      Buffer.concat(
-        block.transactions.map((txHash: string) => {
-            return toFixedBuffer(txHash, 32);
-        }),
+  const buf = Buffer.concat([
+    hex.toFixedBuffer(prevStateRoot, 32),
+    hex.toFixedBuffer(block.stateRoot, 32),
+    hex.toFixedBuffer(block.withdrawalsRoot ?? 0, 32),
+    hex.toFixedBuffer(block.hash, 32),
+    hex.toFixedBuffer(block.parentHash, 32),
+    hex.toFixedBuffer(block.number, 8),
+    hex.toFixedBuffer(block.timestamp, 8),
+    hex.toFixedBuffer(block.baseFeePerGas ?? 0, 32),
+    hex.toFixedBuffer(block.gasLimit, 8),
+    hex.toFixedBuffer(block.transactions.length, 2),
+    Buffer.concat(
+      block.transactions.map((txHash: string) => {
+        return toFixedBuffer(txHash, 32);
+      }),
+    ),
+    Buffer.concat(
+      Array(maxTxs - block.transactions.length).fill(
+        toFixedBuffer(await getDummyTxHash(chainId), 32),
       ),
-      Buffer.concat(
-        Array(maxTxs - block.transactions.length).fill(
-          toFixedBuffer(await getDummyTxHash(chainId), 32),
-        ),
-      ),
-    ]);
-    const h = hex.toFixedBuffer(keccak256(buf), 32);
-    return [
-      '0x' + h.subarray(0, 16).toString('hex'),
-      '0x' + h.subarray(16, 32).toString('hex'),
-    ];
-  }
-  ```
+    ),
+  ]);
+  const h = hex.toFixedBuffer(keccak256(buf), 32);
+  return [
+    '0x' + h.subarray(0, 16).toString('hex'),
+    '0x' + h.subarray(16, 32).toString('hex'),
+  ];
+}
+```
 
 The following is the verification process of invalid output by
 [ZK Verifier Contract](./zkevm-prover.md#the-zk-verifier-contract):
 
-1. Check whether `srcOutputRootProof` is the preimage of the first output root of the segment.
-2. Check whether `dstOutputRootProof` is the preimage of the next output root of the segment.
-3. Verify that the `nextBlockHash` in `srcOutputRootProof` matches the `blockHash` in `dstOutputRootProof`.
-4. Verify that the `stateRoot` in `publicInput` matches the `stateRoot` in `dstOutputRootProof`.
-5. Verify that the `nextBlockHash` in `srcOutputRootProof` matches the block hash derived from `publicInput` and `rlps`.
-6. Verify that the `withdrawalStorageRoot` in `dstOutputRootProof` is contained in `stateRoot` in `dstOutputRootProof`
+1. Check whether the challenge is ready to prove. The status of challenge should be `READY_TO_PROVE`
+   or `ASSERTER_TIMEOUT`.
+2. Check whether `srcOutputRootProof` is the preimage of the first output root of the segment.
+3. Check whether `dstOutputRootProof` is the preimage of the next output root of the segment.
+4. Verify that the `nextBlockHash` in `srcOutputRootProof` matches the `blockHash` in `dstOutputRootProof`.
+5. Verify that the `stateRoot` in `publicInput` matches the `stateRoot` in `dstOutputRootProof`.
+6. Verify that the `nextBlockHash` in `srcOutputRootProof` matches the block hash derived from `publicInput` and `rlps`.
+7. Verify that the `withdrawalStorageRoot` in `dstOutputRootProof` is contained in `stateRoot` in `dstOutputRootProof`
    using `merkleProof`.
-7. If the length of transaction hashes in `publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
-8. Verify the `_zkproof` using `_pair` and `publicInputHash`. The `publicInputHash` is derived from the `publicInput`
+8. If the length of transaction hashes in `publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
+9. Verify the `_zkproof` using `_pair` and `publicInputHash`. The `publicInputHash` is derived from the `publicInput`
    and `stateRoot` of `srcOutputRootProof`, while `_zkproof` and `_pair` are submitted by the challenger directly.
+10. Delete the output and request validation of the challenge to [Security Council][g-security-council] if there is any 
+    undeniable bugs such as soundness error.
+11. If the deleted output was valid so the challenge has an undeniable bug, Security Council will 
+    [dismiss](#dismiss-challenge) the challenge and roll back the output.
+
+## Dismiss Challenge
+
+Upon a successful challenge resulting in output deletion, the Security Council will verify the genuineness of the
+deleted output(two valid contradicting ZK proofs). Given that the deletion of output introduces withdrawal delays, 
+the Security Council conducts a thorough investigation into this issue. Upon validation of the legitimate nature of the 
+output deletion, the Security Council will dismiss the challenge and initiate the process of output rollback.
+This can only be executed through the multi-sig transaction of the Security Council.
+
+## Force Delete Output
+
+In the event that an undeniable bug within the ZK fault-proof system, such as a ZK completeness error, is detected, it
+becomes necessary to remove outputs deemed invalid. To address this, the Security Council is tasked with inspecting 
+outputs that have completed the bisect process but have failed the fault-proof verification. If an invalid output is 
+submitted and is determined to be associated with an undeniable bug, the Security Council holds the authority to delete
+the output through a multi-sig transaction.
+
+## Contract Interface
+
+The Colosseum contract implements the following interface:
+
+```solidity
+interface Colosseum {
+    /**
+       * @notice Emitted when the challenge is created.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param asserter    Address of the asserter.
+     * @param challenger  Address of the challenger.
+     * @param timestamp   The timestamp when created.
+     */
+    event ChallengeCreated(
+        uint256 indexed outputIndex,
+        address indexed asserter,
+        address indexed challenger,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Emitted when segments are bisected.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param turn        The current turn.
+     * @param timestamp   The timestamp when bisected.
+     */
+    event Bisected(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        uint8 turn,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Emitted when it is ready to be proved.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     */
+    event ReadyToProve(uint256 indexed outputIndex, address indexed challenger);
+
+    /**
+     * @notice Emitted when proven fault.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param timestamp   The timestamp when proven.
+     */
+    event Proven(uint256 indexed outputIndex, address indexed challenger, uint256 timestamp);
+
+    /**
+     * @notice Emitted when challenge is dismissed.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param timestamp   The timestamp when dismissed.
+     */
+    event ChallengeDismissed(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Emitted when challenge is canceled.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param timestamp   The timestamp when canceled.
+     */
+    event ChallengeCanceled(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Emitted when challenger timed out.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param challenger  Address of the challenger.
+     * @param timestamp   The timestamp when deleted.
+     */
+    event ChallengerTimedOut(
+        uint256 indexed outputIndex,
+        address indexed challenger,
+        uint256 timestamp
+    );
+
+    /**
+       * @notice Creates a challenge against an invalid output.
+     *
+     * @param _outputIndex   Index of the invalid L2 checkpoint output.
+     * @param _l1BlockHash   The block hash of L1 at the time the output L2 block was created.
+     * @param _l1BlockNumber The block number of L1 with the specified L1 block hash.
+     * @param _segments      Array of the segment. A segment is the first output root of a specific range.
+     */
+    function createChallenge(
+        uint256 _outputIndex,
+        bytes32 _l1BlockHash,
+        uint256 _l1BlockNumber,
+        bytes32[] calldata _segments
+    ) external;
+
+    /**
+       * @notice Selects an invalid section and submit segments of that section.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     * @param _pos         Position of the last valid segment.
+     * @param _segments    Array of the segment. A segment is the first output root of a specific range.
+     */
+    function bisect(
+        uint256 _outputIndex,
+        address _challenger,
+        uint256 _pos,
+        bytes32[] calldata _segments
+    ) external;
+
+    /**
+       * @notice Proves that a specific output is invalid using ZKP.
+     *         This function can only be called in the READY_TO_PROVE and ASSERTER_TIMEOUT states.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _pos         Position of the last valid segment.
+     * @param _proof       Proof for public input validation.
+     * @param _zkproof     Halo2 proofs composed of points and scalars.
+     *                     See https://zcash.github.io/halo2/design/implementation/proofs.html.
+     * @param _pair        Aggregated multi-opening proofs and public inputs. (Currently only 2 public inputs)
+     */
+    function proveFault(
+        uint256 _outputIndex,
+        uint256 _pos,
+        Types.PublicInputProof calldata _proof,
+        uint256[] calldata _zkproof,
+        uint256[] calldata _pair
+    ) external;
+
+    /**
+      * @notice Calls a private function that deletes the challenge because the challenger has timed out.
+     *         Reverts if the challenger hasn't timed out.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _challenger  Address of the challenger.
+     */
+    function challengerTimeout(uint256 _outputIndex, address _challenger) external;
+
+    /**
+      * @notice Cancels the challenge.
+     *         Reverts if is not possible to cancel the sender's challenge for the given output index.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     */
+    function cancelChallenge(uint256 _outputIndex) external;
+
+    /**
+      * @notice Dismisses the challenge and rollback l2 output.
+     *         This function can only be called by Security Council contract.
+     *
+     * @param _outputIndex      Index of the L2 checkpoint output.
+     * @param _challenger       Address of the challenger.
+     * @param _asserter         Address of the asserter.
+     * @param _outputRoot       The L2 output root to rollback.
+     * @param _publicInputHash  Hash of public input.
+     */
+    function dismissChallenge(
+        uint256 _outputIndex,
+        address _challenger,
+        address _asserter,
+        bytes32 _outputRoot,
+        bytes32 _publicInputHash
+    ) external;
+
+    /**
+      * @notice Deletes the L2 output root forcefully by the Security Council
+     *         when zk-proving is not possible due to an undeniable bug.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     */
+    function forceDeleteOutput(uint256 _outputIndex) external;
+}
+
+```
 
 ## Upgradeability
 
-Colosseum should be behind upgradable proxies.
+Colosseum contract should be deployed behind upgradable proxies.
 
 ## Summary of Definitions
 
 ### Constants
 
-| Name                   | Value                                                              | Unit              |
-|------------------------|--------------------------------------------------------------------|-------------------|
-| `REQUIRED_BOND_AMOUNT` | TBD                                                                | wei               |
-| `SUBMISSION_TIMEOUT`   | TBD                                                                | seconds           |
-| `BISECTION_TIMEOUT`    | TBD                                                                | seconds           |
-| `PROVING_TIMEOUT`      | TBD                                                                | seconds           |
-| `SEGMENTS_LENGTHS`     | [9, 6, 10, 6]                                                      | array of integers |
-| `MAX_TXS`              | 100                                                                | uint256           |
-| `DUMMY_HASH`(sepolia)  | 0xaf01bc158f9b35867aea1517e84cf67eedc6a397c0df380b4b139eb570ddb2fc | bytes32           |
-| `DUMMY_HASH`(devnet)   | 0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7 | bytes32           |
+| Name                          | Value                                                              | Unit              |
+|-------------------------------|--------------------------------------------------------------------|-------------------|
+| `REQUIRED_BOND_AMOUNT`        | 200000000000000000 (0.2 ETH)                                       | wei               |
+| `FINALIZATION_PERIOD_SECONDS` | 604800                                                             | seconds           |
+| `CREATION_PERIOD_SECONDS`     | 518400                                                             | seconds           |           
+| `BISECTION_TIMEOUT`           | 3600                                                               | seconds           |
+| `PROVING_TIMEOUT`             | 28800                                                              | seconds           |
+| `SEGMENTS_LENGTHS`            | [9, 6, 10, 6]                                                      | array of integers |
+| `MAX_TXS`                     | 100                                                                | uint256           |
+| `DUMMY_HASH`                  | 0xedf1ae3da135c124658e215a9bf53477facb442a1dcd5a92388332cb6193237f | bytes32           |

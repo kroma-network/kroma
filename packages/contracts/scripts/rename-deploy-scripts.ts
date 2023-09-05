@@ -4,8 +4,10 @@ import path from 'path'
 import hardhatConfig from '../hardhat.config'
 
 const DEPLOY_SCRIPTS_PATH = path.resolve(hardhatConfig.paths.deploy as string)
+const DEPLOY_SCRIPTS_PATH_L1 = path.join(DEPLOY_SCRIPTS_PATH, 'L1')
+const DEPLOY_SCRIPTS_PATH_L2 = path.join(DEPLOY_SCRIPTS_PATH, 'L2')
 const SCRIPT_EXT = '.ts'
-const ORDERED_FILE_NAMES = [
+const L1_ORDERED_NAMES = [
   'ProxyAdmin',
   'Proxies',
   'ZKMerkleTrie',
@@ -24,9 +26,27 @@ const ORDERED_FILE_NAMES = [
   'TimeLock',
   'UpgradeGovernor',
 ]
+const L2_ORDERED_NAMES = [
+  'L1Block',
+  'L2CrossDomainMessenger',
+  'L2StandardBridge',
+  'L2ToL1MessagePasser',
+  'L2ERC721Bridge',
+  'GasPriceOracle',
+  'ValidatorRewardVault',
+  'ProtocolVault',
+  'ProposerRewardVault',
+  'KromaMintableERC20Factory',
+  'KromaMintableERC721Factory',
+]
 
 const main = async () => {
-  const existsFiles = await fs.promises.readdir(DEPLOY_SCRIPTS_PATH)
+  await sort(DEPLOY_SCRIPTS_PATH_L1, L1_ORDERED_NAMES)
+  await sort(DEPLOY_SCRIPTS_PATH_L2, L2_ORDERED_NAMES)
+}
+
+const sort = async (deployPath: string, filenames: string[]) => {
+  const existsFiles = await fs.promises.readdir(deployPath)
 
   for (const filename of existsFiles) {
     if (filename.indexOf('-') !== 3) {
@@ -35,26 +55,23 @@ const main = async () => {
 
     const pureName = filename.slice(4, filename.indexOf(SCRIPT_EXT))
 
-    if (!ORDERED_FILE_NAMES.includes(pureName)) {
+    if (!filenames.includes(pureName)) {
       throw new Error(
         `found unexpected file: ${filename}, expected: ${pureName}`
       )
     }
 
     await fs.promises.rename(
-      path.join(DEPLOY_SCRIPTS_PATH, filename),
-      path.join(DEPLOY_SCRIPTS_PATH, pureName + SCRIPT_EXT)
+      path.join(deployPath, filename),
+      path.join(deployPath, pureName + SCRIPT_EXT)
     )
   }
 
-  for (let i = 0; i < ORDERED_FILE_NAMES.length; i++) {
-    const filename = ORDERED_FILE_NAMES[i] + SCRIPT_EXT
+  for (let i = 0; i < filenames.length; i++) {
+    const filename = filenames[i] + SCRIPT_EXT
     await fs.promises.rename(
-      path.join(DEPLOY_SCRIPTS_PATH, filename),
-      path.join(
-        DEPLOY_SCRIPTS_PATH,
-        `${i.toString().padStart(3, '0')}-${filename}`
-      )
+      path.join(deployPath, filename),
+      path.join(deployPath, `${i.toString().padStart(3, '0')}-${filename}`)
     )
   }
 }

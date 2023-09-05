@@ -49,14 +49,14 @@ contract ValidatorRewardVault is FeeVault, Semver {
     event Rewarded(address indexed validator, uint256 indexed l2BlockNumber, uint256 amount);
 
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      *
      * @param _validatorPool Address of the ValidatorPool contract on L1.
      * @param _rewardDivider A value to divide the vault balance by when determining the reward amount.
      */
     constructor(address _validatorPool, uint256 _rewardDivider)
         FeeVault(address(0), 10 ether)
-        Semver(0, 1, 0)
+        Semver(1, 0, 0)
     {
         VALIDATOR_POOL = _validatorPool;
         REWARD_DIVIDER = _rewardDivider;

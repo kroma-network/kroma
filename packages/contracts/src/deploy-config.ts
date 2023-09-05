@@ -10,11 +10,6 @@ interface RequiredDeployConfig {
   numDeployConfirmations?: number
 
   /**
-   * Address that will own the entire system on L1 when the deploy is complete.
-   */
-  finalSystemOwner?: string
-
-  /**
    * Address that will own the entire system on L1 during the deployment process. This address will
    * not own the system after the deployment is complete, ownership will be transferred to the
    * final system owner.
@@ -146,6 +141,11 @@ interface RequiredDeployConfig {
   proxyAdminOwner: string
 
   /**
+   * Owner of the Security Council token.
+   */
+  securityCouncilTokenOwner: string
+
+  /**
    * L1 recipient of fees accumulated in the ProtocolVault.
    */
   protocolVaultRecipient: string
@@ -166,19 +166,49 @@ interface RequiredDeployConfig {
   colosseumProvingTimeout: number
 
   /**
-   * The value used by line 459 of the ZK verifier contract
+   * The value used by line 459 of the ZK verifier contract.
    */
   zkVerifierHashScalar: string
 
   /**
-   * The value used by line 1173 of the ZK verifier contract
+   * The value used by line 1173 of the ZK verifier contract.
    */
   zkVerifierM56Px: string
 
   /**
-   * The value used by line 1173 of the ZK verifier contract
+   * The value used by line 1173 of the ZK verifier contract.
    */
   zkVerifierM56Py: string
+
+  /**
+   * The number of confirmations required to execute a transaction.
+   */
+  securityCouncilNumConfirmationRequired: number
+
+  /**
+   * Governor voting delay in block.
+   */
+  governorVotingDelayBlocks: number
+
+  /**
+   * Governor voting period in block.
+   */
+  governorVotingPeriodBlocks: number
+
+  /**
+   * Governor proposal threshold.
+   */
+  governorProposalThreshold: number
+
+  /**
+   * Quorum as a fraction of the token's total supply.
+   */
+  governorVotesQuorumFractionPercent: number
+
+  /**
+   * Initial minimum delay for operations.
+   */
+  timeLockMinDelaySeconds: number
 }
 
 /**
@@ -238,9 +268,6 @@ export const deployConfigSpec: {
     type: 'number',
     default: 1,
   },
-  finalSystemOwner: {
-    type: 'address',
-  },
   l1StartingBlockTag: {
     type: 'string',
   },
@@ -298,6 +325,9 @@ export const deployConfigSpec: {
     default: 2,
   },
   proxyAdminOwner: {
+    type: 'address',
+  },
+  securityCouncilTokenOwner: {
     type: 'address',
   },
   protocolVaultRecipient: {
@@ -424,5 +454,23 @@ export const deployConfigSpec: {
   },
   zkVerifierM56Py: {
     type: 'string', // uint256
+  },
+  securityCouncilNumConfirmationRequired: {
+    type: 'number',
+  },
+  governorVotingDelayBlocks: {
+    type: 'number',
+  },
+  governorVotingPeriodBlocks: {
+    type: 'number',
+  },
+  governorProposalThreshold: {
+    type: 'number',
+  },
+  governorVotesQuorumFractionPercent: {
+    type: 'number',
+  },
+  timeLockMinDelaySeconds: {
+    type: 'number',
   },
 }

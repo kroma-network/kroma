@@ -18,12 +18,12 @@ import { StandardBridge } from "../universal/StandardBridge.sol";
  */
 contract L1StandardBridge is StandardBridge, Semver {
     /**
-     * @custom:semver 0.1.0
+     * @custom:semver 1.0.0
      *
      * @param _messenger Address of the L1CrossDomainMessenger.
      */
     constructor(address payable _messenger)
-        Semver(0, 1, 0)
+        Semver(1, 0, 0)
         StandardBridge(_messenger, payable(Predeploys.L2_STANDARD_BRIDGE))
     {}
 

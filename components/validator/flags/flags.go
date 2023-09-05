@@ -92,6 +92,11 @@ var (
 		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_ROUND_BUFFER"),
 		Value:  30,
 	}
+	OutputSubmitterAllowPublicRoundFlag = cli.BoolFlag{
+		Name:   "output-submitter.allow-public-round",
+		Usage:  "Allows l2 output submitter in public round",
+		EnvVar: kservice.PrefixEnvVar(envVarPrefix, "OUTPUT_SUBMITTER_ALLOW_PUBLIC_ROUND"),
+	}
 	ProverRPCFlag = cli.StringFlag{
 		Name:   "prover-rpc-url",
 		Usage:  "jsonRPC URL for kroma-prover.",
@@ -131,6 +136,7 @@ var optionalFlags = []cli.Flag{
 	AllowNonFinalizedFlag,
 	OutputSubmitterRetryIntervalFlag,
 	OutputSubmitterRoundBufferFlag,
+	OutputSubmitterAllowPublicRoundFlag,
 	ProverRPCFlag,
 	SecurityCouncilAddressFlag,
 	GuardianEnabledFlag,

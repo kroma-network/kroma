@@ -103,8 +103,6 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
 
-		FinalSystemOwner: addresses.SysCfgOwner,
-
 		L1BlockTime:                 2,
 		L1GenesisBlockNonce:         4660,
 		CliqueSignerAddress:         common.Address{}, // e2e used to run Clique, but now uses fake Proof of Stake.
@@ -141,6 +139,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		GasPriceOracleScalar:   1_000_000,
 		ValidatorRewardScalar:  5000,
 
+		SecurityCouncilTokenOwner:    addresses.SysCfgOwner,
 		ProtocolVaultRecipient:       common.Address{19: 2},
 		ProposerRewardVaultRecipient: common.Address{19: 3},
 
@@ -156,10 +155,9 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		GovernorProposalThreshold:          1,
 		GovernorVotesQuorumFractionPercent: 51,
 		TimeLockMinDelaySeconds:            1,
-
-		ZKVerifierHashScalar: (*hexutil.Big)(hexutil.MustDecodeBig("0x201bf8cdf8299a6ab7711b7ed71fb7ee9448728d1c41caa1577e4f8dd6a0f33a")),
-		ZKVerifierM56Px:      (*hexutil.Big)(hexutil.MustDecodeBig("0xa3500fa181d574a461035b8ae73a29e1aca62ea606eb8e4847dd74760d2c177")),
-		ZKVerifierM56Py:      (*hexutil.Big)(hexutil.MustDecodeBig("0x3cab33eacc5d51c399712707c5df1500c93ad67be0a3a45bebe9d96119ac469")),
+		ZKVerifierHashScalar:               (*hexutil.Big)(hexutil.MustDecodeBig("0x1545b1bf82c58ee35648bd877da9c5010193e82b036b16bf382acf31bc2ab576")),
+		ZKVerifierM56Px:                    (*hexutil.Big)(hexutil.MustDecodeBig("0x15ae1a8e3b993dd9aadc8f9086d1ea239d4cd5c09cfa445f337e1b60d7b3eb87")),
+		ZKVerifierM56Py:                    (*hexutil.Big)(hexutil.MustDecodeBig("0x2c702ede24f9db8c8c9a439975facd3872a888c5f84f58b3b5f5a5623bac945a")),
 	}
 
 	if err := deployConfig.InitDeveloperDeployedAddresses(); err != nil {
@@ -599,20 +597,21 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 	// Run validator node (L2 Output Submitter, Asserter)
 	validatorCliCfg := validator.CLIConfig{
-		L1EthRpc:                     sys.Nodes["l1"].WSEndpoint(),
-		L2EthRpc:                     sys.Nodes["proposer"].HTTPEndpoint(),
-		RollupRpc:                    sys.RollupNodes["proposer"].HTTPEndpoint(),
-		L2OOAddress:                  predeploys.DevL2OutputOracleAddr.String(),
-		ColosseumAddress:             predeploys.DevColosseumAddr.String(),
-		ValPoolAddress:               predeploys.DevValidatorPoolAddr.String(),
-		ChallengerPollInterval:       500 * time.Millisecond,
-		TxMgrConfig:                  newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
-		AllowNonFinalized:            cfg.NonFinalizedOutputs,
-		OutputSubmitterRetryInterval: 50 * time.Millisecond,
-		OutputSubmitterRoundBuffer:   30,
-		ChallengerEnabled:            false,
-		OutputSubmitterEnabled:       true,
-		SecurityCouncilAddress:       predeploys.DevSecurityCouncilAddr.String(),
+		L1EthRpc:                        sys.Nodes["l1"].WSEndpoint(),
+		L2EthRpc:                        sys.Nodes["proposer"].HTTPEndpoint(),
+		RollupRpc:                       sys.RollupNodes["proposer"].HTTPEndpoint(),
+		L2OOAddress:                     predeploys.DevL2OutputOracleAddr.String(),
+		ColosseumAddress:                predeploys.DevColosseumAddr.String(),
+		ValPoolAddress:                  predeploys.DevValidatorPoolAddr.String(),
+		ChallengerPollInterval:          500 * time.Millisecond,
+		TxMgrConfig:                     newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
+		AllowNonFinalized:               cfg.NonFinalizedOutputs,
+		OutputSubmitterRetryInterval:    50 * time.Millisecond,
+		OutputSubmitterRoundBuffer:      30,
+		ChallengerEnabled:               false,
+		OutputSubmitterEnabled:          true,
+		OutputSubmitterAllowPublicRound: true,
+		SecurityCouncilAddress:          predeploys.DevSecurityCouncilAddr.String(),
 		LogConfig: klog.CLIConfig{
 			Level:  "info",
 			Format: "text",
