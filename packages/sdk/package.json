@@ -48,8 +48,8 @@
     "typedoc": "^0.22.13"
   },
   "dependencies": {
-    "@kroma-network/contracts": "0.1.0",
-    "@kroma-network/core-utils": "0.1.0",
+    "@kroma-network/contracts": "1.0.0",
+    "@kroma-network/core-utils": "1.0.0",
     "lodash": "^4.17.21"
   },
   "peerDependencies": {
