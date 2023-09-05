@@ -12,7 +12,7 @@ that maintains 1:1 compatibility with Ethereum.
 - [Withdrawals](withdrawals.md)
 - [Execution Engine](exec-engine.md)
 - [Batcher](batcher.md)
-- [L2 Output Root Submissions](validations.md)
+- [L2 Output Root Submissions](validator.md)
 - [Rollup Node](rollup-node.md)
 - [Rollup Node P2P](rollup-node-p2p.md)
 - [L2 Chain Derivation](derivation.md)

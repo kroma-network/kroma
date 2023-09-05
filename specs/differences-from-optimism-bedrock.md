@@ -12,8 +12,8 @@
 **Table of Contents**
 
 - [Nodes](#nodes)
-  - [Sequencer -\> Proposer](#sequencer---proposer)
-  - [Verifier -\> Validator](#verifier---validator)
+  - [Sequencer -> Proposer](#sequencer---proposer)
+  - [Verifier -> Validator](#verifier---validator)
   - [Compositions](#compositions)
 - [Geth](#geth)
 - [Validator](#validator)
@@ -54,7 +54,7 @@ proposer in the future. We are comitted to sharing the results of our research w
 
 We utilize the term `validator` to denote a participant who is responsible for submitting the
 [L2 output root][g-l2-output-root] and validating its accuracy by either submitting dispute challenges (during the
-optimistic rollup phase) or providing zk validity proofs (during the zk rollup phase). This concept bears a resemblance
+optimistic rollup phase) or providing ZK validity proofs (during the ZK rollup phase). This concept bears a resemblance
 to how L1 validators cast FFG votes at each epoch.
 
 ### Compositions

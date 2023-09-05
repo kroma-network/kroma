@@ -69,6 +69,7 @@ token deposits (tokens are locked on L1, then minted on L2 via a deposited trans
   - The BatchInbox is a regular EOA address. This lets us pass on gas cost savings by not executing any EVM code.
 - **L2OutputOracle**: A smart contract that stores [L2 output roots][g-l2-output] for use with withdrawals
   and fault proofs.
+- **ValidatorPool**: A smart contract that stores validators and their deposits.
 - **Colosseum**: A smart contract where validators can dispute assertions on.
 - **ZKVerifier**: A smart contract that verifies [ZK fault proof][g-zk-fault-proof].
 

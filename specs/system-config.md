@@ -15,6 +15,7 @@
   - [`overhead` and `scalar` (`uint256,uint256`)](#overhead-and-scalar-uint256uint256)
   - [`gasLimit` (`uint64`)](#gaslimit-uint64)
   - [`unsafeBlockSigner` (`address`)](#unsafeblocksigner-address)
+  - [`validatorRewardScalar` (`uint256`)](#validatorrewardscalar-uint256)
 - [Writing the system config](#writing-the-system-config)
 - [Reading the system config](#reading-the-system-config)
 
@@ -60,6 +61,11 @@ manner, it is stored at a special storage slot corresponding to
 
 Unlike the other values, the `unsafeBlockSigner` only operates on blockchain
 policy. It is not a consensus level parameter.
+
+### `validatorRewardScalar` (`uint256`)
+
+The scalar value to distribute [transaction fees](./exec-engine.md#transaction-fees) on L2 to validators as a reward of 
+checkpoint output submission. The denominator is 10000.
 
 ## Writing the system config
 

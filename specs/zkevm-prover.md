@@ -11,7 +11,7 @@
 **Table of Contents**
 
 - [Overview](#overview)
-- [ZKEVM Proof](#zkevm-proof)
+- [zkEVM Proof](#zkevm-proof)
 - [The ZK Verifier Contract](#the-zk-verifier-contract)
 - [Prover as an RPC Server](#prover-as-an-rpc-server)
 
@@ -27,17 +27,17 @@ A [ZK fault proof][g-zk-fault-proof] states that a [state][g-state] transition f
 It sounds like there are no big differences from validity proof. That's true. But the point is this is used
 to prove the state transition `S` to `S''` is wrong by showing a valid state transition `S` to `S'`.
 
-## ZKEVM Proof
+## zkEVM Proof
 
 In the context of the EVM, which is regarded as a Turing machine, the generation of proof requires demonstrating the
 execution of opcode operations in arbitrary order. This proof serves as an evidence of computation for the EVM.
 Additionally, validating the block data's integrity involves proving sub-operations such as
 [Merkle Patricia Trie][g-mpt] and ECDSA verification.
-To support the proof generation process for a target block, [zkevm-circuits] offer circuits capable of proving the
+To support the proof generation process for a target block, [zkEVM-circuits] offer circuits capable of proving the
 required sub-operations. These circuits provide the means to prove the integrity and validity of the block data.
 By combining these circuits, a prover completes the overall validity proof for the target block.
 
-See [zkevm-specs] for details about the statements claimed by the zk-proof.
+See [zkEVM-specs] for details about the statements claimed by the ZK-proof.
 
 ## The ZK Verifier Contract
 
@@ -48,25 +48,25 @@ The verification in a challenge process is implemented using the `verify` functi
 interface ZKVerifier {
     function verify(
         uint256[] calldata proof,
-        uint256[] calldata target_circuit_final_pair
+        uint256[] calldata target_circuit_final_pair,
+        bytes32 publicInputHash
     ) public view returns (bool);
 }
 ```
 
 ## Prover as an RPC Server
 
-[kroma-prover](https://github.com/kroma-network/kroma-prover) is implemented as a jsonRPC server that generates a zkevm
+[kroma-prover](https://github.com/kroma-network/kroma-prover) is implemented as a jsonRPC server that generates a zkEVM
 proof for the requested height block. It can be utilized as a local component on the challenger's machine
 or as a remote jsonRPC server (prover as a service).
 
-- Step 1:  An user (e.g., challenger) requests a zkevm-proof for a block of specific height to kroma-prover with
-  a desired block height value.
-- Step 2: A kroma-prover obtains the trace of the corresponding block from kroma-geth RPC.
-- Step 3: And then a kroma-prover generates zkevm-proof for the target block, and return it to the user.
+- Step 1:  An user (e.g., challenger) requests a zkEVM-proof for a block of specific height to kroma-prover with
+  the trace of the desired block.
+- Step 2: A kroma-prover generates zkEVM-proof for the target block, and return it to the user.
 
 Operating a kroma-prover, which is launched only when necessary, can alleviate the situation where
 regular challengers need to allocate excessive system resources due to the proof generation process
 that is occasionally executed (perhaps rarely executed).
 
-[zkevm-circuits]: https://github.com/kroma-network/zkevm-circuits
-[zkevm-specs]: https://github.com/kroma-network/zkevm-specs
+[zkEVM-circuits]: https://github.com/kroma-network/zkevm-circuits
+[zkEVM-specs]: https://github.com/kroma-network/zkevm-specs

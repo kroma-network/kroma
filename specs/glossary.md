@@ -84,6 +84,7 @@
   - [Validator Pool Contract](#validator-pool-contract)
   - [Colosseum Contract](#colosseum-contract)
   - [ZK Fault Proof](#zk-fault-proof)
+  - [Security Council](#security-council)
   - [Time Slot](#time-slot)
   - [Block Time](#block-time)
   - [Unsafe Sync](#unsafe-sync)
@@ -416,6 +417,20 @@ A priority round is the period during which validator with output submission pri
 [public-round]: glossary.md#public-round
 
 A public round is the time period during which any account registered as a Validator can submit the output.
+
+Any validator can participate in the public round, but only one validator is fully recognized as an output submitter.
+
+Consider a case where multiple validators competitively submit output in a public round.
+
+Except for the first-place validator with a valid output submission transaction in the L1 block,
+
+the remaining validators' transactions will fail and will not be recognized as output submitters.
+
+However, some of them will have already spent their gas.
+
+To handle this situation, we provide a option flag to indicate whether or not to participate in the public round.
+
+Since we're taking a conservative approach, the default value is set to false.
 
 ## Validator Reward
 
@@ -890,7 +905,7 @@ cf. [L1 Attributes Predeployed Contract Specification](deposits.md#l1-attributes
 
 A 32 byte value which serves as a commitment to the current state of the [L2] chain.
 
-cf. [Submitting L2 output commitments](validations.md#submitting-l2-output-commitments)
+cf. [Submitting L2 output commitments](validator.md#submitting-l2-output-commitments)
 
 ## L2 Output Oracle Contract
 
@@ -920,6 +935,13 @@ invalid [L2 output roots][l2-output].
 
 An on-chain _interactive_ proof, performed by [validators][validator], that demonstrates that a [proposer] provided
 erroneous [output roots][l2-output] using zkEVM.
+
+## Security Council
+
+[security-council]: glossary.md#security-council
+
+A group of entities composed of trusted parties responsible for the security of blockchain, such as fault-proof system,
+withdrawals, and contract upgrades.
 
 ## Time Slot
 
