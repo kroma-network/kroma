@@ -64,20 +64,21 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	require.NoError(t, err)
 
 	validatorCfg := validator.Config{
-		L2OutputOracleAddr:           cfg.OutputOracleAddr,
-		ValidatorPoolAddr:            cfg.ValidatorPoolAddr,
-		ColosseumAddr:                cfg.ColosseumAddr,
-		SecurityCouncilAddr:          cfg.SecurityCouncilAddr,
-		ChallengerPollInterval:       time.Second,
-		OutputSubmitterRetryInterval: time.Second,
-		OutputSubmitterRoundBuffer:   30,
-		NetworkTimeout:               time.Second,
-		L1Client:                     l1,
-		L2Client:                     l2,
-		RollupClient:                 rollupCl,
-		RollupConfig:                 rollupConfig,
-		AllowNonFinalized:            cfg.AllowNonFinalized,
-		ProofFetcher:                 e2eutils.NewFetcher(log, "../testdata/proof"),
+		L2OutputOracleAddr:              cfg.OutputOracleAddr,
+		ValidatorPoolAddr:               cfg.ValidatorPoolAddr,
+		ColosseumAddr:                   cfg.ColosseumAddr,
+		SecurityCouncilAddr:             cfg.SecurityCouncilAddr,
+		ChallengerPollInterval:          time.Second,
+		OutputSubmitterRetryInterval:    time.Second,
+		OutputSubmitterRoundBuffer:      30,
+		OutputSubmitterAllowPublicRound: true,
+		NetworkTimeout:                  time.Second,
+		L1Client:                        l1,
+		L2Client:                        l2,
+		RollupClient:                    rollupCl,
+		RollupConfig:                    rollupConfig,
+		AllowNonFinalized:               cfg.AllowNonFinalized,
+		ProofFetcher:                    e2eutils.NewFetcher(log, "../testdata/proof"),
 		// We use custom signing here instead of using the transaction manager.
 		TxManager: &txmgr.BufferedTxManager{
 			SimpleTxManager: txmgr.SimpleTxManager{
