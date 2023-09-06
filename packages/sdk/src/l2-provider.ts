@@ -1,6 +1,6 @@
 import { Provider, TransactionRequest } from '@ethersproject/abstract-provider'
 import { serialize } from '@ethersproject/transactions'
-import { getContractInterface, predeploys } from '@kroma-network/contracts'
+import { getContractInterface, predeploys } from '@kroma/contracts'
 import { BigNumber, Contract } from 'ethers'
 import cloneDeep from 'lodash/cloneDeep'
 

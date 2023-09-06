@@ -1,4 +1,4 @@
-import { predeploys } from '@kroma-network/contracts'
+import { predeploys } from '@kroma/contracts'
 
 import {
   ContractsLike,

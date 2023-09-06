@@ -1,5 +1,5 @@
 /* Imports: External */
-import { toRpcHexString } from '@kroma-network/core-utils'
+import { toRpcHexString } from '@kroma/core-utils'
 import { BigNumber, ethers } from 'ethers'
 
 /**

@@ -1,8 +1,8 @@
-# @kroma-network/core-utils
+# @kroma/core-utils
 
 ## What is this?
 
-`@kroma-network/core-utils` contains the Kroma core utilities.
+`@kroma/core-utils` contains the Kroma core utilities.
 
 ## Getting started
 
@@ -29,7 +29,7 @@ Use the following commands to build, use, test, and lint:
 locally.
 
 ```typescript
-import { TxGasLimit } from '@kroma-network/core-utils'
+import { TxGasLimit } from '@kroma/core-utils'
 import { JsonRpcProvider } from 'ethers'
 
 const L2Provider = new JsonRpcProvider(L2_JSON_RPC_URL)

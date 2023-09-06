@@ -1,11 +1,11 @@
-# @kroma-network/sdk
+# @kroma/sdk
 
-The `@kroma-network/sdk` package provides a set of tools for interacting with Kroma.
+The `@kroma/sdk` package provides a set of tools for interacting with Kroma.
 
 ## Installation
 
 ```shell
-> npm install @kroma-network/sdk
+> npm install @kroma/sdk
 ```
 
 ## Using the SDK

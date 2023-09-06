@@ -1,1 +1,1 @@
-# @kroma-network/contracts
+# @kroma/contracts

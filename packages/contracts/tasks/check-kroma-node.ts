@@ -1,4 +1,4 @@
-import { KromaNodeProvider } from '@kroma-network/core-utils'
+import { KromaNodeProvider } from '@kroma/core-utils'
 import { task, types } from 'hardhat/config'
 
 // TODO(tynes): add in config validation
