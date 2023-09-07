@@ -10,6 +10,36 @@ import (
 	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
+var Mainnet = rollup.Config{
+	Genesis: rollup.Genesis{
+		L1: eth.BlockID{
+			Hash:   common.HexToHash("0xe459c500b760ed52a1ad799bf578b257af2c76f6ebe061a4c62627e9c605bced"),
+			Number: 18067255,
+		},
+		L2: eth.BlockID{
+			Hash:   common.HexToHash("0xeab1dbcbd854942126643609f6b457e391b169c819b7e5d5042389ccf6012cbf"),
+			Number: 0,
+		},
+		L2Time: 1693880387,
+		SystemConfig: eth.SystemConfig{
+			BatcherAddr:           common.HexToAddress("0x41b8cd6791de4d8f9e0eaf7861ac506822adce12"),
+			Overhead:              eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000000bc")),
+			Scalar:                eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000a6fe0")),
+			GasLimit:              30_000_000,
+			ValidatorRewardScalar: eth.Bytes32(common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000002710")),
+		},
+	},
+	BlockTime:              2,
+	MaxProposerDrift:       600,
+	ProposerWindowSize:     3600,
+	ChannelTimeout:         300,
+	L1ChainID:              big.NewInt(1),
+	L2ChainID:              big.NewInt(255),
+	BatchInboxAddress:      common.HexToAddress("0xff00000000000000000000000000000000000255"),
+	DepositContractAddress: common.HexToAddress("0x31f648572b67e60ec6eb8e197e1848cc5f5558de"),
+	L1SystemConfigAddress:  common.HexToAddress("0x3971eb866aa9b2b8afea8a7c816f3b7e8b195a35"),
+}
+
 var Sepolia = rollup.Config{
 	Genesis: rollup.Genesis{
 		L1: eth.BlockID{
@@ -41,6 +71,7 @@ var Sepolia = rollup.Config{
 }
 
 var NetworksByName = map[string]rollup.Config{
+	"mainnet": Mainnet,
 	"sepolia": Sepolia,
 }
 

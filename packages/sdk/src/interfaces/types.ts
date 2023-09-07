@@ -10,6 +10,7 @@ import { BigNumber, Contract } from 'ethers'
  * L1 network chain IDs
  */
 export enum L1ChainID {
+  MAINNET = 1,
   SEPOLIA = 11155111,
   LOCAL_DEVNET = 900,
 }
@@ -18,6 +19,7 @@ export enum L1ChainID {
  * L2 network chain IDs
  */
 export enum L2ChainID {
+  KROMA_MAINNET = 255,
   KROMA_SEPOLIA = 2358,
   KROMA_LOCAL_DEVNET = 901,
 }

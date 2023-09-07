@@ -23,8 +23,12 @@ import (
 	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
-// TODO(chokobole): fill the default bootnodes.
-var DefaultBootnodes = []*enode.Node{}
+var DefaultBootnodes = []*enode.Node{
+	// p2p-0.kroma.network
+	enode.MustParse("enr:-J24QIRQ_Sxsn08UW2djuM7XIiKMqDnjIRmZV3Y82aBxI396bIligpv716MNmEDitgiNzTYLx9pWVBZUmBLGZao3cJKGAYpjUHvsgmlkgnY0gmlwhA3RbWiHb3BzdGFja4P_AQCJc2VjcDI1NmsxoQO6Fg_lxKa4bqrCTRndRjP6V0Ahh_CduFC4c4khUSiRK4N0Y3CCIyuDdWRwgiMr"),
+	// p2p-1.kroma.network
+	enode.MustParse("enr:-J24QJ0TyKGwcMuY4PCVe7Qo77pSMMkFHMHHZG5IZTtfURttM7by94vRPmFZzlteuCESo8KQC7GxEUKtRxK9dXQpvpGGAYpjUH99gmlkgnY0gmlwhAMldxyHb3BzdGFja4P_AQCJc2VjcDI1NmsxoQJXGyNhwNUSIdGsWbLChN6a47_bfRBFlFCARgjHnl6r-YN0Y3CCIyuDdWRwgiMr"),
+}
 
 type HostMetrics interface {
 	gating.UnbanMetrics
