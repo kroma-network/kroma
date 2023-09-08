@@ -11,9 +11,9 @@
       "**/@typechain/*",
       "**/@openzeppelin/*",
       "**/typechain/*",
-      "@kroma-network/contracts/@rari-capital/solmate",
-      "@kroma-network/contracts/ds-test",
-      "@kroma-network/contracts/forge-std",
+      "@kroma/contracts/@rari-capital/solmate",
+      "@kroma/contracts/ds-test",
+      "@kroma/contracts/forge-std",
       "forta-agent"
     ]
   },

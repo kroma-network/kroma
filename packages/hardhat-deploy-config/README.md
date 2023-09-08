@@ -1,9 +1,9 @@
-# @kroma-network/hardhat-deploy-config
+# @kroma/hardhat-deploy-config
 
 `hardhat-deploy-config` is a simple plugin that adds support for global deploy configuration values.
 
 ## Installation
 
 ```shell
-> yarn add @kroma-network/hardhat-deploy-config
+> yarn add @kroma/hardhat-deploy-config
 ```

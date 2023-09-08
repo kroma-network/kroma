@@ -40,7 +40,7 @@ You can find detailed specifications for the contracts contained within this pac
 We export contract ABIs, contract source code, and contract deployment information for this package via `npm`:
 
 ```shell
-> npm install @kroma-network/contracts
+> npm install @kroma/contracts
 ```
 
 ## Development

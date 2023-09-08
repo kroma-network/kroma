@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import '@kroma-network/hardhat-deploy-config'
+import '@kroma/hardhat-deploy-config'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 

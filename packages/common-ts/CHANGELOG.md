@@ -1,1 +1,1 @@
-# @kroma-network/common-ts
+# @kroma/common-ts

@@ -1,5 +1,5 @@
 {
-  "name": "@kroma-network/common-ts",
+  "name": "@kroma/common-ts",
   "version": "1.0.0",
   "description": "[Kroma] Advanced typescript tooling used by various services",
   "main": "dist/index",
@@ -33,7 +33,7 @@
     "url": "https://github.com/kroma-network/kroma.git"
   },
   "dependencies": {
-    "@kroma-network/core-utils": "1.0.0",
+    "@kroma/core-utils": "1.0.0",
     "@sentry/node": "^6.3.1",
     "bcfg": "^0.1.7",
     "body-parser": "^1.20.0",

@@ -1,4 +1,4 @@
-import '@kroma-network/hardhat-deploy-config'
+import '@kroma/hardhat-deploy-config'
 
 import assert from 'assert'
 

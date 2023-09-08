@@ -1,4 +1,4 @@
-import { DepositTx } from '@kroma-network/core-utils'
+import { DepositTx } from '@kroma/core-utils'
 import '@nomiclabs/hardhat-ethers'
 import dotenv from 'dotenv'
 import { Event, Wallet, providers, utils } from 'ethers'

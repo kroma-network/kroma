@@ -1,1 +1,1 @@
-# @kroma-network/hardhat-deploy-config
+# @kroma/hardhat-deploy-config

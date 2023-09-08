@@ -4,7 +4,7 @@ import { HardhatUserConfig } from 'hardhat/config'
 
 // Hardhat plugins
 import '@foundry-rs/hardhat-forge'
-import '@kroma-network/hardhat-deploy-config'
+import '@kroma/hardhat-deploy-config'
 import '@nomiclabs/hardhat-ethers'
 import 'hardhat-deploy'
 

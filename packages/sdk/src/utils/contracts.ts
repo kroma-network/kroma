@@ -1,4 +1,4 @@
-import { getContractInterface } from '@kroma-network/contracts'
+import { getContractInterface } from '@kroma/contracts'
 import { Contract, ethers } from 'ethers'
 
 import {
