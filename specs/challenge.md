@@ -82,25 +82,6 @@ through multi-sig transactions.
    attack.
 9. If the deleted output was invalid, so it should have been, the Security Council do nothing.
 10. Otherwise, the **Security council** will dismiss the challenge and rollback the valid output.
-1. If the challenge is created, at the same time, the challenger needs to submit the first segments(9 outputs).
-   The state is set to `ASSERTER_TURN`.
-2. Then the asserter picks the first invalid segment and submits the next segments(6 outputs) for the picked segment.
-   `ASSERTER_TURN` state goes to `CHALLENGER_TURN`.
-3. If there's more segments to be interacted with, the challenger picks the first invalid segment and submits the next
-   segments(10 outputs) for the picked segment. `CHALLENGER_TURN` state goes to `ASSERTER_TURN` and repeat from step 2.
-   If the output has already been deleted by other challenger, the challenger cancel challenge and refund bond.
-4. Both `ASSERTER_TURN` and `CHALLENGER_TURN` states have a timeout called `BISECTION_TIMEOUT` and if it happens, the
-   state goes to `ASSERTER_TIMEOUT` and `CHALLENGER_TIMEOUT` respectively. This is to mitigate _liveness attack_.
-   This is because we want to give a penalty to one who doesn't respond timely.
-5. When the asserter timed out or bisection is completed, the state of challenge will be `READY_TO_PROVE` automatically.
-   At this state, the challenger is now able to pick the first invalid output and submit ZK fault proof.
-   Likewise, the challenge is canceled if the output is already been deleted.
-6. If the submitted proof is turned out to be invalid, the state stays at `READY_TO_PROVE` until `PROVING_TIMEOUT` is
-   occurred.
-7. Otherwise, `READY_TO_PROVE` state goes to `PROVEN`, and the L2 output is deleted.
-8. The deleted output would be validated by the **[Security Council][g-security-council]** to mitigate ZK soundness attack.
-9. If the deleted output was invalid, so it should have been, the Security Council do nothing.
-10. Otherwise, the **Security council** will dismiss the challenge and rollback the valid output.
 
 ## Challenge Creation
 
