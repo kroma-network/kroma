@@ -5,7 +5,6 @@
 [g-l1]: glossary.md#layer-1-l1
 [g-l2]: glossary.md#layer-2-l2
 [g-l2-output]: glossary.md#l2-output-root
-[g-trusted-validator]: glossary.md#trusted-validator
 [g-validator]: glossary.md#validator
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 [g-security-council]: glossary.md#security-council
@@ -31,20 +30,20 @@
 ## Overview
 
 When a [validator][g-validator] detects that a submitted [L2 output root][g-l2-output] contains an invalid state
-transition, it can start a dispute challenge process by triggering the [Colosseum contract](#colosseum-contract). We
+transition, it can start a dispute challenge process by triggering the [Colosseum contract](#contract-interface). We
 refer to a validator who submits a dispute challenge as a "challenger" and a validator who initially submitted
 an L2 output as an "asserter." A dispute challenge entails a confrontational interaction between an asserter and a
-challenger, which persists until one of them emerges victorious. If the challenger wins, the corresponding L2 output 
+challenger, which persists until one of them emerges victorious. If the challenger wins, the corresponding L2 output
 will be deleted.
 
-A single output can be subject to multiple challenges. Challengers also need to stake their bonds equivalent to those 
-staked by asserter when submitting L2 outputs to generate challenges. Should the asserter emerge victorious in a 
-challenge, they receive the staked bonds of all the challengers as reward. On the other hand, if a challenger prevails, 
-the one who submitted the first valid ZK fault proof is given the asserter's staked bond. As a preventive measure 
-against collusion between asserters and challengers, tax is imposed. If there are any ongoing challenges, 
+A single output can be subject to multiple challenges. Challengers also need to stake their bonds equivalent to those
+staked by asserter when submitting L2 outputs to generate challenges. Should the asserter emerge victorious in a
+challenge, they receive the staked bonds of all the challengers as reward. On the other hand, if a challenger prevails,
+the one who submitted the first valid ZK fault proof is given the asserter's staked bond. As a preventive measure
+against collusion between asserters and challengers, tax is imposed. If there are any ongoing challenges,
 the challenges are canceled, and staked bonds are refunded to the respective challengers.
 
-In the ZK fault-proof challenge process, the following undeniable bug might arise, prompting the intervention of the 
+In the ZK fault-proof challenge process, the following undeniable bug might arise, prompting the intervention of the
 [Security Council][g-security-council]:
 
 - The deletion of a valid output due to two valid and contradictory zk proofs
@@ -52,10 +51,10 @@ In the ZK fault-proof challenge process, the following undeniable bug might aris
 - The deletion of a valid output due to two valid and contradictory ZK proofs
 - The failure to delete an invalid output due to the bugs in prover/verifier or ZK completeness error
 
-In the former case, the Security Council validates the legitimacy of the deleted output and, if the aforementioned 
-error is identified, dismisses the challenge and initiates a rollback of the deleted output. 
-In the latter scenario, all challengers will fail in proving the fault. In such cases, the Security Council verifies 
-the output and, if deemed invalid, delete the output forcibly. All interventions by the Security Council are executed 
+In the former case, the Security Council validates the legitimacy of the deleted output and, if the aforementioned
+error is identified, dismisses the challenge and initiates a rollback of the deleted output.
+In the latter scenario, all challengers will fail in proving the fault. In such cases, the Security Council verifies
+the output and, if deemed invalid, delete the output forcibly. All interventions by the Security Council are executed
 through multi-sig transactions.
 
 ## State Diagram
@@ -78,7 +77,7 @@ through multi-sig transactions.
 6. If the submitted proof is turned out to be invalid, the state stays at `READY_TO_PROVE` until `PROVING_TIMEOUT` is
    occurred.
 7. Otherwise, `READY_TO_PROVE` state goes to `PROVEN`, and the L2 output is deleted.
-8. The deleted output would be validated by the **[Security Council][g-security-council]** to mitigate ZK soundness 
+8. The deleted output would be validated by the **[Security Council][g-security-council]** to mitigate ZK soundness
    attack.
 9. If the deleted output was invalid, so it should have been, the Security Council do nothing.
 10. Otherwise, the **Security council** will dismiss the challenge and rollback the valid output.
@@ -104,12 +103,12 @@ through multi-sig transactions.
 
 ## Challenge Creation
 
-Validators can initiate challenges when they suspect that an invalid output has been submitted. In their role as 
+Validators can initiate challenges when they suspect that an invalid output has been submitted. In their role as
 challengers, they start the challenge process with initial segments for interactive fault proof.
 
-> **Note** Challenges can only be initiated within the `CREATION_PERIOD` (< `FINALIZATION_PERIOD`) since the output 
-> is submitted. This restriction aims to prevent malicious challengers from deleting outputs just before finalization, 
-> causing a delay attack. 
+> **Note** Challenges can only be initiated within the `CREATION_PERIOD` (< `FINALIZATION_PERIOD`) since the output
+> is submitted. This restriction aims to prevent malicious challengers from deleting outputs just before finalization,
+> causing a delay attack.
 
 ## Bisection
 
@@ -238,24 +237,24 @@ The following is the verification process of invalid output by
 8. If the length of transaction hashes in `publicInput` is less than `MAX_TXS`, fill it with `DUMMY_HASH`.
 9. Verify the `_zkproof` using `_pair` and `publicInputHash`. The `publicInputHash` is derived from the `publicInput`
    and `stateRoot` of `srcOutputRootProof`, while `_zkproof` and `_pair` are submitted by the challenger directly.
-10. Delete the output and request validation of the challenge to [Security Council][g-security-council] if there is any 
+10. Delete the output and request validation of the challenge to [Security Council][g-security-council] if there is any
     undeniable bugs such as soundness error.
-11. If the deleted output was valid so the challenge has an undeniable bug, Security Council will 
+11. If the deleted output was valid so the challenge has an undeniable bug, Security Council will
     [dismiss](#dismiss-challenge) the challenge and roll back the output.
 
 ## Dismiss Challenge
 
 Upon a successful challenge resulting in output deletion, the Security Council will verify the genuineness of the
-deleted output(two valid contradicting ZK proofs). Given that the deletion of output introduces withdrawal delays, 
-the Security Council conducts a thorough investigation into this issue. Upon validation of the legitimate nature of the 
+deleted output(two valid contradicting ZK proofs). Given that the deletion of output introduces withdrawal delays,
+the Security Council conducts a thorough investigation into this issue. Upon validation of the legitimate nature of the
 output deletion, the Security Council will dismiss the challenge and initiate the process of output rollback.
 This can only be executed through the multi-sig transaction of the Security Council.
 
 ## Force Delete Output
 
 In the event that an undeniable bug within the ZK fault-proof system, such as a ZK completeness error, is detected, it
-becomes necessary to remove outputs deemed invalid. To address this, the Security Council is tasked with inspecting 
-outputs that have completed the bisect process but have failed the fault-proof verification. If an invalid output is 
+becomes necessary to remove outputs deemed invalid. To address this, the Security Council is tasked with inspecting
+outputs that have completed the bisect process but have failed the fault-proof verification. If an invalid output is
 submitted and is determined to be associated with an undeniable bug, the Security Council holds the authority to delete
 the output through a multi-sig transaction.
 
@@ -458,7 +457,7 @@ Colosseum contract should be deployed behind upgradable proxies.
 |-------------------------------|--------------------------------------------------------------------|-------------------|
 | `REQUIRED_BOND_AMOUNT`        | 200000000000000000 (0.2 ETH)                                       | wei               |
 | `FINALIZATION_PERIOD_SECONDS` | 604800                                                             | seconds           |
-| `CREATION_PERIOD_SECONDS`     | 518400                                                             | seconds           |           
+| `CREATION_PERIOD_SECONDS`     | 518400                                                             | seconds           |
 | `BISECTION_TIMEOUT`           | 3600                                                               | seconds           |
 | `PROVING_TIMEOUT`             | 28800                                                              | seconds           |
 | `SEGMENTS_LENGTHS`            | [9, 6, 10, 6]                                                      | array of integers |
