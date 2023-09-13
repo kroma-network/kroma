@@ -258,6 +258,35 @@ func (b *mockBackend) TransactionReceipt(ctx context.Context, txHash common.Hash
 	}, nil
 }
 
+func (b *mockBackend) CreateAccessList(ctx context.Context, msg ethereum.CallMsg) (*types.AccessList, uint64, string, error) {
+	if *msg.To == common.HexToAddress("0x42000000000000000000000000000000000000aa") {
+		accessList := &types.AccessList{
+			{
+				Address: common.HexToAddress("0x42000000000000000000000000000000000000aa"),
+				StorageKeys: []common.Hash{
+					common.BigToHash(common.Big1),
+					common.BigToHash(common.Big2),
+					common.BigToHash(common.Big3),
+				},
+			},
+			{
+				Address: common.HexToAddress("0x42000000000000000000000000000000000000ab"),
+				StorageKeys: []common.Hash{
+					common.BigToHash(common.Big1),
+					common.BigToHash(common.Big2),
+					common.BigToHash(common.Big3),
+				},
+			},
+		}
+
+		gas, _ := b.EstimateGas(ctx, msg)
+
+		return accessList, gas + 1, "", nil
+	}
+
+	return &types.AccessList{}, msg.Gas, "", nil
+}
+
 // TestTxMgrConfirmAtMinGasPrice asserts that Send returns the min gas price tx
 // if the tx is mined instantly.
 func TestTxMgrConfirmAtMinGasPrice(t *testing.T) {
@@ -419,6 +448,26 @@ func TestTxMgr_EstimateGas(t *testing.T) {
 
 	// Check that the gas was estimated correctly.
 	require.Equal(t, gasEstimate, tx.Gas())
+}
+
+func TestTxMgr_CreateAccessList(t *testing.T) {
+	t.Parallel()
+	h := newTestHarness(t)
+
+	to := common.HexToAddress("0x42000000000000000000000000000000000000aa")
+	candidate := TxCandidate{
+		To: &to,
+	}
+
+	tx, err := h.mgr.craftTx(context.Background(), candidate)
+	require.NoError(t, err)
+	require.NotNil(t, tx)
+
+	accessList := tx.AccessList()
+	require.NotNil(t, accessList)
+	require.NotZero(t, len(accessList))
+	require.Equal(t, accessList[0].Address, common.HexToAddress("0x42000000000000000000000000000000000000ab"))
+	require.NotZero(t, len(accessList[0].StorageKeys))
 }
 
 // TestTxMgrOnlyOnePublicationSucceeds asserts that the tx manager will return a
@@ -676,6 +725,10 @@ func (b *failingBackend) PendingNonceAt(_ context.Context, _ common.Address) (ui
 
 func (b *failingBackend) ChainID(ctx context.Context) (*big.Int, error) {
 	return nil, errors.New("unimplemented")
+}
+
+func (b *failingBackend) CreateAccessList(_ context.Context, _ ethereum.CallMsg) (*types.AccessList, uint64, string, error) {
+	return nil, 0, "", errors.New("unimplemented")
 }
 
 // TestWaitMinedReturnsReceiptAfterFailure asserts that WaitMined is able to

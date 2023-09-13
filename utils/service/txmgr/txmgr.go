@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/kroma-network/kroma/utils/service/txmgr/metrics"
 )
@@ -48,34 +49,6 @@ type TxManager interface {
 	// From returns the sending address associated with the instance of the transaction manager.
 	// It is static for a single instance of a TxManager.
 	From() common.Address
-}
-
-// ETHBackend is the set of methods that the transaction manager uses to resubmit gas & determine
-// when transactions are included on L1.
-type ETHBackend interface {
-	// BlockNumber returns the most recent block number.
-	BlockNumber(ctx context.Context) (uint64, error)
-
-	// TransactionReceipt queries the backend for a receipt associated with
-	// txHash. If lookup does not fail, but the transaction is not found,
-	// nil should be returned for both values.
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-
-	// SendTransaction submits a signed transaction to L1.
-	SendTransaction(ctx context.Context, tx *types.Transaction) error
-
-	// These functions are used to estimate what the basefee & priority fee should be set to.
-	// TODO(CLI-3318): Maybe need a generic interface to support different RPC providers
-	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
-	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
-	// NonceAt returns the account nonce of the given account.
-	// The block number can be nil, in which case the nonce is taken from the latest known block.
-	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
-	// PendingNonceAt returns the pending nonce.
-	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
-	// EstimateGas returns an estimate of the amount of gas needed to execute the given
-	// transaction against the current pending block.
-	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 }
 
 // SimpleTxManager is an implementation of TxManager that performs linear fee
@@ -171,38 +144,60 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 	}
 	m.metr.RecordNonce(nonce)
 
-	// TODO: If we apply the accessList manually, it's hard to predict and react to other issues,
-	// such as gas prices, due to subsequent code modifications.
-	// To avoid this, we need to add logic to calculate the accessList automatically using `eth_createAccessList`.
-	rawTx := &types.DynamicFeeTx{
-		ChainID:    m.chainID,
-		Nonce:      nonce,
+	msg := ethereum.CallMsg{
+		From:       m.From(),
 		To:         candidate.To,
-		GasTipCap:  gasTipCap,
-		GasFeeCap:  gasFeeCap,
-		Value:      candidate.Value,
+		Gas:        params.MaxGasLimit,
 		Data:       candidate.TxData,
+		Value:      candidate.Value,
 		AccessList: candidate.AccessList,
 	}
 
-	m.l.Info("creating tx", "to", rawTx.To, "from", m.From())
-
-	// If the gas limit is set, we can use that as the gas
-	if candidate.GasLimit != 0 {
-		rawTx.Gas = candidate.GasLimit
-	} else {
-		gas, err := m.backend.EstimateGas(ctx, ethereum.CallMsg{
-			From:      m.From(),
-			To:        candidate.To,
-			GasFeeCap: gasFeeCap,
-			GasTipCap: gasTipCap,
-			Data:      rawTx.Data,
-			Value:     candidate.Value,
-		})
+	gasLimit := candidate.GasLimit
+	if gasLimit == 0 {
+		gas, err := m.backend.EstimateGas(ctx, msg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to estimate gas: %w", err)
 		}
-		rawTx.Gas = gas
+		fmt.Printf("gas: %d\n", gas)
+		gasLimit = gas
+	}
+
+	if candidate.AccessList == nil {
+		accessList, gasUsed, vmErr, err := m.backend.CreateAccessList(ctx, msg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create access list: %w", err)
+		}
+		if vmErr != "" {
+			return nil, fmt.Errorf("failed to create access list due to vm err: %s", vmErr)
+		}
+
+		// If the estimated gas without applying an access list is lower than when it is applied,
+		// rebuild the access list without the tuple for the target contract.
+		if gasUsed > gasLimit {
+			msg.AccessList = types.AccessList{}
+			for _, tuple := range *accessList {
+				if tuple.Address.String() != candidate.To.String() {
+					msg.AccessList = append(msg.AccessList, tuple)
+				}
+			}
+		} else {
+			msg.AccessList = *accessList
+		}
+	}
+
+	m.l.Info("creating tx", "to", msg.To, "from", m.From())
+
+	rawTx := &types.DynamicFeeTx{
+		ChainID:    m.chainID,
+		Nonce:      nonce,
+		To:         msg.To,
+		Gas:        gasLimit,
+		GasTipCap:  gasTipCap,
+		GasFeeCap:  gasFeeCap,
+		Value:      msg.Value,
+		Data:       msg.Data,
+		AccessList: msg.AccessList,
 	}
 
 	ctx, cancel = context.WithTimeout(ctx, m.NetworkTimeout)

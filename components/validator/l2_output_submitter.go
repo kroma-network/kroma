@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
@@ -398,39 +397,10 @@ func SubmitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse) ([]byte, err
 
 // submitL2OutputTx creates l2 output submit tx candidate and sends it to txCandidates channel to process validator's tx candidates in order.
 func (l *L2OutputSubmitter) submitL2OutputTx(data []byte) *txmgr.TxResponse {
-	layout, err := bindings.GetStorageLayout("ValidatorPool")
-	if err != nil {
-		return &txmgr.TxResponse{
-			Receipt: nil,
-			Err:     fmt.Errorf("failed to get storage layout: %w", err),
-		}
-	}
-
-	var outputIndexSlot, priorityValidatorSlot common.Hash
-	for _, entry := range layout.Storage {
-		switch entry.Label {
-		case "nextUnbondOutputIndex":
-			outputIndexSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
-		case "nextPriorityValidator":
-			priorityValidatorSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
-		}
-	}
-
-	storageKeys := []common.Hash{outputIndexSlot, priorityValidatorSlot}
-
-	// If provide accessList that is not actually accessed, the transaction may not be executed due to exceeding the estimated gas limit
-	accessList := types.AccessList{
-		types.AccessTuple{
-			Address:     l.cfg.ValidatorPoolAddr,
-			StorageKeys: storageKeys,
-		},
-	}
-
 	return l.cfg.TxManager.SendTxCandidate(l.ctx, &txmgr.TxCandidate{
-		TxData:     data,
-		To:         &l.cfg.L2OutputOracleAddr,
-		GasLimit:   0,
-		AccessList: accessList,
+		TxData:   data,
+		To:       &l.cfg.L2OutputOracleAddr,
+		GasLimit: 0,
 	})
 }
 

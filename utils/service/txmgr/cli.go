@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli"
 
 	kservice "github.com/kroma-network/kroma/utils/service"
@@ -172,10 +173,12 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.NetworkTimeout)
 	defer cancel()
-	l1, err := ethclient.DialContext(ctx, cfg.L1RPCURL)
+	rpcCl, err := rpc.DialContext(ctx, cfg.L1RPCURL)
 	if err != nil {
 		return Config{}, fmt.Errorf("could not dial eth client: %w", err)
 	}
+
+	l1 := ethclient.NewClient(rpcCl)
 
 	ctx, cancel = context.WithTimeout(context.Background(), cfg.NetworkTimeout)
 	defer cancel()
@@ -190,7 +193,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 	}
 
 	return Config{
-		Backend:                   l1,
+		Backend:                   NewCombinedClient(rpcCl),
 		ResubmissionTimeout:       cfg.ResubmissionTimeout,
 		ChainID:                   chainID,
 		TxSendTimeout:             cfg.TxSendTimeout,
