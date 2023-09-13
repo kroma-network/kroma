@@ -68,7 +68,7 @@ We work on this repository with a combination of [Hardhat](https://hardhat.org) 
 > yarn build
 ```
 
-### Tests
+### Test
 
 ```shell
 > yarn test
@@ -239,11 +239,11 @@ The parts are: `[method]_[FunctionName]_[reason]_[success]`, where:
 - `[FunctionName]` is the name of the function or higher level behavior being tested.
 - `[reason]` is an optional description for the behavior being tested.
 - `[status]` must be one of:
-    - `succeeds`: used for most happy path cases
-    - `reverts`: used for most sad path cases
-    - `works`: used for tests which include a mix of happy and sad assertions (these should be broken up if possible)
-    - `fails`: used for tests which 'fail' in some way other than reverting
-    - `benchmark`: used for tests intended to establish gas costs
+  - `succeeds`: used for most happy path cases
+  - `reverts`: used for most sad path cases
+  - `works`: used for tests which include a mix of happy and sad assertions (these should be broken up if possible)
+  - `fails`: used for tests which 'fail' in some way other than reverting
+  - `benchmark`: used for tests intended to establish gas costs
 
 #### Contract Naming Conventions
 

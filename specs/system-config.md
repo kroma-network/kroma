@@ -64,7 +64,7 @@ policy. It is not a consensus level parameter.
 
 ### `validatorRewardScalar` (`uint256`)
 
-The scalar value to distribute [transaction fees](./exec-engine.md#transaction-fees) on L2 to validators as a reward of 
+The scalar value to distribute [transaction fees](./exec-engine.md#transaction-fees) on L2 to validators as a reward of
 checkpoint output submission. The denominator is 10000.
 
 ## Writing the system config
