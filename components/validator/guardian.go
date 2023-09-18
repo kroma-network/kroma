@@ -20,6 +20,7 @@ import (
 	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/utils"
+	"github.com/kroma-network/kroma/utils/service/watcher"
 )
 
 // Guardian is responsible for validating outputs.
@@ -50,7 +51,7 @@ type Guardian struct {
 }
 
 // NewGuardian creates a new Guardian.
-func NewGuardian(ctx context.Context, cfg Config, l log.Logger) (*Guardian, error) {
+func NewGuardian(cfg Config, l log.Logger) (*Guardian, error) {
 	securityCouncilContract, err := bindings.NewSecurityCouncil(cfg.SecurityCouncilAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
@@ -66,49 +67,72 @@ func NewGuardian(ctx context.Context, cfg Config, l log.Logger) (*Guardian, erro
 		return nil, err
 	}
 
-	cCtx, cCancel := context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	l2BlockTime, err := l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
-	}
-
-	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	finalizationPeriodSeconds, err := l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get finalization period seconds: %w", err)
-	}
-
 	colosseumContract, err := bindings.NewColosseum(cfg.ColosseumAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	creationPeriodSeconds, err := colosseumContract.CREATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
+	return &Guardian{
+		log:                     l.New("service", "guardian"),
+		cfg:                     cfg,
+		securityCouncilContract: securityCouncilContract,
+		l2ooContract:            l2ooContract,
+		colosseumContract:       colosseumContract,
+		colosseumABI:            colosseumABI,
+		l1BlockTime:             big.NewInt(12),
+	}, nil
+}
+
+func (g *Guardian) InitConfig(ctx context.Context) error {
+	contractWatcher := watcher.NewContractWatcher(ctx, g.cfg.L1Client, g.log)
+
+	err := contractWatcher.WatchUpgraded(g.cfg.L2OutputOracleAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+		defer cCancel()
+		l2BlockTime, err := g.l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get l2 block time: %w", err)
+		}
+		g.l2BlockTime = l2BlockTime
+
+		cCtx, cCancel = context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+		defer cCancel()
+		finalizationPeriodSeconds, err := g.l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get finalization period seconds: %w", err)
+		}
+		g.finalizationPeriodSeconds = finalizationPeriodSeconds
+
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get creation period seconds: %w", err)
+		return fmt.Errorf("failed to initiate l2oo config: %w", err)
 	}
 
-	return &Guardian{
-		log:                       l.New("service", "guardian"),
-		cfg:                       cfg,
-		securityCouncilContract:   securityCouncilContract,
-		l2ooContract:              l2ooContract,
-		colosseumContract:         colosseumContract,
-		colosseumABI:              colosseumABI,
-		l1BlockTime:               big.NewInt(12),
-		l2BlockTime:               l2BlockTime,
-		finalizationPeriodSeconds: finalizationPeriodSeconds,
-		creationPeriodSeconds:     creationPeriodSeconds,
-	}, nil
+	err = contractWatcher.WatchUpgraded(g.cfg.ColosseumAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+		defer cCancel()
+		creationPeriodSeconds, err := g.colosseumContract.CREATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get creation period seconds: %w", err)
+		}
+		g.creationPeriodSeconds = creationPeriodSeconds
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate colosseum config: %w", err)
+	}
+
+	return nil
 }
 
 func (g *Guardian) Start(ctx context.Context) error {
 	g.ctx, g.cancel = context.WithCancel(ctx)
 
+	if err := g.InitConfig(g.ctx); err != nil {
+		return err
+	}
 	g.initSub()
 
 	g.wg.Add(1)

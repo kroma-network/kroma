@@ -24,6 +24,7 @@ import (
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
+	"github.com/kroma-network/kroma/utils/service/watcher"
 )
 
 var deletedOutputRoot = [32]byte{}
@@ -63,7 +64,7 @@ type Challenger struct {
 	wg sync.WaitGroup
 }
 
-func NewChallenger(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, error) {
+func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, error) {
 	colosseumContract, err := bindings.NewColosseum(cfg.ColosseumAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
@@ -89,34 +90,6 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger, m metrics.Metr
 		return nil, err
 	}
 
-	cCtx, cCancel := context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get submission interval: %w", err)
-	}
-
-	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	finalizationPeriodSeconds, err := l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get finalization period seconds: %w", err)
-	}
-
-	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	l2BlockTime, err := l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
-	}
-
-	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	requiredBondAmount, err := valpoolContract.REQUIREDBONDAMOUNT(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get required bond amount: %w", err)
-	}
-
 	return &Challenger{
 		log:  l.New("service", "challenge"),
 		cfg:  cfg,
@@ -130,12 +103,59 @@ func NewChallenger(ctx context.Context, cfg Config, l log.Logger, m metrics.Metr
 		colosseumContract: colosseumContract,
 		colosseumABI:      colosseumABI,
 		valpoolContract:   valpoolContract,
-
-		submissionInterval:        submissionInterval,
-		finalizationPeriodSeconds: finalizationPeriodSeconds,
-		l2BlockTime:               l2BlockTime,
-		requiredBondAmount:        requiredBondAmount,
 	}, nil
+}
+
+func (c *Challenger) InitConfig(ctx context.Context) error {
+	contractWatcher := watcher.NewContractWatcher(ctx, c.cfg.L1Client, c.log)
+
+	err := contractWatcher.WatchUpgraded(c.cfg.L2OutputOracleAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		submissionInterval, err := c.l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get submission interval: %w", err)
+		}
+		c.submissionInterval = submissionInterval
+
+		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		l2BlockTime, err := c.l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get l2 block time: %w", err)
+		}
+		c.l2BlockTime = l2BlockTime
+
+		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		finalizationPeriodSeconds, err := c.l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get finalization period seconds: %w", err)
+		}
+		c.finalizationPeriodSeconds = finalizationPeriodSeconds
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate l2oo config: %w", err)
+	}
+
+	err = contractWatcher.WatchUpgraded(c.cfg.ValidatorPoolAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		requiredBondAmount, err := c.valpoolContract.REQUIREDBONDAMOUNT(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get submission interval: %w", err)
+		}
+		c.requiredBondAmount = requiredBondAmount
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate valpool config: %w", err)
+	}
+
+	return nil
 }
 
 // initSub initialize subscriptions
@@ -164,6 +184,9 @@ func (c *Challenger) initSub() {
 func (c *Challenger) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
+	if err := c.InitConfig(c.ctx); err != nil {
+		return err
+	}
 	c.initSub()
 
 	c.wg.Add(1)
