@@ -61,7 +61,10 @@ const transferSecurityCouncilTokenOwnership = async (
     scTokenProxyAddress
   )
   const currentScTokenOwner = await scToken.owner()
-  if (currentScTokenOwner === newOwner) {
+  if (
+    hre.ethers.utils.getAddress(currentScTokenOwner) ===
+    hre.ethers.utils.getAddress(newOwner)
+  ) {
     console.log(
       'skip the SecurityCouncilToken owner transfer process because the owner has already been transferred.'
     )
@@ -74,7 +77,10 @@ const transferSecurityCouncilTokenOwnership = async (
   })
   await tx.wait()
 
-  assert((await scToken.owner()) === newOwner)
+  assert(
+    hre.ethers.utils.getAddress(await scToken.owner()) ===
+      hre.ethers.utils.getAddress(newOwner)
+  )
   console.log('successfully transferred ownership of SecurityCouncilToken')
 }
 
