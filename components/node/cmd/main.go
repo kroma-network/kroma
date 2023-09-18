@@ -55,7 +55,7 @@ func main() {
 	app.Usage = "Rollup Node Service"
 	app.Description = "Service for deriving L2 block inputs from L1 data and driving an external L2 Execution Engine to build a L2 chain."
 	app.Action = RollupNodeMain
-	app.Commands = []*cli.Command{
+	app.Commands = cli.Commands{
 		{
 			Name:        "p2p",
 			Subcommands: p2p.Subcommands,
@@ -78,7 +78,7 @@ func main() {
 
 func RollupNodeMain(ctx *cli.Context) error {
 	log.Info("Initializing Rollup Node")
-	logCfg := klog.ReadCLIConfigV2(ctx)
+	logCfg := klog.ReadCLIConfig(ctx)
 	if err := logCfg.Check(); err != nil {
 		log.Error("Unable to create the log config", "error", err)
 		return err

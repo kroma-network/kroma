@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	kservice "github.com/kroma-network/kroma/utils/service"
 	kcrypto "github.com/kroma-network/kroma/utils/service/crypto"
@@ -37,68 +37,68 @@ const (
 
 func CLIFlags(envPrefix string) []cli.Flag {
 	return append([]cli.Flag{
-		cli.StringFlag{
-			Name:   MnemonicFlagName,
-			Usage:  "The mnemonic used to derive the wallets for either the service",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "MNEMONIC"),
+		&cli.StringFlag{
+			Name:    MnemonicFlagName,
+			Usage:   "The mnemonic used to derive the wallets for either the service",
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "MNEMONIC"),
 		},
-		cli.StringFlag{
-			Name:   HDPathFlagName,
-			Usage:  "The HD path used to derive the wallet from the mnemonic. The mnemonic flag must also be set.",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "HD_PATH"),
+		&cli.StringFlag{
+			Name:    HDPathFlagName,
+			Usage:   "The HD path used to derive the wallet from the mnemonic. The mnemonic flag must also be set.",
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "HD_PATH"),
 		},
-		cli.StringFlag{
-			Name:   "private-key",
-			Usage:  "The private key to use with the service. Must not be used with mnemonic.",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "PRIVATE_KEY"),
+		&cli.StringFlag{
+			Name:    "private-key",
+			Usage:   "The private key to use with the service. Must not be used with mnemonic.",
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "PRIVATE_KEY"),
 		},
-		cli.Uint64Flag{
-			Name:   NumConfirmationsFlagName,
-			Usage:  "Number of confirmations which we will wait after sending a transaction",
-			Value:  10,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "NUM_CONFIRMATIONS"),
+		&cli.Uint64Flag{
+			Name:    NumConfirmationsFlagName,
+			Usage:   "Number of confirmations which we will wait after sending a transaction",
+			Value:   10,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "NUM_CONFIRMATIONS"),
 		},
-		cli.Uint64Flag{
-			Name:   SafeAbortNonceTooLowCountFlagName,
-			Usage:  "Number of ErrNonceTooLow observations required to give up on a tx at a particular nonce without receiving confirmation",
-			Value:  3,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "SAFE_ABORT_NONCE_TOO_LOW_COUNT"),
+		&cli.Uint64Flag{
+			Name:    SafeAbortNonceTooLowCountFlagName,
+			Usage:   "Number of ErrNonceTooLow observations required to give up on a tx at a particular nonce without receiving confirmation",
+			Value:   3,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "SAFE_ABORT_NONCE_TOO_LOW_COUNT"),
 		},
-		cli.DurationFlag{
-			Name:   ResubmissionTimeoutFlagName,
-			Usage:  "Duration we will wait before resubmitting a transaction to L1",
-			Value:  48 * time.Second,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "RESUBMISSION_TIMEOUT"),
+		&cli.DurationFlag{
+			Name:    ResubmissionTimeoutFlagName,
+			Usage:   "Duration we will wait before resubmitting a transaction to L1",
+			Value:   48 * time.Second,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "RESUBMISSION_TIMEOUT"),
 		},
-		cli.DurationFlag{
-			Name:   NetworkTimeoutFlagName,
-			Usage:  "Timeout for all network operations",
-			Value:  2 * time.Second,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "NETWORK_TIMEOUT"),
+		&cli.DurationFlag{
+			Name:    NetworkTimeoutFlagName,
+			Usage:   "Timeout for all network operations",
+			Value:   2 * time.Second,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "NETWORK_TIMEOUT"),
 		},
-		cli.DurationFlag{
-			Name:   TxSendTimeoutFlagName,
-			Usage:  "Timeout for sending transactions. If 0 it is disabled.",
-			Value:  0,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "TXMGR_TX_SEND_TIMEOUT"),
+		&cli.DurationFlag{
+			Name:    TxSendTimeoutFlagName,
+			Usage:   "Timeout for sending transactions. If 0 it is disabled.",
+			Value:   0,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "TXMGR_TX_SEND_TIMEOUT"),
 		},
-		cli.DurationFlag{
-			Name:   TxNotInMempoolTimeoutFlagName,
-			Usage:  "Timeout for aborting a tx send if the tx does not make it to the mempool.",
-			Value:  2 * time.Minute,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "TXMGR_TX_NOT_IN_MEMPOOL_TIMEOUT"),
+		&cli.DurationFlag{
+			Name:    TxNotInMempoolTimeoutFlagName,
+			Usage:   "Timeout for aborting a tx send if the tx does not make it to the mempool.",
+			Value:   2 * time.Minute,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "TXMGR_TX_NOT_IN_MEMPOOL_TIMEOUT"),
 		},
-		cli.DurationFlag{
-			Name:   ReceiptQueryIntervalFlagName,
-			Usage:  "Frequency to poll for receipts",
-			Value:  12 * time.Second,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "TXMGR_RECEIPT_QUERY_INTERVAL"),
+		&cli.DurationFlag{
+			Name:    ReceiptQueryIntervalFlagName,
+			Usage:   "Frequency to poll for receipts",
+			Value:   12 * time.Second,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "TXMGR_RECEIPT_QUERY_INTERVAL"),
 		},
-		cli.Uint64Flag{
-			Name:   BufferSizeFlagName,
-			Usage:  "Tx buffer size for buffered txmgr",
-			Value:  10,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "TXMGR_BUFFER_SIZE"),
+		&cli.Uint64Flag{
+			Name:    BufferSizeFlagName,
+			Usage:   "Tx buffer size for buffered txmgr",
+			Value:   10,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "TXMGR_BUFFER_SIZE"),
 		},
 	}, client.CLIFlags(envPrefix)...)
 }
@@ -149,19 +149,19 @@ func (m CLIConfig) Check() error {
 
 func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
-		L1RPCURL:                  ctx.GlobalString(L1RPCFlagName),
-		Mnemonic:                  ctx.GlobalString(MnemonicFlagName),
-		HDPath:                    ctx.GlobalString(HDPathFlagName),
-		PrivateKey:                ctx.GlobalString(PrivateKeyFlagName),
+		L1RPCURL:                  ctx.String(L1RPCFlagName),
+		Mnemonic:                  ctx.String(MnemonicFlagName),
+		HDPath:                    ctx.String(HDPathFlagName),
+		PrivateKey:                ctx.String(PrivateKeyFlagName),
 		SignerCLIConfig:           client.ReadCLIConfig(ctx),
-		NumConfirmations:          ctx.GlobalUint64(NumConfirmationsFlagName),
-		SafeAbortNonceTooLowCount: ctx.GlobalUint64(SafeAbortNonceTooLowCountFlagName),
-		ResubmissionTimeout:       ctx.GlobalDuration(ResubmissionTimeoutFlagName),
-		ReceiptQueryInterval:      ctx.GlobalDuration(ReceiptQueryIntervalFlagName),
-		NetworkTimeout:            ctx.GlobalDuration(NetworkTimeoutFlagName),
-		TxSendTimeout:             ctx.GlobalDuration(TxSendTimeoutFlagName),
-		TxNotInMempoolTimeout:     ctx.GlobalDuration(TxNotInMempoolTimeoutFlagName),
-		TxBufferSize:              ctx.GlobalUint64(BufferSizeFlagName),
+		NumConfirmations:          ctx.Uint64(NumConfirmationsFlagName),
+		SafeAbortNonceTooLowCount: ctx.Uint64(SafeAbortNonceTooLowCountFlagName),
+		ResubmissionTimeout:       ctx.Duration(ResubmissionTimeoutFlagName),
+		ReceiptQueryInterval:      ctx.Duration(ReceiptQueryIntervalFlagName),
+		NetworkTimeout:            ctx.Duration(NetworkTimeoutFlagName),
+		TxSendTimeout:             ctx.Duration(TxSendTimeoutFlagName),
+		TxNotInMempoolTimeout:     ctx.Duration(TxNotInMempoolTimeoutFlagName),
+		TxBufferSize:              ctx.Uint64(BufferSizeFlagName),
 	}
 }
 

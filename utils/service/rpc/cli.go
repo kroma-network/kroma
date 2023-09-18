@@ -4,7 +4,7 @@ import (
 	"errors"
 	"math"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	kservice "github.com/kroma-network/kroma/utils/service"
 )
@@ -16,17 +16,17 @@ const (
 
 func CLIFlags(envPrefix string) []cli.Flag {
 	return []cli.Flag{
-		cli.StringFlag{
-			Name:   ListenAddrFlagName,
-			Usage:  "rpc listening address",
-			Value:  "0.0.0.0",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "RPC_ADDR"),
+		&cli.StringFlag{
+			Name:    ListenAddrFlagName,
+			Usage:   "rpc listening address",
+			Value:   "0.0.0.0",
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "RPC_ADDR"),
 		},
-		cli.IntFlag{
-			Name:   PortFlagName,
-			Usage:  "rpc listening port",
-			Value:  8545,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "RPC_PORT"),
+		&cli.IntFlag{
+			Name:    PortFlagName,
+			Usage:   "rpc listening port",
+			Value:   8545,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "RPC_PORT"),
 		},
 	}
 }
@@ -46,7 +46,7 @@ func (c CLIConfig) Check() error {
 
 func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
-		ListenAddr: ctx.GlobalString(ListenAddrFlagName),
-		ListenPort: ctx.GlobalInt(PortFlagName),
+		ListenAddr: ctx.String(ListenAddrFlagName),
+		ListenPort: ctx.Int(PortFlagName),
 	}
 }

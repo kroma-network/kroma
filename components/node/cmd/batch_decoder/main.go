@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/components/node/cmd/batch_decoder/fetch"
 	"github.com/kroma-network/kroma/components/node/cmd/batch_decoder/reassemble"
@@ -20,41 +20,41 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "batch-decoder"
 	app.Usage = "Kroma Batch Decoding Utility"
-	app.Commands = []cli.Command{
+	app.Commands = cli.Commands{
 		{
 			Name:  "fetch",
 			Usage: "Fetches batches in the specified range",
 			Flags: []cli.Flag{
-				cli.IntFlag{
+				&cli.IntFlag{
 					Name:     "start",
 					Required: true,
 					Usage:    "First block (inclusive) to fetch",
 				},
-				cli.IntFlag{
+				&cli.IntFlag{
 					Name:     "end",
 					Required: true,
 					Usage:    "Last block (exclusive) to fetch",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:     "inbox",
 					Required: true,
 					Usage:    "Batch Inbox Address",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:     "sender",
 					Required: true,
 					Usage:    "Batch Sender Address",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "out",
 					Value: "/tmp/batch_decoder/transactions_cache",
 					Usage: "Cache directory for the found transactions",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:     "l1",
 					Required: true,
 					Usage:    "L1 RPC URL",
-					EnvVar:   "L1_RPC",
+					EnvVars:  []string{"L1_RPC"},
 				},
 			},
 			Action: func(cliCtx *cli.Context) error {
@@ -73,7 +73,7 @@ func main() {
 					End:     uint64(cliCtx.Int("end")),
 					ChainID: chainID,
 					BatchSenders: map[common.Address]struct{}{
-						common.HexToAddress(cliCtx.String("sender")): struct{}{},
+						common.HexToAddress(cliCtx.String("sender")): {},
 					},
 					BatchInbox:   common.HexToAddress(cliCtx.String("inbox")),
 					OutDirectory: cliCtx.String("out"),
@@ -89,17 +89,17 @@ func main() {
 			Name:  "reassemble",
 			Usage: "Reassembles channels from fetched batches",
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "inbox",
-					Value: "0xff00000000000000000000000000000000000420",
+					Value: "0xff00000000000000000000000000000000000255",
 					Usage: "Batch Inbox Address",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "in",
 					Value: "/tmp/batch_decoder/transactions_cache",
 					Usage: "Cache directory for the found transactions",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "out",
 					Value: "/tmp/batch_decoder/channel_cache",
 					Usage: "Cache directory for the found channels",
@@ -119,17 +119,17 @@ func main() {
 			Name:  "force-close",
 			Usage: "Create the tx data which will force close a channel",
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:     "id",
 					Required: true,
 					Usage:    "ID of the channel to close",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "inbox",
 					Value: "0x0000000000000000000000000000000000000000",
 					Usage: "(Optional) Batch Inbox Address",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "in",
 					Value: "/tmp/batch_decoder/transactions_cache",
 					Usage: "Cache directory for the found transactions",

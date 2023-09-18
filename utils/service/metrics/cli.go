@@ -4,7 +4,7 @@ import (
 	"errors"
 	"math"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	kservice "github.com/kroma-network/kroma/utils/service"
 )
@@ -17,22 +17,22 @@ const (
 
 func CLIFlags(envPrefix string) []cli.Flag {
 	return []cli.Flag{
-		cli.BoolFlag{
-			Name:   EnabledFlagName,
-			Usage:  "Enable the metrics server",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "METRICS_ENABLED"),
+		&cli.BoolFlag{
+			Name:    EnabledFlagName,
+			Usage:   "Enable the metrics server",
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "METRICS_ENABLED"),
 		},
-		cli.StringFlag{
-			Name:   ListenAddrFlagName,
-			Usage:  "Metrics listening address",
-			Value:  "0.0.0.0",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "METRICS_ADDR"),
+		&cli.StringFlag{
+			Name:    ListenAddrFlagName,
+			Usage:   "Metrics listening address",
+			Value:   "0.0.0.0",
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "METRICS_ADDR"),
 		},
-		cli.IntFlag{
-			Name:   PortFlagName,
-			Usage:  "Metrics listening port",
-			Value:  7300,
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "METRICS_PORT"),
+		&cli.IntFlag{
+			Name:    PortFlagName,
+			Usage:   "Metrics listening port",
+			Value:   7300,
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "METRICS_PORT"),
 		},
 	}
 }
@@ -57,9 +57,9 @@ func (m CLIConfig) Check() error {
 
 func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
-		Enabled:    ctx.GlobalBool(EnabledFlagName),
-		ListenAddr: ctx.GlobalString(ListenAddrFlagName),
-		ListenPort: ctx.GlobalInt(PortFlagName),
+		Enabled:    ctx.Bool(EnabledFlagName),
+		ListenAddr: ctx.String(ListenAddrFlagName),
+		ListenPort: ctx.Int(PortFlagName),
 	}
 }
 
