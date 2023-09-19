@@ -104,8 +104,11 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		ColosseumMaxTxs:                100,
 		ColosseumSegmentsLengths:       "2,2,3,3",
 
-		SecurityCouncilNumConfirmationRequired: 1,
-		SecurityCouncilOwners:                  []common.Address{addresses.Challenger1, addresses.Alice, addresses.Bob, addresses.Mallory},
+		SecurityCouncilOwners: []common.Address{
+			addresses.Challenger1,
+			addresses.Challenger2,
+			addresses.TrustedValidator,
+		},
 
 		GasPriceOracleOverhead:      2100,
 		GasPriceOracleScalar:        1000_000,

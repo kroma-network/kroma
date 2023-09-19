@@ -18,19 +18,17 @@
 ➡ contracts/L1/SecurityCouncil.sol:SecurityCouncil
 =======================
 
-| Name                     | Type                                                 | Slot | Offset | Bytes | Contract                                         |
-|--------------------------|------------------------------------------------------|------|--------|-------|--------------------------------------------------|
-| _initialized             | uint8                                                | 0    | 0      | 1     | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| _initializing            | bool                                                 | 0    | 1      | 1     | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| _status                  | uint256                                              | 1    | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| __gap                    | uint256[49]                                          | 2    | 0      | 1568  | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| transactions             | mapping(uint256 => struct Types.MultiSigTransaction) | 51   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| confirmations            | mapping(uint256 => mapping(address => bool))         | 52   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| isOwner                  | mapping(address => bool)                             | 53   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| owners                   | address[]                                            | 54   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| numConfirmationsRequired | uint256                                              | 55   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| transactionCount         | uint256                                              | 56   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
-| outputsDeleteRequested   | mapping(uint256 => bool)                             | 57   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| Name                   | Type                                                  | Slot | Offset | Bytes | Contract                                         |
+|------------------------|-------------------------------------------------------|------|--------|-------|--------------------------------------------------|
+| _initialized           | uint8                                                 | 0    | 0      | 1     | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| _initializing          | bool                                                  | 0    | 1      | 1     | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| _status                | uint256                                               | 1    | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| __gap                  | uint256[49]                                           | 2    | 0      | 1568  | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| transactions           | mapping(uint256 => struct Types.MultiSigTransaction)  | 51   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| confirmations          | mapping(uint256 => struct Types.MultiSigConfirmation) | 52   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| spacer_53_0_96         | uint256[3]                                            | 53   | 0      | 96    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| transactionCount       | uint256                                               | 56   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+| outputsDeleteRequested | mapping(uint256 => bool)                              | 57   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
 
 =======================
 ➡ contracts/L1/ValidatorPool.sol:ValidatorPool

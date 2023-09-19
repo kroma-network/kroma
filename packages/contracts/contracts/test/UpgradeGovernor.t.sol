@@ -61,10 +61,10 @@ contract UpgradeGovernorTest is UpgradeGovernor_Initializer {
         assertEq(upgradeGovernor.proposalThreshold(), initialProposalThreshold);
 
         // check proxy admin
-        vm.startPrank(address(upgradeGovernor));
-        assertEq(Proxy(payable(address(upgradeGovernor))).admin(), address(upgradeGovernor));
-        assertEq(Proxy(payable(address(securityCouncilToken))).admin(), address(upgradeGovernor));
-        assertEq(Proxy(payable(address(timeLock))).admin(), address(upgradeGovernor));
+        vm.startPrank(address(timeLock));
+        assertEq(Proxy(payable(address(upgradeGovernor))).admin(), address(timeLock));
+        assertEq(Proxy(payable(address(securityCouncilToken))).admin(), address(timeLock));
+        assertEq(Proxy(payable(address(timeLock))).admin(), address(timeLock));
         vm.stopPrank();
     }
 

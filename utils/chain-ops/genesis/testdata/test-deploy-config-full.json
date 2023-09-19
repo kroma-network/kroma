@@ -59,7 +59,6 @@
   "colosseumDummyHash": "0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7",
   "colosseumMaxTxs": 100,
   "colosseumSegmentsLengths": "3,4",
-  "securityCouncilNumConfirmationRequired": 1,
   "securityCouncilOwners": [
     "0x007d7e4391dcfde47dd7fd0b8e16091c5e0e1c7f",
     "0x2a06af6a4f325b1e0095a8abd32888e0abdcd04d",

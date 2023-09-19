@@ -230,10 +230,10 @@ contract ColosseumTest is Colosseum_Initializer {
 
     function _dismissChallenge(uint256 txId) private {
         // confirm transaction without check condition
-        vm.prank(securityCouncilOwners[0]);
+        vm.prank(guardian1);
         securityCouncil.confirmTransaction(txId);
 
-        vm.prank(securityCouncilOwners[1]);
+        vm.prank(guardian2);
         securityCouncil.confirmTransaction(txId);
     }
 

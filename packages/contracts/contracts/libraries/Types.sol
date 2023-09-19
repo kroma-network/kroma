@@ -174,16 +174,27 @@ library Types {
     /**
      * @notice Struct representing multisig transaction data.
      *
-     * @custom:field destination The destination address to run the transaction.
-     * @custom:field executed    Record whether a transaction was executed or not.
-     * @custom:field value       The value passed in while executing the transaction.
-     * @custom:field data        Calldata for transaction.
+     * @custom:field target   The destination address to run the transaction.
+     * @custom:field executed Record whether a transaction was executed or not.
+     * @custom:field value    The value passed in while executing the transaction.
+     * @custom:field data     Calldata for transaction.
      */
     struct MultiSigTransaction {
-        address destination;
+        address target;
         bool executed;
         uint256 value;
         bytes data;
+    }
+
+    /**
+     * @notice Struct representing multisig confirmation data.
+     *
+     * @custom:field confirmationCount The sum of confirmations.
+     * @custom:field confirmedBy       Map data that stores whether confirmation is performed by account.
+     */
+    struct MultiSigConfirmation {
+        uint256 confirmationCount;
+        mapping(address => bool) confirmedBy;
     }
 
     /**

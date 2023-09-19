@@ -35,10 +35,10 @@ var (
 		"KromaMintableERC20FactoryProxy",
 		"ZKVerifierProxy",
 		"ColosseumProxy",
-		"SecurityCouncilProxy",
 		"SecurityCouncilTokenProxy",
 		"TimeLockProxy",
 		"UpgradeGovernorProxy",
+		"SecurityCouncilProxy",
 	}
 	// portalMeteringSlot is the storage slot containing the metering params.
 	portalMeteringSlot = common.Hash{31: 0x01}
@@ -222,24 +222,6 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		return nil, err
 	}
 
-	securityCouncilABI, err := bindings.SecurityCouncilMetaData.GetAbi()
-	if err != nil {
-		return nil, err
-	}
-	data, err = securityCouncilABI.Pack("initialize0", true, config.SecurityCouncilOwners, uint642Big(config.SecurityCouncilNumConfirmationRequired))
-	if err != nil {
-		return nil, err
-	}
-	if _, err := upgradeProxy(
-		backend,
-		opts,
-		depsByName["SecurityCouncilProxy"].Address,
-		depsByName["SecurityCouncil"].Address,
-		data,
-	); err != nil {
-		return nil, err
-	}
-
 	l1XDMABI, err := bindings.L1CrossDomainMessengerMetaData.GetAbi()
 	if err != nil {
 		return nil, err
@@ -272,7 +254,8 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err = securityCouncilTokenABI.Pack("initialize", config.SecurityCouncilTokenOwner)
+
+	data, err = securityCouncilTokenABI.Pack("initialize", opts.From)
 	if err != nil {
 		return nil, fmt.Errorf("cannot abi encode initialize for securityCouncilToken: %w", err)
 	}
@@ -333,8 +316,17 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		return nil, err
 	}
 
-	var lastUpgradeTx *types.Transaction
-	if lastUpgradeTx, err = upgradeProxy(
+	if _, err := upgradeProxy(
+		backend,
+		opts,
+		depsByName["SecurityCouncilProxy"].Address,
+		depsByName["SecurityCouncil"].Address,
+		nil,
+	); err != nil {
+		return nil, err
+	}
+
+	if _, err = upgradeProxy(
 		backend,
 		opts,
 		depsByName["KromaMintableERC20FactoryProxy"].Address,
@@ -344,12 +336,24 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		return nil, err
 	}
 
+	// mint to securitycouncil owners
+	scToken, err := bindings.NewSecurityCouncilToken(depsByName["SecurityCouncilTokenProxy"].Address, backend)
+	if err != nil {
+		return nil, err
+	}
+	var lastUpgradeTx *types.Transaction
+	for _, account := range config.SecurityCouncilOwners {
+		lastUpgradeTx, err = scToken.SafeMint(opts, account, "")
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Commit all the upgrades at once, then wait for the last
 	// transaction to be mined. The simulator performs async
 	// processing, and as such we need to wait for the transaction
 	// receipt to appear before considering the above transactions
 	// committed to the chain.
-
 	backend.Commit()
 	if _, err := bind.WaitMined(context.Background(), backend, lastUpgradeTx); err != nil {
 		return nil, err
@@ -513,12 +517,6 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 			},
 		},
 		{
-			Name: "SecurityCouncil",
-			Args: []interface{}{
-				config.SecurityCouncilTokenOwner,
-			},
-		},
-		{
 			Name: "L1CrossDomainMessenger",
 		},
 		{
@@ -538,6 +536,9 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 		},
 		{
 			Name: "UpgradeGovernor",
+		},
+		{
+			Name: "SecurityCouncil",
 		},
 		{
 			Name: "ProxyAdmin",
@@ -626,7 +627,7 @@ func l1Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			opts,
 			backend,
 			predeploys.DevColosseumAddr,
-			/* governor= */ deployment.Args[0].(common.Address),
+			predeploys.DevUpgradeGovernorAddr,
 		)
 	case "L1CrossDomainMessenger":
 		_, tx, _, err = bindings.DeployL1CrossDomainMessenger(

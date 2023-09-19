@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import { MultiSigWallet } from "../universal/MultiSigWallet.sol";
+import { TokenMultiSigWallet } from "../universal/TokenMultiSigWallet.sol";
 import { Semver } from "../universal/Semver.sol";
 import { Colosseum } from "./Colosseum.sol";
 
@@ -11,7 +11,7 @@ import { Colosseum } from "./Colosseum.sol";
  * @notice SecurityCouncil receives validation requests for specific output data,
  *         and allows security council parties to validate & agree on transactions before execution.
  */
-contract SecurityCouncil is MultiSigWallet, Semver {
+contract SecurityCouncil is TokenMultiSigWallet, Semver {
     /**
      * @notice The address of the colosseum contract. Can be updated via upgrade.
      */
@@ -55,29 +55,16 @@ contract SecurityCouncil is MultiSigWallet, Semver {
     }
 
     /**
-     * @custom:semver 1.0.0
+     * @custom:semver 1.1.0
      *
      * @param _colosseum Address of the Colosseum contract.
-     * @param _governor  Address of governor contract.
+     * @param _governor  Address of Governor contract.
      */
-    constructor(address _colosseum, address _governor) MultiSigWallet(_governor) Semver(1, 0, 0) {
+    constructor(address _colosseum, address payable _governor)
+        TokenMultiSigWallet(_governor)
+        Semver(1, 1, 0)
+    {
         COLOSSEUM = _colosseum;
-    }
-
-    /**
-     * @notice Initializer.
-     *
-     * @param ``                        Not used. Dummy parameter to prevent override.
-     * @param _owners                   List of initial owners.
-     * @param _numConfirmationsRequired Number of required confirmations.
-     *
-     */
-    function initialize(
-        bool,
-        address[] memory _owners,
-        uint256 _numConfirmationsRequired
-    ) public initializer {
-        MultiSigWallet.initialize(_owners, _numConfirmationsRequired);
     }
 
     /**
@@ -92,7 +79,7 @@ contract SecurityCouncil is MultiSigWallet, Semver {
         uint256 _l2BlockNumber,
         bytes memory _data
     ) public onlyColosseum {
-        uint256 transactionId = _addTransaction(msg.sender, 0, _data);
+        uint256 transactionId = _submitTransaction(msg.sender, 0, _data);
         emit ValidationRequested(transactionId, _outputRoot, _l2BlockNumber);
     }
 
@@ -103,7 +90,7 @@ contract SecurityCouncil is MultiSigWallet, Semver {
      * @param _outputIndex Index of output to be deleted.
      * @param _force       Option to forcibly make a request to delete the output.
      */
-    function requestDeletion(uint256 _outputIndex, bool _force) public ownerExists(msg.sender) {
+    function requestDeletion(uint256 _outputIndex, bool _force) public onlyTokenOwner(msg.sender) {
         require(
             !outputsDeleteRequested[_outputIndex] || _force,
             "SecurityCouncil: the output has already been requested to be deleted"
@@ -112,7 +99,9 @@ contract SecurityCouncil is MultiSigWallet, Semver {
             Colosseum.forceDeleteOutput.selector,
             _outputIndex
         );
-        uint256 transactionId = submitTransaction(COLOSSEUM, 0, message);
+        uint256 transactionId = submitTransaction(address(COLOSSEUM), 0, message);
+        // auto-confirmed by requester
+        confirmTransaction(transactionId);
         outputsDeleteRequested[_outputIndex] = true;
         emit DeletionRequested(transactionId, _outputIndex);
     }

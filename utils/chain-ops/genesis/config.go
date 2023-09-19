@@ -80,9 +80,7 @@ type DeployConfig struct {
 	ColosseumDummyHash             common.Hash `json:"colosseumDummyHash"`
 	ColosseumMaxTxs                uint64      `json:"colosseumMaxTxs"`
 
-	// The initial value of the number of confirmations in security council
-	SecurityCouncilNumConfirmationRequired uint64           `json:"securityCouncilNumConfirmationRequired"`
-	SecurityCouncilOwners                  []common.Address `json:"securityCouncilOwners"`
+	SecurityCouncilOwners []common.Address `json:"securityCouncilOwners"`
 
 	// The initial value of the voting delay(unit:block)
 	GovernorVotingDelayBlocks uint64 `json:"governorVotingDelayBlocks"`
