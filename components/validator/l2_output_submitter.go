@@ -21,6 +21,7 @@ import (
 	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
 	"github.com/kroma-network/kroma/utils/service/txmgr"
+	"github.com/kroma-network/kroma/utils/service/watcher"
 )
 
 const (
@@ -53,7 +54,7 @@ type L2OutputSubmitter struct {
 }
 
 // NewL2OutputSubmitter creates a new L2OutputSubmitter.
-func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*L2OutputSubmitter, error) {
+func NewL2OutputSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*L2OutputSubmitter, error) {
 	l2ooContract, err := bindings.NewL2OutputOracleCaller(cfg.L2OutputOracleAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
@@ -69,44 +70,68 @@ func NewL2OutputSubmitter(ctx context.Context, cfg Config, l log.Logger, m metri
 		return nil, err
 	}
 
-	cCtx, cCancel := context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	l2BlockTime, err := l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get l2 block time: %w", err)
-	}
-
-	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	submissionInterval, err := l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get submission interval: %w", err)
-	}
-	singleRoundInterval := new(big.Int).Div(submissionInterval, new(big.Int).SetUint64(roundNums))
-
-	cCtx, cCancel = context.WithTimeout(ctx, cfg.NetworkTimeout)
-	defer cCancel()
-	requiredBondAmount, err := valpoolContract.REQUIREDBONDAMOUNT(utils.NewSimpleCallOpts(cCtx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get required bond amount: %w", err)
-	}
-
 	return &L2OutputSubmitter{
-		cfg:                 cfg,
-		log:                 l.New("service", "submitter"),
-		metr:                m,
-		l2ooContract:        l2ooContract,
-		l2ooABI:             parsed,
-		valpoolContract:     valpoolContract,
-		singleRoundInterval: singleRoundInterval,
-		l2BlockTime:         l2BlockTime,
-		requiredBondAmount:  requiredBondAmount,
+		cfg:             cfg,
+		log:             l.New("service", "submitter"),
+		metr:            m,
+		l2ooContract:    l2ooContract,
+		l2ooABI:         parsed,
+		valpoolContract: valpoolContract,
 	}, nil
+}
+
+func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
+	contractWatcher := watcher.NewContractWatcher(ctx, l.cfg.L1Client, l.log)
+
+	err := contractWatcher.WatchUpgraded(l.cfg.L2OutputOracleAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		l2BlockTime, err := l.l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get l2 block time: %w", err)
+		}
+		l.l2BlockTime = l2BlockTime
+
+		cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		submissionInterval, err := l.l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get submission interval: %w", err)
+		}
+		singleRoundInterval := new(big.Int).Div(submissionInterval, new(big.Int).SetUint64(roundNums))
+		l.singleRoundInterval = singleRoundInterval
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate l2oo config: %w", err)
+	}
+
+	err = contractWatcher.WatchUpgraded(l.cfg.ValidatorPoolAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		requiredBondAmount, err := l.valpoolContract.REQUIREDBONDAMOUNT(utils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get required bond amount: %w", err)
+		}
+		l.requiredBondAmount = requiredBondAmount
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate valpool config: %w", err)
+	}
+
+	return nil
 }
 
 func (l *L2OutputSubmitter) Start(ctx context.Context) error {
 	l.ctx, l.cancel = context.WithCancel(ctx)
 	l.submitChan = make(chan struct{}, 1)
+
+	if err := l.InitConfig(l.ctx); err != nil {
+		return err
+	}
 
 	l.wg.Add(1)
 	go l.loop()
