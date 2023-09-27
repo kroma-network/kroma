@@ -35,6 +35,7 @@ type Runtime struct {
 	guardian                 *L2Validator
 	outputOracleContract     *bindings.L2OutputOracle
 	colosseumContract        *bindings.Colosseum
+	securityCouncilContract  *bindings.SecurityCouncil
 	valPoolContract          *bindings.ValidatorPoolCaller
 	targetInvalidBlockNumber uint64
 	outputIndex              *big.Int
@@ -148,6 +149,9 @@ func (rt *Runtime) bindChallengeContracts() {
 	require.NoError(rt.t, err)
 
 	rt.colosseumContract, err = bindings.NewColosseum(rt.sd.DeploymentsL1.ColosseumProxy, rt.miner.EthClient())
+	require.NoError(rt.t, err)
+
+	rt.securityCouncilContract, err = bindings.NewSecurityCouncil(rt.sd.DeploymentsL1.SecurityCouncilProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
 	rt.valPoolContract, err = bindings.NewValidatorPoolCaller(rt.sd.DeploymentsL1.ValidatorPoolProxy, rt.miner.EthClient())

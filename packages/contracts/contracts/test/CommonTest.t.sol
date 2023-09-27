@@ -93,9 +93,89 @@ contract CommonTest is Test {
             abi.encodePacked(_mint, _value, _gasLimit, _isCreation, _data)
         );
     }
+
+    //payable proxy
+    function toProxy(address target) internal pure returns (Proxy) {
+        return Proxy(payable(target));
+    }
 }
 
-contract L2OutputOracle_Initializer is CommonTest {
+contract UpgradeGovernor_Initializer is CommonTest {
+    address superAdmin = makeAddr("superAdmin");
+    address owner = makeAddr("owner");
+
+    // Constructor arguments
+    uint256 internal initialVotingDelay = 0;
+    uint256 internal initialVotingPeriod = 30;
+    uint256 internal initialProposalThreshold = 1;
+    uint256 internal votesQuorumFraction = 70;
+    uint256 internal minDelaySeconds = 3;
+    string internal baseUri = "";
+
+    // Test data
+    address internal guardian1 = 0x0000000000000000000000000000000000001004;
+    address internal guardian2 = 0x0000000000000000000000000000000000001005;
+    address internal guardian3 = 0x0000000000000000000000000000000000001006;
+    address internal notGuardian = 0x0000000000000000000000000000000000002000;
+
+    address[] timeLockProposers = new address[](1);
+    address[] timeLockExecutors = new address[](1);
+
+    SecurityCouncilToken securityCouncilToken = SecurityCouncilToken(address(new Proxy(multisig)));
+    TimeLock timeLock = TimeLock(payable(address(new Proxy(multisig))));
+    UpgradeGovernor upgradeGovernor = UpgradeGovernor(payable(address(new Proxy(multisig))));
+
+    SecurityCouncilToken securityCouncilTokenImpl = new SecurityCouncilToken();
+    TimeLock timeLockImpl = new TimeLock();
+    UpgradeGovernor upgradeGovernorImpl = new UpgradeGovernor();
+
+    function setUp() public virtual override {
+        super.setUp();
+        vm.startPrank(multisig);
+
+        // setup SecurityCouncilToken
+        toProxy(address(securityCouncilToken)).upgradeToAndCall(
+            address(securityCouncilTokenImpl),
+            abi.encodeCall(SecurityCouncilToken.initialize, owner)
+        );
+
+        // setup TimeLock & UpgradeGovernor
+        timeLockProposers[0] = address(upgradeGovernor);
+        timeLockExecutors[0] = address(upgradeGovernor);
+
+        toProxy(address(timeLock)).upgradeToAndCall(
+            address(timeLockImpl),
+            abi.encodeCall(
+                TimeLock.initialize,
+                (minDelaySeconds, timeLockProposers, timeLockExecutors, address(upgradeGovernor))
+            )
+        );
+
+        toProxy(address(upgradeGovernor)).upgradeToAndCall(
+            address(upgradeGovernorImpl),
+            abi.encodeCall(
+                UpgradeGovernor.initialize,
+                (
+                    address(securityCouncilToken),
+                    payable(address(timeLock)),
+                    initialVotingDelay,
+                    initialVotingPeriod,
+                    initialProposalThreshold,
+                    votesQuorumFraction
+                )
+            )
+        );
+
+        //change proxy admin to upgradeGovernor
+        toProxy(address(securityCouncilToken)).changeAdmin(address(timeLock));
+        toProxy(address(timeLock)).changeAdmin(address(timeLock));
+        toProxy(address(upgradeGovernor)).changeAdmin(address(timeLock));
+
+        vm.stopPrank();
+    }
+}
+
+contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     // Test target
     ValidatorPool pool;
     ValidatorPool poolImpl;
@@ -498,9 +578,6 @@ contract Colosseum_Initializer is Portal_Initializer {
 
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
-    address upgradeGovernor = makeAddr("upgradeGovernor");
-    uint256 NUM_CONFIRMATIONS_REQUIRED = 2;
-    address[] securityCouncilOwners = new address[](3);
 
     uint256[] segmentsLengths;
 
@@ -530,21 +607,13 @@ contract Colosseum_Initializer is Portal_Initializer {
         super.setUp();
 
         // Deploy the SecurityCouncil (after Colosseum contract deployment)
-        Proxy securityCouncilProxy = new Proxy(multisig);
-        securityCouncil = SecurityCouncil(address(securityCouncilProxy));
-        securityCouncilImpl = new SecurityCouncil(address(colosseum), upgradeGovernor);
-        vm.prank(multisig);
-
-        securityCouncilOwners[0] = makeAddr("alice");
-        securityCouncilOwners[1] = makeAddr("bob");
-        securityCouncilOwners[2] = makeAddr("carol");
-        securityCouncilProxy.upgradeToAndCall(
-            address(securityCouncilImpl),
-            abi.encodeCall(
-                SecurityCouncil.initialize,
-                (true, securityCouncilOwners, NUM_CONFIRMATIONS_REQUIRED)
-            )
+        securityCouncil = SecurityCouncil(address(new Proxy(multisig)));
+        securityCouncilImpl = new SecurityCouncil(
+            address(colosseum),
+            payable(address(upgradeGovernor))
         );
+        vm.prank(multisig);
+        toProxy(address(securityCouncil)).upgradeTo(address(securityCouncilImpl));
 
         colosseumImpl = new Colosseum({
             _l2Oracle: oracle,
@@ -556,7 +625,7 @@ contract Colosseum_Initializer is Portal_Initializer {
             _dummyHash: DUMMY_HASH,
             _maxTxs: MAX_TXS,
             _segmentsLengths: segmentsLengths,
-            _securityCouncil: address(securityCouncilProxy),
+            _securityCouncil: address(securityCouncil),
             _zkMerkleTrie: address(zkMerkleTrie)
         });
         vm.prank(multisig);
@@ -567,109 +636,17 @@ contract Colosseum_Initializer is Portal_Initializer {
     }
 }
 
-contract SecurityCouncil_Initializer is CommonTest {
-    uint256 immutable NUM_CONFIRMATIONS_REQUIRED = 2;
-    address[] owners = new address[](3);
-    SecurityCouncil securityCouncilImpl;
+contract SecurityCouncil_Initializer is UpgradeGovernor_Initializer {
+    address colosseum = makeAddr("colosseum");
     SecurityCouncil securityCouncil;
-    address upgradeGovernor = makeAddr("upgradeGovernor");
-    address colosseumAddr;
+    SecurityCouncil securityCouncilImpl;
 
     function setUp() public virtual override {
         super.setUp();
-
-        Proxy proxy = new Proxy(multisig);
-        securityCouncil = SecurityCouncil(address(proxy));
-        colosseumAddr = makeAddr("colosseum");
-        securityCouncilImpl = new SecurityCouncil(colosseumAddr, upgradeGovernor);
+        securityCouncil = SecurityCouncil(address(new Proxy(multisig)));
+        securityCouncilImpl = new SecurityCouncil(colosseum, payable(address(upgradeGovernor)));
         vm.prank(multisig);
-
-        owners[0] = makeAddr("alice");
-        owners[1] = makeAddr("bob");
-        owners[2] = makeAddr("carol");
-        proxy.upgradeToAndCall(
-            address(securityCouncilImpl),
-            abi.encodeCall(SecurityCouncil.initialize, (true, owners, NUM_CONFIRMATIONS_REQUIRED))
-        );
-    }
-}
-
-contract UpgradeGovernor_Initializer is CommonTest {
-    address superAdmin = makeAddr("superAdmin");
-    address owner = makeAddr("owner");
-
-    // Constructor arguments
-    uint256 internal initialVotingDelay = 0;
-    uint256 internal initialVotingPeriod = 30;
-    uint256 internal initialProposalThreshold = 1;
-    uint256 internal votesQuorumFraction = 51;
-    uint256 internal minDelaySeconds = 3;
-    string internal baseUri = "";
-
-    // Test data
-    address internal guardian1 = 0x0000000000000000000000000000000000001004;
-    address internal guardian2 = 0x0000000000000000000000000000000000001005;
-    address internal notGuardian = 0x0000000000000000000000000000000000001006;
-
-    address[] timeLockProposers = new address[](1);
-    address[] timeLockExecutors = new address[](1);
-
-    SecurityCouncilToken securityCouncilToken;
-    TimeLock timeLock;
-    UpgradeGovernor upgradeGovernor;
-
-    function setUp() public virtual override {
-        super.setUp();
-        vm.startPrank(multisig);
-
-        // setup SecurityCouncilToken
-        Proxy securityCouncilTokenProxy = new Proxy(multisig);
-        SecurityCouncilToken securityCouncilTokenImpl = new SecurityCouncilToken();
-        securityCouncilToken = SecurityCouncilToken(payable(address(securityCouncilTokenProxy)));
-        securityCouncilTokenProxy.upgradeToAndCall(
-            address(securityCouncilTokenImpl),
-            abi.encodeCall(SecurityCouncilToken.initialize, owner)
-        );
-
-        // setup TimeLock & UpgradeGovernor
-        Proxy timeLockProxy = new Proxy(multisig);
-        Proxy upgradeGovernorProxy = new Proxy(multisig);
-        TimeLock timeLockImpl = new TimeLock();
-        UpgradeGovernor upgradeGovernorImpl = new UpgradeGovernor();
-        timeLock = TimeLock(payable(address(timeLockProxy)));
-        upgradeGovernor = UpgradeGovernor(payable(address(upgradeGovernorProxy)));
-
-        timeLockProposers[0] = address(upgradeGovernor);
-        timeLockExecutors[0] = address(upgradeGovernor);
-
-        timeLockProxy.upgradeToAndCall(
-            address(timeLockImpl),
-            abi.encodeCall(
-                TimeLock.initialize,
-                (minDelaySeconds, timeLockProposers, timeLockExecutors, address(upgradeGovernor))
-            )
-        );
-
-        upgradeGovernorProxy.upgradeToAndCall(
-            address(upgradeGovernorImpl),
-            abi.encodeCall(
-                UpgradeGovernor.initialize,
-                (
-                    address(securityCouncilToken),
-                    payable(address(timeLock)),
-                    initialVotingDelay,
-                    initialVotingPeriod,
-                    initialProposalThreshold,
-                    votesQuorumFraction
-                )
-            )
-        );
-
-        //change proxy admin to upgradeGovernor
-        securityCouncilTokenProxy.changeAdmin(address(upgradeGovernor));
-        timeLockProxy.changeAdmin(address(upgradeGovernor));
-        upgradeGovernorProxy.changeAdmin(address(upgradeGovernor));
-        vm.stopPrank();
+        toProxy(address(securityCouncil)).upgradeTo(address(securityCouncilImpl));
     }
 }
 

@@ -35,7 +35,6 @@
   "colosseumMaxTxs": 100,
   "colosseumSegmentsLengths": "9,6,10,6",
   "numDeployConfirmations": 1,
-  "securityCouncilNumConfirmationRequired": 1,
   "securityCouncilOwners": [
     "0x3aa00bb915A8e78b0523E4c365e3E70A19d329e6"
   ],

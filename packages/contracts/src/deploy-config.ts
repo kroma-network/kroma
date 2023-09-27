@@ -181,11 +181,6 @@ interface RequiredDeployConfig {
   zkVerifierM56Py: string
 
   /**
-   * The number of confirmations required to execute a transaction.
-   */
-  securityCouncilNumConfirmationRequired: number
-
-  /**
    * Governor voting delay in block.
    */
   governorVotingDelayBlocks: number
@@ -454,9 +449,6 @@ export const deployConfigSpec: {
   },
   zkVerifierM56Py: {
     type: 'string', // uint256
-  },
-  securityCouncilNumConfirmationRequired: {
-    type: 'number',
   },
   governorVotingDelayBlocks: {
     type: 'number',
