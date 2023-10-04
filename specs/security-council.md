@@ -60,7 +60,4 @@ pause/unpause the bridge through a multi-sig transaction. The `GUARDIAN` in the
 All contract upgrades deployed on [Layer 1][g-l1] are conducted by the
 [governance of the Security Council](contract-upgrades.md#upgrade-by-governance). These upgrades are proposed by a
 member of Security Council and are determined through the voting of these members. If a proposal passes, it typically
-has a 30-day timelock delay for execution.
-
-When an urgent upgrade is needed for a blockchain security, the Security Council has the authority to perform an
-[emergency upgrade](contract-upgrades.md#upgrade-by-governance).
+has a 7-day timelock delay for execution.
