@@ -42,7 +42,7 @@
   "governorVotingPeriodBlocks": 21600,
   "governorProposalThreshold": 1,
   "governorVotesQuorumFractionPercent": 51,
-  "timeLockMinDelaySeconds": 2592000,
+  "timeLockMinDelaySeconds": 604800,
   "zkVerifierHashScalar": "0x163b85414bb5a9c97d8249f96b9c4ffd8db3e8081133101a14fc8546b704e2b",
   "zkVerifierM56Px": "0x2aa452092865578d9b68a69f053df3db7a563b7cc7d17c9cce524632ccb30d85",
   "zkVerifierM56Py": "0xafcccd2c2ebc8ffb530403bb07d4e1bcfc1aa910d4dd08d7cd81fcafef5e556"
