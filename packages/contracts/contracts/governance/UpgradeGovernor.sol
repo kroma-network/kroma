@@ -6,10 +6,10 @@ import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettin
 import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-import "../vendor/GovernorTimelockControlUpgradeable.sol";
 import { Semver } from "../universal/Semver.sol";
 
 /**
@@ -62,51 +62,6 @@ contract UpgradeGovernor is
         __GovernorVotes_init(IVotesUpgradeable(_token));
         __GovernorVotesQuorumFraction_init(_votesQuorumFraction);
         __GovernorTimelockControl_init(TimelockControllerUpgradeable(_timelock));
-    }
-
-    /**
-     * @notice Function to queue a proposal to the timelock.
-     *         Added protocol for using custom time-lock zero delay for urgent situations.
-     *
-     * @param _targets         The destination address that send the message to.
-     * @param _values          Amount of ether sent with the message.
-     * @param _calldatas       The data portion of the message.
-     * @param _descriptionHash A hashed form of the description string.
-     *
-     * @return Whether the challenge was canceled.
-     */
-    function queue(
-        address[] memory _targets,
-        uint256[] memory _values,
-        bytes[] memory _calldatas,
-        bytes32 _descriptionHash
-    ) public virtual override returns (uint256) {
-        uint256 proposalId = hashProposal(_targets, _values, _calldatas, _descriptionHash);
-
-        require(
-            state(proposalId) == ProposalState.Succeeded,
-            "UpgradeGovernor: proposal not successful"
-        );
-
-        uint256 delay = _timelock.getMinDelay();
-        // Protocol for reflecting urgent decisions on proposals.
-        // A zero delay is applied if the first element of the argument satisfies conditions.
-        if (_targets[0] == address(0) && _values[0] == 0) {
-            delay = 0;
-        }
-
-        _timelockIds[proposalId] = _timelock.hashOperationBatch(
-            _targets,
-            _values,
-            _calldatas,
-            0,
-            _descriptionHash
-        );
-        _timelock.scheduleBatch(_targets, _values, _calldatas, 0, _descriptionHash, delay);
-
-        emit ProposalQueued(proposalId, block.timestamp + delay);
-
-        return proposalId;
     }
 
     // The following functions are overridden cause required by Solidity.
