@@ -251,9 +251,6 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         // Unbond the bond of nextUnbondOutputIndex if available.
         _tryUnbond();
 
-        // Select the next priority validator
-        _updatePriorityValidator();
-
         address submitter = L2_ORACLE.getSubmitter(_outputIndex);
         _decreaseBalance(submitter, REQUIRED_BOND_AMOUNT);
 
@@ -261,6 +258,9 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         bond.expiresAt = _expiresAt;
 
         emit Bonded(submitter, _outputIndex, REQUIRED_BOND_AMOUNT, _expiresAt);
+
+        // Select the next priority validator
+        _updatePriorityValidator();
     }
 
     /**
