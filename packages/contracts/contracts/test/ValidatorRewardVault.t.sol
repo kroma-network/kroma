@@ -33,7 +33,7 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
     }
 
     function test_minWithdrawalAmount_succeeds() external {
-        assertEq(vault.MIN_WITHDRAWAL_AMOUNT(), 10 ether);
+        assertEq(vault.MIN_WITHDRAWAL_AMOUNT(), 0);
     }
 
     function test_constructor_succeeds() external {
@@ -122,16 +122,6 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
         assertEq(vault.totalProcessed(), amount);
         // Check the total determined reward amount was decreased.
         assertEq(vault.totalReserved(), reserved - amount);
-    }
-
-    function test_withdraw_notEnough_reverts() external {
-        assert(vault.balanceOf(recipient) < vault.MIN_WITHDRAWAL_AMOUNT());
-
-        vm.expectRevert(
-            "ValidatorRewardVault: withdrawal amount must be greater than minimum withdrawal amount"
-        );
-        vm.prank(recipient);
-        vault.withdraw();
     }
 
     function test_balanceOf_succeeds() external {
