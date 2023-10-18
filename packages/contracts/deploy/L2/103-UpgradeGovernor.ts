@@ -28,7 +28,7 @@ const deployFn: DeployFunction = async (hre) => {
       securityCouncilTokenProxyAddress,
       timeLockProxyAddress,
       deployConfig.governorVotingDelayBlocks,
-      deployConfig.governorVotingPeriodBlocks,
+      deployConfig.l2GovernorVotingPeriodBlocks,
       deployConfig.governorProposalThreshold,
       deployConfig.governorVotesQuorumFractionPercent,
     ],
@@ -49,7 +49,7 @@ const deployFn: DeployFunction = async (hre) => {
   )
   assert(
     (await governor.votingPeriod()).toNumber() ===
-      deployConfig.governorVotingPeriodBlocks
+      deployConfig.l2GovernorVotingPeriodBlocks
   )
   assert(
     (await governor.proposalThreshold()).toNumber() ===

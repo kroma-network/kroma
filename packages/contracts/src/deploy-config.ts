@@ -201,6 +201,11 @@ interface RequiredDeployConfig {
   governorVotesQuorumFractionPercent: number
 
   /**
+   * L2 : Governor voting period in block.
+   */
+  l2GovernorVotingPeriodBlocks: number
+
+  /**
    * Initial minimum delay for operations.
    */
   timeLockMinDelaySeconds: number
@@ -460,6 +465,9 @@ export const deployConfigSpec: {
     type: 'number',
   },
   governorVotesQuorumFractionPercent: {
+    type: 'number',
+  },
+  l2GovernorVotingPeriodBlocks: {
     type: 'number',
   },
   timeLockMinDelaySeconds: {
