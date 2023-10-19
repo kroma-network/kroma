@@ -51,6 +51,7 @@
   "governorVotesQuorumFractionPercent": 30,
   "timeLockMinDelaySeconds": 300,
   "l2GovernorVotingPeriodBlocks": 150,
+  "l2TimeLockMinDelaySeconds": 300,
   "zkVerifierHashScalar": "0x8a18470eb27ae5b84622ad66cc5607a7ce6b876569d2fb9ce5aa32cdda5cfc6",
   "zkVerifierM56Px": "0x1b43785e34e12914d2e6fea816de6821f802c1ecf0bbeacba23600352027fcfd",
   "zkVerifierM56Py": "0xb8e6f17043e36148aa467bea5a21b670072446b89f9612c229af2709dc83a28"
