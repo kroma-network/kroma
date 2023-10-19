@@ -106,6 +106,7 @@ abstract contract KromaSoulBoundERC721 is
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
+        _delegate(to, to);
     }
 
     function burn(uint256 tokenId) public onlyOwner {

@@ -55,7 +55,7 @@ contract ValidatorRewardVault is FeeVault, Semver {
      * @param _rewardDivider A value to divide the vault balance by when determining the reward amount.
      */
     constructor(address _validatorPool, uint256 _rewardDivider)
-        FeeVault(address(0), 10 ether)
+        FeeVault(address(0), 0)
         Semver(1, 0, 0)
     {
         VALIDATOR_POOL = _validatorPool;

@@ -1,4 +1,4 @@
-import { hashWithdrawal } from '@kroma-network/core-utils'
+import { hashWithdrawal } from '@kroma/core-utils'
 import { ethers } from 'ethers'
 
 import { LowLevelMessage } from '../interfaces'

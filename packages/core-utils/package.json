@@ -1,5 +1,5 @@
 {
-  "name": "@kroma-network/core-utils",
+  "name": "@kroma/core-utils",
   "version": "1.0.0",
   "description": "[Kroma] Core typescript utilities",
   "main": "dist/index",

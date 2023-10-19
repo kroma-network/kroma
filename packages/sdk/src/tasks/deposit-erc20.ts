@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs'
 
-import { getContractDefinition, predeploys } from '@kroma-network/contracts'
-import { sleep } from '@kroma-network/core-utils'
+import { getContractDefinition, predeploys } from '@kroma/contracts'
+import { sleep } from '@kroma/core-utils'
 import '@nomiclabs/hardhat-ethers'
 import { BigNumber, Contract, Event, Wallet, providers, utils } from 'ethers'
 import { task, types } from 'hardhat/config'

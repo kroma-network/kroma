@@ -181,11 +181,6 @@ interface RequiredDeployConfig {
   zkVerifierM56Py: string
 
   /**
-   * The number of confirmations required to execute a transaction.
-   */
-  securityCouncilNumConfirmationRequired: number
-
-  /**
    * Governor voting delay in block.
    */
   governorVotingDelayBlocks: number
@@ -204,6 +199,11 @@ interface RequiredDeployConfig {
    * Quorum as a fraction of the token's total supply.
    */
   governorVotesQuorumFractionPercent: number
+
+  /**
+   * L2 : Governor voting period in block.
+   */
+  l2GovernorVotingPeriodBlocks: number
 
   /**
    * Initial minimum delay for operations.
@@ -455,9 +455,6 @@ export const deployConfigSpec: {
   zkVerifierM56Py: {
     type: 'string', // uint256
   },
-  securityCouncilNumConfirmationRequired: {
-    type: 'number',
-  },
   governorVotingDelayBlocks: {
     type: 'number',
   },
@@ -468,6 +465,9 @@ export const deployConfigSpec: {
     type: 'number',
   },
   governorVotesQuorumFractionPercent: {
+    type: 'number',
+  },
+  l2GovernorVotingPeriodBlocks: {
     type: 'number',
   },
   timeLockMinDelaySeconds: {

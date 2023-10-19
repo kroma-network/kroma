@@ -4,7 +4,7 @@ import { HardhatUserConfig } from 'hardhat/config'
 
 // Hardhat plugins
 import '@foundry-rs/hardhat-forge'
-import '@kroma-network/hardhat-deploy-config'
+import '@kroma/hardhat-deploy-config'
 import '@nomiclabs/hardhat-ethers'
 import 'hardhat-deploy'
 
@@ -30,7 +30,20 @@ const config: HardhatUserConfig = {
       accounts: [
         process.env.PRIVATE_KEY_DEPLOYER_MAINNET || ethers.constants.HashZero,
       ],
+      companionNetworks: {
+        l2: 'kroma',
+      },
       deploy: ['./deploy/L1'],
+    },
+    kroma: {
+      url: process.env.L2_RPC_MAINNET || '',
+      accounts: [
+        process.env.PRIVATE_KEY_DEPLOYER_MAINNET || ethers.constants.HashZero,
+      ],
+      companionNetworks: {
+        l1: 'mainnet',
+      },
+      deploy: ['./deploy/L2'],
     },
     sepolia: {
       chainId: 11155111,

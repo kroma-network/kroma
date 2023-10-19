@@ -174,7 +174,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
     }
 
     /**
-     * @custom:semver 1.0.0
+     * @custom:semver 1.0.1
      *
      * @param _l2OutputOracle     Address of the L2OutputOracle.
      * @param _portal             Address of the KromaPortal.
@@ -192,7 +192,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         uint256 _requiredBondAmount,
         uint256 _maxUnbond,
         uint256 _roundDuration
-    ) Semver(1, 0, 0) {
+    ) Semver(1, 0, 1) {
         L2_ORACLE = _l2OutputOracle;
         PORTAL = _portal;
         SECURITY_COUNCIL = _securityCouncil;
@@ -258,6 +258,9 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         bond.expiresAt = _expiresAt;
 
         emit Bonded(submitter, _outputIndex, REQUIRED_BOND_AMOUNT, _expiresAt);
+
+        // Select the next priority validator
+        _updatePriorityValidator();
     }
 
     /**
@@ -343,8 +346,6 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
      * @notice Attempts to unbond starting from nextUnbondOutputIndex and returns whether at least
      *         one unbond is executed. Tries unbond at most MAX_UNBOND number of bonds and sends
      *         a reward message to L2 for each unbond.
-     *         Note that it updates the next priority validator using last unbond, and not updates
-     *         when no unbond.
      *
      * @return Whether at least one unbond is executed.
      */
@@ -378,9 +379,6 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         }
 
         if (unbondedNum > 0) {
-            // Select the next priority validator.
-            _updatePriorityValidator(output.outputRoot);
-
             unchecked {
                 nextUnbondOutputIndex = outputIndex;
             }
@@ -392,17 +390,16 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
 
     /**
      * @notice Updates next priority validator address.
-     *
-     * @param _outputRoot The L2 output of the checkpoint block.
      */
-    function _updatePriorityValidator(bytes32 _outputRoot) private {
+    function _updatePriorityValidator() private {
         uint256 len = validators.length;
-        if (len > 0) {
+        if (len > 0 && nextUnbondOutputIndex > 0) {
             // TODO(pangssu): improve next validator selection
+            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(nextUnbondOutputIndex - 1);
             uint256 validatorIndex = uint256(
                 keccak256(
                     abi.encodePacked(
-                        _outputRoot,
+                        output.outputRoot,
                         block.number,
                         block.coinbase,
                         block.difficulty,

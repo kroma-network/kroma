@@ -7,7 +7,7 @@ import {
   TransactionResponse,
 } from '@ethersproject/abstract-provider'
 import { Signer } from '@ethersproject/abstract-signer'
-import { predeploys } from '@kroma-network/contracts'
+import { predeploys } from '@kroma/contracts'
 import {
   CrossChainMessageProof,
   OutputData,
@@ -15,7 +15,7 @@ import {
   hashCrossDomainMessage,
   sleep,
   toRpcHexString,
-} from '@kroma-network/core-utils'
+} from '@kroma/core-utils'
 import {
   BigNumber,
   CallOverrides,

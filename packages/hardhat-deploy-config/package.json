@@ -1,5 +1,5 @@
 {
-  "name": "@kroma-network/hardhat-deploy-config",
+  "name": "@kroma/hardhat-deploy-config",
   "version": "1.0.0",
   "description": "[Kroma] Hardhat deploy configuration plugin",
   "main": "dist/src/index.js",

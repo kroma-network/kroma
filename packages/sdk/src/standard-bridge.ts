@@ -4,8 +4,8 @@ import {
   TransactionRequest,
   TransactionResponse,
 } from '@ethersproject/abstract-provider'
-import { getContractInterface } from '@kroma-network/contracts'
-import { hexStringEquals } from '@kroma-network/core-utils'
+import { getContractInterface } from '@kroma/contracts'
+import { hexStringEquals } from '@kroma/core-utils'
 import {
   BigNumber,
   CallOverrides,

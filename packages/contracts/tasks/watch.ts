@@ -1,4 +1,4 @@
-import { KromaNodeProvider, sleep } from '@kroma-network/core-utils'
+import { KromaNodeProvider, sleep } from '@kroma/core-utils'
 import '@nomiclabs/hardhat-ethers'
 import { task, types } from 'hardhat/config'
 import 'hardhat-deploy'
@@ -42,9 +42,7 @@ task('watch', 'Watch a Kroma System')
     console.log('Deployed Contracts')
     console.table(contracts)
 
-    const kromaNodeProvider = new KromaNodeProvider(
-      args.kromaNodeProviderUrl
-    )
+    const kromaNodeProvider = new KromaNodeProvider(args.kromaNodeProviderUrl)
     const kromaNodeConfig = await kromaNodeProvider.rollupConfig()
     console.log('kroma-node config')
     console.table({

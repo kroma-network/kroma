@@ -1,5 +1,5 @@
 {
-  "name": "@kroma-network/sdk",
+  "name": "@kroma/sdk",
   "version": "1.0.0",
   "description": "[Kroma] Tools for working with Kroma",
   "main": "dist/index",
@@ -48,8 +48,8 @@
     "typedoc": "^0.22.13"
   },
   "dependencies": {
-    "@kroma-network/contracts": "1.0.0",
-    "@kroma-network/core-utils": "1.0.0",
+    "@kroma/contracts": "1.0.0",
+    "@kroma/core-utils": "1.0.0",
     "lodash": "^4.17.21"
   },
   "peerDependencies": {

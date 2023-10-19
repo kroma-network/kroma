@@ -184,7 +184,8 @@ batches and invalid individual transactions within an otherwise valid batch are 
 
 If a validator applies a state transition incorrectly and posts an [output root][g-l2-output],
 this output root will be incorrect. The incorrect output root, which will be challenged by a
-[ZK fault proof][g-zk-fault-proof], will then be replaced by a correct output root **for the existing proposer batches.**
+[ZK fault proof][g-zk-fault-proof], will then be replaced by a correct output root
+**for the existing proposer batches.**
 
 Refer to the [Batch Submission specification][batcher-spec] for more information.
 

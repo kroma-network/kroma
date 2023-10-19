@@ -1,1 +1,1 @@
-# @kroma-network/sdk
+# @kroma/sdk

@@ -1,1 +1,1 @@
-# @kroma-network/core-utils
+# @kroma/core-utils

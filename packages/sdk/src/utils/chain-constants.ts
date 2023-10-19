@@ -1,4 +1,4 @@
-import { predeploys } from '@kroma-network/contracts'
+import { predeploys } from '@kroma/contracts'
 
 import {
   ContractsLike,
@@ -10,6 +10,7 @@ import {
 export const DEPOSIT_CONFIRMATION_BLOCKS: {
   [ChainID in L2ChainID]: number
 } = {
+  [L2ChainID.KROMA_MAINNET]: 4 as const, // 4 slot
   [L2ChainID.KROMA_SEPOLIA]: 4 as const, // 4 slot
   [L2ChainID.KROMA_LOCAL_DEVNET]: 2 as const,
 }
@@ -17,6 +18,7 @@ export const DEPOSIT_CONFIRMATION_BLOCKS: {
 export const CHAIN_BLOCK_TIMES: {
   [ChainID in L1ChainID]: number
 } = {
+  [L1ChainID.MAINNET]: 12 as const,
   [L1ChainID.SEPOLIA]: 12 as const,
   [L1ChainID.LOCAL_DEVNET]: 3 as const,
 }
@@ -39,6 +41,16 @@ export const DEFAULT_L2_CONTRACT_ADDRESSES: L2ContractsLike = {
 export const CONTRACT_ADDRESSES: {
   [ChainID in L2ChainID]: ContractsLike
 } = {
+  [L2ChainID.KROMA_MAINNET]: {
+    l1: {
+      KromaPortal: '0x31F648572b67e60Ec6eb8E197E1848CC5F5558de' as const,
+      L1CrossDomainMessenger:
+        '0x46B8bB4C5dd27bB42807Db477af4d1a7C8A5B746' as const,
+      L1StandardBridge: '0x827962404D7104202C5aaa6b929115C8211d9596' as const,
+      L2OutputOracle: '0x180c77aE51a9c505a43A2C7D81f8CE70cacb93A6' as const,
+    },
+    l2: DEFAULT_L2_CONTRACT_ADDRESSES,
+  },
   [L2ChainID.KROMA_SEPOLIA]: {
     l1: {
       KromaPortal: '0x31ab8eD993A3BE9Aa2757C7D368Dc87101A868a4' as const,

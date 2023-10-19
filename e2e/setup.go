@@ -132,8 +132,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		ColosseumMaxTxs:                100,
 		ColosseumSegmentsLengths:       "3,3",
 
-		SecurityCouncilNumConfirmationRequired: 1,
-		SecurityCouncilOwners:                  []common.Address{addresses.Challenger1, addresses.Alice, addresses.Bob, addresses.Mallory},
+		SecurityCouncilOwners: []common.Address{addresses.Challenger1, addresses.Alice, addresses.Bob, addresses.Mallory},
 
 		GasPriceOracleOverhead: 2100,
 		GasPriceOracleScalar:   1_000_000,

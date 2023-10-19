@@ -1,5 +1,5 @@
-# @kroma-network/common-ts
+# @kroma/common-ts
 
 ## What is this?
 
-`@kroma-network/common-ts` contains useful tools for logging, metrics, and other Node stuff.
+`@kroma/common-ts` contains useful tools for logging, metrics, and other Node stuff.

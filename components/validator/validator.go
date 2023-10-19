@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/components/validator/metrics"
@@ -94,20 +94,20 @@ func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metri
 	var err error
 	var l2os *L2OutputSubmitter
 	if cfg.OutputSubmitterEnabled {
-		l2os, err = NewL2OutputSubmitter(ctx, cfg, l, m)
+		l2os, err = NewL2OutputSubmitter(cfg, l, m)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	challenger, err := NewChallenger(ctx, cfg, l, m)
+	challenger, err := NewChallenger(cfg, l, m)
 	if err != nil {
 		return nil, err
 	}
 
 	var guardian *Guardian
 	if cfg.GuardianEnabled {
-		guardian, err = NewGuardian(ctx, cfg, l)
+		guardian, err = NewGuardian(cfg, l)
 		if err != nil {
 			return nil, err
 		}

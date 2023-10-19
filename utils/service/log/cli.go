@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
-	cliV2 "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
 
 	kservice "github.com/kroma-network/kroma/utils/service"
@@ -21,44 +20,22 @@ const (
 
 func CLIFlags(envPrefix string) []cli.Flag {
 	return []cli.Flag{
-		cli.StringFlag{
-			Name:   LevelFlagName,
-			Usage:  "The lowest log level that will be output",
-			Value:  "info",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "LOG_LEVEL"),
-		},
-		cli.StringFlag{
-			Name:   FormatFlagName,
-			Usage:  "Format the log output. Supported formats: 'text', 'terminal', 'logfmt', 'json', 'json-pretty',",
-			Value:  "text",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "LOG_FORMAT"),
-		},
-		cli.BoolFlag{
-			Name:   ColorFlagName,
-			Usage:  "Color the log output if in terminal mode",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "LOG_COLOR"),
-		},
-	}
-}
-
-func CLIFlagsV2(envPrefix string) []cliV2.Flag {
-	return []cliV2.Flag{
-		&cliV2.StringFlag{
+		&cli.StringFlag{
 			Name:    LevelFlagName,
 			Usage:   "The lowest log level that will be output",
 			Value:   "info",
-			EnvVars: kservice.PrefixEnvVarV2(envPrefix, "LOG_LEVEL"),
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "LOG_LEVEL"),
 		},
-		&cliV2.StringFlag{
+		&cli.StringFlag{
 			Name:    FormatFlagName,
 			Usage:   "Format the log output. Supported formats: 'text', 'terminal', 'logfmt', 'json', 'json-pretty',",
 			Value:   "text",
-			EnvVars: kservice.PrefixEnvVarV2(envPrefix, "LOG_FORMAT"),
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "LOG_FORMAT"),
 		},
-		&cliV2.BoolFlag{
+		&cli.BoolFlag{
 			Name:    ColorFlagName,
 			Usage:   "Color the log output if in terminal mode",
-			EnvVars: kservice.PrefixEnvVarV2(envPrefix, "LOG_COLOR"),
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "LOG_COLOR"),
 		},
 	}
 }
@@ -115,16 +92,6 @@ func ReadLocalCLIConfig(ctx *cli.Context) CLIConfig {
 }
 
 func ReadCLIConfig(ctx *cli.Context) CLIConfig {
-	cfg := DefaultCLIConfig()
-	cfg.Level = ctx.GlobalString(LevelFlagName)
-	cfg.Format = ctx.GlobalString(FormatFlagName)
-	if ctx.IsSet(ColorFlagName) {
-		cfg.Color = ctx.GlobalBool(ColorFlagName)
-	}
-	return cfg
-}
-
-func ReadCLIConfigV2(ctx *cliV2.Context) CLIConfig {
 	cfg := DefaultCLIConfig()
 	cfg.Level = ctx.String(LevelFlagName)
 	cfg.Format = ctx.String(FormatFlagName)

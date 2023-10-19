@@ -312,6 +312,16 @@ interaction:
 			rt.txHash = rt.challenger1.ActProveFault(rt.t, rt.outputIndex, false)
 			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
 		case chal.StatusNone:
+			// get txId from receipt
+			var transactionId *big.Int
+			for _, log := range rt.receipt.Logs {
+				pLog, _ := rt.securityCouncilContract.SecurityCouncilFilterer.ParseValidationRequested(*log)
+				if pLog != nil {
+					transactionId = pLog.TransactionId
+				}
+			}
+			require.NotNil(rt.t, transactionId, "unable to get transactionId")
+
 			// check after challenge is proven, output is deleted
 			remoteOutput, err := rt.outputOracleContract.GetL2Output(nil, rt.outputIndex)
 			require.NoError(rt.t, err, "unable to get l2 output")
@@ -322,7 +332,7 @@ interaction:
 			outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
 			isEqual := rt.guardian.ActValidateL2Output(rt.t, rt.outputOnL1.OutputRoot, outputBlockNum)
 			require.True(rt.t, isEqual, "deleted output is expected equal but actually not equal")
-			rt.txHash = rt.guardian.ActConfirmTransaction(rt.t, rt.outputIndex, big.NewInt(0))
+			rt.txHash = rt.guardian.ActConfirmTransaction(rt.t, rt.outputIndex, transactionId)
 			rt.miner.includeL1Block(rt.t, rt.guardian.address)
 			break interaction
 		default:

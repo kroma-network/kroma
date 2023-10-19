@@ -3,7 +3,7 @@ package client
 import (
 	"errors"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	kservice "github.com/kroma-network/kroma/utils/service"
 	ktls "github.com/kroma-network/kroma/utils/service/tls"
@@ -17,15 +17,15 @@ const (
 func CLIFlags(envPrefix string) []cli.Flag {
 	envPrefix += "_SIGNER"
 	flags := []cli.Flag{
-		cli.StringFlag{
-			Name:   EndpointFlagName,
-			Usage:  "Signer endpoint the client will connect to",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "ENDPOINT"),
+		&cli.StringFlag{
+			Name:    EndpointFlagName,
+			Usage:   "Signer endpoint the client will connect to",
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "ENDPOINT"),
 		},
-		cli.StringFlag{
-			Name:   AddressFlagName,
-			Usage:  "Address the signer is signing transactions for",
-			EnvVar: kservice.PrefixEnvVar(envPrefix, "ADDRESS"),
+		&cli.StringFlag{
+			Name:    AddressFlagName,
+			Usage:   "Address the signer is signing transactions for",
+			EnvVars: kservice.PrefixEnvVar(envPrefix, "ADDRESS"),
 		},
 	}
 	flags = append(flags, ktls.CLIFlagsWithFlagPrefix(envPrefix, "signer")...)

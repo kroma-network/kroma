@@ -1,4 +1,4 @@
-import { getContractDefinition, predeploys } from '@kroma-network/contracts'
+import { getContractDefinition, predeploys } from '@kroma/contracts'
 import '@nomiclabs/hardhat-ethers'
 import { task, types } from 'hardhat/config'
 import 'hardhat-deploy'
