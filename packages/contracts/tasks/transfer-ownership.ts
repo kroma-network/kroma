@@ -1,17 +1,16 @@
 import assert from 'assert'
+import readline from 'readline'
 
-import '@kroma/hardhat-deploy-config'
-import { DeployFunction } from 'hardhat-deploy/dist/types'
+import '@nomiclabs/hardhat-ethers'
+import { task } from 'hardhat/config'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { getDeploymentAddress } from '../../src/deploy-utils'
+import { getDeploymentAddress } from '../src/deploy-utils'
 
-const deployFn: DeployFunction = async (hre) => {
-  const timeLockProxyAddress = await getDeploymentAddress(hre, 'TimeLockProxy')
-  await transferProxyAdminOwnership(hre, timeLockProxyAddress)
-
-  const scTokenOwnerAddress = hre.deployConfig.securityCouncilTokenOwner
-  await transferSecurityCouncilTokenOwnership(hre, scTokenOwnerAddress)
+const isL1Network = (hre: HardhatRuntimeEnvironment): boolean => {
+  const networkName = hre.network.name
+  const l1Network = ['mainnet', 'sepolia', 'easel', 'devnetL1']
+  return l1Network.includes(networkName)
 }
 
 const transferProxyAdminOwnership = async (
@@ -19,11 +18,14 @@ const transferProxyAdminOwnership = async (
   newOwner: string
 ) => {
   console.log('transfer ProxyAdmin ownership to TimeLock')
-  const proxyAdminAddress = await getDeploymentAddress(hre, 'ProxyAdmin')
+  const proxyAdminAddress = isL1Network(hre)
+    ? await getDeploymentAddress(hre, 'ProxyAdmin')
+    : await getDeploymentAddress(hre, 'ProxyAdminProxy')
   let proxyAdmin = await hre.ethers.getContractAt(
     'ProxyAdmin',
     proxyAdminAddress
   )
+
   const currentProxyAdminOwner = await proxyAdmin.owner()
   if (currentProxyAdminOwner === newOwner) {
     console.log(
@@ -68,6 +70,7 @@ const transferSecurityCouncilTokenOwnership = async (
     console.log(
       'skip the SecurityCouncilToken owner transfer process because the owner has already been transferred.'
     )
+    return
   }
 
   scToken = scToken.connect(hre.ethers.provider.getSigner(currentScTokenOwner))
@@ -84,7 +87,51 @@ const transferSecurityCouncilTokenOwnership = async (
   console.log('successfully transferred ownership of SecurityCouncilToken')
 }
 
-deployFn.runAtTheEnd = true
-deployFn.tags = ['setup', 'l1']
+task('transfer-ownership', 'Transfer ownership').setAction(
+  async (args, hre) => {
+    const readLineAsync = () => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+      })
 
-export default deployFn
+      return new Promise((resolve) => {
+        rl.prompt()
+        rl.on('line', (line) => {
+          rl.close()
+          resolve(line)
+        })
+      })
+    }
+
+    const run = async () => {
+      const networkName = hre.network.name
+      const yes = 'yes'
+      console.warn(
+        '*******************************************************************************************************'
+      )
+      console.warn(
+        '  [WARNING] Do you want to continue with the transferOwnership operation for the ' +
+          networkName +
+          ' network?'
+      )
+      console.warn("  Type and enter 'yes' to continue")
+      console.warn(
+        '*******************************************************************************************************'
+      )
+      const line = await readLineAsync()
+      if (line.toString() !== yes) {
+        console.log('The response is invalid. Terminate the task.')
+        return
+      }
+
+      const timeLockProxyAddress = await getDeploymentAddress(
+        hre,
+        'TimeLockProxy'
+      )
+      await transferProxyAdminOwnership(hre, timeLockProxyAddress)
+      await transferSecurityCouncilTokenOwnership(hre, timeLockProxyAddress)
+    }
+
+    await run()
+  }
+)

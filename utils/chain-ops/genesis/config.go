@@ -90,6 +90,8 @@ type DeployConfig struct {
 	GovernorProposalThreshold uint64 `json:"governorProposalThreshold"`
 	// The initial value of the votes quorum fraction(unit:percent)
 	GovernorVotesQuorumFractionPercent uint64 `json:"governorVotesQuorumFractionPercent"`
+	// The initial value of the L2 voting period(unit:block)
+	L2GovernorVotingPeriodBlocks uint64 `json:"l2GovernorVotingPeriodBlocks"`
 	// The latency value of the proposal executing(unit:second)
 	TimeLockMinDelaySeconds uint64 `json:"timeLockMinDelaySeconds"`
 
