@@ -141,11 +141,6 @@ interface RequiredDeployConfig {
   proxyAdminOwner: string
 
   /**
-   * Owner of the Security Council token.
-   */
-  securityCouncilTokenOwner: string
-
-  /**
    * L1 recipient of fees accumulated in the ProtocolVault.
    */
   protocolVaultRecipient: string
@@ -330,9 +325,6 @@ export const deployConfigSpec: {
     default: 2,
   },
   proxyAdminOwner: {
-    type: 'address',
-  },
-  securityCouncilTokenOwner: {
     type: 'address',
   },
   protocolVaultRecipient: {

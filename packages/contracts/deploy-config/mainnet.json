@@ -1,6 +1,5 @@
 {
   "proxyAdminOwner": "0xA03c13C6597a0716D1525b7fDaD2fD95ECb49081",
-  "securityCouncilTokenOwner": "0xA03c13C6597a0716D1525b7fDaD2fD95ECb49081",
   "l1StartingBlockTag": "0xe459c500b760ed52a1ad799bf578b257af2c76f6ebe061a4c62627e9c605bced",
   "l1ChainID": 1,
   "l2ChainID": 255,

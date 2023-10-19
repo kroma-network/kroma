@@ -138,7 +138,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		GasPriceOracleScalar:   1_000_000,
 		ValidatorRewardScalar:  5000,
 
-		SecurityCouncilTokenOwner:    addresses.SysCfgOwner,
+		ProxyAdminOwner:              addresses.SysCfgOwner,
 		ProtocolVaultRecipient:       common.Address{19: 2},
 		ProposerRewardVaultRecipient: common.Address{19: 3},
 
