@@ -50,8 +50,8 @@ func TestVerifyBlockSignature(t *testing.T) {
 	msg := []byte("any msg")
 
 	t.Run("Valid", func(t *testing.T) {
-		runCfg := &testutils.MockRuntimeConfig{P2PPropAddress: crypto.PubkeyToAddress(secrets.ProposerP2P.PublicKey)}
-		signer := &PreparedSigner{Signer: NewLocalSigner(secrets.ProposerP2P)}
+		runCfg := &testutils.MockRuntimeConfig{P2PSeqAddress: crypto.PubkeyToAddress(secrets.SequencerP2P.PublicKey)}
+		signer := &PreparedSigner{Signer: NewLocalSigner(secrets.SequencerP2P)}
 		sig, err := signer.Sign(context.Background(), SigningDomainBlocksV1, cfg.L2ChainID, msg)
 		require.NoError(t, err)
 		result := verifyBlockSignature(logger, cfg, runCfg, peerId, sig[:65], msg)
@@ -59,8 +59,8 @@ func TestVerifyBlockSignature(t *testing.T) {
 	})
 
 	t.Run("WrongSigner", func(t *testing.T) {
-		runCfg := &testutils.MockRuntimeConfig{P2PPropAddress: common.HexToAddress("0x1234")}
-		signer := &PreparedSigner{Signer: NewLocalSigner(secrets.ProposerP2P)}
+		runCfg := &testutils.MockRuntimeConfig{P2PSeqAddress: common.HexToAddress("0x1234")}
+		signer := &PreparedSigner{Signer: NewLocalSigner(secrets.SequencerP2P)}
 		sig, err := signer.Sign(context.Background(), SigningDomainBlocksV1, cfg.L2ChainID, msg)
 		require.NoError(t, err)
 		result := verifyBlockSignature(logger, cfg, runCfg, peerId, sig[:65], msg)
@@ -68,15 +68,15 @@ func TestVerifyBlockSignature(t *testing.T) {
 	})
 
 	t.Run("InvalidSignature", func(t *testing.T) {
-		runCfg := &testutils.MockRuntimeConfig{P2PPropAddress: crypto.PubkeyToAddress(secrets.ProposerP2P.PublicKey)}
+		runCfg := &testutils.MockRuntimeConfig{P2PSeqAddress: crypto.PubkeyToAddress(secrets.SequencerP2P.PublicKey)}
 		sig := make([]byte, 65)
 		result := verifyBlockSignature(logger, cfg, runCfg, peerId, sig, msg)
 		require.Equal(t, pubsub.ValidationReject, result)
 	})
 
-	t.Run("NoProposer", func(t *testing.T) {
+	t.Run("NoSequencer", func(t *testing.T) {
 		runCfg := &testutils.MockRuntimeConfig{}
-		signer := &PreparedSigner{Signer: NewLocalSigner(secrets.ProposerP2P)}
+		signer := &PreparedSigner{Signer: NewLocalSigner(secrets.SequencerP2P)}
 		sig, err := signer.Sign(context.Background(), SigningDomainBlocksV1, cfg.L2ChainID, msg)
 		require.NoError(t, err)
 		result := verifyBlockSignature(logger, cfg, runCfg, peerId, sig[:65], msg)

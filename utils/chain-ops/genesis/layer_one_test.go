@@ -123,7 +123,7 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	require.Equal(t, gasLimit, uint64(config.L2GenesisBlockGasLimit))
 	unsafeBlockSigner, err := sysCfg.UnsafeBlockSigner(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.Equal(t, unsafeBlockSigner, config.P2PProposerAddress)
+	require.Equal(t, unsafeBlockSigner, config.P2PSequencerAddress)
 	validatorRewardScalar, err := sysCfg.ValidatorRewardScalar(&bind.CallOpts{})
 	require.NoError(t, err)
 	require.Equal(t, validatorRewardScalar.Uint64(), config.ValidatorRewardScalar)

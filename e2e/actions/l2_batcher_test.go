@@ -23,25 +23,25 @@ import (
 func TestBatcher(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	p := &e2eutils.TestParams{
-		MaxProposerDrift:   20, // larger than L1 block time we simulate in this test (12)
-		ProposerWindowSize: 24,
-		ChannelTimeout:     20,
+		MaxSequencerDrift:   20, // larger than L1 block time we simulate in this test (12)
+		SequencerWindowSize: 24,
+		ChannelTimeout:      20,
 	}
 	dp := e2eutils.MakeDeployParams(t, p)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
-	miner, propEngine, proposer := setupProposerTest(t, sd, log)
+	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
 	syncEngine, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
 
-	rollupPropCl := proposer.RollupClient()
+	rollupSeqCl := sequencer.RollupClient()
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, rollupPropCl, miner.EthClient(), propEngine.EthClient())
+	}, rollupSeqCl, miner.EthClient(), seqEngine.EthClient())
 
 	// Alice makes a L2 tx
-	cl := propEngine.EthClient()
+	cl := seqEngine.EthClient()
 	n, err := cl.PendingNonceAt(t.Ctx(), dp.Addresses.Alice)
 	require.NoError(t, err)
 	signer := types.LatestSigner(sd.L2Cfg.Config)
@@ -56,13 +56,13 @@ func TestBatcher(gt *testing.T) {
 	})
 	require.NoError(gt, cl.SendTransaction(t.Ctx(), tx))
 
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 	syncer.ActL2PipelineFull(t)
 
 	// Make L2 block
-	proposer.ActL2StartBlock(t)
-	propEngine.ActL2IncludeTx(dp.Addresses.Alice)(t)
-	proposer.ActL2EndBlock(t)
+	sequencer.ActL2StartBlock(t)
+	seqEngine.ActL2IncludeTx(dp.Addresses.Alice)(t)
+	sequencer.ActL2EndBlock(t)
 
 	// batch submit to L1
 	batcher.ActL2BatchBuffer(t)
@@ -81,12 +81,12 @@ func TestBatcher(gt *testing.T) {
 
 	// Now make enough L1 blocks that the syncer will have to derive a L2 block
 	// It will also eagerly derive the block from the batcher
-	for i := uint64(0); i < sd.RollupCfg.ProposerWindowSize; i++ {
+	for i := uint64(0); i < sd.RollupCfg.SeqWindowSize; i++ {
 		miner.ActL1StartBlock(12)(t)
 		miner.ActL1EndBlock(t)
 	}
 
-	// sync syncer from L1 batch in otherwise empty proposer window
+	// sync syncer from L1 batch in otherwise empty sequencer window
 	syncer.ActL1HeadSignal(t)
 	syncer.ActL2PipelineFull(t)
 	require.Equal(t, uint64(1), syncer.SyncStatus().SafeL2.L1Origin.Number)
@@ -104,44 +104,44 @@ func TestL2Finalization(gt *testing.T) {
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
-	miner, engine, proposer := setupProposerTest(t, sd, log)
+	miner, engine, sequencer := setupSequencerTest(t, sd, log)
 
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 
 	// build an empty L1 block (#1), mark it as justified
 	miner.ActEmptyBlock(t)
 	miner.ActL1SafeNext(t) // #0 -> #1
 
-	// proposer builds L2 chain, up to and including a block that has the new L1 block as origin
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	// sequencer builds L2 chain, up to and including a block that has the new L1 block as origin
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
-	proposer.ActL2PipelineFull(t)
-	proposer.ActL1SafeSignal(t)
-	require.Equal(t, uint64(1), proposer.SyncStatus().SafeL1.Number)
+	sequencer.ActL2PipelineFull(t)
+	sequencer.ActL1SafeSignal(t)
+	require.Equal(t, uint64(1), sequencer.SyncStatus().SafeL1.Number)
 
 	// build another L1 block (#2), mark it as justified. And mark previous justified as finalized.
 	miner.ActEmptyBlock(t)
 	miner.ActL1SafeNext(t)     // #1 -> #2
 	miner.ActL1FinalizeNext(t) // #0 -> #1
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
 	// continue to build L2 chain referencing the new L1 blocks
-	proposer.ActL2PipelineFull(t)
-	proposer.ActL1FinalizedSignal(t)
-	proposer.ActL1SafeSignal(t)
-	require.Equal(t, uint64(2), proposer.SyncStatus().SafeL1.Number)
-	require.Equal(t, uint64(1), proposer.SyncStatus().FinalizedL1.Number)
-	require.Equal(t, uint64(0), proposer.SyncStatus().FinalizedL2.Number, "L2 block has to be included on L1 before it can be finalized")
+	sequencer.ActL2PipelineFull(t)
+	sequencer.ActL1FinalizedSignal(t)
+	sequencer.ActL1SafeSignal(t)
+	require.Equal(t, uint64(2), sequencer.SyncStatus().SafeL1.Number)
+	require.Equal(t, uint64(1), sequencer.SyncStatus().FinalizedL1.Number)
+	require.Equal(t, uint64(0), sequencer.SyncStatus().FinalizedL2.Number, "L2 block has to be included on L1 before it can be finalized")
 
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, proposer.RollupClient(), miner.EthClient(), engine.EthClient())
+	}, sequencer.RollupClient(), miner.EthClient(), engine.EthClient())
 
-	heightToSubmit := proposer.SyncStatus().UnsafeL2.Number
+	heightToSubmit := sequencer.SyncStatus().UnsafeL2.Number
 
 	batcher.ActSubmitAll(t)
 	// confirm batch on L1, block #3
@@ -150,12 +150,12 @@ func TestL2Finalization(gt *testing.T) {
 	miner.ActL1EndBlock(t)
 
 	// read the batch
-	proposer.ActL2PipelineFull(t)
-	require.Equal(t, uint64(0), proposer.SyncStatus().FinalizedL2.Number, "Batch must be included in finalized part of L1 chain for L2 block to finalize")
+	sequencer.ActL2PipelineFull(t)
+	require.Equal(t, uint64(0), sequencer.SyncStatus().FinalizedL2.Number, "Batch must be included in finalized part of L1 chain for L2 block to finalize")
 
 	// build some more L2 blocks, so there is an unsafe part again that hasn't been submitted yet
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
 	// submit those blocks too, block #4
 	batcher.ActSubmitAll(t)
@@ -168,8 +168,8 @@ func TestL2Finalization(gt *testing.T) {
 	miner.ActEmptyBlock(t)
 
 	// and more unsafe L2 blocks
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
 	// move safe/finalize markers: finalize the L1 chain block with the first batch, but not the second
 	miner.ActL1SafeNext(t)     // #2 -> #3
@@ -177,17 +177,17 @@ func TestL2Finalization(gt *testing.T) {
 	miner.ActL1FinalizeNext(t) // #1 -> #2
 	miner.ActL1FinalizeNext(t) // #2 -> #3
 
-	proposer.ActL2PipelineFull(t)
-	proposer.ActL1FinalizedSignal(t)
-	proposer.ActL1SafeSignal(t)
-	proposer.ActL1HeadSignal(t)
-	require.Equal(t, uint64(6), proposer.SyncStatus().HeadL1.Number)
-	require.Equal(t, uint64(4), proposer.SyncStatus().SafeL1.Number)
-	require.Equal(t, uint64(3), proposer.SyncStatus().FinalizedL1.Number)
-	require.Equal(t, heightToSubmit, proposer.SyncStatus().FinalizedL2.Number, "finalized L2 blocks in first batch")
+	sequencer.ActL2PipelineFull(t)
+	sequencer.ActL1FinalizedSignal(t)
+	sequencer.ActL1SafeSignal(t)
+	sequencer.ActL1HeadSignal(t)
+	require.Equal(t, uint64(6), sequencer.SyncStatus().HeadL1.Number)
+	require.Equal(t, uint64(4), sequencer.SyncStatus().SafeL1.Number)
+	require.Equal(t, uint64(3), sequencer.SyncStatus().FinalizedL1.Number)
+	require.Equal(t, heightToSubmit, sequencer.SyncStatus().FinalizedL2.Number, "finalized L2 blocks in first batch")
 
 	// need to act with the engine on the signals still
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 
 	engCl := engine.EngineClient(t, sd.RollupCfg)
 	engBlock, err := engCl.L2BlockRefByLabel(t.Ctx(), eth.Finalized)
@@ -196,12 +196,12 @@ func TestL2Finalization(gt *testing.T) {
 
 	// Now try to finalize block 4, but with a bad/malicious alternative hash.
 	// If we get this false signal, we shouldn't finalize the L2 chain.
-	altBlock4 := proposer.SyncStatus().SafeL1
+	altBlock4 := sequencer.SyncStatus().SafeL1
 	altBlock4.Hash = common.HexToHash("0xdead")
-	proposer.derivation.Finalize(altBlock4)
-	proposer.ActL2PipelineFull(t)
-	require.Equal(t, uint64(3), proposer.SyncStatus().FinalizedL1.Number)
-	require.Equal(t, heightToSubmit, proposer.SyncStatus().FinalizedL2.Number, "unknown/bad finalized L1 blocks are ignored")
+	sequencer.derivation.Finalize(altBlock4)
+	sequencer.ActL2PipelineFull(t)
+	require.Equal(t, uint64(3), sequencer.SyncStatus().FinalizedL1.Number)
+	require.Equal(t, heightToSubmit, sequencer.SyncStatus().FinalizedL2.Number, "unknown/bad finalized L1 blocks are ignored")
 }
 
 // TestL2FinalizationWithSparseL1 tests that safe L2 blocks can be finalized even if we do not regularly get a L1 finalization signal
@@ -210,22 +210,22 @@ func TestL2FinalizationWithSparseL1(gt *testing.T) {
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
-	miner, engine, proposer := setupProposerTest(t, sd, log)
+	miner, engine, sequencer := setupSequencerTest(t, sd, log)
 
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 
 	miner.ActEmptyBlock(t)
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
-	startStatus := proposer.SyncStatus()
-	require.Less(t, startStatus.SafeL2.Number, startStatus.UnsafeL2.Number, "proposer has unsafe L2 block")
+	startStatus := sequencer.SyncStatus()
+	require.Less(t, startStatus.SafeL2.Number, startStatus.UnsafeL2.Number, "sequencer has unsafe L2 block")
 
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, proposer.RollupClient(), miner.EthClient(), engine.EthClient())
+	}, sequencer.RollupClient(), miner.EthClient(), engine.EthClient())
 	batcher.ActSubmitAll(t)
 
 	// include in L1
@@ -238,26 +238,26 @@ func TestL2FinalizationWithSparseL1(gt *testing.T) {
 	miner.ActEmptyBlock(t)
 
 	// See the L1 head, and traverse the pipeline to it
-	proposer.ActL1HeadSignal(t)
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActL2PipelineFull(t)
 
-	updatedStatus := proposer.SyncStatus()
+	updatedStatus := sequencer.SyncStatus()
 	require.Equal(t, updatedStatus.SafeL2.Number, updatedStatus.UnsafeL2.Number, "unsafe L2 block is now safe")
 	require.Less(t, updatedStatus.FinalizedL2.Number, updatedStatus.UnsafeL2.Number, "submitted block is not yet finalized")
 
-	// Now skip straight to the head with L1 signals (proposer has traversed the L1 blocks, but they did not have L2 contents)
+	// Now skip straight to the head with L1 signals (sequencer has traversed the L1 blocks, but they did not have L2 contents)
 	headL1Num := miner.UnsafeNum()
 	miner.ActL1Safe(t, headL1Num)
 	miner.ActL1Finalize(t, headL1Num)
-	proposer.ActL1SafeSignal(t)
-	proposer.ActL1FinalizedSignal(t)
+	sequencer.ActL1SafeSignal(t)
+	sequencer.ActL1FinalizedSignal(t)
 
 	// Now see if the signals can be processed
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 
-	finalStatus := proposer.SyncStatus()
+	finalStatus := sequencer.SyncStatus()
 	// Verify the signal was processed, even though we signalled a later L1 block than the one with the batch.
-	require.Equal(t, finalStatus.FinalizedL2.Number, finalStatus.UnsafeL2.Number, "proposer submitted its L2 block and it finalized")
+	require.Equal(t, finalStatus.FinalizedL2.Number, finalStatus.UnsafeL2.Number, "sequencer submitted its L2 block and it finalized")
 }
 
 // TestGarbageBatch tests the behavior of an invalid/malformed output channel frame containing
@@ -270,7 +270,7 @@ func TestGarbageBatch(gt *testing.T) {
 	for _, garbageKind := range GarbageKinds {
 		sd := e2eutils.Setup(t, dp, defaultAlloc)
 		log := testlog.Logger(t, log.LvlError)
-		miner, engine, proposer := setupProposerTest(t, sd, log)
+		miner, engine, sequencer := setupSequencerTest(t, sd, log)
 
 		_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
 
@@ -289,22 +289,22 @@ func TestGarbageBatch(gt *testing.T) {
 			}
 		}
 
-		batcher := NewL2Batcher(log, sd.RollupCfg, batcherCfg, proposer.RollupClient(), miner.EthClient(), engine.EthClient())
+		batcher := NewL2Batcher(log, sd.RollupCfg, batcherCfg, sequencer.RollupClient(), miner.EthClient(), engine.EthClient())
 
-		proposer.ActL2PipelineFull(t)
+		sequencer.ActL2PipelineFull(t)
 		syncer.ActL2PipelineFull(t)
 
 		syncAndBuildL2 := func() {
-			// Send a head signal to the proposer and syncer
-			proposer.ActL1HeadSignal(t)
+			// Send a head signal to the sequencer and syncer
+			sequencer.ActL1HeadSignal(t)
 			syncer.ActL1HeadSignal(t)
 
-			// Run the derivation pipeline on the proposer and syncer
-			proposer.ActL2PipelineFull(t)
+			// Run the derivation pipeline on the sequencer and syncer
+			sequencer.ActL2PipelineFull(t)
 			syncer.ActL2PipelineFull(t)
 
 			// Build the L2 chain to the L1 head
-			proposer.ActBuildToL1Head(t)
+			sequencer.ActBuildToL1Head(t)
 		}
 
 		// Build an empty block on L1 and run the derivation pipeline + build L2
@@ -314,8 +314,8 @@ func TestGarbageBatch(gt *testing.T) {
 
 		// Ensure that the L2 safe head has an L1 Origin at genesis before any
 		// batches are submitted.
-		require.Equal(t, uint64(0), proposer.L2Safe().L1Origin.Number)
-		require.Equal(t, uint64(1), proposer.L2Unsafe().L1Origin.Number)
+		require.Equal(t, uint64(0), sequencer.L2Safe().L1Origin.Number)
+		require.Equal(t, uint64(1), sequencer.L2Unsafe().L1Origin.Number)
 
 		// Submit a batch containing all blocks built on L2 while catching up
 		// to the L1 head above. The output channel frame submitted to the batch
@@ -330,29 +330,29 @@ func TestGarbageBatch(gt *testing.T) {
 		miner.ActL1IncludeTx(dp.Addresses.Batcher)(t)
 		miner.ActL1EndBlock(t)
 
-		// Send a head signal + run the derivation pipeline on the proposer
+		// Send a head signal + run the derivation pipeline on the sequencer
 		// and syncer.
 		syncAndBuildL2()
 
 		// Verify that the L2 blocks that were batch submitted were *not* marked
 		// as safe due to the malformed output channel frame. The safe head should
 		// still have an L1 Origin at genesis.
-		require.Equal(t, uint64(0), proposer.L2Safe().L1Origin.Number)
-		require.Equal(t, uint64(2), proposer.L2Unsafe().L1Origin.Number)
+		require.Equal(t, uint64(0), sequencer.L2Safe().L1Origin.Number)
+		require.Equal(t, uint64(2), sequencer.L2Unsafe().L1Origin.Number)
 	}
 }
 
 func TestExtendedTimeWithoutL1Batches(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	p := &e2eutils.TestParams{
-		MaxProposerDrift:   20, // larger than L1 block time we simulate in this test (12)
-		ProposerWindowSize: 24,
-		ChannelTimeout:     20,
+		MaxSequencerDrift:   20, // larger than L1 block time we simulate in this test (12)
+		SequencerWindowSize: 24,
+		ChannelTimeout:      20,
 	}
 	dp := e2eutils.MakeDeployParams(t, p)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlError)
-	miner, engine, proposer := setupProposerTest(t, sd, log)
+	miner, engine, sequencer := setupSequencerTest(t, sd, log)
 
 	_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
 
@@ -360,31 +360,31 @@ func TestExtendedTimeWithoutL1Batches(gt *testing.T) {
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, proposer.RollupClient(), miner.EthClient(), engine.EthClient())
+	}, sequencer.RollupClient(), miner.EthClient(), engine.EthClient())
 
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 	syncer.ActL2PipelineFull(t)
 
 	// make a long L1 chain, up to just one block left for L2 blocks to be included.
-	for i := uint64(0); i < p.ProposerWindowSize-1; i++ {
+	for i := uint64(0); i < p.SequencerWindowSize-1; i++ {
 		miner.ActEmptyBlock(t)
 	}
 
 	// Now build a L2 chain that references all of these L1 blocks
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
-	// Now submit all the L2 blocks in the very last L1 block within proposer window range
+	// Now submit all the L2 blocks in the very last L1 block within sequencer window range
 	batcher.ActSubmitAll(t)
 	miner.ActL1StartBlock(12)(t)
 	miner.ActL1IncludeTx(dp.Addresses.Batcher)(t)
 	miner.ActL1EndBlock(t)
 
-	// Now sync the syncer, and see if the L2 chain of the proposer is safe
+	// Now sync the syncer, and see if the L2 chain of the sequencer is safe
 	syncer.ActL2PipelineFull(t)
-	require.Equal(t, proposer.L2Unsafe(), syncer.L2Safe(), "all L2 blocks should have been included just in time")
-	proposer.ActL2PipelineFull(t)
-	require.Equal(t, proposer.L2Unsafe(), proposer.L2Safe(), "same for proposer")
+	require.Equal(t, sequencer.L2Unsafe(), syncer.L2Safe(), "all L2 blocks should have been included just in time")
+	sequencer.ActL2PipelineFull(t)
+	require.Equal(t, sequencer.L2Unsafe(), sequencer.L2Safe(), "same for sequencer")
 }
 
 // TestBigL2Txs tests a high-throughput case with constrained batcher:
@@ -394,7 +394,7 @@ func TestExtendedTimeWithoutL1Batches(gt *testing.T) {
 //   - Limit the data-tx size to 40 KB, to force data to be split across multiple data-txs
 //   - Defer all data-tx inclusion till the end
 //   - Fill L1 blocks with data-txs until we have processed them all
-//   - Run the syncer, and check if it derives the same L2 chain as was created by the proposer.
+//   - Run the syncer, and check if it derives the same L2 chain as was created by the sequencer.
 //
 // The goal of this test is to quickly run through an otherwise very slow process of submitting and including lots of data.
 // This does not test the batcher code, but is really focused at testing the batcher utils
@@ -402,14 +402,14 @@ func TestExtendedTimeWithoutL1Batches(gt *testing.T) {
 func TestBigL2Txs(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	p := &e2eutils.TestParams{
-		MaxProposerDrift:   100,
-		ProposerWindowSize: 1000,
-		ChannelTimeout:     200, // give enough space to buffer large amounts of data before submitting it
+		MaxSequencerDrift:   100,
+		SequencerWindowSize: 1000,
+		ChannelTimeout:      200, // give enough space to buffer large amounts of data before submitting it
 	}
 	dp := e2eutils.MakeDeployParams(t, p)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlInfo)
-	miner, engine, proposer := setupProposerTest(t, sd, log)
+	miner, engine, sequencer := setupSequencerTest(t, sd, log)
 
 	_, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
 
@@ -417,9 +417,9 @@ func TestBigL2Txs(gt *testing.T) {
 		MinL1TxSize: 0,
 		MaxL1TxSize: 40_000, // try a small batch size, to force the data to be split between more frames
 		BatcherKey:  dp.Secrets.Batcher,
-	}, proposer.RollupClient(), miner.EthClient(), engine.EthClient())
+	}, sequencer.RollupClient(), miner.EthClient(), engine.EthClient())
 
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 
 	syncer.ActL2PipelineFull(t)
 	cl := engine.EthClient()
@@ -434,13 +434,13 @@ func TestBigL2Txs(gt *testing.T) {
 	// build many L2 blocks filled to the brim with large txs of random data
 	for i := 0; i < 40; i++ {
 		aliceNonce, err := cl.PendingNonceAt(t.Ctx(), dp.Addresses.Alice)
-		status := proposer.SyncStatus()
-		// build empty L1 blocks as necessary, so the L2 proposer can continue to include txs while not drifting too far out
+		status := sequencer.SyncStatus()
+		// build empty L1 blocks as necessary, so the L2 sequencer can continue to include txs while not drifting too far out
 		if status.UnsafeL2.Time >= status.HeadL1.Time+12 {
 			miner.ActEmptyBlock(t)
 		}
-		proposer.ActL1HeadSignal(t)
-		proposer.ActL2StartBlock(t)
+		sequencer.ActL1HeadSignal(t)
+		sequencer.ActL2StartBlock(t)
 		baseFee := engine.l2Chain.CurrentBlock().BaseFee // this will go quite high, since so many consecutive blocks are filled at capacity.
 		// fill the block with large L2 txs from alice
 		for n := aliceNonce; ; n++ {
@@ -467,8 +467,8 @@ func TestBigL2Txs(gt *testing.T) {
 			require.NoError(gt, cl.SendTransaction(t.Ctx(), tx))
 			engine.ActL2IncludeTx(dp.Addresses.Alice)(t)
 		}
-		proposer.ActL2EndBlock(t)
-		for batcher.l2BufferedBlock.Number < proposer.SyncStatus().UnsafeL2.Number {
+		sequencer.ActL2EndBlock(t)
+		for batcher.l2BufferedBlock.Number < sequencer.SyncStatus().UnsafeL2.Number {
 			// if we run out of space, close the channel and submit all the txs
 			if err := batcher.Buffer(t); errors.Is(err, derive.ErrTooManyRLPBytes) {
 				log.Info("flushing filled channel to batch txs", "id", batcher.l2ChannelOut.ID())
@@ -512,5 +512,5 @@ func TestBigL2Txs(gt *testing.T) {
 	}
 	syncer.ActL1HeadSignal(t)
 	syncer.ActL2PipelineFull(t)
-	require.Equal(t, proposer.SyncStatus().UnsafeL2, syncer.SyncStatus().SafeL2, "syncer synced proposer data even though of huge tx in block")
+	require.Equal(t, sequencer.SyncStatus().UnsafeL2, syncer.SyncStatus().SafeL2, "syncer synced sequencer data even though of huge tx in block")
 }

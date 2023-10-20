@@ -62,8 +62,8 @@ func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l
 	}
 
 	// Filter out batches that were included too late.
-	if uint64(batch.Batch.EpochNum)+cfg.ProposerWindowSize < batch.L1InclusionBlock.Number {
-		log.Warn("batch was included too late, proposer window expired")
+	if uint64(batch.Batch.EpochNum)+cfg.SeqWindowSize < batch.L1InclusionBlock.Number {
+		log.Warn("batch was included too late, sequencer window expired")
 		return BatchDrop
 	}
 
@@ -101,10 +101,10 @@ func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l
 		return BatchDrop
 	}
 
-	// Check if we ran out of proposer time drift
-	if max := batchOrigin.Time + cfg.MaxProposerDrift; batch.Batch.Timestamp > max {
+	// Check if we ran out of sequencer time drift
+	if max := batchOrigin.Time + cfg.MaxSequencerDrift; batch.Batch.Timestamp > max {
 		if len(batch.Batch.Transactions) == 0 {
-			// If the proposer is co-operating by producing an empty batch,
+			// If the sequencer is co-operating by producing an empty batch,
 			// then allow the batch if it was the right thing to do to maintain the L2 time >= L1 time invariant.
 			// We only check batches that do not advance the epoch, to ensure epoch advancement regardless of time drift is allowed.
 			if epoch.Number == batchOrigin.Number {
@@ -114,16 +114,16 @@ func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l
 				}
 				nextOrigin := l1Blocks[1]
 				if batch.Batch.Timestamp >= nextOrigin.Time { // check if the next L1 origin could have been adopted
-					log.Info("batch exceeded proposer time drift without adopting next origin, and next L1 origin would have been valid")
+					log.Info("batch exceeded sequencer time drift without adopting next origin, and next L1 origin would have been valid")
 					return BatchDrop
 				} else {
 					log.Info("continuing with empty batch before late L1 block to preserve L2 time invariant")
 				}
 			}
 		} else {
-			// If the proposer is ignoring the time drift rule, then drop the batch and force an empty batch instead,
-			// as the proposer is not allowed to include anything past this point without moving to the next epoch.
-			log.Warn("batch exceeded proposer time drift, proposer must adopt new L1 origin to include transactions again", "max_time", max)
+			// If the sequencer is ignoring the time drift rule, then drop the batch and force an empty batch instead,
+			// as the sequencer is not allowed to include anything past this point without moving to the next epoch.
+			log.Warn("batch exceeded sequencer time drift, sequencer must adopt new L1 origin to include transactions again", "max_time", max)
 			return BatchDrop
 		}
 	}
@@ -135,7 +135,7 @@ func CheckBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l
 			return BatchDrop
 		}
 		if txBytes[0] == types.DepositTxType {
-			log.Warn("proposers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+			log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
 			return BatchDrop
 		}
 	}

@@ -88,10 +88,10 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		L2BlockTime: 1,
 
 		FinalizationPeriodSeconds: 60 * 60 * 24,
-		MaxProposerDrift:          10,
-		ProposerWindowSize:        30,
+		MaxSequencerDrift:         10,
+		SequencerWindowSize:       30,
 		ChannelTimeout:            10,
-		P2PProposerAddress:        addresses.ProposerP2P,
+		P2PSequencerAddress:       addresses.SequencerP2P,
 		BatchInboxAddress:         common.Address{0: 0x52, 19: 0xff}, // tbd
 		BatchSenderAddress:        addresses.Batcher,
 
@@ -140,7 +140,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 
 		ProxyAdminOwner:              addresses.ProxyAdminOwner,
 		ProtocolVaultRecipient:       common.Address{19: 2},
-		ProposerRewardVaultRecipient: common.Address{19: 3},
+		L1FeeVaultRecipient:       common.Address{19: 3},
 
 		DeploymentWaitConfirmations: 1,
 
@@ -175,19 +175,19 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		Nodes: map[string]*rollupNode.Config{
 			"syncer": {
 				Driver: driver.Config{
-					SyncerConfDepth:   0,
-					ProposerConfDepth: 0,
-					ProposerEnabled:   false,
+					SyncerConfDepth:    0,
+					SequencerConfDepth: 0,
+					SequencerEnabled:   false,
 				},
 				L1EpochPollInterval: time.Second * 4,
 			},
-			"proposer": {
+			"sequencer": {
 				Driver: driver.Config{
-					SyncerConfDepth:   0,
-					ProposerConfDepth: 0,
-					ProposerEnabled:   true,
+					SyncerConfDepth:    0,
+					SequencerConfDepth: 0,
+					SequencerEnabled:   true,
 				},
-				// Submitter PrivKey is set in system start for rollup nodes where proposer = true
+				// Submitter PrivKey is set in system start for rollup nodes where sequencer = true
 				RPC: rollupNode.RPCConfig{
 					ListenAddr:  "127.0.0.1",
 					ListenPort:  0,
@@ -198,7 +198,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		},
 		Loggers: map[string]log.Logger{
 			"syncer":     testlog.Logger(t, log.LvlInfo).New("role", "syncer"),
-			"proposer":   testlog.Logger(t, log.LvlInfo).New("role", "proposer"),
+			"sequencer":  testlog.Logger(t, log.LvlInfo).New("role", "sequencer"),
 			"batcher":    testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
 			"validator":  testlog.Logger(t, log.LvlInfo).New("role", "validator"),
 			"challenger": testlog.Logger(t, log.LvlInfo).New("role", "challenger"),
@@ -413,8 +413,8 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 				SystemConfig: e2eutils.SystemConfigFromDeployConfig(cfg.DeployConfig),
 			},
 			BlockTime:              cfg.DeployConfig.L2BlockTime,
-			MaxProposerDrift:       cfg.DeployConfig.MaxProposerDrift,
-			ProposerWindowSize:     cfg.DeployConfig.ProposerWindowSize,
+			MaxSequencerDrift:      cfg.DeployConfig.MaxSequencerDrift,
+			SeqWindowSize:          cfg.DeployConfig.SequencerWindowSize,
 			ChannelTimeout:         cfg.DeployConfig.ChannelTimeout,
 			L1ChainID:              cfg.L1ChainIDBig(),
 			L2ChainID:              cfg.L2ChainIDBig(),
@@ -549,8 +549,8 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		if p, ok := p2pNodes[name]; ok {
 			c.P2P = p
 
-			if c.Driver.ProposerEnabled && c.P2PSigner == nil {
-				c.P2PSigner = &p2p.PreparedSigner{Signer: p2p.NewLocalSigner(cfg.Secrets.ProposerP2P)}
+			if c.Driver.SequencerEnabled && c.P2PSigner == nil {
+				c.P2PSigner = &p2p.PreparedSigner{Signer: p2p.NewLocalSigner(cfg.Secrets.SequencerP2P)}
 			}
 		}
 
@@ -597,8 +597,8 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	// Run validator node (L2 Output Submitter, Asserter)
 	validatorCliCfg := validator.CLIConfig{
 		L1EthRpc:                        sys.Nodes["l1"].WSEndpoint(),
-		L2EthRpc:                        sys.Nodes["proposer"].HTTPEndpoint(),
-		RollupRpc:                       sys.RollupNodes["proposer"].HTTPEndpoint(),
+		L2EthRpc:                        sys.Nodes["sequencer"].HTTPEndpoint(),
+		RollupRpc:                       sys.RollupNodes["sequencer"].HTTPEndpoint(),
 		L2OOAddress:                     predeploys.DevL2OutputOracleAddr.String(),
 		ColosseumAddress:                predeploys.DevColosseumAddr.String(),
 		ValPoolAddress:                  predeploys.DevValidatorPoolAddr.String(),
@@ -636,7 +636,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	rpcCl := client.NewBaseRPCClient(cl)
 	validatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
 	validatorCfg.RollupClient = sources.NewRollupClient(validatorMaliciousL2RPC)
-	validatorCfg.L2Client = sys.Clients["proposer"]
+	validatorCfg.L2Client = sys.Clients["sequencer"]
 
 	// If malicious validator is turned on, set target block number for submitting invalid output
 	if cfg.EnableMaliciousValidator {
@@ -655,8 +655,8 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	// Run validator node (Challenger)
 	challengerCliCfg := validator.CLIConfig{
 		L1EthRpc:               sys.Nodes["l1"].WSEndpoint(),
-		L2EthRpc:               sys.Nodes["proposer"].HTTPEndpoint(),
-		RollupRpc:              sys.RollupNodes["proposer"].HTTPEndpoint(),
+		L2EthRpc:               sys.Nodes["sequencer"].HTTPEndpoint(),
+		RollupRpc:              sys.RollupNodes["sequencer"].HTTPEndpoint(),
 		L2OOAddress:            predeploys.DevL2OutputOracleAddr.String(),
 		ColosseumAddress:       predeploys.DevColosseumAddr.String(),
 		ValPoolAddress:         predeploys.DevValidatorPoolAddr.String(),
@@ -686,7 +686,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	rpcCl = client.NewBaseRPCClient(cl)
 	challengerHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
 	challengerCfg.RollupClient = sources.NewRollupClient(challengerHonestL2RPC)
-	challengerCfg.L2Client = sys.Clients["proposer"]
+	challengerCfg.L2Client = sys.Clients["sequencer"]
 
 	// If malicious validator is turned on, set target block number for challenge
 	if cfg.EnableMaliciousValidator {
@@ -707,8 +707,8 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	// Batcher (Batch Submitter)
 	batcherCliCfg := batcher.CLIConfig{
 		L1EthRpc:           sys.Nodes["l1"].WSEndpoint(),
-		L2EthRpc:           sys.Nodes["proposer"].WSEndpoint(),
-		RollupRpc:          sys.RollupNodes["proposer"].HTTPEndpoint(),
+		L2EthRpc:           sys.Nodes["sequencer"].WSEndpoint(),
+		RollupRpc:          sys.RollupNodes["sequencer"].HTTPEndpoint(),
 		MaxChannelDuration: 1,
 		MaxL1TxSize:        120_000,
 		TargetL1TxSize:     100_000,
@@ -847,10 +847,10 @@ func (cfg SystemConfig) DepositValidatorPool(l1Client *ethclient.Client, priv *e
 	return nil
 }
 
-func (cfg SystemConfig) SendTransferTx(l2Prop *ethclient.Client, l2Sync *ethclient.Client) (*types.Receipt, error) {
+func (cfg SystemConfig) SendTransferTx(l2Seq *ethclient.Client, l2Sync *ethclient.Client) (*types.Receipt, error) {
 	chainId := cfg.L2ChainIDBig()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	nonce, err := l2Prop.PendingNonceAt(ctx, cfg.Secrets.Addresses().Alice)
+	nonce, err := l2Seq.PendingNonceAt(ctx, cfg.Secrets.Addresses().Alice)
 	cancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nonce: %w", err)
@@ -866,15 +866,15 @@ func (cfg SystemConfig) SendTransferTx(l2Prop *ethclient.Client, l2Sync *ethclie
 	})
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
-	err = l2Prop.SendTransaction(ctx, tx)
+	err = l2Seq.SendTransaction(ctx, tx)
 	cancel()
 	if err != nil {
-		return nil, fmt.Errorf("failed to send L2 tx to proposer: %w", err)
+		return nil, fmt.Errorf("failed to send L2 tx to sequencer: %w", err)
 	}
 
-	_, err = waitForL2Transaction(tx.Hash(), l2Prop, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	_, err = waitForL2Transaction(tx.Hash(), l2Seq, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("failed to wait L2 tx on proposer: %w", err)
+		return nil, fmt.Errorf("failed to wait L2 tx on sequencer: %w", err)
 	}
 
 	receipt, err := waitForL2Transaction(tx.Hash(), l2Sync, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)

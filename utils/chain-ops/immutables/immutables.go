@@ -49,8 +49,8 @@ func (i ImmutableConfig) Check() error {
 	if _, ok := i["ValidatorRewardVault"]["validatorPoolAddress"]; !ok {
 		return errors.New("ValidatorRewardVault validatorPoolAddress not set")
 	}
-	if _, ok := i["ProposerRewardVault"]["recipient"]; !ok {
-		return errors.New("ProposerRewardVault recipient not set")
+	if _, ok := i["L1FeeVault"]["recipient"]; !ok {
+		return errors.New("L1FeeVault recipient not set")
 	}
 	if _, ok := i["ProtocolVault"]["recipient"]; !ok {
 		return errors.New("ProtocolVault recipient not set")
@@ -105,9 +105,9 @@ func BuildKroma(immutable ImmutableConfig, zktrie bool) (DeploymentResults, erro
 			},
 		},
 		{
-			Name: "ProposerRewardVault",
+			Name: "L1FeeVault",
 			Args: []interface{}{
-				immutable["ProposerRewardVault"]["recipient"],
+				immutable["L1FeeVault"]["recipient"],
 			},
 		},
 		{
@@ -186,12 +186,12 @@ func l2Deployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, dep
 			return nil, fmt.Errorf("invalid type for recipient")
 		}
 		_, tx, _, err = bindings.DeployProtocolVault(opts, backend, recipient)
-	case "ProposerRewardVault":
+	case "L1FeeVault":
 		recipient, ok := deployment.Args[0].(common.Address)
 		if !ok {
 			return nil, fmt.Errorf("invalid type for recipient")
 		}
-		_, tx, _, err = bindings.DeployProposerRewardVault(opts, backend, recipient)
+		_, tx, _, err = bindings.DeployL1FeeVault(opts, backend, recipient)
 	case "KromaMintableERC20Factory":
 		_, tx, _, err = bindings.DeployKromaMintableERC20Factory(opts, backend, predeploys.L2StandardBridgeAddr)
 	case "L2ERC721Bridge":

@@ -93,8 +93,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 			L2:     refA0.ID(),
 			L2Time: refA0.Time,
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -222,7 +222,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 	eng.ExpectL2BlockRefByHash(refE1.ParentHash, refE0, nil)
 	eng.ExpectL2BlockRefByHash(refE0.ParentHash, refD1, nil)
 
-	// now full proposer window, inclusive
+	// now full seq window, inclusive
 	l1F.ExpectL1BlockRefByHash(refD.Hash, refD, nil)
 	eng.ExpectL2BlockRefByHash(refD1.ParentHash, refD0, nil)
 	eng.ExpectL2BlockRefByHash(refD0.ParentHash, refC1, nil)
@@ -250,7 +250,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
 	require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
-	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to proposer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
+	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to sequence window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
 	require.Equal(t, refB, eq.Origin(), "Expecting to be set back derivation L1 progress to B")
 	require.Equal(t, refA1, eq.Finalized(), "A1 is recognized as finalized before we run any steps")
 
@@ -328,8 +328,8 @@ func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 			L2:     refA0.ID(),
 			L2Time: refA0.Time,
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -457,7 +457,7 @@ func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 	eng.ExpectL2BlockRefByHash(refE1.ParentHash, refE0, nil)
 	eng.ExpectL2BlockRefByHash(refE0.ParentHash, refD1, nil)
 
-	// now full proposer window, inclusive
+	// now full seq window, inclusive
 	l1F.ExpectL1BlockRefByHash(refD.Hash, refD, nil)
 	eng.ExpectL2BlockRefByHash(refD1.ParentHash, refD0, nil)
 	eng.ExpectL2BlockRefByHash(refD0.ParentHash, refC1, nil)
@@ -485,7 +485,7 @@ func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
 	require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
-	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to proposer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
+	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to sequencer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
 	require.Equal(t, refB, eq.Origin(), "Expecting to be set back derivation L1 progress to B")
 	require.Equal(t, refA1, eq.Finalized(), "A1 is recognized as finalized before we run any steps")
 
@@ -581,8 +581,8 @@ func TestVerifyNewL1Origin(t *testing.T) {
 			L2:     refA0.ID(),
 			L2Time: refA0.Time,
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -789,7 +789,7 @@ func TestVerifyNewL1Origin(t *testing.T) {
 			eng.ExpectL2BlockRefByHash(refE1.ParentHash, refE0, nil)
 			eng.ExpectL2BlockRefByHash(refE0.ParentHash, refD1, nil)
 
-			// now full proposer window, inclusive
+			// now full seq window, inclusive
 			l1F.ExpectL1BlockRefByHash(refD.Hash, refD, nil)
 			eng.ExpectL2BlockRefByHash(refD1.ParentHash, refD0, nil)
 			eng.ExpectL2BlockRefByHash(refD0.ParentHash, refC1, nil)
@@ -816,7 +816,7 @@ func TestVerifyNewL1Origin(t *testing.T) {
 			eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
 			require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
-			require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to proposer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
+			require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to sequencer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
 			require.Equal(t, refB, eq.Origin(), "Expecting to be set back derivation L1 progress to B")
 			require.Equal(t, refA1, eq.Finalized(), "A1 is recognized as finalized before we run any steps")
 
@@ -875,8 +875,8 @@ func TestBlockBuildingRace(t *testing.T) {
 				GasLimit:    20_000_000,
 			},
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -1045,8 +1045,8 @@ func TestResetLoop(t *testing.T) {
 				GasLimit:    20_000_000,
 			},
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -1145,8 +1145,8 @@ func TestEngineQueue_StepPopOlderUnsafe(t *testing.T) {
 				GasLimit:    20_000_000,
 			},
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 
 	refA1 := eth.L2BlockRef{

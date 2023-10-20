@@ -9,24 +9,24 @@ const deployFn: DeployFunction = async (hre) => {
   const l1 = hre.network.companionNetworks['l1']
   const deployConfig = hre.getDeployConfig(l1)
 
-  const proposerRewardVaultRecipient = deployConfig.proposerRewardVaultRecipient
-  if (proposerRewardVaultRecipient === ethers.constants.AddressZero) {
-    throw new Error('ProposerRewardVault RECIPIENT zero address')
+  const l1FeeVaultRecipient = deployConfig.l1FeeVaultRecipient
+  if (l1FeeVaultRecipient === ethers.constants.AddressZero) {
+    throw new Error('L1FeeVault RECIPIENT zero address')
   }
 
-  await deploy(hre, 'ProposerRewardVault', {
-    args: [proposerRewardVaultRecipient],
+  await deploy(hre, 'L1FeeVault', {
+    args: [l1FeeVaultRecipient],
     isProxyImpl: true,
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,
         'RECIPIENT',
-        ethers.utils.getAddress(proposerRewardVaultRecipient)
+        ethers.utils.getAddress(l1FeeVaultRecipient)
       )
     },
   })
 }
 
-deployFn.tags = ['ProposerRewardVault', 'l2']
+deployFn.tags = ['L1FeeVault', 'l2']
 
 export default deployFn

@@ -47,10 +47,10 @@ type L1Replica struct {
 }
 
 var defaultRollupTestParams = &e2eutils.TestParams{
-	MaxProposerDrift:   40,
-	ProposerWindowSize: 120,
-	ChannelTimeout:     120,
-	L1BlockTime:        15,
+	MaxSequencerDrift:   40,
+	SequencerWindowSize: 120,
+	ChannelTimeout:      120,
+	L1BlockTime:         15,
 }
 
 var defaultAlloc = &e2eutils.AllocParams{PrefundTestUsers: true}

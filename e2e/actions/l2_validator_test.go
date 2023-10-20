@@ -18,14 +18,14 @@ func TestValidator(gt *testing.T) {
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
-	miner, propEngine, proposer := setupProposerTest(t, sd, log)
+	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
 
-	rollupPropCl := proposer.RollupClient()
+	rollupSeqCl := sequencer.RollupClient()
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, rollupPropCl, miner.EthClient(), propEngine.EthClient())
+	}, rollupSeqCl, miner.EthClient(), seqEngine.EthClient())
 
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
@@ -34,7 +34,7 @@ func TestValidator(gt *testing.T) {
 		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:        dp.Secrets.TrustedValidator,
 		AllowNonFinalized:   false,
-	}, miner.EthClient(), propEngine.EthClient(), proposer.RollupClient())
+	}, miner.EthClient(), seqEngine.EthClient(), sequencer.RollupClient())
 
 	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
 	// config is set) block to pass after each submission interval before submitting the output
@@ -46,9 +46,9 @@ func TestValidator(gt *testing.T) {
 		// L1 block
 		miner.ActEmptyBlock(t)
 		// L2 block
-		proposer.ActL1HeadSignal(t)
-		proposer.ActL2PipelineFull(t)
-		proposer.ActBuildToL1Head(t)
+		sequencer.ActL1HeadSignal(t)
+		sequencer.ActL2PipelineFull(t)
+		sequencer.ActBuildToL1Head(t)
 		// submit and include in L1
 		batcher.ActSubmitAll(t)
 		miner.includeL1Block(t, dp.Addresses.Batcher)
@@ -58,16 +58,16 @@ func TestValidator(gt *testing.T) {
 		miner.ActL1FinalizeNext(t)
 		miner.ActL1FinalizeNext(t)
 		// derive and see the L2 chain fully finalize
-		proposer.ActL2PipelineFull(t)
-		proposer.ActL1SafeSignal(t)
-		proposer.ActL1FinalizedSignal(t)
+		sequencer.ActL2PipelineFull(t)
+		sequencer.ActL1SafeSignal(t)
+		sequencer.ActL1FinalizedSignal(t)
 	}
 
 	// deposit bond for validator
 	validator.ActDeposit(t, 1_000)
 	miner.includeL1Block(t, validator.address)
 
-	require.Equal(t, proposer.SyncStatus().UnsafeL2, proposer.SyncStatus().FinalizedL2)
+	require.Equal(t, sequencer.SyncStatus().UnsafeL2, sequencer.SyncStatus().FinalizedL2)
 	// create l2 output submission transactions until there is nothing left to submit
 	for {
 		waitTime := validator.CalculateWaitTime(t)
@@ -90,16 +90,16 @@ func TestValidator(gt *testing.T) {
 	require.NoError(t, err)
 	// NOTE(chokobole): Comment these 2 lines because of the reason above.
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
-	// block := proposer.SyncStatus().FinalizedL2
+	// block := sequencer.SyncStatus().FinalizedL2
 	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
 	blockNum, err := outputOracleContract.LatestBlockNumber(nil)
 	require.NoError(t, err)
 	outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, blockNum)
 	require.NoError(t, err)
-	block, err := propEngine.EthClient().BlockByNumber(t.Ctx(), blockNum)
+	block, err := seqEngine.EthClient().BlockByNumber(t.Ctx(), blockNum)
 	require.NoError(t, err)
 	require.Less(t, block.Time(), outputOnL1.Timestamp.Uint64(), "output is registered with L1 timestamp of L2 tx output submission, past L2 block")
-	outputComputed, err := proposer.RollupClient().OutputAtBlock(t.Ctx(), blockNum.Uint64())
+	outputComputed, err := sequencer.RollupClient().OutputAtBlock(t.Ctx(), blockNum.Uint64())
 	require.NoError(t, err)
 	require.Equal(t, eth.Bytes32(outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must match")
 }

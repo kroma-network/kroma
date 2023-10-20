@@ -540,7 +540,7 @@ func (eq *EngineQueue) tryNextUnsafePayload(ctx context.Context) error {
 	}
 	eq.unsafePayloads.Pop()
 	eq.log.Trace("Executed unsafe payload", "hash", ref.Hash, "number", ref.Number, "timestamp", ref.Time, "l1Origin", ref.L1Origin)
-	eq.logSyncProgress("unsafe payload from proposer")
+	eq.logSyncProgress("unsafe payload from sequencer")
 
 	return nil
 }

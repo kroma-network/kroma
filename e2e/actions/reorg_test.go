@@ -21,7 +21,7 @@ import (
 	"github.com/kroma-network/kroma/e2e/e2eutils"
 )
 
-func setupReorgTest(t Testing, config *e2eutils.TestParams) (*e2eutils.SetupData, *e2eutils.DeployParams, *L1Miner, *L2Proposer, *L2Engine, *L2Syncer, *L2Engine, *L2Batcher) {
+func setupReorgTest(t Testing, config *e2eutils.TestParams) (*e2eutils.SetupData, *e2eutils.DeployParams, *L1Miner, *L2Sequencer, *L2Engine, *L2Syncer, *L2Engine, *L2Batcher) {
 	dp := e2eutils.MakeDeployParams(t, config)
 
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
@@ -30,34 +30,34 @@ func setupReorgTest(t Testing, config *e2eutils.TestParams) (*e2eutils.SetupData
 	return setupReorgTestActors(t, dp, sd, log)
 }
 
-func setupReorgTestActors(t Testing, dp *e2eutils.DeployParams, sd *e2eutils.SetupData, log log.Logger) (*e2eutils.SetupData, *e2eutils.DeployParams, *L1Miner, *L2Proposer, *L2Engine, *L2Syncer, *L2Engine, *L2Batcher) {
-	miner, propEngine, proposer := setupProposerTest(t, sd, log)
+func setupReorgTestActors(t Testing, dp *e2eutils.DeployParams, sd *e2eutils.SetupData, log log.Logger) (*e2eutils.SetupData, *e2eutils.DeployParams, *L1Miner, *L2Sequencer, *L2Engine, *L2Syncer, *L2Engine, *L2Batcher) {
+	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
 	miner.ActL1SetFeeRecipient(common.Address{'A'})
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 	syncEngine, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
-	rollupPropCl := proposer.RollupClient()
+	rollupSeqCl := sequencer.RollupClient()
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, rollupPropCl, miner.EthClient(), propEngine.EthClient())
-	return sd, dp, miner, proposer, propEngine, syncer, syncEngine, batcher
+	}, rollupSeqCl, miner.EthClient(), seqEngine.EthClient())
+	return sd, dp, miner, sequencer, seqEngine, syncer, syncEngine, batcher
 }
 
 func TestReorgOrphanBlock(gt *testing.T) {
 	t := NewDefaultTesting(gt)
-	sd, _, miner, proposer, _, syncer, syncerEngine, batcher := setupReorgTest(t, defaultRollupTestParams)
+	sd, _, miner, sequencer, _, syncer, syncerEngine, batcher := setupReorgTest(t, defaultRollupTestParams)
 	syncEngClient := syncerEngine.EngineClient(t, sd.RollupCfg)
 
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 	syncer.ActL2PipelineFull(t)
 
 	// build empty L1 block
 	miner.ActEmptyBlock(t)
 
 	// Create L2 blocks, and reference the L1 head as origin
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
 	// submit all new L2 blocks
 	batcher.ActSubmitAll(t)
@@ -71,8 +71,8 @@ func TestReorgOrphanBlock(gt *testing.T) {
 	// syncer picks up the L2 chain that was submitted
 	syncer.ActL1HeadSignal(t)
 	syncer.ActL2PipelineFull(t)
-	require.Equal(t, syncer.L2Safe(), proposer.L2Unsafe(), "syncer syncs from proposer via L1")
-	require.NotEqual(t, proposer.L2Safe(), proposer.L2Unsafe(), "proposer has not processed L1 yet")
+	require.Equal(t, syncer.L2Safe(), sequencer.L2Unsafe(), "syncer syncs from sequencer via L1")
+	require.NotEqual(t, sequencer.L2Safe(), sequencer.L2Unsafe(), "sequencer has not processed L1 yet")
 
 	// orphan the L1 block that included the batch tx, and build a new different L1 block
 	miner.ActL1RewindToParent(t)
@@ -84,7 +84,7 @@ func TestReorgOrphanBlock(gt *testing.T) {
 	// However, the L2 chain can still be canonical later, since it did not reference the reorged L1 block
 	syncer.ActL1HeadSignal(t)
 	syncer.ActL2PipelineFull(t)
-	require.Equal(t, syncer.L2Safe(), proposer.L2Safe(), "syncer rewinds safe when L1 reorgs out batch")
+	require.Equal(t, syncer.L2Safe(), sequencer.L2Safe(), "syncer rewinds safe when L1 reorgs out batch")
 	ref, err := syncEngClient.L2BlockRefByLabel(t.Ctx(), eth.Safe)
 	require.NoError(t, err)
 	require.Equal(t, syncer.L2Safe(), ref, "syncer engine matches rollup client")
@@ -102,35 +102,35 @@ func TestReorgOrphanBlock(gt *testing.T) {
 	// sync the syncer again: now it should be safe again
 	syncer.ActL1HeadSignal(t)
 	syncer.ActL2PipelineFull(t)
-	require.Equal(t, syncer.L2Safe(), proposer.L2Unsafe(), "syncer syncs from proposer via replayed batch on L1")
+	require.Equal(t, syncer.L2Safe(), sequencer.L2Unsafe(), "syncer syncs from sequencer via replayed batch on L1")
 	ref, err = syncEngClient.L2BlockRefByLabel(t.Ctx(), eth.Safe)
 	require.NoError(t, err)
 	require.Equal(t, syncer.L2Safe(), ref, "syncer engine matches rollup client")
 
-	proposer.ActL1HeadSignal(t)
-	proposer.ActL2PipelineFull(t)
-	require.Equal(t, syncer.L2Safe(), proposer.L2Safe(), "syncer and proposer see same safe L2 block, while only syncer dealt with the orphan and replay")
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActL2PipelineFull(t)
+	require.Equal(t, syncer.L2Safe(), sequencer.L2Safe(), "syncer and sequencer see same safe L2 block, while only syncer dealt with the orphan and replay")
 }
 
 func TestReorgFlipFlop(gt *testing.T) {
 	t := NewDefaultTesting(gt)
-	sd, _, miner, proposer, _, syncer, syncerEng, batcher := setupReorgTest(t, defaultRollupTestParams)
+	sd, _, miner, sequencer, _, syncer, syncerEng, batcher := setupReorgTest(t, defaultRollupTestParams)
 	minerCl := miner.L1Client(t, sd.RollupCfg)
 	syncEngClient := syncerEng.EngineClient(t, sd.RollupCfg)
 	checkSyncEngine := func() {
 		// TODO: geth preserves L2 chain with origin A1 after flip-flopping to B?
-		//ref, err := syncEngClient.L2BlockRefByLabel(t.Ctx(), eth.Unsafe)
-		//require.NoError(t, err)
-		//t.Logf("l2 unsafe head %s with origin %s", ref, ref.L1Origin)
-		//require.NotEqual(t, syncer.L2Unsafe().Hash, ref.ParentHash, "TODO off by one, engine syncs A0 after reorging back from B, while rollup node only inserts up to A0 (excl.)")
-		//require.Equal(t, syncer.L2Unsafe(), ref, "syncer safe head of engine matches rollup client")
+		// ref, err := syncEngClient.L2BlockRefByLabel(t.Ctx(), eth.Unsafe)
+		// require.NoError(t, err)
+		// t.Logf("l2 unsafe head %s with origin %s", ref, ref.L1Origin)
+		// require.NotEqual(t, syncer.L2Unsafe().Hash, ref.ParentHash, "TODO off by one, engine syncs A0 after reorging back from B, while rollup node only inserts up to A0 (excl.)")
+		// require.Equal(t, syncer.L2Unsafe(), ref, "syncer safe head of engine matches rollup client")
 
 		ref, err := syncEngClient.L2BlockRefByLabel(t.Ctx(), eth.Safe)
 		require.NoError(t, err)
 		require.Equal(t, syncer.L2Safe(), ref, "syncer safe head of engine matches rollup client")
 	}
 
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 	syncer.ActL2PipelineFull(t)
 
 	// Start building chain A
@@ -140,8 +140,8 @@ func TestReorgFlipFlop(gt *testing.T) {
 	require.NoError(t, err)
 
 	// Create L2 blocks, and reference the L1 head A0 as origin
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
 	// submit all new L2 blocks
 	batcher.ActSubmitAll(t)
@@ -193,11 +193,11 @@ func TestReorgFlipFlop(gt *testing.T) {
 	require.Equal(t, syncer.L2Safe(), syncer.L2Unsafe(), "head is at safe block after L1 reorg")
 	checkSyncEngine()
 
-	// and sync the proposer, then build some new L2 blocks, up to and including with L1 origin B2
-	proposer.ActL1HeadSignal(t)
-	proposer.ActL2PipelineFull(t)
-	proposer.ActBuildToL1Head(t)
-	require.Equal(t, proposer.L2Unsafe().L1Origin, blockB2.ID(), "B2 is the unsafe L1 origin of proposer now")
+	// and sync the sequencer, then build some new L2 blocks, up to and including with L1 origin B2
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActL2PipelineFull(t)
+	sequencer.ActBuildToL1Head(t)
+	require.Equal(t, sequencer.L2Unsafe().L1Origin, blockB2.ID(), "B2 is the unsafe L1 origin of sequencer now")
 
 	// submit all new L2 blocks for chain B, and include in new block B3
 	batcher.ActSubmitAll(t)
@@ -247,13 +247,13 @@ func TestReorgFlipFlop(gt *testing.T) {
 	require.Equal(t, syncer.L2Safe().L1Origin, blockA0.ID(), "B2 is the L1 origin of syncer now")
 	checkSyncEngine()
 
-	// sync proposer to the replayed L1 chain A
-	proposer.ActL1HeadSignal(t)
-	proposer.ActL2PipelineFull(t)
-	require.Equal(t, syncer.L2Safe(), proposer.L2Safe(), "proposer reorgs to match syncer again")
+	// sync sequencer to the replayed L1 chain A
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActL2PipelineFull(t)
+	require.Equal(t, syncer.L2Safe(), sequencer.L2Safe(), "sequencer reorgs to match syncer again")
 
 	// and adopt the rest of L1 chain A into L2
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActBuildToL1Head(t)
 
 	// submit the new unsafe A blocks
 	batcher.ActSubmitAll(t)
@@ -262,10 +262,10 @@ func TestReorgFlipFlop(gt *testing.T) {
 	miner.ActL1IncludeTx(sd.RollupCfg.Genesis.SystemConfig.BatcherAddr)(t)
 	miner.ActL1EndBlock(t)
 
-	// sync syncer to what ths proposer submitted
+	// sync syncer to what ths sequencer submitted
 	syncer.ActL1HeadSignal(t)
 	syncer.ActL2PipelineFull(t)
-	require.Equal(t, syncer.L2Safe(), proposer.L2Unsafe(), "syncer syncs from proposer")
+	require.Equal(t, syncer.L2Safe(), sequencer.L2Unsafe(), "syncer syncs from sequencer")
 	require.Equal(t, syncer.L2Safe().L1Origin, blockA4.ID(), "L2 chain origin is A4")
 	checkSyncEngine()
 }
@@ -274,19 +274,19 @@ func TestReorgFlipFlop(gt *testing.T) {
 //
 // Steps:
 //  1. Create an L1 actor
-//  2. Ask the L1 actor to build three proposer windows of empty blocks
+//  2. Ask the L1 actor to build three sequencer windows of empty blocks
 //     2.a alice submits a transaction on l2 with an l1 origin of block #35
 //     2.b in block #50, include the batch that contains the l2 block with alice's transaction as well
 //     as all other blocks before it.
-//  3. Ask the L2 proposer to build a chain that references these L1 blocks
+//  3. Ask the L2 sequencer to build a chain that references these L1 blocks
 //  4. Ask the batch submitter to submit remaining unsafe L2 blocks to L1
 //  5. Ask the L1 to include this data
 //  6. Rewind chain A 21 blocks
-//  7. Ask the L1 actor to build one proposer window + 1 empty blocks on chain B
+//  7. Ask the L1 actor to build one sequencer window + 1 empty blocks on chain B
 //  8. Ask the L1 actor to build an empty block in place of the batch submission block on chain A
 //  9. Ask the L1 actor to create another empty block so that chain B is longer than chain A
-//  10. Ask the L2 proposer to send a head signal and run one iteration of the derivation pipeline.
-//  11. Ask the L2 proposer build a chain that references chain B's blocks
+//  10. Ask the L2 sequencer to send a head signal and run one iteration of the derivation pipeline.
+//  11. Ask the L2 sequencer build a chain that references chain B's blocks
 //  12. Sync the syncer and assert that the L2 safe head L1 origin has caught up with chain B
 //  13. Ensure that the parent L2 block of the block that contains Alice's transaction still exists
 //     after the L2 has re-derived from chain B.
@@ -305,10 +305,10 @@ func TestReorgFlipFlop(gt *testing.T) {
 // - Unsafe head origin is A61
 //
 // Reorg L1 (start: block #61, depth: 22 blocks)
-// - Rewind depth: Batch submission block + ProposerWindowSize+1 blocks
+// - Rewind depth: Batch submission block + SequencerWindowSize+1 blocks
 // - Wind back to block #39
 //
-// Before building L2 to L1 head / syncing syncer & proposer:
+// Before building L2 to L1 head / syncing syncer & sequencer:
 // Syncer
 // - Unsafe head L1 origin is block #60
 // - Safe head L1 origin is at genesis block #60
@@ -328,14 +328,14 @@ func TestDeepReorg(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 
 	// Create actor and synchronization engine client
-	sd, dp, miner, proposer, propEngine, syncer, syncerEng, batcher := setupReorgTest(t, &e2eutils.TestParams{
-		MaxProposerDrift:   40,
-		ProposerWindowSize: 20,
-		ChannelTimeout:     120,
-		L1BlockTime:        4,
+	sd, dp, miner, sequencer, seqEngine, syncer, syncerEng, batcher := setupReorgTest(t, &e2eutils.TestParams{
+		MaxSequencerDrift:   40,
+		SequencerWindowSize: 20,
+		ChannelTimeout:      120,
+		L1BlockTime:         4,
 	})
 	minerCl := miner.L1Client(t, sd.RollupCfg)
-	l2Client := propEngine.EthClient()
+	l2Client := seqEngine.EthClient()
 	syncEngClient := syncerEng.EngineClient(t, sd.RollupCfg)
 	checkSyncEngine := func() {
 		ref, err := syncEngClient.L2BlockRefByLabel(t.Ctx(), eth.Safe)
@@ -350,25 +350,25 @@ func TestDeepReorg(gt *testing.T) {
 		EthCl:          l2Client,
 		Signer:         types.LatestSigner(sd.L2Cfg.Config),
 		AddressCorpora: addresses,
-		Bindings:       NewL2Bindings(t, l2Client, propEngine.GethClient()),
+		Bindings:       NewL2Bindings(t, l2Client, seqEngine.GethClient()),
 	}
 	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(0xa57b)), sd.RollupCfg)
 	alice.L2.SetUserEnv(l2UserEnv)
 
 	// Run one iteration of the L2 derivation pipeline
-	proposer.ActL1HeadSignal(t)
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActL2PipelineFull(t)
 	syncer.ActL2PipelineFull(t)
 
 	// Start building chain A
 	miner.ActL1SetFeeRecipient(common.Address{0x0A, 0x00})
 
-	// Create a var to store the ref for the second to last block of the second proposer window
+	// Create a var to store the ref for the second to last block of the second sequencer window
 	var blockA39 eth.L1BlockRef
 
 	var aliceL2TxBlock types.Block
-	// Mine enough empty blocks on L1 to reach two proposer windows.
-	for i := uint64(0); i < sd.RollupCfg.ProposerWindowSize*3; i++ {
+	// Mine enough empty blocks on L1 to reach two sequencer windows.
+	for i := uint64(0); i < sd.RollupCfg.SeqWindowSize*3; i++ {
 		// At block #50, send a batch to L1 containing all L2 blocks built up to this point.
 		// This batch contains alice's transaction, and will be reorg'd out of the L1 chain
 		// later in the test.
@@ -382,11 +382,11 @@ func TestDeepReorg(gt *testing.T) {
 			miner.ActEmptyBlock(t)
 		}
 
-		// Get the second to last block of the first proposer window
+		// Get the second to last block of the first sequencer window
 		// This is used later to verify the head of chain B after rewinding
-		// chain A 1 proposer window + 1 block + Block A1 (batch submission with two
-		// proposer windows worth of transactions)
-		if i == sd.RollupCfg.ProposerWindowSize*2-2 {
+		// chain A 1 sequencer window + 1 block + Block A1 (batch submission with two
+		// sequencer windows worth of transactions)
+		if i == sd.RollupCfg.SeqWindowSize*2-2 {
 			var err error
 			blockA39, err = minerCl.L1BlockRefByLabel(t.Ctx(), eth.Unsafe)
 			require.NoError(t, err)
@@ -400,7 +400,7 @@ func TestDeepReorg(gt *testing.T) {
 		// been re-derived from chain B later on in the test.
 		if i == 35 {
 			// Include alice's transaction on L2
-			proposer.ActL2StartBlock(t)
+			sequencer.ActL2StartBlock(t)
 
 			// Submit a dummy tx
 			alice.L2.ActResetTxOpts(t)
@@ -408,33 +408,33 @@ func TestDeepReorg(gt *testing.T) {
 			alice.L2.ActMakeTx(t)
 
 			// Include the tx in the block we're making
-			propEngine.ActL2IncludeTx(alice.Address())(t)
+			seqEngine.ActL2IncludeTx(alice.Address())(t)
 
 			// Finalize the L2 block containing alice's transaction
-			proposer.ActL2EndBlock(t)
+			sequencer.ActL2EndBlock(t)
 
 			// Store the ref to the L2 block that the transaction was included in for later.
-			b0, err := l2Client.BlockByNumber(t.Ctx(), big.NewInt(int64(proposer.L2Unsafe().Number)))
+			b0, err := l2Client.BlockByNumber(t.Ctx(), big.NewInt(int64(sequencer.L2Unsafe().Number)))
 			require.NoError(t, err, "failed to fetch unsafe head of L2 after submitting alice's transaction")
 
 			aliceL2TxBlock = *b0
 		}
 
-		// Ask proposer to handle new L1 head and build L2 blocks up to the L1 head
-		proposer.ActL1HeadSignal(t)
-		proposer.ActL2PipelineFull(t)
-		proposer.ActBuildToL1Head(t)
+		// Ask sequencer to handle new L1 head and build L2 blocks up to the L1 head
+		sequencer.ActL1HeadSignal(t)
+		sequencer.ActL2PipelineFull(t)
+		sequencer.ActBuildToL1Head(t)
 	}
 
 	// Get the last empty block built in the loop above.
-	// This will be the last block in the third proposer window.
+	// This will be the last block in the third sequencer window.
 	blockA60, err := minerCl.L1BlockRefByLabel(t.Ctx(), eth.Unsafe)
 	require.NoError(t, err)
 
 	// Check that the safe head's L1 origin is block A50 before batch submission
-	require.Equal(t, uint64(50), proposer.L2Safe().L1Origin.Number)
+	require.Equal(t, uint64(50), sequencer.L2Safe().L1Origin.Number)
 	// Check that the unsafe head's L1 origin is block A60
-	require.Equal(t, blockA60.ID(), proposer.L2Unsafe().L1Origin)
+	require.Equal(t, blockA60.ID(), sequencer.L2Unsafe().L1Origin)
 
 	// Batch and submit all new L2 blocks that were built above to L1
 	batcher.ActSubmitAll(t)
@@ -446,29 +446,29 @@ func TestDeepReorg(gt *testing.T) {
 	miner.ActL1IncludeTx(sd.RollupCfg.Genesis.SystemConfig.BatcherAddr)(t)
 	miner.ActL1EndBlock(t)
 
-	// Handle the new head block on both the syncer and the proposer
+	// Handle the new head block on both the syncer and the sequencer
 	syncer.ActL1HeadSignal(t)
-	proposer.ActL1HeadSignal(t)
+	sequencer.ActL1HeadSignal(t)
 
-	// Run one iteration of the L2 derivation pipeline on both the syncer and proposer
+	// Run one iteration of the L2 derivation pipeline on both the syncer and sequencer
 	syncer.ActL2PipelineFull(t)
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 
 	// Ensure that the syncer picks up that the L2 blocks were submitted to L1
 	// and marks them as safe.
 	// We check that the L2 safe L1 origin is block A240, or the last block
-	// within the second proposer window. This is the block directly before
+	// within the second sequencer window. This is the block directly before
 	// the block that included the batch on chain A.
 	require.Equal(t, blockA60.ID(), syncer.L2Safe().L1Origin)
 	checkSyncEngine()
 
-	// Perform a deep reorg the size of one proposer window + 2 blocks.
+	// Perform a deep reorg the size of one sequencer window + 2 blocks.
 	// This will affect the safe L2 chain.
-	miner.ActL1RewindToParent(t)                                   // Rewind the batch submission
-	miner.ActL1RewindDepth(sd.RollupCfg.ProposerWindowSize + 1)(t) // Rewind one proposer window + 1 block
+	miner.ActL1RewindToParent(t)                              // Rewind the batch submission
+	miner.ActL1RewindDepth(sd.RollupCfg.SeqWindowSize + 1)(t) // Rewind one sequencer window + 1 block
 
 	// Ensure that the block we rewinded to on L1 is the second to last block of the first
-	// proposer window.
+	// sequencer window.
 	headAfterReorg, err := minerCl.L1BlockRefByLabel(t.Ctx(), eth.Unsafe)
 	require.NoError(t, err)
 
@@ -476,31 +476,31 @@ func TestDeepReorg(gt *testing.T) {
 	require.Equal(t, blockA39.ID(), headAfterReorg.ID())
 
 	// Ensure that the safe L2 head has not been altered yet- we have not issued
-	// a head signal to the proposer or syncer post reorg.
+	// a head signal to the sequencer or syncer post reorg.
 	require.Equal(t, blockA60.ID(), syncer.L2Safe().L1Origin)
-	require.Equal(t, blockA60.ID(), proposer.L2Safe().L1Origin)
+	require.Equal(t, blockA60.ID(), sequencer.L2Safe().L1Origin)
 	// Ensure that the L2 unsafe head has not been altered yet- we have not issued
-	// a head signal to the proposer or syncer post reorg.
+	// a head signal to the sequencer or syncer post reorg.
 	require.Equal(t, blockA60.ID(), syncer.L2Unsafe().L1Origin)
-	require.Equal(t, blockA60.ID(), proposer.L2Unsafe().L1Origin)
+	require.Equal(t, blockA60.ID(), sequencer.L2Unsafe().L1Origin)
 	checkSyncEngine()
 
 	// --------- [ CHAIN B ] ---------
 
 	// Start building chain B
 	miner.ActL1SetFeeRecipient(common.Address{0x0B, 0x00})
-	// Mine enough empty blocks on L1 to reach three proposer windows or 60 blocks.
+	// Mine enough empty blocks on L1 to reach three sequencer windows or 60 blocks.
 	// We already have 39 empty blocks on the rewinded L1 that are left over from chain A.
-	for i := uint64(0); i < sd.RollupCfg.ProposerWindowSize+1; i++ {
+	for i := uint64(0); i < sd.RollupCfg.SeqWindowSize+1; i++ {
 		miner.ActEmptyBlock(t)
 
-		// Ask proposer to handle new L1 head and build L2 blocks up to the L1 head
-		proposer.ActL1HeadSignal(t)
-		proposer.ActL2PipelineFull(t)
-		proposer.ActBuildToL1Head(t)
+		// Ask sequencer to handle new L1 head and build L2 blocks up to the L1 head
+		sequencer.ActL1HeadSignal(t)
+		sequencer.ActL2PipelineFull(t)
+		sequencer.ActBuildToL1Head(t)
 	}
 
-	// Get the last unsafe block on chain B after creating ProposerWindowSize+1 empty blocks
+	// Get the last unsafe block on chain B after creating SequencerWindowSize+1 empty blocks
 	blockB60, err := minerCl.L1BlockRefByLabel(t.Ctx(), eth.Unsafe)
 	require.NoError(t, err)
 	// Ensure blockB60 is #60 on chain B
@@ -527,11 +527,11 @@ func TestDeepReorg(gt *testing.T) {
 	require.Equal(t, syncer.L2Safe(), syncer.L2Unsafe(), "L2 safe and unsafe head should be equal")
 	checkSyncEngine()
 
-	// Sync the proposer, then build some new L2 blocks, up to and including with L1 origin B62
-	proposer.ActL1HeadSignal(t)
-	proposer.ActL2PipelineFull(t)
-	proposer.ActBuildToL1Head(t)
-	require.Equal(t, proposer.L2Unsafe().L1Origin, blockB62.ID())
+	// Sync the sequencer, then build some new L2 blocks, up to and including with L1 origin B62
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActL2PipelineFull(t)
+	sequencer.ActBuildToL1Head(t)
+	require.Equal(t, sequencer.L2Unsafe().L1Origin, blockB62.ID())
 
 	// Sync the syncer to the L2 chain with origin B62
 	// Run an iteration of the derivation pipeline and ensure that the L2 safe L1 origin is block B62
@@ -557,7 +557,7 @@ type rpcWrapper struct {
 	client.RPC
 }
 
-// TestRestartKromaGeth tests that the proposer can restart its execution engine without rollup-node restart,
+// TestRestartKromaGeth tests that the sequencer can restart its execution engine without rollup-node restart,
 // including recovering the finalized/safe state of L2 chain without reorging.
 func TestRestartKromaGeth(gt *testing.T) {
 	t := NewDefaultTesting(gt)
@@ -574,34 +574,34 @@ func TestRestartKromaGeth(gt *testing.T) {
 	miner := NewL1Miner(t, log, sd.L1Cfg)
 	l1F, err := sources.NewL1Client(miner.RPCClient(), log, nil, sources.L1ClientDefaultConfig(sd.RollupCfg, false, sources.RPCKindBasic))
 	require.NoError(t, err)
-	// Proposer
-	propEng := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath, dbOption)
-	engRpc := &rpcWrapper{propEng.RPCClient()}
+	// Sequencer
+	seqEng := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath, dbOption)
+	engRpc := &rpcWrapper{seqEng.RPCClient()}
 	l2Cl, err := sources.NewEngineClient(engRpc, log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
 	require.NoError(t, err)
-	proposer := NewL2Proposer(t, log, l1F, l2Cl, sd.RollupCfg, 0)
+	sequencer := NewL2Sequencer(t, log, l1F, l2Cl, sd.RollupCfg, 0)
 
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, proposer.RollupClient(), miner.EthClient(), propEng.EthClient())
+	}, sequencer.RollupClient(), miner.EthClient(), seqEng.EthClient())
 
 	// start
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 
 	miner.ActEmptyBlock(t)
 
 	buildAndSubmit := func() {
 		// build some blocks
-		proposer.ActL1HeadSignal(t)
-		proposer.ActBuildToL1Head(t)
+		sequencer.ActL1HeadSignal(t)
+		sequencer.ActBuildToL1Head(t)
 		// submit the blocks, confirm on L1
 		batcher.ActSubmitAll(t)
 		miner.ActL1StartBlock(12)(t)
 		miner.ActL1IncludeTx(sd.RollupCfg.Genesis.SystemConfig.BatcherAddr)(t)
 		miner.ActL1EndBlock(t)
-		proposer.ActL2PipelineFull(t)
+		sequencer.ActL2PipelineFull(t)
 	}
 	buildAndSubmit()
 
@@ -610,32 +610,32 @@ func TestRestartKromaGeth(gt *testing.T) {
 	miner.ActL1SafeNext(t)
 	miner.ActL1FinalizeNext(t)
 	miner.ActL1FinalizeNext(t)
-	proposer.ActL1FinalizedSignal(t)
-	proposer.ActL1SafeSignal(t)
+	sequencer.ActL1FinalizedSignal(t)
+	sequencer.ActL1SafeSignal(t)
 
 	// build and submit more
 	buildAndSubmit()
 	// but only mark the L1 block with this batch as safe
 	miner.ActL1SafeNext(t)
-	proposer.ActL1SafeSignal(t)
+	sequencer.ActL1SafeSignal(t)
 
 	// build some more, these stay unsafe
 	miner.ActEmptyBlock(t)
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
-	statusBeforeRestart := proposer.SyncStatus()
+	statusBeforeRestart := sequencer.SyncStatus()
 	// before restart scenario: we have a distinct finalized, safe, and unsafe part of the L2 chain
 	require.NotZero(t, statusBeforeRestart.FinalizedL2.L1Origin.Number)
 	require.Less(t, statusBeforeRestart.FinalizedL2.L1Origin.Number, statusBeforeRestart.SafeL2.L1Origin.Number)
 	require.Less(t, statusBeforeRestart.SafeL2.L1Origin.Number, statusBeforeRestart.UnsafeL2.L1Origin.Number)
 
-	// close the proposer engine
-	require.NoError(t, propEng.Close())
+	// close the sequencer engine
+	require.NoError(t, seqEng.Close())
 	// and start a new one with same db path
-	propEngNew := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath, dbOption)
+	seqEngNew := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath, dbOption)
 	// swap in the new rpc. This is as close as we can get to reconnecting to a new in-memory rpc connection
-	engRpc.RPC = propEngNew.RPCClient()
+	engRpc.RPC = seqEngNew.RPCClient()
 
 	// note: geth does not persist the safe block label, only the finalized block label
 	safe, err := l2Cl.L2BlockRefByLabel(t.Ctx(), eth.Safe)
@@ -645,14 +645,14 @@ func TestRestartKromaGeth(gt *testing.T) {
 	require.Equal(t, statusBeforeRestart.FinalizedL2, safe, "expecting to revert safe head to finalized head upon restart")
 	require.Equal(t, statusBeforeRestart.FinalizedL2, finalized, "expecting to keep same finalized head upon restart")
 
-	// proposer runs pipeline, but now attached to the restarted geth node
-	proposer.ActL2PipelineFull(t)
-	require.Equal(t, statusBeforeRestart.UnsafeL2, proposer.L2Unsafe(), "expecting to keep same unsafe head upon restart")
-	require.Equal(t, statusBeforeRestart.SafeL2, proposer.L2Safe(), "expecting the safe block to catch up to what it was before shutdown after syncing from L1, and not be stuck at the finalized block")
+	// sequencer runs pipeline, but now attached to the restarted geth node
+	sequencer.ActL2PipelineFull(t)
+	require.Equal(t, statusBeforeRestart.UnsafeL2, sequencer.L2Unsafe(), "expecting to keep same unsafe head upon restart")
+	require.Equal(t, statusBeforeRestart.SafeL2, sequencer.L2Safe(), "expecting the safe block to catch up to what it was before shutdown after syncing from L1, and not be stuck at the finalized block")
 }
 
-// TestConflictingL2Blocks tests that a second copy of the proposer stack cannot introduce an alternative
-// L2 block (compared to something already secured by the first proposer):
+// TestConflictingL2Blocks tests that a second copy of the sequencer stack cannot introduce an alternative
+// L2 block (compared to something already secured by the first sequencer):
 // the alt block is not synced by the syncer, in unsafe and safe sync modes.
 func TestConflictingL2Blocks(gt *testing.T) {
 	t := NewDefaultTesting(gt)
@@ -660,44 +660,44 @@ func TestConflictingL2Blocks(gt *testing.T) {
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 
-	sd, _, miner, proposer, propEng, syncer, _, batcher := setupReorgTestActors(t, dp, sd, log)
+	sd, _, miner, sequencer, seqEng, syncer, _, batcher := setupReorgTestActors(t, dp, sd, log)
 
-	// Extra setup: a full alternative proposer, proposer engine, and batcher
+	// Extra setup: a full alternative sequencer, sequencer engine, and batcher
 	jwtPath := e2eutils.WriteDefaultJWT(t)
-	altPropEng := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath)
-	altPropEngCl, err := sources.NewEngineClient(altPropEng.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
+	altSeqEng := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath)
+	altSeqEngCl, err := sources.NewEngineClient(altSeqEng.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
 	require.NoError(t, err)
 	l1F, err := sources.NewL1Client(miner.RPCClient(), log, nil, sources.L1ClientDefaultConfig(sd.RollupCfg, false, sources.RPCKindBasic))
 	require.NoError(t, err)
-	altProposer := NewL2Proposer(t, log, l1F, altPropEngCl, sd.RollupCfg, 0)
+	altSequencer := NewL2Sequencer(t, log, l1F, altSeqEngCl, sd.RollupCfg, 0)
 	altBatcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, altProposer.RollupClient(), miner.EthClient(), altPropEng.EthClient())
+	}, altSequencer.RollupClient(), miner.EthClient(), altSeqEng.EthClient())
 
-	// And set up user Alice, using the alternative proposer endpoint
-	l2Cl := altPropEng.EthClient()
+	// And set up user Alice, using the alternative sequencer endpoint
+	l2Cl := altSeqEng.EthClient()
 	addresses := e2eutils.CollectAddresses(sd, dp)
 	l2UserEnv := &BasicUserEnv[*L2Bindings]{
 		EthCl:          l2Cl,
 		Signer:         types.LatestSigner(sd.L2Cfg.Config),
 		AddressCorpora: addresses,
-		Bindings:       NewL2Bindings(t, l2Cl, altPropEng.GethClient()),
+		Bindings:       NewL2Bindings(t, l2Cl, altSeqEng.GethClient()),
 	}
 	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(1234)), sd.RollupCfg)
 	alice.L2.SetUserEnv(l2UserEnv)
 
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 	syncer.ActL2PipelineFull(t)
-	altProposer.ActL2PipelineFull(t)
+	altSequencer.ActL2PipelineFull(t)
 
 	// build empty L1 block
 	miner.ActEmptyBlock(t)
 
 	// Create L2 blocks, and reference the L1 head as origin
-	proposer.ActL1HeadSignal(t)
-	proposer.ActBuildToL1Head(t)
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActBuildToL1Head(t)
 
 	// submit all new L2 blocks
 	batcher.ActSubmitAll(t)
@@ -711,27 +711,27 @@ func TestConflictingL2Blocks(gt *testing.T) {
 	syncer.ActL1HeadSignal(t)
 	syncer.ActL2PipelineFull(t)
 	syncerHead := syncer.L2Unsafe()
-	require.Equal(t, syncer.L2Safe(), proposer.L2Unsafe(), "syncer syncs from proposer via L1")
+	require.Equal(t, syncer.L2Safe(), sequencer.L2Unsafe(), "syncer syncs from sequencer via L1")
 	require.Equal(t, syncer.L2Safe(), syncerHead, "syncer head is the same as that what was derived from L1")
-	require.NotEqual(t, proposer.L2Safe(), proposer.L2Unsafe(), "proposer has not processed L1 yet")
+	require.NotEqual(t, sequencer.L2Safe(), sequencer.L2Unsafe(), "sequencer has not processed L1 yet")
 
-	require.Less(t, altProposer.L2Unsafe().L1Origin.Number, proposer.L2Unsafe().L1Origin.Number, "alt-proposer is behind")
+	require.Less(t, altSequencer.L2Unsafe().L1Origin.Number, sequencer.L2Unsafe().L1Origin.Number, "alt-sequencer is behind")
 
-	// produce a conflicting L2 block with the alt proposer:
+	// produce a conflicting L2 block with the alt sequencer:
 	// a new unsafe block that should not replace the existing safe block at the same height
-	altProposer.ActL2StartBlock(t)
+	altSequencer.ActL2StartBlock(t)
 	// include tx to force the L2 block to really be different than the previous empty block
 	alice.L2.ActResetTxOpts(t)
 	alice.L2.ActSetTxToAddr(&dp.Addresses.Bob)(t)
 	alice.L2.ActMakeTx(t)
-	altPropEng.ActL2IncludeTx(alice.Address())(t)
-	altProposer.ActL2EndBlock(t)
+	altSeqEng.ActL2IncludeTx(alice.Address())(t)
+	altSequencer.ActL2EndBlock(t)
 
-	conflictBlock := propEng.l2Chain.GetBlockByNumber(altProposer.L2Unsafe().Number)
-	require.NotEqual(t, conflictBlock.Hash(), altProposer.L2Unsafe().Hash, "alt proposer has built a conflicting block")
+	conflictBlock := seqEng.l2Chain.GetBlockByNumber(altSequencer.L2Unsafe().Number)
+	require.NotEqual(t, conflictBlock.Hash(), altSequencer.L2Unsafe().Hash, "alt sequencer has built a conflicting block")
 
 	// give the unsafe block to the syncer, and see if it reorgs because of any unsafe inputs
-	head, err := altPropEngCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
+	head, err := altSeqEngCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
 	require.NoError(t, err)
 	syncer.ActL2UnsafeGossipReceive(head)
 
@@ -755,10 +755,10 @@ func TestConflictingL2Blocks(gt *testing.T) {
 	require.Equal(t, syncer.SyncStatus().CurrentL1.Number, l1Number, "syncer has synced all new L1 blocks")
 	require.Equal(t, syncer.L2Unsafe(), syncerHead, "syncer sticks to first included L2 block")
 
-	// Now make the alt proposer aware of the L1 chain and derive the L2 chain like the syncer;
+	// Now make the alt sequencer aware of the L1 chain and derive the L2 chain like the syncer;
 	// it should reorg out its conflicting blocks to get back in harmony with the syncer.
-	altProposer.ActL1HeadSignal(t)
-	altProposer.ActL2PipelineFull(t)
-	require.Equal(t, syncer.L2Unsafe(), altProposer.L2Unsafe(), "alt-proposer gets back in harmony with syncer by reorging out its conflicting data")
-	require.Equal(t, proposer.L2Unsafe(), altProposer.L2Unsafe(), "and gets back in harmony with original proposer")
+	altSequencer.ActL1HeadSignal(t)
+	altSequencer.ActL2PipelineFull(t)
+	require.Equal(t, syncer.L2Unsafe(), altSequencer.L2Unsafe(), "alt-sequencer gets back in harmony with syncer by reorging out its conflicting data")
+	require.Equal(t, sequencer.L2Unsafe(), altSequencer.L2Unsafe(), "and gets back in harmony with original sequencer")
 }

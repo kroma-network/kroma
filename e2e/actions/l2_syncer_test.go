@@ -28,12 +28,12 @@ func setupSyncerOnlyTest(t Testing, sd *e2eutils.SetupData, log log.Logger) (*L1
 	return miner, engine, syncer
 }
 
-func TestL2Syncer_ProposerWindow(gt *testing.T) {
+func TestL2Syncer_SequenceWindow(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	p := &e2eutils.TestParams{
-		MaxProposerDrift:   10,
-		ProposerWindowSize: 24,
-		ChannelTimeout:     10,
+		MaxSequencerDrift:   10,
+		SequencerWindowSize: 24,
+		ChannelTimeout:      10,
 	}
 	dp := e2eutils.MakeDeployParams(t, p)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
@@ -41,8 +41,8 @@ func TestL2Syncer_ProposerWindow(gt *testing.T) {
 	miner, engine, syncer := setupSyncerOnlyTest(t, sd, log)
 	miner.ActL1SetFeeRecipient(common.Address{'A'})
 
-	// Make two proposer windows worth of empty L1 blocks. After we pass the first proposer window, the L2 chain should get blocks
-	for miner.l1Chain.CurrentBlock().Number.Uint64() < sd.RollupCfg.ProposerWindowSize*2 {
+	// Make two sequencer windows worth of empty L1 blocks. After we pass the first sequencer window, the L2 chain should get blocks
+	for miner.l1Chain.CurrentBlock().Number.Uint64() < sd.RollupCfg.SeqWindowSize*2 {
 		miner.ActL1StartBlock(10)(t)
 		miner.ActL1EndBlock(t)
 
@@ -50,17 +50,17 @@ func TestL2Syncer_ProposerWindow(gt *testing.T) {
 
 		l1Head := miner.l1Chain.CurrentBlock().Number.Uint64()
 		expectedL1Origin := uint64(0)
-		// as soon as we complete the proposer window, we force-adopt the L1 origin
-		if l1Head >= sd.RollupCfg.ProposerWindowSize {
-			expectedL1Origin = l1Head - sd.RollupCfg.ProposerWindowSize
+		// as soon as we complete the sequencer window, we force-adopt the L1 origin
+		if l1Head >= sd.RollupCfg.SeqWindowSize {
+			expectedL1Origin = l1Head - sd.RollupCfg.SeqWindowSize
 		}
 		require.Equal(t, expectedL1Origin, syncer.SyncStatus().SafeL2.L1Origin.Number, "L1 origin is forced in, given enough L1 blocks pass by")
 		require.LessOrEqual(t, miner.l1Chain.GetBlockByNumber(expectedL1Origin).Time(), engine.l2Chain.CurrentBlock().Time, "L2 time higher than L1 origin time")
 	}
 	tip2N := syncer.SyncStatus()
 
-	// Do a deep L1 reorg as deep as a proposer window, this should affect the safe L2 chain
-	miner.ActL1RewindDepth(sd.RollupCfg.ProposerWindowSize)(t)
+	// Do a deep L1 reorg as deep as a sequencer window, this should affect the safe L2 chain
+	miner.ActL1RewindDepth(sd.RollupCfg.SeqWindowSize)(t)
 
 	// Without new L1 block, the L1 appears to not be synced, and the node shouldn't reorg
 	syncer.ActL2PipelineFull(t)
@@ -72,11 +72,11 @@ func TestL2Syncer_ProposerWindow(gt *testing.T) {
 	miner.ActL1EndBlock(t)
 	reorgL1Block := miner.l1Chain.CurrentBlock()
 
-	// Still no reorg, we need more L1 blocks first, before the reorged L1 block is forced in by proposer window
+	// Still no reorg, we need more L1 blocks first, before the reorged L1 block is forced in by sequencer window
 	syncer.ActL2PipelineFull(t)
 	require.Equal(t, tip2N.SafeL2, syncer.SyncStatus().SafeL2)
 
-	for miner.l1Chain.CurrentBlock().Number.Uint64() < sd.RollupCfg.ProposerWindowSize*2 {
+	for miner.l1Chain.CurrentBlock().Number.Uint64() < sd.RollupCfg.SeqWindowSize*2 {
 		miner.ActL1StartBlock(10)(t)
 		miner.ActL1EndBlock(t)
 	}

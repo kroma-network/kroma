@@ -29,8 +29,8 @@ type driverClient interface {
 	SyncStatus(ctx context.Context) (*eth.SyncStatus, error)
 	BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error)
 	ResetDerivationPipeline(context.Context) error
-	StartProposer(ctx context.Context, blockHash common.Hash) error
-	StopProposer(context.Context) (common.Hash, error)
+	StartSequencer(ctx context.Context, blockHash common.Hash) error
+	StopSequencer(context.Context) (common.Hash, error)
 }
 
 type rpcMetrics interface {
@@ -56,16 +56,16 @@ func (n *adminAPI) ResetDerivationPipeline(ctx context.Context) error {
 	return n.dr.ResetDerivationPipeline(ctx)
 }
 
-func (n *adminAPI) StartProposer(ctx context.Context, blockHash common.Hash) error {
-	recordDur := n.m.RecordRPCServerRequest("admin_startProposer")
+func (n *adminAPI) StartSequencer(ctx context.Context, blockHash common.Hash) error {
+	recordDur := n.m.RecordRPCServerRequest("admin_startSequencer")
 	defer recordDur()
-	return n.dr.StartProposer(ctx, blockHash)
+	return n.dr.StartSequencer(ctx, blockHash)
 }
 
-func (n *adminAPI) StopProposer(ctx context.Context) (common.Hash, error) {
-	recordDur := n.m.RecordRPCServerRequest("admin_stopProposer")
+func (n *adminAPI) StopSequencer(ctx context.Context) (common.Hash, error) {
+	recordDur := n.m.RecordRPCServerRequest("admin_stopSequencer")
 	defer recordDur()
-	return n.dr.StopProposer(ctx)
+	return n.dr.StopSequencer(ctx)
 }
 
 type nodeAPI struct {

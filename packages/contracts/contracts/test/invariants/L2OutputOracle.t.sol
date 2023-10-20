@@ -35,7 +35,7 @@ contract L2OutputOracle_MonotonicBlockNumIncrease_Invariant is L2OutputOracle_In
     function setUp() public override {
         super.setUp();
 
-        // Create a proposer actor.
+        // Create a sequencer actor.
         actor = new L2OutputOracle_Validator(oracle, vm);
 
         // Set the target contract to the validator actor

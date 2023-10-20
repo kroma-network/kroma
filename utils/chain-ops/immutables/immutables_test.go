@@ -30,7 +30,7 @@ func TestBuildKroma(t *testing.T) {
 			"validatorPoolAddress": common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			"rewardDivider":        new(big.Int).SetUint64(24 * 7),
 		},
-		"ProposerRewardVault": {
+		"L1FeeVault": {
 			"recipient": common.HexToAddress("0x1234567890123456789012345678901234567890"),
 		},
 		"ProtocolVault": {
@@ -48,7 +48,7 @@ func TestBuildKroma(t *testing.T) {
 		"L2ToL1MessagePasser":        true,
 		"ValidatorRewardVault":       true,
 		"ProtocolVault":              true,
-		"ProposerRewardVault":        true,
+		"L1FeeVault":                 true,
 		"KromaMintableERC20Factory":  true,
 		"L2ERC721Bridge":             true,
 		"KromaMintableERC721Factory": true,

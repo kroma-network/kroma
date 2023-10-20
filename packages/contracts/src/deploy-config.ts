@@ -40,15 +40,15 @@ interface RequiredDeployConfig {
   l2BlockTime: number
 
   /**
-   * Proposer batches may not be more than maxProposerDrift seconds after the L1 timestamp of the
-   * end of the proposing window end.
+   * Sequencer batches may not be more than maxSequencerDrift seconds after the L1 timestamp of the
+   * end of the sequencing window end.
    */
-  maxProposerDrift: number
+  maxSequencerDrift: number
 
   /**
-   * Number of L1 blocks per proposing window.
+   * Number of L1 blocks per sequencing window.
    */
-  proposerWindowSize: number
+  sequencerWindowSize: number
 
   /**
    * Number of L1 blocks that a frame stays valid when included in L1.
@@ -56,9 +56,9 @@ interface RequiredDeployConfig {
   channelTimeout: number
 
   /**
-   * Address of the key the proposer uses to sign blocks on the P2P layer.
+   * Address of the key the sequencer uses to sign blocks on the P2P layer.
    */
-  p2pProposerAddress: string
+  p2pSequencerAddress: string
 
   /**
    * L1 address that batches are sent to.
@@ -146,9 +146,9 @@ interface RequiredDeployConfig {
   protocolVaultRecipient: string
 
   /**
-   * L1 recipient of fees accumulated in the ProposerRewardVault.
+   * L1 recipient of fees accumulated in the L1FeeVault.
    */
-  proposerRewardVaultRecipient: string
+  l1FeeVaultRecipient: string
 
   /**
    * Timeout seconds of bisection in the Colosseum.
@@ -280,16 +280,16 @@ export const deployConfigSpec: {
   l2BlockTime: {
     type: 'number',
   },
-  maxProposerDrift: {
+  maxSequencerDrift: {
     type: 'number',
   },
-  proposerWindowSize: {
+  sequencerWindowSize: {
     type: 'number',
   },
   channelTimeout: {
     type: 'number',
   },
-  p2pProposerAddress: {
+  p2pSequencerAddress: {
     type: 'address',
   },
   batchInboxAddress: {
@@ -330,7 +330,7 @@ export const deployConfigSpec: {
   protocolVaultRecipient: {
     type: 'address',
   },
-  proposerRewardVaultRecipient: {
+  l1FeeVaultRecipient: {
     type: 'address',
   },
   cliqueSignerAddress: {

@@ -38,7 +38,7 @@ func NewBatchSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*BatchSubm
 
 // loadBlocksIntoState loads all blocks since the previous stored block
 // It does the following:
-// 1. Fetch the sync status of the proposer
+// 1. Fetch the sync status of the sequencer
 // 2. Check if the sync status is valid or if we are all the way up to date
 // 3. Check if it needs to initialize state OR it is lagging (todo: lagging just means race condition?)
 // 4. Load all new blocks into the local state.

@@ -36,10 +36,10 @@ type DeployConfig struct {
 	L2BlockTime        uint64                           `json:"l2BlockTime"`
 
 	FinalizationPeriodSeconds uint64         `json:"finalizationPeriodSeconds"`
-	MaxProposerDrift          uint64         `json:"maxProposerDrift"`
-	ProposerWindowSize        uint64         `json:"proposerWindowSize"`
+	MaxSequencerDrift         uint64         `json:"maxSequencerDrift"`
+	SequencerWindowSize       uint64         `json:"sequencerWindowSize"`
 	ChannelTimeout            uint64         `json:"channelTimeout"`
-	P2PProposerAddress        common.Address `json:"p2pProposerAddress"`
+	P2PSequencerAddress       common.Address `json:"p2pSequencerAddress"`
 	BatchInboxAddress         common.Address `json:"batchInboxAddress"`
 	BatchSenderAddress        common.Address `json:"batchSenderAddress"`
 
@@ -105,8 +105,8 @@ type DeployConfig struct {
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
 	// L1 recipient of fees accumulated in the ProtocolVault
 	ProtocolVaultRecipient common.Address `json:"protocolVaultRecipient"`
-	// L1 recipient of fees accumulated in the ProposerRewardVault
-	ProposerRewardVaultRecipient common.Address `json:"proposerRewardVaultRecipient"`
+	// L1 recipient of fees accumulated in the L1FeeVaultRecipient
+	L1FeeVaultRecipient common.Address `json:"l1FeeVaultRecipient"`
 	// L1StandardBridge proxy address on L1
 	L1StandardBridgeProxy common.Address `json:"l1StandardBridgeProxy"`
 	// L1CrossDomainMessenger proxy address on L1
@@ -151,17 +151,17 @@ func (d *DeployConfig) Check() error {
 	if d.FinalizationPeriodSeconds == 0 {
 		return fmt.Errorf("%w: FinalizationPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.MaxProposerDrift == 0 {
-		return fmt.Errorf("%w: MaxProposerDrift cannot be 0", ErrInvalidDeployConfig)
+	if d.MaxSequencerDrift == 0 {
+		return fmt.Errorf("%w: MaxSequencerDrift cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.ProposerWindowSize == 0 {
-		return fmt.Errorf("%w: ProposerWindowSize cannot be 0", ErrInvalidDeployConfig)
+	if d.SequencerWindowSize == 0 {
+		return fmt.Errorf("%w: SequencerWindowSize cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.ChannelTimeout == 0 {
 		return fmt.Errorf("%w: ChannelTimeout cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.P2PProposerAddress == (common.Address{}) {
-		return fmt.Errorf("%w: P2PProposerAddress cannot be address(0)", ErrInvalidDeployConfig)
+	if d.P2PSequencerAddress == (common.Address{}) {
+		return fmt.Errorf("%w: P2PSequencerAddress cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.BatchInboxAddress == (common.Address{}) {
 		return fmt.Errorf("%w: BatchInboxAddress cannot be address(0)", ErrInvalidDeployConfig)
@@ -196,8 +196,8 @@ func (d *DeployConfig) Check() error {
 	if d.ProtocolVaultRecipient == (common.Address{}) {
 		return fmt.Errorf("%w: ProtocolVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.ProposerRewardVaultRecipient == (common.Address{}) {
-		return fmt.Errorf("%w: ProposerRewardVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)
+	if d.L1FeeVaultRecipient == (common.Address{}) {
+		return fmt.Errorf("%w: L1FeeVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.GasPriceOracleOverhead == 0 {
 		log.Warn("GasPriceOracleOverhead is 0")
@@ -374,8 +374,8 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 			},
 		},
 		BlockTime:              d.L2BlockTime,
-		MaxProposerDrift:       d.MaxProposerDrift,
-		ProposerWindowSize:     d.ProposerWindowSize,
+		MaxSequencerDrift:      d.MaxSequencerDrift,
+		SeqWindowSize:          d.SequencerWindowSize,
 		ChannelTimeout:         d.ChannelTimeout,
 		L1ChainID:              new(big.Int).SetUint64(d.L1ChainID),
 		L2ChainID:              new(big.Int).SetUint64(d.L2ChainID),
@@ -425,8 +425,8 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.
 	if config.ProtocolVaultRecipient == (common.Address{}) {
 		return immutable, fmt.Errorf("ProtocolVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
-	if config.ProposerRewardVaultRecipient == (common.Address{}) {
-		return immutable, fmt.Errorf("ProposerRewardVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
+	if config.L1FeeVaultRecipient == (common.Address{}) {
+		return immutable, fmt.Errorf("L1FeeVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
 
 	immutable["L2StandardBridge"] = immutables.ImmutableValues{
@@ -448,8 +448,8 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.
 		"validatorPoolAddress": config.ValidatorPoolProxy,
 		"rewardDivider":        new(big.Int).SetUint64(rewardDivider),
 	}
-	immutable["ProposerRewardVault"] = immutables.ImmutableValues{
-		"recipient": config.ProposerRewardVaultRecipient,
+	immutable["L1FeeVault"] = immutables.ImmutableValues{
+		"recipient": config.L1FeeVaultRecipient,
 	}
 	immutable["ProtocolVault"] = immutables.ImmutableValues{
 		"recipient": config.ProtocolVaultRecipient,

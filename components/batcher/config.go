@@ -71,7 +71,7 @@ type CLIConfig struct {
 	MaxChannelDuration uint64
 
 	// The batcher tx submission safety margin (in #L1-blocks) to subtract from
-	// a channel's timeout and proposing window, to guarantee safe inclusion of
+	// a channel's timeout and sequencing window, to guarantee safe inclusion of
 	// a channel on L1.
 	SubSafetyMargin uint64
 
@@ -183,7 +183,7 @@ func NewBatcherConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Config,
 		TxManager:      txManager,
 		Rollup:         rcfg,
 		Channel: ChannelConfig{
-			ProposerWindowSize: rcfg.ProposerWindowSize,
+			SeqWindowSize:      rcfg.SeqWindowSize,
 			ChannelTimeout:     rcfg.ChannelTimeout,
 			MaxChannelDuration: cfg.MaxChannelDuration,
 			SubSafetyMargin:    cfg.SubSafetyMargin,

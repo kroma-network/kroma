@@ -244,12 +244,12 @@ var (
 		Value:     "kroma_node_discovery_db",
 		EnvVars:   p2pEnv("DISCOVERY_PATH"),
 	}
-	ProposerP2PKeyFlag = &cli.StringFlag{
-		Name:     "p2p.proposer.key",
-		Usage:    "Hex-encoded private key for signing off on p2p application messages as a proposer.",
+	SequencerP2PKeyFlag = &cli.StringFlag{
+		Name:     "p2p.sequencer.key",
+		Usage:    "Hex-encoded private key for signing off on p2p application messages as sequencer.",
 		Required: false,
 		Value:    "",
-		EnvVars:  p2pEnv("PROPOSER_KEY"),
+		EnvVars:  p2pEnv("SEQUENCER_KEY"),
 	}
 	GossipMeshDFlag = &cli.UintFlag{
 		Name:     "p2p.gossip.mesh.d",
@@ -333,7 +333,7 @@ var p2pFlags = []cli.Flag{
 	TimeoutDial,
 	PeerstorePath,
 	DiscoveryPath,
-	ProposerP2PKeyFlag,
+	SequencerP2PKeyFlag,
 	GossipMeshDFlag,
 	GossipMeshDloFlag,
 	GossipMeshDhiFlag,

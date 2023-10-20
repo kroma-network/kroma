@@ -58,7 +58,7 @@ type GossipSetupConfigurables interface {
 }
 
 type GossipRuntimeConfig interface {
-	P2PProposerAddress() common.Address
+	P2PSequencerAddress() common.Address
 }
 
 //go:generate mockery --name GossipMetricer
@@ -275,7 +275,7 @@ func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 		// message starts with compact-encoding secp256k1 encoded signature
 		signatureBytes, payloadBytes := data[:65], data[65:]
 
-		// [REJECT] if the signature by the proposer is not valid
+		// [REJECT] if the signature by the sequencer is not valid
 		result := verifyBlockSignature(log, cfg, runCfg, id, signatureBytes, payloadBytes)
 		if result != pubsub.ValidationAccept {
 			return result
@@ -354,8 +354,8 @@ func verifyBlockSignature(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 	// For now we only have one signer at a time and thus check the address directly.
 	// This means we may drop old payloads upon key rotation,
 	// but this can be recovered from like any other missed unsafe payload.
-	if expected := runCfg.P2PProposerAddress(); expected == (common.Address{}) {
-		log.Warn("no configured p2p proposer address, ignoring gossiped block", "peer", id, "addr", addr)
+	if expected := runCfg.P2PSequencerAddress(); expected == (common.Address{}) {
+		log.Warn("no configured p2p sequencer address, ignoring gossiped block", "peer", id, "addr", addr)
 		return pubsub.ValidationIgnore
 	} else if addr != expected {
 		log.Warn("unexpected block author", "err", err, "peer", id, "addr", addr, "expected", expected)

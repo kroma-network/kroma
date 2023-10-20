@@ -52,16 +52,16 @@ type Metricer interface {
 	RecordUnsafePayloadsBuffer(length uint64, memSize uint64, next eth.BlockID)
 	CountSequencedTxs(count int)
 	RecordL1ReorgDepth(d uint64)
-	RecordProposerInconsistentL1Origin(from eth.BlockID, to eth.BlockID)
-	RecordProposerReset()
+	RecordSequencerInconsistentL1Origin(from eth.BlockID, to eth.BlockID)
+	RecordSequencerReset()
 	RecordGossipEvent(evType int32)
 	IncPeerCount()
 	DecPeerCount()
 	IncStreamCount()
 	DecStreamCount()
 	RecordBandwidth(ctx context.Context, bwc *libp2pmetrics.BandwidthCounter)
-	RecordProposerBuildingDiffTime(duration time.Duration)
-	RecordProposerSealingTime(duration time.Duration)
+	RecordSequencerBuildingDiffTime(duration time.Duration)
+	RecordSequencerSealingTime(duration time.Duration)
 	Document() []metrics.DocumentedMetric
 	RecordChannelInputBytes(num int)
 	// P2P Metrics
@@ -103,16 +103,16 @@ type Metrics struct {
 
 	PayloadsQuarantineTotal prometheus.Gauge
 
-	ProposerInconsistentL1Origin *EventMetrics
-	ProposerResets               *EventMetrics
+	SequencerInconsistentL1Origin *EventMetrics
+	SequencerResets               *EventMetrics
 
 	L1RequestDurationSeconds *prometheus.HistogramVec
 
-	ProposerBuildingDiffDurationSeconds prometheus.Histogram
-	ProposerBuildingDiffTotal           prometheus.Counter
+	SequencerBuildingDiffDurationSeconds prometheus.Histogram
+	SequencerBuildingDiffTotal           prometheus.Counter
 
-	ProposerSealingDurationSeconds prometheus.Histogram
-	ProposerSealingTotal           prometheus.Counter
+	SequencerSealingDurationSeconds prometheus.Histogram
+	SequencerSealingTotal           prometheus.Counter
 
 	UnsafePayloadsBufferLen     prometheus.Gauge
 	UnsafePayloadsBufferMemSize prometheus.Gauge
@@ -233,8 +233,8 @@ func NewMetrics(procName string) *Metrics {
 		SequencingErrors: NewEventMetrics(factory, ns, "sequencing_errors", "sequencing errors"),
 		PublishingErrors: NewEventMetrics(factory, ns, "publishing_errors", "p2p publishing errors"),
 
-		ProposerInconsistentL1Origin: NewEventMetrics(factory, ns, "proposer_inconsistent_l1_origin", "events when the proposer selects an inconsistent L1 origin"),
-		ProposerResets:               NewEventMetrics(factory, ns, "proposer_resets", "proposer resets"),
+		SequencerInconsistentL1Origin: NewEventMetrics(factory, ns, "sequencer_inconsistent_l1_origin", "events when the sequencer selects an inconsistent L1 origin"),
+		SequencerResets:               NewEventMetrics(factory, ns, "sequencer_resets", "sequencer resets"),
 
 		UnsafePayloadsBufferLen: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
@@ -413,30 +413,30 @@ func NewMetrics(procName string) *Metrics {
 			Help: "Histogram of L1 request time",
 		}, []string{"request"}),
 
-		ProposerBuildingDiffDurationSeconds: factory.NewHistogram(prometheus.HistogramOpts{
+		SequencerBuildingDiffDurationSeconds: factory.NewHistogram(prometheus.HistogramOpts{
 			Namespace: ns,
-			Name:      "proposer_building_diff_seconds",
+			Name:      "sequencer_building_diff_seconds",
 			Buckets: []float64{
 				-10, -5, -2.5, -1, -.5, -.25, -.1, -0.05, -0.025, -0.01, -0.005,
 				.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10,
 			},
-			Help: "Histogram of Proposer building time, minus block time",
+			Help: "Histogram of Sequencer building time, minus block time",
 		}),
-		ProposerBuildingDiffTotal: factory.NewCounter(prometheus.CounterOpts{
+		SequencerBuildingDiffTotal: factory.NewCounter(prometheus.CounterOpts{
 			Namespace: ns,
-			Name:      "proposer_building_diff_total",
-			Help:      "Number of proposer block building jobs",
+			Name:      "sequencer_building_diff_total",
+			Help:      "Number of sequencer block building jobs",
 		}),
-		ProposerSealingDurationSeconds: factory.NewHistogram(prometheus.HistogramOpts{
+		SequencerSealingDurationSeconds: factory.NewHistogram(prometheus.HistogramOpts{
 			Namespace: ns,
-			Name:      "proposer_sealing_seconds",
+			Name:      "sequencer_sealing_seconds",
 			Buckets:   []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
-			Help:      "Histogram of proposer block sealing time",
+			Help:      "Histogram of Sequencer block sealing time",
 		}),
-		ProposerSealingTotal: factory.NewCounter(prometheus.CounterOpts{
+		SequencerSealingTotal: factory.NewCounter(prometheus.CounterOpts{
 			Namespace: ns,
-			Name:      "proposer_sealing_total",
-			Help:      "Number of proposer block sealing jobs",
+			Name:      "sequencer_sealing_total",
+			Help:      "Number of sequencer block sealing jobs",
 		}),
 
 		registry: registry,
@@ -589,14 +589,14 @@ func (m *Metrics) RecordL1ReorgDepth(d uint64) {
 	m.L1ReorgDepth.Observe(float64(d))
 }
 
-func (m *Metrics) RecordProposerInconsistentL1Origin(from eth.BlockID, to eth.BlockID) {
-	m.ProposerInconsistentL1Origin.RecordEvent()
+func (m *Metrics) RecordSequencerInconsistentL1Origin(from eth.BlockID, to eth.BlockID) {
+	m.SequencerInconsistentL1Origin.RecordEvent()
 	m.recordRef("l1_origin", "inconsistent_from", from.Number, 0, from.Hash)
 	m.recordRef("l1_origin", "inconsistent_to", to.Number, 0, to.Hash)
 }
 
-func (m *Metrics) RecordProposerReset() {
-	m.ProposerResets.RecordEvent()
+func (m *Metrics) RecordSequencerReset() {
+	m.SequencerResets.RecordEvent()
 }
 
 func (m *Metrics) RecordGossipEvent(evType int32) {
@@ -640,19 +640,19 @@ func (m *Metrics) RecordL1RequestTime(method string, duration time.Duration) {
 	m.L1RequestDurationSeconds.WithLabelValues(method).Observe(float64(duration) / float64(time.Second))
 }
 
-// RecordProposerBuildingDiffTime tracks the amount of time the proposer was allowed between
+// RecordSequencerBuildingDiffTime tracks the amount of time the sequencer was allowed between
 // start to finish, incl. sealing, minus the block time.
-// Ideally this is 0, realistically the proposer scheduler may be busy with other jobs like syncing sometimes.
-func (m *Metrics) RecordProposerBuildingDiffTime(duration time.Duration) {
-	m.ProposerBuildingDiffTotal.Inc()
-	m.ProposerBuildingDiffDurationSeconds.Observe(float64(duration) / float64(time.Second))
+// Ideally this is 0, realistically the sequencer scheduler may be busy with other jobs like syncing sometimes.
+func (m *Metrics) RecordSequencerBuildingDiffTime(duration time.Duration) {
+	m.SequencerBuildingDiffTotal.Inc()
+	m.SequencerBuildingDiffDurationSeconds.Observe(float64(duration) / float64(time.Second))
 }
 
-// RecordProposerSealingTime tracks the amount of time the proposer took to finish sealing the block.
+// RecordSequencerSealingTime tracks the amount of time the sequencer took to finish sealing the block.
 // Ideally this is 0, realistically it may take some time.
-func (m *Metrics) RecordProposerSealingTime(duration time.Duration) {
-	m.ProposerSealingTotal.Inc()
-	m.ProposerSealingDurationSeconds.Observe(float64(duration) / float64(time.Second))
+func (m *Metrics) RecordSequencerSealingTime(duration time.Duration) {
+	m.SequencerSealingTotal.Inc()
+	m.SequencerSealingDurationSeconds.Observe(float64(duration) / float64(time.Second))
 }
 
 // Serve starts the metrics server on the given hostname and port.
@@ -780,10 +780,10 @@ func (n *noopMetricer) CountSequencedTxs(count int) {
 func (n *noopMetricer) RecordL1ReorgDepth(d uint64) {
 }
 
-func (n *noopMetricer) RecordProposerInconsistentL1Origin(from eth.BlockID, to eth.BlockID) {
+func (n *noopMetricer) RecordSequencerInconsistentL1Origin(from eth.BlockID, to eth.BlockID) {
 }
 
-func (n *noopMetricer) RecordProposerReset() {
+func (n *noopMetricer) RecordSequencerReset() {
 }
 
 func (n *noopMetricer) RecordGossipEvent(evType int32) {
@@ -807,10 +807,10 @@ func (n *noopMetricer) DecStreamCount() {
 func (n *noopMetricer) RecordBandwidth(ctx context.Context, bwc *libp2pmetrics.BandwidthCounter) {
 }
 
-func (n *noopMetricer) RecordProposerBuildingDiffTime(duration time.Duration) {
+func (n *noopMetricer) RecordSequencerBuildingDiffTime(duration time.Duration) {
 }
 
-func (n *noopMetricer) RecordProposerSealingTime(duration time.Duration) {
+func (n *noopMetricer) RecordSequencerSealingTime(duration time.Duration) {
 }
 
 func (n *noopMetricer) Document() []metrics.DocumentedMetric {

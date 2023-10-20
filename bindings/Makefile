@@ -22,7 +22,6 @@ bindings: basefee-vault-bindings \
 		l2-output-oracle-bindings \
 		l2-standard-bridge-bindings \
 		l2-to-l1-message-passer-bindings \
-		proposer-fee-vault-bindings \
 		proxy-admin-bindings \
 		proxy-bindings \
 		security-council-bindings \
@@ -31,6 +30,7 @@ bindings: basefee-vault-bindings \
 		timelock-bindings \
 		upgrade-governor-bindings \
 		validator-pool-bindings \
+		validator-reward-vault-bindings \
 		weth9-bindings \
 		zk-merkle-trie-bindings \
 		zk-verifier-bindings
@@ -113,7 +113,7 @@ l1-erc721-bridge-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/L1ERC721Bridge.sol:L1ERC721Bridge $(pkg)
 
 l1-fee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/ProposerRewardVault.sol:ProposerRewardVault $(pkg)
+	bash ./gen_bindings.sh contracts/L2/L1FeeVault.sol:L1FeeVault $(pkg)
 
 l1-standard-bridge-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/L1StandardBridge.sol:L1StandardBridge $(pkg)
@@ -132,9 +132,6 @@ l2-standard-bridge-bindings: compile
 
 l2-to-l1-message-passer-bindings: compile
 	bash ./gen_bindings.sh contracts/L2/L2ToL1MessagePasser.sol:L2ToL1MessagePasser $(pkg)
-
-proposer-fee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault $(pkg)
 
 proxy-admin-bindings: compile
 	bash ./gen_bindings.sh contracts/universal/ProxyAdmin.sol:ProxyAdmin $(pkg)
@@ -159,6 +156,9 @@ upgrade-governor-bindings: compile
 
 validator-pool-bindings: compile
 	bash ./gen_bindings.sh contracts/L1/ValidatorPool.sol:ValidatorPool $(pkg)
+
+validator-reward-vault-bindings: compile
+	bash ./gen_bindings.sh contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault $(pkg)
 
 weth9-bindings: compile
 	bash ./gen_bindings.sh contracts/vendor/WETH9.sol:WETH9 $(pkg)
