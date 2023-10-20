@@ -8,7 +8,7 @@
 [g-l1]: glossary.md#layer-1-l1
 [g-l2]: glossary.md#layer-2-l2
 [g-payload-attr]: glossary.md#payload-attributes
-[g-proposer-batch]: glossary.md#proposer-batch
+[g-sequencer-batch]: glossary.md#sequencer-batch
 [g-receipts]: glossary.md#receipt
 [g-reorg]: glossary.md#re-organization
 [g-rollup-driver]: glossary.md#rollup-driver
@@ -46,7 +46,7 @@ This process happens in three steps:
 
 1. Select inputs from the L1 chain, on top of the last L2 block:
    a list of blocks, with transactions and associated data and receipts.
-2. Read L1 information, deposits, and [proposing batches][g-proposer-batch] in order to generate
+2. Read L1 information, deposits, and [sequencing batches][g-sequencer-batch] in order to generate
    [payload attributes][g-payload-attr] (essentially [a block without output properties][g-block]).
 3. Pass the payload attributes to the [execution engine][g-exec-engine], so that the L2 block (including [output block
    properties][g-block]) may be computed.

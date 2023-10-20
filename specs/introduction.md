@@ -19,7 +19,7 @@
 - [Protocol Guarantees](#protocol-guarantees)
 - [Network Participants](#network-participants)
   - [Users](#users)
-  - [The Proposer](#the-proposer)
+  - [Sequencers](#sequencers)
   - [Validators](#validators)
 - [Key Interaction Diagrams](#key-interaction-diagrams)
   - [Depositing and Sending Transactions](#depositing-and-sending-transactions)
@@ -101,8 +101,8 @@ In order to scale Ethereum without sacrificing security, we must preserve 3 crit
 liveness, availability, and validity.
 
 1. **Liveness** - Anyone must be able to extend the rollup chain by sending transactions at any time.
-   - There are two ways transactions can be sent to the rollup chain: 1) via the proposer, and 2) directly on layer 1.
-     The proposer provides low latency & low cost transactions, while sending transactions directly to layer 1 provides
+   - There are two ways transactions can be sent to the rollup chain: 1) via the sequencer, and 2) directly on layer 1.
+     The sequencer provides low latency & low cost transactions, while sending transactions directly to layer 1 provides
      censorship resistance.
 2. **Availability** - Anyone must be able to download the rollup chain.
    - All information required to derive the chain is embedded into layer 1 blocks. That way as long as the layer 1 chain
@@ -115,7 +115,7 @@ liveness, availability, and validity.
 
 ## Network Participants
 
-There are three actors in Kroma: users, proposers, and validators.
+There are three actors in Kroma: users, sequencers, and validators.
 
 ![Network Overview](./assets/network-participants-overview.svg)
 
@@ -124,20 +124,20 @@ There are three actors in Kroma: users, proposers, and validators.
 At the heart of the network are users (us!). Users can:
 
 1. Deposit or withdraw arbitrary transactions on L2 by sending data to a contract on Ethereum mainnet.
-2. Use EVM smart contracts on layer 2 by sending transactions to the proposers.
+2. Use EVM smart contracts on layer 2 by sending transactions to the sequencers.
 3. View the status of transactions using block explorers provided by network validators.
 
-### The Proposer
+### Sequencers
 
-The proposer is the primary block producer.
-(At this moment, there is a single proposer that is operated by Lightscale.
+The sequencer is the primary block producer.
+(At this moment, there is a single sequencer that is operated by Lightscale.
 We have been actively discussing about how to open the role and how to separate block building role
-from proposer's role.)
-There may be one proposer **or** many using a consensus protocol.
-In general, specifications may use "the proposer" to be a stand-in term
-for the consensus protocol operated by multiple proposers.
+from sequencer's role.)
+There may be one sequencer **or** many using a consensus protocol.
+In general, specifications may use "the sequencer" to be a stand-in term
+for the consensus protocol operated by multiple sequencers.
 
-The proposer:
+The sequencer:
 
 1. Accepts user off-chain transactions.
 2. Observes on-chain transactions (primarily, deposit events coming from L1).
@@ -147,7 +147,7 @@ The proposer:
    - Sufficient information about the ordering of the on-chain transactions to successfully reconstruct the blocks.
 from step 3., purely by watching L1.
 
-The proposer also provides access to block data as early as step 3., so that users may access real-time state in
+The sequencer also provides access to block data as early as step 3., so that users may access real-time state in
 advance of L1 confirmation if they so choose.
 
 ### Validators
@@ -171,7 +171,7 @@ Users will often begin their L2 journey by depositing ETH from L1.
 Once they have ETH to pay fees, they'll start sending transactions on L2.
 The following diagram demonstrates this interaction and all key Kroma components which are or should be utilized:
 
-![Diagram of Depositing and Sending Transactions](./assets/proposer-handling-deposits-and-transactions.svg)
+![Diagram of Depositing and Sending Transactions](./assets/sequencer-handling-deposits-and-transactions.svg)
 
 Links to components mentioned in this diagram:
 

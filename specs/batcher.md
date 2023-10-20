@@ -9,7 +9,7 @@
 
 # Batch Submitter
 
-The batch submitter, also referred to as the batcher, is the entity submitting the [L2][g-l2] proposer data to
+The batch submitter, also referred to as the batcher, is the entity submitting the [L2][g-l2] sequencer data to
 [L1][g-l1], to make it available for [validators][g-validator].
 
 [derivation spec]: derivation.md
