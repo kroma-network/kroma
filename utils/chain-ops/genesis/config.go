@@ -101,7 +101,7 @@ type DeployConfig struct {
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
 
-	// Owner of the ProxyAdmin predeploy
+	// Owner of the ProxyAdmin predeploy, but in test it means super admin of the system
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
 	// L1 recipient of fees accumulated in the ProtocolVault
 	ProtocolVaultRecipient common.Address `json:"protocolVaultRecipient"`
