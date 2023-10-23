@@ -57,7 +57,7 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	l1Client := sys.Clients["l1"]
 	l2Prop := sys.Clients["proposer"]
 	// l2Sync := sys.Clients["syncer"]
-	ethPrivKey := cfg.Secrets.SysCfgOwner
+	ethPrivKey := cfg.Secrets.ProxyAdminOwner
 
 	// Bind to the SystemConfig & GasPriceOracle contracts
 	sysconfig, err := bindings.NewSystemConfig(predeploys.DevSystemConfigAddr, l1Client)

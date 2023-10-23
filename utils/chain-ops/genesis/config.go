@@ -101,10 +101,8 @@ type DeployConfig struct {
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
 
-	// Owner of the ProxyAdmin predeploy
+	// Owner of the ProxyAdmin predeploy, but in test it means super admin of the system
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
-	// Owner of the Guardian Token
-	SecurityCouncilTokenOwner common.Address `json:"securityCouncilTokenOwner"`
 	// L1 recipient of fees accumulated in the ProtocolVault
 	ProtocolVaultRecipient common.Address `json:"protocolVaultRecipient"`
 	// L1 recipient of fees accumulated in the ProposerRewardVault
@@ -194,9 +192,6 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.ProxyAdminOwner == (common.Address{}) {
 		return fmt.Errorf("%w: ProxyAdminOwner cannot be address(0)", ErrInvalidDeployConfig)
-	}
-	if d.SecurityCouncilTokenOwner == (common.Address{}) {
-		return fmt.Errorf("%w: SecurityCouncilTokenOwner cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.ProtocolVaultRecipient == (common.Address{}) {
 		return fmt.Errorf("%w: ProtocolVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)
