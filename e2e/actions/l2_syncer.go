@@ -18,6 +18,7 @@ import (
 	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/node/rollup/derive"
 	"github.com/kroma-network/kroma/components/node/rollup/driver"
+	"github.com/kroma-network/kroma/components/node/rollup/sync"
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testutils"
 )
@@ -57,9 +58,9 @@ type L2API interface {
 	GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error)
 }
 
-func NewL2Syncer(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, cfg *rollup.Config) *L2Syncer {
+func NewL2Syncer(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, cfg *rollup.Config, syncCfg *sync.Config) *L2Syncer {
 	metrics := &testutils.TestDerivationMetrics{}
-	pipeline := derive.NewDerivationPipeline(log, cfg, l1, eng, metrics)
+	pipeline := derive.NewDerivationPipeline(log, cfg, l1, eng, metrics, syncCfg)
 	pipeline.Reset()
 
 	rollupNode := &L2Syncer{
@@ -142,6 +143,10 @@ func (s *L2Syncer) L2Unsafe() eth.L2BlockRef {
 	return s.derivation.UnsafeL2Head()
 }
 
+func (s *L2Syncer) EngineSyncTarget() eth.L2BlockRef {
+	return s.derivation.EngineSyncTarget()
+}
+
 func (s *L2Syncer) SyncStatus() *eth.SyncStatus {
 	return &eth.SyncStatus{
 		CurrentL1:          s.derivation.Origin(),
@@ -153,6 +158,7 @@ func (s *L2Syncer) SyncStatus() *eth.SyncStatus {
 		SafeL2:             s.L2Safe(),
 		FinalizedL2:        s.L2Finalized(),
 		UnsafeL2SyncTarget: s.derivation.UnsafeL2SyncTarget(),
+		EngineSyncTarget:   s.EngineSyncTarget(),
 	}
 }
 
@@ -209,10 +215,10 @@ func (s *L2Syncer) ActL2PipelineStep(t Testing) {
 
 	s.l2PipelineIdle = false
 	err := s.derivation.Step(t.Ctx())
-	if err == io.EOF {
+	if err == io.EOF || (err != nil && errors.Is(err, derive.ErrEngineP2PSyncing)) {
 		s.l2PipelineIdle = true
 		return
-	} else if err != nil && errors.Is(err, derive.NotEnoughData) {
+	} else if err != nil && errors.Is(err, derive.ErrNotEnoughData) {
 		return
 	} else if err != nil && errors.Is(err, derive.ErrReset) {
 		s.log.Warn("Derivation pipeline is reset", "err", err)

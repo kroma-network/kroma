@@ -77,7 +77,7 @@ func (c *syncStartTestCase) Run(t *testing.T) {
 	}
 	lgr := log.New()
 	lgr.SetHandler(log.DiscardHandler())
-	result, err := FindL2Heads(context.Background(), cfg, chain, chain, lgr)
+	result, err := FindL2Heads(context.Background(), cfg, chain, chain, lgr, &Config{})
 	if c.ExpectedErr != nil {
 		require.ErrorIs(t, err, c.ExpectedErr, "expected error")
 		return
@@ -286,6 +286,37 @@ func TestFindSyncStart(t *testing.T) {
 			ProposerWindowSize: 2,
 			SafeL2Head:         'D',
 			ExpectedErr:        ErrWrongChain,
+		},
+		{
+			// FindL2Heads() keeps walking back to safe head after finding canonical unsafe head
+			// ErrReorgTooDeep must not be raised
+			Name:               "long traverse to safe head",
+			GenesisL1Num:       0,
+			L1:                 "abcdefgh",
+			L2:                 "ABCDEFGH",
+			NewL1:              "abcdefgx",
+			PreFinalizedL2:     'B',
+			PreSafeL2:          'B',
+			GenesisL1:          'a',
+			GenesisL2:          'A',
+			UnsafeL2Head:       'G',
+			ProposerWindowSize: 1,
+			SafeL2Head:         'B',
+			ExpectedErr:        nil,
+		},
+		{
+			// L2 reorg is too deep
+			Name:               "reorg too deep",
+			GenesisL1Num:       0,
+			L1:                 "abcdefgh",
+			L2:                 "ABCDEFGH",
+			NewL1:              "abijklmn",
+			PreFinalizedL2:     'B',
+			PreSafeL2:          'B',
+			GenesisL1:          'a',
+			GenesisL2:          'A',
+			ProposerWindowSize: 1,
+			ExpectedErr:        ErrReorgTooDeep,
 		},
 	}
 

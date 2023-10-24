@@ -312,7 +312,7 @@ func TestBatchQueueMissing(t *testing.T) {
 
 	for i := 0; i < len(batches); i++ {
 		b, e := bq.NextBatch(context.Background(), safeHead)
-		require.ErrorIs(t, e, NotEnoughData)
+		require.ErrorIs(t, e, ErrNotEnoughData)
 		require.Nil(t, b)
 	}
 

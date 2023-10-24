@@ -15,6 +15,7 @@ import (
 
 	"github.com/kroma-network/kroma/components/node/client"
 	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/kroma-network/kroma/components/node/rollup/sync"
 	"github.com/kroma-network/kroma/components/node/sources"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/e2e/e2eutils"
@@ -33,7 +34,7 @@ func setupReorgTestActors(t Testing, dp *e2eutils.DeployParams, sd *e2eutils.Set
 	miner, propEngine, proposer := setupProposerTest(t, sd, log)
 	miner.ActL1SetFeeRecipient(common.Address{'A'})
 	proposer.ActL2PipelineFull(t)
-	syncEngine, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg))
+	syncEngine, syncer := setupSyncer(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
 	rollupPropCl := proposer.RollupClient()
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
