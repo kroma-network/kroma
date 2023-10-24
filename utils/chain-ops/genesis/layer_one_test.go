@@ -108,7 +108,7 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	require.Equal(t, cfg, defaultResourceConfig)
 	owner, err := sysCfg.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.Equal(t, owner, config.SecurityCouncilTokenOwner)
+	require.Equal(t, owner, config.ProxyAdminOwner)
 	overhead, err := sysCfg.Overhead(&bind.CallOpts{})
 	require.NoError(t, err)
 	require.Equal(t, overhead.Uint64(), config.GasPriceOracleOverhead)

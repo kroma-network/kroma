@@ -141,11 +141,6 @@ interface RequiredDeployConfig {
   proxyAdminOwner: string
 
   /**
-   * Owner of the Security Council token.
-   */
-  securityCouncilTokenOwner: string
-
-  /**
    * L1 recipient of fees accumulated in the ProtocolVault.
    */
   protocolVaultRecipient: string
@@ -201,14 +196,19 @@ interface RequiredDeployConfig {
   governorVotesQuorumFractionPercent: number
 
   /**
-   * L2 : Governor voting period in block.
-   */
-  l2GovernorVotingPeriodBlocks: number
-
-  /**
    * Initial minimum delay for operations.
    */
   timeLockMinDelaySeconds: number
+
+  /**
+   * L2 : Initial minimum delay for operations.
+   */
+  l2TimeLockMinDelaySeconds: number
+
+  /**
+   * L2 : Governor voting period in block.
+   */
+  l2GovernorVotingPeriodBlocks: number
 }
 
 /**
@@ -325,9 +325,6 @@ export const deployConfigSpec: {
     default: 2,
   },
   proxyAdminOwner: {
-    type: 'address',
-  },
-  securityCouncilTokenOwner: {
     type: 'address',
   },
   protocolVaultRecipient: {
@@ -467,10 +464,13 @@ export const deployConfigSpec: {
   governorVotesQuorumFractionPercent: {
     type: 'number',
   },
+  timeLockMinDelaySeconds: {
+    type: 'number',
+  },
   l2GovernorVotingPeriodBlocks: {
     type: 'number',
   },
-  timeLockMinDelaySeconds: {
+  l2TimeLockMinDelaySeconds: {
     type: 'number',
   },
 }

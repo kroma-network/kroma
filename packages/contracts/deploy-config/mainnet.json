@@ -1,6 +1,5 @@
 {
   "proxyAdminOwner": "0xA03c13C6597a0716D1525b7fDaD2fD95ECb49081",
-  "securityCouncilTokenOwner": "0xA03c13C6597a0716D1525b7fDaD2fD95ECb49081",
   "l1StartingBlockTag": "0xe459c500b760ed52a1ad799bf578b257af2c76f6ebe061a4c62627e9c605bced",
   "l1ChainID": 1,
   "l2ChainID": 255,
@@ -44,6 +43,7 @@
   "governorVotesQuorumFractionPercent": 51,
   "timeLockMinDelaySeconds": 2592000,
   "l2GovernorVotingPeriodBlocks": 129600,
+  "l2TimeLockMinDelaySeconds": 604800,
   "zkVerifierHashScalar": "0x163b85414bb5a9c97d8249f96b9c4ffd8db3e8081133101a14fc8546b704e2b",
   "zkVerifierM56Px": "0x2aa452092865578d9b68a69f053df3db7a563b7cc7d17c9cce524632ccb30d85",
   "zkVerifierM56Py": "0xafcccd2c2ebc8ffb530403bb07d4e1bcfc1aa910d4dd08d7cd81fcafef5e556"

@@ -90,19 +90,19 @@ type DeployConfig struct {
 	GovernorProposalThreshold uint64 `json:"governorProposalThreshold"`
 	// The initial value of the votes quorum fraction(unit:percent)
 	GovernorVotesQuorumFractionPercent uint64 `json:"governorVotesQuorumFractionPercent"`
-	// The initial value of the L2 voting period(unit:block)
-	L2GovernorVotingPeriodBlocks uint64 `json:"l2GovernorVotingPeriodBlocks"`
 	// The latency value of the proposal executing(unit:second)
 	TimeLockMinDelaySeconds uint64 `json:"timeLockMinDelaySeconds"`
+	// The initial value of the L2 voting period(unit:block)
+	L2GovernorVotingPeriodBlocks uint64 `json:"l2GovernorVotingPeriodBlocks"`
+	// The latency value of the L2 proposal executing(unit:second)
+	L2TimeLockMinDelaySeconds uint64 `json:"l2TimeLockMinDelaySeconds"`
 
 	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
 
-	// Owner of the ProxyAdmin predeploy
+	// Owner of the ProxyAdmin predeploy, but in test it means super admin of the system
 	ProxyAdminOwner common.Address `json:"proxyAdminOwner"`
-	// Owner of the Guardian Token
-	SecurityCouncilTokenOwner common.Address `json:"securityCouncilTokenOwner"`
 	// L1 recipient of fees accumulated in the ProtocolVault
 	ProtocolVaultRecipient common.Address `json:"protocolVaultRecipient"`
 	// L1 recipient of fees accumulated in the ProposerRewardVault
@@ -192,9 +192,6 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.ProxyAdminOwner == (common.Address{}) {
 		return fmt.Errorf("%w: ProxyAdminOwner cannot be address(0)", ErrInvalidDeployConfig)
-	}
-	if d.SecurityCouncilTokenOwner == (common.Address{}) {
-		return fmt.Errorf("%w: SecurityCouncilTokenOwner cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	if d.ProtocolVaultRecipient == (common.Address{}) {
 		return fmt.Errorf("%w: ProtocolVaultRecipient cannot be address(0)", ErrInvalidDeployConfig)

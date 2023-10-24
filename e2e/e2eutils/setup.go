@@ -115,7 +115,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		DeploymentWaitConfirmations: 1,
 		ValidatorRewardScalar:       5000,
 
-		SecurityCouncilTokenOwner:    addresses.SysCfgOwner,
+		ProxyAdminOwner:              addresses.ProxyAdminOwner,
 		ProtocolVaultRecipient:       common.Address{19: 2},
 		ProposerRewardVaultRecipient: common.Address{19: 3},
 

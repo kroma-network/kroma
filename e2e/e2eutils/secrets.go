@@ -26,7 +26,7 @@ var DefaultMnemonicConfig = &MnemonicConfig{
 	Alice:            "m/44'/60'/0'/0/8",
 	Bob:              "m/44'/60'/0'/0/9",
 	Mallory:          "m/44'/60'/0'/0/10",
-	SysCfgOwner:      "m/44'/60'/0'/0/11",
+	ProxyAdminOwner:  "m/44'/60'/0'/0/11",
 }
 
 // MnemonicConfig configures the private keys for the hive testnet.
@@ -34,9 +34,9 @@ var DefaultMnemonicConfig = &MnemonicConfig{
 type MnemonicConfig struct {
 	Mnemonic string
 
-	Deployer     string
-	CliqueSigner string
-	SysCfgOwner  string
+	Deployer        string
+	CliqueSigner    string
+	ProxyAdminOwner string
 
 	// rollup actors
 	TrustedValidator string
@@ -70,7 +70,7 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	if err != nil {
 		return nil, err
 	}
-	sysCfgOwner, err := wallet.PrivateKey(account(m.SysCfgOwner))
+	proxyAdminOwner, err := wallet.PrivateKey(account(m.ProxyAdminOwner))
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	return &Secrets{
 		Deployer:         deployer,
 		CliqueSigner:     cliqueSigner,
-		SysCfgOwner:      sysCfgOwner,
+		ProxyAdminOwner:  proxyAdminOwner,
 		TrustedValidator: trustedValidator,
 		Challenger1:      challenger1,
 		Challenger2:      challenger2,
@@ -125,9 +125,9 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 
 // Secrets bundles secp256k1 private keys for all common rollup actors for testing purposes.
 type Secrets struct {
-	Deployer     *ecdsa.PrivateKey
-	CliqueSigner *ecdsa.PrivateKey
-	SysCfgOwner  *ecdsa.PrivateKey
+	Deployer        *ecdsa.PrivateKey
+	CliqueSigner    *ecdsa.PrivateKey
+	ProxyAdminOwner *ecdsa.PrivateKey
 
 	// rollup actors
 	TrustedValidator *ecdsa.PrivateKey
@@ -159,7 +159,7 @@ func (s *Secrets) Addresses() *Addresses {
 	return &Addresses{
 		Deployer:         crypto.PubkeyToAddress(s.Deployer.PublicKey),
 		CliqueSigner:     crypto.PubkeyToAddress(s.CliqueSigner.PublicKey),
-		SysCfgOwner:      crypto.PubkeyToAddress(s.SysCfgOwner.PublicKey),
+		ProxyAdminOwner:  crypto.PubkeyToAddress(s.ProxyAdminOwner.PublicKey),
 		TrustedValidator: crypto.PubkeyToAddress(s.TrustedValidator.PublicKey),
 		Challenger1:      crypto.PubkeyToAddress(s.Challenger1.PublicKey),
 		Challenger2:      crypto.PubkeyToAddress(s.Challenger2.PublicKey),
@@ -173,9 +173,9 @@ func (s *Secrets) Addresses() *Addresses {
 
 // Addresses bundles the addresses for all common rollup addresses for testing purposes.
 type Addresses struct {
-	Deployer     common.Address
-	CliqueSigner common.Address
-	SysCfgOwner  common.Address
+	Deployer        common.Address
+	CliqueSigner    common.Address
+	ProxyAdminOwner common.Address
 
 	// rollup actors
 	TrustedValidator common.Address
@@ -194,7 +194,7 @@ func (a *Addresses) All() []common.Address {
 	return []common.Address{
 		a.Deployer,
 		a.CliqueSigner,
-		a.SysCfgOwner,
+		a.ProxyAdminOwner,
 		a.TrustedValidator,
 		a.Challenger1,
 		a.Challenger2,
