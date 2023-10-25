@@ -43,10 +43,10 @@ type DeployParams struct {
 
 // TestParams parametrizes the most essential rollup configuration parameters
 type TestParams struct {
-	MaxProposerDrift   uint64
-	ProposerWindowSize uint64
-	ChannelTimeout     uint64
-	L1BlockTime        uint64
+	MaxSequencerDrift   uint64
+	SequencerWindowSize uint64
+	ChannelTimeout      uint64
+	L1BlockTime         uint64
 }
 
 func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
@@ -59,12 +59,12 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 		L2ChainID:   901,
 		L2BlockTime: 2,
 
-		MaxProposerDrift:   tp.MaxProposerDrift,
-		ProposerWindowSize: tp.ProposerWindowSize,
-		ChannelTimeout:     tp.ChannelTimeout,
-		P2PProposerAddress: addresses.ProposerP2P,
-		BatchInboxAddress:  common.Address{0: 0x42, 19: 0xff}, // tbd
-		BatchSenderAddress: addresses.Batcher,
+		MaxSequencerDrift:   tp.MaxSequencerDrift,
+		SequencerWindowSize: tp.SequencerWindowSize,
+		ChannelTimeout:      tp.ChannelTimeout,
+		P2PSequencerAddress: addresses.SequencerP2P,
+		BatchInboxAddress:   common.Address{0: 0x42, 19: 0xff}, // tbd
+		BatchSenderAddress:  addresses.Batcher,
 
 		ValidatorPoolTrustedValidator:   addresses.TrustedValidator,
 		ValidatorPoolRequiredBondAmount: uint64ToBig(1),
@@ -117,7 +117,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 
 		ProxyAdminOwner:              addresses.ProxyAdminOwner,
 		ProtocolVaultRecipient:       common.Address{19: 2},
-		ProposerRewardVaultRecipient: common.Address{19: 3},
+		L1FeeVaultRecipient:       common.Address{19: 3},
 
 		EIP1559Elasticity:  10,
 		EIP1559Denominator: 50,
@@ -235,8 +235,8 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 			SystemConfig: SystemConfigFromDeployConfig(deployConf),
 		},
 		BlockTime:              deployConf.L2BlockTime,
-		MaxProposerDrift:       deployConf.MaxProposerDrift,
-		ProposerWindowSize:     deployConf.ProposerWindowSize,
+		MaxSequencerDrift:      deployConf.MaxSequencerDrift,
+		SeqWindowSize:          deployConf.SequencerWindowSize,
 		ChannelTimeout:         deployConf.ChannelTimeout,
 		L1ChainID:              new(big.Int).SetUint64(deployConf.L1ChainID),
 		L2ChainID:              new(big.Int).SetUint64(deployConf.L2ChainID),

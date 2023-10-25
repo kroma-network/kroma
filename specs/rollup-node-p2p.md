@@ -1,7 +1,7 @@
 # Rollup-node P2P interface
 
 The [rollup node](./rollup-node.md) has an optional peer-to-peer (P2P) network service to improve the latency between
-the view of proposers and the rest of the network by bypassing the L1 in the happy case,
+the view of sequencers and the rest of the network by bypassing the L1 in the happy case,
 without relying on a single centralized endpoint.
 
 This also enables faster historical sync to be bootstrapped by providing block headers to sync towards,
@@ -182,7 +182,7 @@ Messages are deduplicated, and filtered through application-layer signature veri
 Thus origin-stamping is disabled and published messages must only contain application data,
 enforced through a [`StrictNoSign` Signature Policy][signature-policy]
 
-This provides greater privacy, and allows proposers (consensus identity) to maintain
+This provides greater privacy, and allows sequencers (consensus identity) to maintain
 multiple network identities for redundancy.
 
 ##### Message compression and limits
@@ -284,12 +284,12 @@ An [extended-validator] checks the incoming messages as follows, in order of ope
 - `[REJECT]` if the `block_hash` in the `payload` is not valid
 - `[REJECT]` if more than 5 different blocks have been seen with the same block height
 - `[IGNORE]` if the block has already been seen
-- `[REJECT]` if the signature by the proposer is not valid
+- `[REJECT]` if the signature by the sequencer is not valid
 - Mark the block as seen for the given block height
 
-The block is signed by the corresponding proposer, to filter malicious messages.
-The proposer model is singular but may change to multiple proposers in the future.
-A default proposer pubkey is distributed with rollup nodes and should be configurable.
+The block is signed by the corresponding sequencer, to filter malicious messages.
+The sequencer model is singular but may change to multiple sequencers in the future.
+A default sequencer pubkey is distributed with rollup nodes and should be configurable.
 
 Note that blocks that a block may still be propagated even if the L1 already confirmed a different block.
 The local L1 view of the node may be wrong, and the time and signature validation will prevent spam.

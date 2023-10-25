@@ -36,7 +36,7 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	log.Info("genesis", "l2", sys.RollupConfig.Genesis.L2, "l1", sys.RollupConfig.Genesis.L1, "l2_time", sys.RollupConfig.Genesis.L2Time)
 
 	l1Client := sys.Clients["l1"]
-	l2Client := sys.Clients["proposer"]
+	l2Client := sys.Clients["sequencer"]
 
 	opts, err := bind.NewKeyedTransactorWithChainID(sys.cfg.Secrets.Alice, cfg.L1ChainIDBig())
 	require.Nil(t, err)

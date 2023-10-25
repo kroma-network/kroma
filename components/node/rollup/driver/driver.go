@@ -31,7 +31,7 @@ type Metrics interface {
 	RecordL1ReorgDepth(d uint64)
 
 	EngineMetrics
-	ProposerMetrics
+	SequencerMetrics
 }
 
 type L1Chain interface {
@@ -71,11 +71,11 @@ type L1StateIface interface {
 	L1Finalized() eth.L1BlockRef
 }
 
-type ProposerIface interface {
+type SequencerIface interface {
 	StartBuildingBlock(ctx context.Context) error
 	CompleteBuildingBlock(ctx context.Context) (*eth.ExecutionPayload, error)
-	PlanNextProposerAction() time.Duration
-	RunNextProposerAction(ctx context.Context) (*eth.ExecutionPayload, error)
+	PlanNextSequencerAction() time.Duration
+	RunNextSequencerAction(ctx context.Context) (*eth.ExecutionPayload, error)
 	BuildingOnto() eth.L2BlockRef
 }
 
@@ -103,25 +103,25 @@ type AltSync interface {
 	RequestL2Range(ctx context.Context, start, end eth.L2BlockRef) error
 }
 
-// NewDriver composes an events handler that tracks L1 state, triggers L2 derivation, and optionally proposes new L2 blocks.
+// NewDriver composes an events handler that tracks L1 state, triggers L2 derivation, and optionally sequences new L2 blocks.
 func NewDriver(driverCfg *Config, cfg *rollup.Config, l2 L2Chain, l1 L1Chain, altSync AltSync, network Network, log log.Logger, snapshotLog log.Logger, metrics Metrics, syncCfg *sync.Config) *Driver {
 	l1State := NewL1State(log, metrics)
-	proposerConfDepth := NewConfDepth(driverCfg.ProposerConfDepth, l1State.L1Head, l1)
-	findL1Origin := NewL1OriginSelector(log, cfg, proposerConfDepth)
+	sequencerConfDepth := NewConfDepth(driverCfg.SequencerConfDepth, l1State.L1Head, l1)
+	findL1Origin := NewL1OriginSelector(log, cfg, sequencerConfDepth)
 	syncConfDepth := NewConfDepth(driverCfg.SyncerConfDepth, l1State.L1Head, l1)
 	derivationPipeline := derive.NewDerivationPipeline(log, cfg, syncConfDepth, l2, metrics, syncCfg)
 	attrBuilder := derive.NewFetchingAttributesBuilder(cfg, l1, l2)
 	engine := derivationPipeline
 	meteredEngine := NewMeteredEngine(cfg, engine, metrics, log)
-	proposer := NewProposer(log, cfg, meteredEngine, attrBuilder, findL1Origin, metrics)
+	sequencer := NewSequencer(log, cfg, meteredEngine, attrBuilder, findL1Origin, metrics)
 
 	return &Driver{
 		l1State:          l1State,
 		derivation:       derivationPipeline,
 		stateReq:         make(chan chan struct{}),
 		forceReset:       make(chan chan struct{}, 10),
-		startProposer:    make(chan hashAndErrorChannel, 10),
-		stopProposer:     make(chan chan hashAndError, 10),
+		startSequencer:   make(chan hashAndErrorChannel, 10),
+		stopSequencer:    make(chan chan hashAndError, 10),
 		config:           cfg,
 		driverConfig:     driverCfg,
 		done:             make(chan struct{}),
@@ -129,7 +129,7 @@ func NewDriver(driverCfg *Config, cfg *rollup.Config, l2 L2Chain, l1 L1Chain, al
 		snapshotLog:      snapshotLog,
 		l1:               l1,
 		l2:               l2,
-		proposer:         proposer,
+		sequencer:        sequencer,
 		network:          network,
 		metrics:          metrics,
 		l1HeadSig:        make(chan eth.L1BlockRef, 10),

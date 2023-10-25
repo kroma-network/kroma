@@ -18,7 +18,7 @@ import (
 var (
 	ErrBlockTimeZero                 = errors.New("block time cannot be 0")
 	ErrMissingChannelTimeout         = errors.New("channel timeout must be set, this should cover at least a L1 block time")
-	ErrInvalidProposerWindowSize     = errors.New("proposing window size must at least be 2")
+	ErrInvalidSeqWindowSize          = errors.New("sequencing window size must at least be 2")
 	ErrMissingGenesisL1Hash          = errors.New("genesis L1 hash cannot be empty")
 	ErrMissingGenesisL2Hash          = errors.New("genesis L2 hash cannot be empty")
 	ErrGenesisHashesSame             = errors.New("achievement get! rollup inception: L1 and L2 genesis cannot be the same")
@@ -54,14 +54,14 @@ type Config struct {
 	Genesis Genesis `json:"genesis"`
 	// Seconds per L2 block
 	BlockTime uint64 `json:"block_time"`
-	// Proposer batches may not be more than MaxProposerDrift seconds after
-	// the L1 timestamp of the proposer window end.
+	// Sequencer batches may not be more than MaxSequencerDrift seconds after
+	// the L1 timestamp of the sequencing window end.
 	//
 	// Note: When L1 has many 1 second consecutive blocks, and L2 grows at fixed 2 seconds,
 	// the L2 time may still grow beyond this difference.
-	MaxProposerDrift uint64 `json:"max_proposer_drift"`
-	// Number of epochs (L1 blocks) per proposer window, including the epoch L1 origin block itself
-	ProposerWindowSize uint64 `json:"proposer_window_size"`
+	MaxSequencerDrift uint64 `json:"max_sequencer_drift"`
+	// Number of epochs (L1 blocks) per sequencing window, including the epoch L1 origin block itself
+	SeqWindowSize uint64 `json:"seq_window_size"`
 	// Number of L1 blocks between when a channel can be opened and when it must be closed by.
 	ChannelTimeout uint64 `json:"channel_timeout"`
 	// Required to verify L1 signatures
@@ -190,8 +190,8 @@ func (cfg *Config) Check() error {
 	if cfg.ChannelTimeout == 0 {
 		return ErrMissingChannelTimeout
 	}
-	if cfg.ProposerWindowSize < 2 {
-		return ErrInvalidProposerWindowSize
+	if cfg.SeqWindowSize < 2 {
+		return ErrInvalidSeqWindowSize
 	}
 	if cfg.Genesis.L1.Hash == (common.Hash{}) {
 		return ErrMissingGenesisL1Hash

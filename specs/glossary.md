@@ -28,10 +28,8 @@
 - [Sequencing](#sequencing)
   - [Sequencer](#sequencer)
   - [Maximal Extractable Value](#maximal-extractable-value)
-- [Proposal](#proposal)
-  - [Proposer](#proposer)
-  - [Proposing Window](#proposing-window)
-  - [Proposing Epoch](#proposing-epoch)
+  - [Sequencing Window](#sequencing-window)
+  - [Sequencing Epoch](#sequencing-epoch)
   - [L1 Origin](#l1-origin)
 - [Validation](#validation)
   - [Checkpoint Output](#checkpoint-output)
@@ -57,7 +55,7 @@
 - [Batch Submission](#batch-submission)
   - [Data Availability](#data-availability)
   - [Data Availability Provider](#data-availability-provider)
-  - [Proposer Batch](#proposer-batch)
+  - [Sequencer Batch](#sequencer-batch)
   - [Channel](#channel)
   - [Channel Frame](#channel-frame)
   - [Batcher](#batcher)
@@ -125,8 +123,6 @@ It is useful to distinguish between input block properties, which are known befo
 block, and output block properties, which are derived after executing the block's transactions. These include various
 [Merkle Patricia Trie roots][mpt] that notably commit to the L2 state and to the log events emitted during execution.
 
-[nano-header]: https://github.com/norswap/nanoeth/blob/cc5d94a349c90627024f3cd629a2d830008fec72/src/com/norswap/nanoeth/blocks/BlockHeader.java#L22-L156
-
 ## Account
 
 [account]: glossary.md#account
@@ -138,7 +134,7 @@ Refers to the [Ethereum Account][ethereum-account-details] which comprises `nonc
 
 ## EOA
 
-[eoa]: glossary.md#eoa
+[EOA]: glossary.md#EOA
 
 "Externally Owned Account", an Ethereum term to designate addresses operated by users, as opposed to contract addresses.
 
@@ -191,8 +187,6 @@ The root hash of a MPT is a commitment to the contents of the tree, which allows
 proof to be constructed for any key-value mapping encoded in the tree. Such a proof is called a Merkle proof, and can be
 verified against the Merkle root.
 
-[mpt-details]: https://github.com/norswap/nanoeth/blob/d4c0c89cc774d4225d16970aa44c74114c1cfa63/src/com/norswap/nanoeth/trees/patricia/README.md
-
 ## ZK Trie
 
 [zk trie]: glossary.md#zk-trie
@@ -205,9 +199,6 @@ verified against the Merkle root.
 Whereas [L1] uses [MPT][mpt] to represent state, [L2] uses ZKT. This is because ZKT enables faster proof
 generation by avoiding [Keccak][keccak] and [RLP encoding][rlp]. To accomplish this, ZKT uses poseidon hash to calculate
 the path and concatenates leaf values in bytes.
-
-[rlp]: https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
-[zkt-details]: https://github.com/kroma-network/zktrie
 
 ## Chain Re-Organization
 
@@ -239,17 +230,12 @@ for every transaction in the block.
 
 Receipts are specified in the [yellow paper (pdf)][yellow] section 4.3.1.
 
-[bloom filter]: https://en.wikipedia.org/wiki/Bloom_filter
-[solidity events]: https://docs.soliditylang.org/en/latest/contracts.html?highlight=events#events
-
 ## Transaction Type
 
 [transaction-type]: glossary.md#transaction-type
 
 Ethereum provides a mechanism (as described in [EIP-2718]) for defining different transaction types.
 Different transaction types can contain different payloads, and be handled differently by the protocol.
-
-[eip-2718]: https://eips.ethereum.org/EIPS/eip-2718
 
 ## Fork Choice Rule
 
@@ -278,7 +264,7 @@ very short amount of time.
 
 [sequencing]: glossary.md#sequencing
 
-User can send transaction to a [proposer] in two ways:
+User can send transaction to a [sequencer] in two ways:
 
 - Through a [deposited transaction](#deposited-transaction) on [L1]
 - Through a regular transaction on [L2]
@@ -286,15 +272,18 @@ User can send transaction to a [proposer] in two ways:
 Sequencing is creating [block] body by collecting transaction from above sources. In other words, sequencing
 refers to all the actions that are able to determine block body, which are inclusion, exclusion and ordering.
 The transactions can be collected with different strategies to get [MEV]. A simple example is to collect the transaction
-whose priority fee is high so that proposer can earn maximum priority fee as a result.
+whose priority fee is high so that sequencer can earn maximum priority fee as a result.
 
 ## Sequencer
 
 [sequencer]: glossary.md#sequencer
 
-A sequencer is a privileged actor, who does [sequencing].
+A sequencer is either a [rollup node][rollup-node] ran in sequencer mode, or the operator of this rollup node.
 
-> **TODO** In the initial release, the sequencer role is merged to the proposer. In the future,
+The sequencer is a priviledged actor, which receives L2 transactions from L2 users, creates L2 blocks using them, which
+it then submits to [data availability provider][avail-provider] (via a [batcher]).
+
+> **TODO** In the initial release, the sequencer role is merged to the sequencer. In the future,
 > the sequencer role is separated and is planned to be decentralized.
 
 ## Maximal Extractable Value
@@ -317,38 +306,28 @@ Constructed blocks should be proposed to network in two ways:
 - Through [unsafe sync][unsafe-sync] in form of [execution payload][execution-payload]
 - Through a [batch submission][batch-submission] in form of [frame][channel-frame]
 
-[execution-payload]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md#executionpayloadv1
+## Sequencing Window
 
-## Proposer
+[sequencing-window]: glossary.md#sequencing-window
 
-[proposer]: glossary.md#proposer
+A sequencing window is a range of L1 blocks from which a [sequencing epoch][sequencing-epoch] can be derived.
 
-A proposer is a privileged actor, who does [proposals][proposal]. A Proposer submits [L2] blocks to
-[data availability provider][avail-provider] (via a [batcher]).
-
-## Proposing Window
-
-[proposing-window]: glossary.md#proposing-window
-
-A proposing window is a range of [L1] blocks from which a [proposing epoch][proposing-epoch] can be derived.
-
-A proposing window whose first L1 [block] has number `N` contains [batcher transactions][batcher-transaction] for epoch
+A sequencing window whose first L1 block has number `N` contains [batcher transactions][batcher-transaction] for epoch
 `N`. The window contains blocks `[N, N + SWS)` where `SWS` is the sequencer window size.
 
-> **TODO** specify proposer window size
+> **TODO** specify sequencer window size
 
 Additionally, the first block in the window defines the [depositing transactions][depositing-tx] which determine the
 [deposits] to be included in the first [L2] block of the epoch.
 
-## Proposing Epoch
+## Sequencing Epoch
 
-[proposing-epoch]: glossary.md#proposing-epoch
+[sequencing-epoch]: glossary.md#sequencing-epoch
 
-A proposing epoch is a sequential range of [L2] [blocks][block] derived from a [proposing window](#proposing-window) of
-[L1] blocks.
+A sequencing epoch is sequential range of [L2] [blocks][block] derived from a [sequencing window](#sequencing-window) of [L1] blocks.
 
 Each epoch is identified by an epoch number, which is equal to the block number of the first L1 block in the
-proposing window.
+sequencing window.
 
 Epochs can have variable size, subject to some constraints. See the [L2 chain derivation specification][derivation-spec]
 for more details.
@@ -357,7 +336,9 @@ for more details.
 
 [l1-origin]: glossary.md#l1-origin
 
-The [L1] origin of an [L2] [block] is the L1 block corresponding to its [proposing epoch][proposing-epoch].
+The [L1] origin of an [L2] [block] is the L1 block corresponding to its [sequencing epoch][sequencing-epoch].
+
+------------------------------------------------------------------------------------------------------------------------
 
 # Validation
 
@@ -598,9 +579,9 @@ The finalization period is necessary to afford sufficient time for [validators][
 
 [data-availability]: glossary.md#data-availability
 
-Data availability is the guarantee that some data will be "available" (i.e. _retrievable_) during a reasonably long time
-window. In Kroma's case, the data in question are [proposer batches][proposer-batch] that [validators][validator]
-needs in order to verify the proposer's work and validate the [L2] chain.
+Data availability is the guarantee that some data will be "available" (i.e. *retrievable*) during a reasonably long time
+window. In Kroma's case, the data in question are [sequencer batches][sequencer-batch] that [validators][validator]
+needs in order to verify the sequencer's work and validate the [L2] chain.
 
 The [finalization period][finalization-period] should be taken as the lower bound on the availability window, since
 that is when data availability is the most crucial, as it is needed to perform a [ZK fault proof][zk-fault-proof].
@@ -619,17 +600,15 @@ Ideally, a good data availability provider provides strong _verifiable_ guarante
 Currently, the only supported data availability provider is Ethereum call data. [Ethereum data blobs][eip4844] will be
 supported when they get deployed on Ethereum.
 
-[eip4844]: https://www.eip4844.com/
+## Sequencer Batch
 
-## Proposer Batch
+[sequencer-batch]: glossary.md#sequencer-batch
 
-[proposer-batch]: glossary.md#proposer-batch
+A sequencer batch is list of [L2] transactions (that were submitted to a sequencer) tagged with an [epoch
+number](#sequencing-epoch) and an L2 [block] timestamp (which can trivially be converted to a block number, given our
+block time is constant).
 
-A proposer batch is list of [L2] transactions (that were submitted by a proposer) tagged with an
-[epoch number](#proposing-epoch) and an L2 [block] timestamp (which can trivially be converted to a block number,
-given our block time is constant).
-
-Proposer batches are part of the [L2 derivation inputs][deriv-inputs]. Each batch represents the inputs needed to build
+Sequencer batches are part of the [L2 derivation inputs][deriv-inputs]. Each batch represents the inputs needed to build
 **one** L2 block (given the existing L2 chain state) — except for the first block of each epoch, which also needs
 information about deposits (cf. the section on [L2 derivation inputs][deriv-inputs]).
 
@@ -637,13 +616,13 @@ information about deposits (cf. the section on [L2 derivation inputs][deriv-inpu
 
 [channel]: glossary.md#channel
 
-A channel is a sequence of [proposer batches][proposer-batch] (for sequential blocks) compressed together. The reason
+A channel is a sequence of [sequencer batches][sequencer-batch] (for sequential blocks) compressed together. The reason
 to group multiple batches together is simply to obtain a better compression rate, hence reducing data availability
 costs.
 
-A channel can be split in [frames][channel-frame] in order to be transmitted via
-[batcher transactions][batcher-transaction]. The reason to split a channel into frames is that a channel might be too
-large to include in a single batcher transaction.
+A channel can be split in [frames][channel-frame] in order to be transmitted via [batcher
+transactions][batcher-transaction]. The reason to split a channel into frames is that a channel might be too large to
+include in a single batcher transaction.
 
 A channel is uniquely identified by its timestamp (UNIX time at which the channel was created) and a random value. See
 the [Frame Format][frame-format] section of the [L2] Chain Derivation specification for more information.
@@ -651,7 +630,7 @@ the [Frame Format][frame-format] section of the [L2] Chain Derivation specificat
 [frame-format]: derivation.md#frame-format
 
 On the side of the [rollup node][rollup-node] (which is the consumer of channels), a channel is considered to be
-_opened_ if its final frame (explicitly marked as such) has not been read, or closed otherwise.
+*opened* if its final frame (explicitly marked as such) has not been read, or closed otherwise.
 
 ## Channel Frame
 
@@ -692,7 +671,7 @@ transaction must also be signed by a recognized batch submitter account.
 The channel timeout is a duration (in [L1] [blocks][block]) during which [channel frames][channel-frame] may land on L1
 within [batcher transactions][batcher-transaction].
 
-The acceptable time range for the frames of a [channel] is `[channel_id.timestamp, channel_id.timestamp +
+The acceptable time range for the frames of a [channel][channel] is `[channel_id.timestamp, channel_id.timestamp +
 CHANNEL_TIMEOUT]`. The acceptable L1 block range for these frames are any L1 block whose timestamp falls inside this
 time range. (Note that `channel_id.timestamp` must be lower than the L1 block timestamp of any L1 block in which frames
 of the channel are seen, or else these frames are ignored.)
@@ -701,7 +680,7 @@ The purpose of channel timeouts is dual:
 
 - Avoid keeping old unclosed channel data around forever (an unclosed channel is a channel whose final frame was not
   sent).
-- Bound the number of L1 blocks we have to look back in order to decode [proposer batches][proposer-batch] from
+- Bound the number of L1 blocks we have to look back in order to decode [sequencer batches][sequencer-batch] from
   channels. This is particularly relevant during L1 re-orgs, see the [Resetting Channel Buffering][reset-channel-buffer]
   section of the [L2 Chain Derivation specification][derivation-spec] for more information.
 
@@ -734,7 +713,7 @@ construct [payload attributes][payload-attr].
   - timestamp
   - basefee
 - [deposits] (as log data)
-- [proposer batches][proposer-batch] (as transaction data)
+- [sequencer batches][sequencer-batch] (as transaction data)
 - [System configuration][system-config] updates (as log data)
 
 ## System Configuration
@@ -761,7 +740,6 @@ the [Execution Engine Specification](exec-engine.md).
 See also the [Building The Payload Attributes][building-payload-attr] section of the rollup node specification.
 
 [building-payload-attr]: rollup-node.md#building-the-payload-attributes
-[engine-api]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md#PayloadAttributesV1
 
 ## L2 Genesis Block
 
@@ -812,8 +790,8 @@ The safe L2 head is the highest [safe L2 block][safe-l2-block] that a [rollup no
 [unsafe-l2-block]: glossary.md#unsafe-l2-block
 
 An unsafe L2 block is an [L2] block that a [rollup node][rollup-node] knows about, but which was not derived from the
-[L1] chain. In proposer mode, this will be a block sequenced by the proposer itself. In syncer mode, this will be a
-block acquired from the proposer via [unsafe sync][unsafe-sync].
+[L1] chain. In sequencer mode, this will be a block sequenced by the sequencer itself. In syncer mode, this will be a
+block acquired from the sequencer via [unsafe sync][unsafe-sync].
 
 ## Unsafe L2 Head
 
@@ -843,8 +821,6 @@ See the [Engine Queue section][engine-queue] of the [L2 chain derivation spec][d
 The finalized L2 head is the highest [L2] block that can be derived from _[finalized][finality]_ L1 blocks — i.e. L1
 blocks older than two L1 epochs (64 L1 [time slots][time-slot]).
 
-[finality]: https://hackmd.io/@prysmaticlabs/finality
-
 ------------------------------------------------------------------------------------------------------------------------
 
 # Other L2 Chain Concepts
@@ -865,14 +841,14 @@ will be aliased with a modified representation of the address of a contract.
 The rollup node is responsible for [deriving the L2 chain][derivation] from the [L1] chain (L1 [blocks][block] and their
 associated [receipts][receipt]).
 
-The rollup node can run either in _syncer_ or _proposer_ mode.
+The rollup node can run either in _syncer_ or _sequencer_ mode.
 
-In proposer mode, the rollup node receives [L2] transactions from users, which it uses to create L2 blocks. These are
+In sequencer mode, the rollup node receives [L2] transactions from users, which it uses to create L2 blocks. These are
 then submitted to a [data availability provider][avail-provider] via [batch submission][batch-submission]. The L2 chain
 derivation then acts as a sanity check and a way to detect L1 chain [re-orgs][reorg].
 
 In syncer mode, the rollup node performs derivation as indicated above, but is also able to "run ahead" of the L1
-chain by getting blocks directly from the proposer, in which case derivation serves to validate the proposer's
+chain by getting blocks directly from the sequencer, in which case derivation serves to validate the sequencer's
 behavior.
 
 A rollup node running in syncer mode is sometimes called _a replica_.
@@ -934,7 +910,7 @@ invalid [L2 output roots][l2-output].
 
 [zk-fault-proof]: glossary.md#zk-fault-proof
 
-An on-chain _interactive_ proof, performed by [validators][validator], that demonstrates that a [proposer] provided
+An on-chain _interactive_ proof, performed by [validators][validator], that demonstrates that a [sequencer] provided
 erroneous [output roots][l2-output] using zkEVM.
 
 ## Security Council
@@ -971,7 +947,7 @@ Pre-merge, the L1 block time is variable, though it is on average 13s.
 [unsafe-sync]: glossary.md#unsafe-sync
 
 Unsafe sync is the process through which a [validator] learns about [unsafe L2 blocks][unsafe-l2-block] from
-the [proposer].
+the [sequencer].
 
 These unsafe blocks will later need to be confirmed by the [L1] chain (via [unsafe block consolidation][consolidation]).
 
@@ -998,7 +974,6 @@ In these specifications, "execution engine" always refer to the L2 execution eng
 
 - cf. [Execution Engine Specification](exec-engine.md)
 
-[mempool]: https://www.quicknode.com/guides/defi/how-to-access-ethereum-mempool
 
 <!-- Internal Links -->
 
@@ -1006,6 +981,17 @@ In these specifications, "execution engine" always refer to the L2 execution eng
 [rollup-node-spec]: rollup-node.md
 
 <!-- External Links -->
-
+[bloom filter]: https://en.wikipedia.org/wiki/Bloom_filter
+[eip4844]: https://www.eip4844.com/
+[eip-2718]: https://eips.ethereum.org/EIPS/eip-2718
+[engine-api]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md#PayloadAttributesV1
+[execution-payload]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md#executionpayloadv1
+[finality]: https://hackmd.io/@prysmaticlabs/finality
+[mempool]: https://www.quicknode.com/guides/defi/how-to-access-ethereum-mempool
 [merge]: https://ethereum.org/en/eth2/merge/
+[mpt-details]: https://github.com/norswap/nanoeth/blob/d4c0c89cc774d4225d16970aa44c74114c1cfa63/src/com/norswap/nanoeth/trees/patricia/README.md
+[nano-header]: https://github.com/norswap/nanoeth/blob/cc5d94a349c90627024f3cd629a2d830008fec72/src/com/norswap/nanoeth/blocks/BlockHeader.java#L22-L156
+[rlp]: https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
+[solidity events]: https://docs.soliditylang.org/en/latest/contracts.html?highlight=events#events
 [yellow]: https://ethereum.github.io/yellowpaper/paper.pdf
+[zkt-details]: https://github.com/kroma-network/zktrie

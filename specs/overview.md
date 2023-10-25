@@ -5,7 +5,7 @@
 [g-l1]: glossary.md#layer-1-l1
 [g-l2]: glossary.md#layer-2-l2
 [g-l2-output]: glossary.md#l2-output-root
-[g-proposer-batches]: glossary.md#proposer-batch
+[g-sequencer-batches]: glossary.md#sequencer-batch
 [g-state]: glossary.md#state
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 
@@ -22,7 +22,7 @@
   - [Deposits](#deposits)
   - [Block Derivation](#block-derivation)
     - [Overview](#overview)
-    - [Epochs and the Proposing Window](#epochs-and-the-proposing-window)
+    - [Epochs and the Sequencing Window](#epochs-and-the-sequencing-window)
     - [Block Derivation Loop](#block-derivation-loop)
   - [Engine API](#engine-api)
 - [Architecture](#architecture)
@@ -61,7 +61,7 @@ This document assumes you've read the [introduction](./introduction.md).
 - **KromaPortal**: A feed of L2 transactions which originated as smart contract calls in the L1 state.
   - The `KromaPortal` contract emits `TransactionDeposited` events, which the rollup driver reads in order to process
 deposits.
-  - Deposits are guaranteed to be reflected in the L2 [state][g-state] within the _proposing window_.
+  - Deposits are guaranteed to be reflected in the L2 [state][g-state] within the _sequencing window_.
   - Beware that _transactions_ are deposited, not tokens. However deposited transactions are a key part of implementing
 token deposits (tokens are locked on L1, then minted on L2 via a deposited transaction).
 - **BatchInbox**: An L1 address to which the Batch Submitter submits transaction batches.
@@ -89,7 +89,7 @@ token deposits (tokens are locked on L1, then minted on L2 via a deposited trans
   - Sync state to other L2 nodes for fast onboarding.
   - Serves the Engine API to the rollup node.
 - **Batcher**
-  - A background process that submits [transaction batches][g-proposer-batches] to the `BatchInbox` address.
+  - A background process that submits [transaction batches][g-sequencer-batches] to the `BatchInbox` address.
 - **Validator**
   - A background process that submits L2 output commitments to the
     [L2OutputOracle](../packages/contracts/contracts/L1/L2OutputOracle.sol).
@@ -109,7 +109,7 @@ propagate transactions. The same network can also be used to propagate submitted
 Unsubmitted blocks, however, are propagated using a separate peer-to-peer network of Rollup Nodes. This is optional,
 however, and is provided as a convenience to lower latency for validators and their JSON-RPC clients.
 
-The below diagram illustrates how the proposer and validators fit together:
+The below diagram illustrates how the sequencer and validators fit together:
 
 ![Propagation](./assets/propagation.svg)
 
@@ -147,41 +147,41 @@ derive_rollup_chain(l1_blockchain) -> rollup_blockchain
 Kroma's block derivation function is designed such that it:
 
 - Requires no state other than what is easily accessible using L1 and L2 execution engine APIs.
-- Supports proposer and proposer consensus.
-- Is resilient to proposer censorship.
+- Supports sequencer and sequencer consensus.
+- Is resilient to sequencer censorship.
 
-#### Epochs and the Proposing Window
+#### Epochs and the Sequencing Window
 
 The rollup chain is subdivided into epochs. There is a 1:1 correspondence between L1 block numbers and epoch numbers.
 
-For L1 block number `n`, there is a corresponding rollup epoch `n` which can only be derived after a _proposing window_
-worth of blocks has passed, i.e. after L1 block number `n + PROPOSING_WINDOW_SIZE` is added to the L1 chain.
+For L1 block number `n`, there is a corresponding rollup epoch `n` which can only be derived after a _sequencing window_
+worth of blocks has passed, i.e. after L1 block number `n + SEQUENCING_WINDOW_SIZE` is added to the L1 chain.
 
 Each epoch contains at least one block. Every block in the epoch contains an L1 info transaction which contains
 contextual information about L1 such as the block hash and timestamp. The first block in the epoch also contains all
-deposits initiated via the `DepositFeed` contract on L1. All L2 blocks can also contain _sequenced transactions_, i.e.
-transactions submitted directly to the proposer.
+deposits initiated via the `KromaPortal` contract on L1. All L2 blocks can also contain _sequenced transactions_,
+i.e.  transactions submitted directly to the sequencer.
 
-Whenever the proposer creates a new L2 block for a given epoch, it must submit it to L1 as part of a _batch_, within
-the epoch's proposing window (i.e. the batch must land before L1 block `n + PROPOSING_WINDOW_SIZE`). These batches are
+Whenever the sequencer creates a new L2 block for a given epoch, it must submit it to L1 as part of a _batch_, within
+the epoch's sequencing window (i.e. the batch must land before L1 block `n + SEQUENCING_WINDOW_SIZE`). These batches are
 (along with the `TransactionDeposited` L1 events) what allows the derivation of the L2 chain from the L1 chain.
 
-The proposer does not need for a L2 block to be batch-submitted to L1 in order to build on top of it. In fact, batches
+The sequencer does not need for a L2 block to be batch-submitted to L1 in order to build on top of it. In fact, batches
 typically contain multiple L2 blocks worth of sequenced transaction. This is what enables
-_fast transaction confirmations_ on the proposer.
+_fast transaction confirmations_ on the sequencer.
 
-Since transaction batches for a given epoch can be submitted anywhere within the proposing window, validators must
+Since transaction batches for a given epoch can be submitted anywhere within the sequencing window, validators must
 search all blocks within the window for transaction batches. This protects against the uncertainty of transaction
-inclusion of L1. This uncertainty is also why we need the proposing window in the first place: otherwise the proposer
+inclusion of L1. This uncertainty is also why we need the sequencing window in the first place: otherwise the sequencer
 could retroactively add blocks to an old epoch, and validators wouldn't know when they can finalize an epoch.
 
-The proposing window also prevents censorship by the proposer: deposits made on a given L1 block will be included in
-the L2 chain at worst after `PROPOSING_WINDOW_SIZE` L1 blocks have passed.
+The sequencing window also prevents censorship by the sequencer: deposits made on a given L1 block will be included in
+the L2 chain at worst after `SEQUENCING_WINDOW_SIZE` L1 blocks have passed.
 
 The following diagram describes this relationship, and how L2 blocks are derived from L1 blocks (L1 info transactions
 have been elided):
 
-![Epochs and Proposing Windows](./assets/proposer-block-gen.svg)
+![Epochs and Sequencing Windows](./assets/sequencer-block-gen.svg)
 
 #### Block Derivation Loop
 
@@ -189,10 +189,10 @@ A sub-component of the rollup node called the _rollup driver_ is actually respon
 The rollup driver is essentially an infinite loop that runs the block derivation function. For each epoch, the block
 derivation function performs the following steps:
 
-1. Downloads deposit and transaction batch data for each block in the proposing window.
+1. Downloads deposit and transaction batch data for each block in the sequencing window.
 2. Converts the deposit and transaction batch data into payload attributes for the Engine API.
 3. Submits the payload attributes to the Engine API, where they are converted into blocks and added to the canonical
-chain.
+   chain.
 
 This process is then repeated with incrementing epochs until the tip of L1 is reached.
 

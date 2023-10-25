@@ -23,10 +23,10 @@
 [g-l2-genesis]: glossary.md#l2-genesis-block
 [g-l2-output]: glossary.md#l2-output-root
 [g-payload-attr]: glossary.md#payload-attributes
-[g-proposer]: glossary.md#proposer
-[g-proposer-batch]: glossary.md#proposer-batch
-[g-proposing-epoch]: glossary.md#proposing-epoch
-[g-proposing-window]: glossary.md#proposing-window
+[g-sequencer]: glossary.md#sequencer
+[g-sequencer-batch]: glossary.md#sequencer-batch
+[g-sequencing-epoch]: glossary.md#sequencing-epoch
+[g-sequencing-window]: glossary.md#sequencing-window
 [g-receipts]: glossary.md#receipt
 [g-reorg]: glossary.md#chain-re-organization
 [g-rollup-node]: glossary.md#rollup-node
@@ -85,23 +85,23 @@
 
 # Overview
 
-> **Note** the following assumes a single proposer. In the future, the design will be adapted to
+> **Note** the following assumes a single sequencer. In the future, the design will be adapted to
 > accommodate multiple such entities.
 
 [L2 chain derivation][g-derivation] — deriving L2 [blocks][g-block] from L1 data — is one of the main responsibility of
-the [rollup node][g-rollup-node], both in syncer mode, and in proposer mode (where derivation acts as a sanity check
+the [rollup node][g-rollup-node], both in syncer mode, and in sequencer mode (where derivation acts as a sanity check
 on sequencing, and enables detecting L1 chain [re-organizations][g-reorg]).
 
-The L2 chain is derived from the L1 chain. In particular, each L1 block is mapped to an L2 [proposing
-epoch][g-proposing-epoch] comprising multiple L2 blocks. The epoch number is defined to be equal to the corresponding
+The L2 chain is derived from the L1 chain. In particular, each L1 block is mapped to an L2 [sequencing
+epoch][g-sequencing-epoch] comprising multiple L2 blocks. The epoch number is defined to be equal to the corresponding
 L1 block number.
 
 To derive the L2 blocks in an epoch `E`, we need the following inputs:
 
-- The L1 [proposing window][g-proposing-window] for epoch `E`: the L1 blocks in the range `[E, E + PWS)` where `PWS`
-  is the proposing window size (note that this means that epochs are overlapping). In particular, we need:
-  - The [batcher transactions][g-batcher-transaction] included in the proposing window. These allow us to
-    reconstruct [proposer batches][g-proposer-batch] containing the transactions to include in L2 blocks (each batch
+- The L1 [sequencing window][g-sequencing-window] for epoch `E`: the L1 blocks in the range `[E, E + PWS)` where `PWS`
+  is the sequencing window size (note that this means that epochs are overlapping). In particular, we need:
+  - The [batcher transactions][g-batcher-transaction] included in the sequencing window. These allow us to
+    reconstruct [sequencer-batches][g-sequencer-batch] containing the transactions to include in L2 blocks (each batch
     maps to a single L2 block).
     - Note that it is impossible to have a batcher transaction containing a batch relative to epoch `E` on L1 block
       `E`, as the batch must contain the hash of L1 block `E`.
@@ -113,11 +113,11 @@ To derive the L2 blocks in an epoch `E`, we need the following inputs:
   - An epoch `E` does not exist if `E <= L2CI`, where `L2CI` is the [L2 chain inception][g-l2-chain-inception].
 
 To derive the whole L2 chain from scratch, we simply start with the L2 genesis state, and the L2 chain inception as
-first epoch, then process all proposing windows in order. Refer to the [Architecture section][architecture] for more
+first epoch, then process all sequencing windows in order. Refer to the [Architecture section][architecture] for more
 information on how we implement this in practice.
 
 Each epoch may contain a variable number of L2 blocks (one every `l2_block_time`, 2s on Kroma), at the discretion of
-[the proposer][g-proposer], but subject to the following constraints for each block:
+[the sequencer][g-sequencer], but subject to the following constraints for each block:
 
 - `min_l2_timestamp <= block.timestamp <= max_l2_timestamp`, where
   - all these values are denominated in seconds
@@ -126,34 +126,34 @@ Each epoch may contain a variable number of L2 blocks (one every `l2_block_time`
   - `block.timestamp = prev_l2_timestamp + l2_block_time`
     - `prev_l2_timestamp` is the timestamp of the last L2 block of the previous epoch
     - `l2_block_time` is a configurable parameter of the time between L2 blocks (on Kroma, 2s)
-  - `max_l2_timestamp = max(l1_timestamp + max_proposer_drift, min_l2_timestamp + l2_block_time)`
+  - `max_l2_timestamp = max(l1_timestamp + max_sequencer_drift, min_l2_timestamp + l2_block_time)`
     - `l1_timestamp` is the timestamp of the L1 block associated with the L2 block's epoch
-    - `max_proposer_drift` is the most a proposer is allowed to get ahead of L1
+    - `max_sequencer_drift` is the most a sequencer is allowed to get ahead of L1
 
 Put together, these constraints mean that there must be an L2 block every `l2_block_time` seconds, and that the
 timestamp for the first L2 block of an epoch must never fall behind the timestamp of the L1 block matching the epoch.
 
 Post-merge, Ethereum has a fixed [block time][g-block-time] of 12s (though some slots can be skipped). It is thus
 expected that with a 2-second L2 block time, most of the time, each epoch will contain `12/2 = 6` L2 blocks.
-The proposer can however lengthen or shorten epochs (subject to above constraints).
+The sequencer can however lengthen or shorten epochs (subject to above constraints).
 The rationale is to maintain liveness in case of either a skipped slot on L1, or a temporary loss of connection to L1 —
 which requires longer epochs.
 Shorter epochs are then required to avoid L2 timestamps drifting further and further ahead of L1.
 
 Note that `min_l2_timestamp + l2_block_time` ensures that a new L2 batch can always be processed, even if the
-`max_proposer_drift` is exceeded. However, when exceeding the `max_proposer_drift`, progression to the next L1 origin
+`max_sequencer_drift` is exceeded. However, when exceeding the `max_sequencer_drift`, progression to the next L1 origin
 is enforced, with an exception to ensure the minimum timestamp bound (based on this next L1 origin) can be met in the
-next L2 batch, and `len(batch.transactions) == 0` continues to be enforced while the `max_proposer_drift` is exceeded.
+next L2 batch, and `len(batch.transactions) == 0` continues to be enforced while the `max_sequencer_drift` is exceeded.
 See [Batch Queue] for more details.
 
 ## Eager Block Derivation
 
-In practice, it is often not necessary to wait for a full proposing window of L1 blocks in order to start deriving the
+In practice, it is often not necessary to wait for a full sequencing window of L1 blocks in order to start deriving the
 L2 blocks in an epoch. Indeed, as long as we are able to reconstruct sequential batches, we can start deriving the
 corresponding L2 blocks. We call this *eager block derivation*.
 
 However, in the very worst case, we can only reconstruct the batch for the first L2 block in the epoch by reading the
-last L1 block of the proposing window. This happens when some data for that batch is included in the last L1 block of
+last L1 block of the sequencing window. This happens when some data for that batch is included in the last L1 block of
 the window. In that case, not only can we not derive the first L2 block in the epoch, we also cannot derive any further
 L2 block in the epoch until then, as they need the state that results from applying the epoch's first L2 block.
 (Note that this only applies to *block* derivation. Batches can still be derived and tentatively queued,
@@ -165,8 +165,8 @@ we just won't be able to create blocks from them.)
 
 ## Sequencing & Batch Submission Overview
 
-The [proposer][g-proposer] accepts L2 transactions from users. It is responsible for building blocks out of these. For
-each such block, it also creates a corresponding [proposer batch][g-proposer-batch]. It is also responsible for
+The [sequencer][g-sequencer] accepts L2 transactions from users. It is responsible for building blocks out of these. For
+each such block, it also creates a corresponding [sequencer batch][g-sequencer-batch]. It is also responsible for
 submitting each batch to a [data availability provider][g-avail-provider] (e.g. Ethereum calldata), which it does via
 its [batcher][g-batcher] component.
 
@@ -177,7 +177,7 @@ reference to the previous block (\*).
 (\*) This matters in some edge case where a L1 reorg would occur and a batch would be reposted to the L1 chain but not
 the preceding batch, whereas the predecessor of an L2 block cannot possibly change.
 
-This means that even if the proposer applies a state transition incorrectly, the transactions in the batch
+This means that even if the sequencer applies a state transition incorrectly, the transactions in the batch
 will still be considered part of the canonical L2 chain. Batches are still subject to validity checks (i.e. they have to
 be encoded correctly), and so are individual transactions within the batch (e.g. signatures have to be valid). Invalid
 batches and invalid individual transactions within an otherwise valid batch are discarded by correct nodes.
@@ -185,7 +185,7 @@ batches and invalid individual transactions within an otherwise valid batch are 
 If a validator applies a state transition incorrectly and posts an [output root][g-l2-output],
 this output root will be incorrect. The incorrect output root, which will be challenged by a
 [ZK fault proof][g-zk-fault-proof], will then be replaced by a correct output root
-**for the existing proposer batches.**
+**for the existing sequencer batches.**
 
 Refer to the [Batch Submission specification][batcher-spec] for more information.
 
@@ -202,7 +202,7 @@ The [batcher][g-batcher] submits [batcher transactions][g-batcher-transaction] t
 [data availability provider][g-avail-provider]. These transactions contain one or multiple
 [channel frames][g-channel-frame], which are chunks of data belonging to a [channel][g-channel].
 
-A channel is a sequence of [proposer batches][g-proposer-batch] (for any L2 blocks) compressed
+A channel is a sequence of [sequencer batches][g-sequencer-batch] (for any L2 blocks) compressed
 together. The reason to group multiple batches together is simply to obtain a better compression rate, hence reducing
 data availability costs.
 
@@ -241,7 +241,7 @@ Each colored chunk within the boxes represents a channel frame. So `A` and `B` a
 - frames do not need to be transmitted in order
 - a single batcher transaction can carry frames from multiple channels
 
-In the next line, the rounded boxes represent individual proposer batches that were extracted from
+In the next line, the rounded boxes represent individual sequencer batches that were extracted from
 the channels. The four blue/purple/pink were derived from channel `A` while the other were derived from channel `B`.
 These batches are here represented in the order they were decoded from batches (in this case `B` is decoded first).
 
@@ -273,7 +273,7 @@ contract][g-deposit-contract] event mentioned earlier.
 Note the `101-0` L1 attributes transaction on the bottom right of the diagram. Its presence there is only possible if
 frame `B2` indicates that it is the last frame within the channel and (2) no empty blocks must be inserted.
 
-The diagram does not specify the proposing window size in use, but from this we can infer that it must be at least 4
+The diagram does not specify the sequencing window size in use, but from this we can infer that it must be at least 4
 blocks, because the last frame of channel `A` appears in block 102, but belong to epoch 99.
 
 As for the comment on "security types", it explains the classification of blocks as used on L1 and L2.
@@ -385,8 +385,8 @@ where:
 - `rlp_encode` is a function that encodes a batch according to the [RLP format], and `[x, y, z]` denotes a list
   containing items `x`, `y` and `z`
 - `parent_hash` is the block hash of the previous L2 block
-- `epoch_number` and `epoch_hash` are the number and hash of the L1 block corresponding to the [proposing
-  epoch][g-proposing-epoch] of the L2 block
+- `epoch_number` and `epoch_hash` are the number and hash of the L1 block corresponding to the [sequencing
+  epoch][g-sequencing-epoch] of the L2 block
 - `timestamp` is the timestamp of the L2 block
 - `transaction_list` is an RLP-encoded list of [EIP-2718] encoded transactions.
 
@@ -537,7 +537,7 @@ that batcher implementations use unique channel IDs.
 ### Channel Reader (Batch Decoding)
 
 In this stage, we decompress the channel we pull from the last stage, and then parse
-[batches][g-proposer-batch] from the decompressed byte stream.
+[batches][g-sequencer-batch] from the decompressed byte stream.
 
 See [Batch Format][batch-format] for decompression and decoding specification.
 
@@ -554,7 +554,7 @@ of the current [safe L2 head][g-safe-l2-head] (the last block that can be derive
 The parent hash of the batch must also match the hash of the current safe L2 head.
 
 Note that the presence of any gaps in the batches derived from L1 means that this stage will need to buffer for a whole
-[proposing window][g-proposing-window] before it can generate empty batches (because the missing batch(es) could have
+[sequencing window][g-sequencing-window] before it can generate empty batches (because the missing batch(es) could have
 data in the last L1 block of the window in the worst case).
 
 A batch can have 4 different forms of validity:
@@ -589,7 +589,7 @@ Rules, in validation order:
 - `batch.timestamp > next_timestamp` -> `future`: i.e. the batch must be ready to process.
 - `batch.timestamp < next_timestamp` -> `drop`: i.e. the batch must not be too old.
 - `batch.parent_hash != safe_l2_head.hash` -> `drop`: i.e. the parent hash must be equal to the L2 safe head block hash.
-- `batch.epoch_num + proposer_window_size < inclusion_block_number` -> `drop`: i.e. the batch must be included timely.
+- `batch.epoch_num + sequencer_window_size < inclusion_block_number` -> `drop`: i.e. the batch must be included timely.
 - `batch.epoch_num < epoch.number` -> `drop`: i.e. the batch origin is not older than that of the L2 safe head.
 - `batch.epoch_num == epoch.number`: define `batch_origin` as `epoch`.
 - `batch.epoch_num == epoch.number+1`:
@@ -600,7 +600,7 @@ Rules, in validation order:
 - `batch.epoch_hash != batch_origin.hash` -> `drop`: i.e. a batch must reference a canonical L1 origin,
   to prevent batches from being replayed onto unexpected L1 chains.
 - `batch.timestamp < batch_origin.time` -> `drop`: enforce the min L2 timestamp rule.
-- `batch.timestamp > batch_origin.time + max_proposer_drift`: enforce the L2 timestamp drift rule,
+- `batch.timestamp > batch_origin.time + max_sequencer_drift`: enforce the L2 timestamp drift rule,
   but with exceptions to preserve above min L2 timestamp invariant:
   - `len(batch.transactions) == 0`:
     - `epoch.number == batch.epoch_num`:
@@ -610,19 +610,19 @@ Rules, in validation order:
       - If `batch.timestamp >= next_epoch.time` -> `drop`:
         the batch could have adopted the next L1 origin without breaking the `L2 time >= L1 time` invariant.
   - `len(batch.transactions) > 0`: -> `drop`:
-    when exceeding the proposer time drift, never allow the proposer to include transactions.
+    when exceeding the sequencer time drift, never allow the sequencer to include transactions.
 - `batch.transactions`: `drop` if the `batch.transactions` list contains a transaction
   that is invalid or derived by other means exclusively:
   - any transaction that is empty (zero length byte string)
   - any [deposited transactions][g-deposit-tx-type] (identified by the transaction type prefix byte)
 
 If no batch can be `accept`-ed, and the stage has completed buffering of all batches that can fully be read from the L1
-block at height `epoch.number + proposer_window_size`, and the `next_epoch` is available,
+block at height `epoch.number + sequencer_window_size`, and the `next_epoch` is available,
 then an empty batch can be derived with the following properties:
 
 - `parent_hash = safe_l2_head.hash`
 - `timestamp = next_timestamp`
-- `transactions` is empty, i.e. no proposer transactions. Deposited transactions may be added in the next stage.
+- `transactions` is empty, i.e. no sequencer transactions. Deposited transactions may be added in the next stage.
 - If `next_timestamp < next_epoch.time`: the current L1 origin is repeated, to preserve the L2 time invariant.
   - `epoch_num = epoch.number`
   - `epoch_hash = epoch.hash`
@@ -656,8 +656,8 @@ The stage maintains references to three L2 blocks:
 - The [safe L2 head][g-safe-l2-head]: everything up to and including this block can be fully derived from the
   currently canonical L1 chain.
 - The [unsafe L2 head][g-unsafe-l2-head]: blocks between the safe and unsafe heads are [unsafe
-  blocks][g-unsafe-l2-block] that have not been derived from L1. These blocks either come from proposing (in proposer
-  mode) or from [unsafe sync][g-unsafe-sync] to the proposer (in syncer mode).
+  blocks][g-unsafe-l2-block] that have not been derived from L1. These blocks either come from sequencing (in sequencer
+  mode) or from [unsafe sync][g-unsafe-sync] to the sequencer (in syncer mode).
   This is also known as the "latest" head.
 
 Additionally, it buffers a short history of references to recently processed safe L2 blocks, along with references
@@ -758,7 +758,7 @@ Engine API Error handling:
 #### Processing unsafe payload attributes
 
 If no forkchoice updates or L1 data remain to be processed, and if the next possible L2 block is already available
-through an unsafe source such as the proposer publishing it via the p2p network, then it is optimistically processed as
+through an unsafe source such as the sequencer publishing it via the p2p network, then it is optimistically processed as
 an "unsafe" block. This reduces later derivation work to just consolidation with L1 in the happy case, and enables the
 user to see the head of the L2 chain faster than the L1 may confirm the L2 batches.
 
@@ -815,7 +815,7 @@ To find the starting point, there are several steps, relative to the head of the
 2. Find the first L2 block with plausible L1 reference to be the new `unsafe` starting point,
    starting from previous `unsafe`, back to `finalized` and no further.
    - Plausible iff: the L1 origin of the L2 block is known and canonical, or unknown and has a block-number ahead of L1.
-3. Find the first L2 block with an L1 reference older than the proposing window, to be the new `safe` starting point,
+3. Find the first L2 block with an L1 reference older than the sequencing window, to be the new `safe` starting point,
    starting at the above plausible `unsafe` head, back to `finalized` and no further.
    - If at any point the L1 origin is known but not canonical, the `unsafe` head is revised to parent of the current.
    - The highest L2 block with known canonical L1 origin is remembered as `highest`.
@@ -881,19 +881,19 @@ represented by an [expanded version][expanded-payload] of the [`PayloadAttribute
 which includes additional `transactions` and `noTxPool` fields.
 
 This process happens during the payloads-attributes queue ran by a full node or validator node, as well as during
-block-production ran by a proposer node (the proposer may enable the tx-pool usage if the transactions are
+block-production ran by a sequencer node (the sequencer may enable the tx-pool usage if the transactions are
 batch-submitted).
 
 [expanded-payload]: exec-engine.md#extended-payloadattributesv1
 
 ## Deriving the Transaction List
 
-For each L2 block to be created by the proposer, we start from a [proposer batch][g-proposer-batch] matching the
+For each L2 block to be created by the sequencer, we start from a [sequencer batch][g-sequencer-batch] matching the
 target L2 block number. This could potentially be an empty auto-generated batch, if the L1 chain did not include a batch
-for the target L2 block number. [Remember][batch-format] that the batch includes a [proposing
-epoch][g-proposing-epoch] number, an L2 timestamp, and a transaction list.
+for the target L2 block number. [Remember][batch-format] that the batch includes a [sequencing
+epoch][g-sequencing-epoch] number, an L2 timestamp, and a transaction list.
 
-This block is part of a [proposing epoch][g-proposing-epoch],
+This block is part of a [sequencing epoch][g-sequencing-epoch],
 whose number matches that of an L1 block (its *[L1 origin][g-l1-origin]*).
 This L1 block is used to derive L1 attributes and (for the first L2 block in the epoch) user deposits.
 
@@ -904,7 +904,7 @@ Therefore, a [`PayloadAttributesV1`][expanded-payload] object must include the f
   - for the first L2 block in the epoch, zero or more *[user-deposited transactions][g-user-deposited]*, derived from
     the [receipts][g-receipts] of the L1 origin.
 - zero or more *[sequenced transactions][g-sequencing]*: regular transactions signed by L2 users, included in the
-  proposer batch.
+  sequencer batch.
 
 Transactions **must** appear in this order in the payload attributes.
 

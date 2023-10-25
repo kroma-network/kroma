@@ -26,12 +26,12 @@ func TestCrossLayerUser(gt *testing.T) {
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 
-	miner, propEngine, proposer := setupProposerTest(t, sd, log)
+	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, proposer.RollupClient(), miner.EthClient(), propEngine.EthClient())
+	}, sequencer.RollupClient(), miner.EthClient(), seqEngine.EthClient())
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
 		ValidatorPoolAddr:   sd.DeploymentsL1.ValidatorPoolProxy,
@@ -39,14 +39,14 @@ func TestCrossLayerUser(gt *testing.T) {
 		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:        dp.Secrets.TrustedValidator,
 		AllowNonFinalized:   true,
-	}, miner.EthClient(), propEngine.EthClient(), proposer.RollupClient())
+	}, miner.EthClient(), seqEngine.EthClient(), sequencer.RollupClient())
 
 	// need to start derivation before we can make L2 blocks
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 
 	l1Cl := miner.EthClient()
-	l2Cl := propEngine.EthClient()
-	l2ProofCl := propEngine.GethClient()
+	l2Cl := seqEngine.EthClient()
+	l2ProofCl := seqEngine.GethClient()
 
 	addresses := e2eutils.CollectAddresses(sd, dp)
 
@@ -68,16 +68,16 @@ func TestCrossLayerUser(gt *testing.T) {
 	alice.L2.SetUserEnv(l2UserEnv)
 
 	// Build at least one l2 block so we have an unsafe head with a deposit info tx (genesis block doesn't)
-	proposer.ActL2StartBlock(t)
-	proposer.ActL2EndBlock(t)
+	sequencer.ActL2StartBlock(t)
+	sequencer.ActL2EndBlock(t)
 
 	// regular L2 tx, in new L2 block
 	alice.L2.ActResetTxOpts(t)
 	alice.L2.ActSetTxToAddr(&dp.Addresses.Bob)(t)
 	alice.L2.ActMakeTx(t)
-	proposer.ActL2StartBlock(t)
-	propEngine.ActL2IncludeTx(alice.Address())(t)
-	proposer.ActL2EndBlock(t)
+	sequencer.ActL2StartBlock(t)
+	seqEngine.ActL2IncludeTx(alice.Address())(t)
+	sequencer.ActL2EndBlock(t)
 	alice.L2.ActCheckReceiptStatusOfLastTx(true)(t)
 
 	// regular L1 tx, in new L1 block
@@ -95,21 +95,21 @@ func TestCrossLayerUser(gt *testing.T) {
 	miner.ActL1IncludeTx(alice.Address())(t)
 	miner.ActL1EndBlock(t)
 
-	proposer.ActL1HeadSignal(t)
+	sequencer.ActL1HeadSignal(t)
 
-	// sync proposer build enough blocks to adopt latest L1 origin
-	for proposer.SyncStatus().UnsafeL2.L1Origin.Number < miner.l1Chain.CurrentBlock().Number.Uint64() {
-		proposer.ActL2StartBlock(t)
-		proposer.ActL2EndBlock(t)
+	// sync sequencer build enough blocks to adopt latest L1 origin
+	for sequencer.SyncStatus().UnsafeL2.L1Origin.Number < miner.l1Chain.CurrentBlock().Number.Uint64() {
+		sequencer.ActL2StartBlock(t)
+		sequencer.ActL2EndBlock(t)
 	}
 	// Now that the L2 chain adopted the latest L1 block, check that we processed the deposit
 	alice.ActCheckDepositStatus(true, true)(t)
 
 	// regular withdrawal, in new L2 block
 	alice.ActStartWithdrawal(t)
-	proposer.ActL2StartBlock(t)
-	propEngine.ActL2IncludeTx(alice.Address())(t)
-	proposer.ActL2EndBlock(t)
+	sequencer.ActL2StartBlock(t)
+	seqEngine.ActL2IncludeTx(alice.Address())(t)
+	sequencer.ActL2EndBlock(t)
 	alice.ActCheckStartWithdrawal(true)(t)
 
 	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
@@ -122,8 +122,8 @@ func TestCrossLayerUser(gt *testing.T) {
 		// build a L1 block and more L2 blocks,
 		// to ensure the L2 withdrawal is old enough to be able to get into a checkpoint output on L1
 		miner.ActEmptyBlock(t)
-		proposer.ActL1HeadSignal(t)
-		proposer.ActBuildToL1Head(t)
+		sequencer.ActL1HeadSignal(t)
+		sequencer.ActBuildToL1Head(t)
 
 		// submit everything to L1
 		batcher.ActSubmitAll(t)
@@ -134,7 +134,7 @@ func TestCrossLayerUser(gt *testing.T) {
 	}
 
 	// derive from L1, blocks will now become safe to submit
-	proposer.ActL2PipelineFull(t)
+	sequencer.ActL2PipelineFull(t)
 
 	validator.ActDeposit(t, 1000)
 	miner.includeL1Block(t, dp.Addresses.TrustedValidator)

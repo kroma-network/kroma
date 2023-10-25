@@ -13,11 +13,9 @@ import (
 	"github.com/kroma-network/kroma/components/node/rollup"
 )
 
-var (
-	// UnsafeBlockSignerAddressSystemConfigStorageSlot is the storage slot identifier of the unsafeBlockSigner
-	// `address` storage value in the SystemConfig L1 contract. Computed as `keccak256("systemconfig.unsafeblocksigner")`
-	UnsafeBlockSignerAddressSystemConfigStorageSlot = common.HexToHash("0x65a7ed542fb37fe237fdfbdd70b31598523fe5b32879e307bae27a0bd9581c08")
-)
+// UnsafeBlockSignerAddressSystemConfigStorageSlot is the storage slot identifier of the unsafeBlockSigner
+// `address` storage value in the SystemConfig L1 contract. Computed as `keccak256("systemconfig.unsafeblocksigner")`
+var UnsafeBlockSignerAddressSystemConfigStorageSlot = common.HexToHash("0x65a7ed542fb37fe237fdfbdd70b31598523fe5b32879e307bae27a0bd9581c08")
 
 type RuntimeCfgL1Source interface {
 	ReadStorageAt(ctx context.Context, address common.Address, storageSlot common.Hash, blockHash common.Hash) (common.Hash, error)
@@ -57,7 +55,7 @@ func NewRuntimeConfig(log log.Logger, l1Client RuntimeCfgL1Source, rollupCfg *ro
 	}
 }
 
-func (r *RuntimeConfig) P2PProposerAddress() common.Address {
+func (r *RuntimeConfig) P2PSequencerAddress() common.Address {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.p2pBlockSignerAddr
@@ -75,6 +73,6 @@ func (r *RuntimeConfig) Load(ctx context.Context, l1Ref eth.L1BlockRef) error {
 	defer r.mu.Unlock()
 	r.l1Ref = l1Ref
 	r.p2pBlockSignerAddr = common.BytesToAddress(val[:])
-	r.log.Info("loaded new runtime config values!", "p2p_proposer_address", r.p2pBlockSignerAddr)
+	r.log.Info("loaded new runtime config values!", "p2p_seq_address", r.p2pBlockSignerAddr)
 	return nil
 }

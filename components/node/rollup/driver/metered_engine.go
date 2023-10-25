@@ -15,8 +15,8 @@ type EngineMetrics interface {
 	RecordSequencingError()
 	CountSequencedTxs(count int)
 
-	RecordProposerBuildingDiffTime(duration time.Duration)
-	RecordProposerSealingTime(duration time.Duration)
+	RecordSequencerBuildingDiffTime(duration time.Duration)
+	RecordSequencerSealingTime(duration time.Duration)
 }
 
 // MeteredEngine wraps an EngineControl and adds metrics such as block building time diff and sealing time
@@ -74,8 +74,8 @@ func (m *MeteredEngine) ConfirmPayload(ctx context.Context) (out *eth.ExecutionP
 	now := time.Now()
 	sealTime := now.Sub(sealingStart)
 	buildTime := now.Sub(m.buildingStartTime)
-	m.metrics.RecordProposerSealingTime(sealTime)
-	m.metrics.RecordProposerBuildingDiffTime(buildTime - time.Duration(m.cfg.BlockTime)*time.Second)
+	m.metrics.RecordSequencerSealingTime(sealTime)
+	m.metrics.RecordSequencerBuildingDiffTime(buildTime - time.Duration(m.cfg.BlockTime)*time.Second)
 	m.metrics.CountSequencedTxs(len(payload.Transactions))
 
 	ref := m.inner.UnsafeL2Head()

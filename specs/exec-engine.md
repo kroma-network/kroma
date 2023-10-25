@@ -9,7 +9,7 @@
 - [Fees](#fees)
   - [Fee Vaults](#fee-vaults)
   - [Transaction Fees](#transaction-fees)
-  - [Proposer Reward (Proposer Reward Vault)](#proposer-reward-proposer-reward-vault)
+  - [L1-Cost fees (L1 Fee Vault)](#l1-cost-fees-l1-fee-vault)
 - [Engine API](#engine-api)
   - [`engine_forkchoiceUpdatedV1`](#engine_forkchoiceupdatedv1)
     - [Extended PayloadAttributesV1](#extended-payloadattributesv1)
@@ -53,7 +53,7 @@ Deposited transactions MUST never be consumed from the transaction pool.
 ## Fees
 
 Sequenced transactions (i.e. not applicable to deposits) are charged with 2 types of fees:
-transaction fees(priority fees + base fees), and proposer reward.
+transaction fees(priority fees + base fees), and L1-cost fees.
 
 ### Fee Vaults
 
@@ -67,7 +67,7 @@ The proxies are backed by vault contract deployments, based on `FeeVault`, to ro
 |------------------------|----------------------------------------------------------------|
 | Validator Reward Vault | [`ValidatorRewardVault`](./predeploys.md#ValidatorRewardVault) |
 | Protocol Vault         | [`ProtocolVault`](./predeploys.md#ProtocolVault)               |
-| Proposer Reward Vault  | [`ProposerRewardVault`](./predeploys.md#ProposerRewardVault)   |
+| L1 Fee Vault           | [`L1FeeVault`](./predeploys.md#L1FeeVault)                     |
 
 ### Transaction Fees
 
@@ -80,11 +80,11 @@ The transaction fee is distributed to two vaults, Validator Reward Vault and Pro
 
 `ValidatorRewardScalar` value is recorded in the [`L1Block`](./predeploys.md#L1block) contract.
 
-### Proposer Reward (Proposer Reward Vault)
+### L1-Cost fees (L1 Fee Vault)
 
 The protocol funds batch-submission of sequenced L2 transactions by charging L2 users an additional fee
 based on the estimated batch-submission costs.
-This fee is charged from the L2 transaction-sender ETH balance, and collected into the Proposer Reward Vault.
+This fee is charged from the L2 transaction-sender ETH balance, and collected into the L1 Fee Vault.
 
 The exact L1 cost function to determine the L1-cost fee component of an L2 transaction is calculated as:
 `(rollupDataGas + l1FeeOverhead) * l1Basefee * l1FeeScalar / 1000000`
@@ -156,7 +156,7 @@ This is equivalent to the `transactions` field in [`ExecutionPayloadV1`][Executi
 
 The `transactions` field is optional:
 
-- If empty or missing: no changes to engine behavior. The proposers will (if enabled) build a block
+- If empty or missing: no changes to engine behavior. The sequencers will (if enabled) build a block
   by consuming transactions from the transaction pool.
 - If present and non-empty: the payload MUST be produced starting with this exact list of transactions.
   The [rollup driver][rollup-driver] determines the transaction list based on deterministic L1 inputs.
@@ -197,7 +197,7 @@ However, to not bottleneck on L1 data retrieval speed, the P2P network functiona
 
 - Peer discovery ([Disc v5][discv5])
 - [`eth/66`][eth66]:
-  - Transaction pool (consumed by proposer nodes)
+  - Transaction pool (consumed by sequencer nodes)
   - State sync (happy-path for fast trustless db replication)
   - Historical block header and body retrieval
   - *New blocks are acquired through the consensus layer instead (rollup node)*

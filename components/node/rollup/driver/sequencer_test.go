@@ -147,10 +147,10 @@ func (fn testOriginSelectorFn) FindL1Origin(ctx context.Context, l2Head eth.L2Bl
 
 var _ L1OriginSelectorIface = (testOriginSelectorFn)(nil)
 
-// TestProposerChaosMonkey runs the proposer in a mocked adversarial environment with
+// TestSequencerChaosMonkey runs the sequencer in a mocked adversarial environment with
 // repeated random errors in dependencies and poor clock timing.
-// At the end the health of the chain is checked to show that the proposer kept the chain in shape.
-func TestProposerChaosMonkey(t *testing.T) {
+// At the end the health of the chain is checked to show that the sequencer kept the chain in shape.
+func TestSequencerChaosMonkey(t *testing.T) {
 	mockL1Hash := func(num uint64) (out common.Hash) {
 		out[31] = 1
 		binary.BigEndian.PutUint64(out[:], num)
@@ -182,8 +182,8 @@ func TestProposerChaosMonkey(t *testing.T) {
 			L2Time:       l1Time + 300, // L2 may start with a relative old L1 origin and will have to catch it up
 			SystemConfig: eth.SystemConfig{},
 		},
-		BlockTime:        2,
-		MaxProposerDrift: 30,
+		BlockTime:         2,
+		MaxSequencerDrift: 30,
 	}
 	// keep track of the L1 timestamps we mock because sometimes we only have the L1 hash/num handy
 	l1Times := map[eth.BlockID]uint64{cfg.Genesis.L1: l1Time}
@@ -204,7 +204,7 @@ func TestProposerChaosMonkey(t *testing.T) {
 		cfg:       cfg,
 	}
 
-	// start wallclock at 5 minutes after the current L2 head. The proposer has some catching up to do!
+	// start wallclock at 5 minutes after the current L2 head. The sequencer has some catching up to do!
 	clockTime := time.Unix(int64(engControl.unsafe.Time)+5*60, 0)
 	clockFn := func() time.Time {
 		return clockTime
@@ -308,13 +308,13 @@ func TestProposerChaosMonkey(t *testing.T) {
 		}
 	})
 
-	proposer := NewProposer(log, cfg, engControl, attrBuilder, originSelector, metrics.NoopMetrics)
-	proposer.timeNow = clockFn
+	seq := NewSequencer(log, cfg, engControl, attrBuilder, originSelector, metrics.NoopMetrics)
+	seq.timeNow = clockFn
 
 	// try to build 1000 blocks, with 5x as many planning attempts, to handle errors and clock problems
 	desiredBlocks := 1000
 	for i := 0; i < 5*desiredBlocks && engControl.totalBuiltBlocks < desiredBlocks; i++ {
-		delta := proposer.PlanNextProposerAction()
+		delta := seq.PlanNextSequencerAction()
 
 		x := rng.Float32()
 		if x < 0.01 { // 1%: mess a lot with the clock: simulate a hang of up to 30 seconds
@@ -332,13 +332,13 @@ func TestProposerChaosMonkey(t *testing.T) {
 		// reset errors
 		originErr = nil
 		attrsErr = nil
-		if engControl.err != mockResetErr { // the mockResetErr requires the proposer to Reset() to recover.
+		if engControl.err != mockResetErr { // the mockResetErr requires the sequencer to Reset() to recover.
 			engControl.err = nil
 		}
 		engControl.errTyp = derive.BlockInsertOK
 
 		// maybe make something maybe fail, or try a new L1 origin
-		switch rng.Intn(20) { // 9/20 = 45% chance to fail proposer action (!!!)
+		switch rng.Intn(20) { // 9/20 = 45% chance to fail sequencer action (!!!)
 		case 0, 1:
 			originErr = errors.New("mock origin error")
 		case 2, 3:
@@ -354,7 +354,7 @@ func TestProposerChaosMonkey(t *testing.T) {
 		default:
 			// no error
 		}
-		payload, err := proposer.RunNextProposerAction(context.Background())
+		payload, err := seq.RunNextSequencerAction(context.Background())
 		require.NoError(t, err)
 		if payload != nil {
 			require.Equal(t, engControl.UnsafeL2Head().ID(), payload.ID(), "head must stay in sync with emitted payloads")

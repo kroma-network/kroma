@@ -35,7 +35,7 @@ const L2_ORDERED_NAMES = [
   'GasPriceOracle',
   'ValidatorRewardVault',
   'ProtocolVault',
-  'ProposerRewardVault',
+  'L1FeeVault',
   'KromaMintableERC20Factory',
   'KromaMintableERC721Factory',
 ]

@@ -53,7 +53,7 @@ type L2EngineAPI struct {
 	// L2 block building data
 	blockProcessor *BlockProcessor
 	pendingIndices map[common.Address]uint64 // per account, how many txs from the pool were already included in the block, since the pool is lagging behind block mining.
-	l2ForceEmpty   bool                      // when no additional txs may be processed (i.e. when proposer drift runs out)
+	l2ForceEmpty   bool                      // when no additional txs may be processed (i.e. when sequencer drift runs out)
 	l2TxFailed     []*types.Transaction      // log of failed transactions which could not be included
 
 	payloadID engine.PayloadID // ID of payload that is currently being built

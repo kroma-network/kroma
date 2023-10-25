@@ -87,7 +87,7 @@ func (aq *AttributesQueue) createNextAttributes(ctx context.Context, batch *Batc
 		return nil, err
 	}
 
-	// we are syncing, not proposing, we've got all transactions and do not pull from the tx-pool
+	// we are syncing, not sequencing, we've got all transactions and do not pull from the tx-pool
 	// (that would make the block derivation non-deterministic)
 	attrs.NoTxPool = true
 	attrs.Transactions = append(attrs.Transactions, batch.Transactions...)

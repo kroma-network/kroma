@@ -26,8 +26,8 @@ type Runtime struct {
 	sd                       *e2eutils.SetupData
 	dp                       *e2eutils.DeployParams
 	miner                    *L1Miner
-	propEngine               *L2Engine
-	proposer                 *L2Proposer
+	seqEngine                *L2Engine
+	sequencer                *L2Sequencer
 	batcher                  *L2Batcher
 	validator                *L2Validator
 	challenger1              *L2Validator
@@ -58,19 +58,19 @@ func defaultRuntime(gt *testing.T) Runtime {
 		sd: sd,
 		l:  l,
 	}
-	rt.miner, rt.propEngine, rt.proposer = setupProposerTest(rt.t, rt.sd, rt.l)
+	rt.miner, rt.seqEngine, rt.sequencer = setupSequencerTest(rt.t, rt.sd, rt.l)
 	rt.setupBatcher()
 
 	return rt
 }
 
 func (rt *Runtime) setupBatcher() {
-	rollupPropCl := rt.proposer.RollupClient()
+	rollupSeqCl := rt.sequencer.RollupClient()
 	batcher := NewL2Batcher(rt.l, rt.sd.RollupCfg, &BatcherCfg{
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  rt.dp.Secrets.Batcher,
-	}, rollupPropCl, rt.miner.EthClient(), rt.propEngine.EthClient())
+	}, rollupSeqCl, rt.miner.EthClient(), rt.seqEngine.EthClient())
 	rt.batcher = batcher
 }
 
@@ -112,7 +112,7 @@ func (rt *Runtime) setupMaliciousGuardian() {
 
 func (rt *Runtime) honestValidator(pk *ecdsa.PrivateKey) *L2Validator {
 	// setup mockup rpc for returning valid output
-	validatorRPC := e2eutils.NewHonestL2RPC(rt.proposer.RPCClient())
+	validatorRPC := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient())
 	validatorRollupClient := sources.NewRollupClient(validatorRPC)
 	validator := NewL2Validator(rt.t, rt.l, &ValidatorCfg{
 		OutputOracleAddr:    rt.sd.DeploymentsL1.L2OutputOracleProxy,
@@ -121,14 +121,14 @@ func (rt *Runtime) honestValidator(pk *ecdsa.PrivateKey) *L2Validator {
 		SecurityCouncilAddr: rt.sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:        pk,
 		AllowNonFinalized:   false,
-	}, rt.miner.EthClient(), rt.propEngine.EthClient(), validatorRollupClient)
+	}, rt.miner.EthClient(), rt.seqEngine.EthClient(), validatorRollupClient)
 	validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 	return validator
 }
 
 func (rt *Runtime) maliciousValidator(pk *ecdsa.PrivateKey) *L2Validator {
 	// setup mockup rpc for returning invalid output
-	validatorRPC := e2eutils.NewMaliciousL2RPC(rt.proposer.RPCClient())
+	validatorRPC := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient())
 	validatorRollupClient := sources.NewRollupClient(validatorRPC)
 	validator := NewL2Validator(rt.t, rt.l, &ValidatorCfg{
 		OutputOracleAddr:    rt.sd.DeploymentsL1.L2OutputOracleProxy,
@@ -137,7 +137,7 @@ func (rt *Runtime) maliciousValidator(pk *ecdsa.PrivateKey) *L2Validator {
 		SecurityCouncilAddr: rt.sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:        pk,
 		AllowNonFinalized:   false,
-	}, rt.miner.EthClient(), rt.propEngine.EthClient(), validatorRollupClient)
+	}, rt.miner.EthClient(), rt.seqEngine.EthClient(), validatorRollupClient)
 	validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 	return validator
 }
@@ -170,9 +170,9 @@ func (rt *Runtime) setupOutputSubmitted() {
 		// L1 block
 		rt.miner.ActEmptyBlock(rt.t)
 		// L2 block
-		rt.proposer.ActL1HeadSignal(rt.t)
-		rt.proposer.ActL2PipelineFull(rt.t)
-		rt.proposer.ActBuildToL1Head(rt.t)
+		rt.sequencer.ActL1HeadSignal(rt.t)
+		rt.sequencer.ActL2PipelineFull(rt.t)
+		rt.sequencer.ActBuildToL1Head(rt.t)
 		// submit and include in L1
 		rt.batcher.ActSubmitAll(rt.t)
 		rt.miner.includeL1Block(rt.t, rt.dp.Addresses.Batcher)
@@ -182,9 +182,9 @@ func (rt *Runtime) setupOutputSubmitted() {
 		rt.miner.ActL1FinalizeNext(rt.t)
 		rt.miner.ActL1FinalizeNext(rt.t)
 		// derive and see the L2 chain fully finalize
-		rt.proposer.ActL2PipelineFull(rt.t)
-		rt.proposer.ActL1SafeSignal(rt.t)
-		rt.proposer.ActL1FinalizedSignal(rt.t)
+		rt.sequencer.ActL2PipelineFull(rt.t)
+		rt.sequencer.ActL1SafeSignal(rt.t)
+		rt.sequencer.ActL1FinalizedSignal(rt.t)
 	}
 
 	// deposit bond for validator
@@ -196,7 +196,7 @@ func (rt *Runtime) setupOutputSubmitted() {
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, new(big.Int).SetUint64(defaultDepositAmount), bal)
 
-	require.Equal(rt.t, rt.proposer.SyncStatus().UnsafeL2, rt.proposer.SyncStatus().FinalizedL2)
+	require.Equal(rt.t, rt.sequencer.SyncStatus().UnsafeL2, rt.sequencer.SyncStatus().FinalizedL2)
 
 	// create l2 output submission transactions until there is nothing left to submit
 	for {
@@ -220,7 +220,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator) {
 	// check that the output root that L1 stores is different from challenger's output root
 	// NOTE(chokobole): Comment these 2 lines because of the reason above.
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
-	// block := proposer.SyncStatus().FinalizedL2
+	// block := sequencer.SyncStatus().FinalizedL2
 	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
 	targetBlockNum := big.NewInt(int64(rt.targetInvalidBlockNumber))
 	var err error
@@ -228,7 +228,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator) {
 	require.NoError(rt.t, err)
 	rt.outputOnL1, err = rt.outputOracleContract.GetL2OutputAfter(nil, targetBlockNum)
 	require.NoError(rt.t, err)
-	block, err := rt.propEngine.EthClient().BlockByNumber(rt.t.Ctx(), targetBlockNum)
+	block, err := rt.seqEngine.EthClient().BlockByNumber(rt.t.Ctx(), targetBlockNum)
 	require.NoError(rt.t, err)
 	require.Less(rt.t, block.Time(), rt.outputOnL1.Timestamp.Uint64(), "output is registered with L1 timestamp of L2 tx output submission, past L2 block")
 	outputComputed := challenger.fetchOutput(rt.t, rt.outputOnL1.L2BlockNumber)

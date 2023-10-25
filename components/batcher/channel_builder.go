@@ -18,7 +18,7 @@ var (
 	ErrMaxFrameIndex         = errors.New("max frame index reached (uint16)")
 	ErrMaxDurationReached    = errors.New("max channel duration reached")
 	ErrChannelTimeoutClose   = errors.New("close to channel timeout")
-	ErrProposerWindowClose   = errors.New("close to proposer window timeout")
+	ErrSeqWindowClose        = errors.New("close to sequencer window timeout")
 	ErrTerminated            = errors.New("channel terminated")
 )
 
@@ -35,9 +35,9 @@ func (e *ChannelFullError) Unwrap() error {
 }
 
 type ChannelConfig struct {
-	// Number of epochs (L1 blocks) per proposing window, including the epoch
+	// Number of epochs (L1 blocks) per sequencing window, including the epoch
 	// L1 origin block itself
-	ProposerWindowSize uint64
+	SeqWindowSize uint64
 	// The maximum number of L1 blocks that the inclusion transactions of a
 	// channel's frames can span.
 	ChannelTimeout uint64
@@ -51,7 +51,7 @@ type ChannelConfig struct {
 	// If 0, duration checks are disabled.
 	MaxChannelDuration uint64
 	// The batcher tx submission safety margin (in #L1-blocks) to subtract from
-	// a channel's timeout and proposing window, to guarantee safe inclusion of
+	// a channel's timeout and sequencing window, to guarantee safe inclusion of
 	// a channel on L1.
 	SubSafetyMargin uint64
 	// The maximum byte-size a frame can have.
@@ -121,7 +121,7 @@ type channelBuilder struct {
 	// L1 block number timeout of combined
 	// - channel duration timeout,
 	// - consensus channel timeout,
-	// - proposing window timeout.
+	// - sequencing window timeout.
 	// 0 if no block number timeout set yet.
 	timeout uint64
 	// reason for currently set timeout
@@ -217,7 +217,7 @@ func (c *channelBuilder) AddBlock(block *types.Block) (derive.L1BlockInfo, error
 		return l1info, fmt.Errorf("adding block to channel out: %w", err)
 	}
 	c.blocks = append(c.blocks, block)
-	c.updatePwTimeout(batch)
+	c.updateSwTimeout(batch)
 
 	if c.inputTargetReached() {
 		c.setFullErr(ErrInputTargetReached)
@@ -232,7 +232,7 @@ func (c *channelBuilder) AddBlock(block *types.Block) (derive.L1BlockInfo, error
 // RegisterL1Block should be called whenever a new L1-block is seen.
 //
 // It ensures proper tracking of all possible timeouts (max channel duration,
-// close to consensus channel timeout, close to end of proposing window).
+// close to consensus channel timeout, close to end of sequencing window).
 func (c *channelBuilder) RegisterL1Block(l1BlockNum uint64) {
 	c.updateDurationTimeout(l1BlockNum)
 	c.checkTimeout(l1BlockNum)
@@ -259,13 +259,13 @@ func (c *channelBuilder) updateDurationTimeout(l1BlockNum uint64) {
 	c.updateTimeout(timeout, ErrMaxDurationReached)
 }
 
-// updatePwTimeout updates the block timeout with the proposer window timeout
+// updateSwTimeout updates the block timeout with the sequencer window timeout
 // derived from the batch's origin L1 block. The timeout is only moved forward
-// if the derived proposer window timeout is earlier than the currently set
+// if the derived sequencer window timeout is earlier than the currently set
 // timeout.
-func (c *channelBuilder) updatePwTimeout(batch *derive.BatchData) {
-	timeout := uint64(batch.EpochNum) + c.cfg.ProposerWindowSize - c.cfg.SubSafetyMargin
-	c.updateTimeout(timeout, ErrProposerWindowClose)
+func (c *channelBuilder) updateSwTimeout(batch *derive.BatchData) {
+	timeout := uint64(batch.EpochNum) + c.cfg.SeqWindowSize - c.cfg.SubSafetyMargin
+	c.updateTimeout(timeout, ErrSeqWindowClose)
 }
 
 // updateTimeout updates the timeout block to the given block number if it is
@@ -318,7 +318,7 @@ func (c *channelBuilder) IsFull() bool {
 //     (uint16),
 //   - ErrMaxDurationReached if the max channel duration got reached,
 //   - ErrChannelTimeoutClose if the consensus channel timeout got too close,
-//   - ErrProposerWindowClose if the end of the proposer window got too close,
+//   - ErrSeqWindowClose if the end of the sequencer window got too close,
 //   - ErrTerminated if the channel was explicitly terminated.
 func (c *channelBuilder) FullErr() error {
 	return c.fullErr

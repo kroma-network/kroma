@@ -41,8 +41,8 @@ var (
 			AdminSlot:          common.HexToHash("0x0000000000000000000000004200000000000000000000000000000000000018"),
 			ImplementationSlot: common.HexToHash("0x000000000000000000000000c0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d30018"),
 		},
-		predeploys.ProtocolVaultAddr:       eip1967Slots(predeploys.ProtocolVaultAddr),
-		predeploys.ProposerRewardVaultAddr: eip1967Slots(predeploys.ProposerRewardVaultAddr),
+		predeploys.ProtocolVaultAddr: eip1967Slots(predeploys.ProtocolVaultAddr),
+		predeploys.L1FeeVaultAddr:    eip1967Slots(predeploys.L1FeeVaultAddr),
 	}
 )
 

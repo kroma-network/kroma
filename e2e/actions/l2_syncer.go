@@ -123,12 +123,12 @@ func (s *l2SyncerBackend) ResetDerivationPipeline(ctx context.Context) error {
 	return nil
 }
 
-func (s *l2SyncerBackend) StartProposer(ctx context.Context, blockHash common.Hash) error {
+func (s *l2SyncerBackend) StartSequencer(ctx context.Context, blockHash common.Hash) error {
 	return nil
 }
 
-func (s *l2SyncerBackend) StopProposer(ctx context.Context) (common.Hash, error) {
-	return common.Hash{}, errors.New("stopping the L2Syncer proposer is not supported")
+func (s *l2SyncerBackend) StopSequencer(ctx context.Context) (common.Hash, error) {
+	return common.Hash{}, errors.New("stopping the L2Syncer sequencer is not supported")
 }
 
 func (s *L2Syncer) L2Finalized() eth.L2BlockRef {

@@ -22,7 +22,7 @@ import (
 )
 
 var defaultTestChannelConfig = ChannelConfig{
-	ProposerWindowSize: 15,
+	SeqWindowSize:      15,
 	ChannelTimeout:     40,
 	MaxChannelDuration: 1,
 	SubSafetyMargin:    4,
@@ -302,65 +302,65 @@ func FuzzChannelZeroCloseTimeout(f *testing.F) {
 	})
 }
 
-// FuzzProposerWindowClose ensures that the channel builder has a [ErrProposerWindowClose]
+// FuzzSeqWindowClose ensures that the channel builder has a [ErrSeqWindowClose]
 // as long as the timeout constraint is met and the builder's timeout is greater than
 // the calculated timeout.
-func FuzzProposerWindowClose(f *testing.F) {
+func FuzzSeqWindowClose(f *testing.F) {
 	// Set multiple seeds in case fuzzing isn't explicitly used
 	for i := range [10]int{} {
 		f.Add(uint64(i), uint64(i), uint64(i), uint64(i*5))
 	}
-	f.Fuzz(func(t *testing.T, epochNum uint64, proposerWindowSize uint64, subSafetyMargin uint64, timeout uint64) {
+	f.Fuzz(func(t *testing.T, epochNum uint64, seqWindowSize uint64, subSafetyMargin uint64, timeout uint64) {
 		// Create the channel builder
 		channelConfig := defaultTestChannelConfig
-		channelConfig.ProposerWindowSize = proposerWindowSize
+		channelConfig.SeqWindowSize = seqWindowSize
 		channelConfig.SubSafetyMargin = subSafetyMargin
 		cb, err := newChannelBuilder(channelConfig)
 		require.NoError(t, err)
 
 		// Check the timeout
 		cb.timeout = timeout
-		cb.updatePwTimeout(&derive.BatchData{
+		cb.updateSwTimeout(&derive.BatchData{
 			BatchV1: derive.BatchV1{
 				EpochNum: rollup.Epoch(epochNum),
 			},
 		})
-		calculatedTimeout := epochNum + proposerWindowSize - subSafetyMargin
+		calculatedTimeout := epochNum + seqWindowSize - subSafetyMargin
 		if timeout > calculatedTimeout && calculatedTimeout != 0 {
 			cb.checkTimeout(calculatedTimeout)
-			require.ErrorIs(t, cb.FullErr(), ErrProposerWindowClose)
+			require.ErrorIs(t, cb.FullErr(), ErrSeqWindowClose)
 		} else {
 			require.NoError(t, cb.FullErr())
 		}
 	})
 }
 
-// FuzzProposerWindowZeroTimeoutClose ensures that the channel builder has a [ErrProposerWindowClose]
+// FuzzSeqWindowZeroTimeoutClose ensures that the channel builder has a [ErrSeqWindowClose]
 // as long as the timeout constraint is met and the builder's timeout is set to zero.
-func FuzzProposerWindowZeroTimeoutClose(f *testing.F) {
+func FuzzSeqWindowZeroTimeoutClose(f *testing.F) {
 	// Set multiple seeds in case fuzzing isn't explicitly used
 	for i := range [10]int{} {
 		f.Add(uint64(i), uint64(i), uint64(i))
 	}
-	f.Fuzz(func(t *testing.T, epochNum uint64, proposerWindowSize uint64, subSafetyMargin uint64) {
+	f.Fuzz(func(t *testing.T, epochNum uint64, seqWindowSize uint64, subSafetyMargin uint64) {
 		// Create the channel builder
 		channelConfig := defaultTestChannelConfig
-		channelConfig.ProposerWindowSize = proposerWindowSize
+		channelConfig.SeqWindowSize = seqWindowSize
 		channelConfig.SubSafetyMargin = subSafetyMargin
 		cb, err := newChannelBuilder(channelConfig)
 		require.NoError(t, err)
 
 		// Check the timeout
 		cb.timeout = 0
-		cb.updatePwTimeout(&derive.BatchData{
+		cb.updateSwTimeout(&derive.BatchData{
 			BatchV1: derive.BatchV1{
 				EpochNum: rollup.Epoch(epochNum),
 			},
 		})
-		calculatedTimeout := epochNum + proposerWindowSize - subSafetyMargin
+		calculatedTimeout := epochNum + seqWindowSize - subSafetyMargin
 		cb.checkTimeout(calculatedTimeout)
 		if cb.timeout != 0 {
-			require.ErrorIs(t, cb.FullErr(), ErrProposerWindowClose, "Proposer window close should be reached")
+			require.ErrorIs(t, cb.FullErr(), ErrSeqWindowClose, "Sequence window close should be reached")
 		}
 	})
 }
@@ -583,8 +583,8 @@ func TestChannelBuilder_Reset(t *testing.T) {
 	// Check the fields reset in the Reset function
 	require.Equal(t, 1, len(cb.blocks))
 	require.Equal(t, 0, len(cb.frames))
-	// Timeout should be updated in the AddBlock internal call to `updatePwTimeout`
-	timeout := uint64(100) + cb.cfg.ProposerWindowSize - cb.cfg.SubSafetyMargin
+	// Timeout should be updated in the AddBlock internal call to `updateSwTimeout`
+	timeout := uint64(100) + cb.cfg.SeqWindowSize - cb.cfg.SubSafetyMargin
 	require.Equal(t, timeout, cb.timeout)
 	require.NoError(t, cb.fullErr)
 

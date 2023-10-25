@@ -16,7 +16,7 @@
 - [L2CrossDomainMessenger](#l2crossdomainmessenger)
 - [GasPriceOracle](#gaspriceoracle)
 - [ProtocolVault](#protocolvault)
-- [ProposerRewardVault](#proposerrewardvault)
+- [L1FeeVault](#l1feevault)
 - [ValidatorRewardVault](#validatorrewardvault)
 - [L2StandardBridge](#l2standardbridge)
 - [KromaMintableERC20Factory](#kromamintableerc20factory)
@@ -46,7 +46,7 @@ Proxies are set at each possible predeploy address except for the `ProxyAdmin` a
 | L2CrossDomainMessenger     | 0x4200000000000000000000000000000000000004 | Yes     |
 | GasPriceOracle             | 0x4200000000000000000000000000000000000005 | Yes     |
 | ProtocolVault              | 0x4200000000000000000000000000000000000006 | Yes     |
-| ProposerRewardVault        | 0x4200000000000000000000000000000000000007 | Yes     |
+| L1FeeVault                 | 0x4200000000000000000000000000000000000007 | Yes     |
 | ValidatorRewardVault       | 0x4200000000000000000000000000000000000008 | Yes     |
 | L2StandardBridge           | 0x4200000000000000000000000000000000000009 | Yes     |
 | L2ERC721Bridge             | 0x420000000000000000000000000000000000000A | Yes     |
@@ -149,13 +149,13 @@ The `ProtocolVault` predeploy accumulates transaction fees to fund network opera
 Once the contract has received a certain amount of fees, the ETH can be
 withdrawn to an immutable address on L1.
 
-## ProposerRewardVault
+## L1FeeVault
 
-[Implementation](../packages/contracts/contracts/L2/ProposerRewardVault.sol)
+[Implementation](../packages/contracts/contracts/L2/L1FeeVault.sol)
 
 Address: `0x4200000000000000000000000000000000000007`
 
-The `ProposerRewardVault` predeploy receives the L1 portion of the transaction fees.
+The `L1FeeVault` predeploy receives the L1 portion of the transaction fees.
 Once the contract has received a certain amount of fees, the ETH can be
 withdrawn to an immutable address on L1.
 

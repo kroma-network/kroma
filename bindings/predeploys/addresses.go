@@ -10,7 +10,7 @@ const (
 	L2CrossDomainMessenger     = "0x4200000000000000000000000000000000000004"
 	GasPriceOracle             = "0x4200000000000000000000000000000000000005"
 	ProtocolVault              = "0x4200000000000000000000000000000000000006"
-	ProposerRewardVault        = "0x4200000000000000000000000000000000000007"
+	L1FeeVault                 = "0x4200000000000000000000000000000000000007"
 	ValidatorRewardVault       = "0x4200000000000000000000000000000000000008"
 	L2StandardBridge           = "0x4200000000000000000000000000000000000009"
 	L2ERC721Bridge             = "0x420000000000000000000000000000000000000A"
@@ -26,7 +26,7 @@ var (
 	L2CrossDomainMessengerAddr     = common.HexToAddress(L2CrossDomainMessenger)
 	GasPriceOracleAddr             = common.HexToAddress(GasPriceOracle)
 	ProtocolVaultAddr              = common.HexToAddress(ProtocolVault)
-	ProposerRewardVaultAddr        = common.HexToAddress(ProposerRewardVault)
+	L1FeeVaultAddr                 = common.HexToAddress(L1FeeVault)
 	ValidatorRewardVaultAddr       = common.HexToAddress(ValidatorRewardVault)
 	L2StandardBridgeAddr           = common.HexToAddress(L2StandardBridge)
 	L2ERC721BridgeAddr             = common.HexToAddress(L2ERC721Bridge)
@@ -44,7 +44,7 @@ func init() {
 	Predeploys["L2CrossDomainMessenger"] = &L2CrossDomainMessengerAddr
 	Predeploys["GasPriceOracle"] = &GasPriceOracleAddr
 	Predeploys["ProtocolVault"] = &ProtocolVaultAddr
-	Predeploys["ProposerRewardVault"] = &ProposerRewardVaultAddr
+	Predeploys["L1FeeVault"] = &L1FeeVaultAddr
 	Predeploys["ValidatorRewardVault"] = &ValidatorRewardVaultAddr
 	Predeploys["L2StandardBridge"] = &L2StandardBridgeAddr
 	Predeploys["L2ERC721Bridge"] = &L2ERC721BridgeAddr

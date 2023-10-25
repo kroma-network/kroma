@@ -64,8 +64,8 @@ services:
       NODE_RPC_PORT: 8545
       NODE_RPC_ENABLE_ADMIN: true
       NODE_SNAPSHOT_LOG: /kroma_log/snapshot.log
-      NODE_PROPOSER_ENABLED: true
-      NODE_PROPOSER_L1_CONFS: 0
+      NODE_SEQUENCER_ENABLED: true
+      NODE_SEQUENCER_L1_CONFS: 0
       NODE_SYNCER_L1_CONFS: 0
       NODE_P2P_LISTEN_IP: 0.0.0.0
       NODE_P2P_LISTEN_TCP_PORT: 9003
@@ -73,7 +73,7 @@ services:
       NODE_P2P_PEER_SCORING: light
       NODE_P2P_PEER_BANNING: true
       NODE_P2P_PRIV_PATH: /config/p2p-node-key.txt
-      NODE_P2P_PROPOSER_KEY: 8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
+      NODE_P2P_SEQUENCER_KEY: 8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
       NODE_METRICS_ENABLED: true
       NODE_METRICS_ADDR: 0.0.0.0
       NODE_METRICS_PORT: 7300
@@ -84,7 +84,7 @@ services:
       - "7300:7300"
       - "6060:6060"
     volumes:
-      - "${PWD}/p2p-proposer-key.txt:/config/p2p-proposer-key.txt"
+      - "${PWD}/p2p-sequencer-key.txt:/config/p2p-sequencer-key.txt"
       - "${PWD}/p2p-node-key.txt:/config/p2p-node-key.txt"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
       - "${PWD}/../.devnet/rollup.json:/rollup.json"

@@ -24,8 +24,8 @@ import (
 func TestOriginSelectorAdvances(t *testing.T) {
 	log := testlog.Logger(t, log.LvlCrit)
 	cfg := &rollup.Config{
-		MaxProposerDrift: 500,
-		BlockTime:        2,
+		MaxSequencerDrift: 500,
+		BlockTime:         2,
 	}
 	l1 := &testutils.MockL1Source{}
 	defer l1.AssertExpectations(t)
@@ -65,8 +65,8 @@ func TestOriginSelectorAdvances(t *testing.T) {
 func TestOriginSelectorRespectsOriginTiming(t *testing.T) {
 	log := testlog.Logger(t, log.LvlCrit)
 	cfg := &rollup.Config{
-		MaxProposerDrift: 500,
-		BlockTime:        2,
+		MaxSequencerDrift: 500,
+		BlockTime:         2,
 	}
 	l1 := &testutils.MockL1Source{}
 	defer l1.AssertExpectations(t)
@@ -100,13 +100,13 @@ func TestOriginSelectorRespectsOriginTiming(t *testing.T) {
 //
 // There are 2 L1 blocks at time 20 & 25. The L2 Head is at time 27.
 // The next L2 time is 29 which enough to normally select block `b`
-// as the origin, however block `b` is the L1 Head & the proposer
+// as the origin, however block `b` is the L1 Head & the sequencer
 // needs to wait until that block is confirmed enough before advancing.
 func TestOriginSelectorRespectsConfDepth(t *testing.T) {
 	log := testlog.Logger(t, log.LvlCrit)
 	cfg := &rollup.Config{
-		MaxProposerDrift: 500,
-		BlockTime:        2,
+		MaxSequencerDrift: 500,
+		BlockTime:         2,
 	}
 	l1 := &testutils.MockL1Source{}
 	defer l1.AssertExpectations(t)
@@ -135,21 +135,21 @@ func TestOriginSelectorRespectsConfDepth(t *testing.T) {
 	require.Equal(t, a, next)
 }
 
-// TestOriginSelectorStrictConfDepth ensures that the origin selector will maintain the proposer conf depth,
+// TestOriginSelectorStrictConfDepth ensures that the origin selector will maintain the sequencer conf depth,
 // even while the time delta between the current L1 origin and the next
-// L2 block is greater than the proposer drift.
+// L2 block is greater than the sequencer drift.
 // It's more important to maintain safety with an empty block than to maintain liveness with poor conf depth.
 //
 // There are 2 L1 blocks at time 20 & 25. The L2 Head is at time 27.
-// The next L2 time is 29. The proposer drift is 8 so the L2 head is
+// The next L2 time is 29. The sequencer drift is 8 so the L2 head is
 // valid with origin `a`, but the next L2 block is not valid with origin `b.`
-// This is because 29 (next L2 time) > 20 (origin) + 8 (proposer drift) => invalid block.
+// This is because 29 (next L2 time) > 20 (origin) + 8 (sequencer drift) => invalid block.
 // We maintain confirmation distance, even though we would shift to the next origin if we could.
 func TestOriginSelectorStrictConfDepth(t *testing.T) {
 	log := testlog.Logger(t, log.LvlCrit)
 	cfg := &rollup.Config{
-		MaxProposerDrift: 8,
-		BlockTime:        2,
+		MaxSequencerDrift: 8,
+		BlockTime:         2,
 	}
 	l1 := &testutils.MockL1Source{}
 	defer l1.AssertExpectations(t)
@@ -174,20 +174,20 @@ func TestOriginSelectorStrictConfDepth(t *testing.T) {
 	s := NewL1OriginSelector(log, cfg, confDepthL1)
 
 	_, err := s.FindL1Origin(context.Background(), l2Head)
-	require.ErrorContains(t, err, "proposer time drift")
+	require.ErrorContains(t, err, "sequencer time drift")
 }
 
-// TestOriginSelectorPropDriftRespectsNextOriginTime
+// TestOriginSelectorSeqDriftRespectsNextOriginTime
 //
 // There are 2 L1 blocks at time 20 & 100. The L2 Head is at time 27.
-// The next L2 time is 29. Even though the next L2 time is past the proposer
+// The next L2 time is 29. Even though the next L2 time is past the sequencer
 // drift, the origin should remain on block `a` because the next origin's
 // time is greater than the next L2 time.
-func TestOriginSelectorPropDriftRespectsNextOriginTime(t *testing.T) {
+func TestOriginSelectorSeqDriftRespectsNextOriginTime(t *testing.T) {
 	log := testlog.Logger(t, log.LvlCrit)
 	cfg := &rollup.Config{
-		MaxProposerDrift: 8,
-		BlockTime:        2,
+		MaxSequencerDrift: 8,
+		BlockTime:         2,
 	}
 	l1 := &testutils.MockL1Source{}
 	defer l1.AssertExpectations(t)
@@ -220,7 +220,7 @@ func TestOriginSelectorPropDriftRespectsNextOriginTime(t *testing.T) {
 // but with a conf depth that first prevents it from learning about the need to repeat.
 //
 // There are 2 L1 blocks at time 20 & 100. The L2 Head is at time 27.
-// The next L2 time is 29. Even though the next L2 time is past the proposer
+// The next L2 time is 29. Even though the next L2 time is past the sequencer
 // drift, the origin should remain on block `a` because the next origin's
 // time is greater than the next L2 time.
 // Due to a conf depth of 2, block `b` is not immediately visible,
@@ -228,8 +228,8 @@ func TestOriginSelectorPropDriftRespectsNextOriginTime(t *testing.T) {
 func TestOriginSelectorHandlesLateL1Blocks(t *testing.T) {
 	log := testlog.Logger(t, log.LvlCrit)
 	cfg := &rollup.Config{
-		MaxProposerDrift: 8,
-		BlockTime:        2,
+		MaxSequencerDrift: 8,
+		BlockTime:         2,
 	}
 	l1 := &testutils.MockL1Source{}
 	defer l1.AssertExpectations(t)
@@ -272,11 +272,11 @@ func TestOriginSelectorHandlesLateL1Blocks(t *testing.T) {
 	s := NewL1OriginSelector(log, cfg, confDepthL1)
 
 	_, err := s.FindL1Origin(context.Background(), l2Head)
-	require.ErrorContains(t, err, "proposer time drift")
+	require.ErrorContains(t, err, "sequencer time drift")
 
 	l1Head = c
 	_, err = s.FindL1Origin(context.Background(), l2Head)
-	require.ErrorContains(t, err, "proposer time drift")
+	require.ErrorContains(t, err, "sequencer time drift")
 
 	l1Head = d
 	next, err := s.FindL1Origin(context.Background(), l2Head)

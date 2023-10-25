@@ -27,8 +27,8 @@ type L2ClientConfig struct {
 }
 
 func L2ClientDefaultConfig(config *rollup.Config, trustRPC bool) *L2ClientConfig {
-	// Cache 3/2 worth of proposing window of payloads, block references, receipts and txs
-	span := int(config.ProposerWindowSize) * 3 / 2
+	// Cache 3/2 worth of sequencing window of payloads, block references, receipts and txs
+	span := int(config.SeqWindowSize) * 3 / 2
 	// Estimate number of L2 blocks in this span of L1 blocks
 	// (there's always one L2 block per L1 block, L1 is thus the minimum, even if block time is very high)
 	if config.BlockTime < 12 && config.BlockTime > 0 {
