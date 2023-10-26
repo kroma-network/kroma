@@ -138,9 +138,9 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		GasPriceOracleScalar:   1_000_000,
 		ValidatorRewardScalar:  5000,
 
-		ProxyAdminOwner:              addresses.ProxyAdminOwner,
-		ProtocolVaultRecipient:       common.Address{19: 2},
-		L1FeeVaultRecipient:       common.Address{19: 3},
+		ProxyAdminOwner:        addresses.ProxyAdminOwner,
+		ProtocolVaultRecipient: common.Address{19: 2},
+		L1FeeVaultRecipient:    common.Address{19: 3},
 
 		DeploymentWaitConfirmations: 1,
 
@@ -643,7 +643,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		validatorMaliciousL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 	}
 
-	sys.Validator, err = validator.NewValidator(context.Background(), *validatorCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
+	sys.Validator, err = validator.NewValidator(*validatorCfg, sys.cfg.Loggers["validator"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup validator: %w", err)
 	}
@@ -695,7 +695,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 	// Replace to mock fetcher
 	challengerCfg.ProofFetcher = e2eutils.NewFetcher(sys.cfg.Loggers["challenger"], "./testdata/proof")
-	sys.Challenger, err = validator.NewValidator(context.Background(), *challengerCfg, sys.cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
+	sys.Challenger, err = validator.NewValidator(*challengerCfg, sys.cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup challenger: %w", err)
 	}

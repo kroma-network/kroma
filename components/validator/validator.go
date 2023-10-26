@@ -53,7 +53,7 @@ func Main(version string, cliCtx *cli.Context) error {
 	m.RecordInfo(version)
 	m.RecordUp()
 
-	validator, err := NewValidator(ctx, *validatorCfg, l, m)
+	validator, err := NewValidator(*validatorCfg, l, m)
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ type Validator struct {
 	l2ooContract *bindings.L2OutputOracleCaller
 }
 
-func NewValidator(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*Validator, error) {
+func NewValidator(cfg Config, l log.Logger, m metrics.Metricer) (*Validator, error) {
 	// Validate the validator config
 	if err := cfg.Check(); err != nil {
 		return nil, err
