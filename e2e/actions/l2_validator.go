@@ -121,7 +121,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 
 // sendTx reimplements creating & sending transactions because we need to do the final send as async in
 // the action tests while we do it synchronously in the real system.
-func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int, data []byte) {
+func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int, data []byte, gasLimitMultiplier float64) {
 	gasTipCap := big.NewInt(2 * params.GWei)
 	pendingHeader, err := v.l1.HeaderByNumber(t.Ctx(), big.NewInt(-1))
 	require.NoError(t, err, "need l1 pending header for gas price estimation")
@@ -148,7 +148,7 @@ func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int
 		Data:      data,
 		GasFeeCap: gasFeeCap,
 		GasTipCap: gasTipCap,
-		Gas:       gasLimit,
+		Gas:       uint64(float64(gasLimit) * gasLimitMultiplier),
 		ChainID:   chainID,
 	}
 
@@ -180,7 +180,7 @@ func (v *L2Validator) ActSubmitL2Output(t Testing) {
 
 	// Note: Use L1 instead of the output submitter's transaction manager because
 	// this is non-blocking while the txmgr is blocking & deadlocks the tests
-	v.sendTx(t, &v.l2ooContractAddr, common.Big0, txData)
+	v.sendTx(t, &v.l2ooContractAddr, common.Big0, txData, 1.5)
 }
 
 func (v *L2Validator) LastSubmitL2OutputTx() common.Hash {
@@ -194,7 +194,7 @@ func (v *L2Validator) ActDeposit(t Testing, depositAmount uint64) {
 	txData, err := valPoolABI.Pack("deposit")
 	require.NoError(t, err)
 
-	v.sendTx(t, &v.valPoolContractAddr, new(big.Int).SetUint64(depositAmount), txData)
+	v.sendTx(t, &v.valPoolContractAddr, new(big.Int).SetUint64(depositAmount), txData, 1)
 }
 
 func (v *L2Validator) fetchOutput(t Testing, blockNumber *big.Int) *eth.OutputResponse {

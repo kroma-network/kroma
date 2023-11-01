@@ -154,12 +154,12 @@ func (m *SimpleTxManager) Send(ctx context.Context, candidate TxCandidate) (*typ
 // NOTE: If the [TxCandidate.GasLimit] is non-zero, it will be used as the transaction's gas.
 // NOTE: Otherwise, the [SimpleTxManager] will query the specified backend for an estimate.
 func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*types.Transaction, error) {
-	gasTipCap, basefee, err := m.suggestGasPriceCaps(ctx)
+	gasTipCap, basefee, err := m.SuggestGasPriceCaps(ctx)
 	if err != nil {
 		m.metr.RPCError()
 		return nil, fmt.Errorf("failed to get gas price info: %w", err)
 	}
-	gasFeeCap := calcGasFeeCap(basefee, gasTipCap)
+	gasFeeCap := CalcGasFeeCap(basefee, gasTipCap)
 
 	// Fetch the sender's nonce from the latest known block (nil `blockNumber`)
 	childCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
@@ -399,7 +399,7 @@ func (m *SimpleTxManager) queryReceipt(ctx context.Context, txHash common.Hash, 
 //
 // If it encounters an error with creating the new transaction, it will return the old transaction.
 func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transaction) *types.Transaction {
-	tip, basefee, err := m.suggestGasPriceCaps(ctx)
+	tip, basefee, err := m.SuggestGasPriceCaps(ctx)
 	if err != nil {
 		m.l.Warn("failed to get suggested gas tip and basefee", "err", err)
 		return tx
@@ -431,8 +431,8 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 	return newTx
 }
 
-// suggestGasPriceCaps suggests what the new tip & new basefee should be based on the current L1 conditions
-func (m *SimpleTxManager) suggestGasPriceCaps(ctx context.Context) (*big.Int, *big.Int, error) {
+// SuggestGasPriceCaps suggests what the new tip & new basefee should be based on the current L1 conditions
+func (m *SimpleTxManager) SuggestGasPriceCaps(ctx context.Context) (*big.Int, *big.Int, error) {
 	cCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
 	defer cancel()
 	tip, err := m.backend.SuggestGasTipCap(cCtx)
@@ -465,7 +465,7 @@ func calcThresholdValue(x *big.Int) *big.Int {
 // a gasTipCap and gasFeeCap that satisfies geth's required fee bumps
 // Geth: FC and Tip must be bumped if any increase
 func updateFees(oldTip, oldFeeCap, newTip, newBaseFee *big.Int, lgr log.Logger) (*big.Int, *big.Int) {
-	newFeeCap := calcGasFeeCap(newBaseFee, newTip)
+	newFeeCap := CalcGasFeeCap(newBaseFee, newTip)
 	lgr = lgr.New("old_tip", oldTip, "old_feecap", oldFeeCap, "new_tip", newTip, "new_feecap", newFeeCap)
 	// If the new prices are less than the old price, reuse the old prices
 	if oldTip.Cmp(newTip) >= 0 && oldFeeCap.Cmp(newFeeCap) >= 0 {
@@ -487,7 +487,7 @@ func updateFees(oldTip, oldFeeCap, newTip, newBaseFee *big.Int, lgr log.Logger) 
 		// Basefee has gone up, but the tip hasn't. Recalculate the feecap because if the tip went up a lot
 		// not enough of the feecap may be dedicated to paying the basefee.
 		lgr.Debug("Using threshold tip and recalculated feecap")
-		return thresholdTip, calcGasFeeCap(newBaseFee, thresholdTip)
+		return thresholdTip, CalcGasFeeCap(newBaseFee, thresholdTip)
 
 	} else {
 		// TODO(CLI-3713): Should we skip the bump in this case?
@@ -496,11 +496,11 @@ func updateFees(oldTip, oldFeeCap, newTip, newBaseFee *big.Int, lgr log.Logger) 
 	}
 }
 
-// calcGasFeeCap deterministically computes the recommended gas fee cap given
+// CalcGasFeeCap deterministically computes the recommended gas fee cap given
 // the base fee and gasTipCap. The resulting gasFeeCap is equal to:
 //
 //	gasTipCap + 2*baseFee.
-func calcGasFeeCap(baseFee, gasTipCap *big.Int) *big.Int {
+func CalcGasFeeCap(baseFee, gasTipCap *big.Int) *big.Int {
 	return new(big.Int).Add(
 		gasTipCap,
 		new(big.Int).Mul(baseFee, big.NewInt(2)),
