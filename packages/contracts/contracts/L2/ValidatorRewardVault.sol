@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import { L2StandardBridge } from "../L2/L2StandardBridge.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
+import { SafeCall } from "../libraries/SafeCall.sol";
 import { FeeVault } from "../universal/FeeVault.sol";
 import { Semver } from "../universal/Semver.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
@@ -95,31 +96,49 @@ contract ValidatorRewardVault is FeeVault, Semver {
     }
 
     /**
-     * @notice Withdraws all of the sender's balance.
-     *         Reverts if the balance is less than the minimum withdrawal amount.
+     * @notice Checks if the withdrawal is possible, and returns the withdrawal amount.
+     *         When a withdrawal is available, it resets the balance and updates the total processed amount.
      */
-    function withdraw() external override {
-        uint256 balance = rewards[msg.sender];
-
+    function processWithdrawal() internal returns (uint256) {
+        uint256 amount = rewards[msg.sender];
         require(
-            balance >= MIN_WITHDRAWAL_AMOUNT,
+            amount >= MIN_WITHDRAWAL_AMOUNT,
             "ValidatorRewardVault: withdrawal amount must be greater than minimum withdrawal amount"
         );
 
         rewards[msg.sender] = 0;
-
         unchecked {
-            totalReserved -= balance;
-            totalProcessed += balance;
+            totalReserved -= amount;
+            totalProcessed += amount;
         }
 
-        emit Withdrawal(balance, msg.sender, msg.sender);
+        emit Withdrawal(amount, msg.sender, msg.sender);
+        return amount;
+    }
 
-        L2StandardBridge(payable(Predeploys.L2_STANDARD_BRIDGE)).bridgeETHTo{ value: balance }(
+    /**
+     * @notice Withdraws all of the sender's balance.
+     *         Reverts if the balance is less than the minimum withdrawal amount.
+     */
+    function withdraw() external override {
+        uint256 amount = processWithdrawal();
+
+        L2StandardBridge(payable(Predeploys.L2_STANDARD_BRIDGE)).bridgeETHTo{ value: amount }(
             msg.sender,
             WITHDRAWAL_MIN_GAS,
             bytes("")
         );
+    }
+
+    /**
+     * @notice Withdraws all of the sender's balance to L2.
+     *         Reverts if the balance is less than the minimum withdrawal amount.
+     */
+    function withdrawToL2() external {
+        uint256 amount = processWithdrawal();
+
+        bool success = SafeCall.call(msg.sender, gasleft(), amount, bytes(""));
+        require(success, "ValidatorRewardVault: ETH transfer failed");
     }
 
     /**

@@ -124,6 +124,31 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
         assertEq(vault.totalReserved(), reserved - amount);
     }
 
+    function test_withdrawL2_succeeds() external {
+        vm.deal(address(vault), vault.REWARD_DIVIDER() * vault.MIN_WITHDRAWAL_AMOUNT());
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
+        vault.reward(recipient, l2BlockNumber);
+
+        uint256 amount = vault.balanceOf(recipient);
+        uint256 reserved = vault.totalReserved();
+
+        // No ether has been withdrawn yet
+        assertEq(vault.totalProcessed(), 0);
+
+        vm.expectEmit(true, true, true, true, address(Predeploys.VALIDATOR_REWARD_VAULT));
+        emit Withdrawal(amount, recipient, recipient);
+
+        uint256 prevBalance = payable(msg.sender).balance;
+        vm.prank(recipient);
+        vault.withdrawToL2();
+        // The withdrawal was successful
+        assertEq(vault.totalProcessed(), amount);
+        // Check the total determined reward amount was decreased.
+        assertEq(vault.totalReserved(), reserved - amount);
+
+        assertEq(payable(msg.sender).balance, prevBalance + amount);
+    }
+
     function test_balanceOf_succeeds() external {
         uint256 vaultBalance = vault.MIN_WITHDRAWAL_AMOUNT();
         vm.deal(address(vault), vaultBalance);
