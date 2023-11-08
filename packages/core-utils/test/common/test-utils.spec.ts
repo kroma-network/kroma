@@ -1,8 +1,8 @@
 import { assert } from 'chai'
 
 /* Imports: Internal */
-import { expect } from './setup'
-import { awaitCondition, expectApprox } from '../src'
+import { expect } from '../setup'
+import { awaitCondition, expectApprox } from '../../src'
 
 describe('awaitCondition', () => {
   it('should try the condition fn until it returns true', async () => {

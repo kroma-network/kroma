@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -16,8 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 )
 
 type EngineBackend interface {
@@ -106,14 +105,17 @@ func (ea *L2EngineAPI) PendingIndices(from common.Address) uint64 {
 	return ea.pendingIndices[from]
 }
 
-var ErrNotBuildingBlock = errors.New("not currently building a block, cannot include tx from queue")
+var (
+	ErrNotBuildingBlock = errors.New("not currently building a block, cannot include tx from queue")
+)
 
 func (ea *L2EngineAPI) IncludeTx(tx *types.Transaction, from common.Address) error {
 	if ea.blockProcessor == nil {
 		return ErrNotBuildingBlock
 	}
 	if ea.l2ForceEmpty {
-		ea.log.Info("Skipping including a transaction because ea.L2ForceEmpty is true")
+		ea.log.Info("Skipping including a transaction because e.L2ForceEmpty is true")
+		// t.InvalidAction("cannot include any sequencer txs")
 		return nil
 	}
 
@@ -205,7 +207,7 @@ func (ea *L2EngineAPI) ForkchoiceUpdatedV1(ctx context.Context, state *eth.Forkc
 	// Block is known locally, just sanity check that the beacon client does not
 	// attempt to push us back to before the merge.
 	// Note: Differs from kroma-geth implementation as pre-merge blocks are never supported here
-	if block.Difficulty().BitLen() > 0 {
+	if block.Difficulty().BitLen() > 0 && block.NumberU64() > 0 {
 		return STATUS_INVALID, errors.New("pre-merge blocks not supported")
 	}
 	valid := func(id *engine.PayloadID) *eth.ForkchoiceUpdatedResult {
@@ -223,7 +225,7 @@ func (ea *L2EngineAPI) ForkchoiceUpdatedV1(ctx context.Context, state *eth.Forkc
 		// If the specified head matches with our local head, do nothing and keep
 		// generating the payload. It's a special corner case that a few slots are
 		// missing and we are requested to generate the payload in slot.
-	} else if ea.backend.Config().Kroma == nil { // minor L2Engine API divergence: allow validators to reorg their own chain
+	} else if ea.backend.Config().Kroma == nil { // minor L2Engine API divergence: allow proposers to reorg their own chain
 		panic("engine not configured as kroma engine")
 	}
 
@@ -299,7 +301,7 @@ func (ea *L2EngineAPI) NewPayloadV1(ctx context.Context, payload *eth.ExecutionP
 	}
 	// If we already have the block locally, ignore the entire execution and just
 	// return a fake success.
-	if block := ea.backend.GetBlockByHash(payload.BlockHash); block != nil {
+	if block := ea.backend.GetBlock(payload.BlockHash, uint64(payload.BlockNumber)); block != nil {
 		ea.log.Warn("Ignoring already known beacon payload", "number", payload.BlockNumber, "hash", payload.BlockHash, "age", common.PrettyAge(time.Unix(int64(block.Time()), 0)))
 		hash := block.Hash()
 		return &eth.PayloadStatusV1{Status: eth.ExecutionValid, LatestValidHash: &hash}, nil

@@ -10,6 +10,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
+	"github.com/ethereum-optimism/optimism/op-node/client"
+	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-node/metrics"
+	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
+	"github.com/ethereum-optimism/optimism/op-node/sources"
+	"github.com/ethereum-optimism/optimism/op-node/testlog"
+	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
+	"github.com/ethereum-optimism/optimism/op-service/backoff"
+	opprof "github.com/ethereum-optimism/optimism/op-service/pprof"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -24,24 +40,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-node/client"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/metrics"
-	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
-	"github.com/ethereum-optimism/optimism/op-node/p2p"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
-	"github.com/ethereum-optimism/optimism/op-node/sources"
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
-	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	opprof "github.com/ethereum-optimism/optimism/op-service/pprof"
 	val "github.com/kroma-network/kroma/components/validator"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
-	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 )
 
 var enableParallelTesting bool = true
@@ -105,9 +107,7 @@ func TestL2OutputSubmitter(t *testing.T) {
 	require.Nil(t, err)
 
 	// Wait for batch submitter to update L2 output oracle.
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
+	timeoutCh := time.After(15 * time.Second)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -136,7 +136,7 @@ func TestL2OutputSubmitter(t *testing.T) {
 		}
 
 		select {
-		case <-ctx.Done():
+		case <-timeoutCh:
 			t.Fatalf("State root oracle not updated")
 		case <-ticker.C:
 		}
@@ -433,27 +433,15 @@ func TestFinalize(t *testing.T) {
 	// as configured in the extra geth lifecycle in testing setup
 	const finalizedDistance = 8
 	// Wait enough time for L1 to finalize and L2 to confirm its data in finalized L1 blocks
-	timeout := time.Duration((finalizedDistance+6)*cfg.DeployConfig.L1BlockTime) * time.Second * timeoutMultiplier
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	time.Sleep(time.Duration((finalizedDistance+6)*cfg.DeployConfig.L1BlockTime) * time.Second)
 
 	// fetch the finalizes head of geth
-	for {
-		select {
-		case <-ctx.Done():
-			require.Fail(t, "timeout")
-			return
-		default:
-			<-time.After(time.Second)
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	l2Finalized, err := l2Seq.BlockByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
+	require.NoError(t, err)
 
-		// poll until the finalized block number is greater than 0
-		l2Finalized, err := waitForL2Block(big.NewInt(int64(rpc.FinalizedBlockNumber)), l2Seq, time.Second)
-		require.NoError(t, err)
-		if l2Finalized.NumberU64() > 0 {
-			break
-		}
-	}
+	require.NotZerof(t, l2Finalized.NumberU64(), "must have finalized L2 block")
 }
 
 func TestMintOnRevertedDeposit(t *testing.T) {
@@ -666,8 +654,10 @@ func TestSystemMockP2P(t *testing.T) {
 	}
 
 	cfg := DefaultSystemConfig(t)
-	// Disable batcher, so we don't sync from L1
+	// Disable batcher, so we don't sync from L1 & set a large sequence window so we only have unsafe blocks
 	cfg.DisableBatcher = true
+	cfg.DeployConfig.SequencerWindowSize = 100_000
+	cfg.DeployConfig.MaxSequencerDrift = 100_000
 	// disable at the start, so we don't miss any gossiped blocks.
 	cfg.Nodes["sequencer"].Driver.SequencerStopped = true
 
@@ -693,7 +683,25 @@ func TestSystemMockP2P(t *testing.T) {
 
 	// Enable the sequencer now that everyone is ready to receive payloads.
 	rollupRPCClient, err := rpc.DialContext(context.Background(), sys.RollupNodes["sequencer"].HTTPEndpoint())
-	require.NoError(t, err)
+	require.Nil(t, err)
+
+	verifierPeerID := sys.RollupNodes["verifier"].P2P().Host().ID()
+	check := func() bool {
+		sequencerBlocksTopicPeers := sys.RollupNodes["sequencer"].P2P().GossipOut().BlocksTopicPeers()
+		return slices.Contains[peer.ID](sequencerBlocksTopicPeers, verifierPeerID)
+	}
+
+	// poll to see if the verifier node is connected & meshed on gossip.
+	// Without this verifier, we shouldn't start sending blocks around, or we'll miss them and fail the test.
+	backOffStrategy := backoff.Exponential()
+	for i := 0; i < 10; i++ {
+		if check() {
+			break
+		}
+		time.Sleep(backOffStrategy.Duration(i))
+	}
+	require.True(t, check(), "verifier must be meshed with sequencer for gossip test to proceed")
+
 	require.NoError(t, rollupRPCClient.Call(nil, "admin_startSequencer", sys.L2GenesisCfg.ToBlock().Hash()))
 
 	l2Seq := sys.Clients["sequencer"]
@@ -717,11 +725,11 @@ func TestSystemMockP2P(t *testing.T) {
 	require.Nil(t, err, "Sending L2 tx to sequencer")
 
 	// Wait for tx to be mined on the L2 sequencer chain
-	receiptSeq, err := waitForL2Transaction(tx.Hash(), l2Seq, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptSeq, err := waitForL2Transaction(tx.Hash(), l2Seq, 5*time.Minute)
 	require.Nil(t, err, "Waiting for L2 tx on sequencer")
 
 	// Wait until the block it was first included in shows up in the safe chain on the verifier
-	receiptVerif, err := waitForL2Transaction(tx.Hash(), l2Verif, 10*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptVerif, err := waitForL2Transaction(tx.Hash(), l2Verif, 5*time.Minute)
 	require.Nil(t, err, "Waiting for L2 tx on verifier")
 
 	require.Equal(t, receiptSeq, receiptVerif)
@@ -874,7 +882,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 	cfg.Nodes["sequencer"].Tracer = seqTracer
 
 	sys, err := cfg.Start()
-	require.NoError(t, err, "Error starting up system")
+	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
 	l2Seq := sys.Clients["sequencer"]
@@ -894,11 +902,11 @@ func TestSystemP2PAltSync(t *testing.T) {
 		Gas:       21000,
 	})
 	err = l2Seq.SendTransaction(context.Background(), tx)
-	require.NoError(t, err, "Sending L2 tx to sequencer")
+	require.Nil(t, err, "Sending L2 tx to sequencer")
 
 	// Wait for tx to be mined on the L2 sequencer chain
 	receiptSeq, err := waitForTransaction(tx.Hash(), l2Seq, 6*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
-	require.NoError(t, err, "Waiting for L2 tx on sequencer")
+	require.Nil(t, err, "Waiting for L2 tx on sequencer")
 
 	// Gossip is able to respond to IWANT messages for the duration of heartbeat_time * message_window = 0.5 * 12 = 6
 	// Wait till we pass that, and then we'll have missed some blocks that cannot be retrieved in any way from gossip
@@ -963,7 +971,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 
 	// It may take a while to sync, but eventually we should see the sequenced data show up
 	receiptVerif, err := waitForTransaction(tx.Hash(), l2Verif, 100*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
-	require.NoError(t, err, "Waiting for L2 tx on verifier")
+	require.Nil(t, err, "Waiting for L2 tx on verifier")
 
 	require.Equal(t, receiptSeq, receiptVerif)
 
@@ -985,7 +993,7 @@ func TestSystemDenseTopology(t *testing.T) {
 	}
 
 	cfg := DefaultSystemConfig(t)
-	// slow down L1 blocks, so we can see the L2 blocks arrive well before the L1 blocks do.
+	// slow down L1 blocks so we can see the L2 blocks arrive well before the L1 blocks do.
 	// Keep the seq window small so the L2 chain is started quick
 	cfg.DeployConfig.L1BlockTime = 10
 
@@ -1223,7 +1231,7 @@ func calcL1GasUsed(data []byte, overhead *big.Int) *big.Int {
 	}
 
 	zeroesGas := zeroes * 4 // params.TxDataZeroGas
-	//NOTE: kroma TODO check
+	//NOTE: kroma need check
 	//onesGas := (ones + 68) * 16 // params.TxDataNonZeroGasEIP2028
 	onesGas := ones * 16 // params.TxDataNonZeroGasEIP2028
 	l1Gas := new(big.Int).SetUint64(zeroesGas + onesGas)
@@ -1712,7 +1720,7 @@ func TestStopStartBatcher(t *testing.T) {
 
 	// stop the batch submission
 	err = sys.BatchSubmitter.Stop(context.Background())
-	require.NoError(t, err)
+	require.Nil(t, err)
 
 	// wait for any old safe blocks being submitted / derived
 	time.Sleep(safeBlockInclusionDuration)
@@ -1732,7 +1740,7 @@ func TestStopStartBatcher(t *testing.T) {
 
 	// start the batch submission
 	err = sys.BatchSubmitter.Start()
-	require.NoError(t, err)
+	require.Nil(t, err)
 	time.Sleep(safeBlockInclusionDuration)
 
 	// send a third tx

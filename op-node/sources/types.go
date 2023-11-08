@@ -6,15 +6,14 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/holiman/uint256"
-
+	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
-
-	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/holiman/uint256"
 )
 
 type BatchCallContextFn func(ctx context.Context, b []rpc.BatchElem) error
@@ -33,116 +32,85 @@ type CallContextFn func(ctx context.Context, result any, method string, args ...
 //
 // This way we minimize RPC calls, enable batching, and can choose to verify what the RPC gives us.
 
-// HeaderInfo contains all the header-info required to implement the eth.BlockInfo interface,
-// used in the rollup state-transition, with pre-computed block hash.
-type HeaderInfo struct {
-	hash        common.Hash
-	parentHash  common.Hash
-	coinbase    common.Address
-	root        common.Hash
-	number      uint64
-	time        uint64
-	mixDigest   common.Hash // a.k.a. the randomness field post-merge.
-	baseFee     *big.Int
-	txHash      common.Hash
-	receiptHash common.Hash
-	gasUsed     uint64
-	// NOTE: kroma add
-	gasLimit uint64
-	// NOTE: kroma add
-	bloom types.Bloom
-	// NOTE: kroma add
-	extra []byte
-
-	// withdrawalsRoot was added in Shapella and is thus optional
-	withdrawalsRoot *common.Hash
+// headerInfo is a conversion type of types.Header turning it into a
+// BlockInfo, but using a cached hash value.
+type headerInfo struct {
+	hash   common.Hash
+	header *types.Header
 }
 
-var _ eth.BlockInfo = (*HeaderInfo)(nil)
+var _ eth.BlockInfo = (*headerInfo)(nil)
 
-func (info *HeaderInfo) Hash() common.Hash {
-	return info.hash
+func (h headerInfo) Header() *types.Header {
+	return h.header
 }
 
-func (info *HeaderInfo) ParentHash() common.Hash {
-	return info.parentHash
+func (h headerInfo) Hash() common.Hash {
+	return h.hash
 }
 
-func (info *HeaderInfo) Coinbase() common.Address {
-	return info.coinbase
+func (h headerInfo) ParentHash() common.Hash {
+	return h.header.ParentHash
 }
 
-func (info *HeaderInfo) Root() common.Hash {
-	return info.root
+func (h headerInfo) Coinbase() common.Address {
+	return h.header.Coinbase
 }
 
-func (info *HeaderInfo) NumberU64() uint64 {
-	return info.number
+func (h headerInfo) Root() common.Hash {
+	return h.header.Root
 }
 
-func (info *HeaderInfo) Time() uint64 {
-	return info.time
+func (h headerInfo) NumberU64() uint64 {
+	return h.header.Number.Uint64()
 }
 
-func (info *HeaderInfo) MixDigest() common.Hash {
-	return info.mixDigest
+func (h headerInfo) Time() uint64 {
+	return h.header.Time
 }
 
-func (info *HeaderInfo) BaseFee() *big.Int {
-	return info.baseFee
+func (h headerInfo) MixDigest() common.Hash {
+	return h.header.MixDigest
 }
 
-func (info *HeaderInfo) ID() eth.BlockID {
-	return eth.BlockID{Hash: info.hash, Number: info.number}
+func (h headerInfo) BaseFee() *big.Int {
+	return h.header.BaseFee
 }
 
-func (info *HeaderInfo) TxHash() common.Hash {
-	return info.txHash
+func (h headerInfo) ReceiptHash() common.Hash {
+	return h.header.ReceiptHash
 }
 
-func (info *HeaderInfo) ReceiptHash() common.Hash {
-	return info.receiptHash
+func (h headerInfo) ID() eth.BlockID {
+	return eth.BlockID{Hash: h.header.Hash(), Number: h.header.Number.Uint64()}
 }
 
-func (info *HeaderInfo) WithdrawalsHash() *common.Hash {
-	return info.withdrawalsRoot
+func (h headerInfo) TxHash() common.Hash {
+	return h.header.TxHash
 }
 
-func (info *HeaderInfo) GasUsed() uint64 {
-	return info.gasUsed
+func (h headerInfo) WithdrawalsHash() *common.Hash {
+	return h.header.WithdrawalsHash
 }
 
-func (info *HeaderInfo) GasLimit() uint64 {
-	return info.gasLimit
+func (h headerInfo) GasUsed() uint64 {
+	return h.header.GasUsed
 }
 
-func (info *HeaderInfo) Bloom() types.Bloom {
-	return info.bloom
+func (h headerInfo) GasLimit() uint64 {
+	return h.header.GasLimit
 }
 
-func (info *HeaderInfo) Extra() []byte {
-	return info.extra
+func (h headerInfo) Bloom() types.Bloom {
+	return h.header.Bloom
 }
 
-func (info *HeaderInfo) Header() *types.Header {
-	return &types.Header{
-		ParentHash:      info.parentHash,
-		UncleHash:       types.EmptyUncleHash,
-		Coinbase:        info.coinbase,
-		Root:            info.root,
-		TxHash:          info.txHash,
-		ReceiptHash:     info.receiptHash,
-		Bloom:           info.bloom,
-		Difficulty:      common.Big0,
-		Number:          new(big.Int).SetUint64(info.number),
-		GasLimit:        info.gasLimit,
-		GasUsed:         info.gasUsed,
-		Time:            info.time,
-		Extra:           info.extra,
-		MixDigest:       info.mixDigest,
-		BaseFee:         info.baseFee,
-		WithdrawalsHash: info.withdrawalsRoot,
-	}
+func (h headerInfo) Extra() []byte {
+	return h.header.Extra
+}
+
+func (h headerInfo) HeaderRLP() ([]byte, error) {
+	return rlp.EncodeToBytes(h.header)
 }
 
 type rpcHeader struct {
@@ -196,7 +164,12 @@ func (hdr *rpcHeader) checkPostMerge() error {
 }
 
 func (hdr *rpcHeader) computeBlockHash() common.Hash {
-	gethHeader := types.Header{
+	gethHeader := hdr.createGethHeader()
+	return gethHeader.Hash()
+}
+
+func (hdr *rpcHeader) createGethHeader() *types.Header {
+	return &types.Header{
 		ParentHash:      hdr.ParentHash,
 		UncleHash:       hdr.UncleHash,
 		Coinbase:        hdr.Coinbase,
@@ -215,10 +188,9 @@ func (hdr *rpcHeader) computeBlockHash() common.Hash {
 		BaseFee:         (*big.Int)(hdr.BaseFee),
 		WithdrawalsHash: hdr.WithdrawalsRoot,
 	}
-	return gethHeader.Hash()
 }
 
-func (hdr *rpcHeader) Info(trustCache bool, mustBePostMerge bool) (*HeaderInfo, error) {
+func (hdr *rpcHeader) Info(trustCache bool, mustBePostMerge bool) (eth.BlockInfo, error) {
 	if mustBePostMerge {
 		if err := hdr.checkPostMerge(); err != nil {
 			return nil, err
@@ -229,25 +201,7 @@ func (hdr *rpcHeader) Info(trustCache bool, mustBePostMerge bool) (*HeaderInfo, 
 			return nil, fmt.Errorf("failed to verify block hash: computed %s but RPC said %s", computed, hdr.Hash)
 		}
 	}
-
-	info := HeaderInfo{
-		hash:            hdr.Hash,
-		parentHash:      hdr.ParentHash,
-		coinbase:        hdr.Coinbase,
-		root:            hdr.Root,
-		number:          uint64(hdr.Number),
-		time:            uint64(hdr.Time),
-		mixDigest:       hdr.MixDigest,
-		baseFee:         (*big.Int)(hdr.BaseFee),
-		txHash:          hdr.TxHash,
-		receiptHash:     hdr.ReceiptHash,
-		gasUsed:         uint64(hdr.GasUsed),
-		gasLimit:        uint64(hdr.GasLimit),
-		bloom:           types.Bloom(hdr.Bloom),
-		extra:           hdr.Extra,
-		withdrawalsRoot: hdr.WithdrawalsRoot,
-	}
-	return &info, nil
+	return &headerInfo{hdr.Hash, hdr.createGethHeader()}, nil
 }
 
 type rpcBlock struct {
@@ -265,7 +219,7 @@ func (block *rpcBlock) verify() error {
 	return nil
 }
 
-func (block *rpcBlock) Info(trustCache bool, mustBePostMerge bool) (*HeaderInfo, types.Transactions, error) {
+func (block *rpcBlock) Info(trustCache bool, mustBePostMerge bool) (eth.BlockInfo, types.Transactions, error) {
 	if mustBePostMerge {
 		if err := block.checkPostMerge(); err != nil {
 			return nil, nil, err

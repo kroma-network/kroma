@@ -4,6 +4,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-node/sources"
+	"github.com/ethereum-optimism/optimism/op-node/testlog"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/beacon"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
@@ -13,11 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/sources"
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 )
 
 func TestL2EngineAPI(gt *testing.T) {
@@ -113,10 +112,10 @@ func TestL2EngineAPIBlockBuilding(gt *testing.T) {
 	})
 	require.NoError(gt, cl.SendTransaction(t.Ctx(), tx))
 
-	l2Cl, err := sources.NewEngineClient(engine.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
-	require.NoError(t, err)
-	buildBlock := func(includeAlice bool, l2Cl *sources.EngineClient) {
+	buildBlock := func(includeAlice bool) {
 		parent := engine.l2Chain.CurrentBlock()
+		l2Cl, err := sources.NewEngineClient(engine.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
+		require.NoError(t, err)
 
 		// Now let's ask the engine to build a block
 		fcRes, err := l2Cl.ForkchoiceUpdate(t.Ctx(), &eth.ForkchoiceState{
@@ -126,7 +125,7 @@ func TestL2EngineAPIBlockBuilding(gt *testing.T) {
 		}, &eth.PayloadAttributes{
 			Timestamp:             eth.Uint64Quantity(parent.Time) + 2,
 			PrevRandao:            eth.Bytes32{},
-			SuggestedFeeRecipient: common.Address{},
+			SuggestedFeeRecipient: common.Address{'C'},
 			Transactions:          nil,
 			NoTxPool:              false,
 			GasLimit:              (*eth.Uint64Quantity)(&sd.RollupCfg.Genesis.SystemConfig.GasLimit),
@@ -159,18 +158,12 @@ func TestL2EngineAPIBlockBuilding(gt *testing.T) {
 		require.Equal(t, fcRes.PayloadStatus.Status, eth.ExecutionValid)
 		require.Equal(t, payload.BlockHash, engine.l2Chain.CurrentBlock().Hash(), "now payload is canonical")
 	}
-	buildBlock(false, l2Cl)
-	_, txs, err := l2Cl.InfoAndTxsByHash(t.Ctx(), engine.l2Chain.CurrentBlock().Hash())
-	require.NoError(t, err)
-	require.Zero(t, txs.Len(), "no tx included")
-	buildBlock(true, l2Cl)
-	_, txs, err = l2Cl.InfoAndTxsByHash(t.Ctx(), engine.l2Chain.CurrentBlock().Hash())
-	require.NoError(t, err)
-	require.Equal(gt, 1, txs.Len(), "tx from alice is included")
-	buildBlock(false, l2Cl)
-	_, txs, err = l2Cl.InfoAndTxsByHash(t.Ctx(), engine.l2Chain.CurrentBlock().Hash())
-	require.NoError(t, err)
-	require.Zero(t, txs.Len(), "no tx included")
+	buildBlock(false)
+	require.Zero(t, engine.l2Chain.GetBlockByHash(engine.l2Chain.CurrentBlock().Hash()).Transactions().Len(), "no tx included")
+	buildBlock(true)
+	require.Equal(gt, 1, engine.l2Chain.GetBlockByHash(engine.l2Chain.CurrentBlock().Hash()).Transactions().Len(), "tx from alice is included")
+	buildBlock(false)
+	require.Zero(t, engine.l2Chain.GetBlockByHash(engine.l2Chain.CurrentBlock().Hash()).Transactions().Len(), "no tx included")
 	require.Equal(t, uint64(3), engine.l2Chain.CurrentBlock().Number.Uint64(), "built 3 blocks")
 }
 
@@ -194,7 +187,7 @@ func TestL2EngineAPIFail(gt *testing.T) {
 }
 
 func TestEngineAPITests(t *testing.T) {
-	RunEngineAPITests(t, func() EngineBackend {
+	RunEngineAPITests(t, func(t *testing.T) EngineBackend {
 		jwtPath := e2eutils.WriteDefaultJWT(t)
 		dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 		sd := e2eutils.Setup(t, dp, defaultAlloc)

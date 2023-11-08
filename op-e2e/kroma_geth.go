@@ -101,7 +101,7 @@ func NewKromaGeth(t *testing.T, ctx context.Context, cfg *SystemConfig) (*KromaG
 		SystemConfig:  rollupGenesis.SystemConfig,
 		L1ChainConfig: l1Genesis.Config,
 		L2ChainConfig: l2Genesis.Config,
-		L1Head:        l1Block,
+		L1Head:        eth.BlockToInfo(l1Block),
 		L2Head:        genesisPayload,
 	}, nil
 }

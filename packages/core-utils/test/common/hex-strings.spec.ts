@@ -1,7 +1,7 @@
 import { BigNumber } from '@ethersproject/bignumber'
 
 /* Imports: Internal */
-import { expect } from './setup'
+import { expect } from '../setup'
 import {
   add0x,
   bytes32ify,
@@ -12,7 +12,7 @@ import {
   remove0x,
   toHexString,
   toRpcHexString,
-} from '../src'
+} from '../../src'
 
 describe('remove0x', () => {
   it('should return undefined', () => {

@@ -4,23 +4,21 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/testlog"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
 )
 
-var (
-	gasLimit     = eth.Uint64Quantity(30_000_000)
-	feeRecipient = common.Address{}
-)
+var gasLimit = eth.Uint64Quantity(30_000_000)
 
-func RunEngineAPITests(t *testing.T, createBackend func() EngineBackend) {
+var feeRecipient = common.Address{}
+
+func RunEngineAPITests(t *testing.T, createBackend func(t *testing.T) EngineBackend) {
 	t.Run("CreateBlock", func(t *testing.T) {
 		api := newTestHelper(t, createBackend)
 
@@ -294,10 +292,10 @@ type testHelper struct {
 	assert  *require.Assertions
 }
 
-func newTestHelper(t *testing.T, createBackend func() EngineBackend) *testHelper {
+func newTestHelper(t *testing.T, createBackend func(t *testing.T) EngineBackend) *testHelper {
 	logger := testlog.Logger(t, log.LvlDebug)
 	ctx := context.Background()
-	backend := createBackend()
+	backend := createBackend(t)
 	api := NewL2EngineAPI(logger, backend)
 	test := &testHelper{
 		t:       t,

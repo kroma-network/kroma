@@ -25,6 +25,14 @@ that maintains 1:1 compatibility with Ethereum.
 - [SystemConfig](system-config.md)
 - [Glossary](glossary.md)
 
+### Experimental
+
+Specifications of new features in active development.
+
+- [Fault Proof](./fault-proof.md)
+- [Dispute Game](./dispute-game.md)
+- [Dispute Game Interface](./dispute-game-interface.md)
+
 ## Design Goals
 
 Our aim is to design a protocol specification that is:

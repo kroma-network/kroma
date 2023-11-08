@@ -58,13 +58,15 @@ type Metrics struct {
 	PendingBlocksCount prometheus.GaugeVec
 	BlocksAddedCount   prometheus.Gauge
 
-	ChannelInputBytes   prometheus.GaugeVec
-	ChannelReadyBytes   prometheus.Gauge
-	ChannelOutputBytes  prometheus.Gauge
-	ChannelClosedReason prometheus.Gauge
-	ChannelNumFrames    prometheus.Gauge
-	ChannelComprRatio   prometheus.Histogram
-	//NOTE: kroma add
+	ChannelInputBytes       prometheus.GaugeVec
+	ChannelReadyBytes       prometheus.Gauge
+	ChannelOutputBytes      prometheus.Gauge
+	ChannelClosedReason     prometheus.Gauge
+	ChannelNumFrames        prometheus.Gauge
+	ChannelComprRatio       prometheus.Histogram
+	ChannelInputBytesTotal  prometheus.Counter
+	ChannelOutputBytesTotal prometheus.Counter
+	//NOTE: kroma added
 	ChannelComprRatioValue prometheus.Gauge
 
 	BatcherTxEvs opmetrics.EventVec
@@ -102,7 +104,7 @@ func NewMetrics(procName string) *Metrics {
 			Help:      "1 if the kroma-batcher has finished starting up",
 		}),
 
-		ChannelEvs: opmetrics.NewEventVec(factory, ns, "channel", "Channel", []string{"stage"}),
+		ChannelEvs: opmetrics.NewEventVec(factory, ns, "", "channel", "Channel", []string{"stage"}),
 
 		PendingBlocksCount: *factory.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: ns,
@@ -151,8 +153,17 @@ func NewMetrics(procName string) *Metrics {
 			Name:      "channel_compr_ratio_value",
 			Help:      "Compression ratios of closed channel.",
 		}),
-
-		BatcherTxEvs: opmetrics.NewEventVec(factory, ns, "batcher_tx", "BatcherTx", []string{"stage"}),
+		ChannelInputBytesTotal: factory.NewCounter(prometheus.CounterOpts{
+			Namespace: ns,
+			Name:      "input_bytes_total",
+			Help:      "Total number of bytes to a channel.",
+		}),
+		ChannelOutputBytesTotal: factory.NewCounter(prometheus.CounterOpts{
+			Namespace: ns,
+			Name:      "output_bytes_total",
+			Help:      "Total number of compressed output bytes from a channel.",
+		}),
+		BatcherTxEvs: opmetrics.NewEventVec(factory, ns, "", "batcher_tx", "BatcherTx", []string{"stage"}),
 	}
 }
 
@@ -226,6 +237,8 @@ func (m *Metrics) RecordChannelClosed(id derive.ChannelID, numPendingBlocks int,
 	m.ChannelNumFrames.Set(float64(numFrames))
 	m.ChannelInputBytes.WithLabelValues(StageClosed).Set(float64(inputBytes))
 	m.ChannelOutputBytes.Set(float64(outputComprBytes))
+	m.ChannelInputBytesTotal.Add(float64(inputBytes))
+	m.ChannelOutputBytesTotal.Add(float64(outputComprBytes))
 
 	var comprRatio float64
 	if inputBytes > 0 {

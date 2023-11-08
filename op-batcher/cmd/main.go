@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
+	"github.com/ethereum-optimism/optimism/op-batcher/cmd/doc"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/ethereum/go-ethereum/log"
@@ -28,6 +29,13 @@ func main() {
 	app.Description = "Service for generating and submitting L2 tx batches to L1."
 
 	app.Action = curryMain(Version)
+	app.Commands = []cli.Command{
+		{
+			Name:        "doc",
+			Subcommands: doc.Subcommands,
+		},
+	}
+
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Crit("Application failed", "message", err)

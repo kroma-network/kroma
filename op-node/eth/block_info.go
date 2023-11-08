@@ -5,9 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 )
-
-var _ BlockInfo = (&types.Block{})
 
 type BlockInfo interface {
 	Hash() common.Hash
@@ -26,10 +25,14 @@ type BlockInfo interface {
 	Bloom() types.Bloom
 	Extra() []byte
 
-	// NOTE(chokobole): I would like to add a WithdrawalsRoot() or WithdrawalsHash()
+	// Header NOTE(chokobole): I would like to add a WithdrawalsRoot() or WithdrawalsHash()
 	// method, but it is not feasible because this interface must remain compatible
 	// with the types.Block constraint.
 	Header() *types.Header
+
+	// HeaderRLP returns the RLP of the block header as per consensus rules
+	// Returns an error if the header RLP could not be written
+	HeaderRLP() ([]byte, error)
 }
 
 func InfoToL1BlockRef(info BlockInfo) L1BlockRef {
@@ -53,12 +56,29 @@ func ToBlockID(b NumberAndHash) BlockID {
 	}
 }
 
+// blockInfo is a conversion type of types.Block turning it into a BlockInfo
+type blockInfo struct{ *types.Block }
+
+func (b blockInfo) HeaderRLP() ([]byte, error) {
+	return rlp.EncodeToBytes(b.Header())
+}
+
+func BlockToInfo(b *types.Block) BlockInfo {
+	return blockInfo{b}
+}
+
+var _ BlockInfo = (*blockInfo)(nil)
+
 // headerBlockInfo is a conversion type of types.Header turning it into a
 // BlockInfo.
 type headerBlockInfo struct{ header *types.Header }
 
 func (h headerBlockInfo) Hash() common.Hash {
 	return h.header.Hash()
+}
+
+func (h headerBlockInfo) Header() *types.Header {
+	return h.header
 }
 
 func (h headerBlockInfo) ParentHash() common.Hash {
@@ -117,8 +137,8 @@ func (h headerBlockInfo) Extra() []byte {
 	return h.header.Extra
 }
 
-func (h headerBlockInfo) Header() *types.Header {
-	return h.header
+func (h headerBlockInfo) HeaderRLP() ([]byte, error) {
+	return rlp.EncodeToBytes(h.header)
 }
 
 // HeaderBlockInfo returns h as a BlockInfo implementation.

@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"errors"
 	"math/big"
 	"math/rand"
 
@@ -12,26 +13,24 @@ import (
 type MockBlockInfo struct {
 	// Prefixed all fields with "Info" to avoid collisions with the interface method names.
 
-	InfoHash       common.Hash
-	InfoParentHash common.Hash
-	InfoCoinbase   common.Address
-	InfoRoot       common.Hash
-	InfoNum        uint64
-	InfoTime       uint64
-	InfoMixDigest  [32]byte
-	InfoBaseFee    *big.Int
-	// NOTE: kroma add
+	InfoHash        common.Hash
+	InfoParentHash  common.Hash
+	InfoCoinbase    common.Address
+	InfoRoot        common.Hash
+	InfoNum         uint64
+	InfoTime        uint64
+	InfoMixDigest   [32]byte
+	InfoBaseFee     *big.Int
+	InfoReceiptRoot common.Hash
+	InfoGasUsed     uint64
+	InfoHeaderRLP   []byte
+	// NOTE: kroma added - start
 	InfoTransactionsRoot common.Hash
-	InfoReceiptRoot      common.Hash
-	// NOTE: kroma add
 	InfoWithdrawalsRoot *common.Hash
-	InfoGasUsed         uint64
-	// NOTE: kroma add
 	InfoGasLimit uint64
-	// NOTE: kroma add
 	InfoBloom types.Bloom
-	// NOTE: kroma add
 	InfoExtra []byte
+	// NOTE: kroma added - end
 }
 
 func (l *MockBlockInfo) Hash() common.Hash {
@@ -98,6 +97,13 @@ func (l *MockBlockInfo) ID() eth.BlockID {
 	return eth.BlockID{Hash: l.InfoHash, Number: l.InfoNum}
 }
 
+func (l *MockBlockInfo) HeaderRLP() ([]byte, error) {
+	if l.InfoHeaderRLP == nil {
+		return nil, errors.New("header rlp not available")
+	}
+	return l.InfoHeaderRLP, nil
+}
+
 func (l *MockBlockInfo) BlockRef() eth.L1BlockRef {
 	return eth.L1BlockRef{
 		Hash:       l.InfoHash,
@@ -122,30 +128,31 @@ func RandomBlockInfo(rng *rand.Rand) *MockBlockInfo {
 
 func MakeBlockInfo(fn func(l *MockBlockInfo)) func(rng *rand.Rand) *MockBlockInfo {
 	return func(rng *rand.Rand) *MockBlockInfo {
-		b := RandomBlockInfo(rng)
+		l := RandomBlockInfo(rng)
 		if fn != nil {
-			fn(b)
+			fn(l)
 		}
-		return b
+		return l
 	}
 }
 
-func NewMockBlockInfoWithHeader(header *types.Header) MockBlockInfo {
-	return MockBlockInfo{
-		InfoHash:             header.Hash(),
-		InfoParentHash:       header.ParentHash,
-		InfoCoinbase:         header.Coinbase,
-		InfoRoot:             header.Root,
-		InfoNum:              header.Number.Uint64(),
-		InfoTime:             header.Time,
-		InfoMixDigest:        header.MixDigest,
-		InfoBaseFee:          header.BaseFee,
-		InfoTransactionsRoot: header.TxHash,
-		InfoReceiptRoot:      header.ReceiptHash,
-		InfoWithdrawalsRoot:  header.WithdrawalsHash,
-		InfoGasUsed:          header.GasUsed,
-		InfoGasLimit:         header.GasLimit,
-		InfoBloom:            header.Bloom,
-		InfoExtra:            header.Extra,
-	}
-}
+// NOTE: kroma needed?
+//func NewMockBlockInfoWithHeader(header *types.Header) MockBlockInfo {
+//	return MockBlockInfo{
+//		InfoHash:             header.Hash(),
+//		InfoParentHash:       header.ParentHash,
+//		InfoCoinbase:         header.Coinbase,
+//		InfoRoot:             header.Root,
+//		InfoNum:              header.Number.Uint64(),
+//		InfoTime:             header.Time,
+//		InfoMixDigest:        header.MixDigest,
+//		InfoBaseFee:          header.BaseFee,
+//		InfoTransactionsRoot: header.TxHash,
+//		InfoReceiptRoot:      header.ReceiptHash,
+//		InfoWithdrawalsRoot:  header.WithdrawalsHash,
+//		InfoGasUsed:          header.GasUsed,
+//		InfoGasLimit:         header.GasLimit,
+//		InfoBloom:            header.Bloom,
+//		InfoExtra:            header.Extra,
+//	}
+//}
