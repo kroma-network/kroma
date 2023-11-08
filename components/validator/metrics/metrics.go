@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/kroma-network/kroma/components/node/eth"
-	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
-	txmetrics "github.com/kroma-network/kroma/utils/service/txmgr/metrics"
+	"github.com/ethereum-optimism/optimism/op-node/eth"
+	kmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
+	txmetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 )
 
 const (

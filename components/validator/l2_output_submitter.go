@@ -16,13 +16,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/kroma-network/kroma/bindings/bindings"
-	"github.com/kroma-network/kroma/components/node/eth"
-	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
-	"github.com/kroma-network/kroma/utils/service/watcher"
 )
 
 const (

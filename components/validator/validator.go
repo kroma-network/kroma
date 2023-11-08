@@ -4,18 +4,34 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	klog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum-optimism/optimism/op-service/monitoring"
+	krpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli"
 
-	"github.com/kroma-network/kroma/bindings/bindings"
 	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
-	"github.com/kroma-network/kroma/utils/monitoring"
-	klog "github.com/kroma-network/kroma/utils/service/log"
-	krpc "github.com/kroma-network/kroma/utils/service/rpc"
 )
+
+type InterruptChan chan os.Signal
+
+func WaitInterrupt() InterruptChan {
+	interruptChannel := make(InterruptChan, 1)
+	signal.Notify(interruptChannel, []os.Signal{
+		os.Interrupt,
+		syscall.SIGTERM,
+		syscall.SIGHUP,
+	}...)
+
+	return interruptChannel
+}
 
 // Main is the entrypoint into the Validator. This method executes the
 // service and blocks until the service exits.
@@ -62,7 +78,7 @@ func Main(version string, cliCtx *cli.Context) error {
 		l.Error("failed to start validator", "err", err)
 		return err
 	}
-	<-utils.WaitInterrupt()
+	<-WaitInterrupt()
 	if err := validator.Stop(); err != nil {
 		l.Error("failed to stop validator", "err", err)
 		return err

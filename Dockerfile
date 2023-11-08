@@ -5,7 +5,12 @@ COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
 COPY ./Makefile /app/Makefile
 
-COPY ./bindings /app/bindings
+COPY ./op-node /app/op-node
+COPY ./op-chain-ops /app/op-chain-ops
+COPY ./op-service /app/op-service
+COPY ./op-signer /app/op-signer
+COPY ./op-batcher /app/op-batcher
+COPY ./op-bindings /app/op-bindings
 COPY ./components /app/components
 COPY ./utils /app/utils
 

@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/kroma-network/kroma/bindings/bindings"
-	"github.com/kroma-network/kroma/components/node/rollup"
-	"github.com/kroma-network/kroma/components/node/rollup/derive"
-	"github.com/kroma-network/kroma/utils/chain-ops/crossdomain"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 )
 
 var ErrUnknownNonceVersion = errors.New("unknown nonce version")

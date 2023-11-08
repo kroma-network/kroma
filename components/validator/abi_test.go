@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kroma-network/kroma/bindings/bindings"
-	"github.com/kroma-network/kroma/components/node/testutils"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-node/testutils"
 )
 
 // setupL2OutputOracle deploys the L2OutputOracle contract to a simulated backend

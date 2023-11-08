@@ -8,19 +8,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli"
 
-	"github.com/kroma-network/kroma/components/node/rollup"
-	"github.com/kroma-network/kroma/components/node/sources"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/sources"
+	klog "github.com/ethereum-optimism/optimism/op-service/log"
+	kmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
+	kpprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	krpc "github.com/ethereum-optimism/optimism/op-service/rpc"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 	"github.com/kroma-network/kroma/components/validator/flags"
 	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
-	klog "github.com/kroma-network/kroma/utils/service/log"
-	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
-	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
-	krpc "github.com/kroma-network/kroma/utils/service/rpc"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 // Config contains the well typed fields that are used to initialize the output submitter.
@@ -142,26 +142,26 @@ func (c CLIConfig) Check() error {
 func NewCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		// Required Flags
-		L1EthRpc:               ctx.String(flags.L1EthRpcFlag.Name),
-		L2EthRpc:               ctx.String(flags.L2EthRpcFlag.Name),
-		RollupRpc:              ctx.String(flags.RollupRpcFlag.Name),
-		L2OOAddress:            ctx.String(flags.L2OOAddressFlag.Name),
-		ColosseumAddress:       ctx.String(flags.ColosseumAddressFlag.Name),
-		ValPoolAddress:         ctx.String(flags.ValPoolAddressFlag.Name),
-		OutputSubmitterEnabled: ctx.Bool(flags.OutputSubmitterEnabledFlag.Name),
-		ChallengerEnabled:      ctx.Bool(flags.ChallengerEnabledFlag.Name),
-		ChallengerPollInterval: ctx.Duration(flags.ChallengerPollIntervalFlag.Name),
+		L1EthRpc:               ctx.GlobalString(flags.L1EthRpcFlag.Name),
+		L2EthRpc:               ctx.GlobalString(flags.L2EthRpcFlag.Name),
+		RollupRpc:              ctx.GlobalString(flags.RollupRpcFlag.Name),
+		L2OOAddress:            ctx.GlobalString(flags.L2OOAddressFlag.Name),
+		ColosseumAddress:       ctx.GlobalString(flags.ColosseumAddressFlag.Name),
+		ValPoolAddress:         ctx.GlobalString(flags.ValPoolAddressFlag.Name),
+		OutputSubmitterEnabled: ctx.GlobalBool(flags.OutputSubmitterEnabledFlag.Name),
+		ChallengerEnabled:      ctx.GlobalBool(flags.ChallengerEnabledFlag.Name),
+		ChallengerPollInterval: ctx.GlobalDuration(flags.ChallengerPollIntervalFlag.Name),
 		TxMgrConfig:            txmgr.ReadCLIConfig(ctx),
 
 		// Optional Flags
-		AllowNonFinalized:               ctx.Bool(flags.AllowNonFinalizedFlag.Name),
-		OutputSubmitterRetryInterval:    ctx.Duration(flags.OutputSubmitterRetryIntervalFlag.Name),
-		OutputSubmitterRoundBuffer:      ctx.Uint64(flags.OutputSubmitterRoundBufferFlag.Name),
-		OutputSubmitterAllowPublicRound: ctx.Bool(flags.OutputSubmitterAllowPublicRoundFlag.Name),
-		SecurityCouncilAddress:          ctx.String(flags.SecurityCouncilAddressFlag.Name),
-		ProverRPC:                       ctx.String(flags.ProverRPCFlag.Name),
-		GuardianEnabled:                 ctx.Bool(flags.GuardianEnabledFlag.Name),
-		FetchingProofTimeout:            ctx.Duration(flags.FetchingProofTimeoutFlag.Name),
+		AllowNonFinalized:               ctx.GlobalBool(flags.AllowNonFinalizedFlag.Name),
+		OutputSubmitterRetryInterval:    ctx.GlobalDuration(flags.OutputSubmitterRetryIntervalFlag.Name),
+		OutputSubmitterRoundBuffer:      ctx.GlobalUint64(flags.OutputSubmitterRoundBufferFlag.Name),
+		OutputSubmitterAllowPublicRound: ctx.GlobalBool(flags.OutputSubmitterAllowPublicRoundFlag.Name),
+		SecurityCouncilAddress:          ctx.GlobalString(flags.SecurityCouncilAddressFlag.Name),
+		ProverRPC:                       ctx.GlobalString(flags.ProverRPCFlag.Name),
+		GuardianEnabled:                 ctx.GlobalBool(flags.GuardianEnabledFlag.Name),
+		FetchingProofTimeout:            ctx.GlobalDuration(flags.FetchingProofTimeoutFlag.Name),
 		RPCConfig:                       krpc.ReadCLIConfig(ctx),
 		LogConfig:                       klog.ReadCLIConfig(ctx),
 		MetricsConfig:                   kmetrics.ReadCLIConfig(ctx),

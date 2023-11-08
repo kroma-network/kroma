@@ -5,12 +5,12 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli"
 
+	klog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/kroma-network/kroma/components/validator"
 	"github.com/kroma-network/kroma/components/validator/cmd/balance"
 	"github.com/kroma-network/kroma/components/validator/flags"
-	klog "github.com/kroma-network/kroma/utils/service/log"
 )
 
 var (
@@ -29,12 +29,12 @@ func main() {
 	app.Description = "Service for generating and submitting L2 output checkpoints to the L2OutputOracle contract as an L2 Output Submitter, " + "detecting and correcting invalid L2 outputs as a Challenger to ensure the integrity of the L2 state."
 
 	app.Action = curryMain(Version)
-	app.Commands = cli.Commands{
+	app.Commands = []cli.Command{
 		{
 			Name:  "deposit",
 			Usage: "Deposit ETH into ValidatorPool to be used as bond",
 			Flags: []cli.Flag{
-				&cli.Uint64Flag{
+				cli.Uint64Flag{
 					Name:     "amount",
 					Usage:    "Amount to deposit into ValidatorPool (in wei)",
 					Required: true,
@@ -46,7 +46,7 @@ func main() {
 			Name:  "withdraw",
 			Usage: "Withdraw ETH from ValidatorPool",
 			Flags: []cli.Flag{
-				&cli.Uint64Flag{
+				cli.Uint64Flag{
 					Name:     "amount",
 					Usage:    "Amount to withdraw from ValidatorPool (in wei)",
 					Required: true,

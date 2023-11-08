@@ -6,13 +6,13 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli"
 
-	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/kroma-network/kroma/components/validator/flags"
 	"github.com/kroma-network/kroma/utils"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
-	"github.com/kroma-network/kroma/utils/service/txmgr/metrics"
 )
 
 func Deposit(ctx *cli.Context) error {
@@ -80,7 +80,7 @@ func sendTransaction(ctx *cli.Context, txData []byte, txValue uint64) error {
 		return fmt.Errorf("failed to create tx manager: %w", err)
 	}
 
-	valpoolAddr, err := utils.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
+	valpoolAddr, err := utils.ParseAddress(ctx.GlobalString(flags.ValPoolAddressFlag.Name))
 	if err != nil {
 		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
 	}

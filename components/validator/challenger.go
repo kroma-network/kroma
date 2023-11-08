@@ -19,12 +19,12 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/kroma-network/kroma/bindings/bindings"
-	"github.com/kroma-network/kroma/components/node/eth"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
-	"github.com/kroma-network/kroma/utils/service/watcher"
 )
 
 var deletedOutputRoot = [32]byte{}
