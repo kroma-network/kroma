@@ -200,7 +200,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 func writeDefaultJWT(t *testing.T) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -241,6 +241,7 @@ type SystemConfig struct {
 	// Explicitly disable batcher, for tests that rely on unsafe L2 payloads
 	DisableBatcher bool
 
+	// NOTE: kroma added
 	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
 	EnableMaliciousValidator bool
 
@@ -263,6 +264,10 @@ type System struct {
 	Challenger     *validator.Validator
 	BatchSubmitter *bss.BatchSubmitter
 	Mocknet        mocknet.Mocknet
+}
+
+func (sys *System) NodeEndpoint(name string) string {
+	return selectEndpoint(sys.Nodes[name])
 }
 
 func (sys *System) Close() {
@@ -432,8 +437,17 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 
 	// Start
-	for _, sysNode := range sys.Nodes {
-		if err = sysNode.Start(); err != nil {
+	err = l1Node.Start()
+	if err != nil {
+		didErrAfterStart = true
+		return nil, err
+	}
+	for name, node := range sys.Nodes {
+		if name == "l1" {
+			continue
+		}
+		err = node.Start()
+		if err != nil {
 			didErrAfterStart = true
 			return nil, err
 		}
@@ -453,16 +467,25 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 
 	// Geth Clients
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	l1Srv, err := l1Node.RPCHandler()
+	if err != nil {
+		didErrAfterStart = true
+		return nil, err
+	}
+	l1Client := ethclient.NewClient(rpc.DialInProc(l1Srv))
+	sys.Clients["l1"] = l1Client
 	for name, node := range sys.Nodes {
-		rpcHandler, err := node.RPCHandler()
+		client, err := ethclient.DialContext(ctx, node.WSEndpoint())
 		if err != nil {
 			didErrAfterStart = true
 			return nil, err
 		}
-		sys.Clients[name] = ethclient.NewClient(rpc.DialInProc(rpcHandler))
+		sys.Clients[name] = client
 	}
 
-	_, err = waitForBlock(big.NewInt(2), sys.Clients["l1"], 6*time.Second*time.Duration(cfg.DeployConfig.L1BlockTime))
+	_, err = waitForBlock(big.NewInt(2), l1Client, 6*time.Second*time.Duration(cfg.DeployConfig.L1BlockTime))
 	if err != nil {
 		return nil, fmt.Errorf("waiting for blocks: %w", err)
 	}
@@ -724,13 +747,17 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	return sys, nil
 }
 
-func configureL1(rollupNodeCfg *rollupNode.Config, l1Node *node.Node) {
-	l1EndpointConfig := l1Node.WSEndpoint()
+func selectEndpoint(node *node.Node) string {
 	useHTTP := os.Getenv("E2E_USE_HTTP") == "true"
 	if useHTTP {
 		log.Info("using HTTP client")
-		l1EndpointConfig = l1Node.HTTPEndpoint()
+		return node.HTTPEndpoint()
 	}
+	return node.WSEndpoint()
+}
+
+func configureL1(rollupNodeCfg *rollupNode.Config, l1Node *node.Node) {
+	l1EndpointConfig := selectEndpoint(l1Node)
 	rollupNodeCfg.L1 = &rollupNode.L1EndpointConfig{
 		L1NodeAddr:       l1EndpointConfig,
 		L1TrustRPC:       false,

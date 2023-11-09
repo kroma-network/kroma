@@ -6,17 +6,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 )
 
-// TestMissingGasLimit tests that kroma-geth cannot build a block without gas limit while kroma is active in the chain config.
+// TestMissingGasLimit tests that kroma-geth cannot build a block without gas limit while optimism is active in the chain config.
 func TestMissingGasLimit(t *testing.T) {
-	parallel(t)
+	InitParallel(t)
 	cfg := DefaultSystemConfig(t)
 	cfg.DeployConfig.FundDevAccounts = false
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -36,10 +36,32 @@ func TestMissingGasLimit(t *testing.T) {
 	require.Nil(t, res)
 }
 
+// TestTxGasSameAsBlockGasLimit tests that op-geth rejects transactions that attempt to use the full block gas limit.
+// The L1 Info deposit always takes gas so the effective gas limit is lower than the full block gas limit.
+func TestTxGasSameAsBlockGasLimit(t *testing.T) {
+	InitParallel(t)
+	cfg := DefaultSystemConfig(t)
+	sys, err := cfg.Start()
+	require.Nil(t, err, "Error starting up system")
+	defer sys.Close()
+
+	ethPrivKey := sys.cfg.Secrets.Alice
+	tx := types.MustSignNewTx(ethPrivKey, types.LatestSignerForChainID(cfg.L2ChainIDBig()), &types.DynamicFeeTx{
+		ChainID: cfg.L2ChainIDBig(),
+		Gas:     29_999_999,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	l2Seq := sys.Clients["sequencer"]
+	err = l2Seq.SendTransaction(ctx, tx)
+	require.ErrorContains(t, err, txpool.ErrGasLimit.Error())
+
+}
+
 // TestInvalidDepositInFCU runs an invalid deposit through a FCU/GetPayload/NewPayload/FCU set of calls.
 // This tests that deposits must always allow the block to be built even if they are invalid.
 func TestInvalidDepositInFCU(t *testing.T) {
-	parallel(t)
+	InitParallel(t)
 	cfg := DefaultSystemConfig(t)
 	cfg.DeployConfig.FundDevAccounts = false
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
