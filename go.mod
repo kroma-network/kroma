@@ -7,7 +7,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0
 	github.com/ethereum-optimism/go-ethereum-hdwallet v0.1.3
-	github.com/ethereum-optimism/optimism v1.0.7
+	github.com/ethereum-optimism/optimism v1.0.8
 	github.com/ethereum/go-ethereum v1.11.6
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb
@@ -178,7 +178,7 @@ require (
 	nhooyr.io/websocket v1.8.7 // indirect
 )
 
-replace github.com/ethereum-optimism/optimism v1.0.7 => ./
+replace github.com/ethereum-optimism/optimism v1.0.8 => ./
 
 replace github.com/ethereum-optimism/optimism v1.2.0 => ./
 

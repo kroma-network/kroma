@@ -6,19 +6,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-	"github.com/libp2p/go-libp2p/core/peer"
-
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-
 	"github.com/ethereum-optimism/optimism/op-node/client"
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/sources"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/hashicorp/go-multierror"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type KromaNode struct {
@@ -110,7 +108,7 @@ func (n *KromaNode) initTracer(ctx context.Context, cfg *Config) error {
 	if cfg.Tracer != nil {
 		n.tracer = cfg.Tracer
 	} else {
-		n.tracer = new(noOpTracer)
+		n.tracer = new(noKromaTracer)
 	}
 	return nil
 }
@@ -378,10 +376,19 @@ func (n *KromaNode) RequestL2Range(ctx context.Context, start, end eth.L2BlockRe
 		return n.rpcSync.RequestL2Range(ctx, start, end)
 	}
 	if n.p2pNode != nil && n.p2pNode.AltSyncEnabled() {
+		if unixTimeStale(start.Time, 12*time.Hour) {
+			n.log.Debug("ignoring request to sync L2 range, timestamp is too old for p2p", "start", start, "end", end, "start_time", start.Time)
+			return nil
+		}
 		return n.p2pNode.RequestL2Range(ctx, start, end)
 	}
 	n.log.Debug("ignoring request to sync L2 range, no sync method available", "start", start, "end", end)
 	return nil
+}
+
+// unixTimeStale returns true if the unix timestamp is before the current time minus the supplied duration.
+func unixTimeStale(timestamp uint64, duration time.Duration) bool {
+	return time.Unix(int64(timestamp), 0).Before(time.Now().Add(-1 * duration))
 }
 
 func (n *KromaNode) P2P() p2p.Node {
