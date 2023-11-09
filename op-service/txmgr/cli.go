@@ -48,7 +48,7 @@ func CLIFlags(envPrefix string) []cli.Flag {
 			EnvVar: opservice.PrefixEnvVar(envPrefix, "HD_PATH"),
 		},
 		cli.StringFlag{
-			Name:   "private-key",
+			Name:   PrivateKeyFlagName,
 			Usage:  "The private key to use with the service. Must not be used with mnemonic.",
 			EnvVar: opservice.PrefixEnvVar(envPrefix, "PRIVATE_KEY"),
 		},

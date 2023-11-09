@@ -7,22 +7,23 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0
 	github.com/ethereum-optimism/go-ethereum-hdwallet v0.1.3
-	github.com/ethereum-optimism/optimism v1.0.6
-	github.com/ethereum/go-ethereum v1.11.5
+	github.com/ethereum-optimism/optimism v1.0.7
+	github.com/ethereum/go-ethereum v1.11.6
 	github.com/fsnotify/fsnotify v1.6.0
-	github.com/golang/snappy v0.0.4
+	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb
 	github.com/google/go-cmp v0.5.9
 	github.com/google/gofuzz v1.2.1-0.20220503160820-4a35382e8fc8
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/hashicorp/golang-lru/v2 v2.0.2
-	github.com/holiman/uint256 v1.2.0
+	github.com/holiman/uint256 v1.2.2-0.20230321075855-87b91420868c
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-ds-leveldb v0.5.0
 	github.com/kroma-network/zktrie v0.5.1-0.20230420142222-950ce7a8ce84
 	github.com/libp2p/go-libp2p v0.25.1
 	github.com/libp2p/go-libp2p-pubsub v0.9.0
 	github.com/libp2p/go-libp2p-testing v0.12.0
+	github.com/mattn/go-isatty v0.0.18
 	github.com/multiformats/go-multiaddr v0.8.0
 	github.com/multiformats/go-multiaddr-dns v0.3.1
 	github.com/olekukonko/tablewriter v0.0.5
@@ -32,7 +33,7 @@ require (
 	github.com/urfave/cli/v2 v2.17.2-0.20221006022127-8f469abc00aa
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771
 	golang.org/x/sync v0.1.0
-	golang.org/x/term v0.10.0
+	golang.org/x/term v0.6.0
 	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af
 )
 
@@ -111,7 +112,6 @@ require (
 	github.com/libp2p/go-yamux/v4 v4.0.0 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/miekg/dns v1.1.53 // indirect
@@ -167,7 +167,7 @@ require (
 	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/sys v0.6.0 // indirect
 	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/tools v0.7.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
@@ -178,8 +178,8 @@ require (
 	nhooyr.io/websocket v1.8.7 // indirect
 )
 
-replace github.com/ethereum-optimism/optimism v1.0.6 => ./
+replace github.com/ethereum-optimism/optimism v1.0.7 => ./
 
 replace github.com/ethereum-optimism/optimism v1.2.0 => ./
 
-replace github.com/ethereum/go-ethereum v1.11.5 => github.com/kroma-network/go-ethereum v0.2.1
+replace github.com/ethereum/go-ethereum v1.11.6 => github.com/kroma-network/go-ethereum v0.2.1

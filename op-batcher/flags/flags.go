@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/urfave/cli"
-
 	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
@@ -13,6 +11,7 @@ import (
 	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/urfave/cli"
 )
 
 const envVarPrefix = "BATCHER"
