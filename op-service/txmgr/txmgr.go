@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
@@ -23,12 +24,10 @@ import (
 const priceBump int64 = 15
 
 // new = old * (100 + priceBump) / 100
-var (
-	priceBumpPercent = big.NewInt(100 + priceBump)
-	oneHundred       = big.NewInt(100)
-)
+var priceBumpPercent = big.NewInt(100 + priceBump)
 
-// NOTE: kroma add
+var oneHundred = big.NewInt(100)
+
 // ErrTxReceiptNotSucceed is the error returned when tx confirmed but the status is not success.
 var ErrTxReceiptNotSucceed = errors.New("transaction confirmed but the status is not success")
 
@@ -42,7 +41,7 @@ type TxManager interface {
 	// It can be stopped by cancelling the provided context; however, the transaction
 	// may be included on L1 even if the context is cancelled.
 	//
-	// NOTE: Send should be called by AT MOST one caller at a time.
+	// NOTE: Send can be called concurrently, the nonce will be managed internally.
 	Send(ctx context.Context, candidate TxCandidate) (*types.Receipt, error)
 
 	// From returns the sending address associated with the instance of the transaction manager.
@@ -78,16 +77,21 @@ type ETHBackend interface {
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 }
 
-// SimpleTxManager is an implementation of TxManager that performs linear fee
+// SimpleTxManager is a implementation of TxManager that performs linear fee
 // bumping of a tx until it confirms.
 type SimpleTxManager struct {
-	Config  // directly embed the config
+	Config  // NOTE: kroma embed the config directly
 	name    string
 	chainID *big.Int
 
 	backend ETHBackend
 	l       log.Logger
 	metr    metrics.TxMetricer
+
+	nonce     *uint64
+	nonceLock sync.RWMutex
+
+	pending atomic.Int64
 }
 
 // NewSimpleTxManager initializes a new SimpleTxManager with the passed Config.
@@ -120,10 +124,10 @@ type TxCandidate struct {
 	To *common.Address
 	// GasLimit is the gas limit to be used in the constructed tx.
 	GasLimit uint64
-	// NOTE: kroma add
+	// NOTE: kroma added
 	// AccessList is an EIP-2930 access list.
 	AccessList types.AccessList
-	// NOTE: kroma add
+	// NOTE: kroma added
 	// Value is the value that is passed to the constructed tx.
 	Value *big.Int
 }
@@ -136,8 +140,21 @@ type TxCandidate struct {
 // The transaction manager handles all signing. If and only if the gas limit is 0, the
 // transaction manager will do a gas estimation.
 //
-// NOTE: Send should be called by AT MOST one caller at a time.
+// NOTE: Send can be called concurrently, the nonce will be managed internally.
 func (m *SimpleTxManager) Send(ctx context.Context, candidate TxCandidate) (*types.Receipt, error) {
+	m.metr.RecordPendingTx(m.pending.Add(1))
+	defer func() {
+		m.metr.RecordPendingTx(m.pending.Add(-1))
+	}()
+	receipt, err := m.send(ctx, candidate)
+	if err != nil {
+		m.resetNonce()
+	}
+	return receipt, err
+}
+
+// send performs the actual transaction creation and sending.
+func (m *SimpleTxManager) send(ctx context.Context, candidate TxCandidate) (*types.Receipt, error) {
 	if m.TxSendTimeout != 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, m.TxSendTimeout)
@@ -147,7 +164,7 @@ func (m *SimpleTxManager) Send(ctx context.Context, candidate TxCandidate) (*typ
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the tx: %w", err)
 	}
-	return m.send(ctx, tx)
+	return m.sendTx(ctx, tx)
 }
 
 // craftTx creates the signed transaction
@@ -163,15 +180,10 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 	}
 	gasFeeCap := CalcGasFeeCap(basefee, gasTipCap)
 
-	// Fetch the sender's nonce from the latest known block (nil `blockNumber`)
-	childCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
-	defer cancel()
-	nonce, err := m.backend.NonceAt(childCtx, m.From(), nil)
+	nonce, err := m.nextNonce(ctx)
 	if err != nil {
-		m.metr.RPCError()
-		return nil, fmt.Errorf("failed to get nonce: %w", err)
+		return nil, err
 	}
-	m.metr.RecordNonce(nonce)
 
 	// TODO: If we apply the accessList manually, it's hard to predict and react to other issues,
 	// such as gas prices, due to subsequent code modifications.
@@ -187,14 +199,15 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		AccessList: candidate.AccessList,
 	}
 
-	m.l.Info("creating tx", "to", rawTx.To, "from", m.From())
+	m.l.Info("creating tx", "to", rawTx.To, "from", m.From)
 
 	// If the gas limit is set, we can use that as the gas
 	if candidate.GasLimit != 0 {
 		rawTx.Gas = candidate.GasLimit
 	} else {
+		// Calculate the intrinsic gas for the transaction
 		gas, err := m.backend.EstimateGas(ctx, ethereum.CallMsg{
-			From:      m.From(),
+			From:      m.Config.From,
 			To:        candidate.To,
 			GasFeeCap: gasFeeCap,
 			GasTipCap: gasTipCap,
@@ -207,14 +220,48 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		rawTx.Gas = gas
 	}
 
-	ctx, cancel = context.WithTimeout(ctx, m.NetworkTimeout)
+	ctx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
 	defer cancel()
-	return m.Signer(ctx, m.From(), types.NewTx(rawTx))
+	return m.Signer(ctx, m.Config.From, types.NewTx(rawTx))
+}
+
+// nextNonce returns a nonce to use for the next transaction. It uses
+// eth_getTransactionCount with "latest" once, and then subsequent calls simply
+// increment this number. If the transaction manager is reset, it will query the
+// eth_getTransactionCount nonce again.
+func (m *SimpleTxManager) nextNonce(ctx context.Context) (uint64, error) {
+	m.nonceLock.Lock()
+	defer m.nonceLock.Unlock()
+
+	if m.nonce == nil {
+		// Fetch the sender's nonce from the latest known block (nil `blockNumber`)
+		childCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+		defer cancel()
+		nonce, err := m.backend.NonceAt(childCtx, m.Config.From, nil)
+		if err != nil {
+			m.metr.RPCError()
+			return 0, fmt.Errorf("failed to get nonce: %w", err)
+		}
+		m.nonce = &nonce
+	} else {
+		*m.nonce++
+	}
+
+	m.metr.RecordNonce(*m.nonce)
+	return *m.nonce, nil
+}
+
+// resetNonce resets the internal nonce tracking. This is called if any pending send
+// returns an error.
+func (m *SimpleTxManager) resetNonce() {
+	m.nonceLock.Lock()
+	defer m.nonceLock.Unlock()
+	m.nonce = nil
 }
 
 // send submits the same transaction several times with increasing gas prices as necessary.
 // It waits for the transaction to be confirmed on chain.
-func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
+func (m *SimpleTxManager) sendTx(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	ctx, cancel := context.WithCancel(ctx)
@@ -227,7 +274,7 @@ func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*typ
 		m.publishAndWaitForTx(ctx, tx, sendState, receiptChan)
 	}
 
-	// Immediately publish a transaction before starting the resubmission loop
+	// Immediately publish a transaction before starting the resumbission loop
 	wg.Add(1)
 	go sendTxAsync(tx)
 
@@ -259,6 +306,7 @@ func (m *SimpleTxManager) send(ctx context.Context, tx *types.Transaction) (*typ
 		case receipt := <-receiptChan:
 			m.metr.RecordGasBumpCount(bumpCounter)
 			m.metr.TxConfirmed(receipt)
+			// NOTE: kroma added
 			// If transaction confirmed but the status is not success, return ErrTxReceiptNotSucceed
 			if receipt.Status != types.ReceiptStatusSuccessful {
 				return receipt, ErrTxReceiptNotSucceed
@@ -425,7 +473,7 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 	}
 	ctx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
 	defer cancel()
-	newTx, err := m.Signer(ctx, m.From(), types.NewTx(rawTx))
+	newTx, err := m.Signer(ctx, m.Config.From, types.NewTx(rawTx))
 	if err != nil {
 		m.l.Warn("failed to sign new transaction", "err", err)
 		return tx
