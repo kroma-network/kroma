@@ -13,6 +13,7 @@ import (
 	"time"
 
 	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
+	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	batchermetrics "github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
@@ -723,12 +724,14 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		MaxPendingTransactions: 1,
 		MaxChannelDuration:     1,
 		MaxL1TxSize:            120_000,
-		TargetL1TxSize:         100_000,
-		TargetNumFrames:        1,
-		ApproxComprRatio:       0.4,
-		SubSafetyMargin:        4,
-		PollInterval:           50 * time.Millisecond,
-		TxMgrConfig:            newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Batcher),
+		CompressorConfig: compressor.CLIConfig{
+			TargetL1TxSizeBytes: 100_000,
+			TargetNumFrames:     1,
+			ApproxComprRatio:    0.4,
+		},
+		SubSafetyMargin: 4,
+		PollInterval:    50 * time.Millisecond,
+		TxMgrConfig:     newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Batcher),
 		LogConfig: oplog.CLIConfig{
 			Level:  "info",
 			Format: "text",
