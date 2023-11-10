@@ -8,13 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-chain-ops/crossdomain"
 )
 
-var ErrUnknownNonceVersion = errors.New("unknown nonce version")
+var UnknownNonceVersion = errors.New("Unknown nonce version")
 
 // checkOk checks if ok is false, and panics if so.
 // Shorthand to ease go's god awful error handling
@@ -42,7 +42,7 @@ func encodeCrossDomainMessage(nonce *big.Int, sender common.Address, target comm
 		// Encode cross domain message V0
 		encoded, err = crossdomain.EncodeCrossDomainMessageV0(nonce, sender, target, value, gasLimit, data)
 	} else {
-		return nil, ErrUnknownNonceVersion
+		return nil, UnknownNonceVersion
 	}
 
 	return encoded, err

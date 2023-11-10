@@ -237,28 +237,28 @@ var (
 		Value:    false,
 	}
 	// [Kroma: START]
-	//BetaExtraNetworks = &cli.BoolFlag{
+	// BetaExtraNetworks = &cli.BoolFlag{
 	//	Name: "beta.extra-networks",
 	//	Usage: fmt.Sprintf("Beta feature: enable selection of a predefined-network from the superchain-registry. "+
 	//		"The superchain-registry is experimental, and the availability of configurations may change."+
 	//		"Available networks: %s", strings.Join(chaincfg.BetaAvailableNetworks(), ", ")),
 	//	EnvVars: prefixEnvVars("BETA_EXTRA_NETWORKS"),
-	//}
-	//RollupHalt = &cli.StringFlag{
+	// }
+	// RollupHalt = &cli.StringFlag{
 	//	Name:    "rollup.halt",
 	//	Usage:   "Opt-in option to halt on incompatible protocol version requirements of the given level (major/minor/patch/none), as signaled onchain in L1",
 	//	EnvVars: prefixEnvVars("ROLLUP_HALT"),
-	//}
-	//RollupLoadProtocolVersions = &cli.BoolFlag{
+	// }
+	// RollupLoadProtocolVersions = &cli.BoolFlag{
 	//	Name:    "rollup.load-protocol-versions",
 	//	Usage:   "Load protocol versions from the superchain L1 ProtocolVersions contract (if available), and report in logs and metrics",
 	//	EnvVars: prefixEnvVars("ROLLUP_LOAD_PROTOCOL_VERSIONS"),
-	//}
-	//CanyonOverrideFlag = &cli.Uint64Flag{
+	// }
+	// CanyonOverrideFlag = &cli.Uint64Flag{
 	//	Name:   "override.canyon",
 	//	Usage:  "Manually specify the Canyon fork timestamp, overriding the bundled setting",
 	//	Hidden: true,
-	//}
+	// }
 	// [Kroma: END]
 )
 

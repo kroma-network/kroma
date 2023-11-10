@@ -22,31 +22,25 @@ func NewRollupClient(rpc client.RPC) *RollupClient {
 
 func (r *RollupClient) OutputAtBlock(ctx context.Context, blockNum uint64) (*eth.OutputResponse, error) {
 	var output *eth.OutputResponse
-	err := r.rpc.CallContext(ctx, &output, "kroma_outputAtBlock", hexutil.Uint64(blockNum))
-	return output, err
-}
-
-func (r *RollupClient) OutputWithProofAtBlock(ctx context.Context, blockNum uint64) (*eth.OutputResponse, error) {
-	var output *eth.OutputResponse
-	err := r.rpc.CallContext(ctx, &output, "kroma_outputWithProofAtBlock", hexutil.Uint64(blockNum))
+	err := r.rpc.CallContext(ctx, &output, "optimism_outputAtBlock", hexutil.Uint64(blockNum))
 	return output, err
 }
 
 func (r *RollupClient) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
 	var output *eth.SyncStatus
-	err := r.rpc.CallContext(ctx, &output, "kroma_syncStatus")
+	err := r.rpc.CallContext(ctx, &output, "optimism_syncStatus")
 	return output, err
 }
 
 func (r *RollupClient) RollupConfig(ctx context.Context) (*rollup.Config, error) {
 	var output *rollup.Config
-	err := r.rpc.CallContext(ctx, &output, "kroma_rollupConfig")
+	err := r.rpc.CallContext(ctx, &output, "optimism_rollupConfig")
 	return output, err
 }
 
 func (r *RollupClient) Version(ctx context.Context) (string, error) {
 	var output string
-	err := r.rpc.CallContext(ctx, &output, "kroma_version")
+	err := r.rpc.CallContext(ctx, &output, "optimism_version")
 	return output, err
 }
 
@@ -69,3 +63,12 @@ func (r *RollupClient) SequencerActive(ctx context.Context) (bool, error) {
 func (r *RollupClient) SetLogLevel(ctx context.Context, lvl log.Lvl) error {
 	return r.rpc.CallContext(ctx, nil, "admin_setLogLevel", lvl.String())
 }
+
+// [Kroma: START]
+func (r *RollupClient) OutputWithProofAtBlock(ctx context.Context, blockNum uint64) (*eth.OutputResponse, error) {
+	var output *eth.OutputResponse
+	err := r.rpc.CallContext(ctx, &output, "kroma_outputWithProofAtBlock", hexutil.Uint64(blockNum))
+	return output, err
+}
+
+// [Kroma: END]

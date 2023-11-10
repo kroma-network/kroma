@@ -13,11 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 // SendDepositTx creates and sends a deposit transaction.
@@ -30,7 +29,7 @@ func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l
 	applyL2Opts(l2Opts)
 
 	// Find deposit contract
-	depositContract, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
+	depositContract, err := bindings.NewKromaPortal(cfg.L1Deployments.KromaPortalProxy, l1Client)
 	require.Nil(t, err)
 
 	// Finally send TX

@@ -333,10 +333,22 @@ tags
 ### Hardhat ###
 cache
 artifacts
+!/op-bindings/hardhat/testdata/artifacts/
 
 ### Devnet
 .devnet
+packages/contracts/deployments/devnetL1
 
 ### Misc ###
 # Ignore all binary folders
 bin/
+
+# Ignore local fuzzing results
+**/testdata/fuzz/
+
+coverage.out
+
+# Ignore bedrock go bindings local output files
+op-bindings/bin
+
+__pycache__

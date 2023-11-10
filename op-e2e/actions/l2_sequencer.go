@@ -7,14 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
 )
 
 // MockL1OriginSelector is a shim to override the origin as sequencer, so we can force it to stay on an older origin.
@@ -55,21 +53,6 @@ func NewL2Sequencer(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, c
 		mockL1OriginSelector:    l1OriginSelector,
 		failL2GossipUnsafeBlock: nil,
 	}
-}
-
-func setupSequencerTest(t Testing, sd *e2eutils.SetupData, log log.Logger) (*L1Miner, *L2Engine, *L2Sequencer) {
-	jwtPath := e2eutils.WriteDefaultJWT(t)
-
-	miner := NewL1Miner(t, log, sd.L1Cfg)
-
-	l1F, err := sources.NewL1Client(miner.RPCClient(), log, nil, sources.L1ClientDefaultConfig(sd.RollupCfg, false, sources.RPCKindBasic))
-	require.NoError(t, err)
-	engine := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath)
-	l2Cl, err := sources.NewEngineClient(engine.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
-	require.NoError(t, err)
-
-	sequencer := NewL2Sequencer(t, log, l1F, l2Cl, sd.RollupCfg, 0)
-	return miner, engine, sequencer
 }
 
 // ActL2StartBlock starts building of a new L2 block on top of the head
@@ -169,6 +152,14 @@ func (s *L2Sequencer) ActBuildToL1HeadExclUnsafe(t Testing) {
 		if nextOrigin.Number >= s.l1State.L1Head().Number {
 			break
 		}
+		s.ActL2StartBlock(t)
+		s.ActL2EndBlock(t)
+	}
+}
+
+func (s *L2Sequencer) ActBuildL2ToRegolith(t Testing) {
+	require.NotNil(t, s.rollupCfg.RegolithTime, "cannot activate Regolith when it is not scheduled")
+	for s.L2Unsafe().Time < *s.rollupCfg.RegolithTime {
 		s.ActL2StartBlock(t)
 		s.ActL2EndBlock(t)
 	}

@@ -3,8 +3,9 @@ package rollup
 import (
 	"errors"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 var (

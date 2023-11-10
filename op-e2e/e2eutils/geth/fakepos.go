@@ -3,14 +3,16 @@ package geth
 import (
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/catalyst"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+
+	"github.com/ethereum-optimism/optimism/op-service/clock"
 )
 
 // fakePoS is a testing-only utility to attach to Geth,
@@ -70,9 +72,8 @@ func (f *fakePoS) Start() error {
 				}, &engine.PayloadAttributes{
 					Timestamp:             newBlockTime,
 					Random:                common.Hash{},
-					SuggestedFeeRecipient: common.Address{},
-					// NOTE: comment this, cause not support Shanghai
-					//Withdrawals:           make([]*types.Withdrawal, 0),
+					SuggestedFeeRecipient: head.Coinbase,
+					Withdrawals:           make([]*types.Withdrawal, 0),
 				})
 				if err != nil {
 					f.log.Error("failed to start building L1 block", "err", err)

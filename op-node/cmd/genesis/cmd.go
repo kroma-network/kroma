@@ -11,35 +11,37 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
 var Subcommands = cli.Commands{
 	{
-		Name:  "devnet",
-		Usage: "Initialize new L1 and L2 genesis files and rollup config suitable for a local devnet",
+		Name:  "l1",
+		Usage: "Generates a L1 genesis state file",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:  "deploy-config",
-				Usage: "Path to hardhat deploy config file",
+				Name:     "deploy-config",
+				Usage:    "Path to hardhat deploy config file",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:  "l1-allocs",
+				Usage: "Path to L1 genesis state dump",
+			},
+			&cli.StringFlag{
+				Name:  "l1-deployments",
+				Usage: "Path to L1 deployments file",
 			},
 			&cli.StringFlag{
 				Name:  "outfile.l1",
 				Usage: "Path to L1 genesis output file",
-			},
-			&cli.StringFlag{
-				Name:  "outfile.l2",
-				Usage: "Path to L2 genesis output file",
-			},
-			&cli.StringFlag{
-				Name:  "outfile.rollup",
-				Usage: "Path to rollup output file",
 			},
 		},
 		Action: func(ctx *cli.Context) error {
@@ -49,39 +51,41 @@ var Subcommands = cli.Commands{
 				return err
 			}
 
-			// Add the developer L1 addresses to the config
-			if err := config.InitDeveloperDeployedAddresses(); err != nil {
-				return err
+			var deployments *genesis.L1Deployments
+			if l1Deployments := ctx.String("l1-deployments"); l1Deployments != "" {
+				deployments, err = genesis.NewL1Deployments(l1Deployments)
+				if err != nil {
+					return err
+				}
+			}
+
+			if deployments != nil {
+				config.SetDeployments(deployments)
 			}
 
 			if err := config.Check(); err != nil {
-				return err
+				return fmt.Errorf("deploy config at %s invalid: %w", deployConfig, err)
 			}
 
-			l1Genesis, err := genesis.BuildL1DeveloperGenesis(config)
+			// Check the addresses after setting the deployments
+			if err := config.CheckAddresses(); err != nil {
+				return fmt.Errorf("deploy config at %s invalid: %w", deployConfig, err)
+			}
+
+			var dump *state.Dump
+			if l1Allocs := ctx.String("l1-allocs"); l1Allocs != "" {
+				dump, err = genesis.NewStateDump(l1Allocs)
+				if err != nil {
+					return err
+				}
+			}
+
+			l1Genesis, err := genesis.BuildL1DeveloperGenesis(config, dump, deployments, true)
 			if err != nil {
 				return err
 			}
 
-			l1StartBlock := l1Genesis.ToBlock()
-			l2Genesis, err := genesis.BuildL2Genesis(config, l1StartBlock, true)
-			if err != nil {
-				return err
-			}
-
-			l2GenesisBlock := l2Genesis.ToBlock()
-			rollupConfig, err := config.RollupConfig(l1StartBlock, l2GenesisBlock.Hash(), l2GenesisBlock.Number().Uint64())
-			if err != nil {
-				return err
-			}
-
-			if err := writeGenesisFile(ctx.String("outfile.l1"), l1Genesis); err != nil {
-				return err
-			}
-			if err := writeGenesisFile(ctx.String("outfile.l2"), l2Genesis); err != nil {
-				return err
-			}
-			return writeGenesisFile(ctx.String("outfile.rollup"), rollupConfig)
+			return writeGenesisFile(ctx.String("outfile.l1"), l1Genesis)
 		},
 	},
 	{
@@ -162,7 +166,7 @@ var Subcommands = cli.Commands{
 			log.Info("Using L1 Start Block", "number", l1StartBlock.Number(), "hash", l1StartBlock.Hash().Hex())
 
 			// Build the L2 genesis block
-			l2Genesis, err := genesis.BuildL2Genesis(config, l1StartBlock, true)
+			l2Genesis, err := genesis.BuildL2Genesis(config, l1StartBlock)
 			if err != nil {
 				return fmt.Errorf("error creating l2 genesis: %w", err)
 			}

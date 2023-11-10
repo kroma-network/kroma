@@ -18,17 +18,20 @@ import (
 // must be in sync with the values in the DeployConfig used to create the system.
 var DefaultMnemonicConfig = &MnemonicConfig{
 	Mnemonic:         "test test test test test test test test test test test junk",
-	Deployer:         "m/44'/60'/0'/0/1",
-	CliqueSigner:     "m/44'/60'/0'/0/2",
-	TrustedValidator: "m/44'/60'/0'/0/3",
-	Challenger1:      "m/44'/60'/0'/0/4",
-	Challenger2:      "m/44'/60'/0'/0/5",
-	Batcher:          "m/44'/60'/0'/0/6",
-	SequencerP2P:     "m/44'/60'/0'/0/7",
-	Alice:            "m/44'/60'/0'/0/8",
-	Bob:              "m/44'/60'/0'/0/9",
-	Mallory:          "m/44'/60'/0'/0/10",
-	ProxyAdminOwner:  "m/44'/60'/0'/0/11",
+	CliqueSigner:     "m/44'/60'/0'/0/0",
+	TrustedValidator: "m/44'/60'/0'/0/1",
+	Batcher:          "m/44'/60'/0'/0/2",
+	Deployer:         "m/44'/60'/0'/0/3",
+	Alice:            "m/44'/60'/0'/0/4",
+	SequencerP2P:     "m/44'/60'/0'/0/5",
+	Bob:              "m/44'/60'/0'/0/7",
+	Mallory:          "m/44'/60'/0'/0/8",
+	SysCfgOwner:      "m/44'/60'/0'/0/0",
+
+	// [Kroma: START],
+	Challenger1: "m/44'/60'/0'/0/11",
+	Challenger2: "m/44'/60'/0'/0/12",
+	// [Kroma: END]
 }
 
 // MnemonicConfig configures the private keys for the hive testnet.
@@ -36,14 +39,12 @@ var DefaultMnemonicConfig = &MnemonicConfig{
 type MnemonicConfig struct {
 	Mnemonic string
 
-	Deployer        string
-	CliqueSigner    string
-	ProxyAdminOwner string
+	CliqueSigner string
+	Deployer     string
+	SysCfgOwner  string
 
 	// rollup actors
 	TrustedValidator string
-	Challenger1      string
-	Challenger2      string
 	Batcher          string
 	SequencerP2P     string
 
@@ -51,6 +52,11 @@ type MnemonicConfig struct {
 	Alice   string
 	Bob     string
 	Mallory string
+
+	// [Kroma: START]
+	Challenger1 string
+	Challenger2 string
+	// [Kroma: END
 }
 
 // Secrets computes the private keys for all mnemonic paths,
@@ -72,19 +78,11 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	if err != nil {
 		return nil, err
 	}
-	proxyAdminOwner, err := wallet.PrivateKey(account(m.ProxyAdminOwner))
+	sysCfgOwner, err := wallet.PrivateKey(account(m.SysCfgOwner))
 	if err != nil {
 		return nil, err
 	}
 	trustedValidator, err := wallet.PrivateKey(account(m.TrustedValidator))
-	if err != nil {
-		return nil, err
-	}
-	challenger1, err := wallet.PrivateKey(account(m.Challenger1))
-	if err != nil {
-		return nil, err
-	}
-	challenger2, err := wallet.PrivateKey(account(m.Challenger2))
 	if err != nil {
 		return nil, err
 	}
@@ -108,33 +106,42 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	if err != nil {
 		return nil, err
 	}
+	challenger1, err := wallet.PrivateKey(account(m.Challenger1))
+	if err != nil {
+		return nil, err
+	}
+	challenger2, err := wallet.PrivateKey(account(m.Challenger2))
+	if err != nil {
+		return nil, err
+	}
 
 	return &Secrets{
 		Deployer:         deployer,
+		SysCfgOwner:      sysCfgOwner,
 		CliqueSigner:     cliqueSigner,
-		ProxyAdminOwner:  proxyAdminOwner,
 		TrustedValidator: trustedValidator,
-		Challenger1:      challenger1,
-		Challenger2:      challenger2,
 		Batcher:          batcher,
 		SequencerP2P:     sequencerP2P,
 		Alice:            alice,
 		Bob:              bob,
 		Mallory:          mallory,
 		Wallet:           wallet,
+
+		// [Kroma :START]
+		Challenger1: challenger1,
+		Challenger2: challenger2,
+		//	[Kroma: END]
 	}, nil
 }
 
 // Secrets bundles secp256k1 private keys for all common rollup actors for testing purposes.
 type Secrets struct {
-	Deployer        *ecdsa.PrivateKey
-	CliqueSigner    *ecdsa.PrivateKey
-	ProxyAdminOwner *ecdsa.PrivateKey
+	Deployer     *ecdsa.PrivateKey
+	CliqueSigner *ecdsa.PrivateKey
+	SysCfgOwner  *ecdsa.PrivateKey
 
 	// rollup actors
 	TrustedValidator *ecdsa.PrivateKey
-	Challenger1      *ecdsa.PrivateKey
-	Challenger2      *ecdsa.PrivateKey
 	Batcher          *ecdsa.PrivateKey
 	SequencerP2P     *ecdsa.PrivateKey
 
@@ -145,6 +152,11 @@ type Secrets struct {
 
 	// Share the wallet to be able to generate more accounts
 	Wallet *hdwallet.Wallet
+
+	// [Kroma: START]
+	Challenger1 *ecdsa.PrivateKey
+	Challenger2 *ecdsa.PrivateKey
+	// [Kroma: END]
 }
 
 // EncodePrivKey encodes the given private key in 32 bytes
@@ -165,28 +177,29 @@ func (s *Secrets) Addresses() *Addresses {
 	return &Addresses{
 		Deployer:         crypto.PubkeyToAddress(s.Deployer.PublicKey),
 		CliqueSigner:     crypto.PubkeyToAddress(s.CliqueSigner.PublicKey),
-		ProxyAdminOwner:  crypto.PubkeyToAddress(s.ProxyAdminOwner.PublicKey),
+		SysCfgOwner:      crypto.PubkeyToAddress(s.SysCfgOwner.PublicKey),
 		TrustedValidator: crypto.PubkeyToAddress(s.TrustedValidator.PublicKey),
-		Challenger1:      crypto.PubkeyToAddress(s.Challenger1.PublicKey),
-		Challenger2:      crypto.PubkeyToAddress(s.Challenger2.PublicKey),
 		Batcher:          crypto.PubkeyToAddress(s.Batcher.PublicKey),
 		SequencerP2P:     crypto.PubkeyToAddress(s.SequencerP2P.PublicKey),
 		Alice:            crypto.PubkeyToAddress(s.Alice.PublicKey),
 		Bob:              crypto.PubkeyToAddress(s.Bob.PublicKey),
 		Mallory:          crypto.PubkeyToAddress(s.Mallory.PublicKey),
+
+		// [Kroma: START]
+		Challenger1: crypto.PubkeyToAddress(s.Challenger1.PublicKey),
+		Challenger2: crypto.PubkeyToAddress(s.Challenger2.PublicKey),
+		// [Kroma: END]
 	}
 }
 
 // Addresses bundles the addresses for all common rollup addresses for testing purposes.
 type Addresses struct {
-	Deployer        common.Address
-	CliqueSigner    common.Address
-	ProxyAdminOwner common.Address
+	Deployer     common.Address
+	CliqueSigner common.Address
+	SysCfgOwner  common.Address
 
 	// rollup actors
 	TrustedValidator common.Address
-	Challenger1      common.Address
-	Challenger2      common.Address
 	Batcher          common.Address
 	SequencerP2P     common.Address
 
@@ -194,20 +207,28 @@ type Addresses struct {
 	Alice   common.Address
 	Bob     common.Address
 	Mallory common.Address
+
+	// [Kroma: START]
+	Challenger1 common.Address
+	Challenger2 common.Address
+	// [Kroma: END]
 }
 
 func (a *Addresses) All() []common.Address {
 	return []common.Address{
 		a.Deployer,
 		a.CliqueSigner,
-		a.ProxyAdminOwner,
+		a.SysCfgOwner,
 		a.TrustedValidator,
-		a.Challenger1,
-		a.Challenger2,
 		a.Batcher,
 		a.SequencerP2P,
 		a.Alice,
 		a.Bob,
 		a.Mallory,
+
+		// [Kroma: START]
+		a.Challenger1,
+		a.Challenger2,
+		// [Kroma: END]
 	}
 }

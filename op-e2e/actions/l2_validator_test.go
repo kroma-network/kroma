@@ -7,10 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 func TestValidator(gt *testing.T) {
@@ -36,32 +36,24 @@ func TestValidator(gt *testing.T) {
 		AllowNonFinalized:   false,
 	}, miner.EthClient(), seqEngine.EthClient(), sequencer.RollupClient())
 
-	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
-	// config is set) block to pass after each submission interval before submitting the output
-	// root. For example, if the submission interval is set to 1800 blocks, the output root can
-	// only be submitted at 1801 finalized blocks. In fact, the following code is designed to
-	// create one or more finalized L2 blocks in order to pass the test. If Proto Dank Sharding
-	// is introduced, the below code fix may no longer be necessary.
-	for i := 0; i < 2; i++ {
-		// L1 block
-		miner.ActEmptyBlock(t)
-		// L2 block
-		sequencer.ActL1HeadSignal(t)
-		sequencer.ActL2PipelineFull(t)
-		sequencer.ActBuildToL1Head(t)
-		// submit and include in L1
-		batcher.ActSubmitAll(t)
-		miner.includeL1Block(t, dp.Addresses.Batcher)
-		// finalize the first and second L1 blocks, including the batch
-		miner.ActL1SafeNext(t)
-		miner.ActL1SafeNext(t)
-		miner.ActL1FinalizeNext(t)
-		miner.ActL1FinalizeNext(t)
-		// derive and see the L2 chain fully finalize
-		sequencer.ActL2PipelineFull(t)
-		sequencer.ActL1SafeSignal(t)
-		sequencer.ActL1FinalizedSignal(t)
-	}
+	// L1 block
+	miner.ActEmptyBlock(t)
+	// L2 block
+	sequencer.ActL1HeadSignal(t)
+	sequencer.ActL2PipelineFull(t)
+	sequencer.ActBuildToL1Head(t)
+	// submit and include in L1
+	batcher.ActSubmitAll(t)
+	miner.includeL1Block(t, dp.Addresses.Batcher)
+	// finalize the first and second L1 blocks, including the batch
+	miner.ActL1SafeNext(t)
+	miner.ActL1SafeNext(t)
+	miner.ActL1FinalizeNext(t)
+	miner.ActL1FinalizeNext(t)
+	// derive and see the L2 chain fully finalize
+	sequencer.ActL2PipelineFull(t)
+	sequencer.ActL1SafeSignal(t)
+	sequencer.ActL1FinalizedSignal(t)
 
 	// deposit bond for validator
 	validator.ActDeposit(t, 1_000)

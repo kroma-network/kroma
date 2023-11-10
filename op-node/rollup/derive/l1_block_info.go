@@ -10,22 +10,25 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/solabi"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 const (
 	L1InfoFuncSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256,uint256)"
 	L1InfoArguments     = 9
 	L1InfoLen           = 4 + 32*L1InfoArguments
-	SystemTxGas         = 1_000_000 // (OP 150_000_000)
 )
 
 var (
 	L1InfoFuncBytes4       = crypto.Keccak256([]byte(L1InfoFuncSignature))[:4]
 	L1InfoDepositerAddress = common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001")
 	L1BlockAddress         = predeploys.L1BlockAddr
+)
+
+const (
+	RegolithSystemTxGas = 1_000_000
 )
 
 // L1BlockInfo presents the information stored in a L1Block.setL1BlockValues call
@@ -149,7 +152,7 @@ func L1InfoDepositTxData(data []byte) (L1BlockInfo, error) {
 
 // L1InfoDeposit creates a L1 Info deposit transaction based on the L1 block,
 // and the L2 block-height difference with the start of the epoch.
-func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfig) (*types.DepositTx, error) {
+func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfig, regolith bool) (*types.DepositTx, error) {
 	infoDat := L1BlockInfo{
 		Number:                block.NumberU64(),
 		Time:                  block.Time(),
@@ -170,25 +173,33 @@ func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfi
 		L1BlockHash: block.Hash(),
 		SeqNumber:   seqNumber,
 	}
-	// Set a very large gas limit with to ensure
+	// Set a very large gas limit with `IsSystemTransaction` to ensure
 	// that the L1 Attributes Transaction does not run out of gas.
-	return &types.DepositTx{
+	out := &types.DepositTx{
 		SourceHash: source.SourceHash(),
 		From:       L1InfoDepositerAddress,
 		To:         &L1BlockAddress,
 		Mint:       nil,
 		Value:      big.NewInt(0),
-		Gas:        SystemTxGas,
+		Gas:        150_000_000,
 		// [Kroma: START]
 		// IsSystemTransaction: true,
 		// [Kroma: END]
 		Data: data,
-	}, nil
+	}
+	// With the regolith fork we disable the IsSystemTx functionality, and allocate real gas
+	if regolith {
+		// [Kroma: START]
+		// IsSystemTransaction: false,
+		// [Kroma: END]
+		out.Gas = RegolithSystemTxGas
+	}
+	return out, nil
 }
 
 // L1InfoDepositBytes returns a serialized L1-info attributes transaction.
-func L1InfoDepositBytes(seqNumber uint64, l1Info eth.BlockInfo, sysCfg eth.SystemConfig) ([]byte, error) {
-	dep, err := L1InfoDeposit(seqNumber, l1Info, sysCfg)
+func L1InfoDepositBytes(seqNumber uint64, l1Info eth.BlockInfo, sysCfg eth.SystemConfig, regolith bool) ([]byte, error) {
+	dep, err := L1InfoDeposit(seqNumber, l1Info, sysCfg, regolith)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create L1 info tx: %w", err)
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 // [Kroma: START]

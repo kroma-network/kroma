@@ -119,11 +119,11 @@ func TestReorgFlipFlop(gt *testing.T) {
 	verifEngClient := verifierEng.EngineClient(t, sd.RollupCfg)
 	checkVerifEngine := func() {
 		// TODO: geth preserves L2 chain with origin A1 after flip-flopping to B?
-		//ref, err := verifEngClient.L2BlockRefByLabel(t.Ctx(), eth.Unsafe)
-		//require.NoError(t, err)
-		//t.Logf("l2 unsafe head %s with origin %s", ref, ref.L1Origin)
-		//require.NotEqual(t, verifier.L2Unsafe().Hash, ref.ParentHash, "TODO off by one, engine syncs A0 after reorging back from B, while rollup node only inserts up to A0 (excl.)")
-		//require.Equal(t, verifier.L2Unsafe(), ref, "verifier safe head of engine matches rollup client")
+		// ref, err := verifEngClient.L2BlockRefByLabel(t.Ctx(), eth.Unsafe)
+		// require.NoError(t, err)
+		// t.Logf("l2 unsafe head %s with origin %s", ref, ref.L1Origin)
+		// require.NotEqual(t, verifier.L2Unsafe().Hash, ref.ParentHash, "TODO off by one, engine syncs A0 after reorging back from B, while rollup node only inserts up to A0 (excl.)")
+		// require.Equal(t, verifier.L2Unsafe(), ref, "verifier safe head of engine matches rollup client")
 
 		ref, err := verifEngClient.L2BlockRefByLabel(t.Ctx(), eth.Safe)
 		require.NoError(t, err)
@@ -290,7 +290,7 @@ func TestReorgFlipFlop(gt *testing.T) {
 //  12. Sync the verifier and assert that the L2 safe head L1 origin has caught up with chain B
 //  13. Ensure that the parent L2 block of the block that contains Alice's transaction still exists
 //     after the L2 has re-derived from chain B.
-//  14. Ensure that the L2 block that contained Alice's transaction before the reorg no longer exists.
+//  14. Ensure that the L2 block that contained Alice's transction before the reorg no longer exists.
 //
 // Chain A
 // - 61 blocks total
@@ -352,7 +352,7 @@ func TestDeepReorg(gt *testing.T) {
 		AddressCorpora: addresses,
 		Bindings:       NewL2Bindings(t, l2Client, seqEngine.GethClient()),
 	}
-	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(0xa57b)), sd.RollupCfg)
+	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(0xa57b)))
 	alice.L2.SetUserEnv(l2UserEnv)
 
 	// Run one iteration of the L2 derivation pipeline
@@ -557,9 +557,9 @@ type rpcWrapper struct {
 	client.RPC
 }
 
-// TestRestartKromaGeth tests that the sequencer can restart its execution engine without rollup-node restart,
+// TestRestartOpGeth tests that the sequencer can restart its execution engine without rollup-node restart,
 // including recovering the finalized/safe state of L2 chain without reorging.
-func TestRestartKromaGeth(gt *testing.T) {
+func TestRestartOpGeth(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dbPath := path.Join(t.TempDir(), "testdb")
 	dbOption := func(_ *ethconfig.Config, nodeCfg *node.Config) error {
@@ -685,7 +685,7 @@ func TestConflictingL2Blocks(gt *testing.T) {
 		AddressCorpora: addresses,
 		Bindings:       NewL2Bindings(t, l2Cl, altSeqEng.GethClient()),
 	}
-	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(1234)), sd.RollupCfg)
+	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(1234)))
 	alice.L2.SetUserEnv(l2UserEnv)
 
 	sequencer.ActL2PipelineFull(t)

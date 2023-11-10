@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func TestChallenge(t *testing.T) {
-	rt := defaultRuntime(t)
+	rt := defaultRuntime(t, setupSequencerTest)
 
 	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
 	rt.setupMaliciousValidator()
@@ -38,14 +39,14 @@ interaction:
 		case chal.StatusChallengerTurn:
 			// call bisect by challenger
 			rt.txHash = rt.challenger1.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, false)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusAsserterTurn:
 			// call bisect by validator
 			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, true)
-			rt.miner.includeL1Block(rt.t, rt.validator.address)
+			rt.IncludeL1Block(rt.validator.address)
 		case chal.StatusReadyToProve:
 			rt.txHash = rt.challenger1.ActProveFault(rt.t, rt.outputIndex, false)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusNone:
 			// guardian validates deleted output by challenger is invalid after challenge is proven
 			outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
@@ -83,7 +84,7 @@ interaction:
 }
 
 func TestChallengeAsserterBisectTimeout(t *testing.T) {
-	rt := defaultRuntime(t)
+	rt := defaultRuntime(t, setupSequencerTest)
 
 	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
 	rt.setupMaliciousValidator()
@@ -110,7 +111,7 @@ interaction:
 			rt.miner.ActEmptyBlock(rt.t)
 		case chal.StatusAsserterTimeout:
 			rt.txHash = rt.challenger1.ActProveFault(rt.t, rt.outputIndex, true)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusNone:
 			// guardian validates deleted output by challenger is invalid after challenge is proven
 			outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
@@ -148,7 +149,7 @@ interaction:
 }
 
 func TestChallengeChallengerBisectTimeout(t *testing.T) {
-	rt := defaultRuntime(t)
+	rt := defaultRuntime(t, setupSequencerTest)
 
 	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
 	rt.setupMaliciousValidator()
@@ -175,11 +176,11 @@ interaction:
 		case chal.StatusAsserterTurn:
 			// call bisect by validator
 			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, true)
-			rt.miner.includeL1Block(rt.t, rt.validator.address)
+			rt.IncludeL1Block(rt.validator.address)
 		case chal.StatusChallengerTimeout:
 			// call challenger timeout by validator
 			rt.txHash = rt.validator.ActChallengerTimeout(rt.t, rt.outputIndex, rt.challenger1.address)
-			rt.miner.includeL1Block(rt.t, rt.validator.address)
+			rt.IncludeL1Block(rt.validator.address)
 		default:
 			break interaction
 		}
@@ -211,7 +212,7 @@ interaction:
 }
 
 func TestChallengeChallengerProvingTimeout(t *testing.T) {
-	rt := defaultRuntime(t)
+	rt := defaultRuntime(t, setupSequencerTest)
 
 	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
 	rt.setupMaliciousValidator()
@@ -235,18 +236,18 @@ interaction:
 		case chal.StatusChallengerTurn:
 			// call bisect by challenger
 			rt.txHash = rt.challenger1.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, false)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusAsserterTurn:
 			// call bisect by validator
 			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, true)
-			rt.miner.includeL1Block(rt.t, rt.validator.address)
+			rt.IncludeL1Block(rt.validator.address)
 		case chal.StatusReadyToProve:
 			// do nothing to trigger challenger proving timeout
 			rt.miner.ActEmptyBlock(rt.t)
 		case chal.StatusChallengerTimeout:
 			// call challenger timeout by validator
 			rt.txHash = rt.validator.ActChallengerTimeout(rt.t, rt.outputIndex, rt.challenger1.address)
-			rt.miner.includeL1Block(rt.t, rt.validator.address)
+			rt.IncludeL1Block(rt.validator.address)
 		default:
 			break interaction
 		}
@@ -278,7 +279,7 @@ interaction:
 }
 
 func TestChallengeInvalidProofFail(t *testing.T) {
-	rt := defaultRuntime(t)
+	rt := defaultRuntime(t, setupSequencerTest)
 
 	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
 	rt.setupMaliciousValidator()
@@ -303,14 +304,14 @@ interaction:
 		case chal.StatusChallengerTurn:
 			// call bisect by challenger
 			rt.txHash = rt.challenger1.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, false)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusAsserterTurn:
 			// call bisect by validator
 			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, true)
-			rt.miner.includeL1Block(rt.t, rt.validator.address)
+			rt.IncludeL1Block(rt.validator.address)
 		case chal.StatusReadyToProve:
 			rt.txHash = rt.challenger1.ActProveFault(rt.t, rt.outputIndex, false)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusNone:
 			// get txId from receipt
 			var transactionId *big.Int
@@ -333,7 +334,7 @@ interaction:
 			isEqual := rt.guardian.ActValidateL2Output(rt.t, rt.outputOnL1.OutputRoot, outputBlockNum)
 			require.True(rt.t, isEqual, "deleted output is expected equal but actually not equal")
 			rt.txHash = rt.guardian.ActConfirmTransaction(rt.t, rt.outputIndex, transactionId)
-			rt.miner.includeL1Block(rt.t, rt.guardian.address)
+			rt.IncludeL1Block(rt.guardian.address)
 			break interaction
 		default:
 			break interaction
@@ -366,7 +367,7 @@ interaction:
 }
 
 func TestMultipleChallenges(t *testing.T) {
-	rt := defaultRuntime(t)
+	rt := defaultRuntime(t, setupSequencerTest)
 
 	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
 	rt.setupMaliciousValidator()
@@ -394,14 +395,14 @@ interaction1:
 		case chal.StatusChallengerTurn:
 			// call bisect by challenger
 			rt.txHash = rt.challenger1.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, false)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusAsserterTurn:
 			// call bisect by validator
 			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, true)
-			rt.miner.includeL1Block(rt.t, rt.validator.address)
+			rt.IncludeL1Block(rt.validator.address)
 		case chal.StatusReadyToProve:
 			rt.txHash = rt.challenger1.ActProveFault(rt.t, rt.outputIndex, false)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusNone:
 			// guardian validates deleted output by challenger is invalid after challenge is proven
 			outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
@@ -445,7 +446,7 @@ interaction2:
 		case chal.StatusAsserterTimeout:
 			// call bisect by challenger
 			rt.txHash = rt.challenger2.ActProveFault(rt.t, rt.outputIndex, true)
-			rt.miner.includeL1Block(rt.t, rt.challenger2.address)
+			rt.IncludeL1Block(rt.challenger2.address)
 		default:
 			break interaction2
 		}
@@ -468,7 +469,7 @@ interaction2:
 }
 
 func TestChallengeForceDeleteOutputBySecurityCouncil(t *testing.T) {
-	rt := defaultRuntime(t)
+	rt := defaultRuntime(t, setupSequencerTest)
 	rt.SetCreationPeriod(9)
 
 	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
@@ -494,17 +495,17 @@ interaction:
 		case chal.StatusChallengerTurn:
 			// call bisect by challenger
 			rt.txHash = rt.challenger1.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, false)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusAsserterTurn:
 			// call bisect by validator
 			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, true)
-			rt.miner.includeL1Block(rt.t, rt.validator.address)
+			rt.IncludeL1Block(rt.validator.address)
 		case chal.StatusAsserterTimeout:
 			rt.txHash = rt.challenger1.ActProveFault(rt.t, rt.outputIndex, true)
-			rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusChallengerTimeout:
 			rt.txHash = rt.validator.ActChallengerTimeout(rt.t, rt.outputIndex, rt.challenger1.address)
-			rt.miner.includeL1Block(rt.t, rt.validator.address)
+			rt.IncludeL1Block(rt.validator.address)
 		case chal.StatusReadyToProve:
 			// do nothing
 			rt.miner.ActEmptyBlock(rt.t)
@@ -514,8 +515,11 @@ interaction:
 				isEqual := rt.guardian.ActValidateL2Output(rt.t, rt.outputOnL1.OutputRoot, outputBlockNum)
 				require.False(t, isEqual)
 
+				votes, _ := rt.securityCouncilContract.GetVotes(nil, rt.guardian.address)
+				fmt.Printf("asdfasdfasdf %d\n", votes)
+
 				rt.txHash = rt.guardian.ActForceDeleteOutput(rt.t, rt.outputIndex)
-				rt.miner.includeL1Block(rt.t, rt.challenger1.address)
+				rt.IncludeL1Block(rt.challenger1.address)
 				break interaction
 			}
 		default:

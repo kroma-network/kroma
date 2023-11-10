@@ -82,7 +82,7 @@ func NewL2Verifier(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, cf
 	backend := &l2VerifierBackend{verifier: rollupNode}
 	apis := []rpc.API{
 		{
-			Namespace:     "kroma",
+			Namespace:     "optimism",
 			Service:       node.NewNodeAPI(cfg, eng, backend, log, m),
 			Public:        true,
 			Authenticated: false,
@@ -92,6 +92,12 @@ func NewL2Verifier(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, cf
 			Version:       "",
 			Service:       node.NewAdminAPI(backend, m, log),
 			Public:        true, // TODO: this field is deprecated. Do we even need this anymore?
+			Authenticated: false,
+		},
+		{
+			Namespace:     "kroma",
+			Service:       node.NewNodeAPI(cfg, eng, backend, log, m),
+			Public:        true,
 			Authenticated: false,
 		},
 	}

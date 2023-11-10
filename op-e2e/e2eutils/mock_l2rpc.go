@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
-	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 )
 
 type MaliciousL2RPC struct {
@@ -25,7 +25,7 @@ func NewMaliciousL2RPC(rpc client.RPC) *MaliciousL2RPC {
 }
 
 // SetTargetBlockNumber sets the first invalid block number for mocking malicious L2 RPC.
-// After the m.targetBlockNumber, random output root will be returned for `kroma_outputAtBlock` CallContext
+// After the m.targetBlockNumber, random output root will be returned for `optimism_outputAtBlock` CallContext
 func (m *MaliciousL2RPC) SetTargetBlockNumber(lastValidBlockNumber uint64) {
 	m.targetBlockNumber = new(hexutil.Uint64)
 	*m.targetBlockNumber = hexutil.Uint64(lastValidBlockNumber)
@@ -36,7 +36,7 @@ func (m *MaliciousL2RPC) Close() {
 }
 
 func (m *MaliciousL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	if method == "kroma_outputAtBlock" || method == "kroma_outputWithProofAtBlock" {
+	if method == "optimism_outputAtBlock" || method == "kroma_outputWithProofAtBlock" {
 		blockNumber := args[0].(hexutil.Uint64)
 
 		err := m.rpc.CallContext(ctx, &result, method, blockNumber)
@@ -79,7 +79,7 @@ func NewHonestL2RPC(rpc client.RPC) *HonestL2RPC {
 }
 
 // SetTargetBlockNumber sets the target block number for challenge.
-// At the m.targetBlockNumber, mocked output root will be returned for `kroma_outputAtBlock` CallContext
+// At the m.targetBlockNumber, mocked output root will be returned for `optimism_outputAtBlock` CallContext
 func (m *HonestL2RPC) SetTargetBlockNumber(lastValidBlockNumber uint64) {
 	m.targetBlockNumber = new(hexutil.Uint64)
 	*m.targetBlockNumber = hexutil.Uint64(lastValidBlockNumber)
@@ -90,7 +90,7 @@ func (m *HonestL2RPC) Close() {
 }
 
 func (m *HonestL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	if method == "kroma_outputAtBlock" || method == "kroma_outputWithProofAtBlock" {
+	if method == "optimism_outputAtBlock" || method == "kroma_outputWithProofAtBlock" {
 		blockNumber := args[0].(hexutil.Uint64)
 
 		err := m.rpc.CallContext(ctx, &result, method, blockNumber)

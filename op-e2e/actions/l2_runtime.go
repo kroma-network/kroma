@@ -10,12 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	e2e "github.com/ethereum-optimism/optimism/op-e2e"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	e2e "github.com/ethereum-optimism/optimism/op-e2e"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 const defaultDepositAmount = 1_000
@@ -42,21 +42,23 @@ type Runtime struct {
 	outputOnL1               bindings.TypesCheckpointOutput
 	txHash                   common.Hash
 	receipt                  *types.Receipt
+	l1BlockDelta             uint64
 }
 
-func defaultRuntime(gt *testing.T) Runtime {
+type SetupSequencerTestFunc = func(t Testing, sd *e2eutils.SetupData, log log.Logger) (*L1Miner, *L2Engine, *L2Sequencer)
+
+func defaultRuntime(gt *testing.T, setupSequencerTest SetupSequencerTestFunc) Runtime {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
-	dp.DeployConfig.FinalizationPeriodSeconds = 60 * 60 * 24
-	dp.DeployConfig.ColosseumCreationPeriodSeconds = 60 * 60 * 20
 	dp.DeployConfig.ColosseumDummyHash = common.HexToHash(e2e.DummyHashDev)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	l := testlog.Logger(t, log.LvlDebug)
 	rt := Runtime{
-		t:  t,
-		dp: dp,
-		sd: sd,
-		l:  l,
+		t:            t,
+		dp:           dp,
+		sd:           sd,
+		l:            l,
+		l1BlockDelta: 6,
 	}
 
 	rt.miner, rt.seqEngine, rt.sequencer = setupSequencerTest(rt.t, rt.sd, rt.l)
@@ -167,7 +169,7 @@ func (rt *Runtime) setupOutputSubmitted() {
 	// only be submitted at 1801 finalized blocks. In fact, the following code is designed to
 	// create one or more finalized L2 blocks in order to pass the test. If Proto Dank Sharding
 	// is introduced, the below code fix may no longer be necessary.
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		// L1 block
 		rt.miner.ActEmptyBlock(rt.t)
 		// L2 block
@@ -176,7 +178,7 @@ func (rt *Runtime) setupOutputSubmitted() {
 		rt.sequencer.ActBuildToL1Head(rt.t)
 		// submit and include in L1
 		rt.batcher.ActSubmitAll(rt.t)
-		rt.miner.includeL1Block(rt.t, rt.dp.Addresses.Batcher)
+		rt.IncludeL1Block(rt.dp.Addresses.Batcher)
 		// finalize the first and second L1 blocks, including the batch
 		rt.miner.ActL1SafeNext(rt.t)
 		rt.miner.ActL1SafeNext(rt.t)
@@ -190,7 +192,7 @@ func (rt *Runtime) setupOutputSubmitted() {
 
 	// deposit bond for validator
 	rt.validator.ActDeposit(rt.t, defaultDepositAmount)
-	rt.miner.includeL1Block(rt.t, rt.validator.address)
+	rt.IncludeL1Block(rt.validator.address)
 
 	// check validator balance increased
 	bal, err := rt.valPoolContract.BalanceOf(nil, rt.validator.address)
@@ -208,7 +210,7 @@ func (rt *Runtime) setupOutputSubmitted() {
 		// and submit it to L1
 		rt.validator.ActSubmitL2Output(rt.t)
 		// include output on L1
-		rt.miner.includeL1Block(rt.t, rt.validator.address)
+		rt.IncludeL1Block(rt.validator.address)
 		// Check submission was successful
 		receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.validator.LastSubmitL2OutputTx())
 		require.NoError(rt.t, err)
@@ -237,7 +239,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator) {
 
 	// deposit bond for challenger
 	challenger.ActDeposit(rt.t, defaultDepositAmount)
-	rt.miner.includeL1Block(rt.t, challenger.address)
+	rt.IncludeL1Block(challenger.address)
 
 	// check bond amount before create challenge
 	bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
@@ -248,7 +250,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator) {
 	rt.txHash = challenger.ActCreateChallenge(rt.t, rt.outputIndex)
 
 	// include tx on L1
-	rt.miner.includeL1Block(rt.t, challenger.address)
+	rt.IncludeL1Block(challenger.address)
 
 	// Check whether the submission was successful
 	rt.receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.txHash)
@@ -283,4 +285,10 @@ func (rt *Runtime) IsCreationEnded() bool {
 
 func (rt *Runtime) SetCreationPeriod(period uint64) {
 	rt.dp.DeployConfig.ColosseumCreationPeriodSeconds = period
+}
+
+func (rt *Runtime) IncludeL1Block(from common.Address) {
+	rt.miner.ActL1StartBlock(rt.l1BlockDelta)(rt.t)
+	rt.miner.ActL1IncludeTx(from)(rt.t)
+	rt.miner.ActL1EndBlock(rt.t)
 }

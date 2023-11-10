@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var enableParallelTesting bool = os.Getenv("E2E_DISABLE_PARALLEL") != "true"
+var enableParallelTesting bool = os.Getenv("OP_E2E_DISABLE_PARALLEL") != "true"
 
 func InitParallel(t *testing.T) {
 	t.Helper()

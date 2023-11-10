@@ -76,6 +76,8 @@ var (
 		Usage:   "Initialize the batcher in a stopped state. The batcher can be started using the admin_startBatcher RPC",
 		EnvVars: prefixEnvVars("STOPPED"),
 	}
+	// Legacy Flags
+	SequencerHDPathFlag = txmgr.SequencerHDPathFlag
 )
 
 var requiredFlags = []cli.Flag{
@@ -91,6 +93,7 @@ var optionalFlags = []cli.Flag{
 	MaxChannelDurationFlag,
 	MaxL1TxSizeBytesFlag,
 	StoppedFlag,
+	SequencerHDPathFlag,
 }
 
 func init() {

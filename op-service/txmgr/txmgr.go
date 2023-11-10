@@ -124,9 +124,9 @@ func NewSimpleTxManagerFromConfig(name string, l log.Logger, m metrics.TxMetrice
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 	return &SimpleTxManager{
+		Config:  conf,
 		chainID: conf.ChainID,
 		name:    name,
-		Config:  conf,
 		backend: conf.Backend,
 		l:       l.New("service", name),
 		metr:    m,
@@ -187,9 +187,9 @@ func (m *SimpleTxManager) Call(ctx context.Context, msg ethereum.CallMsg, blockN
 
 // send performs the actual transaction creation and sending.
 func (m *SimpleTxManager) send(ctx context.Context, candidate TxCandidate) (*types.Receipt, error) {
-	if m.TxSendTimeout != 0 {
+	if m.Config.TxSendTimeout != 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, m.TxSendTimeout)
+		ctx, cancel = context.WithTimeout(ctx, m.Config.TxSendTimeout)
 		defer cancel()
 	}
 	tx, err := retry.Do(ctx, 30, retry.Fixed(2*time.Second), func() (*types.Transaction, error) {
@@ -231,7 +231,7 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		AccessList: candidate.AccessList,
 	}
 
-	m.l.Info("Creating tx", "to", rawTx.To, "from", m.From())
+	m.l.Info("Creating tx", "to", rawTx.To, "from", m.Config.From)
 
 	// If the gas limit is set, we can use that as the gas
 	if candidate.GasLimit != 0 {
@@ -259,9 +259,9 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 	}
 	rawTx.Nonce = nonce
 
-	ctx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+	ctx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
-	return m.Signer(ctx, m.Config.From, types.NewTx(rawTx))
+	return m.Config.Signer(ctx, m.Config.From, types.NewTx(rawTx))
 }
 
 // nextNonce returns a nonce to use for the next transaction. It uses
@@ -274,7 +274,7 @@ func (m *SimpleTxManager) nextNonce(ctx context.Context) (uint64, error) {
 
 	if m.nonce == nil {
 		// Fetch the sender's nonce from the latest known block (nil `blockNumber`)
-		childCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+		childCtx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 		defer cancel()
 		nonce, err := m.backend.NonceAt(childCtx, m.Config.From, nil)
 		if err != nil {
@@ -306,7 +306,7 @@ func (m *SimpleTxManager) sendTx(ctx context.Context, tx *types.Transaction) (*t
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	sendState := NewSendState(m.SafeAbortNonceTooLowCount, m.TxNotInMempoolTimeout)
+	sendState := NewSendState(m.Config.SafeAbortNonceTooLowCount, m.Config.TxNotInMempoolTimeout)
 	receiptChan := make(chan *types.Receipt, 1)
 	sendTxAsync := func(tx *types.Transaction) {
 		defer wg.Done()
@@ -317,7 +317,7 @@ func (m *SimpleTxManager) sendTx(ctx context.Context, tx *types.Transaction) (*t
 	wg.Add(1)
 	go sendTxAsync(tx)
 
-	ticker := time.NewTicker(m.ResubmissionTimeout)
+	ticker := time.NewTicker(m.Config.ResubmissionTimeout)
 	defer ticker.Stop()
 
 	bumpCounter := 0
@@ -372,7 +372,7 @@ func (m *SimpleTxManager) publishAndWaitForTx(ctx context.Context, tx *types.Tra
 	log := m.l.New("hash", tx.Hash(), "nonce", tx.Nonce(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
 	log.Info("Publishing transaction")
 
-	cCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+	cCtx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
 	t := time.Now()
 	err := m.backend.SendTransaction(cCtx, tx)
@@ -424,7 +424,7 @@ func (m *SimpleTxManager) publishAndWaitForTx(ctx context.Context, tx *types.Tra
 // waitMined waits for the transaction to be mined or for the context to be cancelled.
 func (m *SimpleTxManager) waitMined(ctx context.Context, tx *types.Transaction, sendState *SendState) (*types.Receipt, error) {
 	txHash := tx.Hash()
-	queryTicker := time.NewTicker(m.ReceiptQueryInterval)
+	queryTicker := time.NewTicker(m.Config.ReceiptQueryInterval)
 	defer queryTicker.Stop()
 	for {
 		select {
@@ -440,7 +440,7 @@ func (m *SimpleTxManager) waitMined(ctx context.Context, tx *types.Transaction, 
 
 // queryReceipt queries for the receipt and returns the receipt if it has passed the confirmation depth
 func (m *SimpleTxManager) queryReceipt(ctx context.Context, txHash common.Hash, sendState *SendState) *types.Receipt {
-	ctx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+	ctx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
 	receipt, err := m.backend.TransactionReceipt(ctx, txHash)
 	if errors.Is(err, ethereum.NotFound) {
@@ -468,7 +468,7 @@ func (m *SimpleTxManager) queryReceipt(ctx context.Context, txHash common.Hash, 
 	}
 
 	m.l.Debug("Transaction mined, checking confirmations", "hash", txHash, "txHeight", txHeight,
-		"tipHeight", tipHeight, "numConfirmations", m.NumConfirmations)
+		"tipHeight", tipHeight, "numConfirmations", m.Config.NumConfirmations)
 
 	// The transaction is considered confirmed when
 	// txHeight+numConfirmations-1 <= tipHeight. Note that the -1 is
@@ -477,13 +477,13 @@ func (m *SimpleTxManager) queryReceipt(ctx context.Context, txHash common.Hash, 
 	// transaction should be confirmed when txHeight is equal to
 	// tipHeight. The equation is rewritten in this form to avoid
 	// underflows.
-	if txHeight+m.NumConfirmations <= tipHeight+1 {
+	if txHeight+m.Config.NumConfirmations <= tipHeight+1 {
 		m.l.Info("Transaction confirmed", "hash", txHash)
 		return receipt
 	}
 
 	// Safe to subtract since we know the LHS above is greater.
-	confsRemaining := (txHeight + m.NumConfirmations) - (tipHeight + 1)
+	confsRemaining := (txHeight + m.Config.NumConfirmations) - (tipHeight + 1)
 	m.l.Debug("Transaction not yet confirmed", "hash", txHash, "confsRemaining", confsRemaining)
 	return nil
 }
@@ -526,7 +526,7 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 
 	// Re-estimate gaslimit in case things have changed or a previous gaslimit estimate was wrong
 	gas, err := m.backend.EstimateGas(ctx, ethereum.CallMsg{
-		From:      m.From(),
+		From:      m.Config.From,
 		To:        rawTx.To,
 		GasFeeCap: bumpedTip,
 		GasTipCap: bumpedFee,
@@ -545,9 +545,9 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 	}
 	rawTx.Gas = gas
 
-	ctx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+	ctx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
-	newTx, err := m.Signer(ctx, m.Config.From, types.NewTx(rawTx))
+	newTx, err := m.Config.Signer(ctx, m.Config.From, types.NewTx(rawTx))
 	if err != nil {
 		m.l.Warn("failed to sign new transaction", "err", err)
 		return tx, nil
@@ -557,7 +557,7 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 
 // SuggestGasPriceCaps suggests what the new tip & new basefee should be based on the current L1 conditions
 func (m *SimpleTxManager) SuggestGasPriceCaps(ctx context.Context) (*big.Int, *big.Int, error) {
-	cCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+	cCtx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
 	tip, err := m.backend.SuggestGasTipCap(cCtx)
 	if err != nil {
@@ -566,7 +566,7 @@ func (m *SimpleTxManager) SuggestGasPriceCaps(ctx context.Context) (*big.Int, *b
 	} else if tip == nil {
 		return nil, nil, errors.New("the suggested tip was nil")
 	}
-	cCtx, cancel = context.WithTimeout(ctx, m.NetworkTimeout)
+	cCtx, cancel = context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
 	head, err := m.backend.HeaderByNumber(cCtx, nil)
 	if err != nil {

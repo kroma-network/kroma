@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,13 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
-// TestCrossLayerUser tests that common actions of the CrossLayerUser actor work:
+type regolithScheduledTest struct {
+	name             string
+	regolithTime     *hexutil.Uint64
+	activateRegolith bool
+}
+
+// TestCrossLayerUser tests that common actions of the CrossLayerUser actor work in various regolith configurations:
 // - transact on L1
 // - transact on L2
 // - deposit on L1
@@ -20,11 +27,38 @@ import (
 // - prove tx on L1
 // - wait 1 week + 1 second
 // - finalize withdrawal on L1
-func TestCrossLayerUser(gt *testing.T) {
+func TestCrossLayerUser(t *testing.T) {
+	zeroTime := hexutil.Uint64(0)
+	futureTime := hexutil.Uint64(20)
+	farFutureTime := hexutil.Uint64(2000)
+	tests := []regolithScheduledTest{
+		{name: "NoRegolith", regolithTime: nil, activateRegolith: false},
+		{name: "NotYetRegolith", regolithTime: &farFutureTime, activateRegolith: false},
+		{name: "RegolithAtGenesis", regolithTime: &zeroTime, activateRegolith: true},
+		{name: "RegolithAfterGenesis", regolithTime: &futureTime, activateRegolith: true},
+	}
+	for _, test := range tests {
+		test := test // Use a fixed reference as the tests run in parallel
+		t.Run(test.name, func(gt *testing.T) {
+			runCrossLayerUserTest(gt, test)
+		})
+	}
+}
+
+func runCrossLayerUserTest(gt *testing.T, test regolithScheduledTest) {
+	// [Kroma: START]
+	if test.regolithTime == nil || *test.regolithTime != hexutil.Uint64(0) {
+		gt.Skip("kroma does not support pre-regolith")
+	}
+	// [Kroma: END]
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
+	dp.DeployConfig.L2GenesisRegolithTimeOffset = test.regolithTime
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
+
+	require.Equal(t, dp.Secrets.Addresses().Batcher, dp.DeployConfig.BatchSenderAddress)
+	require.Equal(t, dp.Secrets.Addresses().TrustedValidator, dp.DeployConfig.ValidatorPoolTrustedValidator)
 
 	miner, seqEngine, seq := setupSequencerTest(t, sd, log)
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
@@ -54,7 +88,7 @@ func TestCrossLayerUser(gt *testing.T) {
 		EthCl:          l1Cl,
 		Signer:         types.LatestSigner(sd.L1Cfg.Config),
 		AddressCorpora: addresses,
-		Bindings:       NewL1Bindings(t, l1Cl, &sd.DeploymentsL1),
+		Bindings:       NewL1Bindings(t, l1Cl),
 	}
 	l2UserEnv := &BasicUserEnv[*L2Bindings]{
 		EthCl:          l2Cl,
@@ -63,13 +97,26 @@ func TestCrossLayerUser(gt *testing.T) {
 		Bindings:       NewL2Bindings(t, l2Cl, l2ProofCl),
 	}
 
-	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(1234)), sd.RollupCfg)
+	alice := NewCrossLayerUser(log, dp.Secrets.Alice, rand.New(rand.NewSource(1234)))
 	alice.L1.SetUserEnv(l1UserEnv)
 	alice.L2.SetUserEnv(l2UserEnv)
 
 	// Build at least one l2 block so we have an unsafe head with a deposit info tx (genesis block doesn't)
 	seq.ActL2StartBlock(t)
 	seq.ActL2EndBlock(t)
+
+	if test.activateRegolith {
+		// advance L2 enough to activate regolith fork
+		seq.ActBuildL2ToRegolith(t)
+	}
+	// Check Regolith is active or not by confirming the system info tx is not a system tx
+	infoTx, err := l2Cl.TransactionInBlock(t.Ctx(), seq.L2Unsafe().Hash, 0)
+	require.NoError(t, err)
+	require.True(t, infoTx.IsDepositTx())
+	// Should only be a system tx if regolith is not enabled
+	// [Kroma: START]
+	// require.Equal(t, !test.activateRegolith, infoTx.IsSystemTx())
+	// [Kroma: END]
 
 	// regular L2 tx, in new L2 block
 	alice.L2.ActResetTxOpts(t)
@@ -112,6 +159,7 @@ func TestCrossLayerUser(gt *testing.T) {
 	seq.ActL2EndBlock(t)
 	alice.ActCheckStartWithdrawal(true)(t)
 
+	// [Kroma: START]
 	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
 	// config is set) block to pass after each submission interval before submitting the output
 	// root. For example, if the submission interval is set to 1800 blocks, the output root can
@@ -155,6 +203,7 @@ func TestCrossLayerUser(gt *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "submission failed")
 	}
+	// [Kroma: END]
 
 	// prove our withdrawal on L1
 	alice.ActProveWithdrawal(t)
@@ -168,7 +217,9 @@ func TestCrossLayerUser(gt *testing.T) {
 	// A bit hacky- Mines an empty block with the time delta
 	// of the finalization period (12s) + 1 in order for the
 	// withdrawal to be finalized successfully.
-	miner.ActL1StartBlock(13)(t)
+	// [Kroma: START]
+	miner.ActL1StartBlock(dp.DeployConfig.FinalizationPeriodSeconds + 1)(t)
+	// [Kroma: END]
 	miner.ActL1EndBlock(t)
 
 	// make the L1 finalize withdrawal tx

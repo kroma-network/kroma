@@ -8,11 +8,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/solc"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-
-	"github.com/ethereum-optimism/optimism/op-bindings/solc"
 )
 
 // EncodeStorageKeyValue encodes the key value pair that is stored in state

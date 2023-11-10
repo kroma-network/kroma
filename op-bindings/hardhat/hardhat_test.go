@@ -3,9 +3,9 @@ package hardhat_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetFullyQualifiedName(t *testing.T) {
@@ -105,7 +105,7 @@ func TestHardhatGetArtifact(t *testing.T) {
 	t.Parallel()
 
 	hh, err := hardhat.New(
-		"sepolia",
+		"goerli",
 		[]string{"testdata/artifacts"},
 		[]string{"testdata/deployments"},
 	)
@@ -120,7 +120,7 @@ func TestHardhatGetBuildInfo(t *testing.T) {
 	t.Parallel()
 
 	hh, err := hardhat.New(
-		"sepolia",
+		"goerli",
 		[]string{"testdata/artifacts"},
 		[]string{"testdata/deployments"},
 	)
@@ -135,13 +135,13 @@ func TestHardhatGetDeployments(t *testing.T) {
 	t.Parallel()
 
 	hh, err := hardhat.New(
-		"sepolia",
+		"goerli",
 		[]string{"testdata/artifacts"},
 		[]string{"testdata/deployments"},
 	)
 	require.Nil(t, err)
 
-	deployment, err := hh.GetDeployment("KromaPortal")
+	deployment, err := hh.GetDeployment("OptimismPortal")
 	require.Nil(t, err)
 	require.NotNil(t, deployment)
 }
@@ -164,7 +164,7 @@ func TestHardhatGetStorageLayout(t *testing.T) {
 	t.Parallel()
 
 	hh, err := hardhat.New(
-		"sepolia",
+		"goerli",
 		[]string{"testdata/artifacts"},
 		[]string{"testdata/deployments"},
 	)

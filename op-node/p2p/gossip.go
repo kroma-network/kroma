@@ -10,15 +10,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/golang/snappy"
 	lru "github.com/hashicorp/golang-lru/v2"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -47,8 +48,10 @@ const (
 // Message domains, the msg id function uncompresses to keep data monomorphic,
 // but invalid compressed data will need a unique different id.
 
-var MessageDomainInvalidSnappy = [4]byte{0, 0, 0, 0}
-var MessageDomainValidSnappy = [4]byte{1, 0, 0, 0}
+var (
+	MessageDomainInvalidSnappy = [4]byte{0, 0, 0, 0}
+	MessageDomainValidSnappy   = [4]byte{1, 0, 0, 0}
+)
 
 type GossipSetupConfigurables interface {
 	PeerScoringParams() *ScoringParams
@@ -239,7 +242,6 @@ func (sb *seenBlocks) markSeen(h common.Hash) {
 }
 
 func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRuntimeConfig) pubsub.ValidatorEx {
-
 	// Seen block hashes per block height
 	// uint64 -> *seenBlocks
 	blockHeightLRU, err := lru.New[uint64, *seenBlocks](1000)
@@ -479,8 +481,10 @@ func JoinGossip(self peer.ID, ps *pubsub.PubSub, log log.Logger, cfg *rollup.Con
 	}, nil
 }
 
-type TopicSubscriber func(ctx context.Context, sub *pubsub.Subscription)
-type MessageHandler func(ctx context.Context, from peer.ID, msg any) error
+type (
+	TopicSubscriber func(ctx context.Context, sub *pubsub.Subscription)
+	MessageHandler  func(ctx context.Context, from peer.ID, msg any) error
+)
 
 func BlocksHandler(onBlock func(ctx context.Context, from peer.ID, msg *eth.ExecutionPayload) error) MessageHandler {
 	return func(ctx context.Context, from peer.ID, msg any) error {

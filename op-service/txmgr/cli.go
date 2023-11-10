@@ -7,13 +7,14 @@ import (
 	"math/big"
 	"time"
 
-	opservice "github.com/ethereum-optimism/optimism/op-service"
-	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
-	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
+
+	opservice "github.com/ethereum-optimism/optimism/op-service"
+	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 )
 
 const (
@@ -34,6 +35,21 @@ const (
 	// [Kroma: START]
 	BufferSizeFlagName = "txmgr.buffer-size"
 	// [Kroma: END]
+)
+
+var (
+	SequencerHDPathFlag = &cli.StringFlag{
+		Name: "sequencer-hd-path",
+		Usage: "DEPRECATED: The HD path used to derive the sequencer wallet from the " +
+			"mnemonic. The mnemonic flag must also be set.",
+		EnvVars: []string{"OP_BATCHER_SEQUENCER_HD_PATH"},
+	}
+	L2OutputHDPathFlag = &cli.StringFlag{
+		Name: "l2-output-hd-path",
+		Usage: "DEPRECATED:The HD path used to derive the l2output wallet from the " +
+			"mnemonic. The mnemonic flag must also be set.",
+		EnvVars: []string{"OP_PROPOSER_L2_OUTPUT_HD_PATH"},
+	}
 )
 
 type DefaultFlagValues struct {
@@ -58,6 +74,17 @@ var (
 		ReceiptQueryInterval:      12 * time.Second,
 		TxBufferSize:              uint64(10),
 	}
+	// [Kroma: START]
+	// DefaultChallengerFlagValues = DefaultFlagValues{
+	// 	NumConfirmations:          uint64(3),
+	// 	SafeAbortNonceTooLowCount: uint64(3),
+	// 	ResubmissionTimeout:       24 * time.Second,
+	// 	NetworkTimeout:            10 * time.Second,
+	// 	TxSendTimeout:             2 * time.Minute,
+	// 	TxNotInMempoolTimeout:     1 * time.Minute,
+	// 	ReceiptQueryInterval:      12 * time.Second,
+	// }
+	// [Kroma: END]
 )
 
 func CLIFlags(envPrefix string) []cli.Flag {
@@ -136,13 +163,11 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 }
 
 type CLIConfig struct {
-	L1RPCURL string
-	Mnemonic string
-	HDPath   string
-	// [Kroma: START]
-	// SequencerHDPath           string
-	// L2OutputHDPath            string
-	// [Kroma: END]
+	L1RPCURL                  string
+	Mnemonic                  string
+	HDPath                    string
+	SequencerHDPath           string
+	L2OutputHDPath            string
 	PrivateKey                string
 	SignerCLIConfig           opsigner.CLIConfig
 	NumConfirmations          uint64
@@ -206,6 +231,8 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		L1RPCURL:                  ctx.String(L1RPCFlagName),
 		Mnemonic:                  ctx.String(MnemonicFlagName),
 		HDPath:                    ctx.String(HDPathFlagName),
+		SequencerHDPath:           ctx.String(SequencerHDPathFlag.Name),
+		L2OutputHDPath:            ctx.String(L2OutputHDPathFlag.Name),
 		PrivateKey:                ctx.String(PrivateKeyFlagName),
 		SignerCLIConfig:           opsigner.ReadCLIConfig(ctx),
 		NumConfirmations:          ctx.Uint64(NumConfirmationsFlagName),
@@ -238,7 +265,15 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		return Config{}, fmt.Errorf("could not dial fetch L1 chain ID: %w", err)
 	}
 
-	signerFactory, from, err := opcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, cfg.HDPath, cfg.SignerCLIConfig)
+	// Allow backwards compatible ways of specifying the HD path
+	hdPath := cfg.HDPath
+	if hdPath == "" && cfg.SequencerHDPath != "" {
+		hdPath = cfg.SequencerHDPath
+	} else if hdPath == "" && cfg.L2OutputHDPath != "" {
+		hdPath = cfg.L2OutputHDPath
+	}
+
+	signerFactory, from, err := opcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
 	if err != nil {
 		return Config{}, fmt.Errorf("could not init signer: %w", err)
 	}

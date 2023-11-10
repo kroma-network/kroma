@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
-import { ethers } from 'ethers'
-import { HardhatUserConfig } from 'hardhat/config'
+import {ethers} from 'ethers'
+import {HardhatUserConfig} from 'hardhat/config'
 
 // Hardhat plugins
 import '@foundry-rs/hardhat-forge'
@@ -12,11 +12,12 @@ import 'hardhat-deploy'
 import './tasks'
 
 // Deploy configuration
-import { deployConfigSpec } from './src/deploy-config'
+import {deployConfigSpec} from './src/deploy-config'
 
 // Load environment variables
 dotenv.config()
 
+// 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 const PRIVATE_KEY_DEPLOYER_DEVNET =
   'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
@@ -71,11 +72,14 @@ const config: HardhatUserConfig = {
       live: false,
       url: 'http://localhost:8545',
       accounts: [PRIVATE_KEY_DEPLOYER_DEVNET],
+      saveDeployments: true,
+      deploy: ['./deploy/L1'],
     },
     devnetL2: {
       live: false,
       url: process.env.RPC_URL || 'http://localhost:9545',
       accounts: [PRIVATE_KEY_DEPLOYER_DEVNET],
+      deploy: ['./deploy/L2'],
     },
   },
   foundry: {
@@ -108,13 +112,19 @@ const config: HardhatUserConfig = {
       {
         version: '0.8.15',
         settings: {
-          optimizer: { enabled: true, runs: 10_000 },
+          optimizer: {
+            enabled: true,
+            runs: 10_000,
+          },
         },
       },
       {
         version: '0.5.17', // Required for WETH9
         settings: {
-          optimizer: { enabled: true, runs: 10_000 },
+          optimizer: {
+            enabled: true,
+            runs: 10_000,
+          },
         },
       },
     ],

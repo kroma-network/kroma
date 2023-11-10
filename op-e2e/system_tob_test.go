@@ -23,14 +23,14 @@ import (
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 // TestGasPriceOracleFeeUpdates checks that the gas price oracle cannot be locked by mis-configuring parameters.
@@ -52,10 +52,10 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	l1Client := sys.Clients["l1"]
 	l2Seq := sys.Clients["sequencer"]
 	// l2Verif := sys.Clients["verifier"]
-	ethPrivKey := cfg.Secrets.ProxyAdminOwner
+	ethPrivKey := cfg.Secrets.SysCfgOwner
 
 	// Bind to the SystemConfig & GasPriceOracle contracts
-	sysconfig, err := bindings.NewSystemConfig(predeploys.DevSystemConfigAddr, l1Client)
+	sysconfig, err := bindings.NewSystemConfig(cfg.L1Deployments.SystemConfigProxy, l1Client)
 	require.Nil(t, err)
 	gpoContract, err := bindings.NewGasPriceOracleCaller(predeploys.GasPriceOracleAddr, l2Seq)
 	require.Nil(t, err)
@@ -400,7 +400,8 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			// Create our system configuration, funding all accounts we created for L1/L2, and start it
 			cfg := DefaultSystemConfig(t)
 			cfg.DeployConfig.L2BlockTime = 2
-			cfg.DeployConfig.FinalizationPeriodSeconds = 6
+			cfg.DeployConfig.ValidatorPoolRoundDuration = cfg.DeployConfig.L2OutputOracleSubmissionInterval
+			require.LessOrEqual(t, cfg.DeployConfig.FinalizationPeriodSeconds, uint64(600))
 			require.Equal(t, cfg.DeployConfig.FundDevAccounts, true)
 			sys, err := cfg.Start(t)
 			require.NoError(t, err, "error starting up system")
@@ -412,18 +413,36 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			l2Verif := sys.Clients["verifier"]
 			require.NoError(t, err)
 
+			systemConfig, err := bindings.NewSystemConfigCaller(cfg.L1Deployments.SystemConfigProxy, l1Client)
+			require.NoError(t, err)
+			unsafeBlockSigner, err := systemConfig.UnsafeBlockSigner(nil)
+			require.NoError(t, err)
+			require.Equal(t, cfg.DeployConfig.P2PSequencerAddress, unsafeBlockSigner)
+
 			// The batcher has balance on L1
 			batcherBalance, err := l1Client.BalanceAt(context.Background(), cfg.DeployConfig.BatchSenderAddress, nil)
 			require.NoError(t, err)
 			require.NotEqual(t, batcherBalance, big.NewInt(0))
 
+			// The proposer has balance on L1
+			proposerBalance, err := l1Client.BalanceAt(context.Background(), cfg.DeployConfig.ValidatorPoolTrustedValidator, nil)
+			require.NoError(t, err)
+			require.NotEqual(t, proposerBalance, big.NewInt(0))
+
 			// Define our L1 transaction timeout duration.
 			txTimeoutDuration := 10 * time.Duration(cfg.DeployConfig.L1BlockTime) * time.Second
 
 			// Bind to the deposit contract
-			depositContract, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
+			depositContract, err := bindings.NewKromaPortal(cfg.L1Deployments.KromaPortalProxy, l1Client)
 			_ = depositContract
 			require.NoError(t, err)
+
+			l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
+			require.NoError(t, err)
+
+			finalizationPeriod, err := l2OutputOracle.FINALIZATIONPERIODSECONDS(nil)
+			require.NoError(t, err)
+			require.Equal(t, cfg.DeployConfig.FinalizationPeriodSeconds, finalizationPeriod.Uint64())
 
 			// Create a struct used to track our transactors and their transactions sent.
 			type TestAccountState struct {
@@ -518,7 +537,8 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 
 			// Wait for the finalization period, then we can finalize this withdrawal.
 			ctx, cancel = context.WithTimeout(context.Background(), 40*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
-			blockNumber, err := wait.ForOutputRootPublished(ctx, l1Client, predeploys.DevL2OutputOracleAddr, receipt.BlockNumber)
+			require.NotEqual(t, cfg.L1Deployments.L2OutputOracleProxy, common.Address{})
+			blockNumber, err := wait.ForOutputRootPublished(ctx, l1Client, cfg.L1Deployments.L2OutputOracleProxy, receipt.BlockNumber)
 			cancel()
 			require.Nil(t, err)
 
@@ -531,13 +551,6 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			nextHeader, err := l2Verif.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber+1))
 			cancel()
 			require.Nil(t, err)
-
-			l2OutputOracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
-			require.Nil(t, err)
-
-			finalizationPeriod, err := l2OutputOracle.FINALIZATIONPERIODSECONDS(nil)
-			require.NoError(t, err)
-			require.Equal(t, cfg.DeployConfig.FinalizationPeriodSeconds, finalizationPeriod.Uint64())
 
 			rpcClient, err := rpc.Dial(sys.EthInstances["verifier"].WSEndpoint())
 			require.Nil(t, err)
@@ -657,9 +670,11 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 				require.Equal(t, types.ReceiptStatusSuccessful, proveReceipt.Status)
 
 				// Wait for finalization and then create the Finalized Withdrawal Transaction
-				ctx, cancel = context.WithTimeout(context.Background(), 45*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+				// [Kroma: START]
+				ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+				// [Kroma: END]
 				defer cancel()
-				err = wait.ForFinalizationPeriod(ctx, l1Client, header.Number, predeploys.DevL2OutputOracleAddr) //////
+				err = wait.ForFinalizationPeriod(ctx, l1Client, header.Number, cfg.L1Deployments.L2OutputOracleProxy)
 				require.Nil(t, err)
 
 				// Finalize withdrawal

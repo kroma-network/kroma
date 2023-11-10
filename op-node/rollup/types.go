@@ -69,19 +69,17 @@ type Config struct {
 	// Required to identify the L2 network and create p2p signatures unique for this chain.
 	L2ChainID *big.Int `json:"l2_chain_id"`
 
-	// [Kroma: START]
 	// RegolithTime sets the activation time of the Regolith network-upgrade:
 	// a pre-mainnet Bedrock change that addresses findings of the Sherlock contest related to deposit attributes.
 	// "Regolith" is the loose deposited rock that sits on top of Bedrock.
 	// Active if RegolithTime != nil && L2 block timestamp >= *RegolithTime, inactive otherwise.
-	//RegolithTime *uint64 `json:"regolith_time,omitempty"`
-	//
+	RegolithTime *uint64 `json:"regolith_time,omitempty"`
+
 	// CanyonTime  sets the activation time of the next network upgrade.
 	// Active if CanyonTime != nil && L2 block timestamp >= *CanyonTime, inactive otherwise.
-	//CanyonTime *uint64 `json:"canyon_time,omitempty"`
-	//
-	//SpanBatchTime *uint64 `json:"span_batch_time,omitempty"`
-	// [Kroma: END]
+	CanyonTime *uint64 `json:"canyon_time,omitempty"`
+
+	SpanBatchTime *uint64 `json:"span_batch_time,omitempty"`
 
 	// Note: below addresses are part of the block-derivation process,
 	// and required to be the same network-wide to stay in consensus.
@@ -120,6 +118,7 @@ func (cfg *Config) ValidateL2Config(ctx context.Context, client L2Client) error 
 	if err := cfg.CheckL2ChainID(ctx, client); err != nil {
 		return err
 	}
+
 	// Validate the Rollup L2 Genesis Blockhash
 	if err := cfg.CheckL2GenesisBlockHash(ctx, client); err != nil {
 		return err
@@ -263,8 +262,18 @@ func (c *Config) L1Signer() types.Signer {
 	return types.NewLondonSigner(c.L1ChainID)
 }
 
-func (c *Config) ComputeTimestamp(blockNum uint64) uint64 {
-	return c.Genesis.L2Time + blockNum*c.BlockTime
+// IsRegolith returns true if the Regolith hardfork is active at or past the given timestamp.
+func (c *Config) IsRegolith(timestamp uint64) bool {
+	return c.RegolithTime != nil && timestamp >= *c.RegolithTime
+}
+
+// IsCanyon returns true if the Canyon hardfork is active at or past the given timestamp.
+func (c *Config) IsCanyon(timestamp uint64) bool {
+	return c.CanyonTime != nil && timestamp >= *c.CanyonTime
+}
+
+func (c *Config) IsSpanBatch(timestamp uint64) bool {
+	return c.SpanBatchTime != nil && timestamp >= *c.SpanBatchTime
 }
 
 // Description outputs a banner describing the important parts of rollup configuration in a human-readable form.
@@ -287,10 +296,15 @@ func (c *Config) Description(l2Chains map[string]string) string {
 	banner += fmt.Sprintf("L2 Chain ID: %v (%s)\n", c.L2ChainID, networkL2)
 	banner += fmt.Sprintf("L1 Chain ID: %v (%s)\n", c.L1ChainID, networkL1)
 	// Report the genesis configuration
-	banner += "Kroma starting point:\n"
+	banner += "Bedrock starting point:\n"
 	banner += fmt.Sprintf("  L2 starting time: %d ~ %s\n", c.Genesis.L2Time, fmtTime(c.Genesis.L2Time))
 	banner += fmt.Sprintf("  L2 block: %s %d\n", c.Genesis.L2.Hash, c.Genesis.L2.Number)
 	banner += fmt.Sprintf("  L1 block: %s %d\n", c.Genesis.L1.Hash, c.Genesis.L1.Number)
+	// Report the upgrade configuration
+	banner += "Post-Bedrock Network Upgrades (timestamp based):\n"
+	banner += fmt.Sprintf("  - Regolith: %s\n", fmtForkTimeOrUnset(c.RegolithTime))
+	banner += fmt.Sprintf("  - Canyon: %s\n", fmtForkTimeOrUnset(c.CanyonTime))
+	banner += fmt.Sprintf("  - SpanBatch: %s\n", fmtForkTimeOrUnset(c.SpanBatchTime))
 	return banner
 }
 
@@ -313,7 +327,10 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 	log.Info("Rollup Config", "l2_chain_id", c.L2ChainID, "l2_network", networkL2, "l1_chain_id", c.L1ChainID,
 		"l1_network", networkL1, "l2_start_time", c.Genesis.L2Time, "l2_block_hash", c.Genesis.L2.Hash.String(),
 		"l2_block_number", c.Genesis.L2.Number, "l1_block_hash", c.Genesis.L1.Hash.String(),
-		"l1_block_number", c.Genesis.L1.Number)
+		"l1_block_number", c.Genesis.L1.Number, "regolith_time", fmtForkTimeOrUnset(c.RegolithTime),
+		"canyon_time", fmtForkTimeOrUnset(c.CanyonTime),
+		"span_batch_time", fmtForkTimeOrUnset(c.SpanBatchTime),
+	)
 }
 
 func fmtForkTimeOrUnset(v *uint64) string {

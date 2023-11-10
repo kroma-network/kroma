@@ -3,11 +3,12 @@ package derive
 import (
 	"testing"
 
+	fuzz "github.com/google/gofuzz"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
-	fuzz "github.com/google/gofuzz"
-	"github.com/stretchr/testify/require"
 )
 
 // FuzzParseL1InfoDepositTxDataValid is a fuzz test built from TestParseL1InfoDepositTxData, which constructs random
@@ -27,7 +28,7 @@ func FuzzParseL1InfoDepositTxDataValid(f *testing.F) {
 		typeProvider.Fuzz(&sysCfg)
 
 		// Create our deposit tx from our info
-		depTx, err := L1InfoDeposit(seqNr, &l1Info, sysCfg)
+		depTx, err := L1InfoDeposit(seqNr, &l1Info, sysCfg, false)
 		require.NoError(t, err, "error creating deposit tx from L1 info")
 
 		// Get our info from out deposit tx
@@ -73,7 +74,7 @@ func FuzzDecodeDepositTxDataToL1Info(f *testing.F) {
 			ValidatorRewardScalar: res.ValidatorRewardScalar,
 		}
 
-		depTx, err := L1InfoDeposit(res.SequenceNumber, &l1Info, sysCfg)
+		depTx, err := L1InfoDeposit(res.SequenceNumber, &l1Info, sysCfg, false)
 		require.NoError(t, err, "error creating deposit tx from L1 info")
 		require.Equal(t, depTx.Data, fuzzedData)
 	})

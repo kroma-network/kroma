@@ -1,6 +1,8 @@
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
 import { deployProxy, getDeploymentAddress } from '../../src/deploy-utils'
+import fs from 'fs'
+import path from 'path'
 
 const PROXY_NAMES = [
   'SystemConfigProxy',

@@ -11,10 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
 var testingJWTSecret = [32]byte{123}
@@ -54,92 +54,21 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	secrets, err := mnemonicCfg.Secrets()
 	require.NoError(t, err)
 	addresses := secrets.Addresses()
-	deployConfig := &genesis.DeployConfig{
-		L1ChainID:   900,
-		L2ChainID:   901,
-		L2BlockTime: 2,
 
-		MaxSequencerDrift:   tp.MaxSequencerDrift,
-		SequencerWindowSize: tp.SequencerWindowSize,
-		ChannelTimeout:      tp.ChannelTimeout,
-		P2PSequencerAddress: addresses.SequencerP2P,
-		BatchInboxAddress:   common.Address{0: 0x42, 19: 0xff}, // tbd
-		BatchSenderAddress:  addresses.Batcher,
+	deployConfig := config.DeployConfig.Copy()
+	deployConfig.MaxSequencerDrift = tp.MaxSequencerDrift
+	deployConfig.SequencerWindowSize = tp.SequencerWindowSize
+	deployConfig.ChannelTimeout = tp.ChannelTimeout
+	deployConfig.L1BlockTime = tp.L1BlockTime
+	// [Kroma: START]
+	// deployConfig.L2GenesisRegolithTimeOffset = nil
+	// [Kroma: END]
+	deployConfig.L2GenesisSpanBatchTimeOffset = SpanBatchTimeOffset()
 
-		ValidatorPoolTrustedValidator:   addresses.TrustedValidator,
-		ValidatorPoolRequiredBondAmount: uint64ToBig(1),
-		ValidatorPoolMaxUnbond:          10,
-		ValidatorPoolRoundDuration:      4,
-
-		L2OutputOracleSubmissionInterval: 4,
-		L2OutputOracleStartingTimestamp:  -1,
-
-		L1BlockTime:                 tp.L1BlockTime,
-		L1GenesisBlockNonce:         0,
-		CliqueSignerAddress:         common.Address{}, // proof of stake, no clique
-		L1GenesisBlockTimestamp:     hexutil.Uint64(time.Now().Unix()),
-		L1GenesisBlockGasLimit:      30_000_000,
-		L1GenesisBlockDifficulty:    uint64ToBig(1),
-		L1GenesisBlockMixHash:       common.Hash{},
-		L1GenesisBlockCoinbase:      common.Address{},
-		L1GenesisBlockNumber:        0,
-		L1GenesisBlockGasUsed:       0,
-		L1GenesisBlockParentHash:    common.Hash{},
-		L1GenesisBlockBaseFeePerGas: uint64ToBig(1000_000_000), // 1 gwei
-		FinalizationPeriodSeconds:   10,
-
-		L2GenesisBlockNonce:         0,
-		L2GenesisBlockGasLimit:      30_000_000,
-		L2GenesisBlockDifficulty:    uint64ToBig(0),
-		L2GenesisBlockMixHash:       common.Hash{},
-		L2GenesisBlockNumber:        0,
-		L2GenesisBlockGasUsed:       0,
-		L2GenesisBlockParentHash:    common.Hash{},
-		L2GenesisBlockBaseFeePerGas: uint64ToBig(1000_000_000),
-
-		ColosseumCreationPeriodSeconds: 10,
-		ColosseumBisectionTimeout:      120,
-		ColosseumProvingTimeout:        480,
-		ColosseumDummyHash:             common.HexToHash("0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7"),
-		ColosseumMaxTxs:                100,
-		ColosseumSegmentsLengths:       "2,2,3,3",
-
-		SecurityCouncilOwners: []common.Address{
-			addresses.Challenger1,
-			addresses.Challenger2,
-			addresses.TrustedValidator,
-		},
-
-		GasPriceOracleOverhead:      2100,
-		GasPriceOracleScalar:        1000_000,
-		DeploymentWaitConfirmations: 1,
-		ValidatorRewardScalar:       5000,
-
-		ProxyAdminOwner:        addresses.ProxyAdminOwner,
-		ProtocolVaultRecipient: common.Address{19: 2},
-		L1FeeVaultRecipient:    common.Address{19: 3},
-
-		EIP1559Elasticity:  10,
-		EIP1559Denominator: 50,
-
-		FundDevAccounts: false,
-
-		GovernorVotingDelayBlocks:          0,
-		GovernorVotingPeriodBlocks:         25,
-		GovernorProposalThreshold:          1,
-		GovernorVotesQuorumFractionPercent: 51,
-		TimeLockMinDelaySeconds:            1,
-
-		ZKVerifierHashScalar: (*hexutil.Big)(hexutil.MustDecodeBig("0x1545b1bf82c58ee35648bd877da9c5010193e82b036b16bf382acf31bc2ab576")),
-		ZKVerifierM56Px:      (*hexutil.Big)(hexutil.MustDecodeBig("0x15ae1a8e3b993dd9aadc8f9086d1ea239d4cd5c09cfa445f337e1b60d7b3eb87")),
-		ZKVerifierM56Py:      (*hexutil.Big)(hexutil.MustDecodeBig("0x2c702ede24f9db8c8c9a439975facd3872a888c5f84f58b3b5f5a5623bac945a")),
-	}
-
-	// Configure the DeployConfig with the expected developer L1
-	// addresses.
-	if err := deployConfig.InitDeveloperDeployedAddresses(); err != nil {
-		panic(err)
-	}
+	require.NoError(t, deployConfig.Check())
+	require.Equal(t, addresses.Batcher, deployConfig.BatchSenderAddress)
+	require.Equal(t, addresses.SequencerP2P, deployConfig.P2PSequencerAddress)
+	require.Equal(t, addresses.TrustedValidator, deployConfig.ValidatorPoolTrustedValidator)
 
 	return &DeployParams{
 		DeployConfig:   deployConfig,
@@ -149,29 +78,12 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	}
 }
 
-// DeploymentsL1 captures the L1 addresses used in the deployment,
-// commonly just the developer predeploys during testing,
-// but later deployed contracts may be used in some tests too.
-type DeploymentsL1 struct {
-	L1CrossDomainMessengerProxy common.Address
-	L1StandardBridgeProxy       common.Address
-	ValidatorPoolProxy          common.Address
-	L2OutputOracleProxy         common.Address
-	ColosseumProxy              common.Address
-	SecurityCouncilProxy        common.Address
-	KromaPortalProxy            common.Address
-	SystemConfigProxy           common.Address
-	SecurityCouncilTokenProxy   common.Address
-	TimeLockProxy               common.Address
-	UpgradeGovernorProxy        common.Address
-}
-
 // SetupData bundles the L1, L2, rollup and deployment configuration data: everything for a full test setup.
 type SetupData struct {
 	L1Cfg         *core.Genesis
 	L2Cfg         *core.Genesis
 	RollupCfg     *rollup.Config
-	DeploymentsL1 DeploymentsL1
+	DeploymentsL1 *genesis.L1Deployments
 }
 
 // AllocParams defines genesis allocations to apply on top of the genesis generated by deploy parameters.
@@ -192,8 +104,14 @@ func Ether(v uint64) *big.Int {
 
 // Setup computes the testing setup configurations from deployment configuration and optional allocation parameters.
 func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *SetupData {
-	deployConf := deployParams.DeployConfig
-	l1Genesis, err := genesis.BuildL1DeveloperGenesis(deployConf)
+	deployConf := deployParams.DeployConfig.Copy()
+	deployConf.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
+	require.NoError(t, deployConf.Check())
+
+	l1Deployments := config.L1Deployments.Copy()
+	require.NoError(t, l1Deployments.Check())
+
+	l1Genesis, err := genesis.BuildL1DeveloperGenesis(deployConf, config.L1Allocs, l1Deployments, true)
 	require.NoError(t, err, "failed to create l1 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
@@ -208,7 +126,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 
 	l1Block := l1Genesis.ToBlock()
 
-	l2Genesis, err := genesis.BuildL2Genesis(deployConf, l1Block, true)
+	l2Genesis, err := genesis.BuildL2Genesis(deployConf, l1Block)
 	require.NoError(t, err, "failed to create l2 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
@@ -241,29 +159,24 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		L1ChainID:              new(big.Int).SetUint64(deployConf.L1ChainID),
 		L2ChainID:              new(big.Int).SetUint64(deployConf.L2ChainID),
 		BatchInboxAddress:      deployConf.BatchInboxAddress,
-		DepositContractAddress: predeploys.DevKromaPortalAddr,
-		L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
+		DepositContractAddress: deployConf.KromaPortalProxy,
+		L1SystemConfigAddress:  deployConf.SystemConfigProxy,
+		RegolithTime:           deployConf.RegolithTime(uint64(deployConf.L1GenesisBlockTimestamp)),
+		SpanBatchTime:          deployConf.SpanBatchTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 	}
 
-	deploymentsL1 := DeploymentsL1{
-		L1CrossDomainMessengerProxy: predeploys.DevL1CrossDomainMessengerAddr,
-		L1StandardBridgeProxy:       predeploys.DevL1StandardBridgeAddr,
-		ValidatorPoolProxy:          predeploys.DevValidatorPoolAddr,
-		L2OutputOracleProxy:         predeploys.DevL2OutputOracleAddr,
-		ColosseumProxy:              predeploys.DevColosseumAddr,
-		SecurityCouncilProxy:        predeploys.DevSecurityCouncilAddr,
-		KromaPortalProxy:            predeploys.DevKromaPortalAddr,
-		SystemConfigProxy:           predeploys.DevSystemConfigAddr,
-		SecurityCouncilTokenProxy:   predeploys.DevSecurityCouncilTokenAddr,
-		TimeLockProxy:               predeploys.DevTimeLockAddr,
-		UpgradeGovernorProxy:        predeploys.DevUpgradeGovernorAddr,
-	}
+	require.NoError(t, rollupCfg.Check())
+
+	// Sanity check that the config is correct
+	require.Equal(t, deployParams.Secrets.Addresses().Batcher, deployParams.DeployConfig.BatchSenderAddress)
+	require.Equal(t, deployParams.Secrets.Addresses().SequencerP2P, deployParams.DeployConfig.P2PSequencerAddress)
+	require.Equal(t, deployParams.Secrets.Addresses().TrustedValidator, deployParams.DeployConfig.ValidatorPoolTrustedValidator)
 
 	return &SetupData{
 		L1Cfg:         l1Genesis,
 		L2Cfg:         l2Genesis,
 		RollupCfg:     rollupCfg,
-		DeploymentsL1: deploymentsL1,
+		DeploymentsL1: l1Deployments,
 	}
 }
 
@@ -275,4 +188,12 @@ func SystemConfigFromDeployConfig(deployConfig *genesis.DeployConfig) eth.System
 		GasLimit:              uint64(deployConfig.L2GenesisBlockGasLimit),
 		ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.ValidatorRewardScalar))),
 	}
+}
+
+func SpanBatchTimeOffset() *hexutil.Uint64 {
+	if os.Getenv("OP_E2E_USE_SPAN_BATCH") == "true" {
+		offset := hexutil.Uint64(0)
+		return &offset
+	}
+	return nil
 }

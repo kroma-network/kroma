@@ -1,7 +1,6 @@
 package bindings
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -20,7 +19,7 @@ var deployedBytecodes = make(map[string]string)
 func GetStorageLayout(name string) (*solc.StorageLayout, error) {
 	layout := layouts[name]
 	if layout == nil {
-		return nil, errors.New("storage layout not found")
+		return nil, fmt.Errorf("%s: storage layout not found", name)
 	}
 	return layout, nil
 }
@@ -29,7 +28,7 @@ func GetStorageLayout(name string) (*solc.StorageLayout, error) {
 func GetDeployedBytecode(name string) ([]byte, error) {
 	bc := deployedBytecodes[name]
 	if bc == "" {
-		return nil, fmt.Errorf("deployed bytecode %s not found", name)
+		return nil, fmt.Errorf("%s: deployed bytecode not found", name)
 	}
 
 	if !isHex(bc) {

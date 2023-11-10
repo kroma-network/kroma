@@ -1,170 +1,43 @@
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 
 pkg := bindings
+monorepo-base := $(shell dirname $(realpath .))
+contracts-dir := $(monorepo-base)/packages/contracts-bedrock
 
-all: version mkdir bindings more
-
-bindings: basefee-vault-bindings \
-		colosseum-bindings \
-		erc20-bindings \
-		gas-price-oracle-bindings \
-		kroma-mintable-erc20-bindings \
-		kroma-mintable-erc20-factory-bindings \
-		kroma-mintable-erc721-factory-bindings \
-		kroma-portal-bindings \
-		l1-cross-domain-messenger-bindings \
-		l1-erc721-bridge-bindings \
-		l1-fee-vault-bindings \
-		l1-standard-bridge-bindings \
-		l1block-bindings \
-		l2-cross-domain-messenger-bindings \
-		l2-erc721-bridge-bindings \
-		l2-output-oracle-bindings \
-		l2-standard-bridge-bindings \
-		l2-to-l1-message-passer-bindings \
-		proxy-admin-bindings \
-		proxy-bindings \
-		security-council-bindings \
-		security-council-token-bindings \
-		system-config-bindings \
-		timelock-bindings \
-		upgrade-governor-bindings \
-		validator-pool-bindings \
-		validator-reward-vault-bindings \
-		weth9-bindings \
-		zk-merkle-trie-bindings \
-		zk-verifier-bindings
+all: version mkdir bindings
 
 version:
 	forge --version
+	abigen --version
 
 compile:
-	cd ../packages/contracts/ && \
-		yarn clean && \
-		npx hardhat compile
+	cd $(contracts-dir) && \
+		forge clean && \
+		pnpm build
 
-more:
+bindings: compile bindings-build
+
+bindings-build:
 	go run ./gen/main.go \
-		-artifacts ../packages/contracts/artifacts \
+		-forge-artifacts $(contracts-dir)/forge-artifacts \
 		-out ./bindings \
-		-contracts \
-		Colosseum,\
-KromaMintableERC20Factory,\
-KromaMintableERC721Factory,\
-KromaPortal,\
-L1Block,\
-L1CrossDomainMessenger,\
-L2CrossDomainMessenger,\
-L2ERC721Bridge,\
-L2StandardBridge,\
-L2ToL1MessagePasser,\
-Proxy,\
-ProxyAdmin,\
-SecurityCouncil,\
-SecurityCouncilToken,\
-SystemConfig,\
-TimeLock,\
-UpgradeGovernor,\
-ValidatorPool,\
-ValidatorRewardVault,\
-WETH9\
-		-package bindings
+		-contracts ./artifacts.json \
+		-source-maps MIPS,PreimageOracle \
+		-package $(pkg) \
+		-monorepo-base $(monorepo-base)
+
+lint:
+	golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
 
 mkdir:
-	mkdir -p bin $(pkg)
+	mkdir -p $(pkg)
+
+clean-contracts:
+	cd $(contracts-dir) && \
+		pnpm clean
 
 clean:
-	rm -rf bin $(pkg)
+	rm -rf $(pkg)
 
 test:
 	go test ./...
-
-basefee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/ProtocolVault.sol:ProtocolVault $(pkg)
-
-colosseum-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/Colosseum.sol:Colosseum $(pkg)
-
-erc20-bindings: compile
-	bash ./gen_bindings.sh node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20 $(pkg)
-
-gas-price-oracle-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/GasPriceOracle.sol:GasPriceOracle $(pkg)
-
-kroma-mintable-erc20-bindings: compile
-	bash ./gen_bindings.sh contracts/universal/KromaMintableERC20.sol:KromaMintableERC20 $(pkg)
-
-kroma-mintable-erc20-factory-bindings: compile
-	bash ./gen_bindings.sh contracts/universal/KromaMintableERC20Factory.sol:KromaMintableERC20Factory $(pkg)
-
-kroma-mintable-erc721-factory-bindings: compile
-	bash ./gen_bindings.sh contracts/universal/KromaMintableERC721Factory.sol:KromaMintableERC721Factory $(pkg)
-
-kroma-portal-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/KromaPortal.sol:KromaPortal $(pkg)
-
-l1block-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/L1Block.sol:L1Block $(pkg)
-
-l1-cross-domain-messenger-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger $(pkg)
-
-l1-erc721-bridge-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/L1ERC721Bridge.sol:L1ERC721Bridge $(pkg)
-
-l1-fee-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/L1FeeVault.sol:L1FeeVault $(pkg)
-
-l1-standard-bridge-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/L1StandardBridge.sol:L1StandardBridge $(pkg)
-
-l2-cross-domain-messenger-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger $(pkg)
-
-l2-erc721-bridge-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/L2ERC721Bridge.sol:L2ERC721Bridge $(pkg)
-
-l2-output-oracle-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/L2OutputOracle.sol:L2OutputOracle $(pkg)
-
-l2-standard-bridge-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/L2StandardBridge.sol:L2StandardBridge $(pkg)
-
-l2-to-l1-message-passer-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/L2ToL1MessagePasser.sol:L2ToL1MessagePasser $(pkg)
-
-proxy-admin-bindings: compile
-	bash ./gen_bindings.sh contracts/universal/ProxyAdmin.sol:ProxyAdmin $(pkg)
-
-proxy-bindings: compile
-	bash ./gen_bindings.sh contracts/universal/Proxy.sol:Proxy $(pkg)
-
-security-council-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/SecurityCouncil.sol:SecurityCouncil $(pkg)
-
-security-council-token-bindings: compile
-	bash ./gen_bindings.sh contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken $(pkg)
-
-system-config-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/SystemConfig.sol:SystemConfig $(pkg)
-
-timelock-bindings: compile
-	bash ./gen_bindings.sh contracts/governance/TimeLock.sol:TimeLock $(pkg)
-
-upgrade-governor-bindings: compile
-	bash ./gen_bindings.sh contracts/governance/UpgradeGovernor.sol:UpgradeGovernor $(pkg)
-
-validator-pool-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/ValidatorPool.sol:ValidatorPool $(pkg)
-
-validator-reward-vault-bindings: compile
-	bash ./gen_bindings.sh contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault $(pkg)
-
-weth9-bindings: compile
-	bash ./gen_bindings.sh contracts/vendor/WETH9.sol:WETH9 $(pkg)
-
-zk-merkle-trie-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/ZKMerkleTrie.sol:ZKMerkleTrie $(pkg)
-
-zk-verifier-bindings: compile
-	bash ./gen_bindings.sh contracts/L1/ZKVerifier.sol:ZKVerifier $(pkg)
