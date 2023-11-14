@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 
 	"github.com/ethereum/go-ethereum"
@@ -44,7 +44,7 @@ func newTestHarnessWithConfig(t *testing.T, cfg Config) *testHarness {
 	mgr := &SimpleTxManager{
 		chainID: cfg.ChainID,
 		name:    "TEST",
-		cfg:     cfg,
+		Config:  cfg,
 		backend: cfg.Backend,
 		l:       testlog.Logger(t, log.LvlCrit),
 		metr:    &metrics.NoopTxMetrics{},
@@ -102,6 +102,7 @@ type gasPricer struct {
 	mineAtEpoch   int64
 	baseGasTipFee *big.Int
 	baseBaseFee   *big.Int
+	err           error
 	mu            sync.Mutex
 }
 
@@ -125,7 +126,7 @@ func (g *gasPricer) shouldMine(gasFeeCap *big.Int) bool {
 func (g *gasPricer) feesForEpoch(epoch int64) (*big.Int, *big.Int) {
 	epochBaseFee := new(big.Int).Mul(g.baseBaseFee, big.NewInt(epoch))
 	epochGasTipCap := new(big.Int).Mul(g.baseGasTipFee, big.NewInt(epoch))
-	epochGasFeeCap := calcGasFeeCap(epochBaseFee, epochGasTipCap)
+	epochGasFeeCap := CalcGasFeeCap(epochBaseFee, epochGasTipCap)
 
 	return epochGasTipCap, epochGasFeeCap
 }
@@ -203,6 +204,11 @@ func (b *mockBackend) BlockNumber(ctx context.Context) (uint64, error) {
 	return b.blockHeight, nil
 }
 
+// Call mocks a call to the EVM.
+func (b *mockBackend) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	return nil, nil
+}
+
 func (b *mockBackend) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
 	return &types.Header{
 		BaseFee: b.g.basefee(),
@@ -210,6 +216,9 @@ func (b *mockBackend) HeaderByNumber(ctx context.Context, number *big.Int) (*typ
 }
 
 func (b *mockBackend) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+	if b.g.err != nil {
+		return 0, b.g.err
+	}
 	return b.g.basefee().Uint64(), nil
 }
 
@@ -424,6 +433,31 @@ func TestTxMgr_EstimateGas(t *testing.T) {
 	require.Equal(t, gasEstimate, tx.Gas())
 }
 
+func TestTxMgr_EstimateGasFails(t *testing.T) {
+	t.Parallel()
+	h := newTestHarness(t)
+	candidate := h.createTxCandidate()
+
+	// Set the gas limit to zero to trigger gas estimation.
+	candidate.GasLimit = 0
+
+	// Craft a successful transaction.
+	tx, err := h.mgr.craftTx(context.Background(), candidate)
+	require.Nil(t, err)
+	lastNonce := tx.Nonce()
+
+	// Mock gas estimation failure.
+	h.gasPricer.err = fmt.Errorf("execution error")
+	_, err = h.mgr.craftTx(context.Background(), candidate)
+	require.ErrorContains(t, err, "failed to estimate gas")
+
+	// Ensure successful craft uses the correct nonce
+	h.gasPricer.err = nil
+	tx, err = h.mgr.craftTx(context.Background(), candidate)
+	require.Nil(t, err)
+	require.Equal(t, lastNonce+1, tx.Nonce())
+}
+
 // TestTxMgrOnlyOnePublicationSucceeds asserts that the tx manager will return a
 // receipt so long as at least one of the publications is able to succeed with a
 // simulated rpc failure.
@@ -607,12 +641,21 @@ func TestWaitMinedMultipleConfs(t *testing.T) {
 	require.Equal(t, txHash, receipt.TxHash)
 }
 
+// TestManagerErrsOnZeroCLIConfs ensures that the NewSimpleTxManager will error
+// when attempting to configure with NumConfirmations set to zero.
+func TestManagerErrsOnZeroCLIConfs(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewSimpleTxManager("TEST", testlog.Logger(t, log.LvlCrit), &metrics.NoopTxMetrics{}, CLIConfig{})
+	require.Error(t, err)
+}
+
 // TestManagerErrsOnZeroConfs ensures that the NewSimpleTxManager will error
 // when attempting to configure with NumConfirmations set to zero.
 func TestManagerErrsOnZeroConfs(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewSimpleTxManager("TEST", testlog.Logger(t, log.LvlCrit), &metrics.NoopTxMetrics{}, CLIConfig{})
+	_, err := NewSimpleTxManagerFromConfig("TEST", testlog.Logger(t, log.LvlCrit), &metrics.NoopTxMetrics{}, Config{})
 	require.Error(t, err)
 }
 
@@ -658,6 +701,10 @@ func (b *failingBackend) HeaderByNumber(_ context.Context, _ *big.Int) (*types.H
 	}, nil
 }
 
+func (b *failingBackend) CallContract(_ context.Context, _ ethereum.CallMsg, _ *big.Int) ([]byte, error) {
+	return nil, errors.New("unimplemented")
+}
+
 func (b *failingBackend) SendTransaction(_ context.Context, _ *types.Transaction) error {
 	return errors.New("unimplemented")
 }
@@ -691,7 +738,7 @@ func TestWaitMinedReturnsReceiptAfterFailure(t *testing.T) {
 	var borkedBackend failingBackend
 
 	mgr := &SimpleTxManager{
-		cfg: Config{
+		Config: Config{
 			ResubmissionTimeout:       time.Second,
 			ReceiptQueryInterval:      50 * time.Millisecond,
 			NumConfirmations:          1,
@@ -723,7 +770,7 @@ func doGasPriceIncrease(t *testing.T, txTipCap, txFeeCap, newTip, newBaseFee int
 	}
 
 	mgr := &SimpleTxManager{
-		cfg: Config{
+		Config: Config{
 			ResubmissionTimeout:       time.Second,
 			ReceiptQueryInterval:      50 * time.Millisecond,
 			NumConfirmations:          1,
@@ -743,12 +790,14 @@ func doGasPriceIncrease(t *testing.T, txTipCap, txFeeCap, newTip, newBaseFee int
 		GasTipCap: big.NewInt(txTipCap),
 		GasFeeCap: big.NewInt(txFeeCap),
 	})
-	newTx := mgr.increaseGasPrice(context.Background(), tx)
+	newTx, err := mgr.increaseGasPrice(context.Background(), tx)
+	require.NoError(t, err)
 	return tx, newTx
 }
 
 func TestIncreaseGasPrice(t *testing.T) {
 	// t.Parallel()
+	require.Equal(t, int64(10), priceBump, "test must be updated if priceBump is adjusted")
 	tests := []struct {
 		name string
 		run  func(t *testing.T)
@@ -790,22 +839,16 @@ func TestIncreaseGasPrice(t *testing.T) {
 			run: func(t *testing.T) {
 				_, newTx := doGasPriceIncrease(t, 100, 2200, 120, 1050)
 				require.True(t, newTx.GasTipCap().Cmp(big.NewInt(120)) == 0, "new tx tip must be equal L1")
-				require.True(t, newTx.GasFeeCap().Cmp(big.NewInt(2530)) == 0, "new tx fee cap must be equal to the threshold value")
+				require.True(t, newTx.GasFeeCap().Cmp(big.NewInt(2420)) == 0, "new tx fee cap must be equal to the threshold value")
 			},
 		},
 		{
 			name: "uses L1 FC when larger and threshold tip",
 			run: func(t *testing.T) {
 				_, newTx := doGasPriceIncrease(t, 100, 2200, 100, 2000)
-				require.True(t, newTx.GasTipCap().Cmp(big.NewInt(115)) == 0, "new tx tip must be equal the threshold value")
-				require.True(t, newTx.GasFeeCap().Cmp(big.NewInt(4115)) == 0, "new tx fee cap must be equal L1")
-			},
-		},
-		{
-			name: "reuses tx when no bump",
-			run: func(t *testing.T) {
-				tx, newTx := doGasPriceIncrease(t, 10, 100, 10, 45)
-				require.Equal(t, tx.Hash(), newTx.Hash(), "tx hash must be the same")
+				require.True(t, newTx.GasTipCap().Cmp(big.NewInt(110)) == 0, "new tx tip must be equal the threshold value")
+				t.Log("Vals:", newTx.GasFeeCap())
+				require.True(t, newTx.GasFeeCap().Cmp(big.NewInt(4110)) == 0, "new tx fee cap must be equal L1")
 			},
 		},
 	}
@@ -820,14 +863,15 @@ func TestIncreaseGasPrice(t *testing.T) {
 func TestIncreaseGasPriceNotExponential(t *testing.T) {
 	t.Parallel()
 
+	borkedTip := int64(10)
+	borkedFee := int64(45)
 	borkedBackend := failingBackend{
-		gasTip:  big.NewInt(10),
-		baseFee: big.NewInt(45),
+		gasTip:  big.NewInt(borkedTip),
+		baseFee: big.NewInt(borkedFee),
 	}
-	feeCap := calcGasFeeCap(borkedBackend.baseFee, borkedBackend.gasTip)
 
 	mgr := &SimpleTxManager{
-		cfg: Config{
+		Config: Config{
 			ResubmissionTimeout:       time.Second,
 			ReceiptQueryInterval:      50 * time.Millisecond,
 			NumConfirmations:          1,
@@ -848,14 +892,23 @@ func TestIncreaseGasPriceNotExponential(t *testing.T) {
 	})
 
 	// Run IncreaseGasPrice a bunch of times in a row to simulate a very fast resubmit loop.
-	for i := 0; i < 20; i++ {
+	var err error
+	for i := 0; i < 30; i++ {
 		ctx := context.Background()
-		newTx := mgr.increaseGasPrice(ctx, tx)
-		require.True(t, newTx.GasFeeCap().Cmp(feeCap) == 0, "new tx fee cap must be equal L1")
-		require.True(t, newTx.GasTipCap().Cmp(borkedBackend.gasTip) == 0, "new tx tip must be equal L1")
-		tx = newTx
+		tx, err = mgr.increaseGasPrice(ctx, tx)
+		require.NoError(t, err)
 	}
-
+	lastTip, lastFee := tx.GasTipCap(), tx.GasFeeCap()
+	require.Equal(t, lastTip.Int64(), feeLimitMultiplier*borkedTip)
+	require.Equal(t, lastFee.Int64(), feeLimitMultiplier*(borkedTip+2*borkedFee))
+	// Confirm that fees stop rising
+	for i := 0; i < 5; i++ {
+		ctx := context.Background()
+		tx, err := mgr.increaseGasPrice(ctx, tx)
+		require.NoError(t, err)
+		require.True(t, tx.GasTipCap().Cmp(lastTip) == 0, "suggested tx tip must stop increasing")
+		require.True(t, tx.GasFeeCap().Cmp(lastFee) == 0, "suggested tx fee must stop increasing")
+	}
 }
 
 func TestErrStringMatch(t *testing.T) {

@@ -4,13 +4,12 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 )
 
 // TestBatchInLastPossibleBlocks tests that the derivation pipeline
@@ -22,6 +21,8 @@ func TestBatchInLastPossibleBlocks(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.SequencerWindowSize = 4
+	dp.DeployConfig.L2BlockTime = 2
+
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 
@@ -87,7 +88,7 @@ func TestBatchInLastPossibleBlocks(gt *testing.T) {
 	// L1 Block 8 contains the batch for L2 blocks 14 & 15
 	// Then we create L1 blocks 9, 10, 11
 	// The L1 origin of L2 block 16 is L1 block 8
-	// At a sequencer window of 4, should be possible to include the batch for L2 block 16 & 17 at L1 block 12
+	// At a seq window of 4, should be possible to include the batch for L2 block 16 & 17 at L1 block 12
 
 	// Make 3 more L1 + 6 L2 blocks
 	for i := 0; i < 3; i++ {
@@ -103,7 +104,7 @@ func TestBatchInLastPossibleBlocks(gt *testing.T) {
 	// by checking that L1 & the unsafe head have advanced as expected, but the safe head is the same.
 	verifyChainStateOnSequencer(11, 23, 11, 15, 7)
 
-	// Check that the batch can go in on the last block of the sequencer window
+	// Check that the batch can go in on the last block of the sequence window
 	miner.ActL1StartBlock(4)(t)
 	miner.ActL1IncludeTx(sd.RollupCfg.Genesis.SystemConfig.BatcherAddr)(t)
 	miner.ActL1EndBlock(t)
@@ -221,7 +222,7 @@ func TestLargeL1Gaps(gt *testing.T) {
 	// Check how many transactions from alice got included on L2
 	// We created one transaction for every L2 block. So we should have created 40 transactions.
 	// The first 16 L2 block where included without issue.
-	// Then over the long block, 32s sequencer drift / 2s block time => 16 blocks with transactions
+	// Then over the long block, 32s seq drift / 2s block time => 16 blocks with transactions
 	// Then at the last L2 block we reached the next origin, and accept txs again => 17 blocks with transactions
 	// That leaves 7 L2 blocks without transactions. So we should have 16+17 = 33 transactions on chain.
 	n, err = cl.PendingNonceAt(t.Ctx(), dp.Addresses.Alice)
@@ -232,7 +233,7 @@ func TestLargeL1Gaps(gt *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(33), n)
 
-	// Make more L1 blocks to get past the sequencer window for the large range.
+	// Make more L1 blocks to get past the sequence window for the large range.
 	// Do batch submit the previous L2 blocks.
 	batcher.ActSubmitAll(t)
 	miner.ActL1StartBlock(4)(t)
@@ -256,7 +257,7 @@ func TestLargeL1Gaps(gt *testing.T) {
 	// Recheck nonce. Will fail if no batches where submitted
 	n, err = cl.NonceAt(t.Ctx(), dp.Addresses.Alice, nil)
 	require.NoError(t, err)
-	require.Equal(t, uint64(33), n) // 16 valid blocks with txns. Get sequencer drift non-empty (32/2 => 16) & 7 forced empty
+	require.Equal(t, uint64(33), n) // 16 valid blocks with txns. Get seq drift non-empty (32/2 => 16) & 7 forced empty
 
 	// Check that the verifier got the same result
 	verifier.ActL1HeadSignal(t)

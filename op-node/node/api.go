@@ -4,70 +4,77 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/version"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/version"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/metrics"
+	"github.com/ethereum-optimism/optimism/op-service/rpc"
+	"github.com/ethereum/go-ethereum"
 )
 
 type l2EthClient interface {
 	InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error)
-	// NOTE: kroma add
+	// NOTE: added by kroma
 	InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error)
 	// GetProof returns a proof of the account, it may return a nil result without error if the address was not found.
 	// Optionally keys of the account storage trie can be specified to include with corresponding values in the proof.
 	GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error)
+	// NOTE: kroam deleted
+	//OutputV0AtBlock(ctx context.Context, blockHash common.Hash) (*eth.OutputV0, error)
 }
 
 type driverClient interface {
 	SyncStatus(ctx context.Context) (*eth.SyncStatus, error)
-	// NOTE: kroma mod
+	// NOTE: updated by Kroma
 	// BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error)
 	BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error)
 	ResetDerivationPipeline(context.Context) error
 	StartSequencer(ctx context.Context, blockHash common.Hash) error
 	StopSequencer(context.Context) (common.Hash, error)
-}
-
-type rpcMetrics interface {
-	// RecordRPCServerRequest returns a function that records the duration of serving the given RPC method
-	RecordRPCServerRequest(method string) func()
+	SequencerActive(context.Context) (bool, error)
 }
 
 type adminAPI struct {
+	*rpc.CommonAdminAPI
 	dr driverClient
-	m  rpcMetrics
 }
 
-func NewAdminAPI(dr driverClient, m rpcMetrics) *adminAPI {
+func NewAdminAPI(dr driverClient, m metrics.RPCMetricer, log log.Logger) *adminAPI {
 	return &adminAPI{
-		dr: dr,
-		m:  m,
+		CommonAdminAPI: rpc.NewCommonAdminAPI(m, log),
+		dr:             dr,
 	}
 }
 
 func (n *adminAPI) ResetDerivationPipeline(ctx context.Context) error {
-	recordDur := n.m.RecordRPCServerRequest("admin_resetDerivationPipeline")
+	recordDur := n.M.RecordRPCServerRequest("admin_resetDerivationPipeline")
 	defer recordDur()
 	return n.dr.ResetDerivationPipeline(ctx)
 }
 
 func (n *adminAPI) StartSequencer(ctx context.Context, blockHash common.Hash) error {
-	recordDur := n.m.RecordRPCServerRequest("admin_startSequencer")
+	recordDur := n.M.RecordRPCServerRequest("admin_startSequencer")
 	defer recordDur()
 	return n.dr.StartSequencer(ctx, blockHash)
 }
 
 func (n *adminAPI) StopSequencer(ctx context.Context) (common.Hash, error) {
-	recordDur := n.m.RecordRPCServerRequest("admin_stopSequencer")
+	recordDur := n.M.RecordRPCServerRequest("admin_stopSequencer")
 	defer recordDur()
 	return n.dr.StopSequencer(ctx)
+}
+
+func (n *adminAPI) SequencerActive(ctx context.Context) (bool, error) {
+	recordDur := n.M.RecordRPCServerRequest("admin_sequencerActive")
+	defer recordDur()
+	return n.dr.SequencerActive(ctx)
 }
 
 type nodeAPI struct {
@@ -75,10 +82,10 @@ type nodeAPI struct {
 	client l2EthClient
 	dr     driverClient
 	log    log.Logger
-	m      rpcMetrics
+	m      metrics.RPCMetricer
 }
 
-func NewNodeAPI(config *rollup.Config, l2Client l2EthClient, dr driverClient, log log.Logger, m rpcMetrics) *nodeAPI {
+func NewNodeAPI(config *rollup.Config, l2Client l2EthClient, dr driverClient, log log.Logger, m metrics.RPCMetricer) *nodeAPI {
 	return &nodeAPI{
 		config: config,
 		client: l2Client,

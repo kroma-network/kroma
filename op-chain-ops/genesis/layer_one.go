@@ -7,21 +7,19 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/trie"
-
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/deployer"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/trie"
 )
 
 var (
@@ -49,7 +47,7 @@ var (
 	uint128Max = new(big.Int)
 	// The default values for the ResourceConfig, used as part of
 	// an EIP-1559 curve for deposit gas.
-	defaultResourceConfig = bindings.ResourceMeteringResourceConfig{
+	DefaultResourceConfig = bindings.ResourceMeteringResourceConfig{
 		MaxResourceLimit:            20_000_000,
 		ElasticityMultiplier:        10,
 		BaseFeeMaxChangeDenominator: 8,
@@ -65,7 +63,7 @@ func init() {
 		panic("bad uint128Max")
 	}
 	// Set the maximum base fee on the default config.
-	defaultResourceConfig.MaximumBaseFee = uint128Max
+	DefaultResourceConfig.MaximumBaseFee = uint128Max
 }
 
 // BuildL1DeveloperGenesis will create a L1 genesis block after creating
@@ -128,7 +126,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 	}
 	gasLimit := uint64(config.L2GenesisBlockGasLimit)
 	if gasLimit == 0 {
-		gasLimit = defaultL2GasLimit
+		gasLimit = DefaultGasLimit
 	}
 
 	data, err = sysCfgABI.Pack(
@@ -139,7 +137,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		config.BatchSenderAddress.Hash(),
 		gasLimit,
 		config.P2PSequencerAddress,
-		defaultResourceConfig,
+		DefaultResourceConfig,
 		uint642Big(config.ValidatorRewardScalar),
 	)
 	if err != nil {
@@ -355,7 +353,6 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 	// processing, and as such we need to wait for the transaction
 	// receipt to appear before considering the above transactions
 	// committed to the chain.
-
 	backend.Commit()
 	if _, err := bind.WaitMined(context.Background(), backend, lastUpgradeTx); err != nil {
 		return nil, err
@@ -400,7 +397,11 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		if st == nil {
 			return nil, fmt.Errorf("missing account %s in state, address: %s", dep.Name, dep.Address)
 		}
-		iter := trie.NewIterator(st.NodeIterator(nil))
+		nodeIter, err := st.NodeIterator(nil)
+		if err != nil {
+			return nil, err
+		}
+		iter := trie.NewIterator(nodeIter)
 
 		depAddr := dep.Address
 		if strings.HasSuffix(dep.Name, "Proxy") {
@@ -448,7 +449,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 	}
 	gasLimit := uint64(config.L2GenesisBlockGasLimit)
 	if gasLimit == 0 {
-		gasLimit = defaultL2GasLimit
+		gasLimit = DefaultGasLimit
 	}
 
 	constructors = append(constructors, []deployer.Constructor{
@@ -461,7 +462,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 				config.BatchSenderAddress.Hash(), // left-padded 32 bytes value, version is zero anyway
 				gasLimit,
 				config.P2PSequencerAddress,
-				defaultResourceConfig,
+				DefaultResourceConfig,
 				uint642Big(config.ValidatorRewardScalar),
 			},
 		},

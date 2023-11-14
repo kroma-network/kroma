@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/immutables"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
@@ -64,7 +63,7 @@ func FundDevAccounts(db vm.StateDB) {
 // can be set in state and the ProxyAdmin can be set as the admin of the
 // Proxy.
 func SetL2Proxies(db vm.StateDB) error {
-	return setProxies(db, predeploys.ProxyAdminAddr, bigL2PredeployNamespace, L2ProxyCount)
+	return setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespace, L2ProxyCount)
 }
 
 // SetL1Proxies will set each of the proxies in the state. It requires

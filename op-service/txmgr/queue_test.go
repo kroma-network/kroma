@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -159,7 +159,7 @@ func TestSend(t *testing.T) {
 				{sendErr: true},
 				{},
 			},
-			nonces: []uint64{0, 1, 1},
+			nonces: []uint64{0, 1},
 			total:  3 * time.Second,
 		},
 	}
@@ -176,7 +176,7 @@ func TestSend(t *testing.T) {
 			mgr := &SimpleTxManager{
 				chainID: conf.ChainID,
 				name:    "TEST",
-				cfg:     conf,
+				Config:  conf,
 				backend: backend,
 				l:       testlog.Logger(t, log.LvlCrit),
 				metr:    &metrics.NoopTxMetrics{},

@@ -9,17 +9,17 @@ import (
 
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
-	"github.com/ethereum-optimism/optimism/op-signer/client"
+	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 const (
 	// Duplicated L1 RPC flag
 	L1RPCFlagName = "l1-eth-rpc"
-	// Key Management Flags (also have op-signer client flags)
+	// Key Management Flags (also have signer client flags)
 	MnemonicFlagName   = "mnemonic"
 	HDPathFlagName     = "hd-path"
 	PrivateKeyFlagName = "private-key"
@@ -31,88 +31,117 @@ const (
 	TxSendTimeoutFlagName             = "txmgr.send-timeout"
 	TxNotInMempoolTimeoutFlagName     = "txmgr.not-in-mempool-timeout"
 	ReceiptQueryIntervalFlagName      = "txmgr.receipt-query-interval"
-	// NOTE: kroma add
+	// NOTE: added by kroma
 	BufferSizeFlagName = "txmgr.buffer-size"
 )
 
+type DefaultFlagValues struct {
+	NumConfirmations          uint64
+	SafeAbortNonceTooLowCount uint64
+	ResubmissionTimeout       time.Duration
+	NetworkTimeout            time.Duration
+	TxSendTimeout             time.Duration
+	TxNotInMempoolTimeout     time.Duration
+	ReceiptQueryInterval      time.Duration
+}
+
+var (
+	DefaultBatcherFlagValues = DefaultFlagValues{
+		NumConfirmations:          uint64(10),
+		SafeAbortNonceTooLowCount: uint64(3),
+		ResubmissionTimeout:       48 * time.Second,
+		NetworkTimeout:            10 * time.Second,
+		TxSendTimeout:             0 * time.Second,
+		TxNotInMempoolTimeout:     2 * time.Minute,
+		ReceiptQueryInterval:      12 * time.Second,
+	}
+)
+
 func CLIFlags(envPrefix string) []cli.Flag {
+	return CLIFlagsWithDefaults(envPrefix, DefaultBatcherFlagValues)
+}
+
+func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Flag {
+	prefixEnvVars := func(name string) []string {
+		return opservice.PrefixEnvVar(envPrefix, name)
+	}
 	return append([]cli.Flag{
-		cli.StringFlag{
-			Name:   MnemonicFlagName,
-			Usage:  "The mnemonic used to derive the wallets for either the service",
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "MNEMONIC"),
+		&cli.StringFlag{
+			Name:    MnemonicFlagName,
+			Usage:   "The mnemonic used to derive the wallets for either the service",
+			EnvVars: prefixEnvVars("MNEMONIC"),
 		},
-		cli.StringFlag{
-			Name:   HDPathFlagName,
-			Usage:  "The HD path used to derive the sequencer wallet from the mnemonic. The mnemonic flag must also be set.",
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "HD_PATH"),
+		&cli.StringFlag{
+			Name:    HDPathFlagName,
+			Usage:   "The HD path used to derive the sequencer wallet from the mnemonic. The mnemonic flag must also be set.",
+			EnvVars: prefixEnvVars("HD_PATH"),
 		},
-		cli.StringFlag{
-			Name:   PrivateKeyFlagName,
-			Usage:  "The private key to use with the service. Must not be used with mnemonic.",
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "PRIVATE_KEY"),
+		&cli.StringFlag{
+			Name:    PrivateKeyFlagName,
+			Usage:   "The private key to use with the service. Must not be used with mnemonic.",
+			EnvVars: prefixEnvVars("PRIVATE_KEY"),
 		},
-		cli.Uint64Flag{
-			Name:   NumConfirmationsFlagName,
-			Usage:  "Number of confirmations which we will wait after sending a transaction",
-			Value:  10,
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "NUM_CONFIRMATIONS"),
+		&cli.Uint64Flag{
+			Name:    NumConfirmationsFlagName,
+			Usage:   "Number of confirmations which we will wait after sending a transaction",
+			Value:   defaults.NumConfirmations,
+			EnvVars: prefixEnvVars("NUM_CONFIRMATIONS"),
 		},
-		cli.Uint64Flag{
-			Name:   SafeAbortNonceTooLowCountFlagName,
-			Usage:  "Number of ErrNonceTooLow observations required to give up on a tx at a particular nonce without receiving confirmation",
-			Value:  3,
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "SAFE_ABORT_NONCE_TOO_LOW_COUNT"),
+		&cli.Uint64Flag{
+			Name:    SafeAbortNonceTooLowCountFlagName,
+			Usage:   "Number of ErrNonceTooLow observations required to give up on a tx at a particular nonce without receiving confirmation",
+			Value:   defaults.SafeAbortNonceTooLowCount,
+			EnvVars: prefixEnvVars("SAFE_ABORT_NONCE_TOO_LOW_COUNT"),
 		},
-		cli.DurationFlag{
-			Name:   ResubmissionTimeoutFlagName,
-			Usage:  "Duration we will wait before resubmitting a transaction to L1",
-			Value:  48 * time.Second,
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "RESUBMISSION_TIMEOUT"),
+		&cli.DurationFlag{
+			Name:    ResubmissionTimeoutFlagName,
+			Usage:   "Duration we will wait before resubmitting a transaction to L1",
+			Value:   defaults.ResubmissionTimeout,
+			EnvVars: prefixEnvVars("RESUBMISSION_TIMEOUT"),
 		},
-		cli.DurationFlag{
-			Name:   NetworkTimeoutFlagName,
-			Usage:  "Timeout for all network operations",
-			Value:  2 * time.Second,
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "NETWORK_TIMEOUT"),
+		&cli.DurationFlag{
+			Name:    NetworkTimeoutFlagName,
+			Usage:   "Timeout for all network operations",
+			Value:   defaults.NetworkTimeout,
+			EnvVars: prefixEnvVars("NETWORK_TIMEOUT"),
 		},
-		cli.DurationFlag{
-			Name:   TxSendTimeoutFlagName,
-			Usage:  "Timeout for sending transactions. If 0 it is disabled.",
-			Value:  0,
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "TXMGR_TX_SEND_TIMEOUT"),
+		&cli.DurationFlag{
+			Name:    TxSendTimeoutFlagName,
+			Usage:   "Timeout for sending transactions. If 0 it is disabled.",
+			Value:   defaults.TxSendTimeout,
+			EnvVars: prefixEnvVars("TXMGR_TX_SEND_TIMEOUT"),
 		},
-		cli.DurationFlag{
-			Name:   TxNotInMempoolTimeoutFlagName,
-			Usage:  "Timeout for aborting a tx send if the tx does not make it to the mempool.",
-			Value:  2 * time.Minute,
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "TXMGR_TX_NOT_IN_MEMPOOL_TIMEOUT"),
+		&cli.DurationFlag{
+			Name:    TxNotInMempoolTimeoutFlagName,
+			Usage:   "Timeout for aborting a tx send if the tx does not make it to the mempool.",
+			Value:   defaults.TxNotInMempoolTimeout,
+			EnvVars: prefixEnvVars("TXMGR_TX_NOT_IN_MEMPOOL_TIMEOUT"),
 		},
-		cli.DurationFlag{
-			Name:   ReceiptQueryIntervalFlagName,
-			Usage:  "Frequency to poll for receipts",
-			Value:  12 * time.Second,
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "TXMGR_RECEIPT_QUERY_INTERVAL"),
+		&cli.DurationFlag{
+			Name:    ReceiptQueryIntervalFlagName,
+			Usage:   "Frequency to poll for receipts",
+			Value:   defaults.ReceiptQueryInterval,
+			EnvVars: prefixEnvVars("TXMGR_RECEIPT_QUERY_INTERVAL"),
 		},
-		cli.Uint64Flag{
-			Name:   BufferSizeFlagName,
-			Usage:  "Tx buffer size for buffered txmgr",
-			Value:  10,
-			EnvVar: opservice.PrefixEnvVar(envPrefix, "TXMGR_BUFFER_SIZE"),
+		&cli.Uint64Flag{
+			Name:    BufferSizeFlagName,
+			Usage:   "Tx buffer size for buffered txmgr",
+			Value:   10,
+			EnvVars: prefixEnvVars("TXMGR_BUFFER_SIZE"),
 		},
-	}, client.CLIFlags(envPrefix)...)
+	}, opsigner.CLIFlags(envPrefix)...)
 }
 
 type CLIConfig struct {
 	L1RPCURL string
 	Mnemonic string
 	HDPath   string
-	// NOTE: kroma del
+	// NOTE: deleted by kroma
 	// SequencerHDPath           string
-	// NOTE: kroma del
+	// NOTE: deleted by kroma
 	// L2OutputHDPath            string
 	PrivateKey                string
-	SignerCLIConfig           client.CLIConfig
+	SignerCLIConfig           opsigner.CLIConfig
 	NumConfirmations          uint64
 	SafeAbortNonceTooLowCount uint64
 	TxBufferSize              uint64
@@ -121,6 +150,20 @@ type CLIConfig struct {
 	NetworkTimeout            time.Duration
 	TxSendTimeout             time.Duration
 	TxNotInMempoolTimeout     time.Duration
+}
+
+func NewCLIConfig(l1RPCURL string, defaults DefaultFlagValues) CLIConfig {
+	return CLIConfig{
+		L1RPCURL:                  l1RPCURL,
+		NumConfirmations:          defaults.NumConfirmations,
+		SafeAbortNonceTooLowCount: defaults.SafeAbortNonceTooLowCount,
+		ResubmissionTimeout:       defaults.ResubmissionTimeout,
+		NetworkTimeout:            defaults.NetworkTimeout,
+		TxSendTimeout:             defaults.TxSendTimeout,
+		TxNotInMempoolTimeout:     defaults.TxNotInMempoolTimeout,
+		ReceiptQueryInterval:      defaults.ReceiptQueryInterval,
+		SignerCLIConfig:           opsigner.NewCLIConfig(),
+	}
 }
 
 func (m CLIConfig) Check() error {
@@ -153,19 +196,19 @@ func (m CLIConfig) Check() error {
 
 func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
-		L1RPCURL:                  ctx.GlobalString(L1RPCFlagName),
-		Mnemonic:                  ctx.GlobalString(MnemonicFlagName),
-		HDPath:                    ctx.GlobalString(HDPathFlagName),
-		PrivateKey:                ctx.GlobalString(PrivateKeyFlagName),
-		SignerCLIConfig:           client.ReadCLIConfig(ctx),
-		NumConfirmations:          ctx.GlobalUint64(NumConfirmationsFlagName),
-		SafeAbortNonceTooLowCount: ctx.GlobalUint64(SafeAbortNonceTooLowCountFlagName),
-		ResubmissionTimeout:       ctx.GlobalDuration(ResubmissionTimeoutFlagName),
-		ReceiptQueryInterval:      ctx.GlobalDuration(ReceiptQueryIntervalFlagName),
-		NetworkTimeout:            ctx.GlobalDuration(NetworkTimeoutFlagName),
-		TxSendTimeout:             ctx.GlobalDuration(TxSendTimeoutFlagName),
-		TxNotInMempoolTimeout:     ctx.GlobalDuration(TxNotInMempoolTimeoutFlagName),
-		TxBufferSize:              ctx.GlobalUint64(BufferSizeFlagName),
+		L1RPCURL:                  ctx.String(L1RPCFlagName),
+		Mnemonic:                  ctx.String(MnemonicFlagName),
+		HDPath:                    ctx.String(HDPathFlagName),
+		PrivateKey:                ctx.String(PrivateKeyFlagName),
+		SignerCLIConfig:           opsigner.ReadCLIConfig(ctx),
+		NumConfirmations:          ctx.Uint64(NumConfirmationsFlagName),
+		SafeAbortNonceTooLowCount: ctx.Uint64(SafeAbortNonceTooLowCountFlagName),
+		ResubmissionTimeout:       ctx.Duration(ResubmissionTimeoutFlagName),
+		ReceiptQueryInterval:      ctx.Duration(ReceiptQueryIntervalFlagName),
+		NetworkTimeout:            ctx.Duration(NetworkTimeoutFlagName),
+		TxSendTimeout:             ctx.Duration(TxSendTimeoutFlagName),
+		TxNotInMempoolTimeout:     ctx.Duration(TxNotInMempoolTimeoutFlagName),
+		TxBufferSize:              ctx.Uint64(BufferSizeFlagName),
 	}
 }
 
@@ -247,6 +290,7 @@ type Config struct {
 	// confirmation.
 	SafeAbortNonceTooLowCount uint64
 
+	// NOTE: added by kroma
 	// TxBufferSize specifies the size of the queue to use for transaction requests.
 	// Only used by buffered txmgr.
 	TxBufferSize uint64
@@ -254,4 +298,35 @@ type Config struct {
 	// Signer is used to sign transactions when the gas price is increased.
 	Signer opcrypto.SignerFn
 	From   common.Address
+}
+
+func (m Config) Check() error {
+	if m.Backend == nil {
+		return errors.New("must provide the Backend")
+	}
+	if m.NumConfirmations == 0 {
+		return errors.New("NumConfirmations must not be 0")
+	}
+	if m.NetworkTimeout == 0 {
+		return errors.New("must provide NetworkTimeout")
+	}
+	if m.ResubmissionTimeout == 0 {
+		return errors.New("must provide ResubmissionTimeout")
+	}
+	if m.ReceiptQueryInterval == 0 {
+		return errors.New("must provide ReceiptQueryInterval")
+	}
+	if m.TxNotInMempoolTimeout == 0 {
+		return errors.New("must provide TxNotInMempoolTimeout")
+	}
+	if m.SafeAbortNonceTooLowCount == 0 {
+		return errors.New("SafeAbortNonceTooLowCount must not be 0")
+	}
+	if m.Signer == nil {
+		return errors.New("must provide the Signer")
+	}
+	if m.ChainID == nil {
+		return errors.New("must provide the ChainID")
+	}
+	return nil
 }

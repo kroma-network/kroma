@@ -4,14 +4,15 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
 func TestL2Sequencer_SequencerDrift(gt *testing.T) {
@@ -20,6 +21,7 @@ func TestL2Sequencer_SequencerDrift(gt *testing.T) {
 		MaxSequencerDrift:   20, // larger than L1 block time we simulate in this test (12)
 		SequencerWindowSize: 24,
 		ChannelTimeout:      20,
+		L1BlockTime:         12,
 	}
 	dp := e2eutils.MakeDeployParams(t, p)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
@@ -101,7 +103,7 @@ func TestL2Sequencer_SequencerOnlyReorg(gt *testing.T) {
 	miner.ActL1SetFeeRecipient(common.Address{'A'})
 	miner.ActEmptyBlock(t)
 
-	// Sequencer builds L2 blocks, until (incl.) it creates a L2 block with a L1 origin that has A as coinbase address
+	// sequencer builds L2 blocks, until (incl.) it creates a L2 block with a L1 origin that has A as coinbase address
 	sequencer.ActL1HeadSignal(t)
 	sequencer.ActBuildToL1HeadUnsafe(t)
 

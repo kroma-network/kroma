@@ -6,19 +6,20 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-service/solabi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/solabi"
 )
 
 const (
 	L1InfoFuncSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256,uint256)"
 	L1InfoArguments     = 9
 	L1InfoLen           = 4 + 32*L1InfoArguments
-	// NOTE: kroma added (OP 150_000_000)
+	// NOTE: added by kroma (OP 150_000_000)
 	SystemTxGas = 1_000_000
 )
 
@@ -41,7 +42,7 @@ type L1BlockInfo struct {
 	BatcherAddr   common.Address
 	L1FeeOverhead eth.Bytes32
 	L1FeeScalar   eth.Bytes32
-	// NOTE: kroma add
+	// NOTE: added by kroma
 	ValidatorRewardScalar eth.Bytes32
 }
 
@@ -58,6 +59,7 @@ type L1BlockInfo struct {
 // | 32      | BatcherAddr              |
 // | 32      | L1FeeOverhead            |
 // | 32      | L1FeeScalar              |
+// | 32      | ValidatorRewardScalar    |
 // +---------+--------------------------+
 
 func (info *L1BlockInfo) MarshalBinary() ([]byte, error) {
@@ -177,7 +179,7 @@ func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfi
 		Mint:       nil,
 		Value:      big.NewInt(0),
 		Gas:        SystemTxGas,
-		// NOTE: kroma deleted
+		// NOTE: deleted by kroma
 		// IsSystemTransaction: true,
 		Data: data,
 	}, nil

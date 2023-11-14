@@ -1,6 +1,7 @@
 package genesis
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,18 +10,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/immutables"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
-
-	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/immutables"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 )
 
 var (
@@ -28,33 +28,55 @@ var (
 	ErrInvalidImmutablesConfig = errors.New("invalid immutables config")
 )
 
-// DeployConfig represents the deployment configuration for Optimism
+// DeployConfig represents the deployment configuration for Kroma chain.
+// It is used to deploy the L1 contracts as well as create the L2 genesis state.
 type DeployConfig struct {
+	// L1StartingBlockTag is used to fill in the storage of the L1Block info predeploy. The rollup
+	// config script uses this to fill the L1 genesis info for the rollup. The Output oracle deploy
+	// script may use it if the L2 starting timestamp is nil, assuming the L2 genesis is set up
+	// with this.
 	L1StartingBlockTag *MarshalableRPCBlockNumberOrHash `json:"l1StartingBlockTag"`
-	L1ChainID          uint64                           `json:"l1ChainID"`
-	L2ChainID          uint64                           `json:"l2ChainID"`
-	L2BlockTime        uint64                           `json:"l2BlockTime"`
-
-	FinalizationPeriodSeconds uint64         `json:"finalizationPeriodSeconds"`
-	MaxSequencerDrift         uint64         `json:"maxSequencerDrift"`
-	SequencerWindowSize       uint64         `json:"sequencerWindowSize"`
-	ChannelTimeout            uint64         `json:"channelTimeout"`
-	P2PSequencerAddress       common.Address `json:"p2pSequencerAddress"`
-	BatchInboxAddress         common.Address `json:"batchInboxAddress"`
-	BatchSenderAddress        common.Address `json:"batchSenderAddress"`
-
-	ValidatorPoolTrustedValidator   common.Address `json:"validatorPoolTrustedValidator"`
-	ValidatorPoolRequiredBondAmount *hexutil.Big   `json:"validatorPoolRequiredBondAmount"`
-	ValidatorPoolMaxUnbond          uint64         `json:"validatorPoolMaxUnbond"`
-	ValidatorPoolRoundDuration      uint64         `json:"validatorPoolRoundDuration"`
-
+	// L1ChainID is the chain ID of the L1 chain.
+	L1ChainID uint64 `json:"l1ChainID"`
+	// L2ChainID is the chain ID of the L2 chain.
+	L2ChainID uint64 `json:"l2ChainID"`
+	// L2BlockTime is the number of seconds between each L2 block.
+	L2BlockTime uint64 `json:"l2BlockTime"`
+	// FinalizationPeriodSeconds represents the number of seconds before an output is considered
+	// finalized. This impacts the amount of time that withdrawals take to finalize and is
+	// generally set to 1 week.
+	FinalizationPeriodSeconds uint64 `json:"finalizationPeriodSeconds"`
+	// MaxSequencerDrift is the number of seconds after the L1 timestamp of the end of the
+	// sequencing window that batches must be included, otherwise L2 blocks including
+	// deposits are force included.
+	MaxSequencerDrift uint64 `json:"maxSequencerDrift"`
+	// SequencerWindowSize is the number of L1 blocks per sequencing window.
+	SequencerWindowSize uint64 `json:"sequencerWindowSize"`
+	// ChannelTimeout is the number of L1 blocks that a frame stays valid when included in L1.
+	ChannelTimeout uint64 `json:"channelTimeout"`
+	// P2PSequencerAddress is the address of the key the sequencer uses to sign blocks on the P2P layer.
+	P2PSequencerAddress common.Address `json:"p2pSequencerAddress"`
+	// BatchInboxAddress is the L1 account that batches are sent to.
+	BatchInboxAddress common.Address `json:"batchInboxAddress"`
+	// BatchSenderAddress represents the initial sequencer account that authorizes batches.
+	// Transactions sent from this account to the batch inbox address are considered valid.
+	BatchSenderAddress common.Address `json:"batchSenderAddress"`
+	// L2OutputOracleSubmissionInterval is the number of L2 blocks between outputs that are submitted
+	// to the L2OutputOracle contract located on L1.
 	L2OutputOracleSubmissionInterval uint64 `json:"l2OutputOracleSubmissionInterval"`
-	L2OutputOracleStartingTimestamp  int    `json:"l2OutputOracleStartingTimestamp"`
+	// L2OutputOracleStartingTimestamp is the starting timestamp for the L2OutputOracle.
+	// MUST be the same as the timestamp of the L2OO start block.
+	L2OutputOracleStartingTimestamp int `json:"l2OutputOracleStartingTimestamp"`
+
+	// CliqueSignerAddress represents the signer address for the clique consensus engine.
+	// It is used in the multi-process devnet to sign blocks.
+	CliqueSignerAddress common.Address `json:"cliqueSignerAddress"`
+	// L1UseClique represents whether or not to use the clique consensus engine.
+	L1UseClique bool `json:"l1UseClique"`
 
 	L1BlockTime                 uint64         `json:"l1BlockTime"`
 	L1GenesisBlockTimestamp     hexutil.Uint64 `json:"l1GenesisBlockTimestamp"`
 	L1GenesisBlockNonce         hexutil.Uint64 `json:"l1GenesisBlockNonce"`
-	CliqueSignerAddress         common.Address `json:"cliqueSignerAddress"` // proof of stake genesis if left zeroed.
 	L1GenesisBlockGasLimit      hexutil.Uint64 `json:"l1GenesisBlockGasLimit"`
 	L1GenesisBlockDifficulty    *hexutil.Big   `json:"l1GenesisBlockDifficulty"`
 	L1GenesisBlockMixHash       common.Hash    `json:"l1GenesisBlockMixHash"`
@@ -73,6 +95,11 @@ type DeployConfig struct {
 	L2GenesisBlockParentHash    common.Hash    `json:"l2GenesisBlockParentHash"`
 	L2GenesisBlockBaseFeePerGas *hexutil.Big   `json:"l2GenesisBlockBaseFeePerGas"`
 
+	ValidatorPoolTrustedValidator   common.Address `json:"validatorPoolTrustedValidator"`
+	ValidatorPoolRequiredBondAmount *hexutil.Big   `json:"validatorPoolRequiredBondAmount"`
+	ValidatorPoolMaxUnbond          uint64         `json:"validatorPoolMaxUnbond"`
+	ValidatorPoolRoundDuration      uint64         `json:"validatorPoolRoundDuration"`
+
 	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
 	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`
 	ColosseumProvingTimeout        uint64      `json:"colosseumProvingTimeout"`
@@ -80,8 +107,8 @@ type DeployConfig struct {
 	ColosseumDummyHash             common.Hash `json:"colosseumDummyHash"`
 	ColosseumMaxTxs                uint64      `json:"colosseumMaxTxs"`
 
+	// Owner of the SecurityCouncil
 	SecurityCouncilOwners []common.Address `json:"securityCouncilOwners"`
-
 	// The initial value of the voting delay(unit:block)
 	GovernorVotingDelayBlocks uint64 `json:"governorVotingDelayBlocks"`
 	// The initial value of the voting period(unit:block)
@@ -107,37 +134,45 @@ type DeployConfig struct {
 	ProtocolVaultRecipient common.Address `json:"protocolVaultRecipient"`
 	// L1 recipient of fees accumulated in the L1FeeVaultRecipient
 	L1FeeVaultRecipient common.Address `json:"l1FeeVaultRecipient"`
-	// L1StandardBridge proxy address on L1
+	// L1StandardBridgeProxy represents the address of the L1StandardBridgeProxy on L1 and is used
+	// as part of building the L2 genesis state.
 	L1StandardBridgeProxy common.Address `json:"l1StandardBridgeProxy"`
-	// L1CrossDomainMessenger proxy address on L1
+	// L1CrossDomainMessengerProxy represents the address of the L1CrossDomainMessengerProxy on L1 and is used
+	// as part of building the L2 genesis state.
 	L1CrossDomainMessengerProxy common.Address `json:"l1CrossDomainMessengerProxy"`
-	// L1ERC721Bridge proxy address on L1
+	// L1ERC721BridgeProxy represents the address of the L1ERC721Bridge on L1 and is used
+	// as part of building the L2 genesis state.
 	L1ERC721BridgeProxy common.Address `json:"l1ERC721BridgeProxy"`
-	// SystemConfig proxy address on L1
+	// SystemConfigProxy represents the address of the SystemConfigProxy on L1 and is used
+	// as part of the derivation pipeline.
 	SystemConfigProxy common.Address `json:"systemConfigProxy"`
-	// KromaPortal proxy address on L1
+	// KromaPortalProxy represents the address of the KromaPortalProxy on L1 and is used
+	// as part of the derivation pipeline.
 	KromaPortalProxy common.Address `json:"kromaPortalProxy"`
 	// ValidatorPool proxy address on L1
 	ValidatorPoolProxy common.Address `json:"validatorPoolProxy"`
-	// The initial value of the gas overhead
+	// GasPriceOracleOverhead represents the initial value of the gas overhead in the GasPriceOracle predeploy.
 	GasPriceOracleOverhead uint64 `json:"gasPriceOracleOverhead"`
-	// The initial value of the gas scalar
+	// GasPriceOracleScalar represents the initial value of the gas scalar in the GasPriceOracle predeploy.
 	GasPriceOracleScalar uint64 `json:"gasPriceOracleScalar"`
 	// The initial value of the validator reward scalar
 	ValidatorRewardScalar uint64 `json:"validatorRewardScalar"`
-
+	// DeploymentWaitConfirmations is the number of confirmations to wait during
+	// deployment. This is DEPRECATED and should be removed in a future PR.
 	DeploymentWaitConfirmations int `json:"deploymentWaitConfirmations"`
-
-	EIP1559Elasticity  uint64 `json:"eip1559Elasticity"`
+	// EIP1559Elasticity is the elasticity of the EIP1559 fee market.
+	EIP1559Elasticity uint64 `json:"eip1559Elasticity"`
+	// EIP1559Denominator is the denominator of EIP1559 base fee market.
 	EIP1559Denominator uint64 `json:"eip1559Denominator"`
-
+	// FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
+	// during devnet deployments.
 	FundDevAccounts bool `json:"fundDevAccounts"`
 }
 
 // Check will ensure that the config is sane and return an error when it is not
 func (d *DeployConfig) Check() error {
 	if d.L1StartingBlockTag == nil {
-		return fmt.Errorf("%w: L2StartingBlockTag cannot be nil", ErrInvalidDeployConfig)
+		return fmt.Errorf("%w: L1StartingBlockTag cannot be nil", ErrInvalidDeployConfig)
 	}
 	if d.L1ChainID == 0 {
 		return fmt.Errorf("%w: L1ChainID cannot be 0", ErrInvalidDeployConfig)
@@ -234,7 +269,7 @@ func (d *DeployConfig) Check() error {
 	}
 	// When the initial resource config is made to be configurable by the DeployConfig, ensure
 	// that this check is updated to use the values from the DeployConfig instead of the defaults.
-	if uint64(d.L2GenesisBlockGasLimit) < uint64(defaultResourceConfig.MaxResourceLimit+defaultResourceConfig.SystemTxMaxGas) {
+	if uint64(d.L2GenesisBlockGasLimit) < uint64(DefaultResourceConfig.MaxResourceLimit+DefaultResourceConfig.SystemTxMaxGas) {
 		return fmt.Errorf("%w: L2 genesis block gas limit is too small", ErrInvalidDeployConfig)
 	}
 	if d.L2GenesisBlockBaseFeePerGas == nil {
@@ -392,8 +427,11 @@ func NewDeployConfig(path string) (*DeployConfig, error) {
 		return nil, fmt.Errorf("deploy config at %s not found: %w", path, err)
 	}
 
+	dec := json.NewDecoder(bytes.NewReader(file))
+	dec.DisallowUnknownFields()
+
 	var config DeployConfig
-	if err := json.Unmarshal(file, &config); err != nil {
+	if err := dec.Decode(&config); err != nil {
 		return nil, fmt.Errorf("cannot unmarshal deploy config: %w", err)
 	}
 

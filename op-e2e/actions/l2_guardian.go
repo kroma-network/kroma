@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 func (v *L2Validator) ActValidateL2Output(t Testing, outputRoot eth.Bytes32, l2BlockNumber uint64) bool {

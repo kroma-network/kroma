@@ -1,24 +1,23 @@
 package genesis
 
 import (
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 )
 
-// BuildL2DeveloperGenesis will build the developer Kroma Genesis
-// Block. Suitable for devnets.
-func BuildL2DeveloperGenesis(config *DeployConfig, l1StartBlock *types.Block, zktrie bool) (*core.Genesis, error) {
+// BuildL2Genesis will build the L2 genesis block.
+func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block, zktrie bool) (*core.Genesis, error) {
 	genspec, err := NewL2Genesis(config, l1StartBlock, zktrie)
 	if err != nil {
 		return nil, err
 	}
 
 	db := state.NewMemoryStateDB(genspec)
-
 	if config.FundDevAccounts {
+		log.Info("Funding developer accounts in L2 genesis")
 		FundDevAccounts(db)
 	}
 	SetPrecompileBalances(db)

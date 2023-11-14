@@ -36,4 +36,5 @@ func TestWeiToEther(t *testing.T) {
 			t.Fatalf("test %v: expected %v but got %v", i, tc.output, out)
 		}
 	}
+
 }

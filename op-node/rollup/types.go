@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 var (
@@ -69,6 +69,20 @@ type Config struct {
 	// Required to identify the L2 network and create p2p signatures unique for this chain.
 	L2ChainID *big.Int `json:"l2_chain_id"`
 
+	// NOTE: deleted by kroma - start
+	// RegolithTime sets the activation time of the Regolith network-upgrade:
+	// a pre-mainnet Bedrock change that addresses findings of the Sherlock contest related to deposit attributes.
+	// "Regolith" is the loose deposited rock that sits on top of Bedrock.
+	// Active if RegolithTime != nil && L2 block timestamp >= *RegolithTime, inactive otherwise.
+	//RegolithTime *uint64 `json:"regolith_time,omitempty"`
+	//
+	// CanyonTime  sets the activation time of the next network upgrade.
+	// Active if CanyonTime != nil && L2 block timestamp >= *CanyonTime, inactive otherwise.
+	//CanyonTime *uint64 `json:"canyon_time,omitempty"`
+	//
+	//SpanBatchTime *uint64 `json:"span_batch_time,omitempty"`
+	// NOTE: deleted by kroma - end
+
 	// Note: below addresses are part of the block-derivation process,
 	// and required to be the same network-wide to stay in consensus.
 
@@ -78,6 +92,10 @@ type Config struct {
 	DepositContractAddress common.Address `json:"deposit_contract_address"`
 	// L1 System Config Address
 	L1SystemConfigAddress common.Address `json:"l1_system_config_address"`
+
+	// NOTE: deleted by kroma
+	// L1 address that declares the protocol versions, optional (Beta feature)
+	// ProtocolVersionsAddress common.Address `json:"protocol_versions_address,omitempty"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.
@@ -101,7 +119,6 @@ func (cfg *Config) ValidateL2Config(ctx context.Context, client L2Client) error 
 	if err := cfg.CheckL2ChainID(ctx, client); err != nil {
 		return err
 	}
-
 	// Validate the Rollup L2 Genesis Blockhash
 	if err := cfg.CheckL2GenesisBlockHash(ctx, client); err != nil {
 		return err
@@ -118,9 +135,9 @@ func (cfg *Config) TargetBlockNumber(timestamp uint64) (num uint64, err error) {
 	if timestamp < genesisTimestamp {
 		return 0, fmt.Errorf("did not reach genesis time (%d) yet", genesisTimestamp)
 	}
-	timeDiff := timestamp - genesisTimestamp
+	wallClockGenesisDiff := timestamp - genesisTimestamp
 	// Note: round down, we should not request blocks into the future.
-	blocksSinceGenesis := timeDiff / cfg.BlockTime
+	blocksSinceGenesis := wallClockGenesisDiff / cfg.BlockTime
 	return cfg.Genesis.L2.Number + blocksSinceGenesis, nil
 }
 
@@ -133,10 +150,10 @@ type L1Client interface {
 func (cfg *Config) CheckL1ChainID(ctx context.Context, client L1Client) error {
 	id, err := client.ChainID(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L1 chain ID: %w", err)
 	}
 	if cfg.L1ChainID.Cmp(id) != 0 {
-		return fmt.Errorf("incorrect L1 RPC chain id %d, expected %d", cfg.L1ChainID, id)
+		return fmt.Errorf("incorrect L1 RPC chain id %d, expected %d", id, cfg.L1ChainID)
 	}
 	return nil
 }
@@ -145,10 +162,10 @@ func (cfg *Config) CheckL1ChainID(ctx context.Context, client L1Client) error {
 func (cfg *Config) CheckL1GenesisBlockHash(ctx context.Context, client L1Client) error {
 	l1GenesisBlockRef, err := client.L1BlockRefByNumber(ctx, cfg.Genesis.L1.Number)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L1 genesis blockhash: %w", err)
 	}
 	if l1GenesisBlockRef.Hash != cfg.Genesis.L1.Hash {
-		return fmt.Errorf("incorrect L1 genesis block hash %d, expected %d", cfg.Genesis.L1.Hash, l1GenesisBlockRef.Hash)
+		return fmt.Errorf("incorrect L1 genesis block hash %s, expected %s", l1GenesisBlockRef.Hash, cfg.Genesis.L1.Hash)
 	}
 	return nil
 }
@@ -162,10 +179,10 @@ type L2Client interface {
 func (cfg *Config) CheckL2ChainID(ctx context.Context, client L2Client) error {
 	id, err := client.ChainID(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L2 chain ID: %w", err)
 	}
 	if cfg.L2ChainID.Cmp(id) != 0 {
-		return fmt.Errorf("incorrect L2 RPC chain id, expected from config %d, obtained from client %d", cfg.L2ChainID, id)
+		return fmt.Errorf("incorrect L2 RPC chain id %d, expected %d", id, cfg.L2ChainID)
 	}
 	return nil
 }
@@ -174,10 +191,10 @@ func (cfg *Config) CheckL2ChainID(ctx context.Context, client L2Client) error {
 func (cfg *Config) CheckL2GenesisBlockHash(ctx context.Context, client L2Client) error {
 	l2GenesisBlockRef, err := client.L2BlockRefByNumber(ctx, cfg.Genesis.L2.Number)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L2 genesis blockhash: %w", err)
 	}
 	if l2GenesisBlockRef.Hash != cfg.Genesis.L2.Hash {
-		return fmt.Errorf("incorrect L2 genesis block hash %d, expected %d", cfg.Genesis.L2.Hash, l2GenesisBlockRef.Hash)
+		return fmt.Errorf("incorrect L2 genesis block hash %s, expected %s", l2GenesisBlockRef.Hash, cfg.Genesis.L2.Hash)
 	}
 	return nil
 }
@@ -241,61 +258,61 @@ func (cfg *Config) Check() error {
 	return nil
 }
 
-func (cfg *Config) L1Signer() types.Signer {
-	return types.NewLondonSigner(cfg.L1ChainID)
+func (c *Config) L1Signer() types.Signer {
+	return types.NewLondonSigner(c.L1ChainID)
 }
 
-func (cfg *Config) ComputeTimestamp(blockNum uint64) uint64 {
-	return cfg.Genesis.L2Time + blockNum*cfg.BlockTime
+func (c *Config) ComputeTimestamp(blockNum uint64) uint64 {
+	return c.Genesis.L2Time + blockNum*c.BlockTime
 }
 
 // Description outputs a banner describing the important parts of rollup configuration in a human-readable form.
 // Optionally provide a mapping of L2 chain IDs to network names to label the L2 chain with if not unknown.
 // The config should be config.Check()-ed before creating a description.
-func (cfg *Config) Description(l2Chains map[string]string) string {
+func (c *Config) Description(l2Chains map[string]string) string {
 	// Find and report the network the user is running
 	var banner string
 	networkL2 := ""
 	if l2Chains != nil {
-		networkL2 = l2Chains[cfg.L2ChainID.String()]
+		networkL2 = l2Chains[c.L2ChainID.String()]
 	}
 	if networkL2 == "" {
 		networkL2 = "unknown L2"
 	}
-	networkL1 := params.NetworkNames[cfg.L1ChainID.String()]
+	networkL1 := params.NetworkNames[c.L1ChainID.String()]
 	if networkL1 == "" {
 		networkL1 = "unknown L1"
 	}
-	banner += fmt.Sprintf("L2 Chain ID: %v (%s)\n", cfg.L2ChainID, networkL2)
-	banner += fmt.Sprintf("L1 Chain ID: %v (%s)\n", cfg.L1ChainID, networkL1)
+	banner += fmt.Sprintf("L2 Chain ID: %v (%s)\n", c.L2ChainID, networkL2)
+	banner += fmt.Sprintf("L1 Chain ID: %v (%s)\n", c.L1ChainID, networkL1)
 	// Report the genesis configuration
 	banner += "Kroma starting point:\n"
-	banner += fmt.Sprintf("  L2 starting time: %d ~ %s\n", cfg.Genesis.L2Time, fmtTime(cfg.Genesis.L2Time))
-	banner += fmt.Sprintf("  L2 block: %s %d\n", cfg.Genesis.L2.Hash, cfg.Genesis.L2.Number)
-	banner += fmt.Sprintf("  L1 block: %s %d\n", cfg.Genesis.L1.Hash, cfg.Genesis.L1.Number)
+	banner += fmt.Sprintf("  L2 starting time: %d ~ %s\n", c.Genesis.L2Time, fmtTime(c.Genesis.L2Time))
+	banner += fmt.Sprintf("  L2 block: %s %d\n", c.Genesis.L2.Hash, c.Genesis.L2.Number)
+	banner += fmt.Sprintf("  L1 block: %s %d\n", c.Genesis.L1.Hash, c.Genesis.L1.Number)
 	return banner
 }
 
-// Description outputs a banner describing the important parts of rollup configuration in a log format.
+// LogDescription outputs a banner describing the important parts of rollup configuration in a log format.
 // Optionally provide a mapping of L2 chain IDs to network names to label the L2 chain with if not unknown.
 // The config should be config.Check()-ed before creating a description.
-func (cfg *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
+func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 	// Find and report the network the user is running
 	networkL2 := ""
 	if l2Chains != nil {
-		networkL2 = l2Chains[cfg.L2ChainID.String()]
+		networkL2 = l2Chains[c.L2ChainID.String()]
 	}
 	if networkL2 == "" {
 		networkL2 = "unknown L2"
 	}
-	networkL1 := params.NetworkNames[cfg.L1ChainID.String()]
+	networkL1 := params.NetworkNames[c.L1ChainID.String()]
 	if networkL1 == "" {
 		networkL1 = "unknown L1"
 	}
-	log.Info("Rollup Config", "l2_chain_id", cfg.L2ChainID, "l2_network", networkL2, "l1_chain_id", cfg.L1ChainID,
-		"l1_network", networkL1, "l2_start_time", cfg.Genesis.L2Time, "l2_block_hash", cfg.Genesis.L2.Hash.String(),
-		"l2_block_number", cfg.Genesis.L2.Number, "l1_block_hash", cfg.Genesis.L1.Hash.String(),
-		"l1_block_number", cfg.Genesis.L1.Number)
+	log.Info("Rollup Config", "l2_chain_id", c.L2ChainID, "l2_network", networkL2, "l1_chain_id", c.L1ChainID,
+		"l1_network", networkL1, "l2_start_time", c.Genesis.L2Time, "l2_block_hash", c.Genesis.L2.Hash.String(),
+		"l2_block_number", c.Genesis.L2.Number, "l1_block_hash", c.Genesis.L1.Hash.String(),
+		"l1_block_number", c.Genesis.L1.Number)
 }
 
 func fmtForkTimeOrUnset(v *uint64) string {

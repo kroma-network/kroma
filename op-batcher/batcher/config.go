@@ -5,17 +5,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
-	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/sources"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
 	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
@@ -79,7 +79,7 @@ type CLIConfig struct {
 	PollInterval time.Duration
 
 	// MaxPendingTransactions is the maximum number of concurrent pending
-	// transactions sent to the transaction manager.
+	// transactions sent to the transaction manager (0 == no limit).
 	MaxPendingTransactions uint64
 
 	// MaxL1TxSize is the maximum size of a batch tx submitted to L1.
@@ -88,20 +88,16 @@ type CLIConfig struct {
 	Stopped bool
 
 	TxMgrConfig      txmgr.CLIConfig
-	RPCConfig        rpc.CLIConfig
 	LogConfig        oplog.CLIConfig
 	MetricsConfig    opmetrics.CLIConfig
 	PprofConfig      oppprof.CLIConfig
 	CompressorConfig compressor.CLIConfig
+	RPCFlag          oprpc.CLIConfig
 }
 
 func (c CLIConfig) Check() error {
-	if err := c.RPCConfig.Check(); err != nil {
-		return err
-	}
-	if err := c.LogConfig.Check(); err != nil {
-		return err
-	}
+	// TODO: check the sanity of flags loaded directly https://github.com/ethereum-optimism/optimism/issues/7512
+
 	if err := c.MetricsConfig.Check(); err != nil {
 		return err
 	}
@@ -111,6 +107,9 @@ func (c CLIConfig) Check() error {
 	if err := c.TxMgrConfig.Check(); err != nil {
 		return err
 	}
+	if err := c.RPCFlag.Check(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -118,22 +117,22 @@ func (c CLIConfig) Check() error {
 func NewConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		/* Required Flags */
-		L1EthRpc:        ctx.GlobalString(flags.L1EthRpcFlag.Name),
-		L2EthRpc:        ctx.GlobalString(flags.L2EthRpcFlag.Name),
-		RollupRpc:       ctx.GlobalString(flags.RollupRpcFlag.Name),
-		SubSafetyMargin: ctx.GlobalUint64(flags.SubSafetyMarginFlag.Name),
-		PollInterval:    ctx.GlobalDuration(flags.PollIntervalFlag.Name),
+		L1EthRpc:        ctx.String(flags.L1EthRpcFlag.Name),
+		L2EthRpc:        ctx.String(flags.L2EthRpcFlag.Name),
+		RollupRpc:       ctx.String(flags.RollupRpcFlag.Name),
+		SubSafetyMargin: ctx.Uint64(flags.SubSafetyMarginFlag.Name),
+		PollInterval:    ctx.Duration(flags.PollIntervalFlag.Name),
 
 		/* Optional Flags */
-		MaxPendingTransactions: ctx.GlobalUint64(flags.MaxPendingTransactionsFlag.Name),
-		MaxChannelDuration:     ctx.GlobalUint64(flags.MaxChannelDurationFlag.Name),
-		MaxL1TxSize:            ctx.GlobalUint64(flags.MaxL1TxSizeBytesFlag.Name),
-		Stopped:                ctx.GlobalBool(flags.StoppedFlag.Name),
+		MaxPendingTransactions: ctx.Uint64(flags.MaxPendingTransactionsFlag.Name),
+		MaxChannelDuration:     ctx.Uint64(flags.MaxChannelDurationFlag.Name),
+		MaxL1TxSize:            ctx.Uint64(flags.MaxL1TxSizeBytesFlag.Name),
+		Stopped:                ctx.Bool(flags.StoppedFlag.Name),
 		TxMgrConfig:            txmgr.ReadCLIConfig(ctx),
-		RPCConfig:              rpc.ReadCLIConfig(ctx),
 		LogConfig:              oplog.ReadCLIConfig(ctx),
 		MetricsConfig:          opmetrics.ReadCLIConfig(ctx),
 		PprofConfig:            oppprof.ReadCLIConfig(ctx),
 		CompressorConfig:       compressor.ReadCLIConfig(ctx),
+		RPCFlag:                oprpc.ReadCLIConfig(ctx),
 	}
 }

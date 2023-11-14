@@ -8,14 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/deployer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
@@ -105,7 +104,7 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	require.NoError(t, err)
 	cfg, err := sysCfg.ResourceConfig(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.Equal(t, cfg, defaultResourceConfig)
+	require.Equal(t, cfg, DefaultResourceConfig)
 	owner, err := sysCfg.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
 	require.Equal(t, owner, config.ProxyAdminOwner)

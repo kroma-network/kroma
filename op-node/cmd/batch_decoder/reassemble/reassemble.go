@@ -10,8 +10,8 @@ import (
 	"sort"
 
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/fetch"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -48,6 +48,7 @@ func LoadFrames(directory string, inbox common.Address) []FrameWithMetadata {
 		} else {
 			return txns[i].BlockNumber < txns[j].BlockNumber
 		}
+
 	})
 	return transactionsToFrames(txns)
 }
@@ -56,7 +57,7 @@ func LoadFrames(directory string, inbox common.Address) []FrameWithMetadata {
 // specified batch inbox and then re-assembles all channels & writes the re-assembled channels
 // to the out directory.
 func Channels(config Config) {
-	if err := os.MkdirAll(config.OutDirectory, 0o750); err != nil {
+	if err := os.MkdirAll(config.OutDirectory, 0750); err != nil {
 		log.Fatal(err)
 	}
 	frames := LoadFrames(config.InDirectory, config.BatchInbox)

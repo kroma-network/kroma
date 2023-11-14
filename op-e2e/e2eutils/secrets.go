@@ -14,6 +14,8 @@ import (
 // DefaultMnemonicConfig is the default mnemonic used in testing.
 // We prefer a mnemonic rather than direct private keys to make it easier
 // to export all testing keys in external tooling for use during debugging.
+// If these values are changed, it is subject to breaking tests. They
+// must be in sync with the values in the DeployConfig used to create the system.
 var DefaultMnemonicConfig = &MnemonicConfig{
 	Mnemonic:         "test test test test test test test test test test test junk",
 	Deployer:         "m/44'/60'/0'/0/1",
@@ -151,6 +153,10 @@ func EncodePrivKey(priv *ecdsa.PrivateKey) hexutil.Bytes {
 	blob := priv.D.Bytes()
 	copy(privkey[32-len(blob):], blob)
 	return privkey
+}
+
+func EncodePrivKeyToString(priv *ecdsa.PrivateKey) string {
+	return hexutil.Encode(EncodePrivKey(priv))
 }
 
 // Addresses computes the ethereum address of each account,

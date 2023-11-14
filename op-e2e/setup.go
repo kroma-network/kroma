@@ -3,8 +3,10 @@ package op_e2e
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"path"
 	"sort"
@@ -19,18 +21,21 @@ import (
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
-	"github.com/ethereum-optimism/optimism/op-node/client"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/p2p/store"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
-	"github.com/ethereum-optimism/optimism/op-node/sources"
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
+	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/clock"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,11 +48,20 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	ds "github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/sync"
+	ic "github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/libp2p/go-libp2p/p2p/host/peerstore/pstoremem"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/components/validator"
 	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
+	"github.com/kroma-network/kroma/op-service/cliapp"
 )
 
 var testingJWTSecret = [32]byte{123}
@@ -192,7 +206,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			"validator":  testlog.Logger(t, log.LvlInfo).New("role", "validator"),
 			"challenger": testlog.Logger(t, log.LvlInfo).New("role", "challenger"),
 		},
-		GethOptions:         map[string][]GethOption{},
+		GethOptions:         map[string][]geth.GethOption{},
 		P2PTopology:         nil, // no P2P connectivity by default
 		NonFinalizedOutputs: false,
 	}
@@ -201,7 +215,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 func writeDefaultJWT(t *testing.T) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -224,7 +238,7 @@ type SystemConfig struct {
 	Premine         map[common.Address]*big.Int
 	Nodes           map[string]*rollupNode.Config // Per node config. Don't use populate rollup.Config
 	Loggers         map[string]log.Logger
-	GethOptions     map[string][]GethOption
+	GethOptions     map[string][]geth.GethOption
 	ValidatorLogger log.Logger
 	BatcherLogger   log.Logger
 
@@ -242,11 +256,52 @@ type SystemConfig struct {
 	// Explicitly disable batcher, for tests that rely on unsafe L2 payloads
 	DisableBatcher bool
 
-	// NOTE: kroma added
+	// NOTE: added by kroma
 	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
 	EnableMaliciousValidator bool
 
 	EnableGuardian bool
+
+	// Target L1 tx size for the batcher transactions
+	BatcherTargetL1TxSizeBytes uint64
+
+	// SupportL1TimeTravel determines if the L1 node supports quickly skipping forward in time
+	SupportL1TimeTravel bool
+}
+
+type GethInstance struct {
+	Backend *geth_eth.Ethereum
+	Node    *node.Node
+}
+
+func (gi *GethInstance) HTTPEndpoint() string {
+	return gi.Node.HTTPEndpoint()
+}
+
+func (gi *GethInstance) WSEndpoint() string {
+	return gi.Node.WSEndpoint()
+}
+
+func (gi *GethInstance) WSAuthEndpoint() string {
+	return gi.Node.WSAuthEndpoint()
+}
+
+func (gi *GethInstance) HTTPAuthEndpoint() string {
+	return gi.Node.HTTPAuthEndpoint()
+}
+
+func (gi *GethInstance) Close() error {
+	return gi.Node.Close()
+}
+
+// EthInstance is either an in process Geth or external process exposing its
+// endpoints over the network
+type EthInstance interface {
+	HTTPEndpoint() string
+	WSEndpoint() string
+	HTTPAuthEndpoint() string
+	WSAuthEndpoint() string
+	Close() error
 }
 
 type System struct {
@@ -257,18 +312,25 @@ type System struct {
 	L2GenesisCfg *core.Genesis
 
 	// Connections to running nodes
-	Nodes          map[string]*node.Node
-	Backends       map[string]*geth_eth.Ethereum
+	EthInstances   map[string]EthInstance
 	Clients        map[string]*ethclient.Client
+	RawClients     map[string]*rpc.Client
 	RollupNodes    map[string]*rollupNode.KromaNode
 	Validator      *validator.Validator
 	Challenger     *validator.Validator
 	BatchSubmitter *bss.BatchSubmitter
 	Mocknet        mocknet.Mocknet
+
+	// TimeTravelClock is nil unless SystemConfig.SupportL1TimeTravel was set to true
+	// It provides access to the clock instance used by the L1 node. Calling TimeTravelClock.AdvanceBy
+	// allows tests to quickly time travel L1 into the future.
+	// Note that this time travel may occur in a single block, creating a very large difference in the Time
+	// on sequential blocks.
+	TimeTravelClock *clock.AdvancingClock
 }
 
 func (sys *System) NodeEndpoint(name string) string {
-	return selectEndpoint(sys.Nodes[name])
+	return selectEndpoint(sys.EthInstances[name])
 }
 
 func (sys *System) Close() {
@@ -284,11 +346,14 @@ func (sys *System) Close() {
 		sys.BatchSubmitter.StopIfRunning(ctx)
 	}
 
+	postCtx, postCancel := context.WithCancel(context.Background())
+	postCancel() // immediate shutdown, no allowance for idling
+
 	for _, node := range sys.RollupNodes {
-		node.Close()
+		_ = node.Stop(postCtx)
 	}
-	for _, node := range sys.Nodes {
-		node.Close()
+	for _, ei := range sys.EthInstances {
+		ei.Close()
 	}
 	sys.Mocknet.Close()
 }
@@ -324,30 +389,38 @@ func (s *SystemConfigOptions) Get(key, role string) (systemConfigHook, bool) {
 	return v, ok
 }
 
-func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
+func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*System, error) {
 	opts, err := NewSystemConfigOptions(_opts)
 	if err != nil {
 		return nil, err
 	}
 
 	sys := &System{
-		cfg:         cfg,
-		Nodes:       make(map[string]*node.Node),
-		Backends:    make(map[string]*geth_eth.Ethereum),
-		Clients:     make(map[string]*ethclient.Client),
-		RollupNodes: make(map[string]*rollupNode.KromaNode),
+		cfg:          cfg,
+		EthInstances: make(map[string]EthInstance),
+		Clients:      make(map[string]*ethclient.Client),
+		RawClients:   make(map[string]*rpc.Client),
+		RollupNodes:  make(map[string]*rollupNode.KromaNode),
 	}
 	didErrAfterStart := false
 	defer func() {
 		if didErrAfterStart {
+			postCtx, postCancel := context.WithCancel(context.Background())
+			postCancel() // immediate shutdown, no allowance for idling
 			for _, node := range sys.RollupNodes {
-				node.Close()
+				_ = node.Stop(postCtx)
 			}
-			for _, node := range sys.Nodes {
-				node.Close()
+			for _, ei := range sys.EthInstances {
+				ei.Close()
 			}
 		}
 	}()
+
+	c := clock.SystemClock
+	if cfg.SupportL1TimeTravel {
+		sys.TimeTravelClock = clock.NewAdvancingClock(100 * time.Millisecond)
+		c = sys.TimeTravelClock
+	}
 
 	l1Genesis, err := genesis.BuildL1DeveloperGenesis(cfg.DeployConfig)
 	if err != nil {
@@ -371,7 +444,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	}
 
 	l1Block := l1Genesis.ToBlock()
-	l2Genesis, err := genesis.BuildL2DeveloperGenesis(cfg.DeployConfig, l1Block, true)
+	l2Genesis, err := genesis.BuildL2Genesis(cfg.DeployConfig, l1Block, true)
 	if err != nil {
 		return nil, err
 	}
@@ -418,48 +491,51 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		}
 	}
 	defaultConfig := makeRollupConfig()
+	if err := defaultConfig.Check(); err != nil {
+		return nil, err
+	}
 	sys.RollupConfig = &defaultConfig
 
 	// Initialize nodes
-	l1Node, l1Backend, err := initL1Geth(&cfg, l1Genesis, cfg.GethOptions["l1"]...)
+	l1Node, l1Backend, err := geth.InitL1(cfg.DeployConfig.L1ChainID, cfg.DeployConfig.L1BlockTime, l1Genesis, c, cfg.GethOptions["l1"]...)
 	if err != nil {
 		return nil, err
 	}
-	sys.Nodes["l1"] = l1Node
-	sys.Backends["l1"] = l1Backend
-
-	for name := range cfg.Nodes {
-		node, backend, err := initL2Geth(name, big.NewInt(int64(cfg.DeployConfig.L2ChainID)), l2Genesis, cfg.JWTFilePath, cfg.GethOptions[name]...)
-		if err != nil {
-			return nil, err
-		}
-		sys.Nodes[name] = node
-		sys.Backends[name] = backend
+	sys.EthInstances["l1"] = &GethInstance{
+		Backend: l1Backend,
+		Node:    l1Node,
 	}
-
-	// Start
 	err = l1Node.Start()
 	if err != nil {
 		didErrAfterStart = true
 		return nil, err
 	}
-	for name, node := range sys.Nodes {
-		if name == "l1" {
-			continue
+
+	for name := range cfg.Nodes {
+		var ethClient EthInstance
+		node, backend, err := geth.InitL2(name, big.NewInt(int64(cfg.DeployConfig.L2ChainID)), l2Genesis, cfg.JWTFilePath, cfg.GethOptions[name]...)
+		if err != nil {
+			return nil, err
 		}
-		err = node.Start()
+		gethInst := &GethInstance{
+			Backend: backend,
+			Node:    node,
+		}
+		err = gethInst.Node.Start()
 		if err != nil {
 			didErrAfterStart = true
 			return nil, err
 		}
+		ethClient = gethInst
+		sys.EthInstances[name] = ethClient
 	}
 
 	// Configure connections to L1 and L2 for rollup nodes.
-	// TODO: refactor testing to use in-process rpc connections instead of websockets.
-
+	// TODO: refactor testing to allow use of in-process rpc connections instead
+	// of only websockets (which are required for external eth client tests).
 	for name, rollupCfg := range cfg.Nodes {
-		configureL1(rollupCfg, l1Node)
-		configureL2(rollupCfg, sys.Nodes[name], cfg.JWTSecret)
+		configureL1(rollupCfg, sys.EthInstances["l1"])
+		configureL2(rollupCfg, sys.EthInstances[name], cfg.JWTSecret)
 
 		rollupCfg.L2Sync = &rollupNode.PreparedL2SyncEndpoint{
 			Client:   nil,
@@ -475,18 +551,22 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		didErrAfterStart = true
 		return nil, err
 	}
-	l1Client := ethclient.NewClient(rpc.DialInProc(l1Srv))
+	rawL1Client := rpc.DialInProc(l1Srv)
+	l1Client := ethclient.NewClient(rawL1Client)
 	sys.Clients["l1"] = l1Client
-	for name, node := range sys.Nodes {
-		client, err := ethclient.DialContext(ctx, node.WSEndpoint())
+	sys.RawClients["l1"] = rawL1Client
+	for name, ethInst := range sys.EthInstances {
+		rawClient, err := rpc.DialContext(ctx, ethInst.WSEndpoint())
 		if err != nil {
 			didErrAfterStart = true
 			return nil, err
 		}
+		client := ethclient.NewClient(rawClient)
+		sys.RawClients[name] = rawClient
 		sys.Clients[name] = client
 	}
 
-	_, err = waitForBlock(big.NewInt(2), l1Client, 6*time.Second*time.Duration(cfg.DeployConfig.L1BlockTime))
+	_, err = geth.WaitForBlock(big.NewInt(2), l1Client, 6*time.Second*time.Duration(cfg.DeployConfig.L1BlockTime))
 	if err != nil {
 		return nil, fmt.Errorf("waiting for blocks: %w", err)
 	}
@@ -500,7 +580,7 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 			if p, ok := p2pNodes[name]; ok {
 				return p, nil
 			}
-			h, err := sys.Mocknet.GenPeer()
+			h, err := sys.newMockNetPeer()
 			if err != nil {
 				return nil, fmt.Errorf("failed to init p2p host for node %s", name)
 			}
@@ -557,6 +637,9 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		nodeConfig := cfg.Nodes[name]
 		c := *nodeConfig // copy
 		c.Rollup = makeRollupConfig()
+		if err := c.LoadPersisted(cfg.Loggers[name]); err != nil {
+			return nil, err
+		}
 
 		if p, ok := p2pNodes[name]; ok {
 			c.P2P = p
@@ -567,12 +650,25 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		}
 
 		c.Rollup.LogDescription(cfg.Loggers[name], chaincfg.L2ChainIDToNetworkName)
-
-		node, err := rollupNode.New(context.Background(), &c, cfg.Loggers[name], snapLog, "", metrics.NewMetrics(""))
+		l := cfg.Loggers[name]
+		var cycle cliapp.Lifecycle
+		c.Cancel = func(errCause error) {
+			l.Warn("node requested early shutdown!", "err", errCause)
+			go func() {
+				postCtx, postCancel := context.WithCancel(context.Background())
+				postCancel() // don't allow the stopping to continue for longer than needed
+				if err := cycle.Stop(postCtx); err != nil {
+					t.Error(err)
+				}
+				l.Warn("closed op-node!")
+			}()
+		}
+		node, err := rollupNode.New(context.Background(), &c, l, snapLog, "", metrics.NewMetrics(""))
 		if err != nil {
 			didErrAfterStart = true
 			return nil, err
 		}
+		cycle = node
 		err = node.Start(context.Background())
 		if err != nil {
 			didErrAfterStart = true
@@ -608,14 +704,14 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 	// Run validator node (L2 Output Submitter, Asserter)
 	validatorCliCfg := validator.CLIConfig{
-		L1EthRpc:                        sys.Nodes["l1"].WSEndpoint(),
-		L2EthRpc:                        sys.Nodes["sequencer"].HTTPEndpoint(),
+		L1EthRpc:                        sys.EthInstances["l1"].WSEndpoint(),
+		L2EthRpc:                        sys.EthInstances["sequencer"].HTTPEndpoint(),
 		RollupRpc:                       sys.RollupNodes["sequencer"].HTTPEndpoint(),
 		L2OOAddress:                     predeploys.DevL2OutputOracleAddr.String(),
 		ColosseumAddress:                predeploys.DevColosseumAddr.String(),
 		ValPoolAddress:                  predeploys.DevValidatorPoolAddr.String(),
 		ChallengerPollInterval:          500 * time.Millisecond,
-		TxMgrConfig:                     newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
+		TxMgrConfig:                     newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		AllowNonFinalized:               cfg.NonFinalizedOutputs,
 		OutputSubmitterRetryInterval:    50 * time.Millisecond,
 		OutputSubmitterRoundBuffer:      30,
@@ -624,8 +720,8 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 		OutputSubmitterAllowPublicRound: true,
 		SecurityCouncilAddress:          predeploys.DevSecurityCouncilAddr.String(),
 		LogConfig: oplog.CLIConfig{
-			Level:  "info",
-			Format: "text",
+			Level:  log.LvlInfo,
+			Format: oplog.FormatText,
 		},
 	}
 
@@ -666,22 +762,22 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 	// Run validator node (Challenger)
 	challengerCliCfg := validator.CLIConfig{
-		L1EthRpc:               sys.Nodes["l1"].WSEndpoint(),
-		L2EthRpc:               sys.Nodes["sequencer"].HTTPEndpoint(),
+		L1EthRpc:               sys.EthInstances["l1"].WSEndpoint(),
+		L2EthRpc:               sys.EthInstances["sequencer"].HTTPEndpoint(),
 		RollupRpc:              sys.RollupNodes["sequencer"].HTTPEndpoint(),
 		L2OOAddress:            predeploys.DevL2OutputOracleAddr.String(),
 		ColosseumAddress:       predeploys.DevColosseumAddr.String(),
 		ValPoolAddress:         predeploys.DevValidatorPoolAddr.String(),
 		ChallengerPollInterval: 500 * time.Millisecond,
 		ProverRPC:              "http://0.0.0.0:0",
-		TxMgrConfig:            newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
+		TxMgrConfig:            newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
 		OutputSubmitterEnabled: false,
 		ChallengerEnabled:      true,
 		SecurityCouncilAddress: predeploys.DevSecurityCouncilAddr.String(),
 		GuardianEnabled:        cfg.EnableGuardian,
 		LogConfig: oplog.CLIConfig{
-			Level:  "info",
-			Format: "text",
+			Level:  log.LvlInfo,
+			Format: oplog.FormatText,
 		},
 	}
 
@@ -718,23 +814,23 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 
 	// Batch Submitter
 	sys.BatchSubmitter, err = bss.NewBatchSubmitterFromCLIConfig(bss.CLIConfig{
-		L1EthRpc:               sys.Nodes["l1"].WSEndpoint(),
-		L2EthRpc:               sys.Nodes["sequencer"].WSEndpoint(),
+		L1EthRpc:               sys.EthInstances["l1"].WSEndpoint(),
+		L2EthRpc:               sys.EthInstances["sequencer"].WSEndpoint(),
 		RollupRpc:              sys.RollupNodes["sequencer"].HTTPEndpoint(),
-		MaxPendingTransactions: 1,
+		MaxPendingTransactions: 0,
 		MaxChannelDuration:     1,
-		MaxL1TxSize:            120_000,
+		MaxL1TxSize:            240_000,
 		CompressorConfig: compressor.CLIConfig{
-			TargetL1TxSizeBytes: 100_000,
+			TargetL1TxSizeBytes: cfg.BatcherTargetL1TxSizeBytes,
 			TargetNumFrames:     1,
 			ApproxComprRatio:    0.4,
 		},
 		SubSafetyMargin: 4,
 		PollInterval:    50 * time.Millisecond,
-		TxMgrConfig:     newTxMgrConfig(sys.Nodes["l1"].WSEndpoint(), cfg.Secrets.Batcher),
+		TxMgrConfig:     newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Batcher),
 		LogConfig: oplog.CLIConfig{
-			Level:  "info",
-			Format: "text",
+			Level:  log.LvlInfo,
+			Format: oplog.FormatText,
 		},
 	}, sys.cfg.Loggers["batcher"], batchermetrics.NoopMetrics)
 	if err != nil {
@@ -751,8 +847,53 @@ func (cfg SystemConfig) Start(_opts ...SystemConfigOption) (*System, error) {
 	return sys, nil
 }
 
-func selectEndpoint(node *node.Node) string {
-	useHTTP := os.Getenv("E2E_USE_HTTP") == "true"
+// IP6 range that gets blackholed (in case our traffic ever makes it out onto
+// the internet).
+var blackholeIP6 = net.ParseIP("100::")
+
+// mocknet doesn't allow us to add a peerstore without fully creating the peer ourselves
+func (sys *System) newMockNetPeer() (host.Host, error) {
+	sk, _, err := ic.GenerateECDSAKeyPair(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	id, err := peer.IDFromPrivateKey(sk)
+	if err != nil {
+		return nil, err
+	}
+	suffix := id
+	if len(id) > 8 {
+		suffix = id[len(id)-8:]
+	}
+	ip := append(net.IP{}, blackholeIP6...)
+	copy(ip[net.IPv6len-len(suffix):], suffix)
+	a, err := ma.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/4242", ip))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create test multiaddr: %w", err)
+	}
+	p, err := peer.IDFromPublicKey(sk.GetPublic())
+	if err != nil {
+		return nil, err
+	}
+
+	ps, err := pstoremem.NewPeerstore()
+	if err != nil {
+		return nil, err
+	}
+	ps.AddAddr(p, a, peerstore.PermanentAddrTTL)
+	_ = ps.AddPrivKey(p, sk)
+	_ = ps.AddPubKey(p, sk.GetPublic())
+
+	ds := sync.MutexWrap(ds.NewMapDatastore())
+	eps, err := store.NewExtendedPeerstore(context.Background(), log.Root(), clock.SystemClock, ps, ds, 24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	return sys.Mocknet.AddPeerWithPeerstore(p, eps)
+}
+
+func selectEndpoint(node EthInstance) string {
+	useHTTP := os.Getenv("OP_E2E_USE_HTTP") == "true"
 	if useHTTP {
 		log.Info("using HTTP client")
 		return node.HTTPEndpoint()
@@ -760,7 +901,7 @@ func selectEndpoint(node *node.Node) string {
 	return node.WSEndpoint()
 }
 
-func configureL1(rollupNodeCfg *rollupNode.Config, l1Node *node.Node) {
+func configureL1(rollupNodeCfg *rollupNode.Config, l1Node EthInstance) {
 	l1EndpointConfig := selectEndpoint(l1Node)
 	rollupNodeCfg.L1 = &rollupNode.L1EndpointConfig{
 		L1NodeAddr:       l1EndpointConfig,
@@ -772,8 +913,13 @@ func configureL1(rollupNodeCfg *rollupNode.Config, l1Node *node.Node) {
 	}
 }
 
-func configureL2(rollupNodeCfg *rollupNode.Config, l2Node *node.Node, jwtSecret [32]byte) {
-	useHTTP := os.Getenv("E2E_USE_HTTP") == "true"
+type WSOrHTTPEndpoint interface {
+	WSAuthEndpoint() string
+	HTTPAuthEndpoint() string
+}
+
+func configureL2(rollupNodeCfg *rollupNode.Config, l2Node WSOrHTTPEndpoint, jwtSecret [32]byte) {
+	useHTTP := os.Getenv("OP_E2E_USE_HTTP") == "true"
 	l2EndpointConfig := l2Node.WSAuthEndpoint()
 	if useHTTP {
 		l2EndpointConfig = l2Node.HTTPAuthEndpoint()
@@ -807,7 +953,7 @@ func (cfg SystemConfig) DepositValidatorPool(l1Client *ethclient.Client, priv *e
 	if err != nil {
 		return fmt.Errorf("unable to send deposit transaction: %w", err)
 	}
-	_, err = waitForTransaction(tx.Hash(), l1Client, time.Duration(3*cfg.DeployConfig.L1BlockTime)*time.Second)
+	_, err = geth.WaitForTransaction(tx.Hash(), l1Client, time.Duration(3*cfg.DeployConfig.L1BlockTime)*time.Second)
 	if err != nil {
 		return fmt.Errorf("unable to wait for validator deposit tx on L1: %w", err)
 	}
@@ -840,12 +986,12 @@ func (cfg SystemConfig) SendTransferTx(l2Seq *ethclient.Client, l2Sync *ethclien
 		return nil, fmt.Errorf("failed to send L2 tx to sequencer: %w", err)
 	}
 
-	_, err = waitForL2Transaction(tx.Hash(), l2Seq, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	_, err = geth.WaitForL2Transaction(tx.Hash(), l2Seq, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait L2 tx on sequencer: %w", err)
 	}
 
-	receipt, err := waitForL2Transaction(tx.Hash(), l2Sync, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	receipt, err := geth.WaitForL2Transaction(tx.Hash(), l2Sync, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait L2 tx on verifier: %w", err)
 	}

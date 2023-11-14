@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -138,30 +138,29 @@ func TestProcessSystemConfigUpdateLogEvent(t *testing.T) {
 			},
 			err: false,
 		},
-		//NOTE: kroma TODO uncomment after solaabi (system_config.go:176)
-		//{
-		//	name: "SystemConfigUpdateValidatorRewardScalar",
-		//	log: &types.Log{
-		//		Topics: []common.Hash{
-		//			ConfigUpdateEventABIHash,
-		//			ConfigUpdateEventVersion0,
-		//			SystemConfigUpdateValidatorRewardScalar,
-		//		},
-		//	},
-		//	hook: func(t *testing.T, log *types.Log) *types.Log {
-		//		validatorRewardScalar := big.NewInt(int64(5000))
-		//		numberData, err := oneUint256.Pack(validatorRewardScalar)
-		//		require.NoError(t, err)
-		//		data, err := bytesArgs.Pack(numberData)
-		//		require.NoError(t, err)
-		//		log.Data = data
-		//		return log
-		//	},
-		//	config: eth.SystemConfig{
-		//		ValidatorRewardScalar: eth.Bytes32(common.BigToHash(big.NewInt(int64(5000)))),
-		//	},
-		//	err: false,
-		//},
+		{
+			name: "SystemConfigUpdateValidatorRewardScalar",
+			log: &types.Log{
+				Topics: []common.Hash{
+					ConfigUpdateEventABIHash,
+					ConfigUpdateEventVersion0,
+					SystemConfigUpdateValidatorRewardScalar,
+				},
+			},
+			hook: func(t *testing.T, log *types.Log) *types.Log {
+				validatorRewardScalar := big.NewInt(int64(5000))
+				numberData, err := oneUint256.Pack(validatorRewardScalar)
+				require.NoError(t, err)
+				data, err := bytesArgs.Pack(numberData)
+				require.NoError(t, err)
+				log.Data = data
+				return log
+			},
+			config: eth.SystemConfig{
+				ValidatorRewardScalar: eth.Bytes32(common.BigToHash(big.NewInt(int64(5000)))),
+			},
+			err: false,
+		},
 		{
 			name: "SystemConfigOneTopic",
 			log: &types.Log{

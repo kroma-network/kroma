@@ -3,15 +3,18 @@ package genesis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/urfave/cli"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
@@ -22,25 +25,27 @@ var Subcommands = cli.Commands{
 		Name:  "devnet",
 		Usage: "Initialize new L1 and L2 genesis files and rollup config suitable for a local devnet",
 		Flags: []cli.Flag{
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "deploy-config",
 				Usage: "Path to hardhat deploy config file",
 			},
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "outfile.l1",
 				Usage: "Path to L1 genesis output file",
 			},
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "outfile.l2",
 				Usage: "Path to L2 genesis output file",
 			},
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "outfile.rollup",
 				Usage: "Path to rollup output file",
 			},
 		},
 		Action: func(ctx *cli.Context) error {
 			deployConfig := ctx.String("deploy-config")
+			fmt.Println("!!!!!!")
+			fmt.Println(deployConfig)
 			config, err := genesis.NewDeployConfig(deployConfig)
 			if err != nil {
 				return err
@@ -61,7 +66,7 @@ var Subcommands = cli.Commands{
 			}
 
 			l1StartBlock := l1Genesis.ToBlock()
-			l2Genesis, err := genesis.BuildL2DeveloperGenesis(config, l1StartBlock, true)
+			l2Genesis, err := genesis.NewL2Genesis(config, l1StartBlock, true)
 			if err != nil {
 				return err
 			}
@@ -85,35 +90,42 @@ var Subcommands = cli.Commands{
 		Name:  "l2",
 		Usage: "Generates an L2 genesis file and rollup config suitable for a deployed network",
 		Flags: []cli.Flag{
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "l1-rpc",
 				Usage: "L1 RPC URL",
 			},
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "deploy-config",
-				Usage: "Path to hardhat deploy config file",
+				Usage: "Path to deploy config file",
 			},
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "deployment-dir",
-				Usage: "Path to deployment directory",
+				Usage: "Path to network deployment directory",
 			},
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "outfile.l2",
 				Usage: "Path to L2 genesis output file",
 			},
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "outfile.rollup",
 				Usage: "Path to rollup output file",
 			},
 		},
 		Action: func(ctx *cli.Context) error {
 			deployConfig := ctx.String("deploy-config")
+			log.Info("Deploy config", "path", deployConfig)
 			config, err := genesis.NewDeployConfig(deployConfig)
 			if err != nil {
 				return err
 			}
 
-			depPath, network := filepath.Split(ctx.String("deployment-dir"))
+			deployDir := ctx.String("deployment-dir")
+			if deployDir == "" {
+				return errors.New("Must specify --deployment-dir")
+			}
+
+			log.Info("Deployment directory", "path", deployDir)
+			depPath, network := filepath.Split(deployDir)
 			hh, err := hardhat.New(network, nil, []string{depPath})
 			if err != nil {
 				return err
@@ -123,10 +135,6 @@ var Subcommands = cli.Commands{
 			if err := config.GetDeployedAddresses(hh); err != nil {
 				return err
 			}
-			// Sanity check the config
-			if err := config.Check(); err != nil {
-				return err
-			}
 
 			client, err := ethclient.Dial(ctx.String("l1-rpc"))
 			if err != nil {
@@ -134,25 +142,31 @@ var Subcommands = cli.Commands{
 			}
 
 			var l1StartBlock *types.Block
-			if config.L1StartingBlockTag.BlockHash != nil {
+			if config.L1StartingBlockTag == nil {
+				l1StartBlock, err = client.BlockByNumber(context.Background(), nil)
+				tag := rpc.BlockNumberOrHashWithHash(l1StartBlock.Hash(), true)
+				config.L1StartingBlockTag = (*genesis.MarshalableRPCBlockNumberOrHash)(&tag)
+			} else if config.L1StartingBlockTag.BlockHash != nil {
 				l1StartBlock, err = client.BlockByHash(context.Background(), *config.L1StartingBlockTag.BlockHash)
 			} else if config.L1StartingBlockTag.BlockNumber != nil {
-				blockNumber := big.NewInt(config.L1StartingBlockTag.BlockNumber.Int64())
-				// In the case of 'latest', it is changed to 'pending' in the BlockByNumber function.
-				// Therefore, add nil directly.
-				if blockNumber.Int64() == rpc.LatestBlockNumber.Int64() {
-					blockNumber = nil
-				}
-				l1StartBlock, err = client.BlockByNumber(context.Background(), blockNumber)
+				l1StartBlock, err = client.BlockByNumber(context.Background(), big.NewInt(config.L1StartingBlockTag.BlockNumber.Int64()))
 			}
 			if err != nil {
 				return fmt.Errorf("error getting l1 start block: %w", err)
 			}
 
-			// Build the developer L2 genesis block
-			l2Genesis, err := genesis.BuildL2DeveloperGenesis(config, l1StartBlock, true)
+			// Sanity check the config. Do this after filling in the L1StartingBlockTag
+			// if it is not defined.
+			if err := config.Check(); err != nil {
+				return err
+			}
+
+			log.Info("Using L1 Start Block", "number", l1StartBlock.Number(), "hash", l1StartBlock.Hash().Hex())
+
+			// Build the L2 genesis block
+			l2Genesis, err := genesis.BuildL2Genesis(config, l1StartBlock, true)
 			if err != nil {
-				return fmt.Errorf("error creating l2 developer genesis: %w", err)
+				return fmt.Errorf("error creating l2 genesis: %w", err)
 			}
 
 			l2GenesisBlock := l2Genesis.ToBlock()

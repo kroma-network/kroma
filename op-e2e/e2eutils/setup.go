@@ -9,12 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	genesis2 "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/op-bindings/predeploys"
 )
 
 var testingJWTSecret = [32]byte{123}
@@ -23,7 +24,7 @@ var testingJWTSecret = [32]byte{123}
 func WriteDefaultJWT(t TestingBase) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -35,7 +36,7 @@ func uint64ToBig(in uint64) *hexutil.Big {
 
 // DeployParams bundles the deployment parameters to generate further testing inputs with.
 type DeployParams struct {
-	DeployConfig   *genesis2.DeployConfig
+	DeployConfig   *genesis.DeployConfig
 	MnemonicConfig *MnemonicConfig
 	Secrets        *Secrets
 	Addresses      *Addresses
@@ -54,7 +55,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	secrets, err := mnemonicCfg.Secrets()
 	require.NoError(t, err)
 	addresses := secrets.Addresses()
-	deployConfig := &genesis2.DeployConfig{
+	deployConfig := &genesis.DeployConfig{
 		L1ChainID:   900,
 		L2ChainID:   901,
 		L2BlockTime: 2,
@@ -193,7 +194,7 @@ func Ether(v uint64) *big.Int {
 // Setup computes the testing setup configurations from deployment configuration and optional allocation parameters.
 func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *SetupData {
 	deployConf := deployParams.DeployConfig
-	l1Genesis, err := genesis2.BuildL1DeveloperGenesis(deployConf)
+	l1Genesis, err := genesis.BuildL1DeveloperGenesis(deployConf)
 	require.NoError(t, err, "failed to create l1 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
@@ -208,7 +209,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 
 	l1Block := l1Genesis.ToBlock()
 
-	l2Genesis, err := genesis2.BuildL2DeveloperGenesis(deployConf, l1Block, true)
+	l2Genesis, err := genesis.BuildL2Genesis(deployConf, l1Block, true)
 	require.NoError(t, err, "failed to create l2 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
@@ -267,7 +268,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	}
 }
 
-func SystemConfigFromDeployConfig(deployConfig *genesis2.DeployConfig) eth.SystemConfig {
+func SystemConfigFromDeployConfig(deployConfig *genesis.DeployConfig) eth.SystemConfig {
 	return eth.SystemConfig{
 		BatcherAddr:           deployConfig.BatchSenderAddress,
 		Overhead:              eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.GasPriceOracleOverhead))),

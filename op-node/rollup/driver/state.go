@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/backoff"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/retry"
 )
 
 // Deprecated: use eth.SyncStatus instead.
@@ -46,6 +46,14 @@ type Driver struct {
 	// Upon receiving a channel in this channel, the sequencer is stopped.
 	// It tells the caller that the sequencer stopped by returning the latest sequenced L2 block hash.
 	stopSequencer chan chan hashAndError
+
+	// Upon receiving a channel in this channel, the current sequencer status is queried.
+	// It tells the caller the status by outputting a boolean to the provided channel:
+	// true when the sequencer is active, false when it is not.
+	sequencerActive chan chan bool
+
+	// sequencerNotifs is notified when the sequencer is started or stopped
+	sequencerNotifs SequencerStateListener
 
 	// Rollup config: rollup chain configuration
 	config *rollup.Config
@@ -87,6 +95,21 @@ type Driver struct {
 // The loop will have been started iff err is not nil.
 func (s *Driver) Start() error {
 	s.derivation.Reset()
+
+	log.Info("Starting driver", "sequencerEnabled", s.driverConfig.SequencerEnabled, "sequencerStopped", s.driverConfig.SequencerStopped)
+	if s.driverConfig.SequencerEnabled {
+		// Notify the initial sequencer state
+		// This ensures persistence can write the state correctly and that the state file exists
+		var err error
+		if s.driverConfig.SequencerStopped {
+			err = s.sequencerNotifs.SequencerStopped()
+		} else {
+			err = s.sequencerNotifs.SequencerStarted()
+		}
+		if err != nil {
+			return fmt.Errorf("persist initial sequencer state: %w", err)
+		}
+	}
 
 	s.wg.Add(1)
 	go s.eventLoop()
@@ -155,7 +178,7 @@ func (s *Driver) eventLoop() {
 	var delayedStepReq <-chan time.Time
 
 	// keep track of consecutive failed attempts, to adjust the backoff time accordingly
-	bOffStrategy := backoff.Exponential()
+	bOffStrategy := retry.Exponential()
 	stepAttempts := 0
 
 	// step requests a derivation step to be taken. Won't deadlock if the channel is full.
@@ -258,15 +281,13 @@ func (s *Driver) eventLoop() {
 			}
 			planSequencerAction() // schedule the next sequencer action to keep the sequencing looping
 		case <-altSyncTicker.C:
-			func() {
-				// Check if there is a gap in the current unsafe payload queue.
-				ctx, cancel := context.WithTimeout(ctx, time.Second*2)
-				defer cancel()
-				err := s.checkForGapInUnsafeQueue(ctx)
-				if err != nil {
-					s.log.Warn("failed to check for unsafe L2 blocks to sync", "err", err)
-				}
-			}()
+			// Check if there is a gap in the current unsafe payload queue.
+			ctx, cancel := context.WithTimeout(ctx, time.Second*2)
+			err := s.checkForGapInUnsafeQueue(ctx)
+			cancel()
+			if err != nil {
+				s.log.Warn("failed to check for unsafe L2 blocks to sync", "err", err)
+			}
 		case payload := <-s.unsafeL2Payloads:
 			s.snapshot("New unsafe payload")
 			s.log.Info("Optimistically queueing unsafe L2 execution payload", "id", payload.ID())
@@ -294,6 +315,11 @@ func (s *Driver) eventLoop() {
 			stepAttempts += 1 // count as attempt by default. We reset to 0 if we are making healthy progress.
 			if err == io.EOF {
 				s.log.Debug("Derivation process went idle", "progress", s.derivation.Origin(), "err", err)
+				stepAttempts = 0
+				s.metrics.SetDerivationIdle(true)
+				continue
+			} else if err != nil && errors.Is(err, derive.EngineP2PSyncing) {
+				s.log.Debug("Derivation process went idle because the engine is syncing", "progress", s.derivation.Origin(), "sync_target", s.derivation.EngineSyncTarget(), "err", err)
 				stepAttempts = 0
 				s.metrics.SetDerivationIdle(true)
 				continue
@@ -336,6 +362,10 @@ func (s *Driver) eventLoop() {
 			} else if !bytes.Equal(unsafeHead[:], resp.hash[:]) {
 				resp.err <- fmt.Errorf("block hash does not match: head %s, received %s", unsafeHead.String(), resp.hash.String())
 			} else {
+				if err := s.sequencerNotifs.SequencerStarted(); err != nil {
+					resp.err <- fmt.Errorf("sequencer start notification: %w", err)
+					continue
+				}
 				s.log.Info("Sequencer has been started")
 				s.driverConfig.SequencerStopped = false
 				close(resp.err)
@@ -345,10 +375,19 @@ func (s *Driver) eventLoop() {
 			if s.driverConfig.SequencerStopped {
 				respCh <- hashAndError{err: errors.New("sequencer not running")}
 			} else {
+				if err := s.sequencerNotifs.SequencerStopped(); err != nil {
+					respCh <- hashAndError{err: fmt.Errorf("sequencer start notification: %w", err)}
+					continue
+				}
 				s.log.Warn("Sequencer has been stopped")
 				s.driverConfig.SequencerStopped = true
+				// Cancel any inflight block building. If we don't cancel this, we can resume sequencing an old block
+				// even if we've received new unsafe heads in the interim, causing us to introduce a re-org.
+				s.sequencer.CancelBuildingBlock(ctx)
 				respCh <- hashAndError{hash: s.derivation.UnsafeL2Head().Hash}
 			}
+		case respCh := <-s.sequencerActive:
+			respCh <- !s.driverConfig.SequencerStopped
 		case <-s.done:
 			return
 		}
@@ -412,6 +451,24 @@ func (s *Driver) StopSequencer(ctx context.Context) (common.Hash, error) {
 	}
 }
 
+func (s *Driver) SequencerActive(ctx context.Context) (bool, error) {
+	if !s.driverConfig.SequencerEnabled {
+		return false, nil
+	}
+	respCh := make(chan bool, 1)
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case s.sequencerActive <- respCh:
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case active := <-respCh:
+			return active, nil
+		}
+	}
+}
+
 // syncStatus returns the current sync status, and should only be called synchronously with
 // the driver event loop to avoid retrieval of an inconsistent status.
 func (s *Driver) syncStatus() *eth.SyncStatus {
@@ -425,6 +482,7 @@ func (s *Driver) syncStatus() *eth.SyncStatus {
 		SafeL2:             s.derivation.SafeL2Head(),
 		FinalizedL2:        s.derivation.Finalized(),
 		UnsafeL2SyncTarget: s.derivation.UnsafeL2SyncTarget(),
+		EngineSyncTarget:   s.derivation.EngineSyncTarget(),
 	}
 }
 
@@ -442,7 +500,7 @@ func (s *Driver) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
 	}
 }
 
-// NOTE: kroma add/mod
+// NOTE: added by Kroma
 // BlockRefsWithStatus blocks the driver event loop and captures the syncing status,
 // along with L2 blocks reference by number and number plus 1 consistent with that same status.
 // If the event loop is too busy and the context expires, a context error is returned.

@@ -68,7 +68,7 @@ func (conf *Config) Discovery(log log.Logger, rollupCfg *rollup.Config, tcpPort 
 	}
 	if conf.AdvertiseTCPPort != 0 { // explicitly advertised port gets priority
 		localNode.Set(enr.TCP(conf.AdvertiseTCPPort))
-	} else if tcpPort != 0 { // otherwise try to pick up whatever port LibP2P bound to (listen port, or dynamically picked)
+	} else if tcpPort != 0 { // otherwise try to pick up whatever port LibP2P binded to (listen port, or dynamically picked)
 		localNode.Set(enr.TCP(tcpPort))
 	} else if conf.ListenTCPPort != 0 { // otherwise default to the port we configured it to listen on
 		localNode.Set(enr.TCP(conf.ListenTCPPort))
@@ -97,7 +97,7 @@ func (conf *Config) Discovery(log log.Logger, rollupCfg *rollup.Config, tcpPort 
 
 	cfg := discover.Config{
 		PrivateKey:   priv,
-		NetRestrict:  nil,
+		NetRestrict:  conf.NetRestrict,
 		Bootnodes:    conf.Bootnodes,
 		Unhandled:    nil, // Not used in dv5
 		Log:          log,
@@ -277,16 +277,14 @@ func (n *NodeP2P) DiscoveryProcess(ctx context.Context, log log.Logger, cfg *rol
 			if !ok {
 				return
 			}
-			func() {
-				addrs := n.Host().Peerstore().Addrs(id)
-				log.Info("attempting connection", "peer", id)
-				ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-				defer cancel()
-				err := n.Host().Connect(ctx, peer.AddrInfo{ID: id, Addrs: addrs})
-				if err != nil {
-					log.Debug("failed connection attempt", "peer", id, "err", err)
-				}
-			}()
+			addrs := n.Host().Peerstore().Addrs(id)
+			log.Info("attempting connection", "peer", id)
+			ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+			err := n.Host().Connect(ctx, peer.AddrInfo{ID: id, Addrs: addrs})
+			cancel()
+			if err != nil {
+				log.Debug("failed connection attempt", "peer", id, "err", err)
+			}
 		}
 	}
 
@@ -358,7 +356,7 @@ func (n *NodeP2P) DiscoveryProcess(ctx context.Context, log log.Logger, cfg *rol
 				continue
 			}
 			// We add the addresses to the peerstore, and update the address TTL.
-			// After that we stop using the address, assuming it may not be valid anymore (until we rediscover the node)
+			//After that we stop using the address, assuming it may not be valid anymore (until we rediscover the node)
 			pstore.AddAddrs(info.ID, info.Addrs, discoveredAddrTTL)
 			_ = pstore.AddPubKey(info.ID, pub)
 			// Tag the peer, we'd rather have the connection manager prune away old peers,

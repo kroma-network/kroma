@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/testutils"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/testutils"
 )
 
 var (
@@ -65,6 +65,7 @@ func FuzzL1InfoRoundTrip(f *testing.F) {
 		if !cmp.Equal(in, out, cmp.Comparer(testutils.BigEqual)) {
 			t.Fatalf("The data did not round trip correctly. in: %v. out: %v", in, out)
 		}
+
 	})
 }
 
@@ -127,6 +128,7 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 		if !cmp.Equal(expected, actual, cmp.Comparer(testutils.BigEqual)) {
 			t.Fatalf("The data did not round trip correctly. expected: %v. actual: %v", expected, actual)
 		}
+
 	})
 }
 
@@ -222,7 +224,7 @@ func FuzzUnmarshallLogEvent(f *testing.F) {
 		}
 		state.SetBalance(from, BytesToBigInt([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}))
 		state.SetCode(addr, common.FromHex(bindings.KromaPortalDeployedBin))
-		_, err = state.Commit(false)
+		_, err = state.Commit(0, false)
 		if err != nil {
 			t.Fatal(err)
 		}

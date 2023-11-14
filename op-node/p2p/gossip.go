@@ -5,12 +5,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/golang/snappy"
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -20,8 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 const (
@@ -47,18 +48,13 @@ const (
 // Message domains, the msg id function uncompresses to keep data monomorphic,
 // but invalid compressed data will need a unique different id.
 
-var (
-	MessageDomainInvalidSnappy = [4]byte{0, 0, 0, 0}
-	MessageDomainValidSnappy   = [4]byte{1, 0, 0, 0}
-)
+var MessageDomainInvalidSnappy = [4]byte{0, 0, 0, 0}
+var MessageDomainValidSnappy = [4]byte{1, 0, 0, 0}
 
 type GossipSetupConfigurables interface {
-	PeerScoringParams() *pubsub.PeerScoreParams
-	TopicScoringParams() *pubsub.TopicScoreParams
-	BanPeers() bool
+	PeerScoringParams() *ScoringParams
 	// ConfigureGossip creates configuration options to apply to the GossipSub setup
 	ConfigureGossip(rollupCfg *rollup.Config) []pubsub.Option
-	PeerBandScorer() *BandScoreThresholds
 }
 
 type GossipRuntimeConfig interface {
@@ -68,8 +64,6 @@ type GossipRuntimeConfig interface {
 //go:generate mockery --name GossipMetricer
 type GossipMetricer interface {
 	RecordGossipEvent(evType int32)
-	// Peer Scoring Metric Funcs
-	SetPeerScores(map[string]float64)
 }
 
 func blocksTopicV1(cfg *rollup.Config) string {
@@ -159,7 +153,7 @@ func BuildGlobalGossipParams(cfg *rollup.Config) pubsub.GossipSubParams {
 
 // NewGossipSub configures a new pubsub instance with the specified parameters.
 // PubSub uses a GossipSubRouter as it's router under the hood.
-func NewGossipSub(p2pCtx context.Context, h host.Host, g ConnectionGater, cfg *rollup.Config, gossipConf GossipSetupConfigurables, m GossipMetricer, log log.Logger) (*pubsub.PubSub, error) {
+func NewGossipSub(p2pCtx context.Context, h host.Host, cfg *rollup.Config, gossipConf GossipSetupConfigurables, scorer Scorer, m GossipMetricer, log log.Logger) (*pubsub.PubSub, error) {
 	denyList, err := pubsub.NewTimeCachedBlacklist(30 * time.Second)
 	if err != nil {
 		return nil, err
@@ -178,7 +172,7 @@ func NewGossipSub(p2pCtx context.Context, h host.Host, g ConnectionGater, cfg *r
 		pubsub.WithBlacklist(denyList),
 		pubsub.WithEventTracer(&gossipTracer{m: m}),
 	}
-	gossipOpts = append(gossipOpts, ConfigurePeerScoring(h, g, gossipConf, m, log)...)
+	gossipOpts = append(gossipOpts, ConfigurePeerScoring(gossipConf, scorer, log)...)
 	gossipOpts = append(gossipOpts, gossipConf.ConfigureGossip(cfg)...)
 	return pubsub.NewGossipSub(p2pCtx, h, gossipOpts...)
 }
@@ -246,9 +240,10 @@ func (sb *seenBlocks) markSeen(h common.Hash) {
 }
 
 func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRuntimeConfig) pubsub.ValidatorEx {
+
 	// Seen block hashes per block height
 	// uint64 -> *seenBlocks
-	blockHeightLRU, err := lru.New(1000)
+	blockHeightLRU, err := lru.New[uint64, *seenBlocks](1000)
 	if err != nil {
 		panic(fmt.Errorf("failed to set up block height LRU cache: %w", err))
 	}
@@ -321,7 +316,7 @@ func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 			blockHeightLRU.Add(uint64(payload.BlockNumber), seen)
 		}
 
-		if count, hasSeen := seen.(*seenBlocks).hasSeen(payload.BlockHash); count > 5 {
+		if count, hasSeen := seen.hasSeen(payload.BlockHash); count > 5 {
 			// [REJECT] if more than 5 blocks have been seen with the same block height
 			log.Warn("seen too many different blocks at same height", "height", payload.BlockNumber)
 			return pubsub.ValidationReject
@@ -333,7 +328,7 @@ func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 
 		// mark it as seen. (note: with concurrent validation more than 5 blocks may be marked as seen still,
 		// but validator concurrency is limited anyway)
-		seen.(*seenBlocks).markSeen(payload.BlockHash)
+		seen.markSeen(payload.BlockHash)
 
 		// remember the decoded payload for later usage in topic subscriber.
 		message.ValidatorData = &payload
@@ -385,10 +380,22 @@ type GossipOut interface {
 }
 
 type publisher struct {
-	log         log.Logger
-	cfg         *rollup.Config
+	log log.Logger
+	cfg *rollup.Config
+
+	// p2pCancel cancels the downstream gossip event-handling functions, independent of the sources.
+	// A closed gossip event source (event handler or subscription) does not stop any open event iteration,
+	// thus we have to stop it ourselves this way.
+	p2pCancel context.CancelFunc
+
+	// blocks topic, main handle on block gossip
 	blocksTopic *pubsub.Topic
-	runCfg      GossipRuntimeConfig
+	// block events handler, to be cancelled before closing the blocks topic.
+	blocksEvents *pubsub.TopicEventHandler
+	// block subscriptions, to be cancelled before closing blocks topic.
+	blocksSub *pubsub.Subscription
+
+	runCfg GossipRuntimeConfig
 }
 
 var _ GossipOut = (*publisher)(nil)
@@ -425,10 +432,13 @@ func (p *publisher) PublishL2Payload(ctx context.Context, payload *eth.Execution
 }
 
 func (p *publisher) Close() error {
+	p.p2pCancel()
+	p.blocksEvents.Cancel()
+	p.blocksSub.Cancel()
 	return p.blocksTopic.Close()
 }
 
-func JoinGossip(p2pCtx context.Context, self peer.ID, topicScoreParams *pubsub.TopicScoreParams, ps *pubsub.PubSub, log log.Logger, cfg *rollup.Config, runCfg GossipRuntimeConfig, gossipIn GossipIn) (GossipOut, error) {
+func JoinGossip(self peer.ID, ps *pubsub.PubSub, log log.Logger, cfg *rollup.Config, runCfg GossipRuntimeConfig, gossipIn GossipIn) (GossipOut, error) {
 	val := guardGossipValidator(log, logValidationResult(self, "validated block", log, BuildBlocksValidator(log, cfg, runCfg)))
 	blocksTopicName := blocksTopicV1(cfg)
 	err := ps.RegisterTopicValidator(blocksTopicName,
@@ -446,32 +456,32 @@ func JoinGossip(p2pCtx context.Context, self peer.ID, topicScoreParams *pubsub.T
 	if err != nil {
 		return nil, fmt.Errorf("failed to create blocks gossip topic handler: %w", err)
 	}
+	p2pCtx, p2pCancel := context.WithCancel(context.Background())
 	go LogTopicEvents(p2pCtx, log.New("topic", "blocks"), blocksTopicEvents)
-
-	// A [TimeInMeshQuantum] value of 0 means the topic score is disabled.
-	// If we passed a topicScoreParams with [TimeInMeshQuantum] set to 0,
-	// libp2p errors since the params will be rejected.
-	if topicScoreParams != nil && topicScoreParams.TimeInMeshQuantum != 0 {
-		if err = blocksTopic.SetScoreParams(topicScoreParams); err != nil {
-			return nil, fmt.Errorf("failed to set topic score params: %w", err)
-		}
-	}
 
 	subscription, err := blocksTopic.Subscribe()
 	if err != nil {
+		p2pCancel()
+		err = errors.Join(err, blocksTopic.Close())
 		return nil, fmt.Errorf("failed to subscribe to blocks gossip topic: %w", err)
 	}
 
 	subscriber := MakeSubscriber(log, BlocksHandler(gossipIn.OnUnsafeL2Payload))
 	go subscriber(p2pCtx, subscription)
 
-	return &publisher{log: log, cfg: cfg, blocksTopic: blocksTopic, runCfg: runCfg}, nil
+	return &publisher{
+		log:          log,
+		cfg:          cfg,
+		blocksTopic:  blocksTopic,
+		blocksEvents: blocksTopicEvents,
+		blocksSub:    subscription,
+		p2pCancel:    p2pCancel,
+		runCfg:       runCfg,
+	}, nil
 }
 
-type (
-	TopicSubscriber func(ctx context.Context, sub *pubsub.Subscription)
-	MessageHandler  func(ctx context.Context, from peer.ID, msg any) error
-)
+type TopicSubscriber func(ctx context.Context, sub *pubsub.Subscription)
+type MessageHandler func(ctx context.Context, from peer.ID, msg any) error
 
 func BlocksHandler(onBlock func(ctx context.Context, from peer.ID, msg *eth.ExecutionPayload) error) MessageHandler {
 	return func(ctx context.Context, from peer.ID, msg any) error {

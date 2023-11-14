@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/sources"
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
+	"github.com/ethereum-optimism/optimism/op-service/client/l2/engineapi"
+	"github.com/ethereum-optimism/optimism/op-service/client/l2/engineapi/test"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/beacon"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
@@ -16,6 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/trie"
+	"github.com/ethereum/go-ethereum/trie/triedb/hashdb"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,7 +32,8 @@ func TestL2EngineAPI(gt *testing.T) {
 	genesisBlock := sd.L2Cfg.ToBlock()
 	consensus := beacon.New(ethash.NewFaker())
 	db := rawdb.NewMemoryDatabase()
-	sd.L2Cfg.MustCommit(db)
+	tdb := trie.NewDatabase(db, &trie.Config{HashDB: hashdb.Defaults})
+	sd.L2Cfg.MustCommit(db, tdb)
 
 	engine := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath)
 
@@ -90,7 +95,8 @@ func TestL2EngineAPIBlockBuilding(gt *testing.T) {
 	log := testlog.Logger(t, log.LvlDebug)
 	genesisBlock := sd.L2Cfg.ToBlock()
 	db := rawdb.NewMemoryDatabase()
-	sd.L2Cfg.MustCommit(db)
+	tdb := trie.NewDatabase(db, &trie.Config{HashDB: hashdb.Defaults})
+	sd.L2Cfg.MustCommit(db, tdb)
 
 	engine := NewL2Engine(t, log, sd.L2Cfg, sd.RollupCfg.Genesis.L1, jwtPath)
 	t.Cleanup(func() {
@@ -187,7 +193,7 @@ func TestL2EngineAPIFail(gt *testing.T) {
 }
 
 func TestEngineAPITests(t *testing.T) {
-	RunEngineAPITests(t, func(t *testing.T) EngineBackend {
+	test.RunEngineAPITests(t, func(t *testing.T) engineapi.EngineBackend {
 		jwtPath := e2eutils.WriteDefaultJWT(t)
 		dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 		sd := e2eutils.Setup(t, dp, defaultAlloc)

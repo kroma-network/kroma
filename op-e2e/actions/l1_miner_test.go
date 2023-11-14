@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
 func TestL1Miner_BuildBlock(gt *testing.T) {
@@ -24,7 +24,6 @@ func TestL1Miner_BuildBlock(gt *testing.T) {
 	})
 
 	cl := miner.EthClient()
-	l1Cl := miner.L1Client(t, sd.RollupCfg)
 	signer := types.LatestSigner(sd.L1Cfg.Config)
 
 	// send a tx to the miner
@@ -42,22 +41,20 @@ func TestL1Miner_BuildBlock(gt *testing.T) {
 	// make an empty block, even though a tx may be waiting
 	miner.ActL1StartBlock(10)(t)
 	miner.ActL1EndBlock(t)
-	bl := miner.l1Chain.CurrentBlock()
-	_, txs, err := l1Cl.InfoAndTxsByHash(t.Ctx(), bl.Hash())
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), bl.Number.Uint64())
-	require.Zero(gt, txs.Len())
+	header := miner.l1Chain.CurrentBlock()
+	bl := miner.l1Chain.GetBlockByHash(header.Hash())
+	require.Equal(t, uint64(1), bl.NumberU64())
+	require.Zero(gt, bl.Transactions().Len())
 
 	// now include the tx when we want it to
 	miner.ActL1StartBlock(10)(t)
 	miner.ActL1IncludeTx(dp.Addresses.Alice)(t)
 	miner.ActL1EndBlock(t)
-	bl = miner.l1Chain.CurrentBlock()
-	_, txs, err = l1Cl.InfoAndTxsByHash(t.Ctx(), bl.Hash())
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), bl.Number.Uint64())
-	require.Equal(t, 1, txs.Len())
-	require.Equal(t, tx.Hash(), txs[0].Hash())
+	header = miner.l1Chain.CurrentBlock()
+	bl = miner.l1Chain.GetBlockByHash(header.Hash())
+	require.Equal(t, uint64(2), bl.NumberU64())
+	require.Equal(t, 1, bl.Transactions().Len())
+	require.Equal(t, tx.Hash(), bl.Transactions()[0].Hash())
 
 	// now make a replica that syncs these two blocks from the miner
 	replica := NewL1Replica(t, log, sd.L1Cfg)

@@ -36,6 +36,16 @@ var (
 	Predeploys = make(map[string]*common.Address)
 )
 
+// IsProxied returns true for predeploys that will sit behind a proxy contract
+func IsProxied(predeployAddr common.Address) bool {
+	switch predeployAddr {
+	case WETH9Addr:
+	default:
+		return true
+	}
+	return false
+}
+
 func init() {
 	Predeploys["ProxyAdmin"] = &ProxyAdminAddr
 	Predeploys["WETH9"] = &WETH9Addr

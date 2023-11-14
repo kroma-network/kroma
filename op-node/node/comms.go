@@ -3,8 +3,9 @@ package node
 import (
 	"context"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/libp2p/go-libp2p/core/peer"
+
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 // Tracer configures the KromaNode to share events

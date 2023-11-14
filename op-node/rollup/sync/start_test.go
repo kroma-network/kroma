@@ -6,18 +6,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
-	"github.com/ethereum-optimism/optimism/op-node/testutils"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
 
-var (
-	_ L1Chain = (*testutils.FakeChainSource)(nil)
-	_ L2Chain = (*testutils.FakeChainSource)(nil)
-)
+var _ L1Chain = (*testutils.FakeChainSource)(nil)
+var _ L2Chain = (*testutils.FakeChainSource)(nil)
 
 // generateFakeL2 creates a fake L2 chain with the following conditions:
 // - The L2 chain is based off of the L1 chain
@@ -34,6 +32,7 @@ func (c *syncStartTestCase) generateFakeL2(t *testing.T) (*testutils.FakeChainSo
 		chain.AdvanceL1()
 	}
 	return chain, genesis
+
 }
 
 func runeToHash(id rune) common.Hash {
@@ -77,7 +76,7 @@ func (c *syncStartTestCase) Run(t *testing.T) {
 	}
 	lgr := log.New()
 	lgr.SetHandler(log.DiscardHandler())
-	result, err := FindL2Heads(context.Background(), cfg, chain, chain, lgr)
+	result, err := FindL2Heads(context.Background(), cfg, chain, chain, lgr, &Config{})
 	if c.ExpectedErr != nil {
 		require.ErrorIs(t, err, c.ExpectedErr, "expected error")
 		return
@@ -226,7 +225,7 @@ func TestFindSyncStart(t *testing.T) {
 			GenesisL2:      'A',
 			UnsafeL2Head:   0,
 			SeqWindowSize:  2,
-			ExpectedErr:    ErrWrongChain,
+			ExpectedErr:    WrongChainErr,
 		},
 		{
 			Name:           "unexpected L2 chain",
@@ -240,7 +239,7 @@ func TestFindSyncStart(t *testing.T) {
 			GenesisL2:      'X',
 			UnsafeL2Head:   0,
 			SeqWindowSize:  2,
-			ExpectedErr:    ErrWrongChain,
+			ExpectedErr:    WrongChainErr,
 		},
 		{
 			Name:           "offset L2 genesis",
@@ -285,11 +284,11 @@ func TestFindSyncStart(t *testing.T) {
 			UnsafeL2Head:   0,
 			SeqWindowSize:  2,
 			SafeL2Head:     'D',
-			ExpectedErr:    ErrWrongChain,
+			ExpectedErr:    WrongChainErr,
 		},
 		{
 			// FindL2Heads() keeps walking back to safe head after finding canonical unsafe head
-			// ErrReorgTooDeep must not be raised
+			// TooDeepReorgErr must not be raised
 			Name:           "long traverse to safe head",
 			GenesisL1Num:   0,
 			L1:             "abcdefgh",
@@ -316,7 +315,7 @@ func TestFindSyncStart(t *testing.T) {
 			GenesisL1:      'a',
 			GenesisL2:      'A',
 			SeqWindowSize:  1,
-			ExpectedErr:    ErrReorgTooDeep,
+			ExpectedErr:    TooDeepReorgErr,
 		},
 	}
 

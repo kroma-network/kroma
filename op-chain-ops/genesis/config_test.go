@@ -9,18 +9,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-
 	"github.com/stretchr/testify/require"
 )
 
 func TestConfigMarshalUnmarshal(t *testing.T) {
 	b, err := os.ReadFile("testdata/test-deploy-config-full.json")
 	require.NoError(t, err)
+
 	dec := json.NewDecoder(bytes.NewReader(b))
 	decoded := new(DeployConfig)
 	require.NoError(t, dec.Decode(decoded))
 	encoded, err := json.MarshalIndent(decoded, "", "  ")
-
 	require.NoError(t, err)
 	require.JSONEq(t, string(b), string(encoded))
 }

@@ -6,18 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"time"
 )
 
 var MessagePassedTopic = crypto.Keccak256Hash([]byte("MessagePassed(uint256,address,address,uint256,uint256,bytes,bytes32)"))
@@ -118,6 +118,7 @@ loop:
 			return 0, ctx.Err()
 		}
 	}
+
 }
 
 type ProofClient interface {
@@ -168,7 +169,7 @@ func ProveWithdrawalParameters(
 	// Generate then verify the withdrawal proof
 	withdrawalHash, err := WithdrawalHash(ev)
 	if !bytes.Equal(withdrawalHash[:], ev.WithdrawalHash[:]) {
-		return ProvenWithdrawalParameters{}, errors.New("computed withdrawal hash incorrectly")
+		return ProvenWithdrawalParameters{}, errors.New("Computed withdrawal hash incorrectly")
 	}
 	if err != nil {
 		return ProvenWithdrawalParameters{}, err

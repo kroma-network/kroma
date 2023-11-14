@@ -32,7 +32,7 @@ func TestBaseServer(t *testing.T) {
 	)
 	require.NoError(t, server.Start())
 	defer func() {
-		server.Stop()
+		_ = server.Stop()
 	}()
 
 	rpcClient, err := rpc.Dial(fmt.Sprintf("http://%s", server.endpoint))

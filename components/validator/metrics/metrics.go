@@ -4,14 +4,13 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
+	txmetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	kmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
-	txmetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 )
 
 const (
@@ -24,7 +23,7 @@ type Metricer interface {
 	RecordUp()
 
 	// Records all L1 and L2 block events
-	kmetrics.RefMetricer
+	opmetrics.RefMetricer
 
 	// Record Tx metrics
 	txmetrics.TxMetricer
@@ -38,9 +37,9 @@ type Metricer interface {
 type Metrics struct {
 	ns       string
 	registry *prometheus.Registry
-	factory  kmetrics.Factory
+	factory  opmetrics.Factory
 
-	kmetrics.RefMetrics
+	opmetrics.RefMetrics
 	txmetrics.TxMetrics
 
 	Info                prometheus.GaugeVec
@@ -58,15 +57,15 @@ func NewMetrics(procName string) *Metrics {
 	}
 	ns := Namespace + "_" + procName
 
-	registry := kmetrics.NewRegistry()
-	factory := kmetrics.With(registry)
+	registry := opmetrics.NewRegistry()
+	factory := opmetrics.With(registry)
 
 	return &Metrics{
 		ns:       ns,
 		registry: registry,
 		factory:  factory,
 
-		RefMetrics: kmetrics.MakeRefMetrics(ns, factory),
+		RefMetrics: opmetrics.MakeRefMetrics(ns, factory),
 		TxMetrics:  txmetrics.MakeTxMetrics(ns, factory),
 
 		Info: *factory.NewGaugeVec(prometheus.GaugeOpts{
@@ -102,13 +101,13 @@ func NewMetrics(procName string) *Metrics {
 }
 
 func (m *Metrics) Serve(ctx context.Context, host string, port int) error {
-	return kmetrics.ListenAndServe(ctx, m.registry, host, port)
+	return opmetrics.ListenAndServe(ctx, m.registry, host, port)
 }
 
 func (m *Metrics) StartBalanceMetrics(ctx context.Context,
 	l log.Logger, client *ethclient.Client, account common.Address,
 ) {
-	kmetrics.LaunchBalanceMetrics(ctx, l, m.registry, m.ns, client, account)
+	opmetrics.LaunchBalanceMetrics(ctx, l, m.registry, m.ns, client, account)
 }
 
 // RecordInfo sets a pseudo-metric that contains versioning and
@@ -130,7 +129,7 @@ func (m *Metrics) RecordL2OutputSubmitted(l2ref eth.L2BlockRef) {
 
 // RecordDepositAmount sets the amount deposited into the ValidatorPool contract.
 func (m *Metrics) RecordDepositAmount(amount *big.Int) {
-	m.DepositAmount.Set(kmetrics.WeiToEther(amount))
+	m.DepositAmount.Set(opmetrics.WeiToEther(amount))
 }
 
 // RecordNextValidator sets the address of the next validator.

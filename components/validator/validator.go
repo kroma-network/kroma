@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/monitoring"
 	krpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
@@ -41,7 +41,7 @@ func Main(version string, cliCtx *cli.Context) error {
 		return fmt.Errorf("invalid CLI flags: %w", err)
 	}
 
-	l := klog.NewLogger(cliCfg.LogConfig)
+	l := klog.NewLogger(klog.AppOut(cliCtx), cliCfg.LogConfig)
 	m := metrics.NewMetrics("default")
 	l.Info("initializing Validator")
 

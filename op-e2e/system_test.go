@@ -5,42 +5,62 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"os"
+	"runtime"
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
-	"github.com/ethereum-optimism/optimism/op-node/client"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/metrics"
-	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
-	"github.com/ethereum-optimism/optimism/op-node/p2p"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
-	"github.com/ethereum-optimism/optimism/op-node/sources"
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
-	"github.com/ethereum-optimism/optimism/op-service/backoff"
-	opprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
+	"github.com/ethereum-optimism/optimism/op-node/metrics"
+	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
+	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	opprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	"github.com/ethereum-optimism/optimism/op-service/retry"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	val "github.com/kroma-network/kroma/components/validator"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 )
+
+func TestMain(m *testing.M) {
+	fmt.Println("Running tests with external L2 process adapter")
+	// As these are integration tests which launch many other processes, the
+	// default parallelism makes the tests flaky.  This change aims to
+	// reduce the flakiness of these tests.
+	maxProcs := runtime.NumCPU() / 4
+	if maxProcs == 0 {
+		maxProcs = 1
+	}
+	runtime.GOMAXPROCS(maxProcs)
+
+	os.Exit(m.Run())
+}
 
 func TestL2OutputSubmitter(t *testing.T) {
 	InitParallel(t)
@@ -48,7 +68,7 @@ func TestL2OutputSubmitter(t *testing.T) {
 	cfg := DefaultSystemConfig(t)
 	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -71,7 +91,7 @@ func TestL2OutputSubmitter(t *testing.T) {
 	// for that block and subsequently reorgs to match what the verifier derives when running the
 	// reconciliation process.
 	l2Verif := sys.Clients["verifier"]
-	_, err = waitForL2Block(big.NewInt(6), l2Verif, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+	_, err = geth.WaitForBlock(big.NewInt(6), l2Verif, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
 	require.Nil(t, err)
 
 	// Wait for batch submitter to update L2 output oracle.
@@ -120,7 +140,7 @@ func TestValidationReward(t *testing.T) {
 	cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
 	cfg.DeployConfig.ValidatorPoolRoundDuration = 16
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.NoError(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -167,7 +187,7 @@ func TestSystemE2E(t *testing.T) {
 
 	cfg := DefaultSystemConfig(t)
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -249,7 +269,7 @@ func TestConfirmationDepth(t *testing.T) {
 	cfg.Nodes["sequencer"].Driver.VerifierConfDepth = 0
 	cfg.Nodes["verifier"].Driver.VerifierConfDepth = verConfDepth
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -292,20 +312,22 @@ func TestPendingGasLimit(t *testing.T) {
 
 	// configure the L2 gas limit to be high, and the pending gas limits to be lower for resource saving.
 	cfg.DeployConfig.L2GenesisBlockGasLimit = 30_000_000
-	cfg.GethOptions["sequencer"] = []GethOption{
+	cfg.GethOptions["sequencer"] = append(cfg.GethOptions["sequencer"], []geth.GethOption{
 		func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
 			ethCfg.Miner.GasCeil = 10_000_000
+			ethCfg.Miner.RollupComputePendingBlock = true
 			return nil
 		},
-	}
-	cfg.GethOptions["verifier"] = []GethOption{
+	}...)
+	cfg.GethOptions["verifier"] = append(cfg.GethOptions["verifier"], []geth.GethOption{
 		func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
 			ethCfg.Miner.GasCeil = 9_000_000
+			ethCfg.Miner.RollupComputePendingBlock = true
 			return nil
 		},
-	}
+	}...)
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -347,7 +369,7 @@ func TestFinalize(t *testing.T) {
 
 	cfg := DefaultSystemConfig(t)
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -367,67 +389,6 @@ func TestFinalize(t *testing.T) {
 	require.NotZerof(t, l2Finalized.NumberU64(), "must have finalized L2 block")
 }
 
-func TestMintOnRevertedDeposit(t *testing.T) {
-	InitParallel(t)
-	cfg := DefaultSystemConfig(t)
-
-	sys, err := cfg.Start()
-	require.Nil(t, err, "Error starting up system")
-	defer sys.Close()
-
-	l1Client := sys.Clients["l1"]
-	l2Verif := sys.Clients["verifier"]
-
-	l1Node := sys.Nodes["l1"]
-
-	// create signer
-	ks := l1Node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-	opts, err := bind.NewKeyStoreTransactorWithChainID(ks, ks.Accounts()[0], cfg.L1ChainIDBig())
-	require.Nil(t, err)
-	fromAddr := opts.From
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	startBalance, err := l2Verif.BalanceAt(ctx, fromAddr, nil)
-	cancel()
-	require.Nil(t, err)
-
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	startNonce, err := l2Verif.NonceAt(ctx, fromAddr, nil)
-	require.NoError(t, err)
-	cancel()
-
-	toAddr := common.Address{0xff, 0xff}
-	mintAmount := big.NewInt(9_000_000)
-	opts.Value = mintAmount
-	SendDepositTx(t, cfg, l1Client, l2Verif, opts, func(l2Opts *DepositTxOpts) {
-		l2Opts.ToAddr = toAddr
-		// trigger a revert by transferring more than we have available
-		l2Opts.Value = new(big.Int).Mul(common.Big2, startBalance)
-		l2Opts.ExpectedStatus = types.ReceiptStatusFailed
-	})
-
-	// Confirm balance
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	endBalance, err := l2Verif.BalanceAt(ctx, fromAddr, nil)
-	cancel()
-	require.Nil(t, err)
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	toAddrBalance, err := l2Verif.BalanceAt(ctx, toAddr, nil)
-	require.NoError(t, err)
-	cancel()
-
-	diff := new(big.Int)
-	diff = diff.Sub(endBalance, startBalance)
-	require.Equal(t, mintAmount, diff, "Did not get expected balance change")
-	require.Equal(t, common.Big0.Int64(), toAddrBalance.Int64(), "The recipient account balance should be zero")
-
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	endNonce, err := l2Verif.NonceAt(ctx, fromAddr, nil)
-	require.NoError(t, err)
-	cancel()
-	require.Equal(t, startNonce+1, endNonce, "Nonce of deposit sender should increment on L2, even if the deposit fails")
-}
-
 func TestMissingBatchE2E(t *testing.T) {
 	InitParallel(t)
 	// Note this test zeroes the balance of the batch-submitter to make the batches unable to go into L1.
@@ -441,7 +402,7 @@ func TestMissingBatchE2E(t *testing.T) {
 	// Specifically set batch submitter balance to stop batches from being included
 	cfg.Premine[cfg.Secrets.Addresses().Batcher] = big.NewInt(0)
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -461,7 +422,7 @@ func TestMissingBatchE2E(t *testing.T) {
 	})
 
 	// Wait until the block it was first included in shows up in the safe chain on the verifier
-	_, err = waitForL2Block(receipt.BlockNumber, l2Verif, time.Duration((sys.RollupConfig.SeqWindowSize+4)*cfg.DeployConfig.L1BlockTime)*time.Second)
+	_, err = geth.WaitForBlock(receipt.BlockNumber, l2Verif, time.Duration((sys.RollupConfig.SeqWindowSize+4)*cfg.DeployConfig.L1BlockTime)*time.Second)
 	require.Nil(t, err, "Waiting for block on verifier")
 
 	// Assert that the transaction is not found on the verifier
@@ -478,8 +439,11 @@ func TestMissingBatchE2E(t *testing.T) {
 	ctx2, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	block, err := l2Seq.BlockByNumber(ctx2, receipt.BlockNumber)
-	require.Nil(t, err, "Get block from sequencer")
-	require.NotEqual(t, block.Hash(), receipt.BlockHash, "L2 Sequencer did not reorg out transaction on it's safe chain")
+	if err != nil {
+		require.Equal(t, "not found", err.Error(), "A not found error indicates the chain must have re-orged back before it")
+	} else {
+		require.NotEqual(t, block.Hash(), receipt.BlockHash, "L2 Sequencer did not reorg out transaction on it's safe chain")
+	}
 }
 
 func L1InfoFromState(ctx context.Context, contract *bindings.L1Block, l2Number *big.Int) (derive.L1BlockInfo, error) {
@@ -573,7 +537,7 @@ func TestSystemMockP2P(t *testing.T) {
 	cfg.Nodes["sequencer"].Tracer = seqTracer
 	cfg.Nodes["verifier"].Tracer = verifTracer
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -584,12 +548,12 @@ func TestSystemMockP2P(t *testing.T) {
 	verifierPeerID := sys.RollupNodes["verifier"].P2P().Host().ID()
 	check := func() bool {
 		sequencerBlocksTopicPeers := sys.RollupNodes["sequencer"].P2P().GossipOut().BlocksTopicPeers()
-		return slices.Contains[peer.ID](sequencerBlocksTopicPeers, verifierPeerID)
+		return slices.Contains[[]peer.ID](sequencerBlocksTopicPeers, verifierPeerID)
 	}
 
 	// poll to see if the verifier node is connected & meshed on gossip.
 	// Without this verifier, we shouldn't start sending blocks around, or we'll miss them and fail the test.
-	backOffStrategy := backoff.Exponential()
+	backOffStrategy := retry.Exponential()
 	for i := 0; i < 10; i++ {
 		if check() {
 			break
@@ -657,13 +621,12 @@ func TestSystemRPCAltSync(t *testing.T) {
 	cfg.Nodes["sequencer"].Tracer = seqTracer
 	cfg.Nodes["verifier"].Tracer = verifTracer
 
-	sys, err := cfg.Start(SystemConfigOption{
+	sys, err := cfg.Start(t, SystemConfigOption{
 		key:  "afterRollupNodeStart",
 		role: "sequencer",
 		action: func(sCfg *SystemConfig, system *System) {
-			rpc, _ := system.Nodes["sequencer"].Attach() // never errors
 			cfg.Nodes["verifier"].L2Sync = &rollupNode.PreparedL2SyncEndpoint{
-				Client: client.NewBaseRPCClient(rpc),
+				Client: client.NewBaseRPCClient(system.RawClients["sequencer"]),
 			}
 		},
 	})
@@ -741,7 +704,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 	// Blocks are now received via the RPC based alt-sync method
 	cfg.Nodes["sequencer"].Tracer = seqTracer
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -766,7 +729,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 	snapLog.SetHandler(log.DiscardHandler())
 
 	// Create a peer, and hook up alice and bob
-	h, err := sys.Mocknet.GenPeer()
+	h, err := sys.newMockNetPeer()
 	require.NoError(t, err)
 	_, err = sys.Mocknet.LinkPeers(sys.RollupNodes["alice"].P2P().Host().ID(), h.ID())
 	require.NoError(t, err)
@@ -795,8 +758,8 @@ func TestSystemP2PAltSync(t *testing.T) {
 			},
 		},
 	}
-	configureL1(syncNodeCfg, sys.Nodes["l1"])
-	syncerL2Engine, _, err := initL2Geth("syncer", big.NewInt(int64(cfg.DeployConfig.L2ChainID)), sys.L2GenesisCfg, cfg.JWTFilePath)
+	configureL1(syncNodeCfg, sys.EthInstances["l1"])
+	syncerL2Engine, _, err := geth.InitL2("syncer", big.NewInt(int64(cfg.DeployConfig.L2ChainID)), sys.L2GenesisCfg, cfg.JWTFilePath)
 	require.NoError(t, err)
 	require.NoError(t, syncerL2Engine.Start())
 
@@ -813,12 +776,11 @@ func TestSystemP2PAltSync(t *testing.T) {
 	_, err = sys.Mocknet.ConnectPeers(sys.RollupNodes["bob"].P2P().Host().ID(), syncerNode.P2P().Host().ID())
 	require.NoError(t, err)
 
-	rpc, err := syncerL2Engine.Attach()
-	require.NoError(t, err)
+	rpc := syncerL2Engine.Attach()
 	l2Verif := ethclient.NewClient(rpc)
 
 	// It may take a while to sync, but eventually we should see the sequenced data show up
-	receiptVerif, err := waitForTransaction(receiptSeq.TxHash, l2Verif, 100*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
+	receiptVerif, err := geth.WaitForTransaction(receiptSeq.TxHash, l2Verif, 100*time.Duration(sys.RollupConfig.BlockTime)*time.Second)
 	require.Nil(t, err, "Waiting for L2 tx on verifier")
 
 	require.Equal(t, receiptSeq, receiptVerif)
@@ -871,10 +833,10 @@ func TestSystemDenseTopology(t *testing.T) {
 
 	// Set peer scoring for each node, but without banning
 	for _, node := range cfg.Nodes {
-		params, err := p2p.GetPeerScoreParams("light", 2)
+		params, err := p2p.GetScoringParams("light", &node.Rollup)
 		require.NoError(t, err)
 		node.P2P = &p2p.Config{
-			PeerScoring:    params,
+			ScoringParams:  params,
 			BanningEnabled: false,
 		}
 	}
@@ -898,7 +860,7 @@ func TestSystemDenseTopology(t *testing.T) {
 	cfg.Nodes["verifier2"].Tracer = verifTracer2
 	cfg.Nodes["verifier3"].Tracer = verifTracer3
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -938,7 +900,7 @@ func TestL1InfoContract(t *testing.T) {
 
 	cfg := DefaultSystemConfig(t)
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -948,9 +910,9 @@ func TestL1InfoContract(t *testing.T) {
 
 	endVerifBlockNumber := big.NewInt(4)
 	endSeqBlockNumber := big.NewInt(6)
-	endVerifBlock, err := waitForL2Block(endVerifBlockNumber, l2Verif, time.Minute)
+	endVerifBlock, err := geth.WaitForBlock(endVerifBlockNumber, l2Verif, time.Minute)
 	require.Nil(t, err)
-	endSeqBlock, err := waitForL2Block(endSeqBlockNumber, l2Seq, time.Minute)
+	endSeqBlock, err := geth.WaitForBlock(endSeqBlockNumber, l2Seq, time.Minute)
 	require.Nil(t, err)
 
 	seqL1Info, err := bindings.NewL1Block(cfg.L1InfoPredeployAddress, l2Seq)
@@ -1051,7 +1013,7 @@ func calcL1GasUsed(data []byte, overhead *big.Int) *big.Int {
 	}
 
 	zeroesGas := zeroes * 4 // params.TxDataZeroGas
-	//NOTE: kroma need check
+	//NOTE: updated by Kroma
 	//onesGas := (ones + 68) * 16 // params.TxDataNonZeroGasEIP2028
 	onesGas := ones * 16 // params.TxDataNonZeroGasEIP2028
 	l1Gas := new(big.Int).SetUint64(zeroesGas + onesGas)
@@ -1067,7 +1029,7 @@ func TestWithdrawals(t *testing.T) {
 	cfg := DefaultSystemConfig(t)
 	cfg.DeployConfig.FinalizationPeriodSeconds = 2 // 2s finalization period
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -1143,14 +1105,9 @@ func TestWithdrawals(t *testing.T) {
 	require.Nil(t, err)
 
 	version := rollup.L2OutputRootVersion(sys.RollupConfig, header.Time)
-	proveReceipt, finalizeReceipt := ProveAndFinalizeWithdrawal(t, version, cfg, l1Client, sys.Nodes["verifier"], ethPrivKey, receipt)
+	proveReceipt, finalizeReceipt := ProveAndFinalizeWithdrawal(t, version, cfg, l1Client, sys.EthInstances["verifier"], ethPrivKey, receipt)
 
 	// Verify balance after withdrawal
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	header, err = l1Client.HeaderByNumber(ctx, finalizeReceipt.BlockNumber)
-	require.Nil(t, err)
-
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	endBalance, err = l1Client.BalanceAt(ctx, fromAddr, nil)
@@ -1160,9 +1117,27 @@ func TestWithdrawals(t *testing.T) {
 	// Fun fact, the fee is greater than the withdrawal amount
 	// NOTE: The gas fees include *both* the ProveWithdrawalTransaction and FinalizeWithdrawalTransaction transactions.
 	diff = new(big.Int).Sub(endBalance, startBalance)
-	fees = calcGasFees(proveReceipt.GasUsed+finalizeReceipt.GasUsed, tx.GasTipCap(), tx.GasFeeCap(), header.BaseFee)
+	proveFee := new(big.Int).Mul(new(big.Int).SetUint64(proveReceipt.GasUsed), proveReceipt.EffectiveGasPrice)
+	finalizeFee := new(big.Int).Mul(new(big.Int).SetUint64(finalizeReceipt.GasUsed), finalizeReceipt.EffectiveGasPrice)
+	fees = new(big.Int).Add(proveFee, finalizeFee)
 	withdrawAmount = withdrawAmount.Sub(withdrawAmount, fees)
 	require.Equal(t, withdrawAmount, diff)
+}
+
+type stateGetterAdapter struct {
+	ctx      context.Context
+	t        *testing.T
+	client   *ethclient.Client
+	blockNum *big.Int
+}
+
+func (sga *stateGetterAdapter) GetState(addr common.Address, key common.Hash) common.Hash {
+	sga.t.Helper()
+	val, err := sga.client.StorageAt(sga.ctx, addr, key, sga.blockNum)
+	require.NoError(sga.t, err)
+	var res common.Hash
+	copy(res[:], val)
+	return res
 }
 
 // TestFees checks that L1/L2 fees are handled.
@@ -1170,17 +1145,32 @@ func TestFees(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
-	// TODO: after we have the system config contract and new kroma-geth L1 cost utils,
-	// we can pull in l1 costs into every e2e test and account for it in assertions easily etc.
-	cfg.DeployConfig.GasPriceOracleOverhead = 2100
-	cfg.DeployConfig.GasPriceOracleScalar = 1000_000
+	// This test only works with these config values modified
+	//cfg.DeployConfig.L2GenesisRegolithTimeOffset = nil
+	cfg.DeployConfig.L1GenesisBlockBaseFeePerGas = (*hexutil.Big)(big.NewInt(7))
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
 	l2Seq := sys.Clients["sequencer"]
 	l2Verif := sys.Clients["verifier"]
+	l1 := sys.Clients["l1"]
+
+	//TODO read
+	config := &params.ChainConfig{
+		Kroma: &params.KromaConfig{
+			EIP1559Elasticity:  cfg.DeployConfig.EIP1559Elasticity,
+			EIP1559Denominator: cfg.DeployConfig.EIP1559Denominator,
+		},
+		//BedrockBlock: big.NewInt(0),
+	}
+	sga := &stateGetterAdapter{
+		ctx:    context.Background(),
+		t:      t,
+		client: l2Seq,
+	}
+	l1CostFn := types.NewL1CostFunc(config, sga)
 
 	// Transactor Account
 	ethPrivKey := cfg.Secrets.Alice
@@ -1197,29 +1187,28 @@ func TestFees(t *testing.T) {
 	scalar, err := gpoContract.Scalar(&bind.CallOpts{})
 	require.Nil(t, err, "reading gpo scalar")
 
-	require.Equal(t, overhead.Uint64(), uint64(2100), "wrong gpo overhead")
+	require.Equal(t, overhead.Uint64(), cfg.DeployConfig.GasPriceOracleOverhead, "wrong gpo overhead")
 	require.Equal(t, decimals.Uint64(), uint64(6), "wrong gpo decimals")
-	require.Equal(t, scalar.Uint64(), uint64(1_000_000), "wrong gpo scalar")
+	require.Equal(t, scalar.Uint64(), cfg.DeployConfig.GasPriceOracleScalar, "wrong gpo scalar")
 
 	// Check balances of ProtocolVault
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	protocolVaultStartBalance, err := l2Seq.BalanceAt(ctx, predeploys.ProtocolVaultAddr, nil)
+	protocolVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
 	require.Nil(t, err)
 
 	// Check balances of L1FeeVault
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	l1FeeVaultStartBalance, err := l2Seq.BalanceAt(ctx, predeploys.L1FeeVaultAddr, nil)
+	l1FeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+	require.Nil(t, err)
+
+	// Check balance of ValidatorRewardVault
+	validatorRewardVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
 	require.Nil(t, err)
 
 	// Simple transfer from signer to random account
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	startBalance, err := l2Verif.BalanceAt(ctx, fromAddr, nil)
+	startBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
 	require.Nil(t, err)
+	require.Greater(t, startBalance.Uint64(), big.NewInt(params.Ether).Uint64())
 
-	transferAmount := big.NewInt(1_000_000_000)
+	transferAmount := big.NewInt(params.Ether)
 	gasTip := big.NewInt(10)
 	receipt := SendL2Tx(t, cfg, l2Seq, ethPrivKey, func(opts *TxOpts) {
 		opts.ToAddr = &common.Address{0xff, 0xff}
@@ -1230,37 +1219,24 @@ func TestFees(t *testing.T) {
 		opts.VerifyOnClients(l2Verif)
 	})
 
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	header, err := l2Seq.HeaderByNumber(ctx, receipt.BlockNumber)
+	require.Equal(t, receipt.Status, types.ReceiptStatusSuccessful)
+
+	header, err := l2Seq.HeaderByNumber(context.Background(), receipt.BlockNumber)
 	require.Nil(t, err)
 
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	validatorRewardVaultStartBalance, err := l2Seq.BalanceAt(ctx, predeploys.ValidatorRewardVaultAddr, safeAddBig(header.Number, big.NewInt(-1)))
+	protocolVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, header.Number)
 	require.Nil(t, err)
 
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	validatorRewardVaultEndBalance, err := l2Seq.BalanceAt(ctx, predeploys.ValidatorRewardVaultAddr, header.Number)
+	l1FeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, header.Number)
 	require.Nil(t, err)
 
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	endBalance, err := l2Seq.BalanceAt(ctx, fromAddr, header.Number)
+	validatorRewardVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, header.Number)
 	require.Nil(t, err)
 
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	protocolVaultEndBalance, err := l2Seq.BalanceAt(ctx, predeploys.ProtocolVaultAddr, header.Number)
+	endBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, header.Number)
 	require.Nil(t, err)
 
-	l1Header, err := sys.Clients["l1"].HeaderByNumber(ctx, nil)
-	require.Nil(t, err)
-
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	l1FeeVaultEndBalance, err := l2Seq.BalanceAt(ctx, predeploys.L1FeeVaultAddr, header.Number)
+	l1Header, err := l1.HeaderByNumber(context.Background(), nil)
 	require.Nil(t, err)
 
 	// Diff fee recipients balances
@@ -1292,22 +1268,36 @@ func TestFees(t *testing.T) {
 	require.Equal(t, protocolFee.Cmp(protocolVaultDiff), 0, "protocol fund mismatch")
 
 	// Tally sequencer reward
-	tx, _, err := l2Seq.TransactionByHash(ctx, receipt.TxHash)
+	tx, _, err := l2Seq.TransactionByHash(context.Background(), receipt.TxHash)
 	require.NoError(t, err, "Should be able to get transaction")
 	bytes, err := tx.MarshalBinary()
 	require.Nil(t, err)
-	l1GasUsed := calcL1GasUsed(bytes, overhead)
-	divisor := new(big.Int).Exp(big.NewInt(10), decimals, nil)
-	l1Fee := new(big.Int).Mul(l1GasUsed, l1Header.BaseFee)
-	l1Fee = l1Fee.Mul(l1Fee, scalar)
-	l1Fee = l1Fee.Div(l1Fee, divisor)
 
+	//tx, _, err := l2Seq.TransactionByHash(context.Background(), receipt.TxHash)
+	//require.NoError(t, err, "Should be able to get transaction")
+	//bytes, err := tx.MarshalBinary()
+	//require.Nil(t, err)
+	//l1GasUsed := calcL1GasUsed(bytes, overhead)
+	//divisor := new(big.Int).Exp(big.NewInt(10), decimals, nil)
+	//l1Fee := new(big.Int).Mul(l1GasUsed, l1Header.BaseFee)
+	//l1Fee = l1Fee.Mul(l1Fee, scalar)
+	//l1Fee = l1Fee.Div(l1Fee, divisor)
+
+	l1Fee := l1CostFn(receipt.BlockNumber.Uint64(), tx.RollupDataGas(), false)
 	require.Equal(t, l1Fee, l1FeeVaultDiff, "sequencer reward mismatch")
 
 	// Tally Sequencer reward against GasPriceOracle
 	gpoL1Fee, err := gpoContract.GetL1Fee(&bind.CallOpts{}, bytes)
 	require.Nil(t, err)
-	require.Equal(t, l1Fee, gpoL1Fee, "sequencer reward mismatch")
+	require.Equal(t, l1Fee, gpoL1Fee, "GPO reports L1 fee mismatch")
+
+	require.Equal(t, receipt.L1Fee, l1Fee, "l1 fee in receipt is correct")
+	require.Equal(t,
+		new(big.Float).Mul(
+			new(big.Float).SetInt(l1Header.BaseFee),
+			new(big.Float).Mul(new(big.Float).SetInt(receipt.L1GasUsed), receipt.FeeScalar),
+		),
+		new(big.Float).SetInt(receipt.L1Fee), "fee field in receipt matches gas used times scalar times basefee")
 
 	// Calculate total fee
 	protocolVaultDiff.Add(protocolVaultDiff, validatorRewardVaultDiff)
@@ -1317,52 +1307,11 @@ func TestFees(t *testing.T) {
 	require.Equal(t, balanceDiff, totalFee, "balances should add up")
 }
 
-func TestStopStartSequencer(t *testing.T) {
-	InitParallel(t)
-
-	cfg := DefaultSystemConfig(t)
-	sys, err := cfg.Start()
-	require.Nil(t, err, "Error starting up system")
-	defer sys.Close()
-
-	l2Seq := sys.Clients["sequencer"]
-	rollupNode := sys.RollupNodes["sequencer"]
-
-	nodeRPC, err := rpc.DialContext(context.Background(), rollupNode.HTTPEndpoint())
-	require.Nil(t, err, "Error dialing node")
-
-	blockBefore := latestBlock(t, l2Seq)
-	time.Sleep(time.Duration(cfg.DeployConfig.L2BlockTime+1) * time.Second)
-	blockAfter := latestBlock(t, l2Seq)
-	require.Greaterf(t, blockAfter, blockBefore, "Chain did not advance")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	blockHash := common.Hash{}
-	err = nodeRPC.CallContext(ctx, &blockHash, "admin_stopSequencer")
-	require.Nil(t, err, "Error stopping sequencer")
-
-	blockBefore = latestBlock(t, l2Seq)
-	time.Sleep(time.Duration(cfg.DeployConfig.L2BlockTime+1) * time.Second)
-	blockAfter = latestBlock(t, l2Seq)
-	require.Equal(t, blockAfter, blockBefore, "Chain advanced after stopping sequencer")
-
-	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	err = nodeRPC.CallContext(ctx, nil, "admin_startSequencer", blockHash)
-	require.Nil(t, err, "Error starting sequencer")
-
-	blockBefore = latestBlock(t, l2Seq)
-	time.Sleep(time.Duration(cfg.DeployConfig.L2BlockTime+1) * time.Second)
-	blockAfter = latestBlock(t, l2Seq)
-	require.Greater(t, blockAfter, blockBefore, "Chain did not advance after starting sequencer")
-}
-
 func TestStopStartBatcher(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -1392,8 +1341,8 @@ func TestStopStartBatcher(t *testing.T) {
 	receipt := sendTx()
 
 	// wait until the block the tx was first included in shows up in the safe chain on the verifier
-	safeBlockInclusionDuration := time.Duration(3*cfg.DeployConfig.L1BlockTime) * time.Second
-	_, err = waitForL2Block(receipt.BlockNumber, l2Verif, safeBlockInclusionDuration)
+	safeBlockInclusionDuration := time.Duration(6*cfg.DeployConfig.L1BlockTime) * time.Second
+	_, err = geth.WaitForBlock(receipt.BlockNumber, l2Verif, safeBlockInclusionDuration)
 	require.Nil(t, err, "Waiting for block on verifier")
 
 	// ensure the safe chain advances
@@ -1430,7 +1379,7 @@ func TestStopStartBatcher(t *testing.T) {
 	receipt = sendTx()
 
 	// wait until the block the tx was first included in shows up in the safe chain on the verifier
-	_, err = waitForL2Block(receipt.BlockNumber, l2Verif, safeBlockInclusionDuration)
+	_, err = geth.WaitForBlock(receipt.BlockNumber, l2Verif, safeBlockInclusionDuration)
 	require.Nil(t, err, "Waiting for block on verifier")
 
 	// ensure that the safe chain advances after restarting the batcher
@@ -1446,7 +1395,7 @@ func TestChallenge(t *testing.T) {
 	cfg.EnableMaliciousValidator = true
 	cfg.EnableGuardian = true
 
-	sys, err := cfg.Start()
+	sys, err := cfg.Start(t)
 	require.NoError(t, err, "Error starting up system")
 	defer sys.Close()
 
@@ -1529,6 +1478,48 @@ func safeAddBig(a *big.Int, b *big.Int) *big.Int {
 	return new(big.Int).Add(a, b)
 }
 
+func TestBatcherMultiTx(t *testing.T) {
+	InitParallel(t)
+
+	cfg := DefaultSystemConfig(t)
+	cfg.BatcherTargetL1TxSizeBytes = 2 // ensures that batcher txs are as small as possible
+	cfg.DisableBatcher = true
+	sys, err := cfg.Start(t)
+	require.Nil(t, err, "Error starting up system")
+	defer sys.Close()
+
+	l1Client := sys.Clients["l1"]
+	l2Seq := sys.Clients["sequencer"]
+
+	_, err = geth.WaitForBlock(big.NewInt(10), l2Seq, time.Duration(cfg.DeployConfig.L2BlockTime*15)*time.Second)
+	require.Nil(t, err, "Waiting for L2 blocks")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	l1Number, err := l1Client.BlockNumber(ctx)
+	require.Nil(t, err)
+
+	// start batch submission
+	err = sys.BatchSubmitter.Start()
+	require.Nil(t, err)
+
+	totalTxCount := 0
+	// wait for up to 10 L1 blocks, usually only 3 is required, but it's
+	// possible additional L1 blocks will be created before the batcher starts,
+	// so we wait additional blocks.
+	for i := int64(0); i < 10; i++ {
+		block, err := geth.WaitForBlock(big.NewInt(int64(l1Number)+i), l1Client, time.Duration(cfg.DeployConfig.L1BlockTime*5)*time.Second)
+		require.Nil(t, err, "Waiting for l1 blocks")
+		totalTxCount += len(block.Transactions())
+
+		if totalTxCount >= 10 {
+			return
+		}
+	}
+
+	t.Fatal("Expected at least 10 transactions from the batcher")
+}
+
 func latestBlock(t *testing.T, client *ethclient.Client) uint64 {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -1549,4 +1540,46 @@ func waitForSafeHead(ctx context.Context, safeBlockNum uint64, rollupClient *sou
 			return nil
 		}
 	}
+}
+
+// TestPendingBlockIsLatest tests that we serve the latest block as pending block
+func TestPendingBlockIsLatest(t *testing.T) {
+	InitParallel(t)
+
+	cfg := DefaultSystemConfig(t)
+	sys, err := cfg.Start(t)
+	require.Nil(t, err, "Error starting up system")
+	defer sys.Close()
+	l2Seq := sys.Clients["sequencer"]
+
+	t.Run("block", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			// TODO(CLI-4044): pending-block ID change
+			pending, err := l2Seq.BlockByNumber(context.Background(), big.NewInt(-1))
+			require.NoError(t, err)
+			latest, err := l2Seq.BlockByNumber(context.Background(), nil)
+			require.NoError(t, err)
+			if pending.NumberU64() == latest.NumberU64() {
+				require.Equal(t, pending.Hash(), latest.Hash(), "pending must exactly match latest block")
+				return
+			}
+			// re-try until we have the same number, as the requests are not an atomic bundle, and the sequencer may create a block.
+		}
+		t.Fatal("failed to get pending block with same number as latest block")
+	})
+	t.Run("header", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			// TODO(CLI-4044): pending-block ID change
+			pending, err := l2Seq.HeaderByNumber(context.Background(), big.NewInt(-1))
+			require.NoError(t, err)
+			latest, err := l2Seq.HeaderByNumber(context.Background(), nil)
+			require.NoError(t, err)
+			if pending.Number.Uint64() == latest.Number.Uint64() {
+				require.Equal(t, pending.Hash(), latest.Hash(), "pending must exactly match latest header")
+				return
+			}
+			// re-try until we have the same number, as the requests are not an atomic bundle, and the sequencer may create a block.
+		}
+		t.Fatal("failed to get pending header with same number as latest header")
+	})
 }

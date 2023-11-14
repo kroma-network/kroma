@@ -3,9 +3,9 @@ package test
 import (
 	"math/rand"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-node/testutils"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -15,7 +15,7 @@ import (
 func RandomL2Block(rng *rand.Rand, txCount int) (*types.Block, []*types.Receipt) {
 	l1Block := types.NewBlock(testutils.RandomHeader(rng),
 		nil, nil, nil, trie.NewStackTrie(nil))
-	l1InfoTx, err := derive.L1InfoDeposit(0, eth.BlockToInfo(l1Block), eth.SystemConfig{}, testutils.RandomBool(rng))
+	l1InfoTx, err := derive.L1InfoDeposit(0, eth.BlockToInfo(l1Block), eth.SystemConfig{})
 	if err != nil {
 		panic("L1InfoDeposit: " + err.Error())
 	}

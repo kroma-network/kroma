@@ -5,9 +5,6 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -17,6 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/poseidon"
 	"github.com/ethereum/go-ethereum/trie"
 	zkt "github.com/kroma-network/zktrie/types"
+
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
+	"bytes"
 )
 
 func init() {
@@ -267,8 +269,8 @@ func main() {
 
 		// Create a zk trie for state
 		state, err := trie.NewZkTrie(
-			types.EmptyRootHash(true),
-			trie.NewZktrieDatabase(rawdb.NewMemoryDatabase()),
+			types.GetEmptyRootHash(true),
+			trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
 		)
 		checkErr(err, "Error creating zk trie")
 
@@ -277,8 +279,8 @@ func main() {
 
 		// Create a zk trie for the world state
 		world, err := trie.NewZkTrie(
-			types.EmptyRootHash(true),
-			trie.NewZktrieDatabase(rawdb.NewMemoryDatabase()),
+			types.GetEmptyRootHash(true),
+			trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
 		)
 		checkErr(err, "Error creating zk trie")
 
@@ -288,14 +290,16 @@ func main() {
 			Balance: big.NewInt(0),
 			Root:    state.Hash(),
 		}
-		err = world.TryUpdateAccount(predeploys.L2ToL1MessagePasserAddr, &account)
-		checkErr(err, "Error updating account")
+		writer := new(bytes.Buffer)
+		checkErr(account.EncodeRLP(writer), "Error encoding account")
+		err = world.UpdateStorage(common.Address{}, predeploys.L2ToL1MessagePasserAddr.Bytes(), writer.Bytes())
+		checkErr(err, "Error updating storage")
 
 		// Get the proof
 		var proof proofList
 		key_s, err := zkt.ToSecureKeyBytes(hash.Bytes())
 		checkErr(err, "Error computing secure key bytes")
-		checkErr(state.Prove(key_s.Bytes(), 0, &proof), "Error getting proof")
+		checkErr(state.Prove(key_s.Bytes(), &proof), "Error getting proof")
 
 		// Get the output root
 		outputRoot, err := hashOutputRootProof(rollup.V0, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})

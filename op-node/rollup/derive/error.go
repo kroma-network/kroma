@@ -89,12 +89,13 @@ func NewCriticalError(err error) error {
 
 // Sentinel errors, use these to get the severity of errors by calling
 // errors.Is(err, ErrTemporary) for example.
-var (
-	ErrTemporary = NewTemporaryError(nil)
-	ErrReset     = NewResetError(nil)
-	ErrCritical  = NewCriticalError(nil)
-)
+var ErrTemporary = NewTemporaryError(nil)
+var ErrReset = NewResetError(nil)
+var ErrCritical = NewCriticalError(nil)
 
 // NotEnoughData implies that the function currently does not have enough data to progress
 // but if it is retried enough times, it will eventually return a real value or io.EOF
 var NotEnoughData = errors.New("not enough data")
+
+// EngineP2PSyncing implies that the execution engine is currently in progress of P2P sync.
+var EngineP2PSyncing = errors.New("engine is P2P syncing")

@@ -8,17 +8,15 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/stretchr/testify/require"
 )
 
 var writeFile bool
@@ -29,7 +27,7 @@ func init() {
 
 var testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 
-func TestBuildL2DeveloperGenesis(t *testing.T) {
+func TestBuildL2Genesis(t *testing.T) {
 	config, err := genesis.NewDeployConfig("./testdata/test-deploy-config-devnet-l1.json")
 	require.Nil(t, err)
 
@@ -42,7 +40,7 @@ func TestBuildL2DeveloperGenesis(t *testing.T) {
 	block, err := backend.BlockByNumber(context.Background(), common.Big0)
 	require.NoError(t, err)
 
-	gen, err := genesis.BuildL2DeveloperGenesis(config, block, true)
+	gen, err := genesis.BuildL2Genesis(config, block, true)
 	require.Nil(t, err)
 	require.NotNil(t, gen)
 
@@ -71,11 +69,11 @@ func TestBuildL2DeveloperGenesis(t *testing.T) {
 
 	if writeFile {
 		file, _ := json.MarshalIndent(gen, "", " ")
-		_ = os.WriteFile("genesis.json", file, 0o644)
+		_ = os.WriteFile("genesis.json", file, 0644)
 	}
 }
 
-func TestBuildL2DeveloperGenesisDevAccountsFunding(t *testing.T) {
+func TestBuildL2GenesisDevAccountsFunding(t *testing.T) {
 	config, err := genesis.NewDeployConfig("./testdata/test-deploy-config-devnet-l1.json")
 	require.Nil(t, err)
 	config.FundDevAccounts = false
@@ -92,7 +90,7 @@ func TestBuildL2DeveloperGenesisDevAccountsFunding(t *testing.T) {
 	block, err := backend.BlockByNumber(context.Background(), common.Big0)
 	require.NoError(t, err)
 
-	gen, err := genesis.BuildL2DeveloperGenesis(config, block, true)
+	gen, err := genesis.BuildL2Genesis(config, block, true)
 	require.NoError(t, err)
 
 	actualCount := genesis.L2PredeploysCount(config)

@@ -79,7 +79,7 @@ func UnmarshalDepositLogEvent(ev *types.Log) (*types.DepositTx, error) {
 	}
 	dep.SourceHash = source.SourceHash()
 	dep.From = from
-	// NOTE: kroma del
+	// NOTE: deleted by kroma
 	// dep.IsSystemTransaction = false
 
 	var err error

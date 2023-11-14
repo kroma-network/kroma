@@ -28,11 +28,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 type L1Chain interface {
@@ -46,11 +47,9 @@ type L2Chain interface {
 	L2BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L2BlockRef, error)
 }
 
-var (
-	ErrReorgFinalized = errors.New("cannot reorg finalized block")
-	ErrWrongChain     = errors.New("wrong chain")
-	ErrReorgTooDeep   = errors.New("reorg is too deep")
-)
+var ReorgFinalizedErr = errors.New("cannot reorg finalized block")
+var WrongChainErr = errors.New("wrong chain")
+var TooDeepReorgErr = errors.New("reorg is too deep")
 
 const MaxReorgSeqWindows = 5
 
@@ -104,7 +103,7 @@ func currentHeads(ctx context.Context, cfg *rollup.Config, l2 L2Chain) (*FindHea
 // Plausible: meaning that the blockhash of the L2 block's L1 origin
 // (as reported in the L1 Attributes deposit within the L2 block) is not canonical at another height in the L1 chain,
 // and the same holds for all its ancestors.
-func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain, lgr log.Logger) (result *FindHeadsResult, err error) {
+func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain, lgr log.Logger, syncCfg *Config) (result *FindHeadsResult, err error) {
 	// Fetch current L2 forkchoice state
 	result, err = currentHeads(ctx, cfg, l2)
 	if err != nil {
@@ -161,19 +160,18 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 		if n.Number == cfg.Genesis.L2.Number {
 			// Check L2 traversal against L2 Genesis data, to make sure the engine is on the correct chain, instead of attempting sync with different L2 destination.
 			if n.Hash != cfg.Genesis.L2.Hash {
-				return nil, fmt.Errorf("%w L2: genesis: %s, got %s", ErrWrongChain, cfg.Genesis.L2, n)
+				return nil, fmt.Errorf("%w L2: genesis: %s, got %s", WrongChainErr, cfg.Genesis.L2, n)
 			}
 			// Check L1 comparison against L1 Genesis data, to make sure the L1 data is from the correct chain, instead of attempting sync with different L1 source.
 			if !ahead && l1Block.Hash != cfg.Genesis.L1.Hash {
-				return nil, fmt.Errorf("%w L1: genesis: %s, got %s", ErrWrongChain, cfg.Genesis.L1, l1Block)
+				return nil, fmt.Errorf("%w L1: genesis: %s, got %s", WrongChainErr, cfg.Genesis.L1, l1Block)
 			}
 		}
 		// Check L2 traversal against finalized data
 		if (n.Number == result.Finalized.Number) && (n.Hash != result.Finalized.Hash) {
-			return nil, fmt.Errorf("%w: finalized %s, got: %s", ErrReorgFinalized, result.Finalized, n)
+			return nil, fmt.Errorf("%w: finalized %s, got: %s", ReorgFinalizedErr, result.Finalized, n)
 		}
 
-		//NOTE: kroma TODO fix for test - need check
 		// If we don't have a usable unsafe head, then set it
 		if result.Unsafe == (eth.L2BlockRef{}) {
 			result.Unsafe = n
@@ -183,7 +181,7 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 				// This can legitimately happen if L1 goes down for a while. But in that case,
 				// restarting the L2 node with a bigger configured MaxReorgDepth is an acceptable
 				// stopgap solution.
-				return nil, fmt.Errorf("%w: traversed back to L2 block %s, but too deep compared to previous unsafe block %s", ErrReorgTooDeep, n, prevUnsafe)
+				return nil, fmt.Errorf("%w: traversed back to L2 block %s, but too deep compared to previous unsafe block %s", TooDeepReorgErr, n, prevUnsafe)
 			}
 		}
 
@@ -215,6 +213,11 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 			return result, nil
 		}
 
+		if syncCfg.SkipSyncStartCheck && highestL2WithCanonicalL1Origin.Hash == n.Hash {
+			lgr.Info("Found highest L2 block with canonical L1 origin. Skip further sanity check and jump to the safe head")
+			n = result.Safe
+			continue
+		}
 		// Pull L2 parent for next iteration
 		parent, err := l2.L2BlockRefByHash(ctx, n.ParentHash)
 		if err != nil {

@@ -3,9 +3,16 @@ package actions
 import (
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,13 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 )
 
 type L1Bindings struct {
@@ -321,7 +321,7 @@ func (s *CrossLayerUser) ActDeposit(t Testing) {
 		// estimate gas used by deposit
 		gas, err := s.L2.env.EthCl.EstimateGas(t.Ctx(), ethereum.CallMsg{
 			From:       s.L2.address,
-			To:         s.L2.txToAddr,
+			To:         &toAddr,
 			Value:      depositTransferValue, // TODO: estimate gas does not support minting yet
 			Data:       s.L2.txCallData,
 			AccessList: nil,
@@ -330,9 +330,21 @@ func (s *CrossLayerUser) ActDeposit(t Testing) {
 		depositGas = gas
 	}
 
+	// Finally send TX
+	s.L1.txOpts.GasLimit = 0
 	tx, err := s.L1.env.Bindings.KromaPortal.DepositTransaction(&s.L1.txOpts, toAddr, depositTransferValue, depositGas, isCreation, s.L2.txCallData)
+	require.Nil(t, err, "with deposit tx")
+
+	// Add 10% padding for the L1 gas limit because the estimation process can be affected by the 1559 style cost scale
+	// for buying L2 gas in the portal contracts.
+	s.L1.txOpts.GasLimit = tx.Gas() + (tx.Gas() / 10)
+
+	tx, err = s.L1.env.Bindings.KromaPortal.DepositTransaction(&s.L1.txOpts, toAddr, depositTransferValue, depositGas, isCreation, s.L2.txCallData)
 	require.NoError(t, err, "failed to create deposit tx")
 
+	s.L1.txOpts.GasLimit = 0
+
+	fmt.Printf("Gas limit: %v\n", tx.Gas())
 	// Send the actual tx (since tx opts don't send by default)
 	err = s.L1.env.EthCl.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err, "must send tx")

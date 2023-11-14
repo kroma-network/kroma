@@ -1,9 +1,13 @@
 package actions
 
 import (
+	"context"
 	"errors"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-service/client/l2/engineapi"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,11 +23,11 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/ethereum-optimism/optimism/op-node/client"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/sources"
-	"github.com/ethereum-optimism/optimism/op-node/testutils"
+	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/testutils"
 )
 
 // L2Engine is an in-memory implementation of the Engine API,
@@ -40,7 +44,7 @@ type L2Engine struct {
 	l2Chain  *core.BlockChain
 	l2Signer types.Signer
 
-	engineApi *L2EngineAPI
+	engineApi *engineapi.L2EngineAPI
 
 	failL2RPC error // mock error
 }
@@ -49,7 +53,7 @@ type EngineOption func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error
 
 func NewL2Engine(t Testing, log log.Logger, genesis *core.Genesis, rollupGenesisL1 eth.BlockID, jwtPath string, options ...EngineOption) *L2Engine {
 	n, ethBackend, apiBackend := newBackend(t, genesis, jwtPath, options)
-	engineApi := NewL2EngineAPI(log, apiBackend)
+	engineApi := engineapi.NewL2EngineAPI(log, apiBackend)
 	chain := ethBackend.BlockChain()
 	genesisBlock := chain.Genesis()
 	eng := &L2Engine{
@@ -131,17 +135,17 @@ func (e *engineApiBackend) Genesis() *core.Genesis {
 }
 
 func (s *L2Engine) EthClient() *ethclient.Client {
-	cl, _ := s.node.Attach() // never errors
+	cl := s.node.Attach()
 	return ethclient.NewClient(cl)
 }
 
 func (s *L2Engine) GethClient() *gethclient.Client {
-	cl, _ := s.node.Attach() // never errors
+	cl := s.node.Attach()
 	return gethclient.New(cl)
 }
 
 func (e *L2Engine) RPCClient() client.RPC {
-	cl, _ := e.node.Attach() // never errors
+	cl := e.node.Attach()
 	return testutils.RPCErrFaker{
 		RPC: client.NewBaseRPCClient(cl),
 		ErrFn: func() error {
@@ -175,19 +179,28 @@ func (e *L2Engine) ActL2IncludeTx(from common.Address) Action {
 			return
 		}
 
-		i := e.engineApi.PendingIndices(from)
-		txs, q := e.eth.TxPool().ContentFrom(from)
-		if uint64(len(txs)) <= i {
-			t.Fatalf("no pending txs from %s, and have %d unprocessable queued txs from this account", from, len(q))
-		}
+		var i uint64
+		var txs []*types.Transaction
+		var q []*types.Transaction
+		// Wait for the tx to be in the pending tx queue
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		err := wait.For(ctx, time.Second, func() (bool, error) {
+			i = e.engineApi.PendingIndices(from)
+			txs, q = e.eth.TxPool().ContentFrom(from)
+			return uint64(len(txs)) > i, nil
+		})
+		require.NoError(t, err,
+			"no pending txs from %s, and have %d unprocessable queued txs from this account: %w", from, len(q), err)
+
 		tx := txs[i]
-		err := e.engineApi.IncludeTx(tx, from)
-		if errors.Is(err, ErrNotBuildingBlock) {
+		err = e.engineApi.IncludeTx(tx, from)
+		if errors.Is(err, engineapi.ErrNotBuildingBlock) {
 			t.InvalidAction(err.Error())
-		} else if errors.Is(err, ErrUsesTooMuchGas) {
+		} else if errors.Is(err, engineapi.ErrUsesTooMuchGas) {
 			t.InvalidAction("included tx uses too much gas: %v", err)
 		} else if err != nil {
-			t.Fatalf("include tx: %v", err)
+			require.NoError(t, err, "include tx")
 		}
 	}
 }

@@ -4,18 +4,15 @@ import (
 	"context"
 	"fmt"
 	_ "net/http/pprof"
-	"os"
-	"os/signal"
-	"syscall"
 
-	gethrpc "github.com/ethereum/go-ethereum/rpc"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum-optimism/optimism/op-service/opio"
 	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 )
@@ -33,9 +30,11 @@ func Main(version string, cliCtx *cli.Context) error {
 		return fmt.Errorf("invalid CLI flags: %w", err)
 	}
 
-	l := oplog.NewLogger(cfg.LogConfig)
+	l := oplog.NewLogger(oplog.AppOut(cliCtx), cfg.LogConfig)
+	oplog.SetGlobalLogHandler(l.GetHandler())
 	opservice.ValidateEnvVars(flags.EnvVarPrefix, flags.Flags, l)
-	m := metrics.NewMetrics("default")
+	procName := "default"
+	m := metrics.NewMetrics(procName)
 	l.Info("Initializing Batch Submitter")
 
 	batchSubmitter, err := NewBatchSubmitterFromCLIConfig(cfg, l, m)
@@ -70,24 +69,21 @@ func Main(version string, cliCtx *cli.Context) error {
 		l.Info("starting metrics server", "addr", metricsCfg.ListenAddr, "port", metricsCfg.ListenPort)
 		go func() {
 			if err := m.Serve(ctx, metricsCfg.ListenAddr, metricsCfg.ListenPort); err != nil {
-				l.Error("error starting metrics server", err)
+				l.Error("error starting metrics server", "err", err)
 			}
 		}()
 		m.StartBalanceMetrics(ctx, l, batchSubmitter.L1Client, batchSubmitter.TxManager.From())
 	}
 
-	rpcCfg := cfg.RPCConfig
 	server := oprpc.NewServer(
-		rpcCfg.ListenAddr,
-		rpcCfg.ListenPort,
+		cfg.RPCFlag.ListenAddr,
+		cfg.RPCFlag.ListenPort,
 		version,
 		oprpc.WithLogger(l),
 	)
-	if rpcCfg.EnableAdmin {
-		server.AddAPI(gethrpc.API{
-			Namespace: "admin",
-			Service:   rpc.NewAdminAPI(batchSubmitter),
-		})
+	if cfg.RPCFlag.EnableAdmin {
+		adminAPI := rpc.NewAdminAPI(batchSubmitter, &m.RPCMetrics, l)
+		server.AddAPI(rpc.GetAdminAPI(adminAPI))
 		l.Info("Admin RPC enabled")
 	}
 	if err := server.Start(); err != nil {
@@ -98,14 +94,7 @@ func Main(version string, cliCtx *cli.Context) error {
 	m.RecordInfo(version)
 	m.RecordUp()
 
-	interruptChannel := make(chan os.Signal, 1)
-	signal.Notify(interruptChannel, []os.Signal{
-		os.Interrupt,
-		os.Kill,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	}...)
-	<-interruptChannel
+	opio.BlockOnInterrupts()
 	if err := server.Stop(); err != nil {
 		l.Error("Error shutting down http server: %w", err)
 	}

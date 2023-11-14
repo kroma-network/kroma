@@ -6,11 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
-var Mainnet = rollup.Config{
+var Mainnet = &rollup.Config{
 	Genesis: rollup.Genesis{
 		L1: eth.BlockID{
 			Hash:   common.HexToHash("0xe459c500b760ed52a1ad799bf578b257af2c76f6ebe061a4c62627e9c605bced"),
@@ -40,7 +40,7 @@ var Mainnet = rollup.Config{
 	L1SystemConfigAddress:  common.HexToAddress("0x3971eb866aa9b2b8afea8a7c816f3b7e8b195a35"),
 }
 
-var Sepolia = rollup.Config{
+var Sepolia = &rollup.Config{
 	Genesis: rollup.Genesis{
 		L1: eth.BlockID{
 			Hash:   common.HexToHash("0x936e490e33e6e136ecd9095090e30ed7def3903ef2bae3e05966b376e493ad76"),
@@ -70,7 +70,7 @@ var Sepolia = rollup.Config{
 	L1SystemConfigAddress:  common.HexToAddress("0x398c8ea789968893095d86cba168378a4f452e33"),
 }
 
-var NetworksByName = map[string]rollup.Config{
+var NetworksByName = map[string]*rollup.Config{
 	"mainnet": Mainnet,
 	"sepolia": Sepolia,
 }
@@ -91,10 +91,10 @@ func AvailableNetworks() []string {
 	return networks
 }
 
-func GetRollupConfig(name string) (rollup.Config, error) {
+func GetRollupConfig(name string) (*rollup.Config, error) {
 	network, ok := NetworksByName[name]
 	if !ok {
-		return rollup.Config{}, fmt.Errorf("invalid network %s", name)
+		return &rollup.Config{}, fmt.Errorf("invalid network %s", name)
 	}
 
 	return network, nil

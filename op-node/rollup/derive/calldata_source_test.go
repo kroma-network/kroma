@@ -14,10 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/testlog"
-	"github.com/ethereum-optimism/optimism/op-node/testutils"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum-optimism/optimism/op-service/testutils"
 )
 
 type testTx struct {
@@ -71,36 +71,28 @@ func TestDataFromEVMTransactions(t *testing.T) {
 		},
 		{
 			name: "other inbox",
-			txs:  []testTx{{to: &altInbox, dataLen: 1234, author: batcherPriv, good: false}},
-		},
+			txs:  []testTx{{to: &altInbox, dataLen: 1234, author: batcherPriv, good: false}}},
 		{
 			name: "other author",
-			txs:  []testTx{{to: &cfg.BatchInboxAddress, dataLen: 1234, author: altAuthor, good: false}},
-		},
+			txs:  []testTx{{to: &cfg.BatchInboxAddress, dataLen: 1234, author: altAuthor, good: false}}},
 		{
 			name: "inbox is author",
-			txs:  []testTx{{to: &cfg.BatchInboxAddress, dataLen: 1234, author: inboxPriv, good: false}},
-		},
+			txs:  []testTx{{to: &cfg.BatchInboxAddress, dataLen: 1234, author: inboxPriv, good: false}}},
 		{
 			name: "author is inbox",
-			txs:  []testTx{{to: &batcherAddr, dataLen: 1234, author: batcherPriv, good: false}},
-		},
+			txs:  []testTx{{to: &batcherAddr, dataLen: 1234, author: batcherPriv, good: false}}},
 		{
 			name: "unrelated",
-			txs:  []testTx{{to: &altInbox, dataLen: 1234, author: altAuthor, good: false}},
-		},
+			txs:  []testTx{{to: &altInbox, dataLen: 1234, author: altAuthor, good: false}}},
 		{
 			name: "contract creation",
-			txs:  []testTx{{to: nil, dataLen: 1234, author: batcherPriv, good: false}},
-		},
+			txs:  []testTx{{to: nil, dataLen: 1234, author: batcherPriv, good: false}}},
 		{
 			name: "empty tx",
-			txs:  []testTx{{to: &cfg.BatchInboxAddress, dataLen: 0, author: batcherPriv, good: true}},
-		},
+			txs:  []testTx{{to: &cfg.BatchInboxAddress, dataLen: 0, author: batcherPriv, good: true}}},
 		{
 			name: "value tx",
-			txs:  []testTx{{to: &cfg.BatchInboxAddress, dataLen: 1234, value: 42, author: batcherPriv, good: true}},
-		},
+			txs:  []testTx{{to: &cfg.BatchInboxAddress, dataLen: 1234, value: 42, author: batcherPriv, good: true}}},
 		{
 			name: "empty block", txs: []testTx{},
 		},
@@ -132,4 +124,5 @@ func TestDataFromEVMTransactions(t *testing.T) {
 		out := DataFromEVMTransactions(cfg, batcherAddr, txs, testlog.Logger(t, log.LvlCrit))
 		require.ElementsMatch(t, expectedData, out)
 	}
+
 }

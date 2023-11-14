@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/ethereum/go-ethereum/ethdb/memorydb"
 )
 
 // Variant enum
@@ -132,7 +132,7 @@ func FuzzTrie(variant string) {
 // Generate a random test case for Kroma's MerkleTrie verifier.
 func genTrieTestCase(selectEmptyKey bool) trieTestCase {
 	// Create an empty merkle trie
-	memdb := rawdb.NewMemoryDatabase()
+	memdb := memorydb.New()
 	randTrie := trie.NewEmpty(trie.NewDatabase(memdb))
 
 	// Get a random number of elements to put into the trie
