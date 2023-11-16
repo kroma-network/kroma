@@ -7,9 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
-	val "github.com/kroma-network/kroma/components/validator"
-	chal "github.com/kroma-network/kroma/components/validator/challenge"
 	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
+	val "github.com/kroma-network/kroma/kroma-validator"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 )
 
 func TestChallenge(t *testing.T) {

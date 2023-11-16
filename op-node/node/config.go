@@ -54,10 +54,11 @@ type Config struct {
 
 	Sync sync.Config
 
-	// NOTE: deleted by kroma
+	// [Kroma: START]
 	// To halt when detecting the node does not support a signaled protocol version
 	// change of the given severity (major/minor/patch). Disabled if empty.
 	// RollupHalt string
+	// [Kroma: END]
 
 	// Cancel to request a premature shutdown of the node itself, e.g. when halting. This may be nil.
 	Cancel context.CancelCauseFunc

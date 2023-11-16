@@ -266,6 +266,7 @@ func (b *mockBackend) TransactionReceipt(ctx context.Context, txHash common.Hash
 		TxHash:      txHash,
 		GasUsed:     txInfo.gasFeeCap.Uint64(),
 		BlockNumber: big.NewInt(int64(txInfo.blockNumber)),
+		Status:      types.ReceiptStatusSuccessful,
 	}, nil
 }
 

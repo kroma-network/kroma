@@ -1,21 +1,23 @@
 package flags
 
 import (
+	"fmt"
 	"time"
 
-	kservice "github.com/ethereum-optimism/optimism/op-service"
-	klog "github.com/ethereum-optimism/optimism/op-service/log"
-	kmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
-	kpprof "github.com/ethereum-optimism/optimism/op-service/pprof"
-	krpc "github.com/ethereum-optimism/optimism/op-service/rpc"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/urfave/cli/v2"
+
+	opservice "github.com/ethereum-optimism/optimism/op-service"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
+	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
-const envVarPrefix = "VALIDATOR"
+const EnvVarPrefix = "VALIDATOR"
 
-func prefixEnvVar(name string) []string {
-	return kservice.PrefixEnvVar(envVarPrefix, name)
+func prefixEnvVars(name string) []string {
+	return opservice.PrefixEnvVar(EnvVarPrefix, name)
 }
 
 var (
@@ -25,55 +27,55 @@ var (
 		Name:     "l1-eth-rpc",
 		Usage:    "Websocket provider URL for L1",
 		Required: true,
-		EnvVars:  prefixEnvVar("L1_ETH_RPC"),
+		EnvVars:  prefixEnvVars("L1_ETH_RPC"),
 	}
 	L2EthRpcFlag = &cli.StringFlag{
 		Name:     "l2-eth-rpc",
 		Usage:    "HTTP provider URL for L2",
 		Required: true,
-		EnvVars:  prefixEnvVar("L2_ETH_RPC"),
+		EnvVars:  prefixEnvVars("L2_ETH_RPC"),
 	}
 	RollupRpcFlag = &cli.StringFlag{
 		Name:     "rollup-rpc",
 		Usage:    "HTTP provider URL for the rollup node",
 		Required: true,
-		EnvVars:  prefixEnvVar("ROLLUP_RPC"),
+		EnvVars:  prefixEnvVars("ROLLUP_RPC"),
 	}
 	L2OOAddressFlag = &cli.StringFlag{
 		Name:     "l2oo-address",
 		Usage:    "Address of the L2OutputOracle contract",
 		Required: true,
-		EnvVars:  prefixEnvVar("L2OO_ADDRESS"),
+		EnvVars:  prefixEnvVars("L2OO_ADDRESS"),
 	}
 	ColosseumAddressFlag = &cli.StringFlag{
 		Name:     "colosseum-address",
 		Usage:    "Address of the Colosseum contract",
 		Required: true,
-		EnvVars:  prefixEnvVar("COLOSSEUM_ADDRESS"),
+		EnvVars:  prefixEnvVars("COLOSSEUM_ADDRESS"),
 	}
 	ValPoolAddressFlag = &cli.StringFlag{
 		Name:     "valpool-address",
 		Usage:    "Address of the ValidatorPool contract",
 		Required: true,
-		EnvVars:  prefixEnvVar("VALPOOL_ADDRESS"),
+		EnvVars:  prefixEnvVars("VALPOOL_ADDRESS"),
 	}
 	OutputSubmitterEnabledFlag = &cli.BoolFlag{
 		Name:     "output-submitter.enabled",
 		Usage:    "Enable l2 output submitter",
-		EnvVars:  prefixEnvVar("OUTPUT_SUBMITTER_ENABLED"),
+		EnvVars:  prefixEnvVars("OUTPUT_SUBMITTER_ENABLED"),
 		Required: true,
 	}
 	ChallengerEnabledFlag = &cli.BoolFlag{
 		Name:     "challenger.enabled",
 		Usage:    "Enable challenger",
-		EnvVars:  prefixEnvVar("CHALLENGER_ENABLED"),
+		EnvVars:  prefixEnvVars("CHALLENGER_ENABLED"),
 		Required: true,
 	}
 	ChallengerPollIntervalFlag = &cli.DurationFlag{
 		Name:     "challenger.poll-interval",
 		Usage:    "Poll interval for challenge process",
 		Required: true,
-		EnvVars:  prefixEnvVar("CHALLENGER_POLL_INTERVAL"),
+		EnvVars:  prefixEnvVars("CHALLENGER_POLL_INTERVAL"),
 	}
 
 	// Optional flags
@@ -81,44 +83,44 @@ var (
 	AllowNonFinalizedFlag = &cli.BoolFlag{
 		Name:    "allow-non-finalized",
 		Usage:   "Allow the validator to submit outputs for L2 blocks derived from non-finalized L1 blocks.",
-		EnvVars: prefixEnvVar("ALLOW_NON_FINALIZED"),
+		EnvVars: prefixEnvVars("ALLOW_NON_FINALIZED"),
 	}
 	OutputSubmitterRetryIntervalFlag = &cli.DurationFlag{
 		Name:    "output-submitter.retry-interval",
 		Usage:   "Retry interval for output submission process",
-		EnvVars: prefixEnvVar("OUTPUT_SUBMITTER_RETRY_INTERVAL"),
+		EnvVars: prefixEnvVars("OUTPUT_SUBMITTER_RETRY_INTERVAL"),
 		Value:   time.Second * 1,
 	}
 	OutputSubmitterRoundBufferFlag = &cli.Uint64Flag{
 		Name:    "output-submitter.round-buffer",
 		Usage:   "Number of blocks before each round to start trying submission",
-		EnvVars: prefixEnvVar("OUTPUT_SUBMITTER_ROUND_BUFFER"),
+		EnvVars: prefixEnvVars("OUTPUT_SUBMITTER_ROUND_BUFFER"),
 		Value:   30,
 	}
 	OutputSubmitterAllowPublicRoundFlag = &cli.BoolFlag{
 		Name:    "output-submitter.allow-public-round",
 		Usage:   "Allows l2 output submitter in public round",
-		EnvVars: prefixEnvVar("OUTPUT_SUBMITTER_ALLOW_PUBLIC_ROUND"),
+		EnvVars: prefixEnvVars("OUTPUT_SUBMITTER_ALLOW_PUBLIC_ROUND"),
 	}
 	ProverRPCFlag = &cli.StringFlag{
 		Name:    "prover-rpc-url",
 		Usage:   "jsonRPC URL for kroma-prover.",
-		EnvVars: prefixEnvVar("PROVER_RPC"),
+		EnvVars: prefixEnvVars("PROVER_RPC"),
 	}
 	SecurityCouncilAddressFlag = &cli.StringFlag{
 		Name:    "securitycouncil-address",
 		Usage:   "Address of the SecurityCouncil contract",
-		EnvVars: prefixEnvVar("SECURITYCOUNCIL_ADDRESS"),
+		EnvVars: prefixEnvVars("SECURITYCOUNCIL_ADDRESS"),
 	}
 	GuardianEnabledFlag = &cli.BoolFlag{
 		Name:    "guardian.enabled",
 		Usage:   "Enable guardian",
-		EnvVars: prefixEnvVar("GUARDIAN_ENABLED"),
+		EnvVars: prefixEnvVars("GUARDIAN_ENABLED"),
 	}
 	FetchingProofTimeoutFlag = &cli.DurationFlag{
 		Name:    "fetching-proof-timeout",
 		Usage:   "Duration we will wait to fetching proof",
-		EnvVars: prefixEnvVar("FETCHING_PROOF_TIMEOUT"),
+		EnvVars: prefixEnvVars("FETCHING_PROOF_TIMEOUT"),
 		Value:   time.Hour * 4,
 	}
 )
@@ -147,15 +149,24 @@ var optionalFlags = []cli.Flag{
 }
 
 func init() {
-	requiredFlags = append(requiredFlags, krpc.CLIFlags(envVarPrefix)...)
+	requiredFlags = append(requiredFlags, oprpc.CLIFlags(EnvVarPrefix)...)
 
-	optionalFlags = append(optionalFlags, klog.CLIFlags(envVarPrefix)...)
-	optionalFlags = append(optionalFlags, kmetrics.CLIFlags(envVarPrefix)...)
-	optionalFlags = append(optionalFlags, kpprof.CLIFlags(envVarPrefix)...)
-	optionalFlags = append(optionalFlags, txmgr.CLIFlags(envVarPrefix)...)
+	optionalFlags = append(optionalFlags, oplog.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, opmetrics.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, oppprof.CLIFlags(EnvVarPrefix)...)
+	optionalFlags = append(optionalFlags, txmgr.CLIFlags(EnvVarPrefix)...)
 
 	Flags = append(requiredFlags, optionalFlags...)
 }
 
 // Flags contains the list of configuration options available to the binary.
 var Flags []cli.Flag
+
+func CheckRequired(ctx *cli.Context) error {
+	for _, f := range requiredFlags {
+		if !ctx.IsSet(f.Names()[0]) {
+			return fmt.Errorf("flag %s is required", f.Names()[0])
+		}
+	}
+	return nil
+}

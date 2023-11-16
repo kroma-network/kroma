@@ -19,8 +19,8 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
 	"github.com/ethereum-optimism/optimism/op-service/watcher"
-	"github.com/kroma-network/kroma/utils"
 )
 
 // Guardian is responsible for validating outputs.
@@ -89,7 +89,7 @@ func (g *Guardian) InitConfig(ctx context.Context) error {
 	err := contractWatcher.WatchUpgraded(g.cfg.L2OutputOracleAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 		defer cCancel()
-		l2BlockTime, err := g.l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
+		l2BlockTime, err := g.l2ooContract.L2BLOCKTIME(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get l2 block time: %w", err)
 		}
@@ -97,7 +97,7 @@ func (g *Guardian) InitConfig(ctx context.Context) error {
 
 		cCtx, cCancel = context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 		defer cCancel()
-		finalizationPeriodSeconds, err := g.l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
+		finalizationPeriodSeconds, err := g.l2ooContract.FINALIZATIONPERIODSECONDS(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get finalization period seconds: %w", err)
 		}
@@ -112,7 +112,7 @@ func (g *Guardian) InitConfig(ctx context.Context) error {
 	err = contractWatcher.WatchUpgraded(g.cfg.ColosseumAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 		defer cCancel()
-		creationPeriodSeconds, err := g.colosseumContract.CREATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
+		creationPeriodSeconds, err := g.colosseumContract.CREATIONPERIODSECONDS(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get creation period seconds: %w", err)
 		}
@@ -163,7 +163,7 @@ func (g *Guardian) Stop() error {
 }
 
 func (g *Guardian) initSub() {
-	opts := utils.NewSimpleWatchOpts(g.ctx)
+	opts := optsutils.NewSimpleWatchOpts(g.ctx)
 
 	g.validationRequestedChan = make(chan *bindings.SecurityCouncilValidationRequested)
 	g.validationRequestedSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
@@ -229,7 +229,7 @@ func (g *Guardian) inspectorLoop() {
 				func() {
 					cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 					defer cCancel()
-					startOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), finalizedL2)
+					startOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(optsutils.NewSimpleCallOpts(cCtx), finalizedL2)
 					if err != nil {
 						g.log.Error("failed to get output index after", "err", err, "afterL2Block", finalizedL2.Uint64())
 						return
@@ -237,7 +237,7 @@ func (g *Guardian) inspectorLoop() {
 
 					cCtx, cCancel = context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 					defer cCancel()
-					endOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), creationEndedL2)
+					endOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(optsutils.NewSimpleCallOpts(cCtx), creationEndedL2)
 					if err != nil {
 						g.log.Error("failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
 						return
@@ -254,7 +254,7 @@ func (g *Guardian) inspectorLoop() {
 				func() {
 					cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 					defer cCancel()
-					outputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), creationEndedL2)
+					outputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(optsutils.NewSimpleCallOpts(cCtx), creationEndedL2)
 					if err != nil {
 						g.log.Error("failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
 						return
@@ -302,7 +302,7 @@ func (g *Guardian) inspectOutput(outputIndex, fromBlock, toBlock *big.Int) {
 
 				cCtx, cCancel = context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 				defer cCancel()
-				isInCreationPeriod, err := g.colosseumContract.IsInCreationPeriod(utils.NewSimpleCallOpts(cCtx), outputIndex)
+				isInCreationPeriod, err := g.colosseumContract.IsInCreationPeriod(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 				if err != nil {
 					g.log.Error("unable to check if the output is in challenge creation period or not", "err", err, "outputIndex", outputIndex)
 					return true
@@ -459,7 +459,7 @@ func (g *Guardian) tryConfirmRequestDeletionTx(event *bindings.SecurityCouncilDe
 
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
-	output, err := g.l2ooContract.GetL2Output(utils.NewSimpleCallOpts(cCtx), event.OutputIndex)
+	output, err := g.l2ooContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), event.OutputIndex)
 	if err != nil {
 		return fmt.Errorf("failed to get output from L2OutputOracle contract(outputIndex: %d): %w", event.OutputIndex.Uint64(), err)
 	}
@@ -507,7 +507,7 @@ func (g *Guardian) checkConfirmCondition(transactionId *big.Int, outputIndex *bi
 
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
-	executionTx, err := g.securityCouncilContract.Transactions(utils.NewSimpleCallOpts(cCtx), transactionId)
+	executionTx, err := g.securityCouncilContract.Transactions(optsutils.NewSimpleCallOpts(cCtx), transactionId)
 	if err != nil {
 		return true, fmt.Errorf("failed to get transaction with transactionId %d: %w", transactionId.Int64(), err)
 	}
@@ -546,7 +546,7 @@ func (g *Guardian) shouldBeDeleted(outputIndex, fromBlock, toBlock *big.Int) (bo
 
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
-	output, err := g.l2ooContract.GetL2Output(utils.NewSimpleCallOpts(cCtx), outputIndex)
+	output, err := g.l2ooContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 	if err != nil {
 		return false, fmt.Errorf("failed to get output from L2OutputOracle contract(outputIndex: %d): %w", outputIndex.Uint64(), err)
 	}
@@ -576,13 +576,13 @@ func (g *Guardian) ValidateL2Output(ctx context.Context, outputRoot eth.Bytes32,
 
 func (g *Guardian) ConfirmTransaction(ctx context.Context, transactionId *big.Int) (*types.Transaction, error) {
 	g.log.Info("crafting confirm tx", "transactionId", transactionId)
-	txOpts := utils.NewSimpleTxOpts(ctx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
+	txOpts := optsutils.NewSimpleTxOpts(ctx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
 	return g.securityCouncilContract.ConfirmTransaction(txOpts, transactionId)
 }
 
 func (g *Guardian) RequestDeletion(ctx context.Context, outputIndex *big.Int) (*types.Transaction, error) {
 	g.log.Info("crafting requestDeletion tx", "outputIndex", outputIndex)
-	txOpts := utils.NewSimpleTxOpts(ctx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
+	txOpts := optsutils.NewSimpleTxOpts(ctx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
 	return g.securityCouncilContract.RequestDeletion(txOpts, outputIndex, false)
 }
 
@@ -599,17 +599,17 @@ func (g *Guardian) OutputRootAtBlock(ctx context.Context, l2BlockNumber uint64) 
 func (g *Guardian) getL2OutputIndexAfter(l2BlockNumber *big.Int) (*big.Int, error) {
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
-	return g.l2ooContract.GetL2OutputIndexAfter(utils.NewSimpleCallOpts(cCtx), l2BlockNumber)
+	return g.l2ooContract.GetL2OutputIndexAfter(optsutils.NewSimpleCallOpts(cCtx), l2BlockNumber)
 }
 
 func (g *Guardian) IsOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
-	return g.l2ooContract.IsFinalized(utils.NewSimpleCallOpts(cCtx), outputIndex)
+	return g.l2ooContract.IsFinalized(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 }
 
 func (g *Guardian) isTransactionConfirmed(transactionId *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
-	return g.securityCouncilContract.IsConfirmed(utils.NewSimpleCallOpts(cCtx), transactionId)
+	return g.securityCouncilContract.IsConfirmed(optsutils.NewSimpleCallOpts(cCtx), transactionId)
 }

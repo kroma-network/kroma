@@ -10,14 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -30,6 +22,15 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
+	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
 )
 
 // TestGasPriceOracleFeeUpdates checks that the gas price oracle cannot be locked by mis-configuring parameters.
@@ -399,7 +400,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			// Create our system configuration, funding all accounts we created for L1/L2, and start it
 			cfg := DefaultSystemConfig(t)
 			cfg.DeployConfig.L2BlockTime = 2
-			require.LessOrEqual(t, cfg.DeployConfig.FinalizationPeriodSeconds, uint64(6))
+			cfg.DeployConfig.FinalizationPeriodSeconds = 6
 			require.Equal(t, cfg.DeployConfig.FundDevAccounts, true)
 			sys, err := cfg.Start(t)
 			require.NoError(t, err, "error starting up system")
@@ -410,6 +411,11 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			l2Seq := sys.Clients["sequencer"]
 			l2Verif := sys.Clients["verifier"]
 			require.NoError(t, err)
+
+			// The batcher has balance on L1
+			batcherBalance, err := l1Client.BalanceAt(context.Background(), cfg.DeployConfig.BatchSenderAddress, nil)
+			require.NoError(t, err)
+			require.NotEqual(t, batcherBalance, big.NewInt(0))
 
 			// Define our L1 transaction timeout duration.
 			txTimeoutDuration := 10 * time.Duration(cfg.DeployConfig.L1BlockTime) * time.Second
@@ -512,7 +518,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 
 			// Wait for the finalization period, then we can finalize this withdrawal.
 			ctx, cancel = context.WithTimeout(context.Background(), 40*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
-			blockNumber, err := withdrawals.WaitForFinalizationPeriod(ctx, l1Client, predeploys.DevKromaPortalAddr, receipt.BlockNumber)
+			blockNumber, err := wait.ForOutputRootPublished(ctx, l1Client, predeploys.DevL2OutputOracleAddr, receipt.BlockNumber)
 			cancel()
 			require.Nil(t, err)
 
@@ -653,7 +659,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 				// Wait for finalization and then create the Finalized Withdrawal Transaction
 				ctx, cancel = context.WithTimeout(context.Background(), 45*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 				defer cancel()
-				err = wait.ForFinalizationPeriod(ctx, l1Client, header.Number, predeploys.DevKromaPortalAddr)
+				err = wait.ForFinalizationPeriod(ctx, l1Client, header.Number, predeploys.DevL2OutputOracleAddr) //////
 				require.Nil(t, err)
 
 				// Finalize withdrawal

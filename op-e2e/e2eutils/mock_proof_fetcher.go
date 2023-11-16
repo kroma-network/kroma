@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"golang.org/x/sync/errgroup"
 
-	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 )
 
 type Fetcher struct {

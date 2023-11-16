@@ -37,7 +37,7 @@ To start syncing the rollup:
 Connect to at least one L1 RPC and L2 execution engine:
 
 - L1: use any L1 node / RPC (websocket connection path may differ)
-- L2: run the Optimism fork of geth: [`op-geth`](https://github.com/ethereum-optimism/op-geth)
+- L2: run the Kroma fork of geth: [`kroma-geth`](https://github.com/kroma-network/go-ethereum)
 
 ```shell
 # websockets or IPC preferred for event notifications to improve sync, http RPC works with adaptive polling.
@@ -68,7 +68,7 @@ exist to make it easy to track deployments of smart contract systems over time.
 They can usually be found in a `deployments` directory.
 
 The deployment config contains all of the information required to deploy the
-system. It can be found in `packages/contracts-bedrock/deploy-config`. Each
+system. It can be found in `packages/contracts/deploy-config`. Each
 deploy config file can be JSON or TypeScript, although only JSON files are
 supported by the `op-node`. The network name must match the name of the file
 in the deploy config directory.
@@ -81,5 +81,5 @@ $ op-node genesis devnet-l2 \
    --network $NETWORK \
    --deployments $CONTRACTS/deployments \
    --deploy-config $CONTRACTS/deploy-config \
-   --rpc-url http://localhost:8545 \
+   --rpc-url http://localhost:8545
 ```

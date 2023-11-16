@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	Version = ""
-	Meta    = ""
+	Version   = ""
+	GitCommit = ""
+	GitDate   = ""
 )
 
 func main() {
@@ -24,9 +25,9 @@ func main() {
 
 	app := cli.NewApp()
 	app.Flags = cliapp.ProtectFlags(flags.Flags)
-	app.Version = fmt.Sprintf("%s-%s", Version, Meta)
+	app.Version = fmt.Sprintf("%s-%s-%s", Version, GitCommit, GitDate)
 	app.Name = "kroma-batcher"
-	app.Usage = "Batcher Service"
+	app.Usage = "Batch Submitter Service"
 	app.Description = "Service for generating and submitting L2 tx batches to L1"
 	app.Action = curryMain(Version)
 	app.Commands = []*cli.Command{

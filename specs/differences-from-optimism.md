@@ -1,10 +1,14 @@
-# Differences from Optimism Bedrock
+# Differences from Optimism
 
 <!-- All glossary references in this file. -->
 
 [g-l2-output-root]: glossary.md#l2-output-root
 [g-mpt]: glossary.md#merkle-patricia-trie
 [g-zktrie]: glossary.md#zk-trie
+[g-zk-fault-proof]: glossary.md#zk-fault-proof
+[g-system-config]: glossary.md#system-configuration
+[g-validation-rewards]: validator.md#validation-rewards
+[g-output-payload-v0]: validator.md#output-payloadversion-0
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -14,6 +18,8 @@
 - [Nodes](#nodes)
   - [Verifier -> Validator](#verifier---validator)
   - [Compositions](#compositions)
+  - [Adding field to System Configuration](#adding-field-to-system-configuration)
+  - [Adding field to Output Payload](#adding-field-to-output-payload)
 - [Geth](#geth)
 - [Validator](#validator)
   - [ZK fault proof](#zk-fault-proof)
@@ -65,6 +71,54 @@ The followings are components that are used to run different types of nodes:
 
 **NOTE:** Here `L2 EL client` means `kroma-geth` and `L2 CL client` means `kroma-node`. `L2 EL client` can
 be expanded to other clients for pragmatic decentralization.
+
+### Adding field to System Configuration
+
+The `ValidatorRewardScalar` field was added to [system configuration][g-system-config].
+```
+type L1BlockInfo struct {
+	Number    uint64
+	Time      uint64
+	BaseFee   *big.Int
+	BlockHash common.Hash
+	// Not strictly a piece of L1 information. Represents the number of L2 blocks since the start of the epoch,
+	// i.e. when the actual L1 info was first introduced.
+	SequenceNumber uint64
+	// BatcherHash version 0 is just the address with 0 padding to the left.
+	BatcherAddr   common.Address
+	L1FeeOverhead eth.Bytes32
+	L1FeeScalar   eth.Bytes32
+	// [Kroma: START]
+	ValidatorRewardScalar eth.Bytes32
+	// [Kroma: END]
+}
+```
+<pre>
+<a href="https://github.com/kroma-network/kroma/op-node/rollup/derive/l1_block_info.go">Code link here</a>
+</pre>
+This value is set via the `SystemConfig` contract on L1 and passed through the L2 derivation process and used as an
+ingredient in the reward calculation. (Detailed calculations : [Validation Rewards][g-validation-rewards])
+
+### Adding field to Output Payload
+
+The `next_block_hash` field was added to [Output Payload][g-output-payload-v0].
+```
+type OutputV0 struct {
+	StateRoot                Bytes32
+	MessagePasserStorageRoot Bytes32
+	BlockHash                common.Hash
+	// [Kroma: START]
+	NextBlockHash common.Hash
+	// [Kroma: END]
+}
+```
+<pre>
+<a href="https://github.com/kroma-network/kroma/op-service/eth/output.go">Code here</a>
+</pre>
+This value is used as an additional material for the [verification process][g-zk-fault-proof] of the fault
+proof system.
+It is used to validate the relationship between the Source OutputRootProof and Dest OutputRootProof, and the validation
+of the public input.
 
 ## Geth
 

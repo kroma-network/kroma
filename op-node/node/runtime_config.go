@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -24,9 +25,10 @@ type RuntimeCfgL1Source interface {
 
 type ReadonlyRuntimeConfig interface {
 	P2PSequencerAddress() common.Address
-	// NOTE: deleted by kroma
+	// [Kroma: START]
 	//RequiredProtocolVersion() params.ProtocolVersion
 	//RecommendedProtocolVersion() params.ProtocolVersion
+	// [Kroma: END]
 }
 
 // RuntimeConfig maintains runtime-configurable options.
@@ -52,10 +54,11 @@ type RuntimeConfig struct {
 type runtimeConfigData struct {
 	p2pBlockSignerAddr common.Address
 
-	// NOTE: deleted by kroma
+	// [Kroma: START]
 	// superchain protocol version signals
 	//recommended params.ProtocolVersion
 	//required    params.ProtocolVersion
+	// [Kroma: END]
 }
 
 var _ p2p.GossipRuntimeConfig = (*RuntimeConfig)(nil)

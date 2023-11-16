@@ -276,5 +276,6 @@ func RandomOutputV0(rng *rand.Rand) *eth.OutputV0 {
 		StateRoot:                eth.Bytes32(RandomHash(rng)),
 		MessagePasserStorageRoot: eth.Bytes32(RandomHash(rng)),
 		BlockHash:                RandomHash(rng),
+		NextBlockHash:            RandomHash(rng),
 	}
 }

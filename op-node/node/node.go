@@ -9,6 +9,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/hashicorp/go-multierror"
+	"github.com/libp2p/go-libp2p/core/peer"
+
 	"github.com/ethereum-optimism/optimism/op-node/heartbeat"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
@@ -19,14 +25,7 @@ import (
 	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/hashicorp/go-multierror"
-	"github.com/libp2p/go-libp2p/core/peer"
 )
-
-var errNodeHalt = errors.New("opted to halt, unprepared for protocol change")
 
 type KromaNode struct {
 	log        log.Logger
@@ -47,7 +46,9 @@ type KromaNode struct {
 	tracer    Tracer                // tracer to get events for testing/debugging
 	runCfg    *RuntimeConfig        // runtime configurables
 
-	rollupHalt string // when to halt the rollup, disabled if empty
+	// [Kroma: START]
+	//rollupHalt string // when to halt the rollup, disabled if empty
+	// [Kroma: END]
 
 	// some resources cannot be stopped directly, like the p2p gossipsub router (not our design),
 	// and depend on this ctx to be closed.
@@ -63,15 +64,17 @@ type KromaNode struct {
 
 	closed atomic.Bool
 
+	// [Kroma: START]
 	// cancels execution prematurely, e.g. to halt. This may be nil.
-	cancel context.CancelCauseFunc
-	halted atomic.Bool
+	//cancel context.CancelCauseFunc
+	//halted atomic.Bool
+	// [Kroma: END]
 }
 
 // The KromaNode handles incoming gossip
 var _ p2p.GossipIn = (*KromaNode)(nil)
 
-// New creates a new OpNode instance.
+// New creates a new KromaNode instance.
 // The provided ctx argument is for the span of initialization only;
 // the node will immediately Stop(ctx) before finishing initialization if the context is canceled during initialization.
 func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logger, appVersion string, m *metrics.Metrics) (*KromaNode, error) {
@@ -83,7 +86,6 @@ func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logge
 		log:        log,
 		appVersion: appVersion,
 		metrics:    m,
-		cancel:     cfg.Cancel,
 	}
 	// not a context leak, gossipsub is closed with a context.
 	n.resourcesCtx, n.resourcesClose = context.WithCancel(context.Background())
@@ -143,7 +145,7 @@ func (n *KromaNode) initTracer(ctx context.Context, cfg *Config) error {
 	if cfg.Tracer != nil {
 		n.tracer = cfg.Tracer
 	} else {
-		n.tracer = new(noKromaTracer)
+		n.tracer = new(noOpTracer)
 	}
 	return nil
 }
@@ -229,9 +231,6 @@ func (n *KromaNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 	// initialize the runtime config before unblocking
 	if _, err := retry.Do(ctx, 5, retry.Fixed(time.Second*10), func() (eth.L1BlockRef, error) {
 		ref, err := reload(ctx)
-		if errors.Is(err, errNodeHalt) { // don't retry on halt error
-			err = nil
-		}
 		return ref, err
 	}); err != nil {
 		return fmt.Errorf("failed to load runtime configuration repeatedly, last error: %w", err)
@@ -252,17 +251,7 @@ func (n *KromaNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 				// Missing a runtime-config update is not critical, and we do not want to overwhelm the L1 RPC.
 				l1Head, err := reload(ctx)
 				if err != nil {
-					if errors.Is(err, errNodeHalt) {
-						n.halted.Store(true)
-						if n.cancel != nil { // node cancellation is always available when started as CLI app
-							n.cancel(errNodeHalt)
-							return
-						} else {
-							n.log.Debug("opted to halt, but cannot halt node", "l1_head", l1Head)
-						}
-					} else {
-						n.log.Warn("failed to reload runtime config", "err", err)
-					}
+					n.log.Warn("failed to reload runtime config", "err", err)
 				} else {
 					n.log.Debug("reloaded runtime config", "l1_head", l1Head)
 				}
@@ -602,17 +591,6 @@ func (n *KromaNode) Stop(ctx context.Context) error {
 
 	if result == nil { // mark as closed if we successfully fully closed
 		n.closed.Store(true)
-	}
-
-	if n.halted.Load() {
-		// if we had a halt upon initialization, idle for a while, with open metrics, to prevent a rapid restart-loop
-		tim := time.NewTimer(time.Minute * 5)
-		n.log.Warn("halted, idling to avoid immediate shutdown repeats")
-		defer tim.Stop()
-		select {
-		case <-tim.C:
-		case <-ctx.Done():
-		}
 	}
 
 	// Close metrics only after we are done idling

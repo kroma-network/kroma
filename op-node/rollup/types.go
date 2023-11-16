@@ -69,7 +69,7 @@ type Config struct {
 	// Required to identify the L2 network and create p2p signatures unique for this chain.
 	L2ChainID *big.Int `json:"l2_chain_id"`
 
-	// NOTE: deleted by kroma - start
+	// [Kroma: START]
 	// RegolithTime sets the activation time of the Regolith network-upgrade:
 	// a pre-mainnet Bedrock change that addresses findings of the Sherlock contest related to deposit attributes.
 	// "Regolith" is the loose deposited rock that sits on top of Bedrock.
@@ -81,7 +81,7 @@ type Config struct {
 	//CanyonTime *uint64 `json:"canyon_time,omitempty"`
 	//
 	//SpanBatchTime *uint64 `json:"span_batch_time,omitempty"`
-	// NOTE: deleted by kroma - end
+	// [Kroma: END]
 
 	// Note: below addresses are part of the block-derivation process,
 	// and required to be the same network-wide to stay in consensus.
@@ -93,9 +93,10 @@ type Config struct {
 	// L1 System Config Address
 	L1SystemConfigAddress common.Address `json:"l1_system_config_address"`
 
-	// NOTE: deleted by kroma
+	// [Kroma: START]
 	// L1 address that declares the protocol versions, optional (Beta feature)
 	// ProtocolVersionsAddress common.Address `json:"protocol_versions_address,omitempty"`
+	// [Kroma: END]
 }
 
 // ValidateL1Config checks L1 config variables for errors.

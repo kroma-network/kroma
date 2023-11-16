@@ -68,8 +68,9 @@ func fuzzReceipts(typeProvider *fuzz.Fuzzer, blockHash common.Hash, depositContr
 					Gas:        fuzzedDepositInfo.Gas,
 					Data:       fuzzedDepositInfo.Data,
 					Mint:       fuzzedDepositInfo.Mint,
-					// NOTE: deleted by kroma
+					// [Kroma: START]
 					// IsSystemTransaction: false,
+					// [Kroma: END]
 				}
 
 				// Marshal our actual log event

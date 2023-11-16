@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,14 +22,14 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
@@ -40,12 +39,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	opprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	val "github.com/kroma-network/kroma/components/validator"
-	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	val "github.com/kroma-network/kroma/kroma-validator"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 )
 
 func TestMain(m *testing.M) {
@@ -750,7 +749,7 @@ func TestSystemP2PAltSync(t *testing.T) {
 		},
 		P2P:                 &p2p.Prepared{HostP2P: h, EnableReqRespSync: true},
 		Metrics:             rollupNode.MetricsConfig{Enabled: false}, // no metrics server
-		Pprof:               opprof.CLIConfig{},
+		Pprof:               oppprof.CLIConfig{},
 		L1EpochPollInterval: time.Second * 10,
 		Tracer: &FnTracer{
 			OnUnsafeL2PayloadFn: func(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload) {
@@ -998,26 +997,6 @@ func calcGasFees(gasUsed uint64, gasTipCap *big.Int, gasFeeCap *big.Int, baseFee
 		x = gasFeeCap
 	}
 	return x.Mul(x, new(big.Int).SetUint64(gasUsed))
-}
-
-// calcL1GasUsed returns the gas used to include the transaction data in
-// the calldata on L1
-func calcL1GasUsed(data []byte, overhead *big.Int) *big.Int {
-	var zeroes, ones uint64
-	for _, byt := range data {
-		if byt == 0 {
-			zeroes++
-		} else {
-			ones++
-		}
-	}
-
-	zeroesGas := zeroes * 4 // params.TxDataZeroGas
-	//NOTE: updated by Kroma
-	//onesGas := (ones + 68) * 16 // params.TxDataNonZeroGasEIP2028
-	onesGas := ones * 16 // params.TxDataNonZeroGasEIP2028
-	l1Gas := new(big.Int).SetUint64(zeroesGas + onesGas)
-	return new(big.Int).Add(l1Gas, overhead)
 }
 
 // TestWithdrawals checks that a deposit and then withdrawal execution succeeds. It verifies the
@@ -1272,16 +1251,6 @@ func TestFees(t *testing.T) {
 	require.NoError(t, err, "Should be able to get transaction")
 	bytes, err := tx.MarshalBinary()
 	require.Nil(t, err)
-
-	//tx, _, err := l2Seq.TransactionByHash(context.Background(), receipt.TxHash)
-	//require.NoError(t, err, "Should be able to get transaction")
-	//bytes, err := tx.MarshalBinary()
-	//require.Nil(t, err)
-	//l1GasUsed := calcL1GasUsed(bytes, overhead)
-	//divisor := new(big.Int).Exp(big.NewInt(10), decimals, nil)
-	//l1Fee := new(big.Int).Mul(l1GasUsed, l1Header.BaseFee)
-	//l1Fee = l1Fee.Mul(l1Fee, scalar)
-	//l1Fee = l1Fee.Div(l1Fee, divisor)
 
 	l1Fee := l1CostFn(receipt.BlockNumber.Uint64(), tx.RollupDataGas(), false)
 	require.Equal(t, l1Fee, l1FeeVaultDiff, "sequencer reward mismatch")
@@ -1582,4 +1551,48 @@ func TestPendingBlockIsLatest(t *testing.T) {
 		}
 		t.Fatal("failed to get pending header with same number as latest header")
 	})
+}
+
+func TestRuntimeConfigReload(t *testing.T) {
+	InitParallel(t)
+
+	cfg := DefaultSystemConfig(t)
+	// to speed up the test, make it reload the config more often, and do not impose a long conf depth
+	cfg.Nodes["verifier"].RuntimeConfigReloadInterval = time.Second * 5
+	cfg.Nodes["verifier"].Driver.VerifierConfDepth = 1
+
+	sys, err := cfg.Start(t)
+	require.Nil(t, err, "Error starting up system")
+	defer sys.Close()
+	initialRuntimeConfig := sys.RollupNodes["verifier"].RuntimeConfig()
+
+	// close the EL node, since we want to block derivation, to solely rely on the reloading mechanism for updates.
+	sys.EthInstances["verifier"].Close()
+
+	l1 := sys.Clients["l1"]
+
+	// Change the system-config via L1
+	sysCfgContract, err := bindings.NewSystemConfig(cfg.DeployConfig.SystemConfigProxy, l1)
+	require.NoError(t, err)
+	newUnsafeBlocksSigner := common.Address{0x12, 0x23, 0x45}
+	require.NotEqual(t, initialRuntimeConfig.P2PSequencerAddress(), newUnsafeBlocksSigner, "changing to a different address")
+	opts, err := bind.NewKeyedTransactorWithChainID(cfg.Secrets.ProxyAdminOwner, cfg.L1ChainIDBig())
+	require.Nil(t, err)
+	// the unsafe signer address is part of the runtime config
+	tx, err := sysCfgContract.SetUnsafeBlockSigner(opts, newUnsafeBlocksSigner)
+	require.NoError(t, err)
+
+	// wait for the change to confirm
+	_, err = wait.ForReceiptOK(context.Background(), l1, tx.Hash())
+	require.NoError(t, err)
+
+	// wait for the address to change
+	_, err = retry.Do(context.Background(), 10, retry.Fixed(time.Second*10), func() (struct{}, error) {
+		v := sys.RollupNodes["verifier"].RuntimeConfig().P2PSequencerAddress()
+		if v == newUnsafeBlocksSigner {
+			return struct{}{}, nil
+		}
+		return struct{}{}, fmt.Errorf("no change yet, seeing %s but looking for %s", v, newUnsafeBlocksSigner)
+	})
+	require.NoError(t, err)
 }

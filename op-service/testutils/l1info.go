@@ -24,13 +24,13 @@ type MockBlockInfo struct {
 	InfoReceiptRoot common.Hash
 	InfoGasUsed     uint64
 	InfoHeaderRLP   []byte
-	// NOTE: added by Kroma - start
+	// [Kroma: START]
 	InfoTransactionsRoot common.Hash
 	InfoWithdrawalsRoot  *common.Hash
 	InfoGasLimit         uint64
 	InfoBloom            types.Bloom
 	InfoExtra            []byte
-	// NOTE: added by Kroma - end
+	// [Kroma: END]
 }
 
 func (l *MockBlockInfo) Hash() common.Hash {

@@ -31,8 +31,9 @@ const (
 	TxSendTimeoutFlagName             = "txmgr.send-timeout"
 	TxNotInMempoolTimeoutFlagName     = "txmgr.not-in-mempool-timeout"
 	ReceiptQueryIntervalFlagName      = "txmgr.receipt-query-interval"
-	// NOTE: added by kroma
+	// [Kroma: START]
 	BufferSizeFlagName = "txmgr.buffer-size"
+	// [Kroma: END]
 )
 
 type DefaultFlagValues struct {
@@ -43,6 +44,7 @@ type DefaultFlagValues struct {
 	TxSendTimeout             time.Duration
 	TxNotInMempoolTimeout     time.Duration
 	ReceiptQueryInterval      time.Duration
+	TxBufferSize              uint64
 }
 
 var (
@@ -54,6 +56,7 @@ var (
 		TxSendTimeout:             0 * time.Second,
 		TxNotInMempoolTimeout:     2 * time.Minute,
 		ReceiptQueryInterval:      12 * time.Second,
+		TxBufferSize:              uint64(10),
 	}
 )
 
@@ -126,7 +129,7 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 		&cli.Uint64Flag{
 			Name:    BufferSizeFlagName,
 			Usage:   "Tx buffer size for buffered txmgr",
-			Value:   10,
+			Value:   defaults.TxBufferSize,
 			EnvVars: prefixEnvVars("TXMGR_BUFFER_SIZE"),
 		},
 	}, opsigner.CLIFlags(envPrefix)...)
@@ -136,10 +139,10 @@ type CLIConfig struct {
 	L1RPCURL string
 	Mnemonic string
 	HDPath   string
-	// NOTE: deleted by kroma
+	// [Kroma: START]
 	// SequencerHDPath           string
-	// NOTE: deleted by kroma
 	// L2OutputHDPath            string
+	// [Kroma: END]
 	PrivateKey                string
 	SignerCLIConfig           opsigner.CLIConfig
 	NumConfirmations          uint64
@@ -161,6 +164,7 @@ func NewCLIConfig(l1RPCURL string, defaults DefaultFlagValues) CLIConfig {
 		NetworkTimeout:            defaults.NetworkTimeout,
 		TxSendTimeout:             defaults.TxSendTimeout,
 		TxNotInMempoolTimeout:     defaults.TxNotInMempoolTimeout,
+		TxBufferSize:              defaults.TxBufferSize,
 		ReceiptQueryInterval:      defaults.ReceiptQueryInterval,
 		SignerCLIConfig:           opsigner.NewCLIConfig(),
 	}
@@ -184,6 +188,9 @@ func (m CLIConfig) Check() error {
 	}
 	if m.TxNotInMempoolTimeout == 0 {
 		return errors.New("must provide TxNotInMempoolTimeout")
+	}
+	if m.TxBufferSize == 0 {
+		return errors.New("must provide TxBufferSize")
 	}
 	if m.SafeAbortNonceTooLowCount == 0 {
 		return errors.New("SafeAbortNonceTooLowCount must not be 0")
@@ -290,10 +297,11 @@ type Config struct {
 	// confirmation.
 	SafeAbortNonceTooLowCount uint64
 
-	// NOTE: added by kroma
+	// [Kroma: START]
 	// TxBufferSize specifies the size of the queue to use for transaction requests.
 	// Only used by buffered txmgr.
 	TxBufferSize uint64
+	// [Kroma: END]
 
 	// Signer is used to sign transactions when the gas price is increased.
 	Signer opcrypto.SignerFn
@@ -318,6 +326,9 @@ func (m Config) Check() error {
 	}
 	if m.TxNotInMempoolTimeout == 0 {
 		return errors.New("must provide TxNotInMempoolTimeout")
+	}
+	if m.TxBufferSize == 0 {
+		return errors.New("must provide TxBufferSize")
 	}
 	if m.SafeAbortNonceTooLowCount == 0 {
 		return errors.New("SafeAbortNonceTooLowCount must not be 0")

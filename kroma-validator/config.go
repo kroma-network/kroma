@@ -11,16 +11,17 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/ethereum-optimism/optimism/op-service/dial"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
+	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
-	klog "github.com/ethereum-optimism/optimism/op-service/log"
-	kmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
-	kpprof "github.com/ethereum-optimism/optimism/op-service/pprof"
-	krpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	chal "github.com/kroma-network/kroma/components/validator/challenge"
-	"github.com/kroma-network/kroma/components/validator/flags"
-	"github.com/kroma-network/kroma/components/validator/metrics"
-	"github.com/kroma-network/kroma/utils"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
+	"github.com/kroma-network/kroma/kroma-validator/flags"
+	"github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
 // Config contains the well typed fields that are used to initialize the output submitter.
@@ -107,10 +108,10 @@ type CLIConfig struct {
 	FetchingProofTimeout time.Duration
 
 	TxMgrConfig   txmgr.CLIConfig
-	RPCConfig     krpc.CLIConfig
-	LogConfig     klog.CLIConfig
-	MetricsConfig kmetrics.CLIConfig
-	PprofConfig   kpprof.CLIConfig
+	RPCConfig     oprpc.CLIConfig
+	LogConfig     oplog.CLIConfig
+	MetricsConfig opmetrics.CLIConfig
+	PprofConfig   oppprof.CLIConfig
 }
 
 func (c CLIConfig) Check() error {
@@ -135,8 +136,8 @@ func (c CLIConfig) Check() error {
 	return nil
 }
 
-// NewCLIConfig parses the CLIConfig from the provided flags or environment variables.
-func NewCLIConfig(ctx *cli.Context) CLIConfig {
+// NewConfig parses the Config from the provided flags or environment variables.
+func NewConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		// Required Flags
 		L1EthRpc:               ctx.String(flags.L1EthRpcFlag.Name),
@@ -159,34 +160,34 @@ func NewCLIConfig(ctx *cli.Context) CLIConfig {
 		ProverRPC:                       ctx.String(flags.ProverRPCFlag.Name),
 		GuardianEnabled:                 ctx.Bool(flags.GuardianEnabledFlag.Name),
 		FetchingProofTimeout:            ctx.Duration(flags.FetchingProofTimeoutFlag.Name),
-		RPCConfig:                       krpc.ReadCLIConfig(ctx),
-		LogConfig:                       klog.ReadCLIConfig(ctx),
-		MetricsConfig:                   kmetrics.ReadCLIConfig(ctx),
-		PprofConfig:                     kpprof.ReadCLIConfig(ctx),
+		RPCConfig:                       oprpc.ReadCLIConfig(ctx),
+		LogConfig:                       oplog.ReadCLIConfig(ctx),
+		MetricsConfig:                   opmetrics.ReadCLIConfig(ctx),
+		PprofConfig:                     oppprof.ReadCLIConfig(ctx),
 	}
 }
 
 // NewValidatorConfig creates a validator config with given the CLIConfig
 func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Config, error) {
-	l2ooAddress, err := utils.ParseAddress(cfg.L2OOAddress)
+	l2ooAddress, err := opservice.ParseAddress(cfg.L2OOAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	colosseumAddress, err := utils.ParseAddress(cfg.ColosseumAddress)
+	colosseumAddress, err := opservice.ParseAddress(cfg.ColosseumAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	var securityCouncilAddress common.Address
 	if cfg.GuardianEnabled {
-		securityCouncilAddress, err = utils.ParseAddress(cfg.SecurityCouncilAddress)
+		securityCouncilAddress, err = opservice.ParseAddress(cfg.SecurityCouncilAddress)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	valPoolAddress, err := utils.ParseAddress(cfg.ValPoolAddress)
+	valPoolAddress, err := opservice.ParseAddress(cfg.ValPoolAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -210,17 +211,17 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 
 	// Connect to L1 and L2 providers. Perform these last since they are the most expensive.
 	ctx := context.Background()
-	l1Client, err := utils.DialEthClientWithTimeout(ctx, cfg.L1EthRpc)
+	l1Client, err := dial.DialEthClientWithTimeout(dial.DefaultDialTimeout, l, cfg.L1EthRpc)
 	if err != nil {
 		return nil, err
 	}
 
-	l2Client, err := utils.DialEthClientWithTimeout(ctx, cfg.L2EthRpc)
+	l2Client, err := dial.DialEthClientWithTimeout(dial.DefaultDialTimeout, l, cfg.L2EthRpc)
 	if err != nil {
 		return nil, err
 	}
 
-	rollupClient, err := utils.DialRollupClientWithTimeout(ctx, cfg.RollupRpc)
+	rollupClient, err := dial.DialRollupClientWithTimeout(dial.DefaultDialTimeout, l, cfg.RollupRpc)
 	if err != nil {
 		return nil, err
 	}

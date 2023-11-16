@@ -14,29 +14,6 @@ import (
 	"testing"
 	"time"
 
-	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
-	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
-	batchermetrics "github.com/ethereum-optimism/optimism/op-batcher/metrics"
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
-	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
-	"github.com/ethereum-optimism/optimism/op-node/metrics"
-	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
-	"github.com/ethereum-optimism/optimism/op-node/p2p"
-	"github.com/ethereum-optimism/optimism/op-node/p2p/store"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
-	"github.com/ethereum-optimism/optimism/op-service/client"
-	"github.com/ethereum-optimism/optimism/op-service/clock"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	oplog "github.com/ethereum-optimism/optimism/op-service/log"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -59,9 +36,32 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kroma-network/kroma/components/validator"
-	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
-	"github.com/kroma-network/kroma/op-service/cliapp"
+	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
+	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
+	batchermetrics "github.com/ethereum-optimism/optimism/op-batcher/metrics"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
+	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
+	"github.com/ethereum-optimism/optimism/op-node/metrics"
+	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/p2p/store"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
+	"github.com/ethereum-optimism/optimism/op-service/cliapp"
+	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/clock"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/kroma-network/kroma/kroma-validator"
+	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
 var testingJWTSecret = [32]byte{123}
@@ -77,6 +77,7 @@ func newTxMgrConfig(l1Addr string, privKey *ecdsa.PrivateKey) txmgr.CLIConfig {
 		NetworkTimeout:            2 * time.Second,
 		TxSendTimeout:             10 * time.Minute,
 		TxNotInMempoolTimeout:     2 * time.Minute,
+		TxBufferSize:              10,
 	}
 }
 
@@ -101,7 +102,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		ValidatorPoolTrustedValidator:   addresses.TrustedValidator,
 		ValidatorPoolRequiredBondAmount: uint642big(1),
 		ValidatorPoolMaxUnbond:          10,
-		ValidatorPoolRoundDuration:      4,
+		ValidatorPoolRoundDuration:      2,
 
 		L2OutputOracleSubmissionInterval: 4,
 		L2OutputOracleStartingTimestamp:  -1,
@@ -118,6 +119,11 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		L1GenesisBlockGasUsed:       0,
 		L1GenesisBlockParentHash:    common.Hash{},
 		L1GenesisBlockBaseFeePerGas: uint642big(7),
+		L1StartingBlockTag: &genesis.MarshalableRPCBlockNumberOrHash{
+			BlockNumber:      nil,
+			BlockHash:        &common.Hash{},
+			RequireCanonical: true,
+		},
 
 		L2GenesisBlockNonce:         0,
 		L2GenesisBlockGasLimit:      30_000_000,
@@ -166,24 +172,20 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		panic(err)
 	}
 
+	// Tests depend on premine being filled with secrets addresses
+	premine := make(map[common.Address]*big.Int)
+	for _, addr := range secrets.Addresses().All() {
+		premine[addr] = new(big.Int).Mul(big.NewInt(1000), big.NewInt(params.Ether))
+	}
+
 	return SystemConfig{
-		Secrets: secrets,
-
-		Premine: make(map[common.Address]*big.Int),
-
+		Secrets:                secrets,
+		Premine:                premine,
 		DeployConfig:           deployConfig,
 		L1InfoPredeployAddress: predeploys.L1BlockAddr,
 		JWTFilePath:            writeDefaultJWT(t),
 		JWTSecret:              testingJWTSecret,
 		Nodes: map[string]*rollupNode.Config{
-			"verifier": {
-				Driver: driver.Config{
-					VerifierConfDepth:  0,
-					SequencerConfDepth: 0,
-					SequencerEnabled:   false,
-				},
-				L1EpochPollInterval: time.Second * 4,
-			},
 			"sequencer": {
 				Driver: driver.Config{
 					VerifierConfDepth:  0,
@@ -196,7 +198,19 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 					ListenPort:  0,
 					EnableAdmin: true,
 				},
-				L1EpochPollInterval: time.Second * 4,
+				L1EpochPollInterval:         time.Second * 2,
+				RuntimeConfigReloadInterval: time.Minute * 10,
+				ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
+			},
+			"verifier": {
+				Driver: driver.Config{
+					VerifierConfDepth:  0,
+					SequencerConfDepth: 0,
+					SequencerEnabled:   false,
+				},
+				L1EpochPollInterval:         time.Second * 4,
+				RuntimeConfigReloadInterval: time.Minute * 10,
+				ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
 			},
 		},
 		Loggers: map[string]log.Logger{
@@ -206,9 +220,10 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			"validator":  testlog.Logger(t, log.LvlInfo).New("role", "validator"),
 			"challenger": testlog.Logger(t, log.LvlInfo).New("role", "challenger"),
 		},
-		GethOptions:         map[string][]geth.GethOption{},
-		P2PTopology:         nil, // no P2P connectivity by default
-		NonFinalizedOutputs: false,
+		GethOptions:                map[string][]geth.GethOption{},
+		P2PTopology:                nil, // no P2P connectivity by default
+		NonFinalizedOutputs:        false,
+		BatcherTargetL1TxSizeBytes: 100_000,
 	}
 }
 
@@ -256,9 +271,10 @@ type SystemConfig struct {
 	// Explicitly disable batcher, for tests that rely on unsafe L2 payloads
 	DisableBatcher bool
 
-	// NOTE: added by kroma
+	// [Kroma: START]
 	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
 	EnableMaliciousValidator bool
+	// [Kroma: END]
 
 	EnableGuardian bool
 

@@ -72,9 +72,9 @@ type Metrics struct {
 	channelComprRatio       prometheus.Histogram
 	channelInputBytesTotal  prometheus.Counter
 	channelOutputBytesTotal prometheus.Counter
-	//NOTE: added by Kroma
+	// [Kroma: START]
 	channelComprRatioValue prometheus.Gauge
-
+	// [Kroma: END]
 	batcherTxEvs opmetrics.EventVec
 }
 

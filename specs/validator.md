@@ -56,7 +56,7 @@ must submit output within the `Priority Round` time.
 If the prioritized validator fails to submit within the `Priority Round`, the round moves to the `Public Round`, where
 all validators can submit output regardless of priority.
 
-The [validator](../components/validator/) is expected to submit output roots on a deterministic
+The [validator](../kroma-validator/) is expected to submit output roots on a deterministic
 interval based on the configured `SUBMISSION_INTERVAL` in the `L2OutputOracle`. The larger
 the `SUBMISSION_INTERVAL`, the less often L1 transactions need to be sent to the `L2OutputOracle`
 contract, but L2 users will need to wait a bit longer for an output root to be included in L1

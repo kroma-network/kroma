@@ -240,7 +240,7 @@ var (
 			"Warning: a copy of the priv network key of the local peer will be persisted here.", // TODO: bad design of libp2p, maybe we can avoid this from happening
 		Required:  false,
 		TakesFile: true,
-		Value:     "kroma_peerstore_db",
+		Value:     "kroma_node_peerstore_db",
 		EnvVars:   p2pEnv("PEERSTORE_PATH"),
 	}
 	DiscoveryPath = &cli.StringFlag{

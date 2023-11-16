@@ -4,48 +4,40 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	klog "github.com/ethereum-optimism/optimism/op-service/log"
-	"github.com/ethereum-optimism/optimism/op-service/monitoring"
-	krpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/kroma-network/kroma/components/validator/metrics"
-	"github.com/kroma-network/kroma/utils"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	opservice "github.com/ethereum-optimism/optimism/op-service"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum-optimism/optimism/op-service/monitoring"
+	"github.com/ethereum-optimism/optimism/op-service/opio"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
+	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
+	"github.com/kroma-network/kroma/kroma-validator/flags"
+	"github.com/kroma-network/kroma/kroma-validator/metrics"
 )
-
-type InterruptChan chan os.Signal
-
-func WaitInterrupt() InterruptChan {
-	interruptChannel := make(InterruptChan, 1)
-	signal.Notify(interruptChannel, []os.Signal{
-		os.Interrupt,
-		syscall.SIGTERM,
-		syscall.SIGHUP,
-	}...)
-
-	return interruptChannel
-}
 
 // Main is the entrypoint into the Validator. This method executes the
 // service and blocks until the service exits.
 func Main(version string, cliCtx *cli.Context) error {
-	cliCfg := NewCLIConfig(cliCtx)
-	if err := cliCfg.Check(); err != nil {
+	if err := flags.CheckRequired(cliCtx); err != nil {
+		return err
+	}
+	cfg := NewConfig(cliCtx)
+	if err := cfg.Check(); err != nil {
 		return fmt.Errorf("invalid CLI flags: %w", err)
 	}
 
-	l := klog.NewLogger(klog.AppOut(cliCtx), cliCfg.LogConfig)
+	l := oplog.NewLogger(oplog.AppOut(cliCtx), cfg.LogConfig)
+	oplog.SetGlobalLogHandler(l.GetHandler())
+	opservice.ValidateEnvVars(flags.EnvVarPrefix, flags.Flags, l)
 	m := metrics.NewMetrics("default")
 	l.Info("initializing Validator")
 
-	validatorCfg, err := NewValidatorConfig(cliCfg, l, m)
+	validatorCfg, err := NewValidatorConfig(cfg, l, m)
 	if err != nil {
 		l.Error("Unable to create validator config", "err", err)
 		return err
@@ -54,9 +46,9 @@ func Main(version string, cliCtx *cli.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	monitoring.MaybeStartPprof(ctx, cliCfg.PprofConfig, l)
-	monitoring.MaybeStartMetrics(ctx, cliCfg.MetricsConfig, l, m, validatorCfg.L1Client, validatorCfg.TxManager.From())
-	server, err := monitoring.StartRPC(cliCfg.RPCConfig, version, krpc.WithLogger(l))
+	monitoring.MaybeStartPprof(ctx, cfg.PprofConfig, l)
+	monitoring.MaybeStartMetrics(ctx, cfg.MetricsConfig, l, m, validatorCfg.L1Client, validatorCfg.TxManager.From())
+	server, err := monitoring.StartRPC(cfg.RPCConfig, version, oprpc.WithLogger(l))
 	if err != nil {
 		return err
 	}
@@ -78,7 +70,7 @@ func Main(version string, cliCtx *cli.Context) error {
 		l.Error("failed to start validator", "err", err)
 		return err
 	}
-	<-WaitInterrupt()
+	opio.BlockOnInterrupts()
 	if err := validator.Stop(); err != nil {
 		l.Error("failed to stop validator", "err", err)
 		return err
@@ -260,7 +252,7 @@ func (v *Validator) fetchCurrentBlockNumber() (*big.Int, error) {
 func (v *Validator) fetchLatestBlockNumber() (*big.Int, error) {
 	cCtx, cCancel := context.WithTimeout(v.ctx, v.cfg.NetworkTimeout)
 	defer cCancel()
-	latestBlockNumber, err := v.l2ooContract.LatestBlockNumber(utils.NewSimpleCallOpts(cCtx))
+	latestBlockNumber, err := v.l2ooContract.LatestBlockNumber(optsutils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		return nil, fmt.Errorf("unable to get latest block number of L2OutputOracle contract: %w", err)
 	}

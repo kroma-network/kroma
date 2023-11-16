@@ -21,8 +21,9 @@ var (
 	SystemConfigUpdateGasConfig         = common.Hash{31: 1}
 	SystemConfigUpdateGasLimit          = common.Hash{31: 2}
 	SystemConfigUpdateUnsafeBlockSigner = common.Hash{31: 3}
-	// NOTE: added by kroma
+	// [Kroma: START]
 	SystemConfigUpdateValidatorRewardScalar = common.Hash{31: 4}
+	// [Kroma: END]
 )
 
 var (

@@ -6,12 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	kmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
+	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
 	txmetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 )
 
 type noopMetrics struct {
-	kmetrics.NoopRefMetrics
+	opmetrics.NoopRefMetrics
 	txmetrics.NoopTxMetrics
 }
 

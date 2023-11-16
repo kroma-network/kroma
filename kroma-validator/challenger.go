@@ -21,10 +21,10 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
 	"github.com/ethereum-optimism/optimism/op-service/watcher"
-	chal "github.com/kroma-network/kroma/components/validator/challenge"
-	"github.com/kroma-network/kroma/components/validator/metrics"
-	"github.com/kroma-network/kroma/utils"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
+	"github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
 var deletedOutputRoot = [32]byte{}
@@ -112,7 +112,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 	err := contractWatcher.WatchUpgraded(c.cfg.L2OutputOracleAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		submissionInterval, err := c.l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
+		submissionInterval, err := c.l2ooContract.SUBMISSIONINTERVAL(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
@@ -120,7 +120,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 
 		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		l2BlockTime, err := c.l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
+		l2BlockTime, err := c.l2ooContract.L2BLOCKTIME(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get l2 block time: %w", err)
 		}
@@ -128,7 +128,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 
 		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		finalizationPeriodSeconds, err := c.l2ooContract.FINALIZATIONPERIODSECONDS(utils.NewSimpleCallOpts(cCtx))
+		finalizationPeriodSeconds, err := c.l2ooContract.FINALIZATIONPERIODSECONDS(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get finalization period seconds: %w", err)
 		}
@@ -143,7 +143,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 	err = contractWatcher.WatchUpgraded(c.cfg.ValidatorPoolAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		requiredBondAmount, err := c.valpoolContract.REQUIREDBONDAMOUNT(utils.NewSimpleCallOpts(cCtx))
+		requiredBondAmount, err := c.valpoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
@@ -160,7 +160,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 
 // initSub initialize subscriptions
 func (c *Challenger) initSub() {
-	opts := utils.NewSimpleWatchOpts(c.ctx)
+	opts := optsutils.NewSimpleWatchOpts(c.ctx)
 
 	if c.cfg.ChallengerEnabled {
 		c.l2OutputSubmittedEventChan = make(chan *bindings.L2OutputOracleOutputSubmitted)
@@ -255,7 +255,7 @@ func (c *Challenger) loop() {
 func (c *Challenger) updateCheckpoint() error {
 	cCtx, cCancel := context.WithTimeout(c.ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	nextOutputIndex, err := c.l2ooContract.NextOutputIndex(utils.NewSimpleCallOpts(cCtx))
+	nextOutputIndex, err := c.l2ooContract.NextOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		return fmt.Errorf("failed to get the latest output index: %w", err)
 	}
@@ -602,7 +602,7 @@ func (c *Challenger) submitChallengeTx(tx *types.Transaction) error {
 func (c *Challenger) HasEnoughDeposit(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	balance, err := c.valpoolContract.BalanceOf(utils.NewSimpleCallOpts(cCtx), c.cfg.TxManager.From())
+	balance, err := c.valpoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), c.cfg.TxManager.From())
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 	}
@@ -620,19 +620,19 @@ func (c *Challenger) HasEnoughDeposit(ctx context.Context) (bool, error) {
 func (c *Challenger) IsInChallengeCreationPeriod(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	return c.colosseumContract.IsInCreationPeriod(utils.NewSimpleCallOpts(cCtx), outputIndex)
+	return c.colosseumContract.IsInCreationPeriod(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 }
 
 func (c *Challenger) IsOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	return c.l2ooContract.IsFinalized(utils.NewSimpleCallOpts(cCtx), outputIndex)
+	return c.l2ooContract.IsFinalized(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 }
 
 func (c *Challenger) GetChallenge(ctx context.Context, outputIndex *big.Int, challenger common.Address) (bindings.TypesChallenge, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	return c.colosseumContract.GetChallenge(utils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
+	return c.colosseumContract.GetChallenge(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
 }
 
 func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
@@ -698,7 +698,7 @@ type Outputs struct {
 func (c *Challenger) OutputsAtIndex(ctx context.Context, outputIndex *big.Int) (*Outputs, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	RemoteOutput, err := c.l2ooContract.GetL2Output(utils.NewSimpleCallOpts(cCtx), outputIndex)
+	RemoteOutput, err := c.l2ooContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -755,13 +755,13 @@ func (c *Challenger) isRelatedChallenge(asserter common.Address, challenger comm
 func (c *Challenger) GetChallengeStatus(ctx context.Context, outputIndex *big.Int, challenger common.Address) (uint8, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	return c.colosseumContract.GetStatus(utils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
+	return c.colosseumContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
 }
 
 func (c *Challenger) BuildSegments(ctx context.Context, turn uint8, segStart, segSize uint64) (*chal.Segments, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	sections, err := c.colosseumContract.GetSegmentsLength(utils.NewSimpleCallOpts(cCtx), turn)
+	sections, err := c.colosseumContract.GetSegmentsLength(optsutils.NewSimpleCallOpts(cCtx), turn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get segments length of turn %d: %w", turn, err)
 	}
@@ -814,7 +814,7 @@ func (c *Challenger) CreateChallenge(ctx context.Context, outputRange *OutputRan
 		return nil, err
 	}
 
-	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
+	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
 	return c.colosseumContract.CreateChallenge(txOpts, outputIndex, l1BlockHash, l1BlockNumber, segments.Hashes)
 }
 
@@ -843,21 +843,21 @@ func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int, challenge
 		return nil, err
 	}
 
-	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
+	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
 	return c.colosseumContract.Bisect(txOpts, outputIndex, challenger, position, nextSegments.Hashes)
 }
 
 func (c *Challenger) ChallengerTimeout(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
 	c.log.Info("crafting challenger timeout tx", "outputIndex", outputIndex, "challenger", challenger)
 
-	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
+	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
 	return c.colosseumContract.ChallengerTimeout(txOpts, outputIndex, challenger)
 }
 
 func (c *Challenger) CancelChallenge(ctx context.Context, outputIndex *big.Int) (*types.Transaction, error) {
 	c.log.Info("crafting cancel challenge tx", "outputIndex", outputIndex)
 
-	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
+	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
 	return c.colosseumContract.CancelChallenge(txOpts, outputIndex)
 }
 
@@ -907,7 +907,7 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 		return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
 	}
 
-	txOpts := utils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
+	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
 	return c.colosseumContract.ProveFault(
 		txOpts,
 		outputIndex,

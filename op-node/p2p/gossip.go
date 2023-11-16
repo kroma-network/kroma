@@ -10,16 +10,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/golang/snappy"
 	lru "github.com/hashicorp/golang-lru/v2"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -67,7 +66,7 @@ type GossipMetricer interface {
 }
 
 func blocksTopicV1(cfg *rollup.Config) string {
-	return fmt.Sprintf("/optimism/%s/0/blocks", cfg.L2ChainID.String())
+	return fmt.Sprintf("/kroma/%s/0/blocks", cfg.L2ChainID.String())
 }
 
 // BuildSubscriptionFilter builds a simple subscription filter,

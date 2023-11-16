@@ -44,8 +44,6 @@ var Subcommands = cli.Commands{
 		},
 		Action: func(ctx *cli.Context) error {
 			deployConfig := ctx.String("deploy-config")
-			fmt.Println("!!!!!!")
-			fmt.Println(deployConfig)
 			config, err := genesis.NewDeployConfig(deployConfig)
 			if err != nil {
 				return err
@@ -66,7 +64,7 @@ var Subcommands = cli.Commands{
 			}
 
 			l1StartBlock := l1Genesis.ToBlock()
-			l2Genesis, err := genesis.NewL2Genesis(config, l1StartBlock, true)
+			l2Genesis, err := genesis.BuildL2Genesis(config, l1StartBlock, true)
 			if err != nil {
 				return err
 			}

@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 )
 
-// NOTE: added by Kroma
+// [Kroma: START]
 type PublicInputProof struct {
 	NextBlock                   *types.Header      `json:"nextBlock"`
 	NextTransactions            types.Transactions `json:"nextTransactions"`
@@ -21,6 +21,8 @@ type PublicInputProof struct {
 	MerkleProof                 []hexutil.Bytes    `json:"merkleProof"`
 }
 
+// [Kroma: END]
+
 type OutputResponse struct {
 	Version               Bytes32     `json:"version"`
 	OutputRoot            Bytes32     `json:"outputRoot"`
@@ -28,10 +30,10 @@ type OutputResponse struct {
 	WithdrawalStorageRoot common.Hash `json:"withdrawalStorageRoot"`
 	StateRoot             common.Hash `json:"stateRoot"`
 	Status                *SyncStatus `json:"syncStatus"`
-	// NOTE: added by kroma
-	NextBlockRef L2BlockRef `json:"nextBlockRef"`
-	// NOTE: added by kroma
+	// [Kroma: START]
+	NextBlockRef     L2BlockRef        `json:"nextBlockRef"`
 	PublicInputProof *PublicInputProof `json:"publicInputProof"`
+	// [Kroma: END]
 }
 
 var (
@@ -54,8 +56,9 @@ type OutputV0 struct {
 	StateRoot                Bytes32
 	MessagePasserStorageRoot Bytes32
 	BlockHash                common.Hash
-	// NOTE: added by kroma
+	// [Kroma: START]
 	NextBlockHash common.Hash
+	// [Kroma: END]
 }
 
 func (o *OutputV0) Version() Bytes32 {
@@ -63,7 +66,7 @@ func (o *OutputV0) Version() Bytes32 {
 }
 
 func (o *OutputV0) Marshal() []byte {
-	var buf [128]byte
+	var buf [160]byte
 	version := o.Version()
 	copy(buf[:32], version[:])
 	copy(buf[32:], o.StateRoot[:])
@@ -73,7 +76,33 @@ func (o *OutputV0) Marshal() []byte {
 	return buf[:]
 }
 
-// NOTE: added by kroma
+func UnmarshalOutput(data []byte) (Output, error) {
+	if len(data) < 32 {
+		return nil, ErrInvalidOutput
+	}
+	var ver Bytes32
+	copy(ver[:], data[:32])
+	switch ver {
+	case OutputVersionV0:
+		return unmarshalOutputV0(data)
+	default:
+		return nil, ErrInvalidOutputVersion
+	}
+}
+
+func unmarshalOutputV0(data []byte) (*OutputV0, error) {
+	if len(data) != 160 {
+		return nil, ErrInvalidOutput
+	}
+	var output OutputV0
+	// data[:32] is the version
+	copy(output.StateRoot[:], data[32:64])
+	copy(output.MessagePasserStorageRoot[:], data[64:96])
+	copy(output.BlockHash[:], data[96:128])
+	copy(output.NextBlockHash[:], data[128:160])
+	return &output, nil
+}
+
 func (o *OutputResponse) ToOutputRootProof() bindings.TypesOutputRootProof {
 	return bindings.TypesOutputRootProof{
 		Version:                  o.Version,
@@ -84,7 +113,6 @@ func (o *OutputResponse) ToOutputRootProof() bindings.TypesOutputRootProof {
 	}
 }
 
-// NOTE: added by kroma
 func (o *OutputResponse) ToPublicInput() (bindings.TypesPublicInput, error) {
 	p := o.PublicInputProof
 	if p.NextBlock == nil {
@@ -112,7 +140,6 @@ func (o *OutputResponse) ToPublicInput() (bindings.TypesPublicInput, error) {
 	}, nil
 }
 
-// NOTE: add by Kroma
 func (o *OutputResponse) ToBlockHeaderRLP() (bindings.TypesBlockHeaderRLP, error) {
 	p := o.PublicInputProof
 	if p.NextBlock == nil {

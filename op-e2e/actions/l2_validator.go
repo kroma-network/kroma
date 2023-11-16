@@ -16,13 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	kcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
-	kcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/kroma-network/kroma/components/validator"
-	validatormetrics "github.com/kroma-network/kroma/components/validator/metrics"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/kroma-network/kroma/kroma-validator"
+	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
 type ValidatorCfg struct {

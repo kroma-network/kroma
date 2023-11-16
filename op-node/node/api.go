@@ -21,20 +21,21 @@ import (
 
 type l2EthClient interface {
 	InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error)
-	// NOTE: added by kroma
-	InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error)
 	// GetProof returns a proof of the account, it may return a nil result without error if the address was not found.
 	// Optionally keys of the account storage trie can be specified to include with corresponding values in the proof.
 	GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error)
-	// NOTE: kroam deleted
+	// [Kroma: START]
+	InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error)
 	//OutputV0AtBlock(ctx context.Context, blockHash common.Hash) (*eth.OutputV0, error)
+	// [Kroma: END]
 }
 
 type driverClient interface {
 	SyncStatus(ctx context.Context) (*eth.SyncStatus, error)
-	// NOTE: updated by Kroma
+	// [Kroma: START]
 	// BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error)
 	BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error)
+	// [Kroma: END]
 	ResetDerivationPipeline(context.Context) error
 	StartSequencer(ctx context.Context, blockHash common.Hash) error
 	StopSequencer(context.Context) (common.Hash, error)

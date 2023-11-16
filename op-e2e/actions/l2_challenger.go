@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	val "github.com/kroma-network/kroma/components/validator"
-	chal "github.com/kroma-network/kroma/components/validator/challenge"
+	val "github.com/kroma-network/kroma/kroma-validator"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 )
 
 func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common.Hash {

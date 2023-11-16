@@ -469,7 +469,7 @@ func (eq *EngineQueue) tryNextUnsafePayload(ctx context.Context) error {
 	first := eq.unsafePayloads.Peek()
 
 	if uint64(first.BlockNumber) <= eq.safeHead.Number {
-		eq.log.Info("skipping unsafe payload, since it is older than safe head", "safe", eq.safeHead.ID(), "unsafe", first.ID(), "payload", first.ID())
+		eq.log.Info("skipping unsafe payload, since it is older than safe head", "safe", eq.safeHead.ID(), "unsafe_payload", first.ID())
 		eq.unsafePayloads.Pop()
 		return nil
 	}
@@ -574,7 +574,7 @@ func (eq *EngineQueue) tryNextSafeAttributes(ctx context.Context) error {
 		eq.unsafeHead = eq.safeHead
 		eq.engineSyncTarget = eq.safeHead
 		eq.metrics.RecordL2Ref("l2_unsafe", eq.unsafeHead)
-		eq.metrics.RecordL2Ref("l2_engineSyncTarget", eq.unsafeHead)
+		eq.metrics.RecordL2Ref("l2_engineSyncTarget", eq.engineSyncTarget)
 		return nil
 	}
 }

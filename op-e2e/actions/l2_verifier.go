@@ -56,8 +56,9 @@ type L2API interface {
 	InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error)
 	// GetProof returns a proof of the account, it may return a nil result without error if the address was not found.
 	GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error)
-	//NOTE: deleted by kroma
+	// [Kroma: START]
 	//OutputV0AtBlock(ctx context.Context, blockHash common.Hash) (*eth.OutputV0, error)
+	// [Kroma: END]
 }
 
 func NewL2Verifier(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, cfg *rollup.Config, syncCfg *sync.Config) *L2Verifier {
@@ -221,7 +222,7 @@ func (s *L2Verifier) ActL2PipelineStep(t Testing) {
 
 	s.l2PipelineIdle = false
 	err := s.derivation.Step(t.Ctx())
-	if err == io.EOF {
+	if err == io.EOF || (err != nil && errors.Is(err, derive.EngineP2PSyncing)) {
 		s.l2PipelineIdle = true
 		return
 	} else if err != nil && errors.Is(err, derive.NotEnoughData) {

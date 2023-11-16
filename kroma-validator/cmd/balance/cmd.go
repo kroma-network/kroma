@@ -9,10 +9,10 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	opservice "github.com/ethereum-optimism/optimism/op-service"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
-	"github.com/kroma-network/kroma/components/validator/flags"
-	"github.com/kroma-network/kroma/utils"
+	"github.com/kroma-network/kroma/kroma-validator/flags"
 )
 
 func Deposit(ctx *cli.Context) error {
@@ -80,7 +80,7 @@ func sendTransaction(ctx *cli.Context, txData []byte, txValue uint64) error {
 		return fmt.Errorf("failed to create tx manager: %w", err)
 	}
 
-	valpoolAddr, err := utils.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
+	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
 	if err != nil {
 		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
 	}

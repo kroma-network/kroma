@@ -10,19 +10,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/kroma-network/kroma/components/validator/metrics"
-	"github.com/kroma-network/kroma/utils"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/watcher"
+	"github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
 const (
@@ -87,7 +87,7 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 	err := contractWatcher.WatchUpgraded(l.cfg.L2OutputOracleAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 		defer cCancel()
-		l2BlockTime, err := l.l2ooContract.L2BLOCKTIME(utils.NewSimpleCallOpts(cCtx))
+		l2BlockTime, err := l.l2ooContract.L2BLOCKTIME(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get l2 block time: %w", err)
 		}
@@ -95,7 +95,7 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 
 		cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 		defer cCancel()
-		submissionInterval, err := l.l2ooContract.SUBMISSIONINTERVAL(utils.NewSimpleCallOpts(cCtx))
+		submissionInterval, err := l.l2ooContract.SUBMISSIONINTERVAL(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
@@ -111,7 +111,7 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 	err = contractWatcher.WatchUpgraded(l.cfg.ValidatorPoolAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 		defer cCancel()
-		requiredBondAmount, err := l.valpoolContract.REQUIREDBONDAMOUNT(utils.NewSimpleCallOpts(cCtx))
+		requiredBondAmount, err := l.valpoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get required bond amount: %w", err)
 		}
@@ -274,7 +274,7 @@ func (l *L2OutputSubmitter) HasEnoughDeposit(ctx context.Context) (bool, error) 
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
-	balance, err := l.valpoolContract.BalanceOf(utils.NewSimpleCallOpts(cCtx), from)
+	balance, err := l.valpoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 	}
@@ -296,7 +296,7 @@ func (l *L2OutputSubmitter) HasEnoughDeposit(ctx context.Context) (bool, error) 
 func (l *L2OutputSubmitter) FetchNextBlockNumber(ctx context.Context) (*big.Int, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
-	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(utils.NewSimpleCallOpts(cCtx))
+	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(optsutils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		l.log.Error("unable to get next block number", "err", err)
 		return nil, err
@@ -359,7 +359,7 @@ func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, e
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	ri := roundInfo{canJoinPublicRound: l.cfg.OutputSubmitterAllowPublicRound}
-	nextValidator, err := l.valpoolContract.NextValidator(utils.NewSimpleCallOpts(cCtx))
+	nextValidator, err := l.valpoolContract.NextValidator(optsutils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		l.log.Error("unable to get next validator address", "err", err)
 		ri.isPublicRound = false
@@ -395,7 +395,6 @@ func (l *L2OutputSubmitter) FetchOutput(ctx context.Context, blockNumber *big.In
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	output, err := l.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber.Uint64())
-	l.log.Debug("** fetch output", "block number", blockNumber.Uint64())
 	if err != nil {
 		l.log.Error("failed to fetch output at ", "block number", blockNumber.Uint64(), " err", err)
 		return nil, err

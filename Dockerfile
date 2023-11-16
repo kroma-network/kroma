@@ -8,11 +8,9 @@ COPY ./Makefile /app/Makefile
 COPY ./op-node /app/op-node
 COPY ./op-chain-ops /app/op-chain-ops
 COPY ./op-service /app/op-service
-#COPY ./op-signer /app/op-signer
 COPY ./op-batcher /app/op-batcher
 COPY ./op-bindings /app/op-bindings
-COPY ./components /app/components
-COPY ./utils /app/utils
+COPY ./kroma-validator /app/kroma-validator
 
 COPY ./.git /app/.git
 WORKDIR /app

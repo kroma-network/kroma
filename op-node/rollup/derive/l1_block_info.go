@@ -19,8 +19,7 @@ const (
 	L1InfoFuncSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256,uint256)"
 	L1InfoArguments     = 9
 	L1InfoLen           = 4 + 32*L1InfoArguments
-	// NOTE: added by kroma (OP 150_000_000)
-	SystemTxGas = 1_000_000
+	SystemTxGas         = 1_000_000 // (OP 150_000_000)
 )
 
 var (
@@ -42,8 +41,9 @@ type L1BlockInfo struct {
 	BatcherAddr   common.Address
 	L1FeeOverhead eth.Bytes32
 	L1FeeScalar   eth.Bytes32
-	// NOTE: added by kroma
+	// [Kroma: START]
 	ValidatorRewardScalar eth.Bytes32
+	// [Kroma: END]
 }
 
 // Binary Format
@@ -179,8 +179,9 @@ func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfi
 		Mint:       nil,
 		Value:      big.NewInt(0),
 		Gas:        SystemTxGas,
-		// NOTE: deleted by kroma
+		// [Kroma: START]
 		// IsSystemTransaction: true,
+		// [Kroma: END]
 		Data: data,
 	}, nil
 }

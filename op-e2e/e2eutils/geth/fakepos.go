@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/catalyst"
 	"github.com/ethereum/go-ethereum/event"
@@ -72,7 +71,8 @@ func (f *fakePoS) Start() error {
 					Timestamp:             newBlockTime,
 					Random:                common.Hash{},
 					SuggestedFeeRecipient: common.Address{},
-					Withdrawals:           make([]*types.Withdrawal, 0),
+					// NOTE: comment this, cause not support Shanghai
+					//Withdrawals:           make([]*types.Withdrawal, 0),
 				})
 				if err != nil {
 					f.log.Error("failed to start building L1 block", "err", err)

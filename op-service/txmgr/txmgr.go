@@ -150,10 +150,10 @@ type TxCandidate struct {
 	To *common.Address
 	// GasLimit is the gas limit to be used in the constructed tx.
 	GasLimit uint64
-	// NOTE: added by kroma
+	// [Kroma: START]
 	// AccessList is an EIP-2930 access list.
 	AccessList types.AccessList
-	// NOTE: added by kroma
+	// [Kroma: END]
 	// Value is the value to be used in the constructed tx.
 	Value *big.Int
 }
@@ -231,7 +231,7 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		AccessList: candidate.AccessList,
 	}
 
-	m.l.Info("Creating tx", "to", rawTx.To, "from", m.From)
+	m.l.Info("Creating tx", "to", rawTx.To, "from", m.From())
 
 	// If the gas limit is set, we can use that as the gas
 	if candidate.GasLimit != 0 {
@@ -353,11 +353,12 @@ func (m *SimpleTxManager) sendTx(ctx context.Context, tx *types.Transaction) (*t
 		case receipt := <-receiptChan:
 			m.metr.RecordGasBumpCount(bumpCounter)
 			m.metr.TxConfirmed(receipt)
-			// NOTE: added by kroma
+			// [Kroma: START]
 			// If transaction confirmed but the status is not success, return ErrTxReceiptNotSucceed
 			if receipt.Status != types.ReceiptStatusSuccessful {
 				return receipt, ErrTxReceiptNotSucceed
 			}
+			// [Kroma: END]
 			m.l.Info("Transaction receipt status successful", "hash", receipt.TxHash)
 			return receipt, nil
 		}

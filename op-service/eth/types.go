@@ -291,8 +291,9 @@ type SystemConfig struct {
 	Scalar Bytes32 `json:"scalar"`
 	// GasLimit identifies the L2 block gas limit
 	GasLimit uint64 `json:"gasLimit"`
-	// NOTE: added by kroma
+	// [Kroma: START]
 	// ValidatorRewardScalar identifies the validator reward scalar, and is passed through opaquely to kroma-geth.
 	ValidatorRewardScalar Bytes32 `json:"validatorRewardScalar"`
+	// [Kroma: END]
 	// More fields can be added for future SystemConfig versions.
 }

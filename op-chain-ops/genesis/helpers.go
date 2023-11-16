@@ -113,7 +113,7 @@ func newHexBig(in uint64) *hexutil.Big {
 	return &hb
 }
 
-// NOTE: added by Kroma
+// [Kroma: START]
 func parseSegsLengthsConfig(in string) []*big.Int {
 	sliced := strings.Split(in, ",")
 	arr := make([]*big.Int, len(sliced))
@@ -128,3 +128,5 @@ func parseSegsLengthsConfig(in string) []*big.Int {
 
 	return arr
 }
+
+// [Kroma: END]

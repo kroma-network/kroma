@@ -21,37 +21,35 @@ import (
 // the superchain-registry is no longer deemed experimental.
 func TestGetRollupConfig(t *testing.T) {
 	var configsByName = map[string]rollup.Config{
-		"goerli":  goerliCfg,
 		"mainnet": mainnetCfg,
 		"sepolia": sepoliaCfg,
 	}
 
 	for name, expectedCfg := range configsByName {
-		require.True(t, IsAvailableNetwork(name, false))
-
 		gotCfg, err := GetRollupConfig(name)
 		require.NoError(t, err)
 
-		require.Equal(t, expectedCfg, *gotCfg, "rollup-configs from superchain-registry must match")
+		require.Equal(t, expectedCfg, *gotCfg, "rollup-config must match")
 	}
 }
 
 var mainnetCfg = rollup.Config{
 	Genesis: rollup.Genesis{
 		L1: eth.BlockID{
-			Hash:   common.HexToHash("0x438335a20d98863a4c0c97999eb2481921ccd28553eac6f913af7c12aec04108"),
-			Number: 17422590,
+			Hash:   common.HexToHash("0xe459c500b760ed52a1ad799bf578b257af2c76f6ebe061a4c62627e9c605bced"),
+			Number: 18067255,
 		},
 		L2: eth.BlockID{
-			Hash:   common.HexToHash("0xdbf6a80fef073de06add9b0d14026d6e5a86c85f6d102c36d3d8e9cf89c2afd3"),
-			Number: 105235063,
+			Hash:   common.HexToHash("0xeab1dbcbd854942126643609f6b457e391b169c819b7e5d5042389ccf6012cbf"),
+			Number: 0,
 		},
-		L2Time: 1686068903,
+		L2Time: 1693880387,
 		SystemConfig: eth.SystemConfig{
-			BatcherAddr: common.HexToAddress("0x6887246668a3b87f54deb3b94ba47a6f63f32985"),
-			Overhead:    eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000000bc")),
-			Scalar:      eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000a6fe0")),
-			GasLimit:    30_000_000,
+			BatcherAddr:           common.HexToAddress("0x41b8cd6791de4d8f9e0eaf7861ac506822adce12"),
+			Overhead:              eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000000bc")),
+			Scalar:                eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000a6fe0")),
+			GasLimit:              30_000_000,
+			ValidatorRewardScalar: eth.Bytes32(common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000002710")),
 		},
 	},
 	BlockTime:              2,
@@ -59,72 +57,40 @@ var mainnetCfg = rollup.Config{
 	SeqWindowSize:          3600,
 	ChannelTimeout:         300,
 	L1ChainID:              big.NewInt(1),
-	L2ChainID:              big.NewInt(10),
-	BatchInboxAddress:      common.HexToAddress("0xff00000000000000000000000000000000000010"),
-	DepositContractAddress: common.HexToAddress("0xbEb5Fc579115071764c7423A4f12eDde41f106Ed"),
-	L1SystemConfigAddress:  common.HexToAddress("0x229047fed2591dbec1eF1118d64F7aF3dB9EB290"),
-	RegolithTime:           u64Ptr(0),
-}
-
-var goerliCfg = rollup.Config{
-	Genesis: rollup.Genesis{
-		L1: eth.BlockID{
-			Hash:   common.HexToHash("0x6ffc1bf3754c01f6bb9fe057c1578b87a8571ce2e9be5ca14bace6eccfd336c7"),
-			Number: 8300214,
-		},
-		L2: eth.BlockID{
-			Hash:   common.HexToHash("0x0f783549ea4313b784eadd9b8e8a69913b368b7366363ea814d7707ac505175f"),
-			Number: 4061224,
-		},
-		L2Time: 1673550516,
-		SystemConfig: eth.SystemConfig{
-			BatcherAddr: common.HexToAddress("0x7431310e026B69BFC676C0013E12A1A11411EEc9"),
-			Overhead:    eth.Bytes32(common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000834")),
-			Scalar:      eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000f4240")),
-			GasLimit:    25_000_000,
-		},
-	},
-	BlockTime:               2,
-	MaxSequencerDrift:       600,
-	SeqWindowSize:           3600,
-	ChannelTimeout:          300,
-	L1ChainID:               big.NewInt(5),
-	L2ChainID:               big.NewInt(420),
-	BatchInboxAddress:       common.HexToAddress("0xff00000000000000000000000000000000000420"),
-	DepositContractAddress:  common.HexToAddress("0x5b47E1A08Ea6d985D6649300584e6722Ec4B1383"),
-	L1SystemConfigAddress:   common.HexToAddress("0xAe851f927Ee40dE99aaBb7461C00f9622ab91d60"),
-	RegolithTime:            u64Ptr(1679079600),
-	ProtocolVersionsAddress: common.HexToAddress("0x0C24F5098774aA366827D667494e9F889f7cFc08"),
+	L2ChainID:              big.NewInt(255),
+	BatchInboxAddress:      common.HexToAddress("0xff00000000000000000000000000000000000255"),
+	DepositContractAddress: common.HexToAddress("0x31f648572b67e60ec6eb8e197e1848cc5f5558de"),
+	L1SystemConfigAddress:  common.HexToAddress("0x3971eb866aa9b2b8afea8a7c816f3b7e8b195a35"),
 }
 
 var sepoliaCfg = rollup.Config{
 	Genesis: rollup.Genesis{
 		L1: eth.BlockID{
-			Hash:   common.HexToHash("0x48f520cf4ddaf34c8336e6e490632ea3cf1e5e93b0b2bc6e917557e31845371b"),
-			Number: 4071408,
+			Hash:   common.HexToHash("0x936e490e33e6e136ecd9095090e30ed7def3903ef2bae3e05966b376e493ad76"),
+			Number: 3841490,
 		},
 		L2: eth.BlockID{
-			Hash:   common.HexToHash("0x102de6ffb001480cc9b8b548fd05c34cd4f46ae4aa91759393db90ea0409887d"),
+			Hash:   common.HexToHash("0x52ef8f66bb31c16326eb2072dd9b2fa734068728b845d5428f3a256a50bf252e"),
 			Number: 0,
 		},
-		L2Time: 1691802540,
+		L2Time: 1688709132,
 		SystemConfig: eth.SystemConfig{
-			BatcherAddr: common.HexToAddress("0x8F23BB38F531600e5d8FDDaAEC41F13FaB46E98c"),
-			Overhead:    eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000000bc")),
-			Scalar:      eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000a6fe0")),
-			GasLimit:    30000000,
+			BatcherAddr:           common.HexToAddress("0xf15dc770221b99c98d4aaed568f2ab04b9d16e42"),
+			Overhead:              eth.Bytes32(common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000834")),
+			Scalar:                eth.Bytes32(common.HexToHash("0x000000000000000000000000000000000000000000000000000000000016e360")),
+			GasLimit:              30_000_000,
+			ValidatorRewardScalar: eth.Bytes32(common.HexToHash("0x00000000000000000000000000000000000000000000000000000000007d0")),
 		},
 	},
 	BlockTime:              2,
-	MaxSequencerDrift:      600,
+	MaxSequencerDrift:      1200,
 	SeqWindowSize:          3600,
-	ChannelTimeout:         300,
+	ChannelTimeout:         120,
 	L1ChainID:              big.NewInt(11155111),
-	L2ChainID:              big.NewInt(11155420),
-	BatchInboxAddress:      common.HexToAddress("0xff00000000000000000000000000000011155420"),
-	DepositContractAddress: common.HexToAddress("0x16fc5058f25648194471939df75cf27a2fdc48bc"),
-	L1SystemConfigAddress:  common.HexToAddress("0x034edd2a225f7f429a63e0f1d2084b9e0a93b538"),
-	RegolithTime:           u64Ptr(0),
+	L2ChainID:              big.NewInt(2358),
+	BatchInboxAddress:      common.HexToAddress("0xfa79000000000000000000000000000000000001"),
+	DepositContractAddress: common.HexToAddress("0x31ab8ed993a3be9aa2757c7d368dc87101a868a4"),
+	L1SystemConfigAddress:  common.HexToAddress("0x398c8ea789968893095d86cba168378a4f452e33"),
 }
 
 func u64Ptr(v uint64) *uint64 {

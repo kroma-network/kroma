@@ -236,7 +236,7 @@ var (
 		Required: false,
 		Value:    false,
 	}
-	// NOTE: deleted by kroma - start
+	// [Kroma: START]
 	//BetaExtraNetworks = &cli.BoolFlag{
 	//	Name: "beta.extra-networks",
 	//	Usage: fmt.Sprintf("Beta feature: enable selection of a predefined-network from the superchain-registry. "+
@@ -259,7 +259,7 @@ var (
 	//	Usage:  "Manually specify the Canyon fork timestamp, overriding the bundled setting",
 	//	Hidden: true,
 	//}
-	// NOTE: deleted by kroma - end
+	// [Kroma: END]
 )
 
 var requiredFlags = []cli.Flag{

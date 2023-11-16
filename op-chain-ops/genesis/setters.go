@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/immutables"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // UntouchableCodeHashes contains code hashes of all the contracts
@@ -53,7 +54,9 @@ var (
 // FundDevAccounts will fund each of the development accounts.
 func FundDevAccounts(db vm.StateDB) {
 	for _, account := range DevAccounts {
-		db.CreateAccount(account)
+		if !db.Exist(account) {
+			db.CreateAccount(account)
+		}
 		db.AddBalance(account, devBalance)
 	}
 }

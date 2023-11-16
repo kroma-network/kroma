@@ -25,17 +25,17 @@ type BlockInfo interface {
 	// Returns an error if the header RLP could not be written
 	HeaderRLP() ([]byte, error)
 
-	// NOTE: added by Kroma - start
+	// [Kroma: START]
 	TxHash() common.Hash
 	GasLimit() uint64
 	Bloom() types.Bloom
 	Extra() []byte
 
-	// Header NOTE(chokobole): I would like to add a WithdrawalsRoot() or WithdrawalsHash()
+	// NOTE(chokobole): I would like to add a WithdrawalsRoot() or WithdrawalsHash()
 	// method, but it is not feasible because this interface must remain compatible
 	// with the types.Block constraint.
 	Header() *types.Header
-	// NOTE: added by Kroma - end
+	// [Kroma: END]
 }
 
 func InfoToL1BlockRef(info BlockInfo) L1BlockRef {

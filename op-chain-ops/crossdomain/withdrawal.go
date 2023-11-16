@@ -15,9 +15,10 @@ import (
 var (
 	SentMessageEventABI     = "SentMessage(address,address,bytes,uint256)"
 	SentMessageEventABIHash = crypto.Keccak256Hash([]byte(SentMessageEventABI))
-	//NOTE: deleted by Kroma
+	// [Kroma: START]
 	//SentMessageExtension1EventABI     = "SentMessage(address,uint256)"
 	//SentMessageExtension1EventABIHash = crypto.Keccak256Hash([]byte(SentMessageExtension1EventABI))
+	// [Kroma: END]
 	MessagePassedEventABI     = "MessagePassed(uint256,address,address,uint256,uint256,bytes,bytes32)"
 	MessagePassedEventABIHash = crypto.Keccak256Hash([]byte(MessagePassedEventABI))
 )

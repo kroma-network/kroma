@@ -3,9 +3,10 @@ package rollup
 import (
 	"errors"
 
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var (

@@ -96,7 +96,7 @@ func main() {
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:  "inbox",
-					Value: "0xff00000000000000000000000000000000000420",
+					Value: "0xff00000000000000000000000000000000000255",
 					Usage: "Batch Inbox Address",
 				},
 				&cli.StringFlag{

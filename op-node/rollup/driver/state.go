@@ -500,7 +500,7 @@ func (s *Driver) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
 	}
 }
 
-// NOTE: added by Kroma
+// [Kroma: START]
 // BlockRefsWithStatus blocks the driver event loop and captures the syncing status,
 // along with L2 blocks reference by number and number plus 1 consistent with that same status.
 // If the event loop is too busy and the context expires, a context error is returned.
@@ -522,6 +522,8 @@ func (s *Driver) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2Blo
 		return eth.L2BlockRef{}, eth.L2BlockRef{}, nil, ctx.Err()
 	}
 }
+
+// [Kroma: END]
 
 // deferJSONString helps avoid a JSON-encoding performance hit if the snapshot logger does not run
 type deferJSONString struct {

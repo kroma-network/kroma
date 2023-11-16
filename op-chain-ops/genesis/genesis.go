@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -120,7 +121,7 @@ func NewL1Genesis(config *DeployConfig) (*core.Genesis, error) {
 			Period: config.L1BlockTime,
 			Epoch:  30000,
 		}
-		//extraData = append(append(make([]byte, 32), config.CliqueSignerAddress[:]...), make([]byte, crypto.SignatureLength)...)
+		extraData = append(append(make([]byte, 32), config.CliqueSignerAddress[:]...), make([]byte, crypto.SignatureLength)...)
 	} else {
 		chainConfig.MergeNetsplitBlock = big.NewInt(0)
 		chainConfig.TerminalTotalDifficulty = big.NewInt(0)

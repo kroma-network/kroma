@@ -12,6 +12,7 @@ func TestOutputV0Codec(t *testing.T) {
 		StateRoot:                Bytes32{1, 2, 3},
 		MessagePasserStorageRoot: Bytes32{4, 5, 6},
 		BlockHash:                common.Hash{7, 8, 9},
+		NextBlockHash:            common.Hash{10, 11, 12},
 	}
 	marshaled := output.Marshal()
 	unmarshaled, err := UnmarshalOutput(marshaled)
