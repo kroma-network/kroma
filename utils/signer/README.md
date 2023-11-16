@@ -1,3 +1,0 @@
-# signer
-
-signer service client

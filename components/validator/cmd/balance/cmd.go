@@ -8,11 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/kroma-network/kroma/bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/kroma-network/kroma/components/validator/flags"
 	"github.com/kroma-network/kroma/utils"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
-	"github.com/kroma-network/kroma/utils/service/txmgr/metrics"
 )
 
 func Deposit(ctx *cli.Context) error {

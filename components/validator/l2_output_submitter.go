@@ -10,19 +10,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/kroma-network/kroma/bindings/bindings"
-	"github.com/kroma-network/kroma/components/node/eth"
-	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
-	"github.com/kroma-network/kroma/utils/service/watcher"
 )
 
 const (
@@ -395,8 +395,9 @@ func (l *L2OutputSubmitter) FetchOutput(ctx context.Context, blockNumber *big.In
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	output, err := l.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber.Uint64())
+	l.log.Debug("** fetch output", "block number", blockNumber.Uint64())
 	if err != nil {
-		l.log.Error("failed to fetch output at block number %d: %w", blockNumber, err)
+		l.log.Error("failed to fetch output at ", "block number", blockNumber.Uint64(), " err", err)
 		return nil, err
 	}
 	if output.Version != rollup.L2OutputRootVersion(l.cfg.RollupConfig, l.cfg.RollupConfig.ComputeTimestamp(blockNumber.Uint64())) {

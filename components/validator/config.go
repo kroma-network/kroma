@@ -10,17 +10,17 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/kroma-network/kroma/components/node/rollup"
-	"github.com/kroma-network/kroma/components/node/sources"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	klog "github.com/ethereum-optimism/optimism/op-service/log"
+	kmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
+	kpprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	krpc "github.com/ethereum-optimism/optimism/op-service/rpc"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	chal "github.com/kroma-network/kroma/components/validator/challenge"
 	"github.com/kroma-network/kroma/components/validator/flags"
 	"github.com/kroma-network/kroma/components/validator/metrics"
 	"github.com/kroma-network/kroma/utils"
-	klog "github.com/kroma-network/kroma/utils/service/log"
-	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
-	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
-	krpc "github.com/kroma-network/kroma/utils/service/rpc"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 // Config contains the well typed fields that are used to initialize the output submitter.
@@ -121,9 +121,6 @@ func (c CLIConfig) Check() error {
 		return errors.New("OutputSubmitterAllowPublicRound is meaningful when OutputSubmitterEnabled enabled")
 	}
 	if err := c.RPCConfig.Check(); err != nil {
-		return err
-	}
-	if err := c.LogConfig.Check(); err != nil {
 		return err
 	}
 	if err := c.MetricsConfig.Check(); err != nil {

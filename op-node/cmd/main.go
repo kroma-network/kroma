@@ -1,0 +1,108 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	opnode "github.com/ethereum-optimism/optimism/op-node"
+	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
+	"github.com/ethereum-optimism/optimism/op-node/cmd/doc"
+	"github.com/ethereum-optimism/optimism/op-node/cmd/genesis"
+	"github.com/ethereum-optimism/optimism/op-node/cmd/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/flags"
+	"github.com/ethereum-optimism/optimism/op-node/metrics"
+	"github.com/ethereum-optimism/optimism/op-node/node"
+	"github.com/ethereum-optimism/optimism/op-node/version"
+	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/ethereum-optimism/optimism/op-service/cliapp"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
+)
+
+var (
+	GitCommit = ""
+	GitDate   = ""
+)
+
+// VersionWithMeta holds the textual version string including the metadata.
+var VersionWithMeta = func() string {
+	v := version.Version
+	if GitCommit != "" {
+		v += "-" + GitCommit[:8]
+	}
+	if GitDate != "" {
+		v += "-" + GitDate
+	}
+	if version.Meta != "" {
+		v += "-" + version.Meta
+	}
+	return v
+}()
+
+func main() {
+	// Set up logger with a default INFO level in case we fail to parse flags,
+	// otherwise the final critical log won't show what the parsing error was.
+	oplog.SetupDefaults()
+
+	app := cli.NewApp()
+	app.Version = VersionWithMeta
+	app.Flags = cliapp.ProtectFlags(flags.Flags)
+	app.Name = "op-node"
+	app.Usage = "Kroma Rollup Node"
+	app.Description = "The Kroma Rollup Node derives L2 block inputs from L1 data and drives an external L2 Execution Engine to build a L2 chain."
+	app.Action = cliapp.LifecycleCmd(RollupNodeMain)
+	app.Commands = []*cli.Command{
+		{
+			Name:        "p2p",
+			Subcommands: p2p.Subcommands,
+		},
+		{
+			Name:        "genesis",
+			Subcommands: genesis.Subcommands,
+		},
+		{
+			Name:        "doc",
+			Subcommands: doc.Subcommands,
+		},
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Crit("Application failed", "message", err)
+	}
+}
+
+func RollupNodeMain(ctx *cli.Context, closeApp context.CancelCauseFunc) (cliapp.Lifecycle, error) {
+	logCfg := oplog.ReadCLIConfig(ctx)
+	log := oplog.NewLogger(oplog.AppOut(ctx), logCfg)
+	oplog.SetGlobalLogHandler(log.GetHandler())
+	opservice.ValidateEnvVars(flags.EnvVarPrefix, flags.Flags, log)
+	m := metrics.NewMetrics("default")
+
+	cfg, err := opnode.NewConfig(ctx, log)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create the rollup node config: %w", err)
+	}
+	cfg.Cancel = closeApp
+
+	snapshotLog, err := opnode.NewSnapshotLogger(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create snapshot root logger: %w", err)
+	}
+
+	// Only pretty-print the banner if it is a terminal log. Other log it as key-value pairs.
+	if logCfg.Format == "terminal" {
+		log.Info("rollup config:\n" + cfg.Rollup.Description(chaincfg.L2ChainIDToNetworkName))
+	} else {
+		cfg.Rollup.LogDescription(log, chaincfg.L2ChainIDToNetworkName)
+	}
+
+	n, err := node.New(ctx.Context, cfg, log, snapshotLog, VersionWithMeta, m)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create the rollup node: %w", err)
+	}
+
+	return n, nil
+}

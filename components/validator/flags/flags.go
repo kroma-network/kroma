@@ -3,14 +3,13 @@ package flags
 import (
 	"time"
 
+	kservice "github.com/ethereum-optimism/optimism/op-service"
+	klog "github.com/ethereum-optimism/optimism/op-service/log"
+	kmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
+	kpprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	krpc "github.com/ethereum-optimism/optimism/op-service/rpc"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/urfave/cli/v2"
-
-	kservice "github.com/kroma-network/kroma/utils/service"
-	klog "github.com/kroma-network/kroma/utils/service/log"
-	kmetrics "github.com/kroma-network/kroma/utils/service/metrics"
-	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
-	krpc "github.com/kroma-network/kroma/utils/service/rpc"
-	"github.com/kroma-network/kroma/utils/service/txmgr"
 )
 
 const envVarPrefix = "VALIDATOR"
