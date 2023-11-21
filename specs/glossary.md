@@ -241,7 +241,7 @@ Different transaction types can contain different payloads, and be handled diffe
 
 [fork-choice-rule]: glossary.md#fork-choice-rule
 
-The fork choice rule is the rule used to determined which [block] is to be considered as the head of a blockchain.
+The fork choice rule is the rule used to determine which [block] is to be considered as the head of a blockchain.
 On [L1], this is determined by the proof of stake rules.
 
 L2 also has a fork choice rule, although the rules vary depending on whether we want the [safe L2 head][safe-l2-head],
@@ -280,7 +280,7 @@ whose priority fee is high so that sequencer can earn maximum priority fee as a 
 
 A sequencer is either a [rollup node][rollup-node] ran in sequencer mode, or the operator of this rollup node.
 
-The sequencer is a priviledged actor, which receives L2 transactions from L2 users, creates L2 blocks using them, which
+The sequencer is a privileged actor, which receives L2 transactions from L2 users, creates L2 blocks using them, which
 it then submits to [data availability provider][avail-provider] (via a [batcher]).
 
 > **TODO** In the initial release, the sequencer role is merged to the sequencer. In the future,
@@ -410,7 +410,7 @@ the remaining validators' transactions will fail and will not be recognized as o
 
 However, some of them will have already spent their gas.
 
-To handle this situation, we provide a option flag to indicate whether or not to participate in the public round.
+To handle this situation, we provide an option flag to indicate whether or not to participate in the public round.
 
 Since we're taking a conservative approach, the default value is set to false.
 
@@ -604,7 +604,7 @@ supported when they get deployed on Ethereum.
 
 [sequencer-batch]: glossary.md#sequencer-batch
 
-A sequencer batch is list of [L2] transactions (that were submitted to a sequencer) tagged with an [epoch
+A sequencer batch is a list of [L2] transactions (that were submitted to a sequencer) tagged with an [epoch
 number](#sequencing-epoch) and an L2 [block] timestamp (which can trivially be converted to a block number, given our
 block time is constant).
 
@@ -637,7 +637,7 @@ On the side of the [rollup node][rollup-node] (which is the consumer of channels
 [channel-frame]: glossary.md#channel-frame
 
 A channel frame is a chunk of data belonging to a [channel]. [Batcher transactions][batcher-transaction] carry one or
-multiple frames. The reason to split a channel into frames is that a channel might too large to include in a single
+multiple frames. The reason to split a channel into frames is that a channel might be too large to include in a single
 batcher transaction.
 
 ## Batcher
@@ -749,7 +749,7 @@ The L2 genesis [block] is the first block of the [L2] chain in its current versi
 
 The state of the L2 genesis block contains [Predeployed contracts][predeploy].
 
-The timestamp of the L2 genesis block must be a multiple of the [block time][block-time] (i.e. a even number, since the
+The timestamp of the L2 genesis block must be a multiple of the [block time][block-time] (i.e. an even number, since the
 block time is 2 seconds).
 
 When updating the rollup protocol to a new version, we may perform a _squash fork_, a process that entails the creation
