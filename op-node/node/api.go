@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,7 +17,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/metrics"
 	"github.com/ethereum-optimism/optimism/op-service/rpc"
-	"github.com/ethereum/go-ethereum"
 )
 
 type l2EthClient interface {
@@ -24,22 +24,24 @@ type l2EthClient interface {
 	// GetProof returns a proof of the account, it may return a nil result without error if the address was not found.
 	// Optionally keys of the account storage trie can be specified to include with corresponding values in the proof.
 	GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error)
+	OutputV0AtBlock(ctx context.Context, blockHash common.Hash) (*eth.OutputV0, error)
+
 	// [Kroma: START]
 	InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error)
-	//OutputV0AtBlock(ctx context.Context, blockHash common.Hash) (*eth.OutputV0, error)
 	// [Kroma: END]
 }
 
 type driverClient interface {
 	SyncStatus(ctx context.Context) (*eth.SyncStatus, error)
-	// [Kroma: START]
-	// BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error)
-	BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error)
-	// [Kroma: END]
+	BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error)
 	ResetDerivationPipeline(context.Context) error
 	StartSequencer(ctx context.Context, blockHash common.Hash) error
 	StopSequencer(context.Context) (common.Hash, error)
 	SequencerActive(context.Context) (bool, error)
+
+	// [Kroma: START]
+	BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error)
+	// [Kroma: END]
 }
 
 type adminAPI struct {
@@ -97,7 +99,7 @@ func NewNodeAPI(config *rollup.Config, l2Client l2EthClient, dr driverClient, lo
 }
 
 func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
-	recordDur := n.m.RecordRPCServerRequest("kroma_outputAtBlock")
+	recordDur := n.m.RecordRPCServerRequest("optimism_outputAtBlock")
 	defer recordDur()
 
 	output, err := n.fetchOutputAtBlock(ctx, number)
@@ -108,8 +110,26 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 	return output, nil
 }
 
+func (n *nodeAPI) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
+	recordDur := n.m.RecordRPCServerRequest("optimism_syncStatus")
+	defer recordDur()
+	return n.dr.SyncStatus(ctx)
+}
+
+func (n *nodeAPI) RollupConfig(_ context.Context) (*rollup.Config, error) {
+	recordDur := n.m.RecordRPCServerRequest("optimism_rollupConfig")
+	defer recordDur()
+	return n.config, nil
+}
+
+func (n *nodeAPI) Version(ctx context.Context) (string, error) {
+	recordDur := n.m.RecordRPCServerRequest("optimism_version")
+	defer recordDur()
+	return version.Version + "-" + version.Meta, nil
+}
+
 func (n *nodeAPI) OutputWithProofAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
-	recordDur := n.m.RecordRPCServerRequest("kroma_outputWithProofAtBlock")
+	recordDur := n.m.RecordRPCServerRequest("optimism_outputWithProofAtBlock")
 	defer recordDur()
 
 	output, err := n.fetchOutputAtBlock(ctx, number)
@@ -170,7 +190,7 @@ func (n *nodeAPI) fetchOutputAtBlock(ctx context.Context, number hexutil.Uint64)
 		return nil, fmt.Errorf("invalid withdrawal root hash, state root was %s: %w", head.Root(), err)
 	}
 
-	l2OutputRootVersion := rollup.V0 // current version is 0
+	l2OutputRootVersion := eth.OutputVersionV0 // current version is 0
 	l2OutputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
 		Version:                  l2OutputRootVersion,
 		StateRoot:                head.Root(),
@@ -192,22 +212,4 @@ func (n *nodeAPI) fetchOutputAtBlock(ctx context.Context, number hexutil.Uint64)
 		StateRoot:             head.Root(),
 		Status:                status,
 	}, nil
-}
-
-func (n *nodeAPI) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
-	recordDur := n.m.RecordRPCServerRequest("kroma_syncStatus")
-	defer recordDur()
-	return n.dr.SyncStatus(ctx)
-}
-
-func (n *nodeAPI) RollupConfig(_ context.Context) (*rollup.Config, error) {
-	recordDur := n.m.RecordRPCServerRequest("kroma_rollupConfig")
-	defer recordDur()
-	return n.config, nil
-}
-
-func (n *nodeAPI) Version(ctx context.Context) (string, error) {
-	recordDur := n.m.RecordRPCServerRequest("kroma_version")
-	defer recordDur()
-	return version.Version + "-" + version.Meta, nil
 }

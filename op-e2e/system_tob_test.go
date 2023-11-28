@@ -28,8 +28,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
 )
 
@@ -545,7 +545,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			receiptCl := ethclient.NewClient(rpcClient)
 
 			// Now create the withdrawal
-			version := rollup.L2OutputRootVersion(sys.RollupConfig, header.Time)
+			version := eth.OutputVersionV0
 			params, err := withdrawals.ProveWithdrawalParameters(context.Background(), version, proofCl, receiptCl, tx.Hash(), header, nextHeader, l2OutputOracle)
 			require.Nil(t, err)
 

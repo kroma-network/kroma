@@ -15,10 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	zkt "github.com/kroma-network/zktrie/types"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"bytes"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 func init() {
@@ -302,7 +302,7 @@ func main() {
 		checkErr(state.Prove(key_s.Bytes(), &proof), "Error getting proof")
 
 		// Get the output root
-		outputRoot, err := hashOutputRootProof(rollup.V0, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
+		outputRoot, err := hashOutputRootProof(common.Hash(eth.OutputVersionV0), world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
 		checkErr(err, "Error hashing output root proof")
 
 		// Pack the output

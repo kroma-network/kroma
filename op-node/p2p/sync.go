@@ -343,9 +343,11 @@ func (s *SyncClient) mainLoop() {
 				s.onRangeRequest(ctx, req)
 			}()
 		case res := <-s.results:
-			ctx, cancel := context.WithTimeout(s.resCtx, maxResultProcessing)
-			s.onResult(ctx, res)
-			cancel()
+			func() {
+				ctx, cancel := context.WithTimeout(s.resCtx, maxResultProcessing)
+				defer cancel()
+				s.onResult(ctx, res)
+			}()
 		case check := <-s.inFlightChecks:
 			s.log.Info("Checking in flight", "num", check.num)
 			complete, ok := s.inFlight[check.num]

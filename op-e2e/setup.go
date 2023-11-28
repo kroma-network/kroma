@@ -665,7 +665,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			}
 		}
 
-		c.Rollup.LogDescription(cfg.Loggers[name], chaincfg.L2ChainIDToNetworkName)
+		c.Rollup.LogDescription(cfg.Loggers[name], chaincfg.L2ChainIDToNetworkDisplayName)
 		l := cfg.Loggers[name]
 		var cycle cliapp.Lifecycle
 		c.Cancel = func(errCause error) {

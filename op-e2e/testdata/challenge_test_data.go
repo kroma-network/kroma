@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 
 func SetPrevOutputResponse(s **eth.OutputResponse) error {
 	outputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
-		Version:                  rollup.V0,
+		Version:                  eth.OutputVersionV0,
 		StateRoot:                common.HexToHash("0x2ecc9f95421c4f8c6acfd73a9983b021e79b381c9e80991b9b45da927c926c4f"),
 		MessagePasserStorageRoot: common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127"),
 		BlockHash:                common.HexToHash("0x2d8d7264743ac0648b2b0fae0137cb0f77b2a952f5583a2cc6abf0c72f4f1b80"),
@@ -94,7 +94,7 @@ func SetPrevOutputResponse(s **eth.OutputResponse) error {
 
 func SetTargetOutputResponse(s **eth.OutputResponse) error {
 	outputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
-		Version:                  rollup.V0,
+		Version:                  eth.OutputVersionV0,
 		StateRoot:                common.HexToHash("0x1370c09d12e3aefefbe29bcecaa9a1adac759ee1b6657065f8e103f56b364037"),
 		MessagePasserStorageRoot: common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127"),
 		BlockHash:                common.HexToHash("0x5cd3ba48964223516867ee8036fb0121c095d93a4301084f3fa37d811655d1e8"),

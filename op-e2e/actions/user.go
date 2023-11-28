@@ -7,12 +7,6 @@ import (
 	"math/big"
 	"math/rand"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +16,14 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 type L1Bindings struct {
@@ -426,7 +428,7 @@ func (s *CrossLayerUser) ProveWithdrawal(t Testing, l2TxHash common.Hash) common
 	require.NoError(t, err)
 	nextHeader, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), new(big.Int).Add(l2OutputBlockNr, common.Big1))
 	require.NoError(t, err)
-	version := rollup.L2OutputRootVersion(s.rollupConfig, header.Time)
+	version := eth.OutputVersionV0
 	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, nextHeader, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
 	require.NoError(t, err)
 
@@ -500,7 +502,7 @@ func (s *CrossLayerUser) CompleteWithdrawal(t Testing, l2TxHash common.Hash) com
 	require.NoError(t, err)
 	nextHeader, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), new(big.Int).Add(l2OutputBlockNr, common.Big1))
 	require.NoError(t, err)
-	version := rollup.L2OutputRootVersion(s.rollupConfig, header.Time)
+	version := eth.OutputVersionV0
 	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, nextHeader, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
 	require.NoError(t, err)
 

@@ -206,7 +206,7 @@ var (
 		Name:    "heartbeat.url",
 		Usage:   "Sets the URL to heartbeat to",
 		EnvVars: prefixEnvVars("HEARTBEAT_URL"),
-		Value:   "https://heartbeat.kroma-main.io",
+		Value:   "https://heartbeat.optimism.io",
 	}
 	BackupL2UnsafeSyncRPC = &cli.StringFlag{
 		Name:     "l2.backup-unsafe-sync-rpc",

@@ -232,6 +232,10 @@ type mockDriverClient struct {
 func (c *mockDriverClient) ExpectBlockRefsWithStatus(num uint64, ref, nextRef eth.L2BlockRef, status *eth.SyncStatus, err error) {
 	c.Mock.On("BlockRefsWithStatus", num).Return(ref, nextRef, status, &err)
 }
+func (c *mockDriverClient) BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error) {
+	m := c.Mock.MethodCalled("BlockRefWithStatus", num)
+	return m[0].(eth.L2BlockRef), m[1].(*eth.SyncStatus), *m[2].(*error)
+}
 
 func (c *mockDriverClient) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error) {
 	m := c.Mock.MethodCalled("BlockRefsWithStatus", num)

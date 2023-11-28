@@ -56,9 +56,7 @@ type L2API interface {
 	InfoAndTxsByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, types.Transactions, error)
 	// GetProof returns a proof of the account, it may return a nil result without error if the address was not found.
 	GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error)
-	// [Kroma: START]
-	//OutputV0AtBlock(ctx context.Context, blockHash common.Hash) (*eth.OutputV0, error)
-	// [Kroma: END]
+	OutputV0AtBlock(ctx context.Context, blockHash common.Hash) (*eth.OutputV0, error)
 }
 
 func NewL2Verifier(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, cfg *rollup.Config, syncCfg *sync.Config) *L2Verifier {
@@ -103,6 +101,11 @@ func NewL2Verifier(t Testing, log log.Logger, l1 derive.L1Fetcher, eng L2API, cf
 
 type l2VerifierBackend struct {
 	verifier *L2Verifier
+}
+
+func (s *l2VerifierBackend) BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error) {
+	ref, err := s.verifier.eng.L2BlockRefByNumber(ctx, num)
+	return ref, s.verifier.SyncStatus(), err
 }
 
 func (s *l2VerifierBackend) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error) {

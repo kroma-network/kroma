@@ -34,7 +34,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-service/client"
@@ -1083,7 +1082,7 @@ func TestWithdrawals(t *testing.T) {
 	startBalance, err = l1Client.BalanceAt(ctx, fromAddr, nil)
 	require.Nil(t, err)
 
-	version := rollup.L2OutputRootVersion(sys.RollupConfig, header.Time)
+	version := eth.OutputVersionV0
 	proveReceipt, finalizeReceipt := ProveAndFinalizeWithdrawal(t, version, cfg, l1Client, sys.EthInstances["verifier"], ethPrivKey, receipt)
 
 	// Verify balance after withdrawal

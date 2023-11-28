@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
@@ -74,6 +75,12 @@ func (o *OutputV0) Marshal() []byte {
 	copy(buf[96:], o.BlockHash[:])
 	copy(buf[128:], o.NextBlockHash[:])
 	return buf[:]
+}
+
+// OutputRoot returns the keccak256 hash of the marshaled L2 output
+func OutputRoot(output Output) Bytes32 {
+	marshaled := output.Marshal()
+	return Bytes32(crypto.Keccak256Hash(marshaled))
 }
 
 func UnmarshalOutput(data []byte) (Output, error) {

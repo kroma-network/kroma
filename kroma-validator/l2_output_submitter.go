@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/optsutils"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -399,7 +398,7 @@ func (l *L2OutputSubmitter) FetchOutput(ctx context.Context, blockNumber *big.In
 		l.log.Error("failed to fetch output at ", "block number", blockNumber.Uint64(), " err", err)
 		return nil, err
 	}
-	if output.Version != rollup.L2OutputRootVersion(l.cfg.RollupConfig, l.cfg.RollupConfig.ComputeTimestamp(blockNumber.Uint64())) {
+	if output.Version != eth.OutputVersionV0 {
 		l.log.Error("l2 output version is not matched: %s", output.Version)
 		return nil, errors.New("mismatched l2 output version")
 	}
