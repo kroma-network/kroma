@@ -6,9 +6,9 @@ LD_FLAGS_ARGS +=-X main.Meta=$(GIT_COMMIT)
 LD_FLAGS := -ldflags "$(LD_FLAGS_ARGS)"
 
 build:
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-node ./op-node/cmd/main.go
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-stateviz ./op-node/cmd/stateviz/main.go
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-batcher ./op-batcher/cmd/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/op-node ./op-node/cmd/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/op-stateviz ./op-node/cmd/stateviz/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/op-batcher ./op-batcher/cmd/main.go
 	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-validator ./kroma-validator/cmd/main.go
 .PHONY: build
 

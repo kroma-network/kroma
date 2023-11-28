@@ -37,7 +37,7 @@ To start syncing the rollup:
 Connect to at least one L1 RPC and L2 execution engine:
 
 - L1: use any L1 node / RPC (websocket connection path may differ)
-- L2: run the Kroma fork of geth: [`kroma-geth`](https://github.com/kroma-network/go-ethereum)
+- L2: run the Kroma fork of op-geth: [`kroma-geth`](https://github.com/kroma-network/go-ethereum)
 
 ```shell
 # websockets or IPC preferred for event notifications to improve sync, http RPC works with adaptive polling.

@@ -26,7 +26,7 @@ func main() {
 	app := cli.NewApp()
 	app.Flags = cliapp.ProtectFlags(flags.Flags)
 	app.Version = fmt.Sprintf("%s-%s-%s", Version, GitCommit, GitDate)
-	app.Name = "kroma-batcher"
+	app.Name = "op-batcher"
 	app.Usage = "Batch Submitter Service"
 	app.Description = "Service for generating and submitting L2 tx batches to L1"
 	app.Action = curryMain(Version)

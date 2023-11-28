@@ -172,6 +172,10 @@ func TestVersion(t *testing.T) {
 	assert.NoError(t, err)
 
 	var out string
+	err = client.CallContext(context.Background(), &out, "optimism_version")
+	assert.NoError(t, err)
+	assert.Equal(t, version.Version+"-"+version.Meta, out)
+
 	err = client.CallContext(context.Background(), &out, "kroma_version")
 	assert.NoError(t, err)
 	assert.Equal(t, version.Version+"-"+version.Meta, out)

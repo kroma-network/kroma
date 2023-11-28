@@ -35,10 +35,10 @@ var _ RefMetricer = (*RefMetrics)(nil)
 
 // MakeRefMetrics returns a new RefMetrics, initializing its prometheus fields
 // using factory. It is supposed to be used inside the construtors of metrics
-// structs for any kroma service after the full namespace and factory have been
+// structs for any op service after the full namespace and factory have been
 // setup.
 //
-// ns is the fully qualified namespace, e.g. "kroma_validator_default".
+// ns is the fully qualified namespace, e.g. "op_node_default".
 func MakeRefMetrics(ns string, factory Factory) RefMetrics {
 	return RefMetrics{
 		RefsNumber: factory.NewGaugeVec(prometheus.GaugeOpts{

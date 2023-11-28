@@ -95,7 +95,7 @@ type ETHBackend interface {
 // SimpleTxManager is a implementation of TxManager that performs linear fee
 // bumping of a tx until it confirms.
 type SimpleTxManager struct {
-	Config  // NOTE: Kroma embed the config directly
+	Config  // embed the config directly
 	name    string
 	chainID *big.Int
 

@@ -81,7 +81,7 @@ var (
 		Usage: "Read the hex-encoded 32-byte private key for the peer ID from this txt file. Created if not already exists." +
 			"Important to persist to keep the same network identity after restarting, maintaining the previous advertised identity.",
 		Required:  false,
-		Value:     "kroma_node_p2p_priv.txt",
+		Value:     "opnode_p2p_priv.txt",
 		EnvVars:   p2pEnv("PRIV_PATH"),
 		TakesFile: true,
 	}
@@ -203,10 +203,10 @@ var (
 	}
 	UserAgent = &cli.StringFlag{
 		Name:     "p2p.useragent",
-		Usage:    "User-agent string to share via LibP2P identify. If empty it defaults to 'kroma'.",
+		Usage:    "User-agent string to share via LibP2P identify. If empty it defaults to 'optimism'.",
 		Hidden:   true,
 		Required: false,
-		Value:    "kroma",
+		Value:    "optimism",
 		EnvVars:  p2pEnv("AGENT"),
 	}
 	TimeoutNegotiation = &cli.DurationFlag{
@@ -240,7 +240,7 @@ var (
 			"Warning: a copy of the priv network key of the local peer will be persisted here.", // TODO: bad design of libp2p, maybe we can avoid this from happening
 		Required:  false,
 		TakesFile: true,
-		Value:     "kroma_node_peerstore_db",
+		Value:     "opnode_peerstore_db",
 		EnvVars:   p2pEnv("PEERSTORE_PATH"),
 	}
 	DiscoveryPath = &cli.StringFlag{
@@ -248,7 +248,7 @@ var (
 		Usage:     "Discovered ENRs are persisted in a database to recover from a restart without having to bootstrap the discovery process again. Set to 'memory' to never persist the peerstore.",
 		Required:  false,
 		TakesFile: true,
-		Value:     "kroma_node_discovery_db",
+		Value:     "opnode_discovery_db",
 		EnvVars:   p2pEnv("DISCOVERY_PATH"),
 	}
 	SequencerP2PKeyFlag = &cli.StringFlag{

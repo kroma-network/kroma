@@ -165,7 +165,7 @@ func loadDiscoveryOpts(conf *p2p.Config, ctx *cli.Context) error {
 
 	dbPath := ctx.String(flags.DiscoveryPath.Name)
 	if dbPath == "" {
-		dbPath = "kroma_node_discovery_db"
+		dbPath = "opnode_discovery_db"
 	}
 	if dbPath == "memory" {
 		dbPath = ""

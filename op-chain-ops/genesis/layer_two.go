@@ -33,10 +33,12 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block, zktrie bool
 		return nil, err
 	}
 
+	// Set up the proxies
 	if err := SetL2Proxies(db); err != nil {
 		return nil, err
 	}
 
+	// Set up the implementations
 	if err := SetImplementations(db, storage, immutable, zktrie); err != nil {
 		return nil, err
 	}

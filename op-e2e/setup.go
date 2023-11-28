@@ -331,7 +331,7 @@ type System struct {
 	EthInstances   map[string]EthInstance
 	Clients        map[string]*ethclient.Client
 	RawClients     map[string]*rpc.Client
-	RollupNodes    map[string]*rollupNode.KromaNode
+	RollupNodes    map[string]*rollupNode.OpNode
 	Validator      *validator.Validator
 	Challenger     *validator.Validator
 	BatchSubmitter *bss.BatchSubmitter
@@ -416,7 +416,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		EthInstances: make(map[string]EthInstance),
 		Clients:      make(map[string]*ethclient.Client),
 		RawClients:   make(map[string]*rpc.Client),
-		RollupNodes:  make(map[string]*rollupNode.KromaNode),
+		RollupNodes:  make(map[string]*rollupNode.OpNode),
 	}
 	didErrAfterStart := false
 	defer func() {

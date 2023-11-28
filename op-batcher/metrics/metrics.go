@@ -108,7 +108,7 @@ func NewMetrics(procName string) *Metrics {
 		up: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
 			Name:      "up",
-			Help:      "1 if the kroma-batcher has finished starting up",
+			Help:      "1 if the op-batcher has finished starting up",
 		}),
 
 		channelEvs: opmetrics.NewEventVec(factory, ns, "", "channel", "Channel", []string{"stage"}),

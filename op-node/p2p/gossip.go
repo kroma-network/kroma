@@ -66,7 +66,7 @@ type GossipMetricer interface {
 }
 
 func blocksTopicV1(cfg *rollup.Config) string {
-	return fmt.Sprintf("/kroma/%s/0/blocks", cfg.L2ChainID.String())
+	return fmt.Sprintf("/optimism/%s/0/blocks", cfg.L2ChainID.String())
 }
 
 // BuildSubscriptionFilter builds a simple subscription filter,

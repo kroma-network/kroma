@@ -27,7 +27,7 @@ type ImmutableValues map[string]any
 type ImmutableConfig map[string]ImmutableValues
 
 // Check does a sanity check that the specific values that
-// Kroma uses are set inside of the ImmutableConfig.
+// Optimism uses are set inside of the ImmutableConfig.
 func (i ImmutableConfig) Check() error {
 	if _, ok := i["L2CrossDomainMessenger"]["otherMessenger"]; !ok {
 		return errors.New("L2CrossDomainMessenger otherMessenger not set")
@@ -63,9 +63,9 @@ func (i ImmutableConfig) Check() error {
 // contracts so that the immutables can be set properly in the bytecode.
 type DeploymentResults map[string]hexutil.Bytes
 
-// BuildKroma will deploy the L2 predeploys so that their immutables are set
+// BuildOptimism will deploy the L2 predeploys so that their immutables are set
 // correctly.
-func BuildKroma(immutable ImmutableConfig, zktrie bool) (DeploymentResults, error) {
+func BuildOptimism(immutable ImmutableConfig, zktrie bool) (DeploymentResults, error) {
 	if err := immutable.Check(); err != nil {
 		return DeploymentResults{}, err
 	}

@@ -64,7 +64,7 @@ that includes their intention to withdrawal from the system.
 
 The honest `kroma-validator` algorithm assumes a connection to the `L2OutputOracle` contract to know
 the L2 block number that corresponds to the next output root that must be submitted. It also
-assumes a connection to an `kroma-node` to be able to query the `kroma_syncStatus` RPC endpoint.
+assumes a connection to an `op-node` to be able to query the `kroma_syncStatus` RPC endpoint.
 
 Once your submitted output is [finalized][finality], the submitter becomes eligible for a reward.
 For more information on this, see [Validation Rewards](#validation-rewards).

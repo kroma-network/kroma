@@ -134,7 +134,7 @@ func setProxies(db vm.StateDB, proxyAdminAddr common.Address, namespace *big.Int
 // and configure the proxies to point to the implementations. It also sets
 // the appropriate storage values for each contract at the proxy address.
 func SetImplementations(db vm.StateDB, storage state.StorageConfig, immutable immutables.ImmutableConfig, zktrie bool) error {
-	deployResults, err := immutables.BuildKroma(immutable, zktrie)
+	deployResults, err := immutables.BuildOptimism(immutable, zktrie)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func SetImplementations(db vm.StateDB, storage state.StorageConfig, immutable im
 }
 
 func SetDevOnlyL2Implementations(db vm.StateDB, storage state.StorageConfig, immutable immutables.ImmutableConfig, zktrie bool) error {
-	deployResults, err := immutables.BuildKroma(immutable, zktrie)
+	deployResults, err := immutables.BuildOptimism(immutable, zktrie)
 	if err != nil {
 		return err
 	}

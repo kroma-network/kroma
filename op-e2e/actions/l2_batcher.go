@@ -48,9 +48,9 @@ type BatcherCfg struct {
 
 // L2Batcher buffers and submits L2 batches to L1.
 //
-// TODO: note the batcher shares little logic/state with actual kroma-batcher,
+// TODO: note the batcher shares little logic/state with actual op-batcher,
 // tests should only use this actor to build batch contents for rollup node actors to consume,
-// until the kroma-batcher is refactored and can be covered better.
+// until the op-batcher is refactored and can be covered better.
 type L2Batcher struct {
 	log log.Logger
 

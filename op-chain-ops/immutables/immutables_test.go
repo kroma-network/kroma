@@ -10,7 +10,7 @@ import (
 )
 
 func TestBuildKroma(t *testing.T) {
-	results, err := immutables.BuildKroma(immutables.ImmutableConfig{
+	results, err := immutables.BuildOptimism(immutables.ImmutableConfig{
 		"L2StandardBridge": {
 			"otherBridge": common.HexToAddress("0x1234567890123456789012345678901234567890"),
 		},

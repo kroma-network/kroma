@@ -27,7 +27,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 )
 
-type KromaNode struct {
+type OpNode struct {
 	log        log.Logger
 	appVersion string
 	metrics    *metrics.Metrics
@@ -71,18 +71,18 @@ type KromaNode struct {
 	// [Kroma: END]
 }
 
-// The KromaNode handles incoming gossip
-var _ p2p.GossipIn = (*KromaNode)(nil)
+// The OpNode handles incoming gossip
+var _ p2p.GossipIn = (*OpNode)(nil)
 
-// New creates a new KromaNode instance.
+// New creates a new OpNode instance.
 // The provided ctx argument is for the span of initialization only;
 // the node will immediately Stop(ctx) before finishing initialization if the context is canceled during initialization.
-func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logger, appVersion string, m *metrics.Metrics) (*KromaNode, error) {
+func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logger, appVersion string, m *metrics.Metrics) (*OpNode, error) {
 	if err := cfg.Check(); err != nil {
 		return nil, err
 	}
 
-	n := &KromaNode{
+	n := &OpNode{
 		log:        log,
 		appVersion: appVersion,
 		metrics:    m,
@@ -104,7 +104,7 @@ func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logge
 	return n, nil
 }
 
-func (n *KromaNode) init(ctx context.Context, cfg *Config, snapshotLog log.Logger) error {
+func (n *OpNode) init(ctx context.Context, cfg *Config, snapshotLog log.Logger) error {
 	n.log.Info("Initializing rollup node", "version", n.appVersion)
 	if err := n.initTracer(ctx, cfg); err != nil {
 		return fmt.Errorf("failed to init the trace: %w", err)
@@ -141,7 +141,7 @@ func (n *KromaNode) init(ctx context.Context, cfg *Config, snapshotLog log.Logge
 	return nil
 }
 
-func (n *KromaNode) initTracer(ctx context.Context, cfg *Config) error {
+func (n *OpNode) initTracer(ctx context.Context, cfg *Config) error {
 	if cfg.Tracer != nil {
 		n.tracer = cfg.Tracer
 	} else {
@@ -150,7 +150,7 @@ func (n *KromaNode) initTracer(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KromaNode) initL1(ctx context.Context, cfg *Config) error {
+func (n *OpNode) initL1(ctx context.Context, cfg *Config) error {
 	l1Node, rpcCfg, err := cfg.L1.Setup(ctx, n.log, &cfg.Rollup)
 	if err != nil {
 		return fmt.Errorf("failed to get L1 RPC client: %w", err)
@@ -190,7 +190,7 @@ func (n *KromaNode) initL1(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KromaNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
+func (n *OpNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 	// attempt to load runtime config, repeat N times
 	n.runCfg = NewRuntimeConfig(n.log, n.l1Source, &cfg.Rollup)
 
@@ -270,7 +270,7 @@ func (n *KromaNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KromaNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger) error {
+func (n *OpNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger) error {
 	rpcClient, rpcCfg, err := cfg.L2.Setup(ctx, n.log, &cfg.Rollup)
 	if err != nil {
 		return fmt.Errorf("failed to setup L2 execution-engine RPC client: %w", err)
@@ -292,7 +292,7 @@ func (n *KromaNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Log
 	return nil
 }
 
-func (n *KromaNode) initRPCSync(ctx context.Context, cfg *Config) error {
+func (n *OpNode) initRPCSync(ctx context.Context, cfg *Config) error {
 	rpcSyncClient, rpcCfg, err := cfg.L2Sync.Setup(ctx, n.log, &cfg.Rollup)
 	if err != nil {
 		return fmt.Errorf("failed to setup L2 execution-engine RPC client for backup sync: %w", err)
@@ -308,7 +308,7 @@ func (n *KromaNode) initRPCSync(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KromaNode) initRPCServer(ctx context.Context, cfg *Config) error {
+func (n *OpNode) initRPCServer(ctx context.Context, cfg *Config) error {
 	server, err := newRPCServer(ctx, &cfg.RPC, &cfg.Rollup, n.l2Source.L2Client, n.l2Driver, n.log, n.appVersion, n.metrics)
 	if err != nil {
 		return err
@@ -328,7 +328,7 @@ func (n *KromaNode) initRPCServer(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KromaNode) initMetricsServer(ctx context.Context, cfg *Config) error {
+func (n *OpNode) initMetricsServer(ctx context.Context, cfg *Config) error {
 	if !cfg.Metrics.Enabled {
 		n.log.Info("metrics disabled")
 		return nil
@@ -342,7 +342,7 @@ func (n *KromaNode) initMetricsServer(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KromaNode) initHeartbeat(cfg *Config) {
+func (n *OpNode) initHeartbeat(cfg *Config) {
 	if !cfg.Heartbeat.Enabled {
 		return
 	}
@@ -368,7 +368,7 @@ func (n *KromaNode) initHeartbeat(cfg *Config) {
 	}(cfg.Heartbeat.URL)
 }
 
-func (n *KromaNode) initPProf(cfg *Config) {
+func (n *OpNode) initPProf(cfg *Config) {
 	if !cfg.Pprof.Enabled {
 		return
 	}
@@ -380,7 +380,7 @@ func (n *KromaNode) initPProf(cfg *Config) {
 	}(cfg.Pprof.ListenAddr, cfg.Pprof.ListenPort)
 }
 
-func (n *KromaNode) initP2P(ctx context.Context, cfg *Config) error {
+func (n *OpNode) initP2P(ctx context.Context, cfg *Config) error {
 	if cfg.P2P != nil {
 		p2pNode, err := p2p.NewNodeP2P(n.resourcesCtx, &cfg.Rollup, n.log, cfg.P2P, n, n.l2Source, n.runCfg, n.metrics)
 		if err != nil || p2pNode == nil {
@@ -394,7 +394,7 @@ func (n *KromaNode) initP2P(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *KromaNode) initP2PSigner(ctx context.Context, cfg *Config) error {
+func (n *OpNode) initP2PSigner(ctx context.Context, cfg *Config) error {
 	// the p2p signer setup is optional
 	if cfg.P2PSigner == nil {
 		return nil
@@ -405,7 +405,7 @@ func (n *KromaNode) initP2PSigner(ctx context.Context, cfg *Config) error {
 	return err
 }
 
-func (n *KromaNode) Start(ctx context.Context) error {
+func (n *OpNode) Start(ctx context.Context) error {
 	n.log.Info("Starting execution engine driver")
 
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine
@@ -427,7 +427,7 @@ func (n *KromaNode) Start(ctx context.Context) error {
 	return nil
 }
 
-func (n *KromaNode) OnNewL1Head(ctx context.Context, sig eth.L1BlockRef) {
+func (n *OpNode) OnNewL1Head(ctx context.Context, sig eth.L1BlockRef) {
 	n.tracer.OnNewL1Head(ctx, sig)
 
 	if n.l2Driver == nil {
@@ -441,7 +441,7 @@ func (n *KromaNode) OnNewL1Head(ctx context.Context, sig eth.L1BlockRef) {
 	}
 }
 
-func (n *KromaNode) OnNewL1Safe(ctx context.Context, sig eth.L1BlockRef) {
+func (n *OpNode) OnNewL1Safe(ctx context.Context, sig eth.L1BlockRef) {
 	if n.l2Driver == nil {
 		return
 	}
@@ -453,7 +453,7 @@ func (n *KromaNode) OnNewL1Safe(ctx context.Context, sig eth.L1BlockRef) {
 	}
 }
 
-func (n *KromaNode) OnNewL1Finalized(ctx context.Context, sig eth.L1BlockRef) {
+func (n *OpNode) OnNewL1Finalized(ctx context.Context, sig eth.L1BlockRef) {
 	if n.l2Driver == nil {
 		return
 	}
@@ -465,7 +465,7 @@ func (n *KromaNode) OnNewL1Finalized(ctx context.Context, sig eth.L1BlockRef) {
 	}
 }
 
-func (n *KromaNode) PublishL2Payload(ctx context.Context, payload *eth.ExecutionPayload) error {
+func (n *OpNode) PublishL2Payload(ctx context.Context, payload *eth.ExecutionPayload) error {
 	n.tracer.OnPublishL2Payload(ctx, payload)
 
 	// publish to p2p, if we are running p2p at all
@@ -480,7 +480,7 @@ func (n *KromaNode) PublishL2Payload(ctx context.Context, payload *eth.Execution
 	return nil
 }
 
-func (n *KromaNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload) error {
+func (n *OpNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, payload *eth.ExecutionPayload) error {
 	// ignore if it's from ourselves
 	if n.p2pNode != nil && from == n.p2pNode.Host().ID() {
 		return nil
@@ -500,7 +500,7 @@ func (n *KromaNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, payload
 	return nil
 }
 
-func (n *KromaNode) RequestL2Range(ctx context.Context, start, end eth.L2BlockRef) error {
+func (n *OpNode) RequestL2Range(ctx context.Context, start, end eth.L2BlockRef) error {
 	if n.rpcSync != nil {
 		return n.rpcSync.RequestL2Range(ctx, start, end)
 	}
@@ -520,17 +520,17 @@ func unixTimeStale(timestamp uint64, duration time.Duration) bool {
 	return time.Unix(int64(timestamp), 0).Before(time.Now().Add(-1 * duration))
 }
 
-func (n *KromaNode) P2P() p2p.Node {
+func (n *OpNode) P2P() p2p.Node {
 	return n.p2pNode
 }
 
-func (n *KromaNode) RuntimeConfig() ReadonlyRuntimeConfig {
+func (n *OpNode) RuntimeConfig() ReadonlyRuntimeConfig {
 	return n.runCfg
 }
 
 // Stop stops the node and closes all resources.
 // If the provided ctx is expired, the node will accelerate the stop where possible, but still fully close.
-func (n *KromaNode) Stop(ctx context.Context) error {
+func (n *OpNode) Stop(ctx context.Context) error {
 	if n.closed.Load() {
 		return errors.New("node is already closed")
 	}
@@ -600,14 +600,14 @@ func (n *KromaNode) Stop(ctx context.Context) error {
 	return result.ErrorOrNil()
 }
 
-func (n *KromaNode) Stopped() bool {
+func (n *OpNode) Stopped() bool {
 	return n.closed.Load()
 }
 
-func (n *KromaNode) ListenAddr() string {
+func (n *OpNode) ListenAddr() string {
 	return n.server.listenAddr.String()
 }
 
-func (n *KromaNode) HTTPEndpoint() string {
+func (n *OpNode) HTTPEndpoint() string {
 	return fmt.Sprintf("http://%s", n.ListenAddr())
 }

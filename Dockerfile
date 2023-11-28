@@ -36,22 +36,22 @@ USER user
 WORKDIR /home/user/
 
 # Node
-FROM runner-with-kroma-log as kroma-node
-COPY --from=builder /app/bin/kroma-node /usr/local/bin
+FROM runner-with-kroma-log as op-node
+COPY --from=builder /app/bin/op-node /usr/local/bin
 
-ENTRYPOINT ["kroma-node"]
+ENTRYPOINT ["op-node"]
 
 # Stateviz
-FROM runner-with-kroma-log as kroma-stateviz
-COPY --from=builder /app/bin/kroma-stateviz /usr/local/bin
+FROM runner-with-kroma-log as op-stateviz
+COPY --from=builder /app/bin/op-stateviz /usr/local/bin
 
-CMD ["kroma-stateviz"]
+CMD ["op-stateviz"]
 
 # Batcher
-FROM runner as kroma-batcher
-COPY --from=builder /app/bin/kroma-batcher /usr/local/bin
+FROM runner as op-batcher
+COPY --from=builder /app/bin/op-batcher /usr/local/bin
 
-ENTRYPOINT ["kroma-batcher"]
+ENTRYPOINT ["op-batcher"]
 
 # Validator
 FROM runner as kroma-validator

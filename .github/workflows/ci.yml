@@ -104,7 +104,7 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
-          target: kroma-node
+          target: op-node
           push: true
           tags: kromanetwork/node:${{ needs.prepare.outputs.docker-tag }}
 
@@ -166,7 +166,7 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/arm64,linux/amd64
-          target: kroma-batcher
+          target: op-batcher
           push: true
           tags: kromanetwork/batcher:${{ needs.prepare.outputs.docker-tag }}
 

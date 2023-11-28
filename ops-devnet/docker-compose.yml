@@ -54,7 +54,7 @@ services:
     image: "kromanetwork/node"
     build:
       context: ..
-      target: "kroma-node"
+      target: "op-node"
     environment:
       NODE_L1_ETH_RPC: ws://l1:8546
       NODE_L2_ENGINE_RPC: http://l2:8551
@@ -172,7 +172,7 @@ services:
     image: "kromanetwork/batcher"
     build:
       context: ..
-      target: "kroma-batcher"
+      target: "op-batcher"
     ports:
       - "6061:6060"
       - "7301:7300"
@@ -200,10 +200,10 @@ services:
     pid: host # allow debugging
     build:
       context: ..
-      target: "kroma-stateviz"
+      target: "op-stateviz"
     image: "kromanetwork/stateviz"
     command:
-      - kroma-stateviz
+      - op-stateviz
       - -addr=0.0.0.0:8080
       - -snapshot=/kroma_log/snapshot.log
       - -refresh=10s

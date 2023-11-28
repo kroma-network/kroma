@@ -1,4 +1,4 @@
-// Package metrics provides a set of metrics for the kroma-node.
+// Package metrics provides a set of metrics for the op-node.
 package metrics
 
 import (
@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	Namespace = "kroma_node"
+	Namespace = "op_node"
 
 	BatchMethod = "<batch>"
 )
@@ -72,7 +72,7 @@ type Metricer interface {
 	RecordAccept(allow bool)
 }
 
-// Metrics tracks all the metrics for the kroma-node.
+// Metrics tracks all the metrics for the op-node.
 type Metrics struct {
 	Info *prometheus.GaugeVec
 	Up   prometheus.Gauge
@@ -171,7 +171,7 @@ func NewMetrics(procName string) *Metrics {
 		Up: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
 			Name:      "up",
-			Help:      "1 if the kroma node has finished starting up",
+			Help:      "1 if the op node has finished starting up",
 		}),
 
 		RPCMetrics: metrics.MakeRPCMetrics(ns, factory),
@@ -384,7 +384,7 @@ func (m *Metrics) SetPeerScores(allScores []store.PeerScores) {
 }
 
 // RecordInfo sets a pseudo-metric that contains versioning and
-// config info for the kroma-node.
+// config info for the opnode.
 func (m *Metrics) RecordInfo(version string) {
 	m.Info.WithLabelValues(version).Set(1)
 }

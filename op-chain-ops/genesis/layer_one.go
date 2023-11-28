@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
@@ -70,6 +71,7 @@ func init() {
 // BuildL1DeveloperGenesis will create a L1 genesis block after creating
 // all of the state required for a Kroma network to function.
 func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
+	log.Info("Building developer L1 genesis block")
 	if config.L2OutputOracleStartingTimestamp != -1 {
 		return nil, errors.New("l2oo starting timestamp must be -1")
 	}
@@ -80,7 +82,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 
 	genesis, err := NewL1Genesis(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot create L1 developer genesis: %w", err)
 	}
 
 	backend := deployer.NewBackendWithGenesisTimestamp(uint64(config.L1GenesisBlockTimestamp), false)

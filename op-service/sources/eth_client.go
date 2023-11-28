@@ -1,6 +1,6 @@
 // Package sources exports a number of clients used to access ethereum chain data.
 //
-// There are a number of these exported clients used by the kroma-node:
+// There are a number of these exported clients used by the op-node:
 // [L1Client] wraps an RPC client to retrieve L1 ethereum data.
 // [L2Client] wraps an RPC client to retrieve L2 ethereum data.
 // [RollupClient] wraps an RPC client to retrieve rollup data.

@@ -6,7 +6,7 @@
 // a parent block and the node is responsible for deciding which block is the head and thus the
 // mapping from block number to canonical block.
 //
-// The Kroma (L2) chain has similar properties, but also retains references to the Ethereum (L1)
+// The Optimism (L2) chain has similar properties, but also retains references to the Ethereum (L1)
 // chain. Each L2 block retains a reference to an L1 block (its "L1 origin", i.e. L1 block
 // associated with the epoch that the L2 block belongs to) and to its parent L2 block. The L2 chain
 // node must satisfy the following validity rules:
@@ -94,9 +94,9 @@ func currentHeads(ctx context.Context, cfg *rollup.Config, l2 L2Chain) (*FindHea
 // the finalized, unsafe and safe L2 blocks.
 //
 //   - The *unsafe L2 block*: This is the highest L2 block whose L1 origin is a *plausible*
-//     extension of the canonical L1 chain (as known to the kroma-node).
+//     extension of the canonical L1 chain (as known to the op-node).
 //   - The *safe L2 block*: This is the highest L2 block whose epoch's sequencing window is
-//     complete within the canonical L1 chain (as known to the kroma-node).
+//     complete within the canonical L1 chain (as known to the op-node).
 //   - The *finalized L2 block*: This is the L2 block which is known to be fully derived from
 //     finalized L1 block data.
 //
