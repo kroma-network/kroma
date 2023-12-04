@@ -32,7 +32,7 @@ set -eu
 L1_URL="http://localhost:8545"
 L2_URL="http://localhost:9545"
 
-KROMA_NODE="$PWD/components/node"
+KROMA_NODE="$PWD/op-node"
 CONTRACTS="$PWD/packages/contracts"
 DEVNET="$PWD/.devnet"
 OPS_DEVNET="$PWD/ops-devnet"

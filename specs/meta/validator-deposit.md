@@ -12,7 +12,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-We want the [validator](../../components/validator/) role to be decentralized. Like how the PoS mechanism works, to
+We want the [validator](../../kroma-validator/) role to be decentralized. Like how the PoS mechanism works, to
 achieve this, a validator needs to bond ETH at every [output
 submission](../validator.md#submitting-l2-output-commitments). When submitting an output, the amount of bond
 specified by the validator is automatically bonded from [the ETH the validator has deposited into the
@@ -29,7 +29,7 @@ on Mainnet TBD.
 ## Deposit into `ValidatorPool`
 
 ```shell
-> cd components/validator
+> cd kroma-validator
 ```
 
 ```shell
@@ -49,7 +49,7 @@ on Mainnet TBD.
 ## Withdraw from `ValidatorPool`
 
 ```shell
-> cd components/validator
+> cd kroma-validator
 ```
 
 ```shell
@@ -69,7 +69,7 @@ on Mainnet TBD.
 ## Try unbond in `ValidatorPool`
 
 ```shell
-> cd components/validator
+> cd kroma-validator
 ```
 
 ```shell
