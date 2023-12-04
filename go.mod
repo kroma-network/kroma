@@ -67,7 +67,6 @@ require (
 	github.com/dop251/goja v0.0.0-20230806174421-c933cf95e127 // indirect
 	github.com/elastic/gosigar v0.14.2 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/ethereum-optimism/superchain-registry/superchain v0.0.0-20230817174831-5d3ca1966435 // indirect
 	github.com/ethereum/c-kzg-4844 v0.3.1 // indirect
 	github.com/fjl/memsize v0.0.1 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
@@ -190,4 +189,4 @@ require (
 
 replace github.com/ethereum-optimism/optimism v1.2.0 => ./
 
-replace github.com/ethereum/go-ethereum v1.13.1 => github.com/kroma-network/go-ethereum v0.1.1-0.20231117080707-add3e71070bd
+replace github.com/ethereum/go-ethereum v1.13.1 => github.com/kroma-network/go-ethereum v0.3.0

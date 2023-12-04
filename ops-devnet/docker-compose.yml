@@ -30,7 +30,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:dev-fa80ead
+    image: kromanetwork/geth:v0.3.0
     ports:
       - "9545:8545"
       - "9546:8546"
