@@ -50,7 +50,7 @@ to be executed with a 7-day timelock. After the timelock delay, the upgrade can 
      * @notice Function to queue a proposal to the timelock.
      *         Added protocol for using custom time-lock zero delay for urgent situations.
      *
-     * @param _targets         The destination address that send the message to.
+     * @param _targets         The destination address that sends the message to.
      * @param _values          Amount of ether sent with the message.
      * @param _calldatas       The data portion of the message.
      * @param _descriptionHash A hashed form of the description string.
