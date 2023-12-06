@@ -89,7 +89,7 @@
 > accommodate multiple such entities.
 
 [L2 chain derivation][g-derivation] — deriving L2 [blocks][g-block] from L1 data — is one of the main responsibility of
-the [rollup node][g-rollup-node], both in syncer mode, and in sequencer mode (where derivation acts as a sanity check
+the [rollup node][g-rollup-node], both in sync mode, and in sequencer mode (where derivation acts as a sanity check
 on sequencing, and enables detecting L1 chain [re-organizations][g-reorg]).
 
 The L2 chain is derived from the L1 chain. In particular, each L1 block is mapped to an L2 [sequencing
@@ -294,7 +294,7 @@ Batcher transactions are encoded as `version_byte ++ rollup_payload` (where `++`
 | 0              | `frame ...` (one or more frames, concatenated) |
 
 Unknown versions make the batcher transaction invalid (it must be ignored by the rollup node).
-All frames in a batcher transaction must be parsable. If any one frame fails to parse, the all frames in the
+All frames in a batcher transaction must be parsable. If any one frame fails to parse, then all frames in the
 transaction are rejected.
 
 Batch transactions are authenticated by verifying that the `to` address of the transaction matches the batch inbox
