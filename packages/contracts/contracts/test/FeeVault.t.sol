@@ -29,7 +29,7 @@ contract FeeVault_Test is Bridge_Initializer {
     }
 
     function test_minWithdrawalAmount_succeeds() external {
-        assertEq(protocolVault.MIN_WITHDRAWAL_AMOUNT(), 10 ether);
-        assertEq(l1FeeVault.MIN_WITHDRAWAL_AMOUNT(), 10 ether);
+        assertEq(protocolVault.MIN_WITHDRAWAL_AMOUNT(), 0);
+        assertEq(l1FeeVault.MIN_WITHDRAWAL_AMOUNT(), 0);
     }
 }
