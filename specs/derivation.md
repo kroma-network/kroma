@@ -274,7 +274,7 @@ Note the `101-0` L1 attributes transaction on the bottom right of the diagram. I
 frame `B2` indicates that it is the last frame within the channel and (2) no empty blocks must be inserted.
 
 The diagram does not specify the sequencing window size in use, but from this we can infer that it must be at least 4
-blocks, because the last frame of channel `A` appears in block 102, but belong to epoch 99.
+blocks, because the last frame of channel `A` appears in block 102, but belongs to epoch 99.
 
 As for the comment on "security types", it explains the classification of blocks as used on L1 and L2.
 
