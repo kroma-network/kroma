@@ -58,7 +58,7 @@ abstract contract FeeVault {
      * @notice Checks if the withdrawal is possible, and returns the withdrawal amount.
      *         When a withdrawal is available, it resets the balance and updates the total processed amount.
      */
-    function _processWithdrawal() private returns (uint256) {
+    function _processWithdrawal() internal virtual returns (uint256) {
         require(
             address(this).balance >= MIN_WITHDRAWAL_AMOUNT,
             "FeeVault: withdrawal amount must be greater than minimum withdrawal amount"

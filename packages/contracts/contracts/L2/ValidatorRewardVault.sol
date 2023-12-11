@@ -99,7 +99,7 @@ contract ValidatorRewardVault is FeeVault, Semver {
      * @notice Checks if the withdrawal is possible, and returns the withdrawal amount.
      *         When a withdrawal is available, it resets the balance and updates the total processed amount.
      */
-    function _processWithdrawal() internal returns (uint256) {
+    function _processWithdrawal() internal override returns (uint256) {
         uint256 amount = rewards[msg.sender];
         require(
             amount >= MIN_WITHDRAWAL_AMOUNT,
