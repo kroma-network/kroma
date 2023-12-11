@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import { Predeploys } from "../libraries/Predeploys.sol";
 import { L2StandardBridge } from "../L2/L2StandardBridge.sol";
+import { Predeploys } from "../libraries/Predeploys.sol";
+import { SafeCall } from "../libraries/SafeCall.sol";
 
 /**
  * @title FeeVault
@@ -54,23 +55,42 @@ abstract contract FeeVault {
     receive() external payable {}
 
     /**
-     * @notice Triggers a withdrawal of funds to the L1 fee wallet.
+     * @notice Checks if the withdrawal is possible, and returns the withdrawal amount.
+     *         When a withdrawal is available, it resets the balance and updates the total processed amount.
      */
-    function withdraw() external virtual {
+    function _processWithdrawal() private returns (uint256) {
         require(
             address(this).balance >= MIN_WITHDRAWAL_AMOUNT,
             "FeeVault: withdrawal amount must be greater than minimum withdrawal amount"
         );
 
-        uint256 value = address(this).balance;
-        totalProcessed += value;
+        uint256 amount = address(this).balance;
+        totalProcessed += amount;
 
-        emit Withdrawal(value, RECIPIENT, msg.sender);
+        emit Withdrawal(amount, RECIPIENT, msg.sender);
+        return amount;
+    }
 
-        L2StandardBridge(payable(Predeploys.L2_STANDARD_BRIDGE)).bridgeETHTo{ value: value }(
+    /**
+     * @notice Triggers a withdrawal of funds to the recipient on L1.
+     */
+    function withdraw() external virtual {
+        uint256 amount = _processWithdrawal();
+
+        L2StandardBridge(payable(Predeploys.L2_STANDARD_BRIDGE)).bridgeETHTo{ value: amount }(
             RECIPIENT,
             WITHDRAWAL_MIN_GAS,
             bytes("")
         );
+    }
+
+    /**
+     * @notice Triggers a withdrawal of funds to the recipient on L2.
+     */
+    function withdrawToL2() external virtual {
+        uint256 amount = _processWithdrawal();
+
+        bool success = SafeCall.call(msg.sender, gasleft(), amount, bytes(""));
+        require(success, "FeeVault: ETH transfer failed");
     }
 }
