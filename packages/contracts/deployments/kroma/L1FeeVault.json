@@ -1,0 +1,201 @@
+{
+  "address": "0xF17D279228155ff1e2f8F07BD7283F33b58B9468",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        }
+      ],
+      "name": "Withdrawal",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "MIN_WITHDRAWAL_AMOUNT",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "RECIPIENT",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalProcessed",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "version",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "withdrawToL2",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ],
+  "transactionHash": "0x561eefc38ccccf8b905c0e1cb8225fd73373d9dcc94016194eac8dbccef148a5",
+  "receipt": {
+    "to": null,
+    "from": "0xcc56801a72463d39903A4a4632E600289178F6bC",
+    "contractAddress": "0xF17D279228155ff1e2f8F07BD7283F33b58B9468",
+    "transactionIndex": 1,
+    "gasUsed": "606582",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0xa94500f504920426fd5b9795e1c16063db80e4db106da324038e26de02a02b97",
+    "transactionHash": "0x561eefc38ccccf8b905c0e1cb8225fd73373d9dcc94016194eac8dbccef148a5",
+    "logs": [],
+    "blockNumber": 4247659,
+    "cumulativeGasUsed": "655983",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    "0xA03c13C6597a0716D1525b7fDaD2fD95ECb49081"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "5c4eeaea782ed85e7217df8d223e6e00",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.15+commit.e14f2714\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"}],\"name\":\"Withdrawal\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"MIN_WITHDRAWAL_AMOUNT\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"RECIPIENT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalProcessed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawToL2\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}],\"devdoc\":{\"custom:proxied\":\"@custom:predeploy 0x4200000000000000000000000000000000000007\",\"kind\":\"dev\",\"methods\":{\"constructor\":{\"custom:semver\":\"1.0.2\",\"params\":{\"_recipient\":\"Address that will receive the accumulated fees.\"}},\"version()\":{\"returns\":{\"_0\":\"Semver contract version as a string.\"}}},\"title\":\"L1FeeVault\",\"version\":1},\"userdoc\":{\"events\":{\"Withdrawal(uint256,address,address)\":{\"notice\":\"Emits each time that a withdrawal occurs.\"}},\"kind\":\"user\",\"methods\":{\"MIN_WITHDRAWAL_AMOUNT()\":{\"notice\":\"Minimum balance before a withdrawal can be triggered.\"},\"RECIPIENT()\":{\"notice\":\"Wallet that will receive the fees on L1.\"},\"totalProcessed()\":{\"notice\":\"Total amount of wei processed by the contract.\"},\"version()\":{\"notice\":\"Returns the full semver contract version.\"},\"withdraw()\":{\"notice\":\"Triggers a withdrawal of funds to the recipient on L1.\"},\"withdrawToL2()\":{\"notice\":\"Triggers a withdrawal of funds to the recipient on L2.\"}},\"notice\":\"The L1FeeVault accumulates the L1 portion of the transaction fees.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/L2/L1FeeVault.sol\":\"L1FeeVault\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"enabled\":true,\"runs\":10000},\"remappings\":[\":@openzeppelin/=node_modules/@openzeppelin/\",\":@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/\",\":@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/\",\":@rari-capital/=node_modules/@rari-capital/\",\":@rari-capital/solmate/=node_modules/@rari-capital/solmate/\",\":ds-test/=node_modules/ds-test/src/\",\":forge-std/=node_modules/forge-std/src/\"]},\"sources\":{\"contracts/L1/ResourceMetering.sol\":{\"keccak256\":\"0xbc18cbf0e4fa8c9a17e04be6bf8e59bf5db5e71622f15fc15eb359db598abc59\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://29aa63d99de92760ebf0adfed473d2c6d6a52e4727e29f6fbfedd35c6c2e7100\",\"dweb:/ipfs/QmSVRRqcfhgbMvPztPdNvEhc7nakz5qBdKLddpXNvMRWjL\"]},\"contracts/L2/L1FeeVault.sol\":{\"keccak256\":\"0xe6394364bbb6acc8077915de36e29d371752f183acf8fd799738111fe4b70a5d\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://1e83e84e79ac6622c6bdb8f6891bd94ff8c3dd0fefbe2658b029c5a502e3ccca\",\"dweb:/ipfs/QmNXi1JX49SRwJRM9n1vSPbV1qQraybVR26cwYY5sd4spq\"]},\"contracts/L2/L2StandardBridge.sol\":{\"keccak256\":\"0xea1a2f638c816a77c315f3609f5a42109131136aee6690cef64321734e894924\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://7c875dae37c72422554e3f67700ed99fd7bad4a562c45ae524defa19e0bbc975\",\"dweb:/ipfs/QmYmLNGr5KvAfCF3pr2cM7pffKuaVJbMgQFpN1Hw2DfHUL\"]},\"contracts/libraries/Arithmetic.sol\":{\"keccak256\":\"0x268a178c83f88adac015bb02ea58e40d63187830bcdd7063a945804607b55570\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://fb3fd08e062e074ba49f596a82417997ef46c29e7dd9cb53ddb3192ac4ce4e0d\",\"dweb:/ipfs/QmZMRCQocGuLEkZeKLXWbp6zran3kYXzJQr6fPZF2xRcbx\"]},\"contracts/libraries/Burn.sol\":{\"keccak256\":\"0x9af535d46ec803e48cf7978cf9af29f259b39f56f929574ca4fcb292e0397ed7\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://f8aca0112f1d20d62d154fa3304d511d51a2a4b86c5a28c69c932263f6a90a11\",\"dweb:/ipfs/QmPhZDd9sLqcoauJ8DA7R5V2gD8qFXsn1gmg63skBV9ZVn\"]},\"contracts/libraries/Constants.sol\":{\"keccak256\":\"0x992c2b37ecaf845c4e068e8de2bd5124712ed9dda77ee561d05c94ce4d4914fe\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://cd6846a4c6615c997546ec8260c77cf2ba3bf0a30fd92d8f76ed1c4940eea90c\",\"dweb:/ipfs/QmR86PTdT25HTj78Ja58UUmgLvMYrNX71zauNz46DArwxz\"]},\"contracts/libraries/Encoding.sol\":{\"keccak256\":\"0xe16e48eabffd0396f87f236e464ba07db03a958692e0c9155ed5bff02729fa79\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ada78ee0fa9b1d0d8842882039b4c02f0eb74969542c9dce8d9bff6ef62bf8ab\",\"dweb:/ipfs/QmQYbW8Ut15iQDMr31VbZsCzWYWCmY2fGCBjMUoo7JTmzE\"]},\"contracts/libraries/Hashing.sol\":{\"keccak256\":\"0xac83ce19afd76ad298b2ae3dc44d49af8d5a21a8c1740ede65dec08849f0cb45\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://27f1da66d4c8dfc13cc905e892423c8b7ccb8baae64f209e2de8ba5a2b2a6302\",\"dweb:/ipfs/QmXrtQFQUok97PSDRx7g8SPfZYyctaL66DYe7WuCAh5doc\"]},\"contracts/libraries/Predeploys.sol\":{\"keccak256\":\"0xfeeafa253dba978cab979afc2d7506eeb5aaf89f0256b048c972a84902b139ee\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://96e108a95cb5b043f02f4d6bc50f5ac98bd75da4292c615784ba78fba25718a2\",\"dweb:/ipfs/QmXXNWwdyaNx9MXbQRHViAMmzN8mrd2Y3Xd3DBPE23Wz3J\"]},\"contracts/libraries/SafeCall.sol\":{\"keccak256\":\"0x9c9e20b64d509725e222e6973a9ce26ff68756098070a770e5e0c43d0f899a22\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://e9e198e00b17ac6bf2ad41f5a16242f458649eea089e591d88dbaba2a5d133b3\",\"dweb:/ipfs/QmeHvHgAGWjRseSQUrj5BrvHKHFjEg3buvkGkCLDd5aQMm\"]},\"contracts/libraries/Types.sol\":{\"keccak256\":\"0xe3440fb48334bd6ec8478c2dac2b583c6c425fc1457d5c3380e44a6fc7d477d9\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://2acec800b64f6213d500c22eb86560c40a7c9fff3f66ad397de17d9e85de209b\",\"dweb:/ipfs/Qmczy9W55zohWoTgg4dv8rCN3zxhw5i2MGbN8UkLmNbSDQ\"]},\"contracts/libraries/rlp/RLPWriter.sol\":{\"keccak256\":\"0x5aa9d21c5b41c9786f23153f819d561ae809a1d55c7b0d423dfeafdfbacedc78\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://921c44e6a0982b9a4011900fda1bda2c06b7a85894967de98b407a83fe9f90c0\",\"dweb:/ipfs/QmSsHLKDUQ82kpKdqB6VntVGKuPDb4W9VdotsubuqWBzio\"]},\"contracts/universal/CrossDomainMessenger.sol\":{\"keccak256\":\"0xa50cdacf266549170d36cc35000c075f177e426f4e1c26b4338b9b75d5656ef3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://073c44a92c7b6ddda3144412dbeee0e86435866fec2a05f6493c95d94dd09c35\",\"dweb:/ipfs/QmcM7hTxmdyUxHFYBCXvd9WFZdmNwpNemAvmspaEJu2DqM\"]},\"contracts/universal/FeeVault.sol\":{\"keccak256\":\"0x7fba013982f8380fd8ca97f54a63cbccf6f166a9503892e10a48f1eb1cfb01b2\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b9add1aa8c613f73c1564e40d3d40196e1eca381ca28696ecf1712ba888da6fa\",\"dweb:/ipfs/Qmebc6v7ff4sWxTR1i93WXQRcXwsmDzH8S4wxv1bqVZEiW\"]},\"contracts/universal/IKromaMintableERC20.sol\":{\"keccak256\":\"0x1a95268117456ddb1e0a16eb2ba773b9540c7b8b9520e66d4d167ddc6ace6fcb\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://f93d2e6f5121a3dfe272e399d6774e0584d59a20c4f63db78e5a0b644d92fa59\",\"dweb:/ipfs/QmbwM7kCpmwZs348jCeNwF86H8SDBURsGCGCUCyoSS1ffy\"]},\"contracts/universal/KromaMintableERC20.sol\":{\"keccak256\":\"0xb1b9bc1d6b081ee59abf7e9b91ea651a0aaf24606058b8c97eda55868572bd56\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://2133d9724ea4a3678b36ece210982b25999581952e13015f58753e7f2f865a2a\",\"dweb:/ipfs/QmVzbJ8zEfmTTjQ8LJLZUY7LiXAXjL8E98tEvyHmq6YWu9\"]},\"contracts/universal/Semver.sol\":{\"keccak256\":\"0xa816a3d96caaabc0260067ea24ea9effa940bd8ce44c8662444c5a992229d983\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://2ce8c2a6ca1eaa4d900d8398032399cdae8a03809aba47076dc8078111b31f16\",\"dweb:/ipfs/QmPTA6L8yyN7FJuBopeqHWdHdMmnoPwzSmyYF8FbP4ehcC\"]},\"contracts/universal/StandardBridge.sol\":{\"keccak256\":\"0x97b07e61f135b77d6b5a7f27174cee21bb6a958408a773929eeee18501387d9b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://e75747e512e56f85205822d3d9972e9a9a8e7213eae18f3e958409bf72f60e28\",\"dweb:/ipfs/QmSeF6sWzS8pQCWPiTuDLUXSWFELpohbdtrcbjCLnF5hEG\"]},\"node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol\":{\"keccak256\":\"0x89be10e757d242e9b18d5a32c9fbe2019f6d63052bbe46397a430a1d60d7f794\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://f103ee2e4aecd37aac6ceefe670709cdd7613dee25fa2d4d9feaf7fc0aaa155e\",\"dweb:/ipfs/QmRiNZLoJk5k3HPMYGPGjZFd2ke1ZxjhJZkM45Ec9GH9hv\"]},\"node_modules/@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol\":{\"keccak256\":\"0x40c636b4572ff5f1dc50cf22097e93c0723ee14eff87e99ac2b02636eeca1250\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://9c7d1f5e15633ab912b74c2f57e24559e66b03232300d4b27ff0f25bc452ecad\",\"dweb:/ipfs/QmYTJkc1cntYkKQ1Tu11nBcJLakiy93Tjytc4XHELo4GmR\"]},\"node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol\":{\"keccak256\":\"0x9c80f545915582e63fe206c6ce27cbe85a86fc10b9cd2a0e8c9488fb7c2ee422\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://310136ad60820af4177a11a61d77a3686faf5fca4942b600e08fc940db38396b\",\"dweb:/ipfs/QmbCzMNSTL7Zi7M4UCSqBrkHtp4jjxUnGbkneCZKdR1qeq\"]},\"node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol\":{\"keccak256\":\"0x963ea7f0b48b032eef72fe3a7582edf78408d6f834115b9feadd673a4d5bd149\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://d6520943ea55fdf5f0bafb39ed909f64de17051bc954ff3e88c9e5621412c79c\",\"dweb:/ipfs/QmWZ4rAKTQbNG2HxGs46AcTXShsVytKeLs7CUCdCSv5N7a\"]},\"node_modules/@openzeppelin/contracts/proxy/utils/Initializable.sol\":{\"keccak256\":\"0x3d6069be9b4c01fb81840fb9c2c4dc58dd6a6a4aafaa2c6837de8699574d84c6\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://720d6bb56ea0c4ef781c0bd65c5bd0541f5a46100163b2587170f97658d2deed\",\"dweb:/ipfs/QmTS2biLVPrv8CeeXCaKmkFxonMiRvc1LxiYBRYDAJHQUS\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xa56ca923f70c1748830700250b19c61b70db9a683516dc5e216694a50445d99c\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://cac938788bc4be12101e59d45588b4e059579f4e61062e1cda8d6b06c0191b15\",\"dweb:/ipfs/QmV2JKCyjTVH3rkWNrfdJRhAT7tZ3usAN2XcnD4h53Mvih\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x287b55befed2961a7eabd7d7b1b2839cbca8a5b80ef8dcbb25ed3d4c2002c305\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://bd39944e8fc06be6dbe2dd1d8449b5336e23c6a7ba3e8e9ae5ae0f37f35283f5\",\"dweb:/ipfs/QmPV3FGYjVwvKSgAXKUN3r9T9GwniZz83CxBpM7vyj2G53\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol\":{\"keccak256\":\"0x8de418a5503946cabe331f35fe242d3201a73f67f77aaeb7110acb1f30423aca\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://5a376d3dda2cb70536c0a45c208b29b34ac560c4cb4f513a42079f96ba47d2dd\",\"dweb:/ipfs/QmZQg6gn1sUpM8wHzwNvSnihumUCAhxD119MpXeKp8B9s8\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol\":{\"keccak256\":\"0xec63854014a5b4f2b3290ab9103a21bdf902a508d0f41a8573fea49e98bf571a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://bc5b5dc12fbc4002f282eaa7a5f06d8310ed62c1c77c5770f6283e058454c39a\",\"dweb:/ipfs/Qme9rE2wS3yBuyJq9GgbmzbsBQsW2M2sVFqYYLw7bosGrv\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\":{\"keccak256\":\"0xabefac93435967b4d36a4fabcbdbb918d1f0b7ae3c3d85bc30923b326c927ed1\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://9d213d3befca47da33f6db0310826bcdb148299805c10d77175ecfe1d06a9a68\",\"dweb:/ipfs/QmRgCn6SP1hbBkExUADFuDo8xkT4UU47yjNF5FhCeRbQmS\"]},\"node_modules/@openzeppelin/contracts/utils/Address.sol\":{\"keccak256\":\"0x006dd67219697fe68d7fbfdea512e7c4cb64a43565ed86171d67e844982da6fa\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://2455248c8ddd9cc6a7af76a13973cddf222072427e7b0e2a7d1aff345145e931\",\"dweb:/ipfs/QmfYjnjRbWqYpuxurqveE6HtzsY1Xx323J428AKQgtBJZm\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0xe2e337e6dde9ef6b680e07338c493ebea1b5fd09b43424112868e9cc1706bca7\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://6df0ddf21ce9f58271bdfaa85cde98b200ef242a05a3f85c2bc10a8294800a92\",\"dweb:/ipfs/QmRK2Y5Yc6BK7tGKkgsgn3aJEQGi5aakeSPZvS65PV8Xp3\"]},\"node_modules/@openzeppelin/contracts/utils/Strings.sol\":{\"keccak256\":\"0x3088eb2868e8d13d89d16670b5f8612c4ab9ff8956272837d8e90106c59c14a0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b81d9ff6559ea5c47fc573e17ece6d9ba5d6839e213e6ebc3b4c5c8fe4199d7f\",\"dweb:/ipfs/QmPCW1bFisUzJkyjroY3yipwfism9RRCigCcK1hbXtVM8n\"]},\"node_modules/@openzeppelin/contracts/utils/introspection/ERC165Checker.sol\":{\"keccak256\":\"0x5a08ad61f4e82b8a3323562661a86fb10b10190848073fdc13d4ac43710ffba5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://6f7bb74cf88fd88daa34e118bc6e363381d05044f34f391d39a10c0c9dac3ebd\",\"dweb:/ipfs/QmNbQ3v8v4zuDtg7VeLAbdhAm3tCzUodNoDZZ8ekmCHWZX\"]},\"node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol\":{\"keccak256\":\"0x447a5f3ddc18419d41ff92b3773fb86471b1db25773e07f877f548918a185bf1\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://be161e54f24e5c6fae81a12db1a8ae87bc5ae1b0ddc805d82a1440a68455088f\",\"dweb:/ipfs/QmP7C3CHdY9urF4dEMb9wmsp1wMxHF6nhA2yQE5SKiPAdy\"]},\"node_modules/@openzeppelin/contracts/utils/math/Math.sol\":{\"keccak256\":\"0xe4455ac1eb7fc497bb7402579e7b4d64d928b846fce7d2b6fde06d366f21c2b3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://cc8841b3cd48ad125e2f46323c8bad3aa0e88e399ec62acb9e57efa7e7c8058c\",\"dweb:/ipfs/QmSqE4mXHA2BXW58deDbXE8MTcsL5JSKNDbm23sVQxRLPS\"]},\"node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol\":{\"keccak256\":\"0xf92515413956f529d95977adc9b0567d583c6203fc31ab1c23824c35187e3ddc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://c50fcc459e49a9858b6d8ad5f911295cb7c9ab57567845a250bf0153f84a95c7\",\"dweb:/ipfs/QmcEW85JRzvDkQggxiBBLVAasXWdkhEysqypj9EaB6H2g6\"]},\"node_modules/@rari-capital/solmate/src/utils/FixedPointMathLib.sol\":{\"keccak256\":\"0x622fcd8a49e132df5ec7651cc6ae3aaf0cf59bdcd67a9a804a1b9e2485113b7d\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://af77088eb606427d4c55e578984a615779c86bc30646a20f7bb27299ba390f7c\",\"dweb:/ipfs/QmZGQdhdQDtHc7gZXWrKXgA3govc74X8U63BiWhPQK3mK8\"]}},\"version\":1}",
+  "bytecode": "0x61012060405234801561001157600080fd5b50604051610b0c380380610b0c83398101604081905261003091610058565b600060808190526001600160a01b0390911660a052600160c05260e052600261010052610088565b60006020828403121561006a57600080fd5b81516001600160a01b038116811461008157600080fd5b9392505050565b60805160a05160c05160e05161010051610a176100f560003960006103620152600061033901526000610310015260008181608701528181610191015281816102a7015281816103c4015281816104840152610623015260008181610157015261052b0152610a176000f3fe6080604052600436106100695760003560e01c80636ed39f62116100435780636ed39f621461010c57806384411d6514610121578063d3e5792b1461014557600080fd5b80630d9019e1146100755780633ccfd60b146100d357806354fd4d50146100ea57600080fd5b3661007057005b600080fd5b34801561008157600080fd5b506100a97f000000000000000000000000000000000000000000000000000000000000000081565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020015b60405180910390f35b3480156100df57600080fd5b506100e8610179565b005b3480156100f657600080fd5b506100ff610309565b6040516100ca91906108c8565b34801561011857600080fd5b506100e86103ac565b34801561012d57600080fd5b5061013760005481565b6040519081526020016100ca565b34801561015157600080fd5b506101377f000000000000000000000000000000000000000000000000000000000000000081565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610243576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602560248201527f4665655661756c743a20746865206f6e6c7920726563697069656e742063616e60448201527f2063616c6c00000000000000000000000000000000000000000000000000000060648201526084015b60405180910390fd5b600061024d610527565b604080516020810182526000815290517fe11013dd0000000000000000000000000000000000000000000000000000000081529192507342000000000000000000000000000000000000099163e11013dd9184916102d4917f0000000000000000000000000000000000000000000000000000000000000000916188b891906004016108e2565b6000604051808303818588803b1580156102ed57600080fd5b505af1158015610301573d6000803e3d6000fd5b505050505050565b60606103347f0000000000000000000000000000000000000000000000000000000000000000610693565b61035d7f0000000000000000000000000000000000000000000000000000000000000000610693565b6103867f0000000000000000000000000000000000000000000000000000000000000000610693565b60405160200161039893929190610926565b604051602081830303815290604052905090565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610471576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602560248201527f4665655661756c743a20746865206f6e6c7920726563697069656e742063616e60448201527f2063616c6c000000000000000000000000000000000000000000000000000000606482015260840161023a565b600061047b610527565b905060006104ba7f00000000000000000000000000000000000000000000000000000000000000005a8460405180602001604052806000815250610751565b905080610523576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601d60248201527f4665655661756c743a20455448207472616e73666572206661696c6564000000604482015260640161023a565b5050565b60007f00000000000000000000000000000000000000000000000000000000000000004710156105ff576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152604a60248201527f4665655661756c743a207769746864726177616c20616d6f756e74206d75737460448201527f2062652067726561746572207468616e206d696e696d756d207769746864726160648201527f77616c20616d6f756e7400000000000000000000000000000000000000000000608482015260a40161023a565b600047905080600080828254610615919061099c565b9091555050604080518281527f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff166020820152338183015290517fc8a211cc64b6ed1b50595a9fcb1932b6d1e5a6e8ef15b60e5b1f988ea9086bba9181900360600190a1919050565b606060006106a08361076b565b600101905060008167ffffffffffffffff8111156106c0576106c06109db565b6040519080825280601f01601f1916602001820160405280156106ea576020820181803683370190505b5090508181016020015b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff017f3031323334353637383961626364656600000000000000000000000000000000600a86061a8153600a85049450846106f457509392505050565b600080600080845160208601878a8af19695505050505050565b6000807a184f03e93ff9f4daa797ed6e38ed64bf6a1f01000000000000000083106107b4577a184f03e93ff9f4daa797ed6e38ed64bf6a1f010000000000000000830492506040015b6d04ee2d6d415b85acef810000000083106107e0576d04ee2d6d415b85acef8100000000830492506020015b662386f26fc1000083106107fe57662386f26fc10000830492506010015b6305f5e1008310610816576305f5e100830492506008015b612710831061082a57612710830492506004015b6064831061083c576064830492506002015b600a8310610848576001015b92915050565b60005b83811015610869578181015183820152602001610851565b83811115610878576000848401525b50505050565b6000815180845261089681602086016020860161084e565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b6020815260006108db602083018461087e565b9392505050565b73ffffffffffffffffffffffffffffffffffffffff8416815263ffffffff8316602082015260606040820152600061091d606083018461087e565b95945050505050565b6000845161093881846020890161084e565b80830190507f2e000000000000000000000000000000000000000000000000000000000000008082528551610974816001850160208a0161084e565b6001920191820152835161098f81600284016020880161084e565b0160020195945050505050565b600082198211156109d6577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b500190565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fdfea164736f6c634300080f000a",
+  "deployedBytecode": "0x6080604052600436106100695760003560e01c80636ed39f62116100435780636ed39f621461010c57806384411d6514610121578063d3e5792b1461014557600080fd5b80630d9019e1146100755780633ccfd60b146100d357806354fd4d50146100ea57600080fd5b3661007057005b600080fd5b34801561008157600080fd5b506100a97f000000000000000000000000000000000000000000000000000000000000000081565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020015b60405180910390f35b3480156100df57600080fd5b506100e8610179565b005b3480156100f657600080fd5b506100ff610309565b6040516100ca91906108c8565b34801561011857600080fd5b506100e86103ac565b34801561012d57600080fd5b5061013760005481565b6040519081526020016100ca565b34801561015157600080fd5b506101377f000000000000000000000000000000000000000000000000000000000000000081565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610243576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602560248201527f4665655661756c743a20746865206f6e6c7920726563697069656e742063616e60448201527f2063616c6c00000000000000000000000000000000000000000000000000000060648201526084015b60405180910390fd5b600061024d610527565b604080516020810182526000815290517fe11013dd0000000000000000000000000000000000000000000000000000000081529192507342000000000000000000000000000000000000099163e11013dd9184916102d4917f0000000000000000000000000000000000000000000000000000000000000000916188b891906004016108e2565b6000604051808303818588803b1580156102ed57600080fd5b505af1158015610301573d6000803e3d6000fd5b505050505050565b60606103347f0000000000000000000000000000000000000000000000000000000000000000610693565b61035d7f0000000000000000000000000000000000000000000000000000000000000000610693565b6103867f0000000000000000000000000000000000000000000000000000000000000000610693565b60405160200161039893929190610926565b604051602081830303815290604052905090565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610471576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602560248201527f4665655661756c743a20746865206f6e6c7920726563697069656e742063616e60448201527f2063616c6c000000000000000000000000000000000000000000000000000000606482015260840161023a565b600061047b610527565b905060006104ba7f00000000000000000000000000000000000000000000000000000000000000005a8460405180602001604052806000815250610751565b905080610523576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601d60248201527f4665655661756c743a20455448207472616e73666572206661696c6564000000604482015260640161023a565b5050565b60007f00000000000000000000000000000000000000000000000000000000000000004710156105ff576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152604a60248201527f4665655661756c743a207769746864726177616c20616d6f756e74206d75737460448201527f2062652067726561746572207468616e206d696e696d756d207769746864726160648201527f77616c20616d6f756e7400000000000000000000000000000000000000000000608482015260a40161023a565b600047905080600080828254610615919061099c565b9091555050604080518281527f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff166020820152338183015290517fc8a211cc64b6ed1b50595a9fcb1932b6d1e5a6e8ef15b60e5b1f988ea9086bba9181900360600190a1919050565b606060006106a08361076b565b600101905060008167ffffffffffffffff8111156106c0576106c06109db565b6040519080825280601f01601f1916602001820160405280156106ea576020820181803683370190505b5090508181016020015b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff017f3031323334353637383961626364656600000000000000000000000000000000600a86061a8153600a85049450846106f457509392505050565b600080600080845160208601878a8af19695505050505050565b6000807a184f03e93ff9f4daa797ed6e38ed64bf6a1f01000000000000000083106107b4577a184f03e93ff9f4daa797ed6e38ed64bf6a1f010000000000000000830492506040015b6d04ee2d6d415b85acef810000000083106107e0576d04ee2d6d415b85acef8100000000830492506020015b662386f26fc1000083106107fe57662386f26fc10000830492506010015b6305f5e1008310610816576305f5e100830492506008015b612710831061082a57612710830492506004015b6064831061083c576064830492506002015b600a8310610848576001015b92915050565b60005b83811015610869578181015183820152602001610851565b83811115610878576000848401525b50505050565b6000815180845261089681602086016020860161084e565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b6020815260006108db602083018461087e565b9392505050565b73ffffffffffffffffffffffffffffffffffffffff8416815263ffffffff8316602082015260606040820152600061091d606083018461087e565b95945050505050565b6000845161093881846020890161084e565b80830190507f2e000000000000000000000000000000000000000000000000000000000000008082528551610974816001850160208a0161084e565b6001920191820152835161098f81600284016020880161084e565b0160020195945050505050565b600082198211156109d6577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b500190565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fdfea164736f6c634300080f000a",
+  "devdoc": {
+    "version": 1,
+    "kind": "dev",
+    "methods": {
+      "constructor": {
+        "params": {
+          "_recipient": "Address that will receive the accumulated fees."
+        }
+      },
+      "version()": {
+        "returns": {
+          "_0": "Semver contract version as a string."
+        }
+      }
+    },
+    "title": "L1FeeVault"
+  },
+  "userdoc": {
+    "version": 1,
+    "kind": "user",
+    "methods": {
+      "MIN_WITHDRAWAL_AMOUNT()": {
+        "notice": "Minimum balance before a withdrawal can be triggered."
+      },
+      "RECIPIENT()": {
+        "notice": "Wallet that will receive the fees on L1."
+      },
+      "totalProcessed()": {
+        "notice": "Total amount of wei processed by the contract."
+      },
+      "version()": {
+        "notice": "Returns the full semver contract version."
+      },
+      "withdraw()": {
+        "notice": "Triggers a withdrawal of funds to the recipient on L1."
+      },
+      "withdrawToL2()": {
+        "notice": "Triggers a withdrawal of funds to the recipient on L2."
+      }
+    },
+    "events": {
+      "Withdrawal(uint256,address,address)": {
+        "notice": "Emits each time that a withdrawal occurs."
+      }
+    },
+    "notice": "The L1FeeVault accumulates the L1 portion of the transaction fees."
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 57446,
+        "contract": "contracts/L2/L1FeeVault.sol:L1FeeVault",
+        "label": "totalProcessed",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_uint256"
+      }
+    ],
+    "types": {
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    }
+  }
+}
