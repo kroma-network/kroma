@@ -40,6 +40,11 @@ abstract contract FeeVault {
      */
     uint256 public totalProcessed;
 
+    modifier onlyRecipient() {
+        require(msg.sender == RECIPIENT, "FeeVault: the only recipient can call");
+        _;
+    }
+
     /**
      * @param _recipient           Wallet that will receive the fees on L1.
      * @param _minWithdrawalAmount Minimum balance before a withdrawal can be triggered.
@@ -74,7 +79,7 @@ abstract contract FeeVault {
     /**
      * @notice Triggers a withdrawal of funds to the recipient on L1.
      */
-    function withdraw() external virtual {
+    function withdraw() external virtual onlyRecipient {
         uint256 amount = _processWithdrawal();
 
         L2StandardBridge(payable(Predeploys.L2_STANDARD_BRIDGE)).bridgeETHTo{ value: amount }(
@@ -87,10 +92,10 @@ abstract contract FeeVault {
     /**
      * @notice Triggers a withdrawal of funds to the recipient on L2.
      */
-    function withdrawToL2() external virtual {
+    function withdrawToL2() external virtual onlyRecipient {
         uint256 amount = _processWithdrawal();
 
-        bool success = SafeCall.call(msg.sender, gasleft(), amount, bytes(""));
+        bool success = SafeCall.call(RECIPIENT, gasleft(), amount, bytes(""));
         require(success, "FeeVault: ETH transfer failed");
     }
 }
