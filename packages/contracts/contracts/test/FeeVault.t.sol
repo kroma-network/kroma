@@ -13,6 +13,7 @@ contract FeeVault_Test is Bridge_Initializer {
     L1FeeVault l1FeeVault = L1FeeVault(payable(Predeploys.L1_FEE_VAULT));
 
     address constant recipient = address(0x10000);
+    address constant caller = address(0x10001);
 
     event Withdrawal(uint256 value, address to, address from);
 
@@ -54,5 +55,17 @@ contract FeeVault_Test is Bridge_Initializer {
 
         assertEq(l1FeeVault.totalProcessed(), reward);
         assertEq(payable(recipient).balance, prevBalance + reward);
+    }
+
+    function test_withdraw_fromOtherEOA_reverts() external {
+        vm.expectRevert("FeeVault: the only recipient can call");
+        vm.prank(caller);
+        l1FeeVault.withdraw();
+    }
+
+    function test_withdrawToL2_fromOtherEOA_reverts() external {
+        vm.expectRevert("FeeVault: the only recipient can call");
+        vm.prank(caller);
+        l1FeeVault.withdrawToL2();
     }
 }
