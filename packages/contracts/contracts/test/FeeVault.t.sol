@@ -13,6 +13,9 @@ contract FeeVault_Test is Bridge_Initializer {
     L1FeeVault l1FeeVault = L1FeeVault(payable(Predeploys.L1_FEE_VAULT));
 
     address constant recipient = address(0x10000);
+    address constant caller = address(0x10001);
+
+    event Withdrawal(uint256 value, address to, address from);
 
     function setUp() public override {
         super.setUp();
@@ -29,7 +32,40 @@ contract FeeVault_Test is Bridge_Initializer {
     }
 
     function test_minWithdrawalAmount_succeeds() external {
-        assertEq(protocolVault.MIN_WITHDRAWAL_AMOUNT(), 10 ether);
-        assertEq(l1FeeVault.MIN_WITHDRAWAL_AMOUNT(), 10 ether);
+        assertEq(protocolVault.MIN_WITHDRAWAL_AMOUNT(), 0);
+        assertEq(l1FeeVault.MIN_WITHDRAWAL_AMOUNT(), 0);
+    }
+
+    function test_withdrawToL2_succeeds() external {
+        uint256 reward = 1 ether;
+        vm.deal(address(l1FeeVault), reward);
+        assertEq(payable(Predeploys.L1_FEE_VAULT).balance, reward);
+
+        uint256 prevBalance = payable(recipient).balance;
+
+        // No ether has been withdrawn yet
+        assertEq(l1FeeVault.totalProcessed(), 0);
+
+        vm.expectEmit(true, true, true, true, address(Predeploys.L1_FEE_VAULT));
+        emit Withdrawal(reward, recipient, recipient);
+
+        // Withdraw to L2
+        vm.prank(recipient);
+        l1FeeVault.withdrawToL2();
+
+        assertEq(l1FeeVault.totalProcessed(), reward);
+        assertEq(payable(recipient).balance, prevBalance + reward);
+    }
+
+    function test_withdraw_fromOtherEOA_reverts() external {
+        vm.expectRevert("FeeVault: the only recipient can call");
+        vm.prank(caller);
+        l1FeeVault.withdraw();
+    }
+
+    function test_withdrawToL2_fromOtherEOA_reverts() external {
+        vm.expectRevert("FeeVault: the only recipient can call");
+        vm.prank(caller);
+        l1FeeVault.withdrawToL2();
     }
 }

@@ -99,7 +99,7 @@ contract ValidatorRewardVault is FeeVault, Semver {
      * @notice Checks if the withdrawal is possible, and returns the withdrawal amount.
      *         When a withdrawal is available, it resets the balance and updates the total processed amount.
      */
-    function processWithdrawal() internal returns (uint256) {
+    function _processWithdrawal() internal override returns (uint256) {
         uint256 amount = rewards[msg.sender];
         require(
             amount >= MIN_WITHDRAWAL_AMOUNT,
@@ -121,7 +121,7 @@ contract ValidatorRewardVault is FeeVault, Semver {
      *         Reverts if the balance is less than the minimum withdrawal amount.
      */
     function withdraw() external override {
-        uint256 amount = processWithdrawal();
+        uint256 amount = _processWithdrawal();
 
         L2StandardBridge(payable(Predeploys.L2_STANDARD_BRIDGE)).bridgeETHTo{ value: amount }(
             msg.sender,
@@ -134,8 +134,8 @@ contract ValidatorRewardVault is FeeVault, Semver {
      * @notice Withdraws all of the sender's balance to L2.
      *         Reverts if the balance is less than the minimum withdrawal amount.
      */
-    function withdrawToL2() external {
-        uint256 amount = processWithdrawal();
+    function withdrawToL2() external override {
+        uint256 amount = _processWithdrawal();
 
         bool success = SafeCall.call(msg.sender, gasleft(), amount, bytes(""));
         require(success, "ValidatorRewardVault: ETH transfer failed");
