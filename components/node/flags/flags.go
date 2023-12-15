@@ -110,27 +110,27 @@ var (
 		Required: false,
 		Value:    0,
 	}
-	ProposerEnabledFlag = &cli.BoolFlag{
-		Name:    "proposer.enabled",
-		Usage:   "Enable proposing of new L2 blocks. A separate batch submitter has to be deployed to publish the data for syncers.",
-		EnvVars: prefixEnvVar("PROPOSER_ENABLED"),
+	SequencerEnabledFlag = &cli.BoolFlag{
+		Name:    "sequencer.enabled",
+		Usage:   "Enable sequencing of new L2 blocks. A separate batch submitter has to be deployed to publish the data for syncers.",
+		EnvVars: prefixEnvVar("SEQUENCER_ENABLED"),
 	}
-	ProposerStoppedFlag = &cli.BoolFlag{
-		Name:    "proposer.stopped",
-		Usage:   "Initialize the proposer in a stopped state. The proposer can be started using the admin_startProposer RPC",
-		EnvVars: prefixEnvVar("PROPOSER_STOPPED"),
+	SequencerStoppedFlag = &cli.BoolFlag{
+		Name:    "sequencer.stopped",
+		Usage:   "Initialize the sequencer in a stopped state. The sequencer can be started using the admin_startSequencer RPC",
+		EnvVars: prefixEnvVar("SEQUENCER_STOPPED"),
 	}
-	ProposerMaxSafeLagFlag = &cli.Uint64Flag{
-		Name:     "proposer.max-safe-lag",
+	SequencerMaxSafeLagFlag = &cli.Uint64Flag{
+		Name:     "sequencer.max-safe-lag",
 		Usage:    "Maximum number of L2 blocks for restricting the distance between L2 safe and unsafe. Disabled if 0.",
-		EnvVars:  prefixEnvVar("PROPOSER_MAX_SAFE_LAG"),
+		EnvVars:  prefixEnvVar("SEQUENCER_MAX_SAFE_LAG"),
 		Required: false,
 		Value:    0,
 	}
-	ProposerL1Confs = &cli.Uint64Flag{
-		Name:     "proposer.l1-confs",
-		Usage:    "Number of L1 blocks to keep distance from the L1 head as a proposer for picking an L1 origin.",
-		EnvVars:  prefixEnvVar("PROPOSER_L1_CONFS"),
+	SequencerL1Confs = &cli.Uint64Flag{
+		Name:     "sequencer.l1-confs",
+		Usage:    "Number of L1 blocks to keep distance from the L1 head as a sequencer for picking an L1 origin.",
+		EnvVars:  prefixEnvVar("SEQUENCER_L1_CONFS"),
 		Required: false,
 		Value:    4,
 	}
@@ -209,6 +209,19 @@ var (
 		EnvVars:  prefixEnvVar("L2_BACKUP_UNSAFE_SYNC_RPC_TRUST_RPC"),
 		Required: false,
 	}
+	L2EngineSyncEnabled = &cli.BoolFlag{
+		Name:     "l2.engine-sync",
+		Usage:    "Enables or disables execution engine P2P sync",
+		EnvVars:  prefixEnvVar("L2_ENGINE_SYNC_ENABLED"),
+		Required: false,
+	}
+	SkipSyncStartCheck = &cli.BoolFlag{
+		Name: "l2.skip-sync-start-check",
+		Usage: "Skip sanity check of consistency of L1 origins of the unsafe L2 blocks when determining the sync-starting point. " +
+			"This defers the L1-origin verification, and is recommended to use in when utilizing l2.engine-sync",
+		EnvVars:  prefixEnvVar("L2_SKIP_SYNC_START_CHECK"),
+		Required: false,
+	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -228,10 +241,10 @@ var optionalFlags = []cli.Flag{
 	L1HTTPPollInterval,
 	L2EngineJWTSecret,
 	SyncerL1Confs,
-	ProposerEnabledFlag,
-	ProposerStoppedFlag,
-	ProposerMaxSafeLagFlag,
-	ProposerL1Confs,
+	SequencerEnabledFlag,
+	SequencerStoppedFlag,
+	SequencerMaxSafeLagFlag,
+	SequencerL1Confs,
 	L1EpochPollIntervalFlag,
 	RPCEnableAdmin,
 	MetricsEnabledFlag,
@@ -246,6 +259,8 @@ var optionalFlags = []cli.Flag{
 	HeartbeatURLFlag,
 	BackupL2UnsafeSyncRPC,
 	BackupL2UnsafeSyncRPCTrustRPC,
+	L2EngineSyncEnabled,
+	SkipSyncStartCheck,
 }
 
 // Flags contains the list of configuration options available to the binary.

@@ -124,7 +124,7 @@ func (g *gasPricer) shouldMine(gasFeeCap *big.Int) bool {
 func (g *gasPricer) feesForEpoch(epoch int64) (*big.Int, *big.Int) {
 	epochBaseFee := new(big.Int).Mul(g.baseBaseFee, big.NewInt(epoch))
 	epochGasTipCap := new(big.Int).Mul(g.baseGasTipFee, big.NewInt(epoch))
-	epochGasFeeCap := calcGasFeeCap(epochBaseFee, epochGasTipCap)
+	epochGasFeeCap := CalcGasFeeCap(epochBaseFee, epochGasTipCap)
 
 	return epochGasTipCap, epochGasFeeCap
 }
@@ -820,7 +820,7 @@ func TestIncreaseGasPriceNotExponential(t *testing.T) {
 		gasTip:  big.NewInt(10),
 		baseFee: big.NewInt(45),
 	}
-	feeCap := calcGasFeeCap(borkedBackend.baseFee, borkedBackend.gasTip)
+	feeCap := CalcGasFeeCap(borkedBackend.baseFee, borkedBackend.gasTip)
 
 	mgr := &SimpleTxManager{
 		Config: Config{

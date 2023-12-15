@@ -9,6 +9,7 @@ import (
 	"github.com/kroma-network/kroma/components/node/p2p"
 	"github.com/kroma-network/kroma/components/node/rollup"
 	"github.com/kroma-network/kroma/components/node/rollup/driver"
+	"github.com/kroma-network/kroma/components/node/rollup/sync"
 	kpprof "github.com/kroma-network/kroma/utils/service/pprof"
 )
 
@@ -22,7 +23,7 @@ type Config struct {
 	Rollup rollup.Config
 
 	// P2PSigner will be used for signing off on published content
-	// if the node is proposing and if the p2p stack is enabled
+	// if the node is sequencing and if the p2p stack is enabled
 	P2PSigner p2p.SignerSetup
 
 	RPC RPCConfig
@@ -39,6 +40,8 @@ type Config struct {
 	// Optional
 	Tracer    Tracer
 	Heartbeat HeartbeatConfig
+
+	Sync sync.Config
 }
 
 type RPCConfig struct {

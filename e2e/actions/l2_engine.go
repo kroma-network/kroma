@@ -65,7 +65,7 @@ func NewL2Engine(t Testing, log log.Logger, genesis *core.Genesis, rollupGenesis
 		engineApi: engineApi,
 	}
 	// register the custom engine API, so we can serve engine requests while having more control
-	// over proposing of individual txs.
+	// over sequencing of individual txs.
 	n.RegisterAPIs([]rpc.API{
 		{
 			Namespace:     "engine",

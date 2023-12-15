@@ -10,7 +10,7 @@
 [g-l1]: glossary.md#layer-1-l1
 [g-l1-attr-deposit]: glossary.md#l1-attributes-deposited-transaction
 [g-l2]: glossary.md#layer-2-l2
-[g-proposer]: glossary.md#proposer
+[g-sequencer]: glossary.md#sequencer
 [g-user-deposited]: glossary.md#user-deposited-transaction
 [g-transaction-type]: glossary.md#transaction-type
 [g-validator-reward]: glossary.md#validator-reward
@@ -348,7 +348,7 @@ If the caller is a contract, the address will be transformed by adding
 Solidity `uint160` so the value will overflow. This prevents attacks in which a
 contract on L1 has the same address as a contract on L2 but doesn't have the same code. We can safely ignore this
 for EOAs because they're guaranteed to have the same "code" (i.e. no code at all). This also makes
-it possible for users to interact with contracts on L2 even when the [Proposer][g-proposer] is down.
+it possible for users to interact with contracts on L2 even when the [Sequencer][g-sequencer] is down.
 
 #### Deposit Contract Implementation: Kroma Portal
 

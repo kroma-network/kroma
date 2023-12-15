@@ -45,20 +45,20 @@ func (los *L1OriginSelector) FindL1Origin(ctx context.Context, l2Head eth.L2Bloc
 	log := los.log.New("current", currentOrigin, "current_time", currentOrigin.Time,
 		"l2_head", l2Head, "l2_head_time", l2Head.Time)
 
-	// If we are past the proposer depth, we may want to advance the origin, but need to still
+	// If we are past the sequencer depth, we may want to advance the origin, but need to still
 	// check the time of the next origin.
-	pastPropDrift := l2Head.Time+los.cfg.BlockTime > currentOrigin.Time+los.cfg.MaxProposerDrift
-	if pastPropDrift {
-		log.Warn("Next L2 block time is past the proposer drift + current origin time")
+	pastSeqDrift := l2Head.Time+los.cfg.BlockTime > currentOrigin.Time+los.cfg.MaxSequencerDrift
+	if pastSeqDrift {
+		log.Warn("Next L2 block time is past the sequencer drift + current origin time")
 	}
 
 	// Attempt to find the next L1 origin block, where the next origin is the immediate child of
 	// the current origin block.
-	// The L1 source can be shimmed to hide new L1 blocks and enforce a proposer confirmation distance.
+	// The L1 source can be shimmed to hide new L1 blocks and enforce a sequencer confirmation distance.
 	nextOrigin, err := los.l1.L1BlockRefByNumber(ctx, currentOrigin.Number+1)
 	if err != nil {
-		if pastPropDrift {
-			return eth.L1BlockRef{}, fmt.Errorf("cannot build next L2 block past current L1 origin %s by more than proposer time drift, and failed to find next L1 origin: %w", currentOrigin, err)
+		if pastSeqDrift {
+			return eth.L1BlockRef{}, fmt.Errorf("cannot build next L2 block past current L1 origin %s by more than sequencer time drift, and failed to find next L1 origin: %w", currentOrigin, err)
 		}
 		if errors.Is(err, ethereum.NotFound) {
 			log.Debug("No next L1 block found, repeating current origin")
@@ -69,9 +69,9 @@ func (los *L1OriginSelector) FindL1Origin(ctx context.Context, l2Head eth.L2Bloc
 	}
 
 	// If the next L2 block time is greater than the next origin block's time, we can choose to
-	// start building on top of the next origin. Proposer implementation has some leeway here and
-	// could decide to continue to build on top of the previous origin until the Proposer runs out
-	// of slack. For simplicity, we implement our Proposer to always start building on the latest
+	// start building on top of the next origin. Sequencer implementation has some leeway here and
+	// could decide to continue to build on top of the previous origin until the Sequencer runs out
+	// of slack. For simplicity, we implement our Sequencer to always start building on the latest
 	// L1 block when we can.
 	if l2Head.Time+los.cfg.BlockTime >= nextOrigin.Time {
 		return nextOrigin, nil

@@ -13,10 +13,10 @@ import (
 )
 
 // The batch queue is responsible for ordering unordered batches & generating empty batches
-// when the proposer window has passed. This is a very stateful stage.
+// when the sequencer window has passed. This is a very stateful stage.
 //
 // It receives batches that are tagged with the L1 Inclusion block of the batch. It only considers
-// batches that are inside the proposer window of a specific L1 Origin.
+// batches that are inside the sequencer window of a specific L1 Origin.
 // It tries to eagerly pull batches based on the current L2 safe head.
 // Otherwise it filters/creates an entire epoch's worth of batches at once.
 //
@@ -98,7 +98,7 @@ func (bq *BatchQueue) NextBatch(ctx context.Context, safeL2Head eth.L2BlockRef) 
 		if outOfData {
 			return nil, io.EOF
 		} else {
-			return nil, NotEnoughData
+			return nil, ErrNotEnoughData
 		}
 	}
 
@@ -107,7 +107,7 @@ func (bq *BatchQueue) NextBatch(ctx context.Context, safeL2Head eth.L2BlockRef) 
 	if err == io.EOF && outOfData {
 		return nil, io.EOF
 	} else if err == io.EOF {
-		return nil, NotEnoughData
+		return nil, ErrNotEnoughData
 	} else if err != nil {
 		return nil, err
 	}
@@ -218,8 +218,8 @@ batchLoop:
 	}
 
 	// If the current epoch is too old compared to the L1 block we are at,
-	// i.e. if the proposer window expired, we create empty batches for the current epoch
-	expiryEpoch := epoch.Number + bq.config.ProposerWindowSize
+	// i.e. if the sequence window expired, we create empty batches for the current epoch
+	expiryEpoch := epoch.Number + bq.config.SeqWindowSize
 	forceEmptyBatches := (expiryEpoch == bq.origin.Number && outOfData) || expiryEpoch < bq.origin.Number
 	firstOfEpoch := epoch.Number == l2SafeHead.L1Origin.Number+1
 
@@ -228,7 +228,7 @@ batchLoop:
 		"epoch_time", epoch.Time, "len_l1_blocks", len(bq.l1Blocks), "firstOfEpoch", firstOfEpoch)
 
 	if !forceEmptyBatches {
-		// proposer window did not expire yet, still room to receive batches for the current epoch,
+		// sequencer window did not expire yet, still room to receive batches for the current epoch,
 		// no need to force-create empty batch(es) towards the next epoch yet.
 		return nil, io.EOF
 	}

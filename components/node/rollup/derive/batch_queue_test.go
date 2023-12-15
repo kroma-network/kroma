@@ -91,9 +91,9 @@ func TestBatchQueueNewOrigin(t *testing.T) {
 		Genesis: rollup.Genesis{
 			L2Time: 10,
 		},
-		BlockTime:          2,
-		MaxProposerDrift:   600,
-		ProposerWindowSize: 2,
+		BlockTime:         2,
+		MaxSequencerDrift: 600,
+		SeqWindowSize:     2,
 	}
 
 	input := &fakeBatchQueueInput{
@@ -150,9 +150,9 @@ func TestBatchQueueEager(t *testing.T) {
 		Genesis: rollup.Genesis{
 			L2Time: 10,
 		},
-		BlockTime:          2,
-		MaxProposerDrift:   600,
-		ProposerWindowSize: 30,
+		BlockTime:         2,
+		MaxSequencerDrift: 600,
+		SeqWindowSize:     30,
 	}
 
 	batches := []*BatchData{b(12, l1[0]), b(14, l1[0]), b(16, l1[0]), b(18, l1[0]), b(20, l1[0]), b(22, l1[0]), b(24, l1[1]), nil}
@@ -200,9 +200,9 @@ func TestBatchQueueInvalidInternalAdvance(t *testing.T) {
 		Genesis: rollup.Genesis{
 			L2Time: 10,
 		},
-		BlockTime:          2,
-		MaxProposerDrift:   600,
-		ProposerWindowSize: 2,
+		BlockTime:         2,
+		MaxSequencerDrift: 600,
+		SeqWindowSize:     2,
 	}
 
 	batches := []*BatchData{b(12, l1[0]), b(14, l1[0]), b(16, l1[0]), b(18, l1[0]), b(20, l1[0]), b(22, l1[0]), nil}
@@ -290,14 +290,14 @@ func TestBatchQueueMissing(t *testing.T) {
 		Genesis: rollup.Genesis{
 			L2Time: 10,
 		},
-		BlockTime:          2,
-		MaxProposerDrift:   600,
-		ProposerWindowSize: 2,
+		BlockTime:         2,
+		MaxSequencerDrift: 600,
+		SeqWindowSize:     2,
 	}
 
 	// The batches at 18 and 20 are skipped to stop 22 from being eagerly processed.
 	// This test checks that batch timestamp 12 & 14 are created, 16 is used, and 18 is advancing the epoch.
-	// Due to the large proposer time drift 16 is perfectly valid to have epoch 0 as origin.
+	// Due to the large sequencer time drift 16 is perfectly valid to have epoch 0 as origin.
 	batches := []*BatchData{b(16, l1[0]), b(22, l1[1])}
 	errors := []error{nil, nil}
 
@@ -312,7 +312,7 @@ func TestBatchQueueMissing(t *testing.T) {
 
 	for i := 0; i < len(batches); i++ {
 		b, e := bq.NextBatch(context.Background(), safeHead)
-		require.ErrorIs(t, e, NotEnoughData)
+		require.ErrorIs(t, e, ErrNotEnoughData)
 		require.Nil(t, b)
 	}
 

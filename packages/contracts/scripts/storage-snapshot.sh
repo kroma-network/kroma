@@ -24,7 +24,7 @@ contracts=(
   contracts/L2/L2ToL1MessagePasser.sol:L2ToL1MessagePasser
   contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault
   contracts/L2/ProtocolVault.sol:ProtocolVault
-  contracts/L2/ProposerRewardVault.sol:ProposerRewardVault
+  contracts/L2/L1FeeVault.sol:L1FeeVault
   contracts/vendor/WETH9.sol:WETH9
   contracts/universal/ProxyAdmin.sol:ProxyAdmin
   contracts/universal/Proxy.sol:Proxy

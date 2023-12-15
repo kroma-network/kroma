@@ -39,9 +39,9 @@ library Predeploys {
     address internal constant PROTOCOL_VAULT = 0x4200000000000000000000000000000000000006;
 
     /**
-     * @notice Address of the ProposerRewardVault predeploy.
+     * @notice Address of the L1FeeVault predeploy.
      */
-    address internal constant PROPOSER_REWARD_VAULT = 0x4200000000000000000000000000000000000007;
+    address internal constant L1_FEE_VAULT = 0x4200000000000000000000000000000000000007;
 
     /**
      * @notice Address of the ValidatorRewardVault predeploy.

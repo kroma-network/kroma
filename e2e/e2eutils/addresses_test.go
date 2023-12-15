@@ -8,9 +8,9 @@ import (
 
 func TestCollectAddresses(t *testing.T) {
 	tp := &TestParams{
-		MaxProposerDrift:   40,
-		ProposerWindowSize: 120,
-		ChannelTimeout:     120,
+		MaxSequencerDrift:   40,
+		SequencerWindowSize: 120,
+		ChannelTimeout:      120,
 	}
 	dp := MakeDeployParams(t, tp)
 	alloc := &AllocParams{PrefundTestUsers: true}

@@ -22,7 +22,7 @@ var DefaultMnemonicConfig = &MnemonicConfig{
 	Challenger1:      "m/44'/60'/0'/0/4",
 	Challenger2:      "m/44'/60'/0'/0/5",
 	Batcher:          "m/44'/60'/0'/0/6",
-	ProposerP2P:      "m/44'/60'/0'/0/7",
+	SequencerP2P:     "m/44'/60'/0'/0/7",
 	Alice:            "m/44'/60'/0'/0/8",
 	Bob:              "m/44'/60'/0'/0/9",
 	Mallory:          "m/44'/60'/0'/0/10",
@@ -43,7 +43,7 @@ type MnemonicConfig struct {
 	Challenger1      string
 	Challenger2      string
 	Batcher          string
-	ProposerP2P      string
+	SequencerP2P     string
 
 	// prefunded L1/L2 accounts for testing
 	Alice   string
@@ -90,7 +90,7 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	if err != nil {
 		return nil, err
 	}
-	proposerP2P, err := wallet.PrivateKey(account(m.ProposerP2P))
+	sequencerP2P, err := wallet.PrivateKey(account(m.SequencerP2P))
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 		Challenger1:      challenger1,
 		Challenger2:      challenger2,
 		Batcher:          batcher,
-		ProposerP2P:      proposerP2P,
+		SequencerP2P:     sequencerP2P,
 		Alice:            alice,
 		Bob:              bob,
 		Mallory:          mallory,
@@ -134,7 +134,7 @@ type Secrets struct {
 	Challenger1      *ecdsa.PrivateKey
 	Challenger2      *ecdsa.PrivateKey
 	Batcher          *ecdsa.PrivateKey
-	ProposerP2P      *ecdsa.PrivateKey
+	SequencerP2P     *ecdsa.PrivateKey
 
 	// prefunded L1/L2 accounts for testing
 	Alice   *ecdsa.PrivateKey
@@ -164,7 +164,7 @@ func (s *Secrets) Addresses() *Addresses {
 		Challenger1:      crypto.PubkeyToAddress(s.Challenger1.PublicKey),
 		Challenger2:      crypto.PubkeyToAddress(s.Challenger2.PublicKey),
 		Batcher:          crypto.PubkeyToAddress(s.Batcher.PublicKey),
-		ProposerP2P:      crypto.PubkeyToAddress(s.ProposerP2P.PublicKey),
+		SequencerP2P:     crypto.PubkeyToAddress(s.SequencerP2P.PublicKey),
 		Alice:            crypto.PubkeyToAddress(s.Alice.PublicKey),
 		Bob:              crypto.PubkeyToAddress(s.Bob.PublicKey),
 		Mallory:          crypto.PubkeyToAddress(s.Mallory.PublicKey),
@@ -182,7 +182,7 @@ type Addresses struct {
 	Challenger1      common.Address
 	Challenger2      common.Address
 	Batcher          common.Address
-	ProposerP2P      common.Address
+	SequencerP2P     common.Address
 
 	// prefunded L1/L2 accounts for testing
 	Alice   common.Address
@@ -199,7 +199,7 @@ func (a *Addresses) All() []common.Address {
 		a.Challenger1,
 		a.Challenger2,
 		a.Batcher,
-		a.ProposerP2P,
+		a.SequencerP2P,
 		a.Alice,
 		a.Bob,
 		a.Mallory,

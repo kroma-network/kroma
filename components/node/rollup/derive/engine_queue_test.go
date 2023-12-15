@@ -17,6 +17,7 @@ import (
 	"github.com/kroma-network/kroma/components/node/eth"
 	"github.com/kroma-network/kroma/components/node/metrics"
 	"github.com/kroma-network/kroma/components/node/rollup"
+	"github.com/kroma-network/kroma/components/node/rollup/sync"
 	"github.com/kroma-network/kroma/components/node/testlog"
 	"github.com/kroma-network/kroma/components/node/testutils"
 )
@@ -92,8 +93,8 @@ func TestEngineQueue_Finalize(t *testing.T) {
 			L2:     refA0.ID(),
 			L2Time: refA0.Time,
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -221,7 +222,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 	eng.ExpectL2BlockRefByHash(refE1.ParentHash, refE0, nil)
 	eng.ExpectL2BlockRefByHash(refE0.ParentHash, refD1, nil)
 
-	// now full proposer window, inclusive
+	// now full seq window, inclusive
 	l1F.ExpectL1BlockRefByHash(refD.Hash, refD, nil)
 	eng.ExpectL2BlockRefByHash(refD1.ParentHash, refD0, nil)
 	eng.ExpectL2BlockRefByHash(refD0.ParentHash, refC1, nil)
@@ -246,10 +247,10 @@ func TestEngineQueue_Finalize(t *testing.T) {
 
 	prev := &fakeAttributesQueue{}
 
-	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F)
+	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
 	require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
-	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to proposer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
+	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to sequence window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
 	require.Equal(t, refB, eq.Origin(), "Expecting to be set back derivation L1 progress to B")
 	require.Equal(t, refA1, eq.Finalized(), "A1 is recognized as finalized before we run any steps")
 
@@ -327,8 +328,8 @@ func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 			L2:     refA0.ID(),
 			L2Time: refA0.Time,
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -456,7 +457,7 @@ func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 	eng.ExpectL2BlockRefByHash(refE1.ParentHash, refE0, nil)
 	eng.ExpectL2BlockRefByHash(refE0.ParentHash, refD1, nil)
 
-	// now full proposer window, inclusive
+	// now full seq window, inclusive
 	l1F.ExpectL1BlockRefByHash(refD.Hash, refD, nil)
 	eng.ExpectL2BlockRefByHash(refD1.ParentHash, refD0, nil)
 	eng.ExpectL2BlockRefByHash(refD0.ParentHash, refC1, nil)
@@ -481,10 +482,10 @@ func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 
 	prev := &fakeAttributesQueue{origin: refE}
 
-	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F)
+	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
 	require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
-	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to proposer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
+	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to sequencer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
 	require.Equal(t, refB, eq.Origin(), "Expecting to be set back derivation L1 progress to B")
 	require.Equal(t, refA1, eq.Finalized(), "A1 is recognized as finalized before we run any steps")
 
@@ -580,8 +581,8 @@ func TestVerifyNewL1Origin(t *testing.T) {
 			L2:     refA0.ID(),
 			L2Time: refA0.Time,
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -788,7 +789,7 @@ func TestVerifyNewL1Origin(t *testing.T) {
 			eng.ExpectL2BlockRefByHash(refE1.ParentHash, refE0, nil)
 			eng.ExpectL2BlockRefByHash(refE0.ParentHash, refD1, nil)
 
-			// now full proposer window, inclusive
+			// now full seq window, inclusive
 			l1F.ExpectL1BlockRefByHash(refD.Hash, refD, nil)
 			eng.ExpectL2BlockRefByHash(refD1.ParentHash, refD0, nil)
 			eng.ExpectL2BlockRefByHash(refD0.ParentHash, refC1, nil)
@@ -812,10 +813,10 @@ func TestVerifyNewL1Origin(t *testing.T) {
 			}, nil)
 
 			prev := &fakeAttributesQueue{origin: refE}
-			eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F)
+			eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
 			require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
-			require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to proposer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
+			require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to sequencer window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
 			require.Equal(t, refB, eq.Origin(), "Expecting to be set back derivation L1 progress to B")
 			require.Equal(t, refA1, eq.Finalized(), "A1 is recognized as finalized before we run any steps")
 
@@ -874,8 +875,8 @@ func TestBlockBuildingRace(t *testing.T) {
 				GasLimit:    20_000_000,
 			},
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -910,7 +911,7 @@ func TestBlockBuildingRace(t *testing.T) {
 	}
 
 	prev := &fakeAttributesQueue{origin: refA, attrs: attrs}
-	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F)
+	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
 	require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
 	id := eth.PayloadID{0xff}
@@ -940,7 +941,7 @@ func TestBlockBuildingRace(t *testing.T) {
 	eng.ExpectGetPayload(id, nil, mockErr)
 	// The job will be not be cancelled, the untyped error is a temporary error
 
-	require.ErrorIs(t, eq.Step(context.Background()), NotEnoughData, "queue up attributes")
+	require.ErrorIs(t, eq.Step(context.Background()), ErrNotEnoughData, "queue up attributes")
 	require.ErrorIs(t, eq.Step(context.Background()), mockErr, "expecting to fail to process attributes")
 	require.NotNil(t, eq.safeAttributes, "still have attributes")
 
@@ -1044,8 +1045,8 @@ func TestResetLoop(t *testing.T) {
 				GasLimit:    20_000_000,
 			},
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 	refA1 := eth.L2BlockRef{
 		Hash:           testutils.RandomHash(rng),
@@ -1085,14 +1086,15 @@ func TestResetLoop(t *testing.T) {
 
 	prev := &fakeAttributesQueue{origin: refA, attrs: attrs}
 
-	eq := NewEngineQueue(logger, cfg, eng, metrics.NoopMetrics, prev, l1F)
+	eq := NewEngineQueue(logger, cfg, eng, metrics.NoopMetrics, prev, l1F, &sync.Config{})
 	eq.unsafeHead = refA2
+	eq.engineSyncTarget = refA2
 	eq.safeHead = refA1
 	eq.finalized = refA0
 
 	// Queue up the safe attributes
 	require.Nil(t, eq.safeAttributes)
-	require.ErrorIs(t, eq.Step(context.Background()), NotEnoughData)
+	require.ErrorIs(t, eq.Step(context.Background()), ErrNotEnoughData)
 	require.NotNil(t, eq.safeAttributes)
 
 	// Perform the reset
@@ -1108,7 +1110,7 @@ func TestResetLoop(t *testing.T) {
 	require.NoError(t, eq.Step(context.Background()), "clean forkchoice state after reset")
 
 	// Crux of the test. Should be in a valid state after the reset.
-	require.ErrorIs(t, eq.Step(context.Background()), NotEnoughData, "Should be able to step after a reset")
+	require.ErrorIs(t, eq.Step(context.Background()), ErrNotEnoughData, "Should be able to step after a reset")
 
 	l1F.AssertExpectations(t)
 	eng.AssertExpectations(t)
@@ -1143,8 +1145,8 @@ func TestEngineQueue_StepPopOlderUnsafe(t *testing.T) {
 				GasLimit:    20_000_000,
 			},
 		},
-		BlockTime:          1,
-		ProposerWindowSize: 2,
+		BlockTime:     1,
+		SeqWindowSize: 2,
 	}
 
 	refA1 := eth.L2BlockRef{
@@ -1182,8 +1184,9 @@ func TestEngineQueue_StepPopOlderUnsafe(t *testing.T) {
 
 	prev := &fakeAttributesQueue{origin: refA}
 
-	eq := NewEngineQueue(logger, cfg, eng, metrics.NoopMetrics, prev, l1F)
+	eq := NewEngineQueue(logger, cfg, eng, metrics.NoopMetrics, prev, l1F, &sync.Config{})
 	eq.unsafeHead = refA2
+	eq.engineSyncTarget = refA2
 	eq.safeHead = refA0
 	eq.finalized = refA0
 

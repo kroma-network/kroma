@@ -187,6 +187,7 @@ func randomSyncStatus(rng *rand.Rand) *eth.SyncStatus {
 		SafeL2:             testutils.RandomL2BlockRef(rng),
 		FinalizedL2:        testutils.RandomL2BlockRef(rng),
 		UnsafeL2SyncTarget: testutils.RandomL2BlockRef(rng),
+		EngineSyncTarget:   testutils.RandomL2BlockRef(rng),
 	}
 }
 
@@ -240,10 +241,10 @@ func (c *mockDriverClient) ResetDerivationPipeline(ctx context.Context) error {
 	return c.Mock.MethodCalled("ResetDerivationPipeline").Get(0).(error)
 }
 
-func (c *mockDriverClient) StartProposer(ctx context.Context, blockHash common.Hash) error {
-	return c.Mock.MethodCalled("StartProposer").Get(0).(error)
+func (c *mockDriverClient) StartSequencer(ctx context.Context, blockHash common.Hash) error {
+	return c.Mock.MethodCalled("StartSequencer").Get(0).(error)
 }
 
-func (c *mockDriverClient) StopProposer(ctx context.Context) (common.Hash, error) {
-	return c.Mock.MethodCalled("StopProposer").Get(0).(common.Hash), nil
+func (c *mockDriverClient) StopSequencer(ctx context.Context) (common.Hash, error) {
+	return c.Mock.MethodCalled("StopSequencer").Get(0).(common.Hash), nil
 }

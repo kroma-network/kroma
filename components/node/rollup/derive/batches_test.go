@@ -32,9 +32,9 @@ func TestValidBatch(t *testing.T) {
 		Genesis: rollup.Genesis{
 			L2Time: 31, // a genesis time that itself does not align to make it more interesting
 		},
-		BlockTime:          2,
-		ProposerWindowSize: 4,
-		MaxProposerDrift:   6,
+		BlockTime:         2,
+		SeqWindowSize:     4,
+		MaxSequencerDrift: 6,
 		// other config fields are ignored and can be left empty.
 	}
 
@@ -146,7 +146,7 @@ func TestValidBatch(t *testing.T) {
 		Hash:           testutils.RandomHash(rng),
 		Number:         l2X0.Number + 1,
 		ParentHash:     l2X0.Hash,
-		Time:           l2X0.Time + conf.BlockTime, // exceeds proposer time drift, forced to be empty block
+		Time:           l2X0.Time + conf.BlockTime, // exceeds sequencer time drift, forced to be empty block
 		L1Origin:       l1Y.ID(),
 		SequenceNumber: 0,
 	}
@@ -249,7 +249,7 @@ func TestValidBatch(t *testing.T) {
 			Expected: BatchDrop,
 		},
 		{
-			Name:       "proposer window expired",
+			Name:       "sequencer window expired",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C, l1D, l1E, l1F},
 			L2SafeHead: l2A0,
 			Batch: BatchWithL1InclusionBlock{
@@ -329,7 +329,7 @@ func TestValidBatch(t *testing.T) {
 			Expected: BatchDrop,
 		},
 		{
-			Name:       "proposer time drift on same epoch with non-empty txs",
+			Name:       "sequencer time drift on same epoch with non-empty txs",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B},
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
@@ -339,13 +339,13 @@ func TestValidBatch(t *testing.T) {
 					EpochNum:     rollup.Epoch(l2A4.L1Origin.Number),
 					EpochHash:    l2A4.L1Origin.Hash,
 					Timestamp:    l2A4.Time,
-					Transactions: []hexutil.Bytes{[]byte("proposer should not include this tx")},
+					Transactions: []hexutil.Bytes{[]byte("sequencer should not include this tx")},
 				}},
 			},
 			Expected: BatchDrop,
 		},
 		{
-			Name:       "proposer time drift on changing epoch with non-empty txs",
+			Name:       "sequencer time drift on changing epoch with non-empty txs",
 			L1Blocks:   []eth.L1BlockRef{l1X, l1Y, l1Z},
 			L2SafeHead: l2X0,
 			Batch: BatchWithL1InclusionBlock{
@@ -355,13 +355,13 @@ func TestValidBatch(t *testing.T) {
 					EpochNum:     rollup.Epoch(l2Y0.L1Origin.Number),
 					EpochHash:    l2Y0.L1Origin.Hash,
 					Timestamp:    l2Y0.Time, // valid, but more than 6 ahead of l1Y.Time
-					Transactions: []hexutil.Bytes{[]byte("proposer should not include this tx")},
+					Transactions: []hexutil.Bytes{[]byte("sequencer should not include this tx")},
 				}},
 			},
 			Expected: BatchDrop,
 		},
 		{
-			Name:       "proposer time drift on same epoch with empty txs and late next epoch",
+			Name:       "sequencer time drift on same epoch with empty txs and late next epoch",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1BLate},
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
@@ -377,7 +377,7 @@ func TestValidBatch(t *testing.T) {
 			Expected: BatchAccept, // accepted because empty & preserving L2 time invariant
 		},
 		{
-			Name:       "proposer time drift on changing epoch with empty txs",
+			Name:       "sequencer time drift on changing epoch with empty txs",
 			L1Blocks:   []eth.L1BlockRef{l1X, l1Y, l1Z},
 			L2SafeHead: l2X0,
 			Batch: BatchWithL1InclusionBlock{
@@ -393,7 +393,7 @@ func TestValidBatch(t *testing.T) {
 			Expected: BatchAccept, // accepted because empty & still advancing epoch
 		},
 		{
-			Name:       "proposer time drift on same epoch with empty txs and no next epoch in sight yet",
+			Name:       "sequencer time drift on same epoch with empty txs and no next epoch in sight yet",
 			L1Blocks:   []eth.L1BlockRef{l1A},
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{
@@ -409,7 +409,7 @@ func TestValidBatch(t *testing.T) {
 			Expected: BatchUndecided, // we have to wait till the next epoch is in sight to check the time
 		},
 		{
-			Name:       "proposer time drift on same epoch with empty txs and but in-sight epoch that invalidates it",
+			Name:       "sequencer time drift on same epoch with empty txs and but in-sight epoch that invalidates it",
 			L1Blocks:   []eth.L1BlockRef{l1A, l1B, l1C},
 			L2SafeHead: l2A3,
 			Batch: BatchWithL1InclusionBlock{

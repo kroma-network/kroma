@@ -1,0 +1,48 @@
+# Config file for Semantic PRs
+# See https://github.com/Ezard/semantic-prs
+
+# Validate the PR title and all commit messages
+titleAndCommits: true
+
+# If commitsOnly or titleAndCommits is set to true, then only a single commit needs to pass validation instead of every commit
+# If neither of those options are set to true then this option is ignored
+anyCommit: true
+
+# The values allowed for the "type" part of the PR title/commit message. e.g. for a PR title/commit message of "feat: add some stuff", the type would be "feat"
+types:
+  - build
+  - chore
+  - ci
+  - docs
+  - feat
+  - fix
+  - perf
+  - refac
+  - test
+
+# The values allowed for the "scope" part of the PR title/commit message. e.g. for a PR title/commit message of "feat(awesome-feature): add some stuff", the type would be "awesome-feature"
+scopes:
+  - batcher
+  - chain-ops
+  - common-ts
+  - contracts
+  - core-utils
+  - e2e
+  - hardhat-deploy-config
+  - monitoring
+  - node
+  - service
+  - sdk
+  - signer
+  - validator
+
+# Allow merge commits (e.g. 'Merge branch "master" into fix/delete-all-tests')
+# If neither of commitsOnly or titleAndCommits is set to true then this option is ignored
+allowMergeCommits: true
+
+# Allow revert commits (e.g. 'Revert "fix: delete all tests"')
+# If neither of commitsOnly or titleAndCommits is set to true then this option is ignored
+allowRevertCommits: true
+
+# Allows a custom URL for the "Details" link (which appears next to the success/failure message from the app) to be specified
+targetUrl: https://github.com/kroma-network/kroma/blob/dev/.gitmessage

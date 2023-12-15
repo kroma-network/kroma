@@ -12,7 +12,6 @@
 **Table of Contents**
 
 - [Nodes](#nodes)
-  - [Sequencer -> Proposer](#sequencer---proposer)
   - [Verifier -> Validator](#verifier---validator)
   - [Compositions](#compositions)
 - [Geth](#geth)
@@ -42,14 +41,6 @@ our decentralization scheme, please refer to
 [this article](https://medium.com/@kroma-network/the-road-to-kromas-decentralization-38f8e46df442)
 on the Kroma blog.
 
-### Sequencer -> Proposer
-
-We use *sequencing* for the inclusion, exclusion and ordering of transactions. Currently, the `sequencer`
-not only performs these functions but also proposes built blocks to Layer 1. In Ethereum PoS, the `proposer` is
-responsible for precisely what the `sequencer` does - building and proposing a block. With this in mind, we have decided
-to rename the actor from `sequencer` to `proposer` and intend to separate the block building capability from the
-proposer in the future. We are comitted to sharing the results of our research with the public.
-
 ### Verifier -> Validator
 
 We utilize the term `validator` to denote a participant who is responsible for submitting the
@@ -68,7 +59,7 @@ The followings are components that are used to run different types of nodes:
 
 | Node        | Components                                                           |
 |-------------|----------------------------------------------------------------------|
-| `Proposer`  | `L2 EL client` + `L2 CL client` + `kroma-batcher`                    |
+| `Sequencer` | `L2 EL client` + `L2 CL client` + `kroma-batcher`                    |
 | `Validator` | `L2 EL client` + `L2 CL client` + `kroma-validator` + `kroma-prover` |
 | `Full node` | `L2 EL client` + `L2 CL client`                                      |
 

@@ -23,7 +23,7 @@ type SyncStatus struct {
 	FinalizedL1 L1BlockRef `json:"finalized_l1"`
 	// UnsafeL2 is the absolute tip of the L2 chain,
 	// pointing to block data that has not been submitted to L1 yet.
-	// The proposer is building this, and verifiers may also be ahead of the
+	// The sequencer is building this, and verifiers may also be ahead of the
 	// SafeL2 block if they sync blocks via p2p or other offchain sources.
 	UnsafeL2 L2BlockRef `json:"unsafe_l2"`
 	// SafeL2 points to the L2 block that was derived from the L1 chain.
@@ -35,4 +35,7 @@ type SyncStatus struct {
 	// UnsafeL2SyncTarget points to the first unprocessed unsafe L2 block.
 	// It may be zeroed if there is no targeted block.
 	UnsafeL2SyncTarget L2BlockRef `json:"queued_unsafe_l2"`
+	// EngineSyncTarget points to the L2 block that the execution engine is syncing to.
+	// If it is ahead from UnsafeL2, the engine is in progress of P2P sync.
+	EngineSyncTarget L2BlockRef `json:"engine_sync_target"`
 }

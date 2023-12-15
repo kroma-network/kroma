@@ -53,16 +53,16 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
-	// Obtain our proposer, syncer, and transactor keypair.
+	// Obtain our sequencer, syncer, and transactor keypair.
 	l1Client := sys.Clients["l1"]
-	l2Prop := sys.Clients["proposer"]
+	l2Seq := sys.Clients["sequencer"]
 	// l2Sync := sys.Clients["syncer"]
 	ethPrivKey := cfg.Secrets.ProxyAdminOwner
 
 	// Bind to the SystemConfig & GasPriceOracle contracts
 	sysconfig, err := bindings.NewSystemConfig(predeploys.DevSystemConfigAddr, l1Client)
 	require.Nil(t, err)
-	gpoContract, err := bindings.NewGasPriceOracleCaller(predeploys.GasPriceOracleAddr, l2Prop)
+	gpoContract, err := bindings.NewGasPriceOracleCaller(predeploys.GasPriceOracleAddr, l2Seq)
 	require.Nil(t, err)
 
 	// Obtain our signer.
@@ -82,7 +82,7 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	require.Nil(t, err, "waiting for sysconfig set gas config update tx")
 	require.Equal(t, receipt.Status, types.ReceiptStatusSuccessful, "transaction failed")
 
-	_, err = waitForL1OriginOnL2(receipt.BlockNumber.Uint64(), l2Prop, txTimeoutDuration)
+	_, err = waitForL1OriginOnL2(receipt.BlockNumber.Uint64(), l2Seq, txTimeoutDuration)
 	require.NoError(t, err, "waiting for L2 block to include the sysconfig update")
 
 	gpoOverhead, err := gpoContract.Overhead(&bind.CallOpts{})
@@ -109,7 +109,7 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	require.Nil(t, err, "waiting for sysconfig set gas config update tx")
 	require.Equal(t, receipt.Status, types.ReceiptStatusSuccessful, "transaction failed")
 
-	_, err = waitForL1OriginOnL2(receipt.BlockNumber.Uint64(), l2Prop, txTimeoutDuration)
+	_, err = waitForL1OriginOnL2(receipt.BlockNumber.Uint64(), l2Seq, txTimeoutDuration)
 	require.NoError(t, err, "waiting for L2 block to include the sysconfig update")
 
 	gpoOverhead, err = gpoContract.Overhead(&bind.CallOpts{})
@@ -125,9 +125,9 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	}
 }
 
-// TestL2ProposerRPCDepositTx checks that the L2 proposer will not accept DepositTx type transactions.
+// TestL2SequencerRPCDepositTx checks that the L2 sequencer will not accept DepositTx type transactions.
 // The acceptance of these transactions would allow for arbitrary minting of ETH in L2.
-func TestL2ProposerRPCDepositTx(t *testing.T) {
+func TestL2SequencerRPCDepositTx(t *testing.T) {
 	parallel(t)
 	// Setup our logger handler
 	if !verboseGethNodes {
@@ -140,8 +140,8 @@ func TestL2ProposerRPCDepositTx(t *testing.T) {
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
-	// Obtain our proposer, syncer, and transactor keypair.
-	l2Prop := sys.Clients["proposer"]
+	// Obtain our sequencer, syncer, and transactor keypair.
+	l2Seq := sys.Clients["sequencer"]
 	l2Sync := sys.Clients["syncer"]
 	txSigningKey := sys.cfg.Secrets.Alice
 	require.Nil(t, err)
@@ -158,9 +158,9 @@ func TestL2ProposerRPCDepositTx(t *testing.T) {
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	err = l2Prop.SendTransaction(ctx, tx)
+	err = l2Seq.SendTransaction(ctx, tx)
 	cancel()
-	require.Error(t, err, "a DepositTx was accepted by L2 proposer over RPC when it should not have been.")
+	require.Error(t, err, "a DepositTx was accepted by L2 sequencer over RPC when it should not have been.")
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	err = l2Sync.SendTransaction(ctx, tx)
@@ -253,9 +253,9 @@ func TestMixedDepositValidity(t *testing.T) {
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
-	// Obtain our proposer, syncer, and transactor keypair.
+	// Obtain our sequencer, syncer, and transactor keypair.
 	l1Client := sys.Clients["l1"]
-	l2Prop := sys.Clients["proposer"]
+	l2Seq := sys.Clients["sequencer"]
 	l2Sync := sys.Clients["syncer"]
 	require.NoError(t, err)
 
@@ -381,15 +381,15 @@ func TestMixedDepositValidity(t *testing.T) {
 		cancel()
 		require.NoError(t, err)
 
-		// Obtain the L2 proposer account balance
+		// Obtain the L2 sequencer account balance
 		ctx, cancel = context.WithTimeout(context.Background(), txTimeoutDuration)
-		endL2PropBalance, err := l2Prop.BalanceAt(ctx, transactor.Account.L2Opts.From, nil)
+		endL2SeqBalance, err := l2Seq.BalanceAt(ctx, transactor.Account.L2Opts.From, nil)
 		cancel()
 		require.NoError(t, err)
 
-		// Obtain the L2 proposer account nonce
+		// Obtain the L2 sequencer account nonce
 		ctx, cancel = context.WithTimeout(context.Background(), txTimeoutDuration)
-		endL2PropNonce, err := l2Prop.NonceAt(ctx, transactor.Account.L2Opts.From, nil)
+		endL2SeqNonce, err := l2Seq.NonceAt(ctx, transactor.Account.L2Opts.From, nil)
 		cancel()
 		require.NoError(t, err)
 
@@ -406,8 +406,8 @@ func TestMixedDepositValidity(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, transactor.ExpectedL1Nonce, endL1Nonce, "Unexpected L1 nonce for transactor")
-		require.Equal(t, transactor.ExpectedL2Nonce, endL2PropNonce, "Unexpected L2 proposer nonce for transactor")
-		require.Equal(t, transactor.ExpectedL2Balance, endL2PropBalance, "Unexpected L2 proposer balance for transactor")
+		require.Equal(t, transactor.ExpectedL2Nonce, endL2SeqNonce, "Unexpected L2 sequencer nonce for transactor")
+		require.Equal(t, transactor.ExpectedL2Balance, endL2SeqBalance, "Unexpected L2 sequencer balance for transactor")
 		require.Equal(t, transactor.ExpectedL2Nonce, endL2SyncNonce, "Unexpected L2 syncer nonce for transactor")
 		require.Equal(t, transactor.ExpectedL2Balance, endL2SyncBalance, "Unexpected L2 syncer balance for transactor")
 	}
@@ -435,9 +435,9 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			require.NoError(t, err, "error starting up system")
 			defer sys.Close()
 
-			// Obtain our proposer, syncer, and transactor keypair.
+			// Obtain our sequencer, syncer, and transactor keypair.
 			l1Client := sys.Clients["l1"]
-			l2Prop := sys.Clients["proposer"]
+			l2Seq := sys.Clients["sequencer"]
 			l2Sync := sys.Clients["syncer"]
 			require.NoError(t, err)
 
@@ -490,7 +490,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			require.NoError(t, err)
 
 			// Bind to the L2-L1 message passer
-			l2l1MessagePasser, err := bindings.NewL2ToL1MessagePasser(predeploys.L2ToL1MessagePasserAddr, l2Prop)
+			l2l1MessagePasser, err := bindings.NewL2ToL1MessagePasser(predeploys.L2ToL1MessagePasserAddr, l2Seq)
 			require.NoError(t, err, "error binding to message passer on L2")
 
 			// Create our fuzzer wrapper to generate complex values (despite this not being a fuzz test, this is still a useful
@@ -511,7 +511,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 
 			// Wait for the transaction to appear in L2 syncer
 			receipt, err := waitForL2Transaction(tx.Hash(), l2Sync, txTimeoutDuration)
-			require.Nil(t, err, "withdrawal initiated on L2 proposer")
+			require.Nil(t, err, "withdrawal initiated on L2 sequencer")
 			require.Equal(t, receipt.Status, types.ReceiptStatusSuccessful, "transaction failed")
 
 			// Obtain the header for the block containing the transaction (used to calculate gas fees)
@@ -681,7 +681,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 
 			// At the end, assert our account balance/nonce states.
 
-			// Obtain the L2 proposer account balance
+			// Obtain the L2 sequencer account balance
 			ctx, cancel = context.WithTimeout(context.Background(), txTimeoutDuration)
 			endL1Balance, err := l1Client.BalanceAt(ctx, transactor.Account.L1Opts.From, nil)
 			cancel()
@@ -693,15 +693,15 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			cancel()
 			require.NoError(t, err)
 
-			// Obtain the L2 proposer account balance
+			// Obtain the L2 sequencer account balance
 			ctx, cancel = context.WithTimeout(context.Background(), txTimeoutDuration)
-			endL2PropBalance, err := l2Prop.BalanceAt(ctx, transactor.Account.L1Opts.From, nil)
+			endL2SeqBalance, err := l2Seq.BalanceAt(ctx, transactor.Account.L1Opts.From, nil)
 			cancel()
 			require.NoError(t, err)
 
-			// Obtain the L2 proposer account nonce
+			// Obtain the L2 sequencer account nonce
 			ctx, cancel = context.WithTimeout(context.Background(), txTimeoutDuration)
-			endL2PropNonce, err := l2Prop.NonceAt(ctx, transactor.Account.L1Opts.From, nil)
+			endL2SeqNonce, err := l2Seq.NonceAt(ctx, transactor.Account.L1Opts.From, nil)
 			cancel()
 			require.NoError(t, err)
 
@@ -722,8 +722,8 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			_ = endL1Balance
 			// require.Equal(t, transactor.ExpectedL1Balance, endL1Balance, "Unexpected L1 balance for transactor")
 			require.Equal(t, transactor.ExpectedL1Nonce, endL1Nonce, "Unexpected L1 nonce for transactor")
-			require.Equal(t, transactor.ExpectedL2Nonce, endL2PropNonce, "Unexpected L2 proposer nonce for transactor")
-			require.Equal(t, transactor.ExpectedL2Balance, endL2PropBalance, "Unexpected L2 proposer balance for transactor")
+			require.Equal(t, transactor.ExpectedL2Nonce, endL2SeqNonce, "Unexpected L2 sequencer nonce for transactor")
+			require.Equal(t, transactor.ExpectedL2Balance, endL2SeqBalance, "Unexpected L2 sequencer balance for transactor")
 			require.Equal(t, transactor.ExpectedL2Nonce, endL2SyncNonce, "Unexpected L2 syncer nonce for transactor")
 			require.Equal(t, transactor.ExpectedL2Balance, endL2SyncBalance, "Unexpected L2 syncer balance for transactor")
 		})

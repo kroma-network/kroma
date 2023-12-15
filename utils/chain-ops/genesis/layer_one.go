@@ -137,7 +137,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig) (*core.Genesis, error) {
 		uint642Big(config.GasPriceOracleScalar),
 		config.BatchSenderAddress.Hash(),
 		gasLimit,
-		config.P2PProposerAddress,
+		config.P2PSequencerAddress,
 		defaultResourceConfig,
 		uint642Big(config.ValidatorRewardScalar),
 	)
@@ -458,7 +458,7 @@ func deployL1Contracts(config *DeployConfig, backend *backends.SimulatedBackend)
 				uint642Big(config.GasPriceOracleScalar),
 				config.BatchSenderAddress.Hash(), // left-padded 32 bytes value, version is zero anyway
 				gasLimit,
-				config.P2PProposerAddress,
+				config.P2PSequencerAddress,
 				defaultResourceConfig,
 				uint642Big(config.ValidatorRewardScalar),
 			},

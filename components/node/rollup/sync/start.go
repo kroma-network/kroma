@@ -53,7 +53,7 @@ var (
 	ErrReorgTooDeep   = errors.New("reorg is too deep")
 )
 
-const MaxReorgProposerWindows = 5
+const MaxReorgSeqWindows = 5
 
 type FindHeadsResult struct {
 	Unsafe    eth.L2BlockRef
@@ -97,7 +97,7 @@ func currentHeads(ctx context.Context, cfg *rollup.Config, l2 L2Chain) (*FindHea
 //
 //   - The *unsafe L2 block*: This is the highest L2 block whose L1 origin is a *plausible*
 //     extension of the canonical L1 chain (as known to the kroma-node).
-//   - The *safe L2 block*: This is the highest L2 block whose epoch's proposing window is
+//   - The *safe L2 block*: This is the highest L2 block whose epoch's sequencing window is
 //     complete within the canonical L1 chain (as known to the kroma-node).
 //   - The *finalized L2 block*: This is the L2 block which is known to be fully derived from
 //     finalized L1 block data.
@@ -105,7 +105,7 @@ func currentHeads(ctx context.Context, cfg *rollup.Config, l2 L2Chain) (*FindHea
 // Plausible: meaning that the blockhash of the L2 block's L1 origin
 // (as reported in the L1 Attributes deposit within the L2 block) is not canonical at another height in the L1 chain,
 // and the same holds for all its ancestors.
-func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain, lgr log.Logger) (result *FindHeadsResult, err error) {
+func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain, lgr log.Logger, syncCfg *Config) (result *FindHeadsResult, err error) {
 	// Fetch current L2 forkchoice state
 	result, err = currentHeads(ctx, cfg, l2)
 	if err != nil {
@@ -128,7 +128,7 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 	ready := false // when we found the block after the safe head, and we just need to return the parent block.
 
 	// Each loop iteration we traverse further from the unsafe head towards the finalized head.
-	// Once we pass the previous safe head and we have seen enough canonical L1 origins to fill a proposer window worth of data,
+	// Once we pass the previous safe head and we have seen enough canonical L1 origins to fill a sequencer window worth of data,
 	// then we return the last L2 block of the epoch before that as safe head.
 	// Each loop iteration we traverse a single L2 block, and we check if the L1 origins are consistent.
 	for {
@@ -173,25 +173,25 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 		if (n.Number == result.Finalized.Number) && (n.Hash != result.Finalized.Hash) {
 			return nil, fmt.Errorf("%w: finalized %s, got: %s", ErrReorgFinalized, result.Finalized, n)
 		}
-		// Check we are not reorging L2 incredibly deep
-		if n.L1Origin.Number+(MaxReorgProposerWindows*cfg.ProposerWindowSize) < prevUnsafe.L1Origin.Number {
-			// If the reorg depth is too large, something is fishy.
-			// This can legitimately happen if L1 goes down for a while. But in that case,
-			// restarting the L2 node with a bigger configured MaxReorgDepth is an acceptable
-			// stopgap solution.
-			return nil, fmt.Errorf("%w: traversed back to L2 block %s, but too deep compared to previous unsafe block %s", ErrReorgTooDeep, n, prevUnsafe)
-		}
 
 		// If we don't have a usable unsafe head, then set it
 		if result.Unsafe == (eth.L2BlockRef{}) {
 			result.Unsafe = n
+			// Check we are not reorging L2 incredibly deep
+			if n.L1Origin.Number+(MaxReorgSeqWindows*cfg.SeqWindowSize) < prevUnsafe.L1Origin.Number {
+				// If the reorg depth is too large, something is fishy.
+				// This can legitimately happen if L1 goes down for a while. But in that case,
+				// restarting the L2 node with a bigger configured MaxReorgDepth is an acceptable
+				// stopgap solution.
+				return nil, fmt.Errorf("%w: traversed back to L2 block %s, but too deep compared to previous unsafe block %s", ErrReorgTooDeep, n, prevUnsafe)
+			}
 		}
 
 		if ahead {
 			// keep the unsafe head if we can't tell if its L1 origin is canonical or not yet.
 		} else if l1Block.Hash == n.L1Origin.Hash {
 			// if L2 matches canonical chain, even if unsafe,
-			// then we can start finding a span of L1 blocks to cover the proposer window,
+			// then we can start finding a span of L1 blocks to cover the sequencer window,
 			// which may help avoid rewinding the existing safe head unnecessarily.
 			if highestL2WithCanonicalL1Origin == (eth.L2BlockRef{}) {
 				highestL2WithCanonicalL1Origin = n
@@ -202,8 +202,8 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 			highestL2WithCanonicalL1Origin = eth.L2BlockRef{}
 		}
 
-		// If the L2 block is at least as old as the previous safe head, and we have seen at least a full proposer window worth of L1 blocks to confirm
-		if n.Number <= result.Safe.Number && n.L1Origin.Number+cfg.ProposerWindowSize < highestL2WithCanonicalL1Origin.L1Origin.Number && n.SequenceNumber == 0 {
+		// If the L2 block is at least as old as the previous safe head, and we have seen at least a full sequencer window worth of L1 blocks to confirm
+		if n.Number <= result.Safe.Number && n.L1Origin.Number+cfg.SeqWindowSize < highestL2WithCanonicalL1Origin.L1Origin.Number && n.SequenceNumber == 0 {
 			ready = true
 		}
 
@@ -215,6 +215,11 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 			return result, nil
 		}
 
+		if syncCfg.SkipSyncStartCheck && highestL2WithCanonicalL1Origin.Hash == n.Hash {
+			lgr.Info("Found highest L2 block with canonical L1 origin. Skip further sanity check and jump to the safe head")
+			n = result.Safe
+			continue
+		}
 		// Pull L2 parent for next iteration
 		parent, err := l2.L2BlockRefByHash(ctx, n.ParentHash)
 		if err != nil {
@@ -243,7 +248,7 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 
 		n = parent
 
-		// once we found the block at seq nr 0 that is more than a full proposer window behind the common chain post-reorg, then use the parent block as safe head.
+		// once we found the block at seq nr 0 that is more than a full sequencer window behind the common chain post-reorg, then use the parent block as safe head.
 		if ready {
 			result.Safe = n
 			return result, nil

@@ -38,7 +38,7 @@ var (
 	SubSafetyMarginFlag = &cli.Uint64Flag{
 		Name: "sub-safety-margin",
 		Usage: "The batcher tx submission safety margin (in #L1-blocks) to subtract " +
-			"from a channel's timeout and proposing window, to guarantee safe inclusion " +
+			"from a channel's timeout and sequencing window, to guarantee safe inclusion " +
 			"of a channel on L1.",
 		Required: true,
 		EnvVars:  kservice.PrefixEnvVar(envVarPrefix, "SUB_SAFETY_MARGIN"),
