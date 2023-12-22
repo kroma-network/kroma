@@ -2,8 +2,8 @@
 
 <!-- All glossary references in this file. -->
 
-[g-l1]: glosarry.md#l1
-[g-l2]: glosarry.md#l2
+[g-l1]: glossary.md#l1
+[g-l2]: glossary.md#l2
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 [g-zktrie]: glossary.md#zk-trie
 [g-l2-output]: glossary.md#l2-output-root

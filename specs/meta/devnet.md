@@ -58,7 +58,7 @@ The batch submitter uses the account below to submit batches to L1:
 We added a debugging configuration called 'Attach to devnet process' to .vscode/launch.json. Therefore, on Linux, you
 can use VS Code to attach to the devnet process and perform debugging as shown in the figure below.
 
-![vscode_debug](../asset/../assets/vscode_debug.png)
+![vscode_debug](../assets/vscode_debug.png)
 
 You might need to disable linux ptrace protection.
 
