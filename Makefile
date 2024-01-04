@@ -6,10 +6,10 @@ LD_FLAGS_ARGS +=-X main.Meta=$(GIT_COMMIT)
 LD_FLAGS := -ldflags "$(LD_FLAGS_ARGS)"
 
 build:
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-node ./components/node/cmd/main.go
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-stateviz ./components/node/cmd/stateviz/main.go
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-batcher ./components/batcher/cmd/main.go
-	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-validator ./components/validator/cmd/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/op-node ./op-node/cmd/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/op-stateviz ./op-node/cmd/stateviz/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/op-batcher ./op-batcher/cmd/main.go
+	GO111MODULE=on go build -v $(LD_FLAGS) -o bin/kroma-validator ./kroma-validator/cmd/main.go
 .PHONY: build
 
 clean:
@@ -17,10 +17,13 @@ clean:
 .PHONY: clean
 
 test:
-	go test ./bindings/...
-	go test ./components/...
-	go test ./utils/...
-	go test ./e2e/... -timeout 30m # requires a minimum of 30min in a CI
+	go test ./op-bindings/...
+	go test ./op-batcher/...
+	go test ./op-node/...
+	go test ./op-service/...
+	go test ./op-chain-ops/...
+	go test ./kroma-validator/...
+	go test ./op-e2e/... -timeout 30m # requires a minimum of 30min in a CI
 	yarn test
 .PHONY: test
 
@@ -30,8 +33,8 @@ lint:
 .PHONY: lint
 
 bindings:
-	make -C ./bindings
-.PHONY: bindings
+	make -C ./op-bindings
+.PHONY: op-bindings
 
 contracts-snapshot:
 	@(cd ./packages/contracts && yarn gas-snapshot && yarn storage-snapshot)

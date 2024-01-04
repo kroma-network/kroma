@@ -54,7 +54,7 @@ In the ZK fault-proof challenge process, the following undeniable bug might aris
 In the former case, the Security Council validates the legitimacy of the deleted output and, if the aforementioned
 error is identified, dismisses the challenge and initiates a rollback of the deleted output.
 In the latter scenario, all challengers will fail in proving the fault. In such cases, the Security Council verifies
-the output and, if deemed invalid, delete the output forcibly. All interventions by the Security Council are executed
+the output and, if deemed invalid, deletes the output forcibly. All interventions by the Security Council are executed
 through multi-sig transactions.
 
 ## State Diagram
@@ -74,7 +74,7 @@ through multi-sig transactions.
 5. When the asserter timed out or bisection is completed, the state of challenge will be `READY_TO_PROVE` automatically.
    At this state, the challenger is now able to pick the first invalid output and submit ZK fault proof.
    Likewise, the challenge is canceled if the output is already been deleted.
-6. If the submitted proof is turned out to be invalid, the state stays at `READY_TO_PROVE` until `PROVING_TIMEOUT` is
+6. If the submitted proof is turned out to be invalid, the state stays at `READY_TO_PROVE` until `PROVING_TIMEOUT` has
    occurred.
 7. Otherwise, `READY_TO_PROVE` state goes to `PROVEN`, and the L2 output is deleted.
 8. The deleted output would be validated by the **[Security Council][g-security-council]** to mitigate ZK soundness
@@ -109,7 +109,7 @@ abusing. As a result, after one interaction between parties, [ZK fault proof][g-
 verified on [L1][g-l1]. In reality, 1800 blocks are segmented using `SEGMENTS_LENGTHS`.
 
 Here we give a simple example with a small number to show you how it works. Let's say there are 11 blocks and the 3rd
-block is the block a challenger want to argue against and this number is decomposed into 5 and 2. Also, let's assume
+block is the block a challenger wants to argue against and this number is decomposed into 5 and 2. Also, let's assume
 that both of them agree the state transitions to the 2nd block.
 
 | Turn       | Action          | Segment Start | Segment Length | Segments        | Condition          |

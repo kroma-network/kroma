@@ -6,7 +6,7 @@
 [g-execution-engine]: glossary.md#execution-engine
 [g-l1]: glossary.md#layer-1-l1
 [g-l2]: glossary.md#layer-2-l2
-[g-relayer]: glossary.md#withdrawals
+[g-relayer]: glossary.md#relayer
 [g-withdrawal]: glossary.md#withdrawal
 
 [Withdrawals][g-withdrawal] are cross domain transactions which are initiated on [L2][g-l2], and finalized by
@@ -140,7 +140,7 @@ withdrawals:
 interface KromaPortal {
     event WithdrawalFinalized(bytes32 indexed withdrawalHash, bool success);
 
-    function l2Sender() returns(address) external;
+    function l2Sender() external returns (address);
 
     function proveWithdrawalTransaction(
         Types.WithdrawalTransaction memory _tx,

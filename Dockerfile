@@ -1,19 +1,22 @@
-FROM golang:1.19.7-alpine3.17 as builder
+FROM --platform=$BUILDPLATFORM golang:1.21.1-alpine3.18 as builder
 RUN apk add --no-cache gcc git make musl-dev
 
 COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
 COPY ./Makefile /app/Makefile
 
-COPY ./bindings /app/bindings
-COPY ./components /app/components
-COPY ./utils /app/utils
+COPY ./op-node /app/op-node
+COPY ./op-chain-ops /app/op-chain-ops
+COPY ./op-service /app/op-service
+COPY ./op-batcher /app/op-batcher
+COPY ./op-bindings /app/op-bindings
+COPY ./kroma-validator /app/kroma-validator
 
 COPY ./.git /app/.git
 WORKDIR /app
 RUN make build
 
-FROM alpine:3.17 as runner
+FROM alpine:3.18 as runner
 
 RUN addgroup user && \
     adduser -G user -s /bin/sh -h /home/user -D user
@@ -21,7 +24,7 @@ RUN addgroup user && \
 USER user
 WORKDIR /home/user/
 
-FROM alpine:3.17 as runner-with-kroma-log
+FROM alpine:3.18 as runner-with-kroma-log
 
 RUN addgroup user && \
     adduser -G user -s /bin/sh -h /home/user -D user
@@ -33,22 +36,22 @@ USER user
 WORKDIR /home/user/
 
 # Node
-FROM runner-with-kroma-log as kroma-node
-COPY --from=builder /app/bin/kroma-node /usr/local/bin
+FROM runner-with-kroma-log as op-node
+COPY --from=builder /app/bin/op-node /usr/local/bin
 
-ENTRYPOINT ["kroma-node"]
+ENTRYPOINT ["op-node"]
 
 # Stateviz
-FROM runner-with-kroma-log as kroma-stateviz
-COPY --from=builder /app/bin/kroma-stateviz /usr/local/bin
+FROM runner-with-kroma-log as op-stateviz
+COPY --from=builder /app/bin/op-stateviz /usr/local/bin
 
-CMD ["kroma-stateviz"]
+CMD ["op-stateviz"]
 
 # Batcher
-FROM runner as kroma-batcher
-COPY --from=builder /app/bin/kroma-batcher /usr/local/bin
+FROM runner as op-batcher
+COPY --from=builder /app/bin/op-batcher /usr/local/bin
 
-ENTRYPOINT ["kroma-batcher"]
+ENTRYPOINT ["op-batcher"]
 
 # Validator
 FROM runner as kroma-validator

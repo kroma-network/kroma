@@ -30,7 +30,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:dev-fa80ead
+    image: kromanetwork/geth:v0.3.0
     ports:
       - "9545:8545"
       - "9546:8546"
@@ -54,7 +54,7 @@ services:
     image: "kromanetwork/node"
     build:
       context: ..
-      target: "kroma-node"
+      target: "op-node"
     environment:
       NODE_L1_ETH_RPC: ws://l1:8546
       NODE_L2_ENGINE_RPC: http://l2:8551
@@ -66,7 +66,7 @@ services:
       NODE_SNAPSHOT_LOG: /kroma_log/snapshot.log
       NODE_SEQUENCER_ENABLED: true
       NODE_SEQUENCER_L1_CONFS: 0
-      NODE_SYNCER_L1_CONFS: 0
+      NODE_VERIFIER_L1_CONFS: 0
       NODE_P2P_LISTEN_IP: 0.0.0.0
       NODE_P2P_LISTEN_TCP_PORT: 9003
       NODE_P2P_LISTEN_UDP_PORT: 9003
@@ -103,6 +103,7 @@ services:
     ports:
       - "6062:6060"
       - "7302:7300"
+      - "10545:8545"
     environment:
       VALIDATOR_L1_ETH_RPC: ws://l1:8546
       VALIDATOR_L2_ETH_RPC: http://l2:8545
@@ -168,7 +169,7 @@ services:
     image: "kromanetwork/batcher"
     build:
       context: ..
-      target: "kroma-batcher"
+      target: "op-batcher"
     ports:
       - "6061:6060"
       - "7301:7300"
@@ -196,10 +197,10 @@ services:
     pid: host # allow debugging
     build:
       context: ..
-      target: "kroma-stateviz"
+      target: "op-stateviz"
     image: "kromanetwork/stateviz"
     command:
-      - kroma-stateviz
+      - op-stateviz
       - -addr=0.0.0.0:8080
       - -snapshot=/kroma_log/snapshot.log
       - -refresh=10s
