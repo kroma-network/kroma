@@ -171,7 +171,6 @@ func (v *L2Validator) CalculateWaitTime(t Testing) time.Duration {
 func (v *L2Validator) ActSubmitL2Output(t Testing) {
 	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
 	require.NoError(t, err)
-	v.log.Info("output 제출된 block number", "num", nextBlockNumber)
 
 	output, err := v.l2os.FetchOutput(t.Ctx(), nextBlockNumber)
 	require.NoError(t, err)

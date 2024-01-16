@@ -190,7 +190,7 @@ func L1InfoDeposit(seqNumber uint64, block eth.BlockInfo, sysCfg eth.SystemConfi
 	// With the regolith fork we disable the IsSystemTx functionality, and allocate real gas
 	if regolith {
 		// [Kroma: START]
-		// IsSystemTransaction: false,
+		// out.IsSystemTransaction = false
 		// [Kroma: END]
 		out.Gas = RegolithSystemTxGas
 	}

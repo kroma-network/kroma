@@ -5,11 +5,13 @@ COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
 COPY ./Makefile /app/Makefile
 
-COPY ./op-node /app/op-node
-COPY ./op-chain-ops /app/op-chain-ops
-COPY ./op-service /app/op-service
 COPY ./op-batcher /app/op-batcher
 COPY ./op-bindings /app/op-bindings
+COPY ./op-chain-ops /app/op-chain-ops
+COPY ./op-node /app/op-node
+COPY ./op-service /app/op-service
+COPY ./kroma-bindings /app/kroma-bindings
+COPY ./kroma-chain-ops /app/kroma-chain-ops
 COPY ./kroma-validator /app/kroma-validator
 
 COPY ./.git /app/.git

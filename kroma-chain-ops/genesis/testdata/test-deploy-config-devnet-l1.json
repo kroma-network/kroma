@@ -11,7 +11,7 @@
   "batchInboxAddress": "0xff00000000000000000000000000000000000000",
   "batchSenderAddress": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
 
-  "l2OutputOracleSubmissionInterval": 16,
+  "l2OutputOracleSubmissionInterval": 4,
   "l2OutputOracleStartingTimestamp": -1,
 
   "l1BlockTime": 15,
@@ -36,7 +36,7 @@
   "validatorPoolTrustedValidator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   "validatorPoolRequiredBondAmount": "0x1",
   "validatorPoolMaxUnbond": 10,
-  "validatorPoolRoundDuration": 20,
+  "validatorPoolRoundDuration": 4,
   "securityCouncilOwners": [
     "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
@@ -47,7 +47,7 @@
   "colosseumProvingTimeout": 480,
   "colosseumDummyHash": "0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7",
   "colosseumMaxTxs": 100,
-  "colosseumSegmentsLengths": "3,3,3,3",
+  "colosseumSegmentsLengths": "2,2,3,3",
   "zkVerifierHashScalar": "0x1545b1bf82c58ee35648bd877da9c5010193e82b036b16bf382acf31bc2ab576",
   "zkVerifierM56Px": "0x15ae1a8e3b993dd9aadc8f9086d1ea239d4cd5c09cfa445f337e1b60d7b3eb87",
   "zkVerifierM56Py": "0x2c702ede24f9db8c8c9a439975facd3872a888c5f84f58b3b5f5a5623bac945a"

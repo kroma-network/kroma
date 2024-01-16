@@ -109,7 +109,9 @@ func init() {
 	// Speed up the in memory tests
 	DeployConfig.L1BlockTime = 2
 	DeployConfig.L2BlockTime = 1
-	DeployConfig.ValidatorPoolRoundDuration = DeployConfig.L2OutputOracleSubmissionInterval / 2
+	// [Kroma: START]
+	DeployConfig.ValidatorPoolRoundDuration = DeployConfig.L2OutputOracleSubmissionInterval * DeployConfig.L2BlockTime / 2
+	// [Kroma: END]
 
 	if L1Deployments != nil {
 		DeployConfig.SetDeployments(L1Deployments)

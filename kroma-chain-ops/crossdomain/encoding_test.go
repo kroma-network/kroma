@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	opxdm "github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/kroma-network/kroma/kroma-chain-ops/crossdomain"
-	opxdm "github.com/kroma-network/kroma/op-chain-ops/crossdomain"
 )
 
 func FuzzVersionedNonce(f *testing.F) {

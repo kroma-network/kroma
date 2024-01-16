@@ -9,11 +9,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/httputil"
+
+	"github.com/hashicorp/go-multierror"
+	"github.com/libp2p/go-libp2p/core/peer"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/hashicorp/go-multierror"
-	"github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/ethereum-optimism/optimism/op-node/heartbeat"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
@@ -42,7 +45,7 @@ type OpNode struct {
 	rpcSync   *sources.SyncClient   // Alt-sync RPC client, optional (may be nil)
 	server    *rpcServer            // RPC server hosting the rollup-node API
 	p2pNode   *p2p.NodeP2P          // P2P node functionality
-	p2pSigner p2p.Signer            // p2p gossip application messages will be signed with this signer
+	p2pSigner p2p.Signer            // p2p gogssip application messages will be signed with this signer
 	tracer    Tracer                // tracer to get events for testing/debugging
 	runCfg    *RuntimeConfig        // runtime configurables
 
@@ -50,14 +53,13 @@ type OpNode struct {
 	//rollupHalt string // when to halt the rollup, disabled if empty
 	// [Kroma: END]
 
+	pprofSrv   *httputil.HTTPServer
+	metricsSrv *httputil.HTTPServer
+
 	// some resources cannot be stopped directly, like the p2p gossipsub router (not our design),
 	// and depend on this ctx to be closed.
 	resourcesCtx   context.Context
 	resourcesClose context.CancelFunc
-
-	// resource context for anything that stays around for the post-processing phase: e.g. metrics.
-	postResourcesCtx   context.Context
-	postResourcesClose context.CancelFunc
 
 	// Indicates when it's safe to close data sources used by the runtimeConfig bg loader
 	runtimeConfigReloaderDone chan struct{}
@@ -86,11 +88,13 @@ func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logge
 		log:        log,
 		appVersion: appVersion,
 		metrics:    m,
+		// [Kroma: START]
+		// rollupHalt: cfg.RollupHalt,
+		// cancel:     cfg.Cancel,
+		// [Kroma: END]
 	}
 	// not a context leak, gossipsub is closed with a context.
 	n.resourcesCtx, n.resourcesClose = context.WithCancel(context.Background())
-
-	n.postResourcesCtx, n.postResourcesClose = context.WithCancel(context.Background())
 
 	err := n.init(ctx, cfg, snapshotLog)
 	if err != nil {
@@ -131,13 +135,15 @@ func (n *OpNode) init(ctx context.Context, cfg *Config, snapshotLog log.Logger) 
 	if err := n.initRPCServer(ctx, cfg); err != nil {
 		return fmt.Errorf("failed to init the RPC server: %w", err)
 	}
-	if err := n.initMetricsServer(ctx, cfg); err != nil {
+	if err := n.initMetricsServer(cfg); err != nil {
 		return fmt.Errorf("failed to init the metrics server: %w", err)
 	}
 	n.metrics.RecordInfo(n.appVersion)
 	n.metrics.RecordUp()
 	n.initHeartbeat(cfg)
-	n.initPProf(cfg)
+	if err := n.initPProf(cfg); err != nil {
+		return fmt.Errorf("failed to init pprof server: %w", err)
+	}
 	return nil
 }
 
@@ -155,6 +161,9 @@ func (n *OpNode) initL1(ctx context.Context, cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to get L1 RPC client: %w", err)
 	}
+
+	// Set the RethDB path in the EthClientConfig, if there is one configured.
+	rpcCfg.EthClientConfig.RethDBPath = cfg.RethDBPath
 
 	n.l1Source, err = sources.NewL1Client(
 		client.NewInstrumentedRPC(l1Node, n.metrics), n.log, n.metrics.L1SourceCache, rpcCfg)
@@ -225,12 +234,20 @@ func (n *OpNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 			return l1Head, err
 		}
 
-		return l1Head, nil
+		// [Kroma: START]
+		// err = n.handleProtocolVersionsUpdate(ctx)
+		// [Kroma: END]
+		return l1Head, err
 	}
 
 	// initialize the runtime config before unblocking
 	if _, err := retry.Do(ctx, 5, retry.Fixed(time.Second*10), func() (eth.L1BlockRef, error) {
 		ref, err := reload(ctx)
+		// [Kroma: START]
+		// if errors.Is(err, errNodeHalt) { // don't retry on halt error
+		// 	err = nil
+		// }
+		// [Kroma: END]
 		return ref, err
 	}); err != nil {
 		return fmt.Errorf("failed to load runtime configuration repeatedly, last error: %w", err)
@@ -251,6 +268,19 @@ func (n *OpNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 				// Missing a runtime-config update is not critical, and we do not want to overwhelm the L1 RPC.
 				l1Head, err := reload(ctx)
 				if err != nil {
+					// [Kroma: START]
+					// if errors.Is(err, errNodeHalt) {
+					// 	n.halted.Store(true)
+					// 	if n.cancel != nil { // node cancellation is always available when started as CLI app
+					// 		n.cancel(errNodeHalt)
+					// 		return
+					// 	} else {
+					// 		n.log.Debug("opted to halt, but cannot halt node", "l1_head", l1Head)
+					// 	}
+					// } else {
+					// 	n.log.Warn("failed to reload runtime config", "err", err)
+					// }
+					// [Kroma: END]
 					n.log.Warn("failed to reload runtime config", "err", err)
 				} else {
 					n.log.Debug("reloaded runtime config", "l1_head", l1Head)
@@ -328,17 +358,18 @@ func (n *OpNode) initRPCServer(ctx context.Context, cfg *Config) error {
 	return nil
 }
 
-func (n *OpNode) initMetricsServer(ctx context.Context, cfg *Config) error {
+func (n *OpNode) initMetricsServer(cfg *Config) error {
 	if !cfg.Metrics.Enabled {
 		n.log.Info("metrics disabled")
 		return nil
 	}
-	n.log.Info("starting metrics server", "addr", cfg.Metrics.ListenAddr, "port", cfg.Metrics.ListenPort)
-	go func() {
-		if err := n.metrics.Serve(n.postResourcesCtx, cfg.Metrics.ListenAddr, cfg.Metrics.ListenPort); err != nil {
-			log.Crit("error starting metrics server", "err", err)
-		}
-	}()
+	n.log.Debug("starting metrics server", "addr", cfg.Metrics.ListenAddr, "port", cfg.Metrics.ListenPort)
+	metricsSrv, err := n.metrics.StartServer(cfg.Metrics.ListenAddr, cfg.Metrics.ListenPort)
+	if err != nil {
+		return fmt.Errorf("failed to start metrics server: %w", err)
+	}
+	n.log.Info("started metrics server", "addr", metricsSrv.Addr())
+	n.metricsSrv = metricsSrv
 	return nil
 }
 
@@ -368,16 +399,18 @@ func (n *OpNode) initHeartbeat(cfg *Config) {
 	}(cfg.Heartbeat.URL)
 }
 
-func (n *OpNode) initPProf(cfg *Config) {
+func (n *OpNode) initPProf(cfg *Config) error {
 	if !cfg.Pprof.Enabled {
-		return
+		return nil
 	}
-	log.Info("pprof server started", "addr", net.JoinHostPort(cfg.Pprof.ListenAddr, strconv.Itoa(cfg.Pprof.ListenPort)))
-	go func(listenAddr string, listenPort int) {
-		if err := oppprof.ListenAndServe(n.resourcesCtx, listenAddr, listenPort); err != nil {
-			log.Error("error starting pprof", "err", err)
-		}
-	}(cfg.Pprof.ListenAddr, cfg.Pprof.ListenPort)
+	log.Debug("starting pprof server", "addr", net.JoinHostPort(cfg.Pprof.ListenAddr, strconv.Itoa(cfg.Pprof.ListenPort)))
+	srv, err := oppprof.StartServer(cfg.Pprof.ListenAddr, cfg.Pprof.ListenPort)
+	if err != nil {
+		return err
+	}
+	n.pprofSrv = srv
+	log.Info("started pprof server", "addr", srv.Addr())
+	return nil
 }
 
 func (n *OpNode) initP2P(ctx context.Context, cfg *Config) error {
@@ -493,6 +526,7 @@ func (n *OpNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, payload *e
 	// Pass on the event to the L2 Engine
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
+
 	if err := n.l2Driver.OnUnsafeL2Payload(ctx, payload); err != nil {
 		n.log.Warn("failed to notify engine driver of new L2 payload", "err", err, "id", payload.ID())
 	}
@@ -538,7 +572,9 @@ func (n *OpNode) Stop(ctx context.Context) error {
 	var result *multierror.Error
 
 	if n.server != nil {
-		n.server.Stop()
+		if err := n.server.Stop(ctx); err != nil {
+			result = multierror.Append(result, fmt.Errorf("failed to close RPC server: %w", err))
+		}
 	}
 	if n.p2pNode != nil {
 		if err := n.p2pNode.Close(); err != nil {
@@ -593,9 +629,31 @@ func (n *OpNode) Stop(ctx context.Context) error {
 		n.closed.Store(true)
 	}
 
-	// Close metrics only after we are done idling
-	// TODO(7534): This should be refactored to a series of Close() calls to the respective resources.
-	n.postResourcesClose()
+
+	// [Kroma: START]
+	// if n.halted.Load() {
+	// 	// if we had a halt upon initialization, idle for a while, with open metrics, to prevent a rapid restart-loop
+	// 	tim := time.NewTimer(time.Minute * 5)
+	// 	n.log.Warn("halted, idling to avoid immediate shutdown repeats")
+	// 	defer tim.Stop()
+	// 	select {
+	// 	case <-tim.C:
+	// 	case <-ctx.Done():
+	// 	}
+	// }
+	// [Kroma: END]
+
+	// Close metrics and pprof only after we are done idling
+	if n.pprofSrv != nil {
+		if err := n.pprofSrv.Stop(ctx); err != nil {
+			result = multierror.Append(result, fmt.Errorf("failed to close pprof server: %w", err))
+		}
+	}
+	if n.metricsSrv != nil {
+		if err := n.metricsSrv.Stop(ctx); err != nil {
+			result = multierror.Append(result, fmt.Errorf("failed to close metrics server: %w", err))
+		}
+	}
 
 	return result.ErrorOrNil()
 }
@@ -604,10 +662,9 @@ func (n *OpNode) Stopped() bool {
 	return n.closed.Load()
 }
 
-func (n *OpNode) ListenAddr() string {
-	return n.server.listenAddr.String()
-}
-
 func (n *OpNode) HTTPEndpoint() string {
-	return fmt.Sprintf("http://%s", n.ListenAddr())
+	if n.server == nil {
+		return ""
+	}
+	return fmt.Sprintf("http://%s", n.server.Addr().String())
 }

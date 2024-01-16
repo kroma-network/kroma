@@ -3,11 +3,6 @@ package actions
 import (
 	"errors"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/client"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
-	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth"
@@ -19,6 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/testutils"
 )
 
 // L1CanonSrc is used to sync L1 from another node.
@@ -45,21 +45,12 @@ type L1Replica struct {
 	failL1RPC func() error // mock error
 }
 
-var defaultRollupTestParams = &e2eutils.TestParams{
-	MaxSequencerDrift:   40,
-	SequencerWindowSize: 120,
-	ChannelTimeout:      120,
-	L1BlockTime:         15,
-}
-
-var defaultAlloc = &e2eutils.AllocParams{PrefundTestUsers: true}
-
 // NewL1Replica constructs a L1Replica starting at the given genesis.
 func NewL1Replica(t Testing, log log.Logger, genesis *core.Genesis) *L1Replica {
 	ethCfg := &ethconfig.Config{
 		NetworkId: genesis.Config.ChainID.Uint64(),
 		Genesis:   genesis,
-		//RollupDisableTxPoolGossip: true,
+		// RollupDisableTxPoolGossip: true,
 	}
 	nodeCfg := &node.Config{
 		Name:        "l1-geth",
@@ -189,7 +180,7 @@ func (s *L1Replica) RPCClient() client.RPC {
 }
 
 func (s *L1Replica) L1Client(t Testing, cfg *rollup.Config) *sources.L1Client {
-	l1F, err := sources.NewL1Client(s.RPCClient(), s.log, nil, sources.L1ClientDefaultConfig(cfg, false, sources.RPCKindBasic))
+	l1F, err := sources.NewL1Client(s.RPCClient(), s.log, nil, sources.L1ClientDefaultConfig(cfg, false, sources.RPCKindStandard))
 	require.NoError(t, err)
 	return l1F
 }

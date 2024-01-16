@@ -10,6 +10,9 @@ import time
 import shutil
 import http.client
 from multiprocessing import Process, Queue
+import concurrent.futures
+from collections import namedtuple
+
 
 import devnet.log_setup
 
@@ -94,10 +97,21 @@ def main():
         devnet_l1_genesis(paths)
         return
 
-    log.info('Building docker images')
-    run_command(['docker', 'compose', 'build', '--progress', 'plain'], cwd=paths.ops_bedrock_dir, env={
-        'PWD': paths.ops_bedrock_dir
-    })
+    git_commit = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
+    git_date = subprocess.run(['git', 'show', '-s', "--format=%ct"], capture_output=True, text=True).stdout.strip()
+
+    # CI loads the images from workspace, and does not otherwise know the images are good as-is
+    if os.getenv('DEVNET_NO_BUILD') == "true":
+        log.info('Skipping docker images build')
+    else:
+        log.info(f'Building docker images for git commit {git_commit} ({git_date})')
+        run_command(['docker', 'compose', 'build', '--progress', 'plain',
+                     '--build-arg', f'GIT_COMMIT={git_commit}', '--build-arg', f'GIT_DATE={git_date}'],
+                    cwd=paths.ops_bedrock_dir, env={
+            'PWD': paths.ops_bedrock_dir,
+            'DOCKER_BUILDKIT': '1', # (should be available by default in later versions, but explicitly enable it anyway)
+            'COMPOSE_DOCKER_CLI_BUILD': '1'  # use the docker cache
+        })
 
     log.info('Devnet starting')
     devnet_deploy(paths)
@@ -146,12 +160,6 @@ def deploy_contracts(paths):
 
 
 def init_devnet_l1_deploy_config(paths, update_timestamp=False):
-    # [Kroma: START]
-    run_command([
-      'rm', '-rf', 'deploy-config/devnetL1.json', 'deployments/devnetL1'
-    ], env={}, cwd=paths.contracts_bedrock_dir)
-    # [Kroma: END]
-
     deploy_config = read_json(paths.devnet_config_template_path)
     if update_timestamp:
         deploy_config['l1GenesisBlockTimestamp'] = '{:#x}'.format(int(time.time()))
@@ -160,6 +168,13 @@ def init_devnet_l1_deploy_config(paths, update_timestamp=False):
 
 def devnet_l1_genesis(paths):
     log.info('Generating L1 genesis state')
+
+    # [Kroma: START]
+    run_command([
+      'rm', '-rf', 'deploy-config/devnetL1.json', 'deployments/devnetL1'
+    ], env={}, cwd=paths.contracts_bedrock_dir)
+    # [Kroma: END]
+
     init_devnet_l1_deploy_config(paths)
 
     geth = subprocess.Popen([
@@ -239,16 +254,33 @@ def devnet_deploy(paths):
     wait_up(9545)
     wait_for_rpc_server('127.0.0.1:9545')
 
+    # [Kroma: START]
     l2_output_oracle = addresses['L2OutputOracleProxy']
     log.info(f'Using L2OutputOracle {l2_output_oracle}')
     batch_inbox_address = rollup_config['batch_inbox_address']
     log.info(f'Using batch inbox {batch_inbox_address}')
+    colosseum = addresses['ColosseumProxy']
+    log.info(f'Using Colosseum {colosseum}')
+    validator_pool = addresses['ValidatorPoolProxy']
+    log.info(f'Using ValidatorPool {validator_pool}')
 
-    log.info('Bringing up everything else.')
-    run_command(['docker', 'compose', 'up', '-d', 'op-node', 'op-proposer', 'op-batcher'], cwd=paths.ops_bedrock_dir, env={
+    log.info('Bringing up `kroma-node`, `kroma-batcher` and `kroma-validator`.')
+    run_command(['docker', 'compose', 'up', '-d', 'kroma-node', 'kroma-batcher', 'kroma-validator'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
+        'COLOSSEUM_ADDRESS': colosseum,
+        'VALPOOL_ADDRESS': validator_pool,
         'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address
+    })
+
+    log.info("Deposit ETH into ValidatorPool contract to be a validator...")
+    run_command(['docker', 'compose', 'exec', 'kroma-validator',
+                 'kroma-validator', 'deposit', '--amount', '1000000000'], cwd=paths.ops_bedrock_dir)
+    # [Kroma: END]
+
+    log.info('Bringing up `artifact-server`')
+    run_command(['docker', 'compose', 'up', '-d', 'artifact-server'], cwd=paths.ops_bedrock_dir, env={
+        'PWD': paths.ops_bedrock_dir
     })
 
     log.info('Devnet ready.')
@@ -297,6 +329,10 @@ def wait_for_rpc_server(url):
             log.info(f'Waiting for RPC server at {url}')
             time.sleep(1)
 
+
+CommandPreset = namedtuple('Command', ['name', 'args', 'cwd', 'timeout'])
+
+
 def devnet_test(paths):
     # Check the L2 config
     run_command(
@@ -304,17 +340,57 @@ def devnet_test(paths):
         cwd=paths.ops_chain_ops,
     )
 
-    run_command(
-         ['npx', 'hardhat',  'deposit-erc20', '--network',  'devnetL1', '--l1-contracts-json-path', paths.addresses_json_path],
-         cwd=paths.sdk_dir,
-         timeout=8*60,
-    )
+    # Run the two commands with different signers, so the ethereum nonce management does not conflict
+    # And do not use devnet system addresses, to avoid breaking fee-estimation or nonce values.
+    run_commands([
+        CommandPreset('erc20-test',
+          ['npx', 'hardhat',  'deposit-erc20', '--network',  'devnetL1',
+           '--l1-contracts-json-path', paths.addresses_json_path, '--signer-index', '14'],
+          cwd=paths.sdk_dir, timeout=8*60),
+        CommandPreset('eth-test',
+          ['npx', 'hardhat',  'deposit-eth', '--network',  'devnetL1',
+           '--l1-contracts-json-path', paths.addresses_json_path, '--signer-index', '15'],
+          cwd=paths.sdk_dir, timeout=8*60)
+    ], max_workers=2)
 
-    run_command(
-         ['npx', 'hardhat',  'deposit-eth', '--network',  'devnetL1', '--l1-contracts-json-path', paths.addresses_json_path],
-         cwd=paths.sdk_dir,
-         timeout=8*60,
-    )
+
+def run_commands(commands: list[CommandPreset], max_workers=2):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(run_command_preset, cmd) for cmd in commands]
+
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                print(result.stdout)
+
+
+def run_command_preset(command: CommandPreset):
+    with subprocess.Popen(command.args, cwd=command.cwd,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:
+        try:
+            # Live output processing
+            for line in proc.stdout:
+                # Annotate and print the line with timestamp and command name
+                timestamp = datetime.datetime.utcnow().strftime('%H:%M:%S.%f')
+                # Annotate and print the line with the timestamp
+                print(f"[{timestamp}][{command.name}] {line}", end='')
+
+            stdout, stderr = proc.communicate(timeout=command.timeout)
+
+            if proc.returncode != 0:
+                raise RuntimeError(f"Command '{' '.join(command.args)}' failed with return code {proc.returncode}: {stderr}")
+
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"Command '{' '.join(command.args)}' timed out!")
+
+        except Exception as e:
+            raise RuntimeError(f"Error executing '{' '.join(command.args)}': {e}")
+
+        finally:
+            # Ensure process is terminated
+            proc.kill()
+    return proc.returncode
+
 
 def run_command(args, check=True, shell=False, cwd=None, env=None, timeout=None):
     env = env if env else {}

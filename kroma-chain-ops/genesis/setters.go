@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	opstate "github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 	"github.com/kroma-network/kroma/kroma-chain-ops/state"
@@ -18,11 +19,6 @@ import (
 // starting from `address(0)` to PrecompileCount that are funded
 // with a single wei in the genesis state.
 const PrecompileCount = 256
-
-var (
-	L1ProxyCount = uint64(2048)
-	L2ProxyCount = uint64(256)
-)
 
 // FundDevAccounts will fund each of the development accounts.
 func FundDevAccounts(db vm.StateDB) {
@@ -52,7 +48,7 @@ func setProxies(db vm.StateDB, proxyAdminAddr common.Address, namespace *big.Int
 		}
 
 		db.SetCode(addr, depBytecode)
-		db.SetState(addr, AdminSlot, proxyAdminAddr.Hash())
+		db.SetState(addr, AdminSlot, eth.AddressAsLeftPaddedHash(proxyAdminAddr))
 		log.Trace("Set proxy", "address", addr, "admin", proxyAdminAddr)
 	}
 

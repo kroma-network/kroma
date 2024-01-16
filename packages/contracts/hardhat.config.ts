@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
-import {ethers} from 'ethers'
-import {HardhatUserConfig} from 'hardhat/config'
+import { ethers } from 'ethers'
+import { HardhatUserConfig } from 'hardhat/config'
 
 // Hardhat plugins
 import '@foundry-rs/hardhat-forge'
@@ -12,12 +12,12 @@ import 'hardhat-deploy'
 import './tasks'
 
 // Deploy configuration
-import {deployConfigSpec} from './src/deploy-config'
+import { deployConfigSpec } from './src/deploy-config'
 
 // Load environment variables
 dotenv.config()
 
-// 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+// Private key of deployer(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
 const PRIVATE_KEY_DEPLOYER_DEVNET =
   'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 

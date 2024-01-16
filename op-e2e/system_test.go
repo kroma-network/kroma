@@ -136,7 +136,6 @@ func TestValidationReward(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
-	cfg.DeployConfig.ValidatorPoolRoundDuration = cfg.DeployConfig.L2OutputOracleSubmissionInterval / 2
 
 	sys, err := cfg.Start(t)
 	require.NoError(t, err, "Error starting up system")
@@ -545,7 +544,7 @@ func TestSystemMockP2P(t *testing.T) {
 
 	verifierPeerID := sys.RollupNodes["verifier"].P2P().Host().ID()
 	check := func() bool {
-		sequencerBlocksTopicPeers := sys.RollupNodes["sequencer"].P2P().GossipOut().BlocksTopicPeers()
+		sequencerBlocksTopicPeers := sys.RollupNodes["sequencer"].P2P().GossipOut().AllBlockTopicsPeers()
 		return slices.Contains[[]peer.ID](sequencerBlocksTopicPeers, verifierPeerID)
 	}
 
@@ -645,6 +644,10 @@ func TestSystemRPCAltSync(t *testing.T) {
 		// Wait for alt RPC sync to pick up the blocks on the sequencer chain
 		opts.VerifyOnClients(l2Verif)
 	})
+
+	// Sometimes we get duplicate blocks on the sequencer which makes this test flaky
+	published = slices.Compact(published)
+	received = slices.Compact(received)
 
 	// Verify that the tx was received via RPC sync (P2P is disabled)
 	require.Contains(t, received, eth.BlockID{Hash: receiptSeq.BlockHash, Number: receiptSeq.BlockNumber.Uint64()}.String())
@@ -1137,13 +1140,12 @@ func TestFees(t *testing.T) {
 	l2Verif := sys.Clients["verifier"]
 	l1 := sys.Clients["l1"]
 
-	// TODO read
 	config := &params.ChainConfig{
 		Kroma: &params.KromaConfig{
 			EIP1559Elasticity:  cfg.DeployConfig.EIP1559Elasticity,
 			EIP1559Denominator: cfg.DeployConfig.EIP1559Denominator,
 		},
-		// BedrockBlock: big.NewInt(0),
+		BedrockBlock: big.NewInt(0),
 	}
 
 	sga := &stateGetterAdapter{
@@ -1326,7 +1328,7 @@ func TestStopStartBatcher(t *testing.T) {
 	require.Greater(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain did not advance")
 
 	// stop the batch submission
-	err = sys.BatchSubmitter.Stop(context.Background())
+	err = sys.BatchSubmitter.Driver().StopBatchSubmitting(context.Background())
 	require.Nil(t, err)
 
 	// wait for any old safe blocks being submitted / derived
@@ -1346,7 +1348,7 @@ func TestStopStartBatcher(t *testing.T) {
 	require.Equal(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain advanced while batcher was stopped")
 
 	// start the batch submission
-	err = sys.BatchSubmitter.Start()
+	err = sys.BatchSubmitter.Driver().StartBatchSubmitting()
 	require.Nil(t, err)
 	time.Sleep(safeBlockInclusionDuration)
 
@@ -1475,7 +1477,7 @@ func TestBatcherMultiTx(t *testing.T) {
 	require.Nil(t, err)
 
 	// start batch submission
-	err = sys.BatchSubmitter.Start()
+	err = sys.BatchSubmitter.Driver().StartBatchSubmitting()
 	require.Nil(t, err)
 
 	totalTxCount := 0
@@ -1582,10 +1584,8 @@ func TestRuntimeConfigReload(t *testing.T) {
 	require.NoError(t, err)
 	newUnsafeBlocksSigner := common.Address{0x12, 0x23, 0x45}
 	require.NotEqual(t, initialRuntimeConfig.P2PSequencerAddress(), newUnsafeBlocksSigner, "changing to a different address")
-	opts, err := bind.NewKeyedTransactorWithChainID(cfg.Secrets.CliqueSigner, cfg.L1ChainIDBig())
+	opts, err := bind.NewKeyedTransactorWithChainID(cfg.Secrets.SysCfgOwner, cfg.L1ChainIDBig())
 	require.Nil(t, err)
-	owner, _ := sysCfgContract.Owner(nil)
-	fmt.Printf("system config owner address: %s\n", owner)
 	// the unsafe signer address is part of the runtime config
 	tx, err := sysCfgContract.SetUnsafeBlockSigner(opts, newUnsafeBlocksSigner)
 	require.NoError(t, err)
@@ -1605,6 +1605,7 @@ func TestRuntimeConfigReload(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// [Kroma: START]
 // func TestRecommendedProtocolVersionChange(t *testing.T) {
 // 	InitParallel(t)
 //
@@ -1719,3 +1720,4 @@ func TestRuntimeConfigReload(t *testing.T) {
 // 	require.NoError(t, err)
 // 	t.Log("verified that op-geth closed!")
 // }
+// [Kroma: END]

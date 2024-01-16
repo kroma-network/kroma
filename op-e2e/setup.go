@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -13,6 +14,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	ds "github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/sync"
+	ic "github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/libp2p/go-libp2p/p2p/host/peerstore/pstoremem"
+	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
+	ma "github.com/multiformats/go-multiaddr"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,20 +37,9 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	ds "github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/sync"
-	ic "github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
-	"github.com/libp2p/go-libp2p/p2p/host/peerstore/pstoremem"
-	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
-	ma "github.com/multiformats/go-multiaddr"
-	"github.com/stretchr/testify/require"
 
 	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
-	batchermetrics "github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
@@ -49,6 +50,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/p2p/store"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	"github.com/ethereum-optimism/optimism/op-service/client"
@@ -75,12 +77,15 @@ func newTxMgrConfig(l1Addr string, privKey *ecdsa.PrivateKey) txmgr.CLIConfig {
 		PrivateKey:                hexPriv(privKey),
 		NumConfirmations:          1,
 		SafeAbortNonceTooLowCount: 3,
+		FeeLimitMultiplier:        5,
 		ResubmissionTimeout:       3 * time.Second,
 		ReceiptQueryInterval:      50 * time.Millisecond,
 		NetworkTimeout:            2 * time.Second,
 		TxSendTimeout:             10 * time.Minute,
 		TxNotInMempoolTimeout:     2 * time.Minute,
-		TxBufferSize:              10,
+		// [Kroma: START]
+		TxBufferSize: 10,
+		// [Kroma: END]
 	}
 }
 
@@ -91,6 +96,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	require.NoError(t, err)
 	deployConfig := config.DeployConfig.Copy()
 	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
+	deployConfig.L2GenesisCanyonTimeOffset = e2eutils.CanyonTimeOffset()
 	deployConfig.L2GenesisSpanBatchTimeOffset = e2eutils.SpanBatchTimeOffset()
 	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")
 	l1Deployments := config.L1Deployments.Copy()
@@ -204,18 +210,17 @@ type SystemConfig struct {
 	// Explicitly disable batcher, for tests that rely on unsafe L2 payloads
 	DisableBatcher bool
 
-	// [Kroma: START]
-	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
-	EnableMaliciousValidator bool
-	// [Kroma: END]
-
-	EnableGuardian bool
-
 	// Target L1 tx size for the batcher transactions
 	BatcherTargetL1TxSizeBytes uint64
 
 	// SupportL1TimeTravel determines if the L1 node supports quickly skipping forward in time
 	SupportL1TimeTravel bool
+
+	// [Kroma: START]
+	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
+	EnableMaliciousValidator bool
+	EnableGuardian           bool
+	// [Kroma: END]
 }
 
 type GethInstance struct {
@@ -267,7 +272,7 @@ type System struct {
 	RollupNodes    map[string]*rollupNode.OpNode
 	Validator      *validator.Validator
 	Challenger     *validator.Validator
-	BatchSubmitter *bss.BatchSubmitter
+	BatchSubmitter *bss.BatcherService
 	Mocknet        mocknet.Mocknet
 
 	// TimeTravelClock is nil unless SystemConfig.SupportL1TimeTravel was set to true
@@ -283,6 +288,9 @@ func (sys *System) NodeEndpoint(name string) string {
 }
 
 func (sys *System) Close() {
+	postCtx, postCancel := context.WithCancel(context.Background())
+	postCancel() // immediate shutdown, no allowance for idling
+
 	if sys.Validator != nil {
 		sys.Validator.Stop()
 	}
@@ -290,13 +298,8 @@ func (sys *System) Close() {
 		sys.Challenger.Stop()
 	}
 	if sys.BatchSubmitter != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		sys.BatchSubmitter.StopIfRunning(ctx)
+		_ = sys.BatchSubmitter.Kill()
 	}
-
-	postCtx, postCancel := context.WithCancel(context.Background())
-	postCancel() // immediate shutdown, no allowance for idling
 
 	for _, node := range sys.RollupNodes {
 		_ = node.Stop(postCtx)
@@ -339,6 +342,9 @@ func (s *SystemConfigOptions) Get(key, role string) (systemConfigHook, bool) {
 }
 
 func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*System, error) {
+	// [Kroma: START]
+	cfg.DeployConfig.ValidatorPoolRoundDuration = cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime / 2
+	// [Kroma: END]
 	opts, err := NewSystemConfigOptions(_opts)
 	if err != nil {
 		return nil, err
@@ -442,6 +448,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			DepositContractAddress: cfg.DeployConfig.KromaPortalProxy,
 			L1SystemConfigAddress:  cfg.DeployConfig.SystemConfigProxy,
 			RegolithTime:           cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			CanyonTime:             cfg.DeployConfig.CanyonTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			SpanBatchTime:          cfg.DeployConfig.SpanBatchTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 		}
 	}
@@ -784,8 +791,11 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		return nil, fmt.Errorf("unable to start challenger: %w", err)
 	}
 
-	// Batch Submitter
-	sys.BatchSubmitter, err = bss.NewBatchSubmitterFromCLIConfig(bss.CLIConfig{
+	batchType := derive.SingularBatchType
+	if os.Getenv("OP_E2E_USE_SPAN_BATCH") == "true" {
+		batchType = derive.SpanBatchType
+	}
+	batcherCLIConfig := &bss.CLIConfig{
 		L1EthRpc:               sys.EthInstances["l1"].WSEndpoint(),
 		L2EthRpc:               sys.EthInstances["sequencer"].WSEndpoint(),
 		RollupRpc:              sys.RollupNodes["sequencer"].HTTPEndpoint(),
@@ -804,17 +814,18 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			Level:  log.LvlInfo,
 			Format: oplog.FormatText,
 		},
-	}, sys.cfg.Loggers["batcher"], batchermetrics.NoopMetrics)
+		Stopped:   sys.cfg.DisableBatcher, // Batch submitter may be enabled later
+		BatchType: uint(batchType),
+	}
+	// Batch Submitter
+	batcher, err := bss.BatcherServiceFromCLIConfig(context.Background(), "0.0.1", batcherCLIConfig, sys.cfg.Loggers["batcher"])
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup batch submitter: %w", err)
 	}
-
-	// Batcher may be enabled later
-	if !sys.cfg.DisableBatcher {
-		if err := sys.BatchSubmitter.Start(); err != nil {
-			return nil, fmt.Errorf("unable to start batch submitter: %w", err)
-		}
+	if err := batcher.Start(context.Background()); err != nil {
+		return nil, errors.Join(fmt.Errorf("failed to start batch submitter: %w", err), batcher.Stop(context.Background()))
 	}
+	sys.BatchSubmitter = batcher
 
 	return sys, nil
 }
@@ -864,9 +875,12 @@ func (sys *System) newMockNetPeer() (host.Host, error) {
 	return sys.Mocknet.AddPeerWithPeerstore(p, eps)
 }
 
+func UseHTTP() bool {
+	return os.Getenv("OP_E2E_USE_HTTP") == "true"
+}
+
 func selectEndpoint(node EthInstance) string {
-	useHTTP := os.Getenv("OP_E2E_USE_HTTP") == "true"
-	if useHTTP {
+	if UseHTTP() {
 		log.Info("using HTTP client")
 		return node.HTTPEndpoint()
 	}
@@ -878,7 +892,7 @@ func configureL1(rollupNodeCfg *rollupNode.Config, l1Node EthInstance) {
 	rollupNodeCfg.L1 = &rollupNode.L1EndpointConfig{
 		L1NodeAddr:       l1EndpointConfig,
 		L1TrustRPC:       false,
-		L1RPCKind:        sources.RPCKindBasic,
+		L1RPCKind:        sources.RPCKindStandard,
 		RateLimit:        0,
 		BatchSize:        20,
 		HttpPollInterval: time.Millisecond * 100,
@@ -891,9 +905,8 @@ type WSOrHTTPEndpoint interface {
 }
 
 func configureL2(rollupNodeCfg *rollupNode.Config, l2Node WSOrHTTPEndpoint, jwtSecret [32]byte) {
-	useHTTP := os.Getenv("OP_E2E_USE_HTTP") == "true"
 	l2EndpointConfig := l2Node.WSAuthEndpoint()
-	if useHTTP {
+	if UseHTTP() {
 		l2EndpointConfig = l2Node.HTTPAuthEndpoint()
 	}
 

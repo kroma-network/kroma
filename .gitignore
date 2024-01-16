@@ -350,5 +350,3 @@ coverage.out
 
 # Ignore bedrock go bindings local output files
 op-bindings/bin
-
-__pycache__

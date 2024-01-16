@@ -19,10 +19,10 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/clients"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
-	"github.com/kroma-network/kroma/op-chain-ops/clients"
 )
 
 var defaultCrossDomainMessageSender = common.HexToAddress("0x000000000000000000000000000000000000dead")

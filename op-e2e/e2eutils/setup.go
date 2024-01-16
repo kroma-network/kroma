@@ -63,6 +63,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	// [Kroma: START]
 	// deployConfig.L2GenesisRegolithTimeOffset = nil
 	// [Kroma: END]
+	deployConfig.L2GenesisCanyonTimeOffset = CanyonTimeOffset()
 	deployConfig.L2GenesisSpanBatchTimeOffset = SpanBatchTimeOffset()
 
 	require.NoError(t, deployConfig.Check())
@@ -105,6 +106,9 @@ func Ether(v uint64) *big.Int {
 // Setup computes the testing setup configurations from deployment configuration and optional allocation parameters.
 func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *SetupData {
 	deployConf := deployParams.DeployConfig.Copy()
+	// [Kroma: START]
+	deployConf.ValidatorPoolRoundDuration = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
+	// [Kroma: END]
 	deployConf.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	require.NoError(t, deployConf.Check())
 
@@ -162,6 +166,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		DepositContractAddress: deployConf.KromaPortalProxy,
 		L1SystemConfigAddress:  deployConf.SystemConfigProxy,
 		RegolithTime:           deployConf.RegolithTime(uint64(deployConf.L1GenesisBlockTimestamp)),
+		CanyonTime:             deployConf.CanyonTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		SpanBatchTime:          deployConf.SpanBatchTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 	}
 
@@ -192,6 +197,14 @@ func SystemConfigFromDeployConfig(deployConfig *genesis.DeployConfig) eth.System
 
 func SpanBatchTimeOffset() *hexutil.Uint64 {
 	if os.Getenv("OP_E2E_USE_SPAN_BATCH") == "true" {
+		offset := hexutil.Uint64(0)
+		return &offset
+	}
+	return nil
+}
+
+func CanyonTimeOffset() *hexutil.Uint64 {
+	if os.Getenv("OP_E2E_USE_CANYON") == "true" {
 		offset := hexutil.Uint64(0)
 		return &offset
 	}

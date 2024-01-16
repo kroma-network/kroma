@@ -185,7 +185,7 @@ func runCrossLayerUserTest(gt *testing.T, test regolithScheduledTest) {
 	seq.ActL2PipelineFull(t)
 
 	validator.ActDeposit(t, 1000)
-	miner.includeL1Block(t, dp.Addresses.TrustedValidator)
+	miner.includeL1Block(t, dp.Addresses.TrustedValidator, 12)
 
 	// create l2 output submission transactions until there is nothing left to submit
 	for {
@@ -196,7 +196,7 @@ func runCrossLayerUserTest(gt *testing.T, test regolithScheduledTest) {
 		// submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		miner.includeL1Block(t, dp.Addresses.TrustedValidator)
+		miner.includeL1Block(t, dp.Addresses.TrustedValidator, 12)
 		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())

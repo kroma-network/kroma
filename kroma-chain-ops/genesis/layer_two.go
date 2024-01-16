@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
@@ -38,7 +39,7 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 	}
 
 	// Set up the proxies
-	err = setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespace, L2ProxyCount)
+	err = setProxies(db, predeploys.ProxyAdminAddr, BigL2PredeployNamespace, 256)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +63,7 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 				return nil, fmt.Errorf("error converting to code namespace: %w", err)
 			}
 			db.CreateAccount(codeAddr)
-			db.SetState(addr, ImplementationSlot, codeAddr.Hash())
+			db.SetState(addr, ImplementationSlot, eth.AddressAsLeftPaddedHash(codeAddr))
 			log.Info("Set proxy", "name", name, "address", addr, "implementation", codeAddr)
 		} else {
 			db.DeleteState(addr, AdminSlot)
@@ -77,13 +78,4 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 	}
 
 	return db.Genesis(), nil
-}
-
-func L2PredeploysCount(config *DeployConfig) int {
-	cnt := PrecompileCount + int(L2ProxyCount) + len(predeploys.Predeploys)
-	if config.FundDevAccounts {
-		cnt = cnt + len(DevAccounts)
-	}
-
-	return cnt
 }

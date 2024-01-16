@@ -306,18 +306,6 @@
         } catch {}
         
 
-        let KromaToken
-        try {
-          KromaToken = require('../artifacts/contracts/token/KromaToken.sol/KromaToken.json')
-        } catch {}
-        
-
-        let KromaTokenMinter
-        try {
-          KromaTokenMinter = require('../artifacts/contracts/token/KromaTokenMinter.sol/KromaTokenMinter.json')
-        } catch {}
-        
-
         let CrossDomainMessenger
         try {
           CrossDomainMessenger = require('../artifacts/contracts/universal/CrossDomainMessenger.sol/CrossDomainMessenger.json')
@@ -472,8 +460,6 @@ RLPWriter,
 SafeCall,
 Types,
 ColosseumTestData,
-KromaToken,
-KromaTokenMinter,
 CrossDomainMessenger,
 ERC721Bridge,
 IKromaMintableERC20,

@@ -8,16 +8,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	"github.com/ethereum-optimism/optimism/op-chain-ops/deployer"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-chain-ops/deployer"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
@@ -118,7 +120,7 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	require.Equal(t, scalar.Uint64(), config.GasPriceOracleScalar)
 	batcherHash, err := sysCfg.BatcherHash(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.Equal(t, common.Hash(batcherHash), config.BatchSenderAddress.Hash())
+	require.Equal(t, common.Hash(batcherHash), eth.AddressAsLeftPaddedHash(config.BatchSenderAddress))
 	gasLimit, err := sysCfg.GasLimit(&bind.CallOpts{})
 	require.NoError(t, err)
 	require.Equal(t, gasLimit, uint64(config.L2GenesisBlockGasLimit))

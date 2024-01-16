@@ -2,11 +2,10 @@ package op_e2e
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -753,6 +754,152 @@ func TestRegolith(t *testing.T) {
 			require.Equal(t, types.ReceiptStatusSuccessful, rezeroReceipt.Status, "rezeroing storage value should succeed")
 
 			require.Greater(t, rezeroReceipt.GasUsed, zeroReceipt.GasUsed, "rezero should use more gas due to not getting gas refund for clearing slot")
+		})
+	}
+}
+
+func TestPreCanyon(t *testing.T) {
+	InitParallel(t)
+	futureTimestamp := hexutil.Uint64(4)
+
+	tests := []struct {
+		name       string
+		canyonTime *hexutil.Uint64
+	}{
+		{name: "CanyonNotScheduled"},
+		{name: "CanyonNotYetActive", canyonTime: &futureTimestamp},
+	}
+	for _, test := range tests {
+		test := test
+
+		t.Run(fmt.Sprintf("ReturnsNilWithdrawals_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = test.canyonTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			b, err := opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+			assert.Nil(t, b.Withdrawals, "should not have withdrawals")
+
+			l1Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+			require.Nil(t, err)
+			assert.Equal(t, types.Withdrawals(nil), l1Block.Withdrawals())
+		})
+
+		t.Run(fmt.Sprintf("RejectPushZeroTx_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = test.canyonTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			pushZeroContractCreateTxn := types.NewTx(&types.DepositTx{
+				From:  cfg.Secrets.Addresses().Alice,
+				Value: big.NewInt(params.Ether),
+				Gas:   1000001,
+				Data: []byte{
+					byte(vm.PUSH0),
+				},
+				// [Kroma: START]
+				// IsSystemTransaction: false,
+				// [Kroma: END]
+			})
+
+			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
+			require.NoError(t, err)
+
+			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, pushZeroContractCreateTxn.Hash())
+			require.NoError(t, err)
+			assert.Equal(t, types.ReceiptStatusFailed, receipt.Status)
+		})
+	}
+
+}
+
+func TestCanyon(t *testing.T) {
+	InitParallel(t)
+
+	tests := []struct {
+		name         string
+		canyonTime   hexutil.Uint64
+		activeCanyon func(ctx context.Context, opGeth *OpGeth)
+	}{
+		{name: "ActivateAtGenesis", canyonTime: 0, activeCanyon: func(ctx context.Context, opGeth *OpGeth) {}},
+		{name: "ActivateAfterGenesis", canyonTime: 2, activeCanyon: func(ctx context.Context, opGeth *OpGeth) {
+			// Adding this block advances us to the fork time.
+			_, err := opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+		}},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(fmt.Sprintf("ReturnsEmptyWithdrawals_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			s := hexutil.Uint64(0)
+			cfg.DeployConfig.L2GenesisRegolithTimeOffset = &s
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &test.canyonTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			test.activeCanyon(ctx, opGeth)
+
+			b, err := opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, *b.Withdrawals, types.Withdrawals{})
+
+			l1Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+			require.Nil(t, err)
+			assert.Equal(t, l1Block.Withdrawals(), types.Withdrawals{})
+		})
+
+		t.Run(fmt.Sprintf("AcceptsPushZeroTxn_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &test.canyonTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			pushZeroContractCreateTxn := types.NewTx(&types.DepositTx{
+				From:  cfg.Secrets.Addresses().Alice,
+				Value: big.NewInt(params.Ether),
+				Gas:   1000001,
+				Data: []byte{
+					byte(vm.PUSH0),
+				},
+				// [Kroma: START]
+				// IsSystemTransaction: false,
+				// [Kroma: END]
+			})
+
+			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
+			require.NoError(t, err)
+
+			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, pushZeroContractCreateTxn.Hash())
+			require.NoError(t, err)
+			assert.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 		})
 	}
 }

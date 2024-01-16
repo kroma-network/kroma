@@ -400,7 +400,6 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			// Create our system configuration, funding all accounts we created for L1/L2, and start it
 			cfg := DefaultSystemConfig(t)
 			cfg.DeployConfig.L2BlockTime = 2
-			cfg.DeployConfig.ValidatorPoolRoundDuration = cfg.DeployConfig.L2OutputOracleSubmissionInterval
 			require.LessOrEqual(t, cfg.DeployConfig.FinalizationPeriodSeconds, uint64(600))
 			require.Equal(t, cfg.DeployConfig.FundDevAccounts, true)
 			sys, err := cfg.Start(t)

@@ -5,5 +5,5 @@
 ## Installation
 
 ```shell
-> yarn add @kroma/hardhat-deploy-config
+> pnpm i @kroma/hardhat-deploy-config
 ```

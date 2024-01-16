@@ -26,7 +26,6 @@ func TestBatcherKeyRotation(gt *testing.T) {
 
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.L2BlockTime = 2
-	dp.DeployConfig.ValidatorPoolRoundDuration = dp.DeployConfig.L2OutputOracleSubmissionInterval
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
@@ -73,15 +72,15 @@ func TestBatcherKeyRotation(gt *testing.T) {
 	sysCfgContract, err := bindings.NewSystemConfig(sd.RollupCfg.L1SystemConfigAddress, miner.EthClient())
 	require.NoError(t, err)
 
-	proxyAdminOwner, err := bind.NewKeyedTransactorWithChainID(dp.Secrets.SysCfgOwner, sd.RollupCfg.L1ChainID)
+	sysCfgOwner, err := bind.NewKeyedTransactorWithChainID(dp.Secrets.SysCfgOwner, sd.RollupCfg.L1ChainID)
 	require.NoError(t, err)
 
 	owner, err := sysCfgContract.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.Equal(t, dp.Addresses.CliqueSigner, owner, "system config owner mismatch")
+	require.Equal(t, dp.Addresses.SysCfgOwner, owner, "system config owner mismatch")
 
 	// Change the batch sender key to Bob!
-	tx, err := sysCfgContract.SetBatcherHash(proxyAdminOwner, dp.Addresses.Bob.Hash())
+	tx, err := sysCfgContract.SetBatcherHash(sysCfgOwner, eth.AddressAsLeftPaddedHash(dp.Addresses.Bob))
 	require.NoError(t, err)
 	t.Logf("batcher changes in L1 tx %s", tx.Hash())
 	miner.ActL1StartBlock(12)(t)
@@ -257,13 +256,13 @@ func TestGPOParamsChange(gt *testing.T) {
 	sysCfgContract, err := bindings.NewSystemConfig(sd.RollupCfg.L1SystemConfigAddress, miner.EthClient())
 	require.NoError(t, err)
 
-	proxyAdminOwner, err := bind.NewKeyedTransactorWithChainID(dp.Secrets.SysCfgOwner, sd.RollupCfg.L1ChainID)
+	sysCfgOwner, err := bind.NewKeyedTransactorWithChainID(dp.Secrets.SysCfgOwner, sd.RollupCfg.L1ChainID)
 	require.NoError(t, err)
 
 	// overhead changes from 2100 (default) to 1000
 	// scalar changes from 1_000_000 (default) to 2_300_000
 	// e.g. if system operator determines that l2 txs need to be more expensive, but small ones less
-	_, err = sysCfgContract.SetGasConfig(proxyAdminOwner, big.NewInt(1000), big.NewInt(2_300_000))
+	_, err = sysCfgContract.SetGasConfig(sysCfgOwner, big.NewInt(1000), big.NewInt(2_300_000))
 	require.NoError(t, err)
 
 	// include the GPO change tx in L1
@@ -354,10 +353,10 @@ func TestGasLimitChange(gt *testing.T) {
 	sysCfgContract, err := bindings.NewSystemConfig(sd.RollupCfg.L1SystemConfigAddress, miner.EthClient())
 	require.NoError(t, err)
 
-	proxyAdminOwner, err := bind.NewKeyedTransactorWithChainID(dp.Secrets.SysCfgOwner, sd.RollupCfg.L1ChainID)
+	sysCfgOwner, err := bind.NewKeyedTransactorWithChainID(dp.Secrets.SysCfgOwner, sd.RollupCfg.L1ChainID)
 	require.NoError(t, err)
 
-	_, err = sysCfgContract.SetGasLimit(proxyAdminOwner, oldGasLimit*3)
+	_, err = sysCfgContract.SetGasLimit(sysCfgOwner, oldGasLimit*3)
 	require.NoError(t, err)
 
 	// include the gaslimit update on L1

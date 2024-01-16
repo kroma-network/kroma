@@ -15,7 +15,7 @@ import (
 
 // TestBatchInLastPossibleBlocks tests that the derivation pipeline
 // accepts a batch that is included in the last possible L1 block
-// where there are also no other batches included in the sequencer
+// where there are also no other batches included in the sequence
 // window.
 // This is a regression test against the bug fixed in PR #4566
 func TestBatchInLastPossibleBlocks(gt *testing.T) {
@@ -23,7 +23,6 @@ func TestBatchInLastPossibleBlocks(gt *testing.T) {
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.SequencerWindowSize = 4
 	dp.DeployConfig.L2BlockTime = 2
-	dp.DeployConfig.ValidatorPoolRoundDuration = dp.DeployConfig.L2OutputOracleSubmissionInterval
 
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
@@ -136,7 +135,6 @@ func TestLargeL1Gaps(gt *testing.T) {
 	dp.DeployConfig.L2BlockTime = 2
 	dp.DeployConfig.SequencerWindowSize = 4
 	dp.DeployConfig.MaxSequencerDrift = 32
-	dp.DeployConfig.ValidatorPoolRoundDuration = dp.DeployConfig.L2OutputOracleSubmissionInterval
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 

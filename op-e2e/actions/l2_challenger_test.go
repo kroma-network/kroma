@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -514,9 +513,6 @@ interaction:
 				outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
 				isEqual := rt.guardian.ActValidateL2Output(rt.t, rt.outputOnL1.OutputRoot, outputBlockNum)
 				require.False(t, isEqual)
-
-				votes, _ := rt.securityCouncilContract.GetVotes(nil, rt.guardian.address)
-				fmt.Printf("asdfasdfasdf %d\n", votes)
 
 				rt.txHash = rt.guardian.ActForceDeleteOutput(rt.t, rt.outputIndex)
 				rt.IncludeL1Block(rt.challenger1.address)

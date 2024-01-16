@@ -26,12 +26,17 @@ import (
 	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
 
+// initialzedValue represents the `Initializable` contract value. It should be kept in
+// sync with the constant in `Constants.sol`.
+// https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/src/libraries/Constants.sol
+const initializedValue = 1
+
 var (
 	ErrInvalidDeployConfig     = errors.New("invalid deploy config")
 	ErrInvalidImmutablesConfig = errors.New("invalid immutables config")
 )
 
-// DeployConfig represents the deployment configuration for Kroma chain.
+// DeployConfig represents the deployment configuration for an OP Stack chain.
 // It is used to deploy the L1 contracts as well as create the L2 genesis state.
 type DeployConfig struct {
 	// L1StartingBlockTag is used to fill in the storage of the L1Block info predeploy. The rollup
@@ -70,6 +75,16 @@ type DeployConfig struct {
 	// L2OutputOracleStartingTimestamp is the starting timestamp for the L2OutputOracle.
 	// MUST be the same as the timestamp of the L2OO start block.
 	L2OutputOracleStartingTimestamp int `json:"l2OutputOracleStartingTimestamp"`
+	// [Kroma: START]
+	// // L2OutputOracleStartingBlockNumber is the starting block number for the L2OutputOracle.
+	// // Must be greater than or equal to the first Bedrock block. The first L2 output will correspond
+	// // to this value plus the submission interval.
+	// L2OutputOracleStartingBlockNumber uint64 `json:"l2OutputOracleStartingBlockNumber"`
+	// // L2OutputOracleProposer is the address of the account that proposes L2 outputs.
+	// L2OutputOracleProposer common.Address `json:"l2OutputOracleProposer"`
+	// // L2OutputOracleChallenger is the address of the account that challenges L2 outputs.
+	// L2OutputOracleChallenger common.Address `json:"l2OutputOracleChallenger"`
+	// [Kroma: END]
 
 	// CliqueSignerAddress represents the signer address for the clique consensus engine.
 	// It is used in the multi-process devnet to sign blocks.
@@ -99,8 +114,11 @@ type DeployConfig struct {
 	L2GenesisBlockBaseFeePerGas *hexutil.Big   `json:"l2GenesisBlockBaseFeePerGas"`
 
 	// L2GenesisRegolithTimeOffset is the number of seconds after genesis block that Regolith hard fork activates.
-	// Set it to 0 to activate at genesis. Nil to disable regolith.
+	// Set it to 0 to activate at genesis. Nil to disable Regolith.
 	L2GenesisRegolithTimeOffset *hexutil.Uint64 `json:"l2GenesisRegolithTimeOffset,omitempty"`
+	// L2GenesisCanyonTimeOffset is the number of seconds after genesis block that Canyon hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable Canyon.
+	L2GenesisCanyonTimeOffset *hexutil.Uint64 `json:"L2GenesisCanyonTimeOffset,omitempty"`
 	// L2GenesisSpanBatchTimeOffset is the number of seconds after genesis block that Span Batch hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable SpanBatch.
 	L2GenesisSpanBatchTimeOffset *hexutil.Uint64 `json:"l2GenesisSpanBatchTimeOffset,omitempty"`
@@ -147,11 +165,42 @@ type DeployConfig struct {
 	EIP1559Elasticity uint64 `json:"eip1559Elasticity"`
 	// EIP1559Denominator is the denominator of EIP1559 base fee market.
 	EIP1559Denominator uint64 `json:"eip1559Denominator"`
-	// FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
-	// during devnet deployments.
+	// EIP1559DenominatorCanyon is the denominator of EIP1559 base fee market when Canyon is active.
+	EIP1559DenominatorCanyon uint64 `json:"eip1559DenominatorCanyon"`
+	// SystemConfigStartBlock represents the block at which the op-node should start syncing
+	// from. It is an override to set this value on legacy networks where it is not set by
+	// default. It can be removed once all networks have this value set in their storage.
+	SystemConfigStartBlock uint64 `json:"systemConfigStartBlock"`
+	// // [Kroma: START]
+	// // FaultGameAbsolutePrestate is the absolute prestate of Cannon. This is computed
+	// // by generating a proof from the 0th -> 1st instruction and grabbing the prestate from
+	// // the output JSON. All honest challengers should agree on the setup state of the program.
+	// // TODO(clabby): Right now, the build of the `op-program` is nondeterministic, meaning that
+	// // the binary must be distributed in order for honest actors to agree. In the future, we'll
+	// // look to make the build deterministic so that users may build Cannon / the `op-program`
+	// // from source.
+	// FaultGameAbsolutePrestate common.Hash `json:"faultGameAbsolutePrestate"`
+	// // FaultGameMaxDepth is the maximum depth of the position tree within the fault dispute game.
+	// // `2^{FaultGameMaxDepth}` is how many instructions the execution trace bisection game
+	// // supports. Ideally, this should be conservatively set so that there is always enough
+	// // room for a full Cannon trace.
+	// FaultGameMaxDepth uint64 `json:"faultGameMaxDepth"`
+	// // FaultGameMaxDuration is the maximum amount of time (in seconds) that the fault dispute
+	// // game can run for before it is ready to be resolved. Each side receives half of this value
+	// // on their chess clock at the inception of the dispute.
+	// FaultGameMaxDuration uint64 `json:"faultGameMaxDuration"`
+	// // FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
+	// // during devnet deployments.
+	// [Kroma: END]
 	FundDevAccounts bool `json:"fundDevAccounts"`
 
 	// [Kroma: START]
+	// // RequiredProtocolVersion indicates the protocol version that
+	// // nodes are required to adopt, to stay in sync with the network.
+	// RequiredProtocolVersion params.ProtocolVersion `json:"requiredProtocolVersion"`
+	// // RequiredProtocolVersion indicates the protocol version that
+	// // nodes are recommended to adopt, to stay in sync with the network.
+	// RecommendedProtocolVersion params.ProtocolVersion `json:"recommendedProtocolVersion"`
 	// ValidatorPool proxy address on L1
 	ValidatorPoolProxy common.Address `json:"validatorPoolProxy"`
 	// The initial value of the validator reward scalar
@@ -265,6 +314,9 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.EIP1559Denominator == 0 {
 		return fmt.Errorf("%w: EIP1559Denominator cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.L2GenesisCanyonTimeOffset != nil && d.EIP1559DenominatorCanyon == 0 {
+		return fmt.Errorf("%w: EIP1559DenominatorCanyon cannot be 0 if Canyon is activated", ErrInvalidDeployConfig)
 	}
 	if d.EIP1559Elasticity == 0 {
 		return fmt.Errorf("%w: EIP1559Elasticity cannot be 0", ErrInvalidDeployConfig)
@@ -468,6 +520,17 @@ func (d *DeployConfig) RegolithTime(genesisTime uint64) *uint64 {
 	return &v
 }
 
+func (d *DeployConfig) CanyonTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisCanyonTimeOffset == nil {
+		return nil
+	}
+	v := uint64(0)
+	if offset := *d.L2GenesisCanyonTimeOffset; offset > 0 {
+		v = genesisTime + uint64(offset)
+	}
+	return &v
+}
+
 func (d *DeployConfig) SpanBatchTime(genesisTime uint64) *uint64 {
 	if d.L2GenesisSpanBatchTimeOffset == nil {
 		return nil
@@ -517,6 +580,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		DepositContractAddress: d.KromaPortalProxy,
 		L1SystemConfigAddress:  d.SystemConfigProxy,
 		RegolithTime:           d.RegolithTime(l1StartBlock.Time()),
+		CanyonTime:             d.CanyonTime(l1StartBlock.Time()),
 		SpanBatchTime:          d.SpanBatchTime(l1StartBlock.Time()),
 	}, nil
 }
@@ -749,7 +813,7 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"msgNonce": 0,
 	}
 	storage["L2CrossDomainMessenger"] = state.StorageValues{
-		"_initialized":     1,
+		"_initialized":     initializedValue,
 		"_initializing":    false,
 		"xDomainMsgSender": "0x000000000000000000000000000000000000dEaD",
 		"msgNonce":         0,
@@ -760,11 +824,17 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"basefee":               block.BaseFee(),
 		"hash":                  block.Hash(),
 		"sequenceNumber":        0,
-		"batcherHash":           config.BatchSenderAddress.Hash(),
+		"batcherHash":           eth.AddressAsLeftPaddedHash(config.BatchSenderAddress),
 		"l1FeeOverhead":         config.GasPriceOracleOverhead,
 		"l1FeeScalar":           config.GasPriceOracleScalar,
 		"validatorRewardScalar": config.ValidatorRewardScalar,
 	}
+	// [Kroma: START]
+	// storage["LegacyERC20ETH"] = state.StorageValues{
+	// 	"_name":   "Ether",
+	// 	"_symbol": "ETH",
+	// }
+	// [Kroma: END]
 	storage["WETH9"] = state.StorageValues{
 		"name":     "Wrapped Ether",
 		"symbol":   "WETH",

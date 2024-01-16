@@ -64,6 +64,10 @@ func (r *RollupClient) SetLogLevel(ctx context.Context, lvl log.Lvl) error {
 	return r.rpc.CallContext(ctx, nil, "admin_setLogLevel", lvl.String())
 }
 
+func (r *RollupClient) Close() {
+	r.rpc.Close()
+}
+
 // [Kroma: START]
 func (r *RollupClient) OutputWithProofAtBlock(ctx context.Context, blockNum uint64) (*eth.OutputResponse, error) {
 	var output *eth.OutputResponse

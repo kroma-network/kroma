@@ -10,7 +10,7 @@ import (
 var enableParallelTesting bool = true
 
 func init() {
-	if os.Getenv("E2E_DISABLE_PARALLEL") == "true" {
+	if os.Getenv("OP_E2E_DISABLE_PARALLEL") == "true" {
 		enableParallelTesting = false
 	}
 }

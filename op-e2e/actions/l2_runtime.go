@@ -20,6 +20,18 @@ import (
 
 const defaultDepositAmount = 1_000
 
+// [Kroma: START]
+var defaultRollupTestParams = &e2eutils.TestParams{
+	MaxSequencerDrift:   40,
+	SequencerWindowSize: 120,
+	ChannelTimeout:      120,
+	L1BlockTime:         15,
+}
+
+var defaultAlloc = &e2eutils.AllocParams{PrefundTestUsers: true}
+
+// [Kroma: END]
+
 type Runtime struct {
 	t                        StatefulTesting
 	l                        log.Logger
@@ -288,7 +300,5 @@ func (rt *Runtime) SetCreationPeriod(period uint64) {
 }
 
 func (rt *Runtime) IncludeL1Block(from common.Address) {
-	rt.miner.ActL1StartBlock(rt.l1BlockDelta)(rt.t)
-	rt.miner.ActL1IncludeTx(from)(rt.t)
-	rt.miner.ActL1EndBlock(rt.t)
+	rt.miner.includeL1Block(rt.t, from, rt.l1BlockDelta)
 }

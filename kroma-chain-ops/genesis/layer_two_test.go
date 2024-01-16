@@ -8,12 +8,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
@@ -57,7 +59,7 @@ func testBuildL2Genesis(t *testing.T, config *genesis.DeployConfig) *core.Genesi
 			(!config.EnableGovernance && addr == predeploys.GovernanceTokenAddr)
 		if isProxy {
 			require.Equal(t, true, ok, name)
-			require.Equal(t, predeploys.ProxyAdminAddr.Hash(), adminSlot)
+			require.Equal(t, eth.AddressAsLeftPaddedHash(predeploys.ProxyAdminAddr), adminSlot)
 			require.Equal(t, proxyBytecode, account.Code)
 		} else {
 			require.Equal(t, false, ok, name)
@@ -84,8 +86,7 @@ func TestBuildL2MainnetGenesis(t *testing.T) {
 	config.EnableGovernance = true
 	config.FundDevAccounts = false
 	gen := testBuildL2Genesis(t, config)
-	actualCount := genesis.L2PredeploysCount(config)
-	require.Equal(t, actualCount, len(gen.Alloc))
+	require.Equal(t, 525, len(gen.Alloc))
 }
 
 func TestBuildL2MainnetNoGovernanceGenesis(t *testing.T) {
@@ -94,6 +95,5 @@ func TestBuildL2MainnetNoGovernanceGenesis(t *testing.T) {
 	config.EnableGovernance = false
 	config.FundDevAccounts = false
 	gen := testBuildL2Genesis(t, config)
-	actualCount := genesis.L2PredeploysCount(config) - 1
-	require.Equal(t, actualCount, len(gen.Alloc))
+	require.Equal(t, 525, len(gen.Alloc))
 }

@@ -78,9 +78,16 @@ var (
 			openum.EnumString(sources.RPCProviderKinds),
 		EnvVars: prefixEnvVars("L1_RPC_KIND"),
 		Value: func() *sources.RPCProviderKind {
-			out := sources.RPCKindBasic
+			out := sources.RPCKindStandard
 			return &out
 		}(),
+	}
+	L1RethDBPath = &cli.StringFlag{
+		Name:     "l1.rethdb",
+		Usage:    "The L1 RethDB path, used to fetch receipts for L1 blocks. Only applicable when using the `reth_db` RPC kind with `l1.rpckind`.",
+		EnvVars:  prefixEnvVars("L1_RETHDB"),
+		Required: false,
+		Hidden:   true,
 	}
 	L1RPCRateLimit = &cli.Float64Flag{
 		Name:    "l1.rpc-rate-limit",
@@ -237,28 +244,28 @@ var (
 		Value:    false,
 	}
 	// [Kroma: START]
-	// BetaExtraNetworks = &cli.BoolFlag{
-	//	Name: "beta.extra-networks",
-	//	Usage: fmt.Sprintf("Beta feature: enable selection of a predefined-network from the superchain-registry. "+
-	//		"The superchain-registry is experimental, and the availability of configurations may change."+
-	//		"Available networks: %s", strings.Join(chaincfg.BetaAvailableNetworks(), ", ")),
-	//	EnvVars: prefixEnvVars("BETA_EXTRA_NETWORKS"),
-	// }
-	// RollupHalt = &cli.StringFlag{
-	//	Name:    "rollup.halt",
-	//	Usage:   "Opt-in option to halt on incompatible protocol version requirements of the given level (major/minor/patch/none), as signaled onchain in L1",
-	//	EnvVars: prefixEnvVars("ROLLUP_HALT"),
-	// }
-	// RollupLoadProtocolVersions = &cli.BoolFlag{
-	//	Name:    "rollup.load-protocol-versions",
-	//	Usage:   "Load protocol versions from the superchain L1 ProtocolVersions contract (if available), and report in logs and metrics",
-	//	EnvVars: prefixEnvVars("ROLLUP_LOAD_PROTOCOL_VERSIONS"),
-	// }
-	// CanyonOverrideFlag = &cli.Uint64Flag{
-	//	Name:   "override.canyon",
-	//	Usage:  "Manually specify the Canyon fork timestamp, overriding the bundled setting",
-	//	Hidden: true,
-	// }
+	BetaExtraNetworks = &cli.BoolFlag{
+		Name:    "beta.extra-networks",
+		Usage:   "Legacy flag, ignored, all superchain-registry networks are enabled by default.",
+		EnvVars: prefixEnvVars("BETA_EXTRA_NETWORKS"),
+		Hidden:  true, // hidden, this is deprecated, the flag is not used anymore.
+	}
+	RollupHalt = &cli.StringFlag{
+		Name:    "rollup.halt",
+		Usage:   "Opt-in option to halt on incompatible protocol version requirements of the given level (major/minor/patch/none), as signaled onchain in L1",
+		EnvVars: prefixEnvVars("ROLLUP_HALT"),
+	}
+	RollupLoadProtocolVersions = &cli.BoolFlag{
+		Name:    "rollup.load-protocol-versions",
+		Usage:   "Load protocol versions from the superchain L1 ProtocolVersions contract (if available), and report in logs and metrics",
+		EnvVars: prefixEnvVars("ROLLUP_LOAD_PROTOCOL_VERSIONS"),
+	}
+	CanyonOverrideFlag = &cli.Uint64Flag{
+		Name:    "override.canyon",
+		Usage:   "Manually specify the Canyon fork timestamp, overriding the bundled setting",
+		EnvVars: prefixEnvVars("OVERRIDE_CANYON"),
+		Hidden:  false,
+	}
 	// [Kroma: END]
 )
 
@@ -301,13 +308,20 @@ var optionalFlags = []cli.Flag{
 	BackupL2UnsafeSyncRPCTrustRPC,
 	L2EngineSyncEnabled,
 	SkipSyncStartCheck,
+	// [Kroma: START]
+	// BetaExtraNetworks,
+	// RollupHalt,
+	// RollupLoadProtocolVersions,
+	// [Kroma: END]
+	CanyonOverrideFlag,
+	L1RethDBPath,
 }
 
 // Flags contains the list of configuration options available to the binary.
 var Flags []cli.Flag
 
 func init() {
-	optionalFlags = append(optionalFlags, P2pFlags...)
+	optionalFlags = append(optionalFlags, P2PFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, oplog.CLIFlags(EnvVarPrefix)...)
 	Flags = append(requiredFlags, optionalFlags...)
 }

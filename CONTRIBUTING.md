@@ -51,7 +51,7 @@ You *must* include a `changeset` file in your PR when making a change that would
 Adding a `changeset` file is easy:
 
 1. Navigate to the root of the monorepo.
-2. Run `yarn changeset`. You'll be prompted to select packages to include in the changeset. Use the arrow keys to move
+2. Run `pnpm changeset`. You'll be prompted to select packages to include in the changeset. Use the arrow keys to move
   the cursor up and down, hit the `spacebar` to select a package, and hit `enter` to confirm your selection.
   Select *all* packages that require a new release as a result of your PR.
 3. Once you hit `enter` you'll be prompted to decide whether your selected packages need a `major`, `minor`, or `patch`
@@ -77,7 +77,7 @@ You'll need the following:
 - [Git](https://git-scm.com/downloads)
 - [NodeJS](https://nodejs.org/en/download/)
 - [Node Version Manager](https://github.com/nvm-sh/nvm)
-- [Yarn](https://classic.yarnpkg.com/en/docs/install)
+- [pnpm](https://pnpm.io/installation)
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
 - [Go](https://go.dev/dl/)
@@ -94,16 +94,16 @@ Clone the repository and open it:
 
 ### Install the Correct Version of NodeJS
 
-Install node v16.16.0 with [nvm](https://github.com/nvm-sh/nvm)
+Install the correct node version with [nvm](https://github.com/nvm-sh/nvm)
 
 ```shell
 > nvm use
 ```
 
-### Install node modules with Yarn
+### Install node modules with pnpm
 
 ```shell
-> yarn
+> pnpm i
 ```
 
 ### Building the TypeScript packages
@@ -115,7 +115,8 @@ and compile the smart contracts. Install foundry [here](https://getfoundry.sh/).
 To build all of the [TypeScript packages](./packages), run:
 
 ```shell
-> yarn build
+> pnpm clean
+> pnpm build
 ```
 
 Packages compiled when on one branch may not be compatible with packages on a different branch.
@@ -131,12 +132,12 @@ Before running tests: **follow the above instructions to get everything built.**
 Run unit tests for all packages in parallel via:
 
 ```shell
-> yarn test
+> pnpm test
 ```
 
 To run unit tests for a specific package:
 
 ```shell
 > cd packages/package-to-test
-> yarn test
+> pnpm test
 ```

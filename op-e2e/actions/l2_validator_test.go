@@ -44,7 +44,7 @@ func TestValidator(gt *testing.T) {
 	sequencer.ActBuildToL1Head(t)
 	// submit and include in L1
 	batcher.ActSubmitAll(t)
-	miner.includeL1Block(t, dp.Addresses.Batcher)
+	miner.includeL1Block(t, dp.Addresses.Batcher, 12)
 	// finalize the first and second L1 blocks, including the batch
 	miner.ActL1SafeNext(t)
 	miner.ActL1SafeNext(t)
@@ -57,7 +57,7 @@ func TestValidator(gt *testing.T) {
 
 	// deposit bond for validator
 	validator.ActDeposit(t, 1_000)
-	miner.includeL1Block(t, validator.address)
+	miner.includeL1Block(t, validator.address, 12)
 
 	require.Equal(t, sequencer.SyncStatus().UnsafeL2, sequencer.SyncStatus().FinalizedL2)
 	// create l2 output submission transactions until there is nothing left to submit
@@ -69,7 +69,7 @@ func TestValidator(gt *testing.T) {
 		// and submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		miner.includeL1Block(t, validator.address)
+		miner.includeL1Block(t, validator.address, 12)
 		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
