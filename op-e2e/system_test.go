@@ -26,8 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
@@ -42,20 +41,24 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 )
 
 func TestMain(m *testing.M) {
-	fmt.Println("Running tests with external L2 process adapter")
-	// As these are integration tests which launch many other processes, the
-	// default parallelism makes the tests flaky.  This change aims to
-	// reduce the flakiness of these tests.
-	maxProcs := runtime.NumCPU() / 4
-	if maxProcs == 0 {
-		maxProcs = 1
+	if config.ExternalL2Shim != "" {
+		fmt.Println("Running tests with external L2 process adapter at ", config.ExternalL2Shim)
+		// As these are integration tests which launch many other processes, the
+		// default parallelism makes the tests flaky.  This change aims to
+		// reduce the flakiness of these tests.
+		maxProcs := runtime.NumCPU() / 4
+		if maxProcs == 0 {
+			maxProcs = 1
+		}
+		runtime.GOMAXPROCS(maxProcs)
 	}
-	runtime.GOMAXPROCS(maxProcs)
 
 	os.Exit(m.Run())
 }
@@ -76,8 +79,8 @@ func TestL2OutputSubmitter(t *testing.T) {
 	require.Nil(t, err)
 	rollupClient := sources.NewRollupClient(client.NewBaseRPCClient(rollupRPCClient))
 
-	// OutputOracle is already deployed
-	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
+	//  OutputOracle is already deployed
+	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
 	require.Nil(t, err)
 
 	initialOutputBlockNumber, err := l2OutputOracle.LatestBlockNumber(&bind.CallOpts{})
@@ -87,7 +90,7 @@ func TestL2OutputSubmitter(t *testing.T) {
 	// unsafe portion of the chain which gets reorged on startup. The sequencer has an out of date view
 	// when it creates it's first block and uses and old L1 Origin. It then does not submit a batch
 	// for that block and subsequently reorgs to match what the verifier derives when running the
-	// reconciliation process.
+	// reconcillation process.
 	l2Verif := sys.Clients["verifier"]
 	_, err = geth.WaitForBlock(big.NewInt(6), l2Verif, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
 	require.Nil(t, err)
@@ -133,10 +136,6 @@ func TestValidationReward(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
-	cfg.DeployConfig.FinalizationPeriodSeconds = 32
-	cfg.DeployConfig.L2OutputOracleSubmissionInterval = 16
-	cfg.DeployConfig.ColosseumSegmentsLengths = "5,5"
-	cfg.DeployConfig.ValidatorPoolRoundDuration = 16
 
 	sys, err := cfg.Start(t)
 	require.NoError(t, err, "Error starting up system")
@@ -161,7 +160,7 @@ func TestValidationReward(t *testing.T) {
 	require.NoError(t, err)
 	defer rewardedSub.Unsubscribe()
 
-	timeout := time.Minute * 2
+	timeout := time.Duration(cfg.DeployConfig.FinalizationPeriodSeconds+30) * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	for {
@@ -545,7 +544,7 @@ func TestSystemMockP2P(t *testing.T) {
 
 	verifierPeerID := sys.RollupNodes["verifier"].P2P().Host().ID()
 	check := func() bool {
-		sequencerBlocksTopicPeers := sys.RollupNodes["sequencer"].P2P().GossipOut().BlocksTopicPeers()
+		sequencerBlocksTopicPeers := sys.RollupNodes["sequencer"].P2P().GossipOut().AllBlockTopicsPeers()
 		return slices.Contains[[]peer.ID](sequencerBlocksTopicPeers, verifierPeerID)
 	}
 
@@ -645,6 +644,10 @@ func TestSystemRPCAltSync(t *testing.T) {
 		// Wait for alt RPC sync to pick up the blocks on the sequencer chain
 		opts.VerifyOnClients(l2Verif)
 	})
+
+	// Sometimes we get duplicate blocks on the sequencer which makes this test flaky
+	published = slices.Compact(published)
+	received = slices.Compact(received)
 
 	// Verify that the tx was received via RPC sync (P2P is disabled)
 	require.Contains(t, received, eth.BlockID{Hash: receiptSeq.BlockHash, Number: receiptSeq.BlockNumber.Uint64()}.String())
@@ -1124,7 +1127,9 @@ func TestFees(t *testing.T) {
 
 	cfg := DefaultSystemConfig(t)
 	// This test only works with these config values modified
-	//cfg.DeployConfig.L2GenesisRegolithTimeOffset = nil
+	// [Kroma: START]
+	// cfg.DeployConfig.L2GenesisRegolithTimeOffset = nil
+	// [Kroma: END]
 	cfg.DeployConfig.L1GenesisBlockBaseFeePerGas = (*hexutil.Big)(big.NewInt(7))
 
 	sys, err := cfg.Start(t)
@@ -1135,24 +1140,28 @@ func TestFees(t *testing.T) {
 	l2Verif := sys.Clients["verifier"]
 	l1 := sys.Clients["l1"]
 
-	//TODO read
 	config := &params.ChainConfig{
 		Kroma: &params.KromaConfig{
 			EIP1559Elasticity:  cfg.DeployConfig.EIP1559Elasticity,
 			EIP1559Denominator: cfg.DeployConfig.EIP1559Denominator,
 		},
-		//BedrockBlock: big.NewInt(0),
+		BedrockBlock: big.NewInt(0),
 	}
+
 	sga := &stateGetterAdapter{
 		ctx:    context.Background(),
 		t:      t,
 		client: l2Seq,
 	}
+
 	l1CostFn := types.NewL1CostFunc(config, sga)
 
 	// Transactor Account
 	ethPrivKey := cfg.Secrets.Alice
 	fromAddr := crypto.PubkeyToAddress(ethPrivKey.PublicKey)
+
+	// require.NotEqual(t, cfg.DeployConfig.L2OutputOracleProposer, fromAddr)
+	require.NotEqual(t, cfg.DeployConfig.BatchSenderAddress, fromAddr)
 
 	// Find gaspriceoracle contract
 	gpoContract, err := bindings.NewGasPriceOracle(predeploys.GasPriceOracleAddr, l2Seq)
@@ -1319,7 +1328,7 @@ func TestStopStartBatcher(t *testing.T) {
 	require.Greater(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain did not advance")
 
 	// stop the batch submission
-	err = sys.BatchSubmitter.Stop(context.Background())
+	err = sys.BatchSubmitter.Driver().StopBatchSubmitting(context.Background())
 	require.Nil(t, err)
 
 	// wait for any old safe blocks being submitted / derived
@@ -1339,7 +1348,7 @@ func TestStopStartBatcher(t *testing.T) {
 	require.Equal(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain advanced while batcher was stopped")
 
 	// start the batch submission
-	err = sys.BatchSubmitter.Start()
+	err = sys.BatchSubmitter.Driver().StartBatchSubmitting()
 	require.Nil(t, err)
 	time.Sleep(safeBlockInclusionDuration)
 
@@ -1374,15 +1383,15 @@ func TestChallenge(t *testing.T) {
 	require.NoError(t, err, "Error challenger deposit to ValidatorPool")
 
 	// OutputOracle is already deployed
-	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
+	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
 	require.NoError(t, err)
 
 	// Colosseum is already deployed
-	colosseum, err := bindings.NewColosseumCaller(predeploys.DevColosseumAddr, l1Client)
+	colosseum, err := bindings.NewColosseumCaller(cfg.L1Deployments.ColosseumProxy, l1Client)
 	require.NoError(t, err)
 
 	// SecurityCouncil is already deployed
-	securityCouncil, err := bindings.NewSecurityCouncilCaller(predeploys.DevSecurityCouncilAddr, l1Client)
+	securityCouncil, err := bindings.NewSecurityCouncilCaller(cfg.L1Deployments.SecurityCouncilProxy, l1Client)
 	require.NoError(t, err)
 
 	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
@@ -1468,7 +1477,7 @@ func TestBatcherMultiTx(t *testing.T) {
 	require.Nil(t, err)
 
 	// start batch submission
-	err = sys.BatchSubmitter.Start()
+	err = sys.BatchSubmitter.Driver().StartBatchSubmitting()
 	require.Nil(t, err)
 
 	totalTxCount := 0
@@ -1571,11 +1580,11 @@ func TestRuntimeConfigReload(t *testing.T) {
 	l1 := sys.Clients["l1"]
 
 	// Change the system-config via L1
-	sysCfgContract, err := bindings.NewSystemConfig(cfg.DeployConfig.SystemConfigProxy, l1)
+	sysCfgContract, err := bindings.NewSystemConfig(cfg.L1Deployments.SystemConfigProxy, l1)
 	require.NoError(t, err)
 	newUnsafeBlocksSigner := common.Address{0x12, 0x23, 0x45}
 	require.NotEqual(t, initialRuntimeConfig.P2PSequencerAddress(), newUnsafeBlocksSigner, "changing to a different address")
-	opts, err := bind.NewKeyedTransactorWithChainID(cfg.Secrets.ProxyAdminOwner, cfg.L1ChainIDBig())
+	opts, err := bind.NewKeyedTransactorWithChainID(cfg.Secrets.SysCfgOwner, cfg.L1ChainIDBig())
 	require.Nil(t, err)
 	// the unsafe signer address is part of the runtime config
 	tx, err := sysCfgContract.SetUnsafeBlockSigner(opts, newUnsafeBlocksSigner)
@@ -1595,3 +1604,120 @@ func TestRuntimeConfigReload(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+// [Kroma: START]
+// func TestRecommendedProtocolVersionChange(t *testing.T) {
+// 	InitParallel(t)
+//
+// 	cfg := DefaultSystemConfig(t)
+// 	require.NotEqual(t, common.Address{}, cfg.L1Deployments.ProtocolVersions, "need ProtocolVersions contract deployment")
+// 	// to speed up the test, make it reload the config more often, and do not impose a long conf depth
+// 	cfg.Nodes["verifier"].RuntimeConfigReloadInterval = time.Second * 5
+// 	cfg.Nodes["verifier"].Driver.VerifierConfDepth = 1
+//
+// 	sys, err := cfg.Start(t)
+// 	require.Nil(t, err, "Error starting up system")
+// 	defer sys.Close()
+// 	runtimeConfig := sys.RollupNodes["verifier"].RuntimeConfig()
+//
+// 	// Change the superchain-config via L1
+// 	l1 := sys.Clients["l1"]
+//
+// 	_, build, major, minor, patch, preRelease := params.OPStackSupport.Parse()
+// 	newRecommendedProtocolVersion := params.ProtocolVersionV0{Build: build, Major: major + 1, Minor: minor, Patch: patch, PreRelease: preRelease}.Encode()
+// 	require.NotEqual(t, runtimeConfig.RecommendedProtocolVersion(), newRecommendedProtocolVersion, "changing to a different protocol version")
+//
+// 	protVersions, err := bindings.NewProtocolVersions(cfg.L1Deployments.ProtocolVersionsProxy, l1)
+// 	require.NoError(t, err)
+//
+// 	// ProtocolVersions contract is owned by same key as SystemConfig in devnet
+// 	opts, err := bind.NewKeyedTransactorWithChainID(cfg.Secrets.SysCfgOwner, cfg.L1ChainIDBig())
+// 	require.NoError(t, err)
+//
+// 	// Change recommended protocol version
+// 	tx, err := protVersions.SetRecommended(opts, new(big.Int).SetBytes(newRecommendedProtocolVersion[:]))
+// 	require.NoError(t, err)
+//
+// 	// wait for the change to confirm
+// 	_, err = wait.ForReceiptOK(context.Background(), l1, tx.Hash())
+// 	require.NoError(t, err)
+//
+// 	// wait for the recommended protocol version to change
+// 	_, err = retry.Do(context.Background(), 10, retry.Fixed(time.Second*10), func() (struct{}, error) {
+// 		v := sys.RollupNodes["verifier"].RuntimeConfig().RecommendedProtocolVersion()
+// 		if v == newRecommendedProtocolVersion {
+// 			return struct{}{}, nil
+// 		}
+// 		return struct{}{}, fmt.Errorf("no change yet, seeing %s but looking for %s", v, newRecommendedProtocolVersion)
+// 	})
+// 	require.NoError(t, err)
+// }
+//
+// func TestRequiredProtocolVersionChangeAndHalt(t *testing.T) {
+// 	InitParallel(t)
+//
+// 	cfg := DefaultSystemConfig(t)
+// 	// to speed up the test, make it reload the config more often, and do not impose a long conf depth
+// 	cfg.Nodes["verifier"].RuntimeConfigReloadInterval = time.Second * 5
+// 	cfg.Nodes["verifier"].Driver.VerifierConfDepth = 1
+// 	// configure halt in verifier op-node
+// 	cfg.Nodes["verifier"].RollupHalt = "major"
+// 	// configure halt in verifier op-geth node
+// 	cfg.GethOptions["verifier"] = append(cfg.GethOptions["verifier"], []geth.GethOption{
+// 		func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
+// 			ethCfg.RollupHaltOnIncompatibleProtocolVersion = "major"
+// 			return nil
+// 		},
+// 	}...)
+//
+// 	sys, err := cfg.Start(t)
+// 	require.Nil(t, err, "Error starting up system")
+// 	defer sys.Close()
+// 	runtimeConfig := sys.RollupNodes["verifier"].RuntimeConfig()
+//
+// 	// Change the superchain-config via L1
+// 	l1 := sys.Clients["l1"]
+//
+// 	_, build, major, minor, patch, preRelease := params.OPStackSupport.Parse()
+// 	newRequiredProtocolVersion := params.ProtocolVersionV0{Build: build, Major: major + 1, Minor: minor, Patch: patch, PreRelease: preRelease}.Encode()
+// 	require.NotEqual(t, runtimeConfig.RequiredProtocolVersion(), newRequiredProtocolVersion, "changing to a different protocol version")
+//
+// 	protVersions, err := bindings.NewProtocolVersions(cfg.L1Deployments.ProtocolVersionsProxy, l1)
+// 	require.NoError(t, err)
+//
+// 	// ProtocolVersions contract is owned by same key as SystemConfig in devnet
+// 	opts, err := bind.NewKeyedTransactorWithChainID(cfg.Secrets.SysCfgOwner, cfg.L1ChainIDBig())
+// 	require.NoError(t, err)
+//
+// 	// Change required protocol version
+// 	tx, err := protVersions.SetRequired(opts, new(big.Int).SetBytes(newRequiredProtocolVersion[:]))
+// 	require.NoError(t, err)
+//
+// 	// wait for the change to confirm
+// 	_, err = wait.ForReceiptOK(context.Background(), l1, tx.Hash())
+// 	require.NoError(t, err)
+//
+// 	// wait for the required protocol version to take effect by halting the verifier that opted in, and halting the op-geth node that opted in.
+// 	_, err = retry.Do(context.Background(), 10, retry.Fixed(time.Second*10), func() (struct{}, error) {
+// 		if !sys.RollupNodes["verifier"].Stopped() {
+// 			return struct{}{}, errors.New("verifier rollup node is not closed yet")
+// 		}
+// 		return struct{}{}, nil
+// 	})
+// 	require.NoError(t, err)
+// 	t.Log("verified that op-node closed!")
+// 	// Checking if the engine is down is not trivial in op-e2e.
+// 	// In op-geth we have halting tests covering the Engine API, in op-e2e we instead check if the API stops.
+// 	_, err = retry.Do(context.Background(), 10, retry.Fixed(time.Second*10), func() (struct{}, error) {
+// 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+// 		_, err := sys.Clients["verifier"].ChainID(ctx)
+// 		cancel()
+// 		if err != nil && !errors.Is(err, ctx.Err()) { // waiting for client to stop responding to chainID requests
+// 			return struct{}{}, nil
+// 		}
+// 		return struct{}{}, errors.New("verifier rollup node is not closed yet")
+// 	})
+// 	require.NoError(t, err)
+// 	t.Log("verified that op-geth closed!")
+// }
+// [Kroma: END]

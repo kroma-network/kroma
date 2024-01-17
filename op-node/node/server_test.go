@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/version"
@@ -22,6 +21,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 func TestOutputAtBlock(t *testing.T) {
@@ -134,13 +134,15 @@ func TestOutputAtBlock(t *testing.T) {
 	server, err := newRPCServer(context.Background(), rpcCfg, rollupCfg, l2Client, drClient, log, "0.0", metrics.NoopMetrics)
 	require.NoError(t, err)
 	require.NoError(t, server.Start())
-	defer server.Stop()
+	defer func() {
+		require.NoError(t, server.Stop(context.Background()))
+	}()
 
 	client, err := rpcclient.NewRPC(context.Background(), log, "http://"+server.Addr().String(), rpcclient.WithDialBackoff(3))
 	require.NoError(t, err)
 
 	var out *eth.OutputResponse
-	err = client.CallContext(context.Background(), &out, "kroma_outputAtBlock", "0xdcdc89")
+	err = client.CallContext(context.Background(), &out, "optimism_outputAtBlock", "0xdcdc89")
 	require.NoError(t, err)
 
 	require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000000", out.Version.String())
@@ -166,17 +168,15 @@ func TestVersion(t *testing.T) {
 	server, err := newRPCServer(context.Background(), rpcCfg, rollupCfg, l2Client, drClient, log, "0.0", metrics.NoopMetrics)
 	assert.NoError(t, err)
 	assert.NoError(t, server.Start())
-	defer server.Stop()
+	defer func() {
+		require.NoError(t, server.Stop(context.Background()))
+	}()
 
 	client, err := rpcclient.NewRPC(context.Background(), log, "http://"+server.Addr().String(), rpcclient.WithDialBackoff(3))
 	assert.NoError(t, err)
 
 	var out string
 	err = client.CallContext(context.Background(), &out, "optimism_version")
-	assert.NoError(t, err)
-	assert.Equal(t, version.Version+"-"+version.Meta, out)
-
-	err = client.CallContext(context.Background(), &out, "kroma_version")
 	assert.NoError(t, err)
 	assert.Equal(t, version.Version+"-"+version.Meta, out)
 }
@@ -214,13 +214,15 @@ func TestSyncStatus(t *testing.T) {
 	server, err := newRPCServer(context.Background(), rpcCfg, rollupCfg, l2Client, drClient, log, "0.0", metrics.NoopMetrics)
 	assert.NoError(t, err)
 	assert.NoError(t, server.Start())
-	defer server.Stop()
+	defer func() {
+		require.NoError(t, server.Stop(context.Background()))
+	}()
 
 	client, err := rpcclient.NewRPC(context.Background(), log, "http://"+server.Addr().String(), rpcclient.WithDialBackoff(3))
 	assert.NoError(t, err)
 
 	var out *eth.SyncStatus
-	err = client.CallContext(context.Background(), &out, "kroma_syncStatus")
+	err = client.CallContext(context.Background(), &out, "optimism_syncStatus")
 	assert.NoError(t, err)
 	assert.Equal(t, status, out)
 }

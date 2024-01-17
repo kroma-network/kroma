@@ -61,6 +61,13 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 
 	syncConfig := NewSyncConfig(ctx)
 
+	// [Kroma: START]
+	// haltOption := ctx.String(flags.RollupHalt.Name)
+	// if haltOption == "none" {
+	// 	haltOption = ""
+	// }
+	// [Kroma: END]
+
 	cfg := &node.Config{
 		L1:     l1Endpoint,
 		L2:     l2Endpoint,
@@ -93,6 +100,10 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		},
 		ConfigPersistence: configPersistence,
 		Sync:              *syncConfig,
+		// [Kroma: START]
+		// RollupHalt:        haltOption,
+		// [Kroma: END]
+		RethDBPath:        ctx.String(flags.L1RethDBPath.Name),
 	}
 
 	if err := cfg.LoadPersisted(log); err != nil {
@@ -176,6 +187,9 @@ func NewDriverConfig(ctx *cli.Context) *driver.Config {
 func NewRollupConfig(log log.Logger, ctx *cli.Context) (*rollup.Config, error) {
 	network := ctx.String(flags.Network.Name)
 	rollupConfigPath := ctx.String(flags.RollupConfig.Name)
+	if ctx.Bool(flags.BetaExtraNetworks.Name) {
+		log.Warn("The beta.extra-networks flag is deprecated and can be omitted safely.")
+	}
 	if network != "" {
 		if rollupConfigPath != "" {
 			log.Error(`Cannot configure network and rollup-config at the same time.
@@ -183,9 +197,19 @@ Startup will proceed to use the network-parameter and ignore the rollup config.
 Conflicting configuration is deprecated, and will stop the op-node from starting in the future.
 `, "network", network, "rollup_config", rollupConfigPath)
 		}
+		// [Kroma: START]
+		// check that the network is available
+		// if !chaincfg.IsAvailableNetwork(network, ctx.Bool(flags.BetaExtraNetworks.Name)) {
+		// 	return nil, fmt.Errorf("unavailable network: %q", network)
+		// }
+		// [Kroma: END]
 		config, err := chaincfg.GetRollupConfig(network)
 		if err != nil {
 			return nil, err
+		}
+		if ctx.IsSet(flags.CanyonOverrideFlag.Name) {
+			canyon := ctx.Uint64(flags.CanyonOverrideFlag.Name)
+			config.CanyonTime = &canyon
 		}
 
 		return config, nil
@@ -201,7 +225,10 @@ Conflicting configuration is deprecated, and will stop the op-node from starting
 	if err := json.NewDecoder(file).Decode(&rollupConfig); err != nil {
 		return nil, fmt.Errorf("failed to decode rollup config: %w", err)
 	}
-
+	if ctx.IsSet(flags.CanyonOverrideFlag.Name) {
+		canyon := ctx.Uint64(flags.CanyonOverrideFlag.Name)
+		rollupConfig.CanyonTime = &canyon
+	}
 	return &rollupConfig, nil
 }
 

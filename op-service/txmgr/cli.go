@@ -26,6 +26,7 @@ const (
 	// TxMgr Flags (new + legacy + some shared flags)
 	NumConfirmationsFlagName          = "num-confirmations"
 	SafeAbortNonceTooLowCountFlagName = "safe-abort-nonce-too-low-count"
+	FeeLimitMultiplierFlagName        = "fee-limit-multiplier"
 	ResubmissionTimeoutFlagName       = "resubmission-timeout"
 	NetworkTimeoutFlagName            = "network-timeout"
 	TxSendTimeoutFlagName             = "txmgr.send-timeout"
@@ -36,9 +37,25 @@ const (
 	// [Kroma: END]
 )
 
+var (
+	SequencerHDPathFlag = &cli.StringFlag{
+		Name: "sequencer-hd-path",
+		Usage: "DEPRECATED: The HD path used to derive the sequencer wallet from the " +
+			"mnemonic. The mnemonic flag must also be set.",
+		EnvVars: []string{"OP_BATCHER_SEQUENCER_HD_PATH"},
+	}
+	L2OutputHDPathFlag = &cli.StringFlag{
+		Name: "l2-output-hd-path",
+		Usage: "DEPRECATED:The HD path used to derive the l2output wallet from the " +
+			"mnemonic. The mnemonic flag must also be set.",
+		EnvVars: []string{"OP_PROPOSER_L2_OUTPUT_HD_PATH"},
+	}
+)
+
 type DefaultFlagValues struct {
 	NumConfirmations          uint64
 	SafeAbortNonceTooLowCount uint64
+	FeeLimitMultiplier        uint64
 	ResubmissionTimeout       time.Duration
 	NetworkTimeout            time.Duration
 	TxSendTimeout             time.Duration
@@ -51,6 +68,7 @@ var (
 	DefaultBatcherFlagValues = DefaultFlagValues{
 		NumConfirmations:          uint64(10),
 		SafeAbortNonceTooLowCount: uint64(3),
+		FeeLimitMultiplier:        uint64(5),
 		ResubmissionTimeout:       48 * time.Second,
 		NetworkTimeout:            10 * time.Second,
 		TxSendTimeout:             0 * time.Second,
@@ -58,6 +76,18 @@ var (
 		ReceiptQueryInterval:      12 * time.Second,
 		TxBufferSize:              uint64(10),
 	}
+	// [Kroma: START]
+	// DefaultChallengerFlagValues = DefaultFlagValues{
+	// NumConfirmations:          uint64(3),
+	// SafeAbortNonceTooLowCount: uint64(3),
+	// FeeLimitMultiplier:        uint64(5),
+    // ResubmissionTimeout:       24 * time.Second,
+	// NetworkTimeout:            10 * time.Second,
+	// TxSendTimeout:             2 * time.Minute,
+	// TxNotInMempoolTimeout:     1 * time.Minute,
+	// ReceiptQueryInterval:      12 * time.Second,
+	// }
+	// [Kroma: END]
 )
 
 func CLIFlags(envPrefix string) []cli.Flag {
@@ -96,6 +126,12 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 			Value:   defaults.SafeAbortNonceTooLowCount,
 			EnvVars: prefixEnvVars("SAFE_ABORT_NONCE_TOO_LOW_COUNT"),
 		},
+		&cli.Uint64Flag{
+			Name:    FeeLimitMultiplierFlagName,
+			Usage:   "The multiplier applied to fee suggestions to put a hard limit on fee increases",
+			Value:   defaults.FeeLimitMultiplier,
+			EnvVars: prefixEnvVars("TXMGR_FEE_LIMIT_MULTIPLIER"),
+		},
 		&cli.DurationFlag{
 			Name:    ResubmissionTimeoutFlagName,
 			Usage:   "Duration we will wait before resubmitting a transaction to L1",
@@ -126,33 +162,36 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 			Value:   defaults.ReceiptQueryInterval,
 			EnvVars: prefixEnvVars("TXMGR_RECEIPT_QUERY_INTERVAL"),
 		},
+		// [Kroma: START]
 		&cli.Uint64Flag{
 			Name:    BufferSizeFlagName,
 			Usage:   "Tx buffer size for buffered txmgr",
 			Value:   defaults.TxBufferSize,
 			EnvVars: prefixEnvVars("TXMGR_BUFFER_SIZE"),
 		},
+		// [Kroma: END]
 	}, opsigner.CLIFlags(envPrefix)...)
 }
 
 type CLIConfig struct {
-	L1RPCURL string
-	Mnemonic string
-	HDPath   string
-	// [Kroma: START]
-	// SequencerHDPath           string
-	// L2OutputHDPath            string
-	// [Kroma: END]
+	L1RPCURL                  string
+	Mnemonic                  string
+	HDPath                    string
+	SequencerHDPath           string
+	L2OutputHDPath            string
 	PrivateKey                string
 	SignerCLIConfig           opsigner.CLIConfig
 	NumConfirmations          uint64
 	SafeAbortNonceTooLowCount uint64
-	TxBufferSize              uint64
+	FeeLimitMultiplier        uint64
 	ResubmissionTimeout       time.Duration
 	ReceiptQueryInterval      time.Duration
 	NetworkTimeout            time.Duration
 	TxSendTimeout             time.Duration
 	TxNotInMempoolTimeout     time.Duration
+	// [Kroma: START]
+	TxBufferSize              uint64
+	// [Kroma: END]
 }
 
 func NewCLIConfig(l1RPCURL string, defaults DefaultFlagValues) CLIConfig {
@@ -160,13 +199,16 @@ func NewCLIConfig(l1RPCURL string, defaults DefaultFlagValues) CLIConfig {
 		L1RPCURL:                  l1RPCURL,
 		NumConfirmations:          defaults.NumConfirmations,
 		SafeAbortNonceTooLowCount: defaults.SafeAbortNonceTooLowCount,
+		FeeLimitMultiplier:        defaults.FeeLimitMultiplier,
 		ResubmissionTimeout:       defaults.ResubmissionTimeout,
 		NetworkTimeout:            defaults.NetworkTimeout,
 		TxSendTimeout:             defaults.TxSendTimeout,
 		TxNotInMempoolTimeout:     defaults.TxNotInMempoolTimeout,
-		TxBufferSize:              defaults.TxBufferSize,
 		ReceiptQueryInterval:      defaults.ReceiptQueryInterval,
 		SignerCLIConfig:           opsigner.NewCLIConfig(),
+		// [Kroma: START]
+		TxBufferSize:              defaults.TxBufferSize,
+		// [Kroma: END]
 	}
 }
 
@@ -180,6 +222,9 @@ func (m CLIConfig) Check() error {
 	if m.NetworkTimeout == 0 {
 		return errors.New("must provide NetworkTimeout")
 	}
+	if m.FeeLimitMultiplier == 0 {
+		return errors.New("must provide FeeLimitMultiplier")
+	}
 	if m.ResubmissionTimeout == 0 {
 		return errors.New("must provide ResubmissionTimeout")
 	}
@@ -189,15 +234,17 @@ func (m CLIConfig) Check() error {
 	if m.TxNotInMempoolTimeout == 0 {
 		return errors.New("must provide TxNotInMempoolTimeout")
 	}
-	if m.TxBufferSize == 0 {
-		return errors.New("must provide TxBufferSize")
-	}
 	if m.SafeAbortNonceTooLowCount == 0 {
 		return errors.New("SafeAbortNonceTooLowCount must not be 0")
 	}
 	if err := m.SignerCLIConfig.Check(); err != nil {
 		return err
 	}
+	// [Kroma: START]
+	if m.TxBufferSize == 0 {
+		return errors.New("must provide TxBufferSize")
+	}
+	// [Kroma: END]
 	return nil
 }
 
@@ -206,16 +253,21 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		L1RPCURL:                  ctx.String(L1RPCFlagName),
 		Mnemonic:                  ctx.String(MnemonicFlagName),
 		HDPath:                    ctx.String(HDPathFlagName),
+		SequencerHDPath:           ctx.String(SequencerHDPathFlag.Name),
+		L2OutputHDPath:            ctx.String(L2OutputHDPathFlag.Name),
 		PrivateKey:                ctx.String(PrivateKeyFlagName),
 		SignerCLIConfig:           opsigner.ReadCLIConfig(ctx),
 		NumConfirmations:          ctx.Uint64(NumConfirmationsFlagName),
 		SafeAbortNonceTooLowCount: ctx.Uint64(SafeAbortNonceTooLowCountFlagName),
+		FeeLimitMultiplier:        ctx.Uint64(FeeLimitMultiplierFlagName),
 		ResubmissionTimeout:       ctx.Duration(ResubmissionTimeoutFlagName),
 		ReceiptQueryInterval:      ctx.Duration(ReceiptQueryIntervalFlagName),
 		NetworkTimeout:            ctx.Duration(NetworkTimeoutFlagName),
 		TxSendTimeout:             ctx.Duration(TxSendTimeoutFlagName),
 		TxNotInMempoolTimeout:     ctx.Duration(TxNotInMempoolTimeoutFlagName),
+		// [Kroma: START]
 		TxBufferSize:              ctx.Uint64(BufferSizeFlagName),
+		// [Kroma: END]
 	}
 }
 
@@ -238,7 +290,15 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		return Config{}, fmt.Errorf("could not dial fetch L1 chain ID: %w", err)
 	}
 
-	signerFactory, from, err := opcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, cfg.HDPath, cfg.SignerCLIConfig)
+	// Allow backwards compatible ways of specifying the HD path
+	hdPath := cfg.HDPath
+	if hdPath == "" && cfg.SequencerHDPath != "" {
+		hdPath = cfg.SequencerHDPath
+	} else if hdPath == "" && cfg.L2OutputHDPath != "" {
+		hdPath = cfg.L2OutputHDPath
+	}
+
+	signerFactory, from, err := opcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
 	if err != nil {
 		return Config{}, fmt.Errorf("could not init signer: %w", err)
 	}
@@ -246,6 +306,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 	return Config{
 		Backend:                   l1,
 		ResubmissionTimeout:       cfg.ResubmissionTimeout,
+		FeeLimitMultiplier:        cfg.FeeLimitMultiplier,
 		ChainID:                   chainID,
 		TxSendTimeout:             cfg.TxSendTimeout,
 		TxNotInMempoolTimeout:     cfg.TxNotInMempoolTimeout,
@@ -253,9 +314,11 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		ReceiptQueryInterval:      cfg.ReceiptQueryInterval,
 		NumConfirmations:          cfg.NumConfirmations,
 		SafeAbortNonceTooLowCount: cfg.SafeAbortNonceTooLowCount,
-		TxBufferSize:              cfg.TxBufferSize,
 		Signer:                    signerFactory(chainID),
 		From:                      from,
+		// [Kroma: START]
+		TxBufferSize:              cfg.TxBufferSize,
+		// [Kroma: END]
 	}, nil
 }
 
@@ -267,6 +330,9 @@ type Config struct {
 	// price will be published. Only one publication at MaxGasPrice will be
 	// attempted.
 	ResubmissionTimeout time.Duration
+
+	// The multiplier applied to fee suggestions to put a hard limit on fee increases.
+	FeeLimitMultiplier uint64
 
 	// ChainID is the chain ID of the L1 chain.
 	ChainID *big.Int
@@ -297,15 +363,15 @@ type Config struct {
 	// confirmation.
 	SafeAbortNonceTooLowCount uint64
 
+	// Signer is used to sign transactions when the gas price is increased.
+	Signer opcrypto.SignerFn
+	From   common.Address
+
 	// [Kroma: START]
 	// TxBufferSize specifies the size of the queue to use for transaction requests.
 	// Only used by buffered txmgr.
 	TxBufferSize uint64
 	// [Kroma: END]
-
-	// Signer is used to sign transactions when the gas price is increased.
-	Signer opcrypto.SignerFn
-	From   common.Address
 }
 
 func (m Config) Check() error {
@@ -318,6 +384,9 @@ func (m Config) Check() error {
 	if m.NetworkTimeout == 0 {
 		return errors.New("must provide NetworkTimeout")
 	}
+	if m.FeeLimitMultiplier == 0 {
+		return errors.New("must provide FeeLimitMultiplier")
+	}
 	if m.ResubmissionTimeout == 0 {
 		return errors.New("must provide ResubmissionTimeout")
 	}
@@ -326,9 +395,6 @@ func (m Config) Check() error {
 	}
 	if m.TxNotInMempoolTimeout == 0 {
 		return errors.New("must provide TxNotInMempoolTimeout")
-	}
-	if m.TxBufferSize == 0 {
-		return errors.New("must provide TxBufferSize")
 	}
 	if m.SafeAbortNonceTooLowCount == 0 {
 		return errors.New("SafeAbortNonceTooLowCount must not be 0")
@@ -339,5 +405,10 @@ func (m Config) Check() error {
 	if m.ChainID == nil {
 		return errors.New("must provide the ChainID")
 	}
+	// [Kroma: START]
+	if m.TxBufferSize == 0 {
+		return errors.New("must provide TxBufferSize")
+	}
+	// [Kroma: END]
 	return nil
 }

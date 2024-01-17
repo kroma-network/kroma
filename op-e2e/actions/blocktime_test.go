@@ -4,17 +4,18 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
 // TestBatchInLastPossibleBlocks tests that the derivation pipeline
 // accepts a batch that is included in the last possible L1 block
-// where there are also no other batches included in the sequencer
+// where there are also no other batches included in the sequence
 // window.
 // This is a regression test against the bug fixed in PR #4566
 func TestBatchInLastPossibleBlocks(gt *testing.T) {

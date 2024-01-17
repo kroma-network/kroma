@@ -9,13 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/ethereum-optimism/optimism/op-service/monitoring"
 	"github.com/ethereum-optimism/optimism/op-service/opio"
 	"github.com/ethereum-optimism/optimism/op-service/optsutils"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
+
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
 )

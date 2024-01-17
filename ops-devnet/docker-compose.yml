@@ -13,12 +13,13 @@ volumes:
 services:
   l1:
     pid: host # allow debugging
-    image: ethereum/client-go:v1.10.22
+    image: ethereum/client-go:v1.13.4
     ports:
       - "8545:8545"
       - "8546:8546"
     environment:
       CHAIN_ID: 900
+      GETH_MINER_RECOMMIT: 100ms
     volumes:
       - "l1_data:/db"
       - "${PWD}/entrypoint-l1.sh:/entrypoint.sh"
@@ -30,12 +31,13 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:v0.3.0
+    image: kromanetwork/geth:v0.4.0-dev
     ports:
       - "9545:8545"
       - "9546:8546"
     environment:
       CHAIN_ID: 901
+      GETH_MINER_RECOMMIT: 100ms
     volumes:
       - "l2_data:/db"
       - "${PWD}/entrypoint-l2.sh:/entrypoint.sh"
@@ -208,3 +210,14 @@ services:
       - "9090:8080"
     volumes:
       - kroma_log:/kroma_log:ro
+
+  artifact-server:
+    depends_on:
+      - l1
+    image: nginx:1.25-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - "${PWD}/../.devnet/:/usr/share/nginx/html/:ro"
+    security_opt:
+      - "no-new-privileges:true"

@@ -17,13 +17,12 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 type L1Bindings struct {
@@ -33,11 +32,11 @@ type L1Bindings struct {
 	L2OutputOracle *bindings.L2OutputOracle
 }
 
-func NewL1Bindings(t Testing, l1Cl *ethclient.Client, deployments *e2eutils.DeploymentsL1) *L1Bindings {
-	kromaPortal, err := bindings.NewKromaPortal(deployments.KromaPortalProxy, l1Cl)
+func NewL1Bindings(t Testing, l1Cl *ethclient.Client) *L1Bindings {
+	kromaPortal, err := bindings.NewKromaPortal(config.L1Deployments.KromaPortalProxy, l1Cl)
 	require.NoError(t, err)
 
-	l2OutputOracle, err := bindings.NewL2OutputOracle(deployments.L2OutputOracleProxy, l1Cl)
+	l2OutputOracle, err := bindings.NewL2OutputOracle(config.L1Deployments.L2OutputOracleProxy, l1Cl)
 	require.NoError(t, err)
 
 	return &L1Bindings{
@@ -276,9 +275,8 @@ type L2User struct {
 // CrossLayerUser represents the same user account on L1 and L2,
 // and provides actions to make cross-layer transactions.
 type CrossLayerUser struct {
-	L1           L1User
-	L2           L2User
-	rollupConfig *rollup.Config
+	L1 L1User
+	L2 L2User
 
 	// track the last deposit, to easily chain together deposit actions
 	lastL1DepositTxHash common.Hash
@@ -286,7 +284,7 @@ type CrossLayerUser struct {
 	lastL2WithdrawalTxHash common.Hash
 }
 
-func NewCrossLayerUser(log log.Logger, priv *ecdsa.PrivateKey, rng *rand.Rand, rollupConfig *rollup.Config) *CrossLayerUser {
+func NewCrossLayerUser(log log.Logger, priv *ecdsa.PrivateKey, rng *rand.Rand) *CrossLayerUser {
 	addr := crypto.PubkeyToAddress(priv.PublicKey)
 	return &CrossLayerUser{
 		L1: L1User{
@@ -305,7 +303,6 @@ func NewCrossLayerUser(log log.Logger, priv *ecdsa.PrivateKey, rng *rand.Rand, r
 				address: addr,
 			},
 		},
-		rollupConfig: rollupConfig,
 	}
 }
 
@@ -490,8 +487,8 @@ func (s *CrossLayerUser) CompleteWithdrawal(t Testing, l2TxHash common.Hash) com
 
 	// Check if the withdrawal may be completed yet
 	if l2OutputBlock.Time()+finalizationPeriod.Uint64() >= l1Head.Time {
-		t.InvalidAction("withdrawal tx %s was included in L2 block %d (time %d) but L1 only knows of L2 output %d (time %d) at head %d (time %d) which has not reached output confirmation yet (period is %d)",
-			l2TxHash, l2WithdrawalBlock.NumberU64(), l2WithdrawalBlock.Time(), l2OutputBlock.NumberU64(), l2OutputBlock.Time(), finalizationPeriod.Uint64(), l1Head.Number.Uint64(), l1Head.Time)
+		t.InvalidAction("withdrawal tx %s was included in L2 block %d (time %d) but L1 only knows of L2 proposal %d (time %d) at head %d (time %d) which has not reached output confirmation yet (period is %d)",
+			l2TxHash, l2WithdrawalBlock.NumberU64(), l2WithdrawalBlock.Time(), l2OutputBlock.NumberU64(), l2OutputBlock.Time(), l1Head.Number.Uint64(), l1Head.Time, finalizationPeriod.Uint64())
 		return common.Hash{}
 	}
 

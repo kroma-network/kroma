@@ -136,9 +136,7 @@ func (h *Hardhat) initArtifacts() error {
 				return nil
 			}
 			name := filepath.Join(artifactPath, path)
-			if strings.Contains(name, ".DS_Store") {
-				return nil
-			}
+
 			if strings.Contains(name, "build-info") {
 				return nil
 			}

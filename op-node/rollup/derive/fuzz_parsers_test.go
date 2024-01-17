@@ -17,9 +17,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm/runtime"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 var (
@@ -98,7 +98,7 @@ func FuzzL1InfoAgainstContract(f *testing.F) {
 			BytesToBigInt(baseFee),
 			common.BytesToHash(hash),
 			seqNumber,
-			common.BytesToAddress(batcherHash).Hash(),
+			eth.AddressAsLeftPaddedHash(common.BytesToAddress(batcherHash)),
 			common.BytesToHash(l1FeeOverhead).Big(),
 			common.BytesToHash(l1FeeScalar).Big(),
 			common.BytesToHash(validatorRewardScalar).Big(),

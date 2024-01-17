@@ -59,7 +59,7 @@ For a complete specification of the L2 block derivation, refer to the [L2 block 
 
 ## L2 Output RPC method
 
-The Rollup node has its own RPC method, `kroma_outputAtBlock` which returns a 32
+The Rollup node has its own RPC method, `optimism_outputAtBlock` which returns a 32
 byte hash corresponding to the [L2 output root](./validator.md#l2-output-commitment-construction).
 
 ### Output Method API
@@ -68,7 +68,7 @@ The input and return types here are as defined by the [engine API specs][engine-
 
 [engine-structures]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md#structures
 
-- method: `kroma_outputAtBlock`
+- method: `optimism_outputAtBlock`
 - params:
   1. `blockNumber`: `QUANTITY`, 64 bits - L2 integer block number </br>
         OR `String` - one of `"safe"`, `"latest"`, or `"pending"`.

@@ -12,15 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
-// TestERC20BridgeDeposits tests the L1StandardBridge bridge ERC20
+// TestERC20BridgeDeposits tests the the L1StandardBridge bridge ERC20
 // functionality.
 func TestERC20BridgeDeposits(t *testing.T) {
 	InitParallel(t)
@@ -77,13 +77,13 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	require.NotNil(t, event)
 
 	// Approve WETH9 with the bridge
-	tx, err = WETH9.Approve(opts, predeploys.DevL1StandardBridgeAddr, new(big.Int).SetUint64(math.MaxUint64))
+	tx, err = WETH9.Approve(opts, cfg.L1Deployments.L1StandardBridgeProxy, new(big.Int).SetUint64(math.MaxUint64))
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(context.Background(), l1Client, tx.Hash())
 	require.NoError(t, err)
 
 	// Bridge the WETH9
-	l1StandardBridge, err := bindings.NewL1StandardBridge(predeploys.DevL1StandardBridgeAddr, l1Client)
+	l1StandardBridge, err := bindings.NewL1StandardBridge(cfg.L1Deployments.L1StandardBridgeProxy, l1Client)
 	require.NoError(t, err)
 	tx, err = transactions.PadGasEstimate(opts, 1.1, func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		return l1StandardBridge.BridgeERC20(opts, weth9Address, event.LocalToken, big.NewInt(100), 100000, []byte{})
@@ -95,7 +95,7 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	t.Log("Deposit through L1StandardBridge", "gas used", depositReceipt.GasUsed)
 
 	// compute the deposit transaction hash + poll for it
-	portal, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
+	portal, err := bindings.NewKromaPortal(cfg.L1Deployments.KromaPortalProxy, l1Client)
 	require.NoError(t, err)
 
 	depIt, err := portal.FilterTransactionDeposited(&bind.FilterOpts{Start: 0}, nil, nil, nil)

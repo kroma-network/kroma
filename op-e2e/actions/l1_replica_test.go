@@ -20,6 +20,18 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
+// [Kroma: START]
+// These definitions are moved to l2_runtime.go file
+// var defaultRollupTestParams = &e2eutils.TestParams{
+// 	MaxSequencerDrift:   40,
+// 	SequencerWindowSize: 120,
+// 	ChannelTimeout:      120,
+// 	L1BlockTime:         15,
+// }
+//
+// var defaultAlloc = &e2eutils.AllocParams{PrefundTestUsers: true}
+// [Kroma: END]
+
 // Test if we can mock an RPC failure
 func TestL1Replica_ActL1RPCFail(gt *testing.T) {
 	t := NewDefaultTesting(gt)
@@ -33,7 +45,7 @@ func TestL1Replica_ActL1RPCFail(gt *testing.T) {
 	// mock an RPC failure
 	replica.ActL1RPCFail(t)
 	// check RPC failure
-	l1Cl, err := sources.NewL1Client(replica.RPCClient(), log, nil, sources.L1ClientDefaultConfig(sd.RollupCfg, false, sources.RPCKindBasic))
+	l1Cl, err := sources.NewL1Client(replica.RPCClient(), log, nil, sources.L1ClientDefaultConfig(sd.RollupCfg, false, sources.RPCKindStandard))
 	require.NoError(t, err)
 	_, err = l1Cl.InfoByLabel(t.Ctx(), eth.Unsafe)
 	require.ErrorContains(t, err, "mock")

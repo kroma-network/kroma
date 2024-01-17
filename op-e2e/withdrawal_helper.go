@@ -15,11 +15,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 func SendWithdrawal(t *testing.T, cfg SystemConfig, l2Client *ethclient.Client, privKey *ecdsa.PrivateKey, applyOpts WithdrawalTxOptsFn) (*types.Transaction, *types.Receipt) {
@@ -90,7 +91,7 @@ func ProveWithdrawal(t *testing.T, version [32]byte, cfg SystemConfig, l1Client 
 	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	defer cancel()
 
-	blockNumber, err := wait.ForOutputRootPublished(ctx, l1Client, predeploys.DevL2OutputOracleAddr, l2WithdrawalReceipt.BlockNumber)
+	blockNumber, err := wait.ForOutputRootPublished(ctx, l1Client, config.L1Deployments.L2OutputOracleProxy, l2WithdrawalReceipt.BlockNumber)
 	require.Nil(t, err)
 
 	rpcClient, err := rpc.Dial(l2Node.WSEndpoint())
@@ -109,13 +110,13 @@ func ProveWithdrawal(t *testing.T, version [32]byte, cfg SystemConfig, l1Client 
 	require.Nil(t, err)
 
 	// Now create withdrawal
-	oracle, err := bindings.NewL2OutputOracleCaller(predeploys.DevL2OutputOracleAddr, l1Client)
+	oracle, err := bindings.NewL2OutputOracleCaller(config.L1Deployments.L2OutputOracleProxy, l1Client)
 	require.Nil(t, err)
 
 	params, err := withdrawals.ProveWithdrawalParameters(context.Background(), version, proofCl, receiptCl, l2WithdrawalReceipt.TxHash, header, nextHeader, oracle)
 	require.Nil(t, err)
 
-	portal, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
+	portal, err := bindings.NewKromaPortal(cfg.L1Deployments.KromaPortalProxy, l1Client)
 	require.Nil(t, err)
 
 	opts, err := bind.NewKeyedTransactorWithChainID(ethPrivKey, cfg.L1ChainIDBig())
@@ -147,15 +148,17 @@ func ProveWithdrawal(t *testing.T, version [32]byte, cfg SystemConfig, l1Client 
 
 func FinalizeWithdrawal(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, privKey *ecdsa.PrivateKey, withdrawalProofReceipt *types.Receipt, params withdrawals.ProvenWithdrawalParameters) *types.Receipt {
 	// Wait for finalization and then create the Finalized Withdrawal Transaction
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	// [Kroma: START]
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	// [Kroma: END]
 	defer cancel()
 
-	err := wait.ForFinalizationPeriod(ctx, l1Client, withdrawalProofReceipt.BlockNumber, predeploys.DevL2OutputOracleAddr)
+	err := wait.ForFinalizationPeriod(ctx, l1Client, withdrawalProofReceipt.BlockNumber, config.L1Deployments.L2OutputOracleProxy)
 	require.Nil(t, err)
 
 	opts, err := bind.NewKeyedTransactorWithChainID(privKey, cfg.L1ChainIDBig())
 	require.Nil(t, err)
-	portal, err := bindings.NewKromaPortal(predeploys.DevKromaPortalAddr, l1Client)
+	portal, err := bindings.NewKromaPortal(config.L1Deployments.KromaPortalProxy, l1Client)
 	require.Nil(t, err)
 	// Finalize withdrawal
 	tx, err := portal.FinalizeWithdrawalTransaction(

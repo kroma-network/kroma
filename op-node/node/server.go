@@ -2,15 +2,16 @@ package node
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
 
-	ophttp "github.com/ethereum-optimism/optimism/op-service/httputil"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	ophttp "github.com/ethereum-optimism/optimism/op-service/httputil"
 
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
@@ -21,9 +22,8 @@ import (
 type rpcServer struct {
 	endpoint   string
 	apis       []rpc.API
-	httpServer *http.Server
+	httpServer *ophttp.HTTPServer
 	appVersion string
-	listenAddr net.Addr
 	log        log.Logger
 	sources.L2Client
 }
@@ -83,27 +83,20 @@ func (s *rpcServer) Start() error {
 	mux.Handle("/", nodeHandler)
 	mux.HandleFunc("/healthz", healthzHandler(s.appVersion))
 
-	listener, err := net.Listen("tcp", s.endpoint)
+	hs, err := ophttp.StartHTTPServer(s.endpoint, mux)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start HTTP RPC server: %w", err)
 	}
-	s.listenAddr = listener.Addr()
-
-	s.httpServer = ophttp.NewHttpServer(mux)
-	go func() {
-		if err := s.httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) { // todo improve error handling
-			s.log.Error("http server failed", "err", err)
-		}
-	}()
+	s.httpServer = hs
 	return nil
 }
 
-func (r *rpcServer) Stop() {
-	_ = r.httpServer.Shutdown(context.Background())
+func (r *rpcServer) Stop(ctx context.Context) error {
+	return r.httpServer.Stop(ctx)
 }
 
 func (r *rpcServer) Addr() net.Addr {
-	return r.listenAddr
+	return r.httpServer.Addr()
 }
 
 func healthzHandler(appVersion string) http.HandlerFunc {

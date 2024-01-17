@@ -11,14 +11,16 @@ import (
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 )
 
-func TestGethAddresses(t *testing.T) {
-	// We test if the addresses in geth match those in bindings, to avoid an import-cycle:
-	// we import geth in the monorepo, and do not want to import bindings into geth.
-	require.Equal(t, L1BlockAddr, types.L1BlockAddr)
-}
+// [Kroma: START]
+// func TestGethAddresses(t *testing.T) {
+// 	// We test if the addresses in geth match those in op-bindings, to avoid an import-cycle:
+// 	// we import geth in the monorepo, and do not want to import op-bindings into geth.
+// 	require.Equal(t, L1BlockAddr, types.L1BlockAddr)
+// }
+// [Kroma: END]
 
 // TestL1BlockSlots ensures that the storage layout of the L1Block
-// contract matches the hardcoded values in `kroma-geth`.
+// contract matches the hardcoded values in `op-geth`.
 func TestL1BlockSlots(t *testing.T) {
 	layout, err := bindings.GetStorageLayout("L1Block")
 	require.NoError(t, err)

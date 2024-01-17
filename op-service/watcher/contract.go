@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 type ContractWatcher struct {
