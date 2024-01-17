@@ -8,15 +8,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
-	gn "github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/stretchr/testify/require"
-
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
@@ -26,6 +17,14 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
+	gn "github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
@@ -48,6 +47,7 @@ type OpGeth struct {
 	L1Head        eth.BlockInfo
 	L2Head        *eth.ExecutionPayload
 	sequenceNum   uint64
+	lgr           log.Logger
 }
 
 func NewOpGeth(t *testing.T, ctx context.Context, cfg *SystemConfig) (*OpGeth, error) {
@@ -118,11 +118,14 @@ func NewOpGeth(t *testing.T, ctx context.Context, cfg *SystemConfig) (*OpGeth, e
 		L2ChainConfig: l2Genesis.Config,
 		L1Head:        eth.BlockToInfo(l1Block),
 		L2Head:        genesisPayload,
+		lgr:           logger,
 	}, nil
 }
 
 func (d *OpGeth) Close() {
-	_ = d.node.Close()
+	if err := d.node.Close(); err != nil {
+		d.lgr.Error("error closing node", "err", err)
+	}
 	d.l2Engine.Close()
 	d.L2Client.Close()
 }

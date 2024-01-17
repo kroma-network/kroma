@@ -4,9 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	opxdm "github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/stretchr/testify/require"
 
-	opxdm "github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/kroma-network/kroma/kroma-chain-ops/crossdomain"
 )
 

@@ -8,10 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 
-	opstate "github.com/ethereum-optimism/optimism/op-chain-ops/state"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
+	opstate "github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+
 	"github.com/kroma-network/kroma/kroma-chain-ops/state"
 )
 
@@ -56,8 +57,7 @@ func setProxies(db vm.StateDB, proxyAdminAddr common.Address, namespace *big.Int
 }
 
 // SetPrecompileBalances will set a single wei at each precompile address.
-// This is an optimization to make calling them cheaper. This should only
-// be used for devnets.
+// This is an optimization to make calling them cheaper.
 func SetPrecompileBalances(db vm.StateDB) {
 	for i := 0; i < PrecompileCount; i++ {
 		addr := common.BytesToAddress([]byte{byte(i)})

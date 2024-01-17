@@ -3,6 +3,8 @@ package actions
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -13,9 +15,35 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
-func TestValidator(gt *testing.T) {
+
+// TestValidatorBatchType run each validator-related test case in singular batch mode and span batch mode.
+func TestValidatorBatchType(t *testing.T) {
+	tests := []struct {
+		name string
+		f    func(gt *testing.T, deltaTimeOffset *hexutil.Uint64)
+	}{
+		{"RunValidatorTest", RunValidatorTest},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name+"_SingularBatch", func(t *testing.T) {
+			test.f(t, nil)
+		})
+	}
+
+	deltaTimeOffset := hexutil.Uint64(0)
+	for _, test := range tests {
+		test := test
+		t.Run(test.name+"_SpanBatch", func(t *testing.T) {
+			test.f(t, &deltaTimeOffset)
+		})
+	}
+}
+
+func RunValidatorTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
+	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
@@ -25,7 +53,7 @@ func TestValidator(gt *testing.T) {
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, rollupSeqCl, miner.EthClient(), seqEngine.EthClient())
+	}, rollupSeqCl, miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
 
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
@@ -84,9 +112,9 @@ func TestValidator(gt *testing.T) {
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
 	// block := sequencer.SyncStatus().FinalizedL2
 	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
-	blockNum, err := outputOracleContract.LatestBlockNumber(nil)
+	blockNum, err := outputOracleContract.LatestBlockNumber(&bind.CallOpts{})
 	require.NoError(t, err)
-	outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, blockNum)
+	outputOnL1, err := outputOracleContract.GetL2OutputAfter(&bind.CallOpts{}, blockNum)
 	require.NoError(t, err)
 	block, err := seqEngine.EthClient().BlockByNumber(t.Ctx(), blockNum)
 	require.NoError(t, err)

@@ -118,7 +118,6 @@ services:
       VALIDATOR_RESUBMISSION_TIMEOUT: 30s
       VALIDATOR_MNEMONIC: test test test test test test test test test test test junk
       VALIDATOR_HD_PATH: "m/44'/60'/0'/0/1"
-      VALIDATOR_LOG_TERMINAL: "true"
       VALIDATOR_L2OO_ADDRESS: "${L2OO_ADDRESS}"
       VALIDATOR_COLOSSEUM_ADDRESS: "${COLOSSEUM_ADDRESS}"
       VALIDATOR_VALPOOL_ADDRESS: "${VALPOOL_ADDRESS}"
@@ -151,7 +150,6 @@ services:
       VALIDATOR_RESUBMISSION_TIMEOUT: 30s
       VALIDATOR_MNEMONIC: test test test test test test test test test test test junk
       VALIDATOR_HD_PATH: "m/44'/60'/0'/0/11"
-      VALIDATOR_LOG_TERMINAL: "true"
       VALIDATOR_L2OO_ADDRESS: "${L2OO_ADDRESS}"
       VALIDATOR_COLOSSEUM_ADDRESS: "${COLOSSEUM_ADDRESS}"
       VALIDATOR_VALPOOL_ADDRESS: "${VALPOOL_ADDRESS}"
@@ -190,7 +188,6 @@ services:
       BATCHER_RESUBMISSION_TIMEOUT: 30s
       BATCHER_MNEMONIC: test test test test test test test test test test test junk
       BATCHER_HD_PATH: "m/44'/60'/0'/0/2"
-      BATCHER_LOG_TERMINAL: "true"
       BATCHER_PPROF_ENABLED: "true"
       BATCHER_METRICS_ENABLED: "true"
       BATCHER_TXMGR_TX_SEND_TIMEOUT: 600s

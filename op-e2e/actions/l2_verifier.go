@@ -155,6 +155,10 @@ func (s *L2Verifier) L2Safe() eth.L2BlockRef {
 	return s.derivation.SafeL2Head()
 }
 
+func (s *L2Verifier) L2PendingSafe() eth.L2BlockRef {
+	return s.derivation.PendingSafeL2Head()
+}
+
 func (s *L2Verifier) L2Unsafe() eth.L2BlockRef {
 	return s.derivation.UnsafeL2Head()
 }
@@ -173,6 +177,7 @@ func (s *L2Verifier) SyncStatus() *eth.SyncStatus {
 		UnsafeL2:           s.L2Unsafe(),
 		SafeL2:             s.L2Safe(),
 		FinalizedL2:        s.L2Finalized(),
+		PendingSafeL2:      s.L2PendingSafe(),
 		UnsafeL2SyncTarget: s.derivation.UnsafeL2SyncTarget(),
 		EngineSyncTarget:   s.EngineSyncTarget(),
 	}
@@ -231,7 +236,7 @@ func (s *L2Verifier) ActL2PipelineStep(t Testing) {
 
 	s.l2PipelineIdle = false
 	err := s.derivation.Step(t.Ctx())
-	if err == io.EOF || (err != nil && errors.Is(err, derive.EngineP2PSyncing)) {
+	if err == io.EOF || (err != nil && errors.Is(err, derive.EngineELSyncing)) {
 		s.l2PipelineIdle = true
 		return
 	} else if err != nil && errors.Is(err, derive.NotEnoughData) {

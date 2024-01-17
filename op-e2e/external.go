@@ -10,14 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/external"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/onsi/gomega/gexec"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/external"
 )
 
 type ExternalRunner struct {
@@ -25,6 +24,8 @@ type ExternalRunner struct {
 	BinPath string
 	Genesis *core.Genesis
 	JWTPath string
+	// 4844: a datadir specifically for tx-pool blobs
+	BlobPoolPath string
 }
 
 type ExternalEthClient struct {

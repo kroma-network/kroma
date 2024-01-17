@@ -32,6 +32,9 @@
   "governanceTokenName": "Kroma",
   "governanceTokenOwner": "0x0000000000000000000000000000000000000333",
 
+  "l2GenesisRegolithTimeOffset": "0x0",
+  "l2GenesisCanyonTimeOffset": "0x0",
+
   "validatorRewardScalar": 5000,
   "validatorPoolTrustedValidator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   "validatorPoolRequiredBondAmount": "0x1",

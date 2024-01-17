@@ -21,6 +21,7 @@ type Metrics interface {
 	RecordHeadChannelOpened()
 	RecordChannelTimedOut()
 	RecordFrame()
+	RecordDerivedBatches(batchType string)
 }
 
 type L1Fetcher interface {
@@ -51,6 +52,7 @@ type EngineQueueStage interface {
 	Finalized() eth.L2BlockRef
 	UnsafeL2Head() eth.L2BlockRef
 	SafeL2Head() eth.L2BlockRef
+	PendingSafeL2Head() eth.L2BlockRef
 	EngineSyncTarget() eth.L2BlockRef
 	Origin() eth.L1BlockRef
 	SystemConfig() eth.SystemConfig
@@ -148,6 +150,10 @@ func (dp *DerivationPipeline) SafeL2Head() eth.L2BlockRef {
 	return dp.eng.SafeL2Head()
 }
 
+func (dp *DerivationPipeline) PendingSafeL2Head() eth.L2BlockRef {
+	return dp.eng.PendingSafeL2Head()
+}
+
 // UnsafeL2Head returns the head of the L2 chain that we are deriving for, this may be past what we derived from L1
 func (dp *DerivationPipeline) UnsafeL2Head() eth.L2BlockRef {
 	return dp.eng.UnsafeL2Head()
@@ -209,7 +215,7 @@ func (dp *DerivationPipeline) Step(ctx context.Context) error {
 	if err := dp.eng.Step(ctx); err == io.EOF {
 		// If every stage has returned io.EOF, try to advance the L1 Origin
 		return dp.traversal.AdvanceL1Block(ctx)
-	} else if errors.Is(err, EngineP2PSyncing) {
+	} else if errors.Is(err, EngineELSyncing) {
 		return err
 	} else if err != nil {
 		return fmt.Errorf("engine stage failed: %w", err)

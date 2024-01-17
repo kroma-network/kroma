@@ -157,6 +157,10 @@ func RandomTx(rng *rand.Rand, baseFee *big.Int, signer types.Signer) *types.Tran
 	return tx
 }
 
+func RandomLegacyTxNotProtected(rng *rand.Rand) *types.Transaction {
+	return RandomLegacyTx(rng, types.HomesteadSigner{})
+}
+
 func RandomLegacyTx(rng *rand.Rand, signer types.Signer) *types.Transaction {
 	key := InsecureRandomKey(rng)
 	txData := &types.LegacyTx{
@@ -324,6 +328,7 @@ func RandomOutputResponse(rng *rand.Rand) *eth.OutputResponse {
 			UnsafeL2:           RandomL2BlockRef(rng),
 			SafeL2:             RandomL2BlockRef(rng),
 			FinalizedL2:        RandomL2BlockRef(rng),
+			PendingSafeL2:      RandomL2BlockRef(rng),
 			EngineSyncTarget:   RandomL2BlockRef(rng),
 		},
 	}

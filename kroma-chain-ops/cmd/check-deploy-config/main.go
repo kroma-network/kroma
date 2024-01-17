@@ -8,9 +8,8 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/urfave/cli/v2"
 
-	"github.com/ethereum/go-ethereum/log"
-
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 func main() {

@@ -15,6 +15,7 @@ var StandardBridgeStorageLayout = new(solc.StorageLayout)
 
 var StandardBridgeDeployedBin = "0x"
 
+
 func init() {
 	if err := json.Unmarshal([]byte(StandardBridgeStorageLayoutJSON), StandardBridgeStorageLayout); err != nil {
 		panic(err)
@@ -22,4 +23,5 @@ func init() {
 
 	layouts["StandardBridge"] = StandardBridgeStorageLayout
 	deployedBytecodes["StandardBridge"] = StandardBridgeDeployedBin
+	immutableReferences["StandardBridge"] = false
 }

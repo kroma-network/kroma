@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -17,9 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 // TestMissingGasLimit tests that op-geth cannot build a block without gas limit while optimism is active in the chain config.
@@ -54,7 +53,7 @@ func TestTxGasSameAsBlockGasLimit(t *testing.T) {
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
-	ethPrivKey := sys.cfg.Secrets.Alice
+	ethPrivKey := sys.Cfg.Secrets.Alice
 	tx := types.MustSignNewTx(ethPrivKey, types.LatestSignerForChainID(cfg.L2ChainIDBig()), &types.DynamicFeeTx{
 		ChainID: cfg.L2ChainIDBig(),
 		Gas:     29_999_999,
