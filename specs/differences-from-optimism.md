@@ -61,7 +61,7 @@ As part of the transition from `verifier` to `validator`, we have renamed the `p
 OP Stack to `validator` (kroma-validator) and made necessary modifications to the code to handle the dispute challenge
 processes.
 
-The followings are components that are used to run different types of nodes:
+The following are the components that are used to run different types of nodes:
 
 | Node        | Components                                                           |
 |-------------|----------------------------------------------------------------------|

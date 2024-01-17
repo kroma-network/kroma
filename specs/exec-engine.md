@@ -22,7 +22,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-This document outlines the modifications, configuration and usage of a L1 execution engine for L2.
+This document outlines the modifications, configuration and usage of an L1 execution engine for L2.
 
 ## Deposited transaction processing
 
