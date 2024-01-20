@@ -6,18 +6,17 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 // TestERC20BridgeDeposits tests the the L1StandardBridge bridge ERC20
@@ -37,7 +36,7 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	l1Client := sys.Clients["l1"]
 	l2Client := sys.Clients["sequencer"]
 
-	opts, err := bind.NewKeyedTransactorWithChainID(sys.cfg.Secrets.Alice, cfg.L1ChainIDBig())
+	opts, err := bind.NewKeyedTransactorWithChainID(sys.Cfg.Secrets.Alice, cfg.L1ChainIDBig())
 	require.Nil(t, err)
 
 	// Deploy WETH9
@@ -58,7 +57,7 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	require.Equal(t, big.NewInt(params.Ether), wethBalance)
 
 	// Deploy L2 WETH9
-	l2Opts, err := bind.NewKeyedTransactorWithChainID(sys.cfg.Secrets.Alice, cfg.L2ChainIDBig())
+	l2Opts, err := bind.NewKeyedTransactorWithChainID(sys.Cfg.Secrets.Alice, cfg.L2ChainIDBig())
 	require.NoError(t, err)
 	kromaMintableTokenFactory, err := bindings.NewKromaMintableERC20Factory(predeploys.KromaMintableERC20FactoryAddr, l2Client)
 	require.NoError(t, err)

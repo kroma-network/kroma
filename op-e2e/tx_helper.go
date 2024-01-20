@@ -7,16 +7,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 // SendDepositTx creates and sends a deposit transaction.
@@ -48,7 +47,9 @@ func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l
 	reconstructedDep, err := derive.UnmarshalDepositLogEvent(l1Receipt.Logs[0])
 	require.NoError(t, err, "Could not reconstruct L2 Deposit")
 	tx = types.NewTx(reconstructedDep)
-	l2Receipt, err := geth.WaitForTransaction(tx.Hash(), l2Client, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+	// Use a long wait because the l2Client may not be configured to receive gossip from the sequencer
+	// so has to wait for the batcher to submit and then import those blocks from L1.
+	l2Receipt, err := geth.WaitForTransaction(tx.Hash(), l2Client, 60*time.Second)
 	require.NoError(t, err)
 	require.Equal(t, l2Opts.ExpectedStatus, l2Receipt.Status, "l2 transaction status")
 	return l2Receipt

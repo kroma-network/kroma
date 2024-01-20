@@ -85,7 +85,7 @@ func (rt *Runtime) setupBatcher() {
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  rt.dp.Secrets.Batcher,
-	}, rollupSeqCl, rt.miner.EthClient(), rt.seqEngine.EthClient())
+	}, rollupSeqCl, rt.miner.EthClient(), rt.seqEngine.EthClient(), rt.seqEngine.EngineClient(rt.t, rt.sd.RollupCfg))
 	rt.batcher = batcher
 }
 

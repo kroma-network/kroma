@@ -60,6 +60,11 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 		RegolithTime:                  config.RegolithTime(block.Time()),
 		CanyonTime:                    config.CanyonTime(block.Time()),
 		ShanghaiTime:                  config.CanyonTime(block.Time()),
+		CancunTime:                    nil, // no Dencun on L2 yet.
+		// [Kroma: START]
+		// kroma-geth is not yet ready. it should be upstream to v1.101304.2
+		// InteropTime:                   config.InteropTime(block.Time()),
+		//
 		Kroma: &params.KromaConfig{
 			EIP1559Denominator:       eip1559Denom,
 			EIP1559Elasticity:        eip1559Elasticity,
@@ -131,6 +136,8 @@ func NewL1Genesis(config *DeployConfig) (*core.Genesis, error) {
 		LondonBlock:         big.NewInt(0),
 		ArrowGlacierBlock:   big.NewInt(0),
 		GrayGlacierBlock:    big.NewInt(0),
+		ShanghaiTime:        nil,
+		CancunTime:          nil,
 	}
 
 	extraData := make([]byte, 0)
@@ -164,6 +171,10 @@ func NewL1Genesis(config *DeployConfig) (*core.Genesis, error) {
 	timestamp := config.L1GenesisBlockTimestamp
 	if timestamp == 0 {
 		timestamp = hexutil.Uint64(time.Now().Unix())
+	}
+	if !config.L1UseClique && config.L1CancunTimeOffset != nil {
+		cancunTime := uint64(timestamp) + *config.L1CancunTimeOffset
+		chainConfig.CancunTime = &cancunTime
 	}
 
 	return &core.Genesis{

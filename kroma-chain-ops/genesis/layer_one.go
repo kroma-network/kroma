@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	gstate "github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	gstate "github.com/ethereum/go-ethereum/core/state"
+
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 )
 
 var (

@@ -1,44 +1,51 @@
 # L2 Chain Derivation Specification
 
 <!-- All glossary references in this file. -->
-
-[g-avail-provider]: glossary.md#data-availability-provider
-[g-batcher]: glossary.md#batcher
-[g-batcher-transaction]: glossary.md#batcher-transaction
-[g-block]: glossary.md#block
-[g-block-time]: glossary.md#block-time
-[g-channel]: glossary.md#channel
-[g-channel-frame]: glossary.md#channel-frame
-[g-consolidation]: glossary.md#unsafe-block-consolidation
-[g-deposit-contract]: glossary.md#deposit-contract
-[g-deposit-tx-type]: glossary.md#deposited-transaction-type
-[g-deposited]: glossary.md#deposited-transaction
-[g-deposits]: glossary.md#deposits
+<!-- All glossary references in this file. -->
 [g-derivation]: glossary.md#L2-chain-derivation
-[g-exec-engine]: glossary.md#execution-engine
-[g-finalized-l2-head]: glossary.md#finalized-l2-head
-[g-l1-attr-deposit]: glossary.md#l1-attributes-deposited-transaction
-[g-l2-chain-inception]: glossary.md#L2-chain-inception
-[g-l1-origin]: glossary.md#l1-origin
-[g-l2-genesis]: glossary.md#l2-genesis-block
-[g-l2-output]: glossary.md#l2-output-root
 [g-payload-attr]: glossary.md#payload-attributes
+[g-block]: glossary.md#block
+[g-exec-engine]: glossary.md#execution-engine
+[g-reorg]: glossary.md#chain-re-organization
+[g-receipts]: glossary.md#receipt
+[g-inception]: glossary.md#L2-chain-inception
+[g-deposit-contract]: glossary.md#deposit-contract
+[g-deposited]: glossary.md#deposited-transaction
+[g-l1-attr-deposit]: glossary.md#l1-attributes-deposited-transaction
+[g-user-deposited]: glossary.md#user-deposited-transaction
+[g-deposits]: glossary.md#deposits
+[g-deposit-contract]: glossary.md#deposit-contract
+[g-l1-attr-predeploy]: glossary.md#l1-attributes-predeployed-contract
+[g-depositing-call]: glossary.md#depositing-call
+[g-depositing-transaction]: glossary.md#depositing-transaction
+[g-sequencing]: glossary.md#sequencing
 [g-sequencer]: glossary.md#sequencer
-[g-sequencer-batch]: glossary.md#sequencer-batch
 [g-sequencing-epoch]: glossary.md#sequencing-epoch
 [g-sequencing-window]: glossary.md#sequencing-window
-[g-receipts]: glossary.md#receipt
-[g-reorg]: glossary.md#chain-re-organization
+[g-sequencer-batch]: glossary.md#sequencer-batch
+[g-l2-genesis]: glossary.md#l2-genesis-block
+[g-l2-chain-inception]: glossary.md#L2-chain-inception
+[g-l2-genesis-block]: glossary.md#l2-genesis-block
+[g-batcher-transaction]: glossary.md#batcher-transaction
+[g-avail-provider]: glossary.md#data-availability-provider
+[g-batcher]: glossary.md#batcher
+[g-l2-output]: glossary.md#l2-output-root
+[g-channel]: glossary.md#channel
+[g-channel-frame]: glossary.md#channel-frame
 [g-rollup-node]: glossary.md#rollup-node
+[g-channel-timeout]: glossary.md#channel-timeout
+[g-block-time]: glossary.md#block-time
+[g-time-slot]: glossary.md#time-slot
+[g-consolidation]: glossary.md#unsafe-block-consolidation
 [g-safe-l2-head]: glossary.md#safe-l2-head
 [g-safe-l2-block]: glossary.md#safe-l2-block
-[g-sequencing]: glossary.md#sequencing
-[g-system-config]: glossary.md#system-configuration
-[g-time-slot]: glossary.md#time-slot
 [g-unsafe-l2-head]: glossary.md#unsafe-l2-head
 [g-unsafe-l2-block]: glossary.md#unsafe-l2-block
 [g-unsafe-sync]: glossary.md#unsafe-sync
-[g-user-deposited]: glossary.md#user-deposited-transaction
+[g-l1-origin]: glossary.md#l1-origin
+[g-deposit-tx-type]: glossary.md#deposited-transaction-type
+[g-finalized-l2-head]: glossary.md#finalized-l2-head
+[g-system-config]: glossary.md#system-configuration
 [g-zk-fault-proof]: glossary.md#zk-fault-proof
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -88,76 +95,84 @@
 > **Note** the following assumes a single sequencer. In the future, the design will be adapted to
 > accommodate multiple such entities.
 
-[L2 chain derivation][g-derivation] — deriving L2 [blocks][g-block] from L1 data — is one of the main responsibility of
-the [rollup node][g-rollup-node], both in syncer mode, and in sequencer mode (where derivation acts as a sanity check
-on sequencing, and enables detecting L1 chain [re-organizations][g-reorg]).
+[L2 chain derivation][g-derivation] — deriving L2 [blocks][g-block] from L1 data — is one of the main responsibilities
+of the [rollup node][g-rollup-node], both in syncer mode, and in sequencer mode (where derivation acts as a sanity
+check on sequencing, and enables detecting L1 chain [re-organizations][g-reorg]).
 
-The L2 chain is derived from the L1 chain. In particular, each L1 block is mapped to an L2 [sequencing
-epoch][g-sequencing-epoch] comprising multiple L2 blocks. The epoch number is defined to be equal to the corresponding
-L1 block number.
+The L2 chain is derived from the L1 chain. In particular, each L1 block following [L2 chain
+inception][g-l2-chain-inception] is mapped to a [sequencing epoch][g-sequencing-epoch] comprising
+at least one L2 block. Each L2 block belongs to exactly one epoch, and we call the corresponding L1
+block its [L1 origin][l1-origin]. The epoch's number equals that of its L1 origin block.
 
-To derive the L2 blocks in an epoch `E`, we need the following inputs:
+To derive the L2 blocks of epoch number `E`, we need the following inputs:
 
-- The L1 [sequencing window][g-sequencing-window] for epoch `E`: the L1 blocks in the range `[E, E + PWS)` where `PWS`
-  is the sequencing window size (note that this means that epochs are overlapping). In particular, we need:
-  - The [batcher transactions][g-batcher-transaction] included in the sequencing window. These allow us to
-    reconstruct [sequencer-batches][g-sequencer-batch] containing the transactions to include in L2 blocks (each batch
-    maps to a single L2 block).
-    - Note that it is impossible to have a batcher transaction containing a batch relative to epoch `E` on L1 block
-      `E`, as the batch must contain the hash of L1 block `E`.
-  - The [deposits][g-deposits] made in L1 block `E` (in the form of events emitted by the
-    [deposit contract][g-deposit-contract]).
-  - The L1 block attributes from L1 block `E` (to derive the [L1 attributes deposited transaction][g-l1-attr-deposit]).
-- The state of the L2 chain after the last L2 block of epoch `E - 1`, or — if epoch `E - 1` does not exist — the
-  [L2 genesis state][g-l2-genesis].
-  - An epoch `E` does not exist if `E <= L2CI`, where `L2CI` is the [L2 chain inception][g-l2-chain-inception].
+- L1 blocks in the range `[E, E + SWS)`, called the [sequencing window][g-sequencing-window] of the epoch, and `SWS`
+  the sequencing window size. (Note that sequencing windows overlap.)
+- [Batcher transactions][g-batcher-transaction] from blocks in the sequencing window.
+  - These transactions allow us to reconstruct the epoch's [sequencer batches][g-sequencer-batch], each of
+    which will produce one L2 block. Note that:
+    - The L1 origin will never contain any data needed to construct sequencer batches since
+      each batch [must contain](#batch-format) the L1 origin hash.
+    - An epoch may have no sequencer batches.
+- [Deposits][g-deposits] made in the L1 origin (in the form of events emitted by the [deposit
+  contract][g-deposit-contract]).
+- L1 block attributes from the L1 origin (to derive the [L1 attributes deposited transaction][g-l1-attr-deposit]).
+- The state of the L2 chain after the last L2 block of the previous epoch, or the [L2 genesis state][g-l2-genesis]
+  if `E` is the first epoch.
 
-To derive the whole L2 chain from scratch, we simply start with the L2 genesis state, and the L2 chain inception as
-first epoch, then process all sequencing windows in order. Refer to the [Architecture section][architecture] for more
-information on how we implement this in practice.
+To derive the whole L2 chain from scratch, we start with the [L2 genesis state][g-l2-genesis] and
+the [L2 genesis block] as the first L2 block. We then derive L2 blocks from each epoch in order,
+starting at the first L1 block following [L2 chain inception][g-l2-chain-inception]. Refer to the
+[Architecture section][architecture] for more information on how we implement this in practice.
+The L2 chain may contain pre-Bedrock history, but the L2 genesis here refers to the Bedrock L2
+genesis block.
 
-Each epoch may contain a variable number of L2 blocks (one every `l2_block_time`, 2s on Kroma), at the discretion of
-[the sequencer][g-sequencer], but subject to the following constraints for each block:
+Each L2 `block` with origin `l1_origin` is subject to the following constraints (whose values are
+denominated in seconds):
 
-- `min_l2_timestamp <= block.timestamp <= max_l2_timestamp`, where
-  - all these values are denominated in seconds
-  - `min_l2_timestamp = l1_timestamp`
-    - This ensures that the L2 timestamp is not behind the L1 origin timestamp.
-  - `block.timestamp = prev_l2_timestamp + l2_block_time`
-    - `prev_l2_timestamp` is the timestamp of the last L2 block of the previous epoch
-    - `l2_block_time` is a configurable parameter of the time between L2 blocks (on Kroma, 2s)
-  - `max_l2_timestamp = max(l1_timestamp + max_sequencer_drift, min_l2_timestamp + l2_block_time)`
-    - `l1_timestamp` is the timestamp of the L1 block associated with the L2 block's epoch
-    - `max_sequencer_drift` is the most a sequencer is allowed to get ahead of L1
+- `block.timestamp = prev_l2_timestamp + l2_block_time`
+  - `prev_l2_timestamp` is the timestamp of the L2 block immediately preceeding this one. If there
+    is no preceeding block, then this is the genesis block, and its timestamp is explicitly
+    specified.
+  - `l2_block_time` is a configurable parameter of the time between L2 blocks (2s on Optimism).
 
-Put together, these constraints mean that there must be an L2 block every `l2_block_time` seconds, and that the
-timestamp for the first L2 block of an epoch must never fall behind the timestamp of the L1 block matching the epoch.
+- `l1_origin.timestamp <= block.timestamp <= max_l2_timestamp`, where
+  - `max_l2_timestamp = max(l1_origin.timestamp + max_sequencer_drift, prev_l2_timestamp + l2_block_time)`
+    - `max_sequencer_drift` is a configurable parameter that bounds how far the sequencer can get ahead of
+      the L1.
 
-Post-merge, Ethereum has a fixed [block time][g-block-time] of 12s (though some slots can be skipped). It is thus
-expected that with a 2-second L2 block time, most of the time, each epoch will contain `12/2 = 6` L2 blocks.
-The sequencer can however lengthen or shorten epochs (subject to above constraints).
-The rationale is to maintain liveness in case of either a skipped slot on L1, or a temporary loss of connection to L1 —
-which requires longer epochs.
-Shorter epochs are then required to avoid L2 timestamps drifting further and further ahead of L1.
+Finally, each epoch must have at least one L2 block.
 
-Note that `min_l2_timestamp + l2_block_time` ensures that a new L2 batch can always be processed, even if the
-`max_sequencer_drift` is exceeded. However, when exceeding the `max_sequencer_drift`, progression to the next L1 origin
-is enforced, with an exception to ensure the minimum timestamp bound (based on this next L1 origin) can be met in the
-next L2 batch, and `len(batch.transactions) == 0` continues to be enforced while the `max_sequencer_drift` is exceeded.
-See [Batch Queue] for more details.
+The first constraint means there must be an L2 block every `l2_block_time` seconds following L2
+chain inception.
+
+The second constraint ensures that an L2 block timestamp never precedes its L1 origin timestamp,
+and is never more than `max_sequencer_drift` ahead of it, except only in the unusual case where it
+might prohibit an L2 block from being produced every l2_block_time seconds. (Such cases might arise
+for example under a proof-of-work L1 that sees a period of rapid L1 block production.)  In either
+case, the sequencer enforces `len(batch.transactions) == 0` while `max_sequencer_drift` is
+exceeded. See [Batch Queue](#batch-queue) for more details.
+
+The final requirement that each epoch must have at least one L2 block ensures that all relevant
+information from the L1 (e.g. deposits) is represented in the L2, even if it has no sequencer
+batches.
+
+Post-merge, Ethereum has a fixed 12s [block time][g-block-time], though some slots can be
+skipped. Under a 2s L2 block time, we thus expect each epoch to typically contain `12/2 = 6` L2
+blocks. The sequencer will however produce bigger epochs in order to maintain liveness in case of
+either a skipped slot on the L1 or a temporary loss of connection to it. For the lost connection
+case, smaller epochs might be produced after the connection was restored to keep L2 timestamps from
+drifting further and further ahead.
 
 ## Eager Block Derivation
 
-In practice, it is often not necessary to wait for a full sequencing window of L1 blocks in order to start deriving the
-L2 blocks in an epoch. Indeed, as long as we are able to reconstruct sequential batches, we can start deriving the
-corresponding L2 blocks. We call this *eager block derivation*.
-
-However, in the very worst case, we can only reconstruct the batch for the first L2 block in the epoch by reading the
-last L1 block of the sequencing window. This happens when some data for that batch is included in the last L1 block of
-the window. In that case, not only can we not derive the first L2 block in the epoch, we also cannot derive any further
-L2 block in the epoch until then, as they need the state that results from applying the epoch's first L2 block.
-(Note that this only applies to *block* derivation. Batches can still be derived and tentatively queued,
-we just won't be able to create blocks from them.)
+Deriving an L2 block requires that we have constructed its sequencer batch and derived all L2
+blocks and state updates prior to it. This means we can typically derive the L2 blocks of an epoch
+*eagerly* without waiting on the full sequencing window. The full sequencing window is required
+before derivation only in the very worst case where some portion of the sequencer batch for the
+first block of the epoch appears in the very last L1 block of the window. Note that this only
+applies to *block* derivation. Sequencer batches can still be derived and tentatively queued
+without deriving blocks from them.
 
 ------------------------------------------------------------------------------------------------------------------------
 
@@ -177,15 +192,14 @@ reference to the previous block (\*).
 (\*) This matters in some edge case where a L1 reorg would occur and a batch would be reposted to the L1 chain but not
 the preceding batch, whereas the predecessor of an L2 block cannot possibly change.
 
-This means that even if the sequencer applies a state transition incorrectly, the transactions in the batch
-will still be considered part of the canonical L2 chain. Batches are still subject to validity checks (i.e. they have to
-be encoded correctly), and so are individual transactions within the batch (e.g. signatures have to be valid). Invalid
-batches and invalid individual transactions within an otherwise valid batch are discarded by correct nodes.
+This means that even if the sequencer applies a state transition incorrectly, the transactions in the batch will still
+be considered part of the canonical L2 chain. Batches are still subject to validity checks (i.e. they have to be encoded
+correctly), and so are individual transactions within the batch (e.g. signatures have to be valid). Invalid batches and
+invalid individual transactions within an otherwise valid batch are discarded by correct nodes.
 
-If a validator applies a state transition incorrectly and posts an [output root][g-l2-output],
-this output root will be incorrect. The incorrect output root, which will be challenged by a
-[ZK fault proof][g-zk-fault-proof], will then be replaced by a correct output root
-**for the existing sequencer batches.**
+If the validator applies a state transition incorrectly and posts an [output root][g-l2-output], then this output root
+will be incorrect. The incorrect output root which will be challenged by a [ZK fault proof][g-zk-fault-proof],
+then replaced by a correct output root **for the existing sequencer batches.**
 
 Refer to the [Batch Submission specification][batcher-spec] for more information.
 
@@ -198,23 +212,23 @@ Refer to the [Batch Submission specification][batcher-spec] for more information
 Batch submission is closely tied to L2 chain derivation because the derivation process must decode the batches that have
 been encoded for the purpose of batch submission.
 
-The [batcher][g-batcher] submits [batcher transactions][g-batcher-transaction] to a
-[data availability provider][g-avail-provider]. These transactions contain one or multiple
-[channel frames][g-channel-frame], which are chunks of data belonging to a [channel][g-channel].
+The [batcher][g-batcher] submits [batcher transactions][g-batcher-transaction] to a [data availability
+provider][g-avail-provider]. These transactions contain one or multiple [channel frames][g-channel-frame], which are
+chunks of data belonging to a [channel][g-channel].
 
-A channel is a sequence of [sequencer batches][g-sequencer-batch] (for any L2 blocks) compressed
+A [channel][g-channel] is a sequence of [sequencer batches][g-sequencer-batch] (for any L2 blocks) compressed
 together. The reason to group multiple batches together is simply to obtain a better compression rate, hence reducing
 data availability costs.
 
-Channels might be too large to fit in a single batcher transaction, hence we need to split it into chunks known as
-channel frames. A single batcher transaction can also carry multiple frames (belonging to the same or to different
-channels).
+Channels might be too large to fit in a single [batcher transaction][g-batcher-transaction], hence we need to split it
+into chunks known as [channel frames][g-channel-frame]. A single batcher transaction can also carry multiple frames
+(belonging to the same or to different channels).
 
 This design gives use the maximum flexibility in how we aggregate batches into channels, and split channels over batcher
 transactions. It notably allows us to maximize data utilisation in a batcher transaction: for instance it allows us to
 pack the final (small) frame of a window with large frames from the next window.
 
-In the future, this channel identification feature also allows the batcher to employ multiple signers
+In the future this channel identification feature also allows the [batcher][g-batcher] to employ multiple signers
 (private keys) to submit one or multiple channels in parallel (1).
 
 (1) This helps alleviate issues where, because of transaction nonce values affecting the L2 tx-pool and thus inclusion:
@@ -230,18 +244,18 @@ All of this is illustrated in the following diagram. Explanations below.
 
 ![batch derivation chain diagram](./assets/batch-deriv-chain.svg)
 
-The first line represents L1 blocks with their numbers. The boxes under the L1 blocks represent batcher
-transactions included within the block. The squiggles under the L1 blocks represent
+The first line represents L1 blocks with their numbers. The boxes under the L1 blocks represent [batcher
+transactions][g-batcher-transaction] included within the block. The squiggles under the L1 blocks represent
 [deposits][g-deposits] (more specifically, events emitted by the [deposit contract][g-deposit-contract]).
 
-Each colored chunk within the boxes represents a channel frame. So `A` and `B` are channels whereas
-`A0`, `A1`, `B0`, `B1`, `B2` are frames. Notice that:
+Each colored chunk within the boxes represents a [channel frame][g-channel-frame]. So `A` and `B` are
+[channels][g-channel] whereas `A0`, `A1`, `B0`, `B1`, `B2` are frames. Notice that:
 
 - multiple channels are interleaved
 - frames do not need to be transmitted in order
 - a single batcher transaction can carry frames from multiple channels
 
-In the next line, the rounded boxes represent individual sequencer batches that were extracted from
+In the next line, the rounded boxes represent individual [sequencer batches][g-sequencer-batch] that were extracted from
 the channels. The four blue/purple/pink were derived from channel `A` while the other were derived from channel `B`.
 These batches are here represented in the order they were decoded from batches (in this case `B` is decoded first).
 
@@ -274,7 +288,7 @@ Note the `101-0` L1 attributes transaction on the bottom right of the diagram. I
 frame `B2` indicates that it is the last frame within the channel and (2) no empty blocks must be inserted.
 
 The diagram does not specify the sequencing window size in use, but from this we can infer that it must be at least 4
-blocks, because the last frame of channel `A` appears in block 102, but belongs to epoch 99.
+blocks, because the last frame of channel `A` appears in block 102, but belong to epoch 99.
 
 As for the comment on "security types", it explains the classification of blocks as used on L1 and L2.
 
@@ -294,7 +308,7 @@ Batcher transactions are encoded as `version_byte ++ rollup_payload` (where `++`
 | 0              | `frame ...` (one or more frames, concatenated) |
 
 Unknown versions make the batcher transaction invalid (it must be ignored by the rollup node).
-All frames in a batcher transaction must be parsable. If any one frame fails to parse, the all frames in the
+All frames in a batcher transaction must be parseable. If any one frame fails to parse, the all frames in the
 transaction are rejected.
 
 Batch transactions are authenticated by verifying that the `to` address of the transaction matches the batch inbox
@@ -334,6 +348,8 @@ outside of timeout rules, it is not checked for validity
 - `is_last` is a single byte with a value of 1 if the frame is the last in the channel, 0 if there are frames in the
   channel. Any other value makes the frame invalid (it must be ignored by the rollup node).
 
+[batcher-spec]: batching.md
+
 ### Channel Format
 
 A channel is encoded as `channel_encoding`, defined as:
@@ -359,7 +375,7 @@ When decompressing a channel, we limit the amount of decompressed data to `MAX_R
 10,000,000 bytes), in order to avoid "zip-bomb" types of attack (where a small compressed input decompresses to a
 humongous amount of data). If the decompressed data exceeds the limit, things proceeds as though the channel contained
 only the first `MAX_RLP_BYTES_PER_CHANNEL` decompressed bytes. The limit is set on RLP decoding, so all batches that
-can be decoded in `MAX_RLP_BYTES_PER_CHANNEL` will be accepted ven if the size of the channel is greater than
+can be decoded in `MAX_RLP_BYTES_PER_CHANNEL` will be accepted even if the size of the channel is greater than
 `MAX_RLP_BYTES_PER_CHANNEL`. The exact requirement is that `length(input) <= MAX_RLP_BYTES_PER_CHANNEL`.
 
 While the above pseudocode implies that all batches are known in advance, it is possible to perform streaming
@@ -412,6 +428,8 @@ This section describes how the L2 chain is produced from the L1 batches using a 
 A validator may implement this differently, but must be semantically equivalent to not diverge from the L2 chain.
 
 ## L2 Chain Derivation Pipeline
+
+[pipeline]: #l2-chain-derivation-pipeline
 
 Our architecture decomposes the derivation process into a pipeline made up of the following stages:
 
@@ -530,7 +548,7 @@ Frame insertion conditions:
 - New frames matching timed-out channels that have not yet been pruned from the channel-bank are dropped.
 - Duplicate frames (by frame number) for frames that have not been pruned from the channel-bank are dropped.
 - Duplicate closes (new frame `is_last == 1`, but the channel has already seen a closing frame and has not yet been
-  pruned from the channel-bank) are dropped.
+    pruned from the channel-bank) are dropped.
 
 If a frame is closing (`is_last == 1`) any existing higher-numbered frames are removed from the channel.
 
@@ -548,9 +566,9 @@ See [Batch Format][batch-format] for decompression and decoding specification.
 
 [batch-queue]: #batch-queue
 
-During the *Batch Buffering* stage, we reorder batches by their timestamps. If batches are missing for some
-[time slots][g-time-slot] and a valid batch with a higher timestamp exists, this stage also generates empty batches to
-fill the gaps.
+During the *Batch Buffering* stage, we reorder batches by their timestamps. If batches are missing for some [time
+slots][g-time-slot] and a valid batch with a higher timestamp exists, this stage also generates empty batches to fill
+the gaps.
 
 Batches are pushed to the next stage whenever there is one sequential batch directly following the timestamp
 of the current [safe L2 head][g-safe-l2-head] (the last block that can be derived from the canonical L1 chain).
@@ -592,7 +610,7 @@ Rules, in validation order:
 - `batch.timestamp > next_timestamp` -> `future`: i.e. the batch must be ready to process.
 - `batch.timestamp < next_timestamp` -> `drop`: i.e. the batch must not be too old.
 - `batch.parent_hash != safe_l2_head.hash` -> `drop`: i.e. the parent hash must be equal to the L2 safe head block hash.
-- `batch.epoch_num + sequencer_window_size < inclusion_block_number` -> `drop`: i.e. the batch must be included timely.
+- `batch.epoch_num + sequence_window_size < inclusion_block_number` -> `drop`: i.e. the batch must be included timely.
 - `batch.epoch_num < epoch.number` -> `drop`: i.e. the batch origin is not older than that of the L2 safe head.
 - `batch.epoch_num == epoch.number`: define `batch_origin` as `epoch`.
 - `batch.epoch_num == epoch.number+1`:
@@ -620,7 +638,7 @@ Rules, in validation order:
   - any [deposited transactions][g-deposit-tx-type] (identified by the transaction type prefix byte)
 
 If no batch can be `accept`-ed, and the stage has completed buffering of all batches that can fully be read from the L1
-block at height `epoch.number + sequencer_window_size`, and the `next_epoch` is available,
+block at height `epoch.number + sequence_window_size`, and the `next_epoch` is available,
 then an empty batch can be derived with the following properties:
 
 - `parent_hash = safe_l2_head.hash`
@@ -685,9 +703,12 @@ equivalents. The `v2` methods are backwards compatible with `v1` payloads but su
 [`engine_getPayloadV2`]: exec-engine.md#engine_getpayloadv2
 [`engine_newPayloadV2`]: exec-engine.md#engine_newpayloadv2
 
-The execution payload is an object of type [`ExecutionPayloadV1`][eth-payload].
+The execution payload is an object of type [`ExecutionPayloadV2`][eth-payload].
 
-[eth-payload]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md#executionpayloadv1
+[eth-payload]: https://github.com/ethereum/execution-apis/blob/main/src/engine/shanghai.md#payloadattributesv2
+
+With V2 of the execution payload, before Canyon the withdrawals field is required to be nil. After Canyon the
+withdrawals field is required to be non-nil. The op-node should set the withdrawals field to be an empty list.
 
 #### Forkchoice synchronization
 
@@ -709,8 +730,8 @@ If the unsafe head is ahead of the safe head, then [consolidation][g-consolidati
 existing unsafe L2 chain matches the derived L2 inputs as derived from the canonical L1 data.
 
 During consolidation, we consider the oldest unsafe L2 block, i.e. the unsafe L2 block directly after the safe head. If
-the payload attributes match this oldest unsafe L2 block, then that block can be considered "safe" and becomes the
-new safe head.
+the payload attributes match this oldest unsafe L2 block, then that block can be considered "safe" and becomes the new
+safe head.
 
 The following fields of the derived L2 payload attributes are checked for equality with the L2 block:
 
@@ -883,7 +904,7 @@ without dispute (fault proof challenge window), a name-collision with the proof-
 [deriving-payload-attr]: #deriving-payload-attributes
 
 For every L2 block derived from L1 data, we need to build [payload attributes][g-payload-attr],
-represented by an [expanded version][expanded-payload] of the [`PayloadAttributesV1`][eth-payload] object,
+represented by an [expanded version][expanded-payload] of the [`PayloadAttributesV2`][eth-payload] object,
 which includes additional `transactions` and `noTxPool` fields.
 
 This process happens during the payloads-attributes queue ran by a full node or validator node, as well as during
@@ -891,6 +912,7 @@ block-production ran by a sequencer node (the sequencer may enable the tx-pool u
 batch-submitted).
 
 [expanded-payload]: exec-engine.md#extended-payloadattributesv1
+[eth-payload]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md#payloadattributesv1
 
 ## Deriving the Transaction List
 
@@ -903,7 +925,7 @@ This block is part of a [sequencing epoch][g-sequencing-epoch],
 whose number matches that of an L1 block (its *[L1 origin][g-l1-origin]*).
 This L1 block is used to derive L1 attributes and (for the first L2 block in the epoch) user deposits.
 
-Therefore, a [`PayloadAttributesV1`][expanded-payload] object must include the following transactions:
+Therefore, a [`PayloadAttributesV2`][expanded-payload] object must include the following transactions:
 
 - one or more [deposited transactions][g-deposited], of two kinds:
   - a single *[L1 attributes deposited transaction][g-l1-attr-deposit]*, derived from the L1 origin.
@@ -922,7 +944,9 @@ entries.
 
 ## Building Individual Payload Attributes
 
-After deriving the transactions list, the rollup node constructs a [`PayloadAttributesV1`][extended-attributes] as
+[payload attributes]: #building-individual-payload-attributes
+
+After deriving the transactions list, the rollup node constructs a [`PayloadAttributesV2`][extended-attributes] as
 follows:
 
 - `timestamp` is set to the batch's timestamp.
@@ -933,6 +957,7 @@ follows:
   encoded with [EIP-2718].
 - `noTxPool` is set to `true`, to use the exact above `transactions` list when constructing the block.
 - `gasLimit` is set to the current `gasLimit` value in the [system configuration][g-system-config] of this payload.
+- `withdrawals` is set to nil prior to Canyon and an empty array after Canyon
 
 [extended-attributes]: exec-engine.md#extended-payloadattributesv1
 [Fee Vaults]: exec-engine.md#fee-vaults

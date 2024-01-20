@@ -4,10 +4,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 // TestGetRollupConfig tests that the configs sourced from the superchain-registry match
@@ -21,6 +22,9 @@ import (
 // the superchain-registry is no longer deemed experimental.
 func TestGetRollupConfig(t *testing.T) {
 	var configsByName = map[string]rollup.Config{
+		// [Kroma: START]
+		// "goerli":  goerliCfg,
+		// [Kroma: END]
 		"mainnet": mainnetCfg,
 		"sepolia": sepoliaCfg,
 	}
@@ -29,7 +33,7 @@ func TestGetRollupConfig(t *testing.T) {
 		gotCfg, err := GetRollupConfig(name)
 		require.NoError(t, err)
 
-		require.Equal(t, expectedCfg, *gotCfg, "rollup-config must match")
+		require.Equalf(t, expectedCfg, *gotCfg, "rollup-configs from superchain-registry must match for %v", name)
 	}
 }
 
@@ -61,6 +65,9 @@ var mainnetCfg = rollup.Config{
 	BatchInboxAddress:      common.HexToAddress("0xff00000000000000000000000000000000000255"),
 	DepositContractAddress: common.HexToAddress("0x31f648572b67e60ec6eb8e197e1848cc5f5558de"),
 	L1SystemConfigAddress:  common.HexToAddress("0x3971eb866aa9b2b8afea8a7c816f3b7e8b195a35"),
+	RegolithTime:           u64Ptr(0),
+	CanyonTime:             nil,
+	DeltaTime:              nil,
 }
 
 var sepoliaCfg = rollup.Config{
@@ -91,8 +98,7 @@ var sepoliaCfg = rollup.Config{
 	BatchInboxAddress:      common.HexToAddress("0xfa79000000000000000000000000000000000001"),
 	DepositContractAddress: common.HexToAddress("0x31ab8ed993a3be9aa2757c7d368dc87101a868a4"),
 	L1SystemConfigAddress:  common.HexToAddress("0x398c8ea789968893095d86cba168378a4f452e33"),
-}
-
-func u64Ptr(v uint64) *uint64 {
-	return &v
+	RegolithTime:           u64Ptr(0),
+	CanyonTime:             nil,
+	DeltaTime:              nil,
 }

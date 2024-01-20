@@ -19,17 +19,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
-
-// initialzedValue represents the `Initializable` contract value. It should be kept in
-// sync with the constant in `Constants.sol`.
-// https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/src/libraries/Constants.sol
-const initializedValue = 1
 
 var (
 	ErrInvalidDeployConfig     = errors.New("invalid deploy config")
@@ -118,10 +113,19 @@ type DeployConfig struct {
 	L2GenesisRegolithTimeOffset *hexutil.Uint64 `json:"l2GenesisRegolithTimeOffset,omitempty"`
 	// L2GenesisCanyonTimeOffset is the number of seconds after genesis block that Canyon hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Canyon.
-	L2GenesisCanyonTimeOffset *hexutil.Uint64 `json:"L2GenesisCanyonTimeOffset,omitempty"`
-	// L2GenesisSpanBatchTimeOffset is the number of seconds after genesis block that Span Batch hard fork activates.
-	// Set it to 0 to activate at genesis. Nil to disable SpanBatch.
-	L2GenesisSpanBatchTimeOffset *hexutil.Uint64 `json:"l2GenesisSpanBatchTimeOffset,omitempty"`
+	L2GenesisCanyonTimeOffset *hexutil.Uint64 `json:"l2GenesisCanyonTimeOffset,omitempty"`
+	// L2GenesisDeltaTimeOffset is the number of seconds after genesis block that Delta hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable Delta.
+	L2GenesisDeltaTimeOffset *hexutil.Uint64 `json:"l2GenesisDeltaTimeOffset,omitempty"`
+	// L2GenesisEclipseTimeOffset is the number of seconds after genesis block that Eclipse hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable Eclipse.
+	L2GenesisEclipseTimeOffset *hexutil.Uint64 `json:"l2GenesisEclipseTimeOffset,omitempty"`
+	// L2GenesisFjordTimeOffset is the number of seconds after genesis block that Fjord hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable Fjord.
+	L2GenesisFjordTimeOffset *hexutil.Uint64 `json:"l2GenesisFjordTimeOffset,omitempty"`
+	// L2GenesisInteropTimeOffset is the number of seconds after genesis block that the Interop hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable Interop.
+	L2GenesisInteropTimeOffset *hexutil.Uint64 `json:"l2GenesisInteropTimeOffset,omitempty"`
 	// L2GenesisBlockExtraData is configurable extradata. Will default to []byte("BEDROCK") if left unspecified.
 	L2GenesisBlockExtraData []byte `json:"l2GenesisBlockExtraData"`
 	// ProxyAdminOwner represents the owner of the ProxyAdmin predeploy on L2.
@@ -171,7 +175,7 @@ type DeployConfig struct {
 	// from. It is an override to set this value on legacy networks where it is not set by
 	// default. It can be removed once all networks have this value set in their storage.
 	SystemConfigStartBlock uint64 `json:"systemConfigStartBlock"`
-	// // [Kroma: START]
+	// [Kroma: START]
 	// // FaultGameAbsolutePrestate is the absolute prestate of Cannon. This is computed
 	// // by generating a proof from the 0th -> 1st instruction and grabbing the prestate from
 	// // the output JSON. All honest challengers should agree on the setup state of the program.
@@ -189,11 +193,16 @@ type DeployConfig struct {
 	// // game can run for before it is ready to be resolved. Each side receives half of this value
 	// // on their chess clock at the inception of the dispute.
 	// FaultGameMaxDuration uint64 `json:"faultGameMaxDuration"`
-	// // FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
-	// // during devnet deployments.
+	// // OutputBisectionGameGenesisBlock is the block number for genesis.
+	// OutputBisectionGameGenesisBlock uint64 `json:"outputBisectionGameGenesisBlock"`
+	// // OutputBisectionGameGenesisOutputRoot is the output root for the genesis block.
+	// OutputBisectionGameGenesisOutputRoot common.Hash `json:"outputBisectionGameGenesisOutputRoot"`
+	// // OutputBisectionGameSplitDepth is the depth at which the output bisection game splits.
+	// OutputBisectionGameSplitDepth uint64 `json:"outputBisectionGameSplitDepth"`
 	// [Kroma: END]
+	// FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
+	// during devnet deployments.
 	FundDevAccounts bool `json:"fundDevAccounts"`
-
 	// [Kroma: START]
 	// // RequiredProtocolVersion indicates the protocol version that
 	// // nodes are required to adopt, to stay in sync with the network.
@@ -201,6 +210,12 @@ type DeployConfig struct {
 	// // RequiredProtocolVersion indicates the protocol version that
 	// // nodes are recommended to adopt, to stay in sync with the network.
 	// RecommendedProtocolVersion params.ProtocolVersion `json:"recommendedProtocolVersion"`
+	// [Kroma: END]
+
+	// When Cancun activates. Relative to L1 genesis.
+	L1CancunTimeOffset *uint64 `json:"l1CancunTimeOffset,omitempty"`
+
+	// [Kroma: START]
 	// ValidatorPool proxy address on L1
 	ValidatorPoolProxy common.Address `json:"validatorPoolProxy"`
 	// The initial value of the validator reward scalar
@@ -343,6 +358,19 @@ func (d *DeployConfig) Check() error {
 			return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
 		}
 	}
+	// L2 block time must always be smaller than L1 block time
+	if d.L1BlockTime < d.L2BlockTime {
+		return fmt.Errorf("L2 block time (%d) is larger than L1 block time (%d)", d.L2BlockTime, d.L1BlockTime)
+	}
+	// [Kroma: START]
+	// if d.RequiredProtocolVersion == (params.ProtocolVersion{}) {
+	// 	log.Warn("RequiredProtocolVersion is empty")
+	// }
+	// if d.RecommendedProtocolVersion == (params.ProtocolVersion{}) {
+	// 	log.Warn("RecommendedProtocolVersion is empty")
+	// }
+	// [Kroma: END]
+
 	// [Kroma: START]
 	if d.ValidatorRewardScalar == 0 {
 		log.Warn("ValidatorRewardScalar is 0")
@@ -399,10 +427,7 @@ func (d *DeployConfig) Check() error {
 		return fmt.Errorf("%w: ZKVerifierM56Py cannot be nil", ErrInvalidDeployConfig)
 	}
 	// [Kroma: END]
-	// L2 block time must always be smaller than L1 block time
-	if d.L1BlockTime < d.L2BlockTime {
-		return fmt.Errorf("L2 block time (%d) is larger than L1 block time (%d)", d.L2BlockTime, d.L1BlockTime)
-	}
+
 	return nil
 }
 
@@ -443,41 +468,28 @@ func (d *DeployConfig) SetDeployments(deployments *L1Deployments) {
 }
 
 // GetDeployedAddresses will get the deployed addresses of deployed L1 contracts
-// required for the L2 genesis creation. Legacy systems use the `Proxy__` prefix
-// while modern systems use the `Proxy` suffix. First check for the legacy
-// deployments so that this works with upgrading a system.
+// required for the L2 genesis creation.
 func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
-	var err error
-
 	if d.L1StandardBridgeProxy == (common.Address{}) {
-		var l1StandardBridgeProxyDeployment *hardhat.Deployment
-		l1StandardBridgeProxyDeployment, err = hh.GetDeployment("Proxy__OVM_L1StandardBridge")
-		if errors.Is(err, hardhat.ErrCannotFindDeployment) {
-			l1StandardBridgeProxyDeployment, err = hh.GetDeployment("L1StandardBridgeProxy")
-			if err != nil {
-				return err
-			}
+		l1StandardBridgeProxyDeployment, err := hh.GetDeployment("L1StandardBridgeProxy")
+		if err != nil {
+			return fmt.Errorf("cannot find L1StandardBridgeProxy artifact: %w", err)
 		}
 		d.L1StandardBridgeProxy = l1StandardBridgeProxyDeployment.Address
 	}
 
 	if d.L1CrossDomainMessengerProxy == (common.Address{}) {
-		var l1CrossDomainMessengerProxyDeployment *hardhat.Deployment
-		l1CrossDomainMessengerProxyDeployment, err = hh.GetDeployment("Proxy__OVM_L1CrossDomainMessenger")
-		if errors.Is(err, hardhat.ErrCannotFindDeployment) {
-			l1CrossDomainMessengerProxyDeployment, err = hh.GetDeployment("L1CrossDomainMessengerProxy")
-			if err != nil {
-				return err
-			}
+		l1CrossDomainMessengerProxyDeployment, err := hh.GetDeployment("L1CrossDomainMessengerProxy")
+		if err != nil {
+			return fmt.Errorf("cannot find L1CrossDomainMessengerProxy artifact: %w", err)
 		}
 		d.L1CrossDomainMessengerProxy = l1CrossDomainMessengerProxyDeployment.Address
 	}
 
 	if d.L1ERC721BridgeProxy == (common.Address{}) {
-		// There is no legacy deployment of this contract
 		l1ERC721BridgeProxyDeployment, err := hh.GetDeployment("L1ERC721BridgeProxy")
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot find L1ERC721BridgeProxy artifact: %w", err)
 		}
 		d.L1ERC721BridgeProxy = l1ERC721BridgeProxyDeployment.Address
 	}
@@ -485,7 +497,7 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 	if d.SystemConfigProxy == (common.Address{}) {
 		systemConfigProxyDeployment, err := hh.GetDeployment("SystemConfigProxy")
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot find SystemConfigProxy artifact: %w", err)
 		}
 		d.SystemConfigProxy = systemConfigProxyDeployment.Address
 	}
@@ -493,7 +505,7 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 	if d.KromaPortalProxy == (common.Address{}) {
 		kromaPortalProxyDeployment, err := hh.GetDeployment("KromaPortalProxy")
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot find KromaPortalProxy artifact: %w", err)
 		}
 		d.KromaPortalProxy = kromaPortalProxyDeployment.Address
 	}
@@ -501,12 +513,16 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 	if d.ValidatorPoolProxy == (common.Address{}) {
 		validatorPoolProxyDeployment, err := hh.GetDeployment("ValidatorPoolProxy")
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot find ValidatorPoolProxy artifact: %w", err)
 		}
 		d.ValidatorPoolProxy = validatorPoolProxyDeployment.Address
 	}
 
 	return nil
+}
+
+func (d *DeployConfig) GovernanceEnabled() bool {
+	return d.EnableGovernance
 }
 
 func (d *DeployConfig) RegolithTime(genesisTime uint64) *uint64 {
@@ -531,12 +547,45 @@ func (d *DeployConfig) CanyonTime(genesisTime uint64) *uint64 {
 	return &v
 }
 
-func (d *DeployConfig) SpanBatchTime(genesisTime uint64) *uint64 {
-	if d.L2GenesisSpanBatchTimeOffset == nil {
+func (d *DeployConfig) DeltaTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisDeltaTimeOffset == nil {
 		return nil
 	}
 	v := uint64(0)
-	if offset := *d.L2GenesisSpanBatchTimeOffset; offset > 0 {
+	if offset := *d.L2GenesisDeltaTimeOffset; offset > 0 {
+		v = genesisTime + uint64(offset)
+	}
+	return &v
+}
+
+func (d *DeployConfig) EclipseTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisEclipseTimeOffset == nil {
+		return nil
+	}
+	v := uint64(0)
+	if offset := *d.L2GenesisEclipseTimeOffset; offset > 0 {
+		v = genesisTime + uint64(offset)
+	}
+	return &v
+}
+
+func (d *DeployConfig) FjordTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisFjordTimeOffset == nil {
+		return nil
+	}
+	v := uint64(0)
+	if offset := *d.L2GenesisFjordTimeOffset; offset > 0 {
+		v = genesisTime + uint64(offset)
+	}
+	return &v
+}
+
+func (d *DeployConfig) InteropTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisInteropTimeOffset == nil {
+		return nil
+	}
+	v := uint64(0)
+	if offset := *d.L2GenesisInteropTimeOffset; offset > 0 {
 		v = genesisTime + uint64(offset)
 	}
 	return &v
@@ -581,7 +630,10 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		L1SystemConfigAddress:  d.SystemConfigProxy,
 		RegolithTime:           d.RegolithTime(l1StartBlock.Time()),
 		CanyonTime:             d.CanyonTime(l1StartBlock.Time()),
-		SpanBatchTime:          d.SpanBatchTime(l1StartBlock.Time()),
+		DeltaTime:              d.DeltaTime(l1StartBlock.Time()),
+		EclipseTime:            d.EclipseTime(l1StartBlock.Time()),
+		FjordTime:              d.FjordTime(l1StartBlock.Time()),
+		InteropTime:            d.InteropTime(l1StartBlock.Time()),
 	}, nil
 }
 
@@ -749,52 +801,107 @@ func NewStateDump(path string) (*gstate.Dump, error) {
 
 // NewL2ImmutableConfig will create an ImmutableConfig given an instance of a
 // DeployConfig and a block.
-func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (immutables.ImmutableConfig, error) {
-	immutable := make(immutables.ImmutableConfig)
-
+func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables.PredeploysImmutableConfig, error) {
 	if config.L1StandardBridgeProxy == (common.Address{}) {
-		return immutable, fmt.Errorf("L1StandardBridgeProxy cannot be address(0): %w", ErrInvalidImmutablesConfig)
+		return nil, fmt.Errorf("L1StandardBridgeProxy cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
 	if config.L1CrossDomainMessengerProxy == (common.Address{}) {
-		return immutable, fmt.Errorf("L1CrossDomainMessengerProxy cannot be address(0): %w", ErrInvalidImmutablesConfig)
+		return nil, fmt.Errorf("L1CrossDomainMessengerProxy cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
 	if config.L1ERC721BridgeProxy == (common.Address{}) {
-		return immutable, fmt.Errorf("L1ERC721BridgeProxy cannot be address(0): %w", ErrInvalidImmutablesConfig)
+		return nil, fmt.Errorf("L1ERC721BridgeProxy cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
 	if config.ProtocolVaultRecipient == (common.Address{}) {
-		return immutable, fmt.Errorf("ProtocolVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
+		return nil, fmt.Errorf("ProtocolVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
 	if config.L1FeeVaultRecipient == (common.Address{}) {
-		return immutable, fmt.Errorf("L1FeeVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
+		return nil, fmt.Errorf("L1FeeVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
 
-	immutable["L2StandardBridge"] = immutables.ImmutableValues{
-		"otherBridge": config.L1StandardBridgeProxy,
-	}
-	immutable["L2CrossDomainMessenger"] = immutables.ImmutableValues{
-		"otherMessenger": config.L1CrossDomainMessengerProxy,
-	}
-	immutable["L2ERC721Bridge"] = immutables.ImmutableValues{
-		"messenger":   predeploys.L2CrossDomainMessengerAddr,
-		"otherBridge": config.L1ERC721BridgeProxy,
-	}
-	immutable["KromaMintableERC721Factory"] = immutables.ImmutableValues{
-		"bridge":        predeploys.L2ERC721BridgeAddr,
-		"remoteChainId": new(big.Int).SetUint64(config.L1ChainID),
-	}
 	rewardDivider := config.FinalizationPeriodSeconds / (config.L2OutputOracleSubmissionInterval * config.L2BlockTime)
-	immutable["ValidatorRewardVault"] = immutables.ImmutableValues{
-		"validatorPoolAddress": config.ValidatorPoolProxy,
-		"rewardDivider":        new(big.Int).SetUint64(rewardDivider),
-	}
-	immutable["L1FeeVault"] = immutables.ImmutableValues{
-		"recipient": config.L1FeeVaultRecipient,
-	}
-	immutable["ProtocolVault"] = immutables.ImmutableValues{
-		"recipient": config.ProtocolVaultRecipient,
+
+	cfg := immutables.PredeploysImmutableConfig{
+		L2ToL1MessagePasser: struct{}{},
+		// [Kroma: START]
+		// DeployerWhitelist:   struct{}{},
+		// [Kroma: END]
+		WETH9: struct{}{},
+		L2CrossDomainMessenger: struct{ OtherMessenger common.Address }{
+			OtherMessenger: config.L1CrossDomainMessengerProxy,
+		},
+		L2StandardBridge: struct {
+			OtherBridge common.Address
+			// [Kroma: START]
+			// Messenger   common.Address
+			// [Kroma: END]
+		}{
+			OtherBridge: config.L1StandardBridgeProxy,
+			// [Kroma: START]
+			// Messenger:   predeploys.L2CrossDomainMessengerAddr,
+			// [Kroma: END]
+		},
+		L1BlockNumber:   struct{}{},
+		GasPriceOracle:  struct{}{},
+		L1Block:         struct{}{},
+		GovernanceToken: struct{}{},
+		// [Kroma: START]
+		// LegacyMessagePasser: struct{}{},
+		// [Kroma: END]
+		L2ERC721Bridge: struct {
+			OtherBridge common.Address
+			Messenger   common.Address
+		}{
+			OtherBridge: config.L1ERC721BridgeProxy,
+			Messenger:   predeploys.L2CrossDomainMessengerAddr,
+		},
+		KromaMintableERC721Factory: struct {
+			Bridge        common.Address
+			RemoteChainId *big.Int
+		}{
+			Bridge:        predeploys.L2ERC721BridgeAddr,
+			RemoteChainId: new(big.Int).SetUint64(config.L1ChainID),
+		},
+		KromaMintableERC20Factory: struct {
+			Bridge common.Address
+		}{
+			Bridge: predeploys.L2StandardBridgeAddr,
+		},
+		ProxyAdmin: struct{}{},
+		ProtocolVault: struct {
+			Recipient common.Address
+		}{
+			Recipient: config.ProtocolVaultRecipient,
+		},
+		L1FeeVault: struct {
+			Recipient common.Address
+		}{
+			Recipient: config.L1FeeVaultRecipient,
+		},
+		// [Kroma: START]
+		// SchemaRegistry: struct{}{},
+		// EAS: struct {
+		// 	Name string
+		// }{
+		// 	Name: "EAS",
+		// },
+		// [Kroma: END]
+		Create2Deployer: struct{}{},
+
+		// [Kroma: START]
+		ValidatorRewardVault: struct {
+			ValidatorPoolAddress common.Address
+			RewardDivider        *big.Int
+		}{
+			ValidatorPoolAddress: config.ValidatorPoolProxy,
+			RewardDivider:        new(big.Int).SetUint64(rewardDivider),
+		},
+		// [Kroma: END]
 	}
 
-	return immutable, nil
+	if err := cfg.Check(); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 // NewL2StorageConfig will create a StorageConfig given an instance of a
@@ -813,11 +920,21 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"msgNonce": 0,
 	}
 	storage["L2CrossDomainMessenger"] = state.StorageValues{
-		"_initialized":     initializedValue,
+		"_initialized":     1,
 		"_initializing":    false,
 		"xDomainMsgSender": "0x000000000000000000000000000000000000dEaD",
 		"msgNonce":         0,
 	}
+	// [Kroma: START]
+	// storage["L2StandardBridge"] = state.StorageValues{
+	// 	"_initialized":  1,
+	// 	"_initializing": false,
+	// }
+	// storage["L2ERC721Bridge"] = state.StorageValues{
+	// 	"_initialized":  1,
+	// 	"_initializing": false,
+	// }
+	// [Kroma: END]
 	storage["L1Block"] = state.StorageValues{
 		"number":                block.Number(),
 		"timestamp":             block.Time(),

@@ -13,10 +13,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
-type regolithScheduledTest struct {
+type hardforkScheduledTest struct {
 	name             string
 	regolithTime     *hexutil.Uint64
+	deltaTime        *hexutil.Uint64
 	activateRegolith bool
+	activateDelta    bool
 }
 
 // TestCrossLayerUser tests that common actions of the CrossLayerUser actor work in various regolith configurations:
@@ -31,11 +33,18 @@ func TestCrossLayerUser(t *testing.T) {
 	zeroTime := hexutil.Uint64(0)
 	futureTime := hexutil.Uint64(20)
 	farFutureTime := hexutil.Uint64(2000)
-	tests := []regolithScheduledTest{
-		{name: "NoRegolith", regolithTime: nil, activateRegolith: false},
-		{name: "NotYetRegolith", regolithTime: &farFutureTime, activateRegolith: false},
-		{name: "RegolithAtGenesis", regolithTime: &zeroTime, activateRegolith: true},
-		{name: "RegolithAfterGenesis", regolithTime: &futureTime, activateRegolith: true},
+	tests := []hardforkScheduledTest{
+		{name: "NoRegolith", regolithTime: nil, activateRegolith: false, deltaTime: nil, activateDelta: false},
+		{name: "NotYetRegolith", regolithTime: &farFutureTime, activateRegolith: false, deltaTime: nil, activateDelta: false},
+		{name: "RegolithAtGenesis", regolithTime: &zeroTime, activateRegolith: true, deltaTime: nil, activateDelta: false},
+		{name: "RegolithAfterGenesis", regolithTime: &futureTime, activateRegolith: true, deltaTime: nil, activateDelta: false},
+		{name: "NoDelta", regolithTime: &zeroTime, activateRegolith: true, deltaTime: nil, activateDelta: false},
+		{name: "NotYetDelta", regolithTime: &zeroTime, activateRegolith: true,
+			deltaTime: &farFutureTime, activateDelta: false},
+		{name: "DeltaAtGenesis", regolithTime: &zeroTime, activateRegolith: true,
+			deltaTime: &zeroTime, activateDelta: true},
+		{name: "DeltaAfterGenesis", regolithTime: &zeroTime, activateRegolith: true,
+			deltaTime: &futureTime, activateDelta: true},
 	}
 	for _, test := range tests {
 		test := test // Use a fixed reference as the tests run in parallel
@@ -45,7 +54,7 @@ func TestCrossLayerUser(t *testing.T) {
 	}
 }
 
-func runCrossLayerUserTest(gt *testing.T, test regolithScheduledTest) {
+func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 	// [Kroma: START]
 	if test.regolithTime == nil || *test.regolithTime != hexutil.Uint64(0) {
 		gt.Skip("kroma does not support pre-regolith")
@@ -54,6 +63,7 @@ func runCrossLayerUserTest(gt *testing.T, test regolithScheduledTest) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.L2GenesisRegolithTimeOffset = test.regolithTime
+	dp.DeployConfig.L2GenesisDeltaTimeOffset = test.deltaTime
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	log := testlog.Logger(t, log.LvlDebug)
 
@@ -65,7 +75,7 @@ func runCrossLayerUserTest(gt *testing.T, test regolithScheduledTest) {
 		MinL1TxSize: 0,
 		MaxL1TxSize: 128_000,
 		BatcherKey:  dp.Secrets.Batcher,
-	}, seq.RollupClient(), miner.EthClient(), seqEngine.EthClient())
+	}, seq.RollupClient(), miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
 		ValidatorPoolAddr:   sd.DeploymentsL1.ValidatorPoolProxy,
