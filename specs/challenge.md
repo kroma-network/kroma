@@ -48,8 +48,6 @@ In the ZK fault-proof challenge process, the following undeniable bug might aris
 
 - The deletion of a valid output due to two valid and contradictory zk proofs
 - The failure to delete an invalid output due to the bugs in prover/verifier or ZK completeness error
-- The deletion of a valid output due to two valid and contradictory ZK proofs
-- The failure to delete an invalid output due to the bugs in prover/verifier or ZK completeness error
 
 In the former case, the Security Council validates the legitimacy of the deleted output and, if the aforementioned
 error is identified, dismisses the challenge and initiates a rollback of the deleted output.
