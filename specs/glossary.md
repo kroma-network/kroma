@@ -886,7 +886,7 @@ invalid [L2 output roots][l2-output].
 
 [zk-fault-proof]: glossary.md#zk-fault-proof
 
-An on-chain _interactive_ proof, performed by [validators][validator], that demonstrates that a [sequencer] provided
+An on-chain *interactive* proof, performed by [validators][validator], that demonstrates that a [sequencer] provided
 erroneous [output roots][l2-output] using zkEVM.
 
 ## Security Council
