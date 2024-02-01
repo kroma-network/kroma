@@ -46,7 +46,7 @@ the challenges are canceled, and staked bonds are refunded to the respective cha
 In the ZK fault-proof challenge process, the following undeniable bug might arise, prompting the intervention of the
 [Security Council][g-security-council]:
 
-- The deletion of a valid output due to two valid and contradictory zk proofs
+- The deletion of a valid output due to two valid and contradictory ZK proofs
 - The failure to delete an invalid output due to the bugs in prover/verifier or ZK completeness error
 
 In the former case, the Security Council validates the legitimacy of the deleted output and, if the aforementioned
