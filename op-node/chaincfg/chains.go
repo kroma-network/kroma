@@ -72,7 +72,7 @@ var Sepolia = &rollup.Config{
 	DepositContractAddress: common.HexToAddress("0x31ab8ed993a3be9aa2757c7d368dc87101a868a4"),
 	L1SystemConfigAddress:  common.HexToAddress("0x398c8ea789968893095d86cba168378a4f452e33"),
 	RegolithTime:           u64Ptr(0),
-	CanyonTime:             nil,
+	CanyonTime:             u64Ptr(1707897600),
 	DeltaTime:              nil,
 }
 
