@@ -4,6 +4,7 @@ out = 'forge-artifacts'
 optimizer = true
 optimizer_runs = 10_000
 
+allow_paths = ["../../node_modules"]
 remappings = [
   '@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/',
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -13,6 +14,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	ds "github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/sync"
+	ic "github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/libp2p/go-libp2p/p2p/host/peerstore/pstoremem"
+	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
+	ma "github.com/multiformats/go-multiaddr"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,23 +37,10 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	ds "github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/sync"
-	ic "github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
-	"github.com/libp2p/go-libp2p/p2p/host/peerstore/pstoremem"
-	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
-	ma "github.com/multiformats/go-multiaddr"
-	"github.com/stretchr/testify/require"
 
 	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
-	batchermetrics "github.com/ethereum-optimism/optimism/op-batcher/metrics"
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
@@ -51,6 +50,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/p2p/store"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	"github.com/ethereum-optimism/optimism/op-service/client"
@@ -60,11 +60,16 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 	"github.com/kroma-network/kroma/kroma-validator"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
-var testingJWTSecret = [32]byte{123}
+var (
+	testingJWTSecret = [32]byte{123}
+)
 
 func newTxMgrConfig(l1Addr string, privKey *ecdsa.PrivateKey) txmgr.CLIConfig {
 	return txmgr.CLIConfig{
@@ -72,105 +77,34 @@ func newTxMgrConfig(l1Addr string, privKey *ecdsa.PrivateKey) txmgr.CLIConfig {
 		PrivateKey:                hexPriv(privKey),
 		NumConfirmations:          1,
 		SafeAbortNonceTooLowCount: 3,
+		FeeLimitMultiplier:        5,
 		ResubmissionTimeout:       3 * time.Second,
 		ReceiptQueryInterval:      50 * time.Millisecond,
 		NetworkTimeout:            2 * time.Second,
 		TxSendTimeout:             10 * time.Minute,
 		TxNotInMempoolTimeout:     2 * time.Minute,
-		TxBufferSize:              10,
+		// [Kroma: START]
+		TxBufferSize: 10,
+		// [Kroma: END]
 	}
 }
 
 func DefaultSystemConfig(t *testing.T) SystemConfig {
+	config.ExternalL2TestParms.SkipIfNecessary(t)
+
 	secrets, err := e2eutils.DefaultMnemonicConfig.Secrets()
 	require.NoError(t, err)
-	addresses := secrets.Addresses()
+	deployConfig := config.DeployConfig.Copy()
+	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
+	deployConfig.L2GenesisCanyonTimeOffset = e2eutils.CanyonTimeOffset()
+	deployConfig.L2GenesisSpanBatchTimeOffset = e2eutils.SpanBatchTimeOffset()
+	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")
+	l1Deployments := config.L1Deployments.Copy()
+	require.NoError(t, l1Deployments.Check())
 
-	deployConfig := &genesis.DeployConfig{
-		L1ChainID:   900,
-		L2ChainID:   901,
-		L2BlockTime: 1,
-
-		FinalizationPeriodSeconds: 60 * 60 * 24,
-		MaxSequencerDrift:         10,
-		SequencerWindowSize:       30,
-		ChannelTimeout:            10,
-		P2PSequencerAddress:       addresses.SequencerP2P,
-		BatchInboxAddress:         common.Address{0: 0x52, 19: 0xff}, // tbd
-		BatchSenderAddress:        addresses.Batcher,
-
-		ValidatorPoolTrustedValidator:   addresses.TrustedValidator,
-		ValidatorPoolRequiredBondAmount: uint642big(1),
-		ValidatorPoolMaxUnbond:          10,
-		ValidatorPoolRoundDuration:      2,
-
-		L2OutputOracleSubmissionInterval: 4,
-		L2OutputOracleStartingTimestamp:  -1,
-
-		L1BlockTime:                 2,
-		L1GenesisBlockNonce:         4660,
-		CliqueSignerAddress:         common.Address{}, // op-e2e used to run Clique, but now uses fake Proof of Stake.
-		L1GenesisBlockTimestamp:     hexutil.Uint64(time.Now().Unix()),
-		L1GenesisBlockGasLimit:      30_000_000,
-		L1GenesisBlockDifficulty:    uint642big(1),
-		L1GenesisBlockMixHash:       common.Hash{},
-		L1GenesisBlockCoinbase:      common.Address{},
-		L1GenesisBlockNumber:        0,
-		L1GenesisBlockGasUsed:       0,
-		L1GenesisBlockParentHash:    common.Hash{},
-		L1GenesisBlockBaseFeePerGas: uint642big(7),
-		L1StartingBlockTag: &genesis.MarshalableRPCBlockNumberOrHash{
-			BlockNumber:      nil,
-			BlockHash:        &common.Hash{},
-			RequireCanonical: true,
-		},
-
-		L2GenesisBlockNonce:         0,
-		L2GenesisBlockGasLimit:      30_000_000,
-		L2GenesisBlockDifficulty:    uint642big(1),
-		L2GenesisBlockMixHash:       common.Hash{},
-		L2GenesisBlockNumber:        0,
-		L2GenesisBlockGasUsed:       0,
-		L2GenesisBlockParentHash:    common.Hash{},
-		L2GenesisBlockBaseFeePerGas: uint642big(7),
-
-		ColosseumCreationPeriodSeconds: 60 * 60 * 20,
-		ColosseumBisectionTimeout:      120,
-		ColosseumProvingTimeout:        480,
-		ColosseumDummyHash:             common.HexToHash("0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7"),
-		ColosseumMaxTxs:                100,
-		ColosseumSegmentsLengths:       "3,3",
-
-		SecurityCouncilOwners: []common.Address{addresses.Challenger1, addresses.Alice, addresses.Bob, addresses.Mallory},
-
-		GasPriceOracleOverhead: 2100,
-		GasPriceOracleScalar:   1_000_000,
-		ValidatorRewardScalar:  5000,
-
-		ProxyAdminOwner:        addresses.ProxyAdminOwner,
-		ProtocolVaultRecipient: common.Address{19: 2},
-		L1FeeVaultRecipient:    common.Address{19: 3},
-
-		DeploymentWaitConfirmations: 1,
-
-		EIP1559Elasticity:  2,
-		EIP1559Denominator: 8,
-
-		FundDevAccounts: true,
-
-		GovernorVotingDelayBlocks:          0,
-		GovernorVotingPeriodBlocks:         25,
-		GovernorProposalThreshold:          1,
-		GovernorVotesQuorumFractionPercent: 51,
-		TimeLockMinDelaySeconds:            1,
-		ZKVerifierHashScalar:               (*hexutil.Big)(hexutil.MustDecodeBig("0x1545b1bf82c58ee35648bd877da9c5010193e82b036b16bf382acf31bc2ab576")),
-		ZKVerifierM56Px:                    (*hexutil.Big)(hexutil.MustDecodeBig("0x15ae1a8e3b993dd9aadc8f9086d1ea239d4cd5c09cfa445f337e1b60d7b3eb87")),
-		ZKVerifierM56Py:                    (*hexutil.Big)(hexutil.MustDecodeBig("0x2c702ede24f9db8c8c9a439975facd3872a888c5f84f58b3b5f5a5623bac945a")),
-	}
-
-	if err := deployConfig.InitDeveloperDeployedAddresses(); err != nil {
-		panic(err)
-	}
+	require.Equal(t, secrets.Addresses().Batcher, deployConfig.BatchSenderAddress)
+	require.Equal(t, secrets.Addresses().SequencerP2P, deployConfig.P2PSequencerAddress)
+	require.Equal(t, secrets.Addresses().TrustedValidator, deployConfig.ValidatorPoolTrustedValidator)
 
 	// Tests depend on premine being filled with secrets addresses
 	premine := make(map[common.Address]*big.Int)
@@ -182,6 +116,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		Secrets:                secrets,
 		Premine:                premine,
 		DeployConfig:           deployConfig,
+		L1Deployments:          config.L1Deployments,
 		L1InfoPredeployAddress: predeploys.L1BlockAddr,
 		JWTFilePath:            writeDefaultJWT(t),
 		JWTSecret:              testingJWTSecret,
@@ -217,12 +152,13 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			"verifier":   testlog.Logger(t, log.LvlInfo).New("role", "verifier"),
 			"sequencer":  testlog.Logger(t, log.LvlInfo).New("role", "sequencer"),
 			"batcher":    testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
-			"validator":  testlog.Logger(t, log.LvlInfo).New("role", "validator"),
-			"challenger": testlog.Logger(t, log.LvlInfo).New("role", "challenger"),
+			"validator":  testlog.Logger(t, log.LvlCrit).New("role", "validator"),
+			"challenger": testlog.Logger(t, log.LvlCrit).New("role", "challenger"),
 		},
 		GethOptions:                map[string][]geth.GethOption{},
 		P2PTopology:                nil, // no P2P connectivity by default
 		NonFinalizedOutputs:        false,
+		ExternalL2Shim:             config.ExternalL2Shim,
 		BatcherTargetL1TxSizeBytes: 100_000,
 	}
 }
@@ -245,7 +181,8 @@ type SystemConfig struct {
 	Secrets                *e2eutils.Secrets
 	L1InfoPredeployAddress common.Address
 
-	DeployConfig *genesis.DeployConfig
+	DeployConfig  *genesis.DeployConfig
+	L1Deployments *genesis.L1Deployments
 
 	JWTFilePath string
 	JWTSecret   [32]byte
@@ -256,6 +193,8 @@ type SystemConfig struct {
 	GethOptions     map[string][]geth.GethOption
 	ValidatorLogger log.Logger
 	BatcherLogger   log.Logger
+
+	ExternalL2Shim string
 
 	// map of outbound connections to other nodes. Node names prefixed with "~" are unconnected but linked.
 	// A nil map disables P2P completely.
@@ -271,18 +210,17 @@ type SystemConfig struct {
 	// Explicitly disable batcher, for tests that rely on unsafe L2 payloads
 	DisableBatcher bool
 
-	// [Kroma: START]
-	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
-	EnableMaliciousValidator bool
-	// [Kroma: END]
-
-	EnableGuardian bool
-
 	// Target L1 tx size for the batcher transactions
 	BatcherTargetL1TxSizeBytes uint64
 
 	// SupportL1TimeTravel determines if the L1 node supports quickly skipping forward in time
 	SupportL1TimeTravel bool
+
+	// [Kroma: START]
+	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
+	EnableMaliciousValidator bool
+	EnableGuardian           bool
+	// [Kroma: END]
 }
 
 type GethInstance struct {
@@ -334,7 +272,7 @@ type System struct {
 	RollupNodes    map[string]*rollupNode.OpNode
 	Validator      *validator.Validator
 	Challenger     *validator.Validator
-	BatchSubmitter *bss.BatchSubmitter
+	BatchSubmitter *bss.BatcherService
 	Mocknet        mocknet.Mocknet
 
 	// TimeTravelClock is nil unless SystemConfig.SupportL1TimeTravel was set to true
@@ -350,6 +288,9 @@ func (sys *System) NodeEndpoint(name string) string {
 }
 
 func (sys *System) Close() {
+	postCtx, postCancel := context.WithCancel(context.Background())
+	postCancel() // immediate shutdown, no allowance for idling
+
 	if sys.Validator != nil {
 		sys.Validator.Stop()
 	}
@@ -357,13 +298,8 @@ func (sys *System) Close() {
 		sys.Challenger.Stop()
 	}
 	if sys.BatchSubmitter != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		sys.BatchSubmitter.StopIfRunning(ctx)
+		_ = sys.BatchSubmitter.Kill()
 	}
-
-	postCtx, postCancel := context.WithCancel(context.Background())
-	postCancel() // immediate shutdown, no allowance for idling
 
 	for _, node := range sys.RollupNodes {
 		_ = node.Stop(postCtx)
@@ -406,6 +342,9 @@ func (s *SystemConfigOptions) Get(key, role string) (systemConfigHook, bool) {
 }
 
 func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*System, error) {
+	// [Kroma: START]
+	cfg.DeployConfig.ValidatorPoolRoundDuration = cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime / 2
+	// [Kroma: END]
 	opts, err := NewSystemConfigOptions(_opts)
 	if err != nil {
 		return nil, err
@@ -438,7 +377,11 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		c = sys.TimeTravelClock
 	}
 
-	l1Genesis, err := genesis.BuildL1DeveloperGenesis(cfg.DeployConfig)
+	if err := cfg.DeployConfig.Check(); err != nil {
+		return nil, err
+	}
+
+	l1Genesis, err := genesis.BuildL1DeveloperGenesis(cfg.DeployConfig, config.L1Allocs, config.L1Deployments, true)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +403,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	}
 
 	l1Block := l1Genesis.ToBlock()
-	l2Genesis, err := genesis.BuildL2Genesis(cfg.DeployConfig, l1Block, true)
+	l2Genesis, err := genesis.BuildL2Genesis(cfg.DeployConfig, l1Block)
 	if err != nil {
 		return nil, err
 	}
@@ -502,8 +445,11 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			L1ChainID:              cfg.L1ChainIDBig(),
 			L2ChainID:              cfg.L2ChainIDBig(),
 			BatchInboxAddress:      cfg.DeployConfig.BatchInboxAddress,
-			DepositContractAddress: predeploys.DevKromaPortalAddr,
-			L1SystemConfigAddress:  predeploys.DevSystemConfigAddr,
+			DepositContractAddress: cfg.DeployConfig.KromaPortalProxy,
+			L1SystemConfigAddress:  cfg.DeployConfig.SystemConfigProxy,
+			RegolithTime:           cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			CanyonTime:             cfg.DeployConfig.CanyonTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			SpanBatchTime:          cfg.DeployConfig.SpanBatchTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 		}
 	}
 	defaultConfig := makeRollupConfig()
@@ -529,20 +475,32 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 	for name := range cfg.Nodes {
 		var ethClient EthInstance
-		node, backend, err := geth.InitL2(name, big.NewInt(int64(cfg.DeployConfig.L2ChainID)), l2Genesis, cfg.JWTFilePath, cfg.GethOptions[name]...)
-		if err != nil {
-			return nil, err
+		if cfg.ExternalL2Shim == "" {
+			node, backend, err := geth.InitL2(name, big.NewInt(int64(cfg.DeployConfig.L2ChainID)), l2Genesis, cfg.JWTFilePath, cfg.GethOptions[name]...)
+			if err != nil {
+				return nil, err
+			}
+			gethInst := &GethInstance{
+				Backend: backend,
+				Node:    node,
+			}
+			err = gethInst.Node.Start()
+			if err != nil {
+				didErrAfterStart = true
+				return nil, err
+			}
+			ethClient = gethInst
+		} else {
+			if len(cfg.GethOptions[name]) > 0 {
+				t.Skip("External L2 nodes do not support configuration through GethOptions")
+			}
+			ethClient = (&ExternalRunner{
+				Name:    name,
+				BinPath: cfg.ExternalL2Shim,
+				Genesis: l2Genesis,
+				JWTPath: cfg.JWTFilePath,
+			}).Run(t)
 		}
-		gethInst := &GethInstance{
-			Backend: backend,
-			Node:    node,
-		}
-		err = gethInst.Node.Start()
-		if err != nil {
-			didErrAfterStart = true
-			return nil, err
-		}
-		ethClient = gethInst
 		sys.EthInstances[name] = ethClient
 	}
 
@@ -718,14 +676,19 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		}
 	}
 
+	// Don't start batch submitter and proposer if there's no sequencer.
+	if sys.RollupNodes["sequencer"] == nil {
+		return sys, nil
+	}
+
 	// Run validator node (L2 Output Submitter, Asserter)
 	validatorCliCfg := validator.CLIConfig{
 		L1EthRpc:                        sys.EthInstances["l1"].WSEndpoint(),
 		L2EthRpc:                        sys.EthInstances["sequencer"].HTTPEndpoint(),
 		RollupRpc:                       sys.RollupNodes["sequencer"].HTTPEndpoint(),
-		L2OOAddress:                     predeploys.DevL2OutputOracleAddr.String(),
-		ColosseumAddress:                predeploys.DevColosseumAddr.String(),
-		ValPoolAddress:                  predeploys.DevValidatorPoolAddr.String(),
+		L2OOAddress:                     config.L1Deployments.L2OutputOracleProxy.Hex(),
+		ColosseumAddress:                config.L1Deployments.ColosseumProxy.Hex(),
+		ValPoolAddress:                  config.L1Deployments.ValidatorPoolProxy.Hex(),
 		ChallengerPollInterval:          500 * time.Millisecond,
 		TxMgrConfig:                     newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		AllowNonFinalized:               cfg.NonFinalizedOutputs,
@@ -734,7 +697,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		ChallengerEnabled:               false,
 		OutputSubmitterEnabled:          true,
 		OutputSubmitterAllowPublicRound: true,
-		SecurityCouncilAddress:          predeploys.DevSecurityCouncilAddr.String(),
+		SecurityCouncilAddress:          config.L1Deployments.SecurityCouncilProxy.Hex(),
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LvlInfo,
 			Format: oplog.FormatText,
@@ -781,15 +744,15 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		L1EthRpc:               sys.EthInstances["l1"].WSEndpoint(),
 		L2EthRpc:               sys.EthInstances["sequencer"].HTTPEndpoint(),
 		RollupRpc:              sys.RollupNodes["sequencer"].HTTPEndpoint(),
-		L2OOAddress:            predeploys.DevL2OutputOracleAddr.String(),
-		ColosseumAddress:       predeploys.DevColosseumAddr.String(),
-		ValPoolAddress:         predeploys.DevValidatorPoolAddr.String(),
+		L2OOAddress:            config.L1Deployments.L2OutputOracleProxy.Hex(),
+		ColosseumAddress:       config.L1Deployments.ColosseumProxy.Hex(),
+		ValPoolAddress:         config.L1Deployments.ValidatorPoolProxy.Hex(),
 		ChallengerPollInterval: 500 * time.Millisecond,
 		ProverRPC:              "http://0.0.0.0:0",
 		TxMgrConfig:            newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
 		OutputSubmitterEnabled: false,
 		ChallengerEnabled:      true,
-		SecurityCouncilAddress: predeploys.DevSecurityCouncilAddr.String(),
+		SecurityCouncilAddress: config.L1Deployments.SecurityCouncilProxy.Hex(),
 		GuardianEnabled:        cfg.EnableGuardian,
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LvlInfo,
@@ -828,8 +791,11 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		return nil, fmt.Errorf("unable to start challenger: %w", err)
 	}
 
-	// Batch Submitter
-	sys.BatchSubmitter, err = bss.NewBatchSubmitterFromCLIConfig(bss.CLIConfig{
+	batchType := derive.SingularBatchType
+	if os.Getenv("OP_E2E_USE_SPAN_BATCH") == "true" {
+		batchType = derive.SpanBatchType
+	}
+	batcherCLIConfig := &bss.CLIConfig{
 		L1EthRpc:               sys.EthInstances["l1"].WSEndpoint(),
 		L2EthRpc:               sys.EthInstances["sequencer"].WSEndpoint(),
 		RollupRpc:              sys.RollupNodes["sequencer"].HTTPEndpoint(),
@@ -848,17 +814,18 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			Level:  log.LvlInfo,
 			Format: oplog.FormatText,
 		},
-	}, sys.cfg.Loggers["batcher"], batchermetrics.NoopMetrics)
+		Stopped:   sys.cfg.DisableBatcher, // Batch submitter may be enabled later
+		BatchType: uint(batchType),
+	}
+	// Batch Submitter
+	batcher, err := bss.BatcherServiceFromCLIConfig(context.Background(), "0.0.1", batcherCLIConfig, sys.cfg.Loggers["batcher"])
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup batch submitter: %w", err)
 	}
-
-	// Batcher may be enabled later
-	if !sys.cfg.DisableBatcher {
-		if err := sys.BatchSubmitter.Start(); err != nil {
-			return nil, fmt.Errorf("unable to start batch submitter: %w", err)
-		}
+	if err := batcher.Start(context.Background()); err != nil {
+		return nil, errors.Join(fmt.Errorf("failed to start batch submitter: %w", err), batcher.Stop(context.Background()))
 	}
+	sys.BatchSubmitter = batcher
 
 	return sys, nil
 }
@@ -908,9 +875,12 @@ func (sys *System) newMockNetPeer() (host.Host, error) {
 	return sys.Mocknet.AddPeerWithPeerstore(p, eps)
 }
 
+func UseHTTP() bool {
+	return os.Getenv("OP_E2E_USE_HTTP") == "true"
+}
+
 func selectEndpoint(node EthInstance) string {
-	useHTTP := os.Getenv("OP_E2E_USE_HTTP") == "true"
-	if useHTTP {
+	if UseHTTP() {
 		log.Info("using HTTP client")
 		return node.HTTPEndpoint()
 	}
@@ -922,7 +892,7 @@ func configureL1(rollupNodeCfg *rollupNode.Config, l1Node EthInstance) {
 	rollupNodeCfg.L1 = &rollupNode.L1EndpointConfig{
 		L1NodeAddr:       l1EndpointConfig,
 		L1TrustRPC:       false,
-		L1RPCKind:        sources.RPCKindBasic,
+		L1RPCKind:        sources.RPCKindStandard,
 		RateLimit:        0,
 		BatchSize:        20,
 		HttpPollInterval: time.Millisecond * 100,
@@ -935,9 +905,8 @@ type WSOrHTTPEndpoint interface {
 }
 
 func configureL2(rollupNodeCfg *rollupNode.Config, l2Node WSOrHTTPEndpoint, jwtSecret [32]byte) {
-	useHTTP := os.Getenv("OP_E2E_USE_HTTP") == "true"
 	l2EndpointConfig := l2Node.WSAuthEndpoint()
-	if useHTTP {
+	if UseHTTP() {
 		l2EndpointConfig = l2Node.HTTPAuthEndpoint()
 	}
 
@@ -956,7 +925,7 @@ func (cfg SystemConfig) L2ChainIDBig() *big.Int {
 }
 
 func (cfg SystemConfig) DepositValidatorPool(l1Client *ethclient.Client, priv *ecdsa.PrivateKey, value *big.Int) error {
-	valpoolContract, err := bindings.NewValidatorPool(predeploys.DevValidatorPoolAddr, l1Client)
+	valpoolContract, err := bindings.NewValidatorPool(config.L1Deployments.ValidatorPoolProxy, l1Client)
 	if err != nil {
 		return fmt.Errorf("unable to create ValidatorPool instance: %w", err)
 	}

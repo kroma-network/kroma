@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
+	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 )
 
 type BufferedTxManager struct {
@@ -42,7 +43,7 @@ func NewBufferedTxManager(name string, l log.Logger, m metrics.TxMetricer, cfg C
 }
 
 func (m *BufferedTxManager) Start(ctx context.Context) error {
-	m.txRequestChan = make(chan *TxRequest, m.TxBufferSize)
+	m.txRequestChan = make(chan *TxRequest, m.Config.TxBufferSize)
 	m.ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(1)
 	go m.listen(m.ctx)

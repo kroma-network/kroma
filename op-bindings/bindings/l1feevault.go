@@ -26,13 +26,12 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
-	_ = abi.ConvertType
 )
 
 // L1FeeVaultMetaData contains all meta data concerning the L1FeeVault contract.
 var L1FeeVaultMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"}],\"name\":\"Withdrawal\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"MIN_WITHDRAWAL_AMOUNT\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"RECIPIENT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalProcessed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawToL2\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
-	Bin: "0x61012060405234801561001157600080fd5b50604051610b0c380380610b0c83398101604081905261003091610058565b600060808190526001600160a01b0390911660a052600160c05260e052600261010052610088565b60006020828403121561006a57600080fd5b81516001600160a01b038116811461008157600080fd5b9392505050565b60805160a05160c05160e05161010051610a176100f560003960006103620152600061033901526000610310015260008181608701528181610191015281816102a7015281816103c4015281816104840152610623015260008181610157015261052b0152610a176000f3fe6080604052600436106100695760003560e01c80636ed39f62116100435780636ed39f621461010c57806384411d6514610121578063d3e5792b1461014557600080fd5b80630d9019e1146100755780633ccfd60b146100d357806354fd4d50146100ea57600080fd5b3661007057005b600080fd5b34801561008157600080fd5b506100a97f000000000000000000000000000000000000000000000000000000000000000081565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020015b60405180910390f35b3480156100df57600080fd5b506100e8610179565b005b3480156100f657600080fd5b506100ff610309565b6040516100ca91906108c8565b34801561011857600080fd5b506100e86103ac565b34801561012d57600080fd5b5061013760005481565b6040519081526020016100ca565b34801561015157600080fd5b506101377f000000000000000000000000000000000000000000000000000000000000000081565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610243576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602560248201527f4665655661756c743a20746865206f6e6c7920726563697069656e742063616e60448201527f2063616c6c00000000000000000000000000000000000000000000000000000060648201526084015b60405180910390fd5b600061024d610527565b604080516020810182526000815290517fe11013dd0000000000000000000000000000000000000000000000000000000081529192507342000000000000000000000000000000000000099163e11013dd9184916102d4917f0000000000000000000000000000000000000000000000000000000000000000916188b891906004016108e2565b6000604051808303818588803b1580156102ed57600080fd5b505af1158015610301573d6000803e3d6000fd5b505050505050565b60606103347f0000000000000000000000000000000000000000000000000000000000000000610693565b61035d7f0000000000000000000000000000000000000000000000000000000000000000610693565b6103867f0000000000000000000000000000000000000000000000000000000000000000610693565b60405160200161039893929190610926565b604051602081830303815290604052905090565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610471576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602560248201527f4665655661756c743a20746865206f6e6c7920726563697069656e742063616e60448201527f2063616c6c000000000000000000000000000000000000000000000000000000606482015260840161023a565b600061047b610527565b905060006104ba7f00000000000000000000000000000000000000000000000000000000000000005a8460405180602001604052806000815250610751565b905080610523576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601d60248201527f4665655661756c743a20455448207472616e73666572206661696c6564000000604482015260640161023a565b5050565b60007f00000000000000000000000000000000000000000000000000000000000000004710156105ff576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152604a60248201527f4665655661756c743a207769746864726177616c20616d6f756e74206d75737460448201527f2062652067726561746572207468616e206d696e696d756d207769746864726160648201527f77616c20616d6f756e7400000000000000000000000000000000000000000000608482015260a40161023a565b600047905080600080828254610615919061099c565b9091555050604080518281527f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff166020820152338183015290517fc8a211cc64b6ed1b50595a9fcb1932b6d1e5a6e8ef15b60e5b1f988ea9086bba9181900360600190a1919050565b606060006106a08361076b565b600101905060008167ffffffffffffffff8111156106c0576106c06109db565b6040519080825280601f01601f1916602001820160405280156106ea576020820181803683370190505b5090508181016020015b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff017f3031323334353637383961626364656600000000000000000000000000000000600a86061a8153600a85049450846106f457509392505050565b600080600080845160208601878a8af19695505050505050565b6000807a184f03e93ff9f4daa797ed6e38ed64bf6a1f01000000000000000083106107b4577a184f03e93ff9f4daa797ed6e38ed64bf6a1f010000000000000000830492506040015b6d04ee2d6d415b85acef810000000083106107e0576d04ee2d6d415b85acef8100000000830492506020015b662386f26fc1000083106107fe57662386f26fc10000830492506010015b6305f5e1008310610816576305f5e100830492506008015b612710831061082a57612710830492506004015b6064831061083c576064830492506002015b600a8310610848576001015b92915050565b60005b83811015610869578181015183820152602001610851565b83811115610878576000848401525b50505050565b6000815180845261089681602086016020860161084e565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b6020815260006108db602083018461087e565b9392505050565b73ffffffffffffffffffffffffffffffffffffffff8416815263ffffffff8316602082015260606040820152600061091d606083018461087e565b95945050505050565b6000845161093881846020890161084e565b80830190507f2e000000000000000000000000000000000000000000000000000000000000008082528551610974816001850160208a0161084e565b6001920191820152835161098f81600284016020880161084e565b0160020195945050505050565b600082198211156109d6577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b500190565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fdfea164736f6c634300080f000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_minWithdrawalAmount\",\"type\":\"uint256\"},{\"internalType\":\"enumFeeVault.WithdrawalNetwork\",\"name\":\"_withdrawalNetwork\",\"type\":\"uint8\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"}],\"name\":\"Withdrawal\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"enumFeeVault.WithdrawalNetwork\",\"name\":\"withdrawalNetwork\",\"type\":\"uint8\"}],\"name\":\"Withdrawal\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"MIN_WITHDRAWAL_AMOUNT\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"RECIPIENT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"WITHDRAWAL_NETWORK\",\"outputs\":[{\"internalType\":\"enumFeeVault.WithdrawalNetwork\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalProcessed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+	Bin: "0x60e060405234801561001057600080fd5b506040516108d13803806108d183398101604081905261002f91610079565b6001600160a01b03831660a0526080829052828282806001811115610056576100566100cc565b60c081600181111561006a5761006a6100cc565b815250505050505050506100e2565b60008060006060848603121561008e57600080fd5b83516001600160a01b03811681146100a557600080fd5b602085015160408601519194509250600281106100c157600080fd5b809150509250925092565b634e487b7160e01b600052602160045260246000fd5b60805160a05160c051610790610141600039600081816101760152818161038901526103c40152600081816087015281816102d801528181610367015281816103fd01526105640152600081816101b701526101db01526107906000f3fe6080604052600436106100695760003560e01c806384411d651161004357806384411d6514610140578063d0e12f9014610164578063d3e5792b146101a557600080fd5b80630d9019e1146100755780633ccfd60b146100d357806354fd4d50146100ea57600080fd5b3661007057005b600080fd5b34801561008157600080fd5b506100a97f000000000000000000000000000000000000000000000000000000000000000081565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020015b60405180910390f35b3480156100df57600080fd5b506100e86101d9565b005b3480156100f657600080fd5b506101336040518060400160405280600581526020017f312e342e3100000000000000000000000000000000000000000000000000000081525081565b6040516100ca9190610630565b34801561014c57600080fd5b5061015660005481565b6040519081526020016100ca565b34801561017057600080fd5b506101987f000000000000000000000000000000000000000000000000000000000000000081565b6040516100ca91906106b4565b3480156101b157600080fd5b506101567f000000000000000000000000000000000000000000000000000000000000000081565b7f00000000000000000000000000000000000000000000000000000000000000004710156102b4576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152604a60248201527f4665655661756c743a207769746864726177616c20616d6f756e74206d75737460448201527f2062652067726561746572207468616e206d696e696d756d207769746864726160648201527f77616c20616d6f756e7400000000000000000000000000000000000000000000608482015260a4015b60405180910390fd5b6000479050806000808282546102ca91906106c8565b9091555050604080518281527f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff166020820152338183015290517fc8a211cc64b6ed1b50595a9fcb1932b6d1e5a6e8ef15b60e5b1f988ea9086bba9181900360600190a17f38e04cbeb8c10f8f568618aa75be0f10b6729b8b4237743b4de20cbcde2839ee817f0000000000000000000000000000000000000000000000000000000000000000337f00000000000000000000000000000000000000000000000000000000000000006040516103b89493929190610707565b60405180910390a160017f000000000000000000000000000000000000000000000000000000000000000060018111156103f4576103f461064a565b0361050d5760007f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff168260405160006040518083038185875af1925050503d8060008114610473576040519150601f19603f3d011682016040523d82523d6000602084013e610478565b606091505b5050905080610509576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152603060248201527f4665655661756c743a206661696c656420746f2073656e642045544820746f2060448201527f4c322066656520726563697069656e740000000000000000000000000000000060648201526084016102ab565b5050565b604080516020810182526000815290517fe11013dd0000000000000000000000000000000000000000000000000000000081527342000000000000000000000000000000000000109163e11013dd918491610590917f0000000000000000000000000000000000000000000000000000000000000000916188b891600401610748565b6000604051808303818588803b1580156105a957600080fd5b505af11580156105bd573d6000803e3d6000fd5b505050505050565b6000815180845260005b818110156105eb576020818501810151868301820152016105cf565b818111156105fd576000602083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b60208152600061064360208301846105c5565b9392505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b600281106106b0577f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b9052565b602081016106c28284610679565b92915050565b60008219821115610702577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b500190565b84815273ffffffffffffffffffffffffffffffffffffffff8481166020830152831660408201526080810161073f6060830184610679565b95945050505050565b73ffffffffffffffffffffffffffffffffffffffff8416815263ffffffff8316602082015260606040820152600061073f60608301846105c556fea164736f6c634300080f000a",
 }
 
 // L1FeeVaultABI is the input ABI used to generate the binding from.
@@ -44,7 +43,7 @@ var L1FeeVaultABI = L1FeeVaultMetaData.ABI
 var L1FeeVaultBin = L1FeeVaultMetaData.Bin
 
 // DeployL1FeeVault deploys a new Ethereum contract, binding an instance of L1FeeVault to it.
-func DeployL1FeeVault(auth *bind.TransactOpts, backend bind.ContractBackend, _recipient common.Address) (common.Address, *types.Transaction, *L1FeeVault, error) {
+func DeployL1FeeVault(auth *bind.TransactOpts, backend bind.ContractBackend, _recipient common.Address, _minWithdrawalAmount *big.Int, _withdrawalNetwork uint8) (common.Address, *types.Transaction, *L1FeeVault, error) {
 	parsed, err := L1FeeVaultMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -53,7 +52,7 @@ func DeployL1FeeVault(auth *bind.TransactOpts, backend bind.ContractBackend, _re
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(L1FeeVaultBin), backend, _recipient)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(L1FeeVaultBin), backend, _recipient, _minWithdrawalAmount, _withdrawalNetwork)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -157,11 +156,11 @@ func NewL1FeeVaultFilterer(address common.Address, filterer bind.ContractFiltere
 
 // bindL1FeeVault binds a generic wrapper to an already deployed contract.
 func bindL1FeeVault(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := L1FeeVaultMetaData.GetAbi()
+	parsed, err := abi.JSON(strings.NewReader(L1FeeVaultABI))
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -264,6 +263,37 @@ func (_L1FeeVault *L1FeeVaultCallerSession) RECIPIENT() (common.Address, error) 
 	return _L1FeeVault.Contract.RECIPIENT(&_L1FeeVault.CallOpts)
 }
 
+// WITHDRAWALNETWORK is a free data retrieval call binding the contract method 0xd0e12f90.
+//
+// Solidity: function WITHDRAWAL_NETWORK() view returns(uint8)
+func (_L1FeeVault *L1FeeVaultCaller) WITHDRAWALNETWORK(opts *bind.CallOpts) (uint8, error) {
+	var out []interface{}
+	err := _L1FeeVault.contract.Call(opts, &out, "WITHDRAWAL_NETWORK")
+
+	if err != nil {
+		return *new(uint8), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+
+	return out0, err
+
+}
+
+// WITHDRAWALNETWORK is a free data retrieval call binding the contract method 0xd0e12f90.
+//
+// Solidity: function WITHDRAWAL_NETWORK() view returns(uint8)
+func (_L1FeeVault *L1FeeVaultSession) WITHDRAWALNETWORK() (uint8, error) {
+	return _L1FeeVault.Contract.WITHDRAWALNETWORK(&_L1FeeVault.CallOpts)
+}
+
+// WITHDRAWALNETWORK is a free data retrieval call binding the contract method 0xd0e12f90.
+//
+// Solidity: function WITHDRAWAL_NETWORK() view returns(uint8)
+func (_L1FeeVault *L1FeeVaultCallerSession) WITHDRAWALNETWORK() (uint8, error) {
+	return _L1FeeVault.Contract.WITHDRAWALNETWORK(&_L1FeeVault.CallOpts)
+}
+
 // TotalProcessed is a free data retrieval call binding the contract method 0x84411d65.
 //
 // Solidity: function totalProcessed() view returns(uint256)
@@ -345,27 +375,6 @@ func (_L1FeeVault *L1FeeVaultSession) Withdraw() (*types.Transaction, error) {
 // Solidity: function withdraw() returns()
 func (_L1FeeVault *L1FeeVaultTransactorSession) Withdraw() (*types.Transaction, error) {
 	return _L1FeeVault.Contract.Withdraw(&_L1FeeVault.TransactOpts)
-}
-
-// WithdrawToL2 is a paid mutator transaction binding the contract method 0x6ed39f62.
-//
-// Solidity: function withdrawToL2() returns()
-func (_L1FeeVault *L1FeeVaultTransactor) WithdrawToL2(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _L1FeeVault.contract.Transact(opts, "withdrawToL2")
-}
-
-// WithdrawToL2 is a paid mutator transaction binding the contract method 0x6ed39f62.
-//
-// Solidity: function withdrawToL2() returns()
-func (_L1FeeVault *L1FeeVaultSession) WithdrawToL2() (*types.Transaction, error) {
-	return _L1FeeVault.Contract.WithdrawToL2(&_L1FeeVault.TransactOpts)
-}
-
-// WithdrawToL2 is a paid mutator transaction binding the contract method 0x6ed39f62.
-//
-// Solidity: function withdrawToL2() returns()
-func (_L1FeeVault *L1FeeVaultTransactorSession) WithdrawToL2() (*types.Transaction, error) {
-	return _L1FeeVault.Contract.WithdrawToL2(&_L1FeeVault.TransactOpts)
 }
 
 // Receive is a paid mutator transaction binding the contract receive function.
@@ -519,6 +528,143 @@ func (_L1FeeVault *L1FeeVaultFilterer) WatchWithdrawal(opts *bind.WatchOpts, sin
 func (_L1FeeVault *L1FeeVaultFilterer) ParseWithdrawal(log types.Log) (*L1FeeVaultWithdrawal, error) {
 	event := new(L1FeeVaultWithdrawal)
 	if err := _L1FeeVault.contract.UnpackLog(event, "Withdrawal", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// L1FeeVaultWithdrawal0Iterator is returned from FilterWithdrawal0 and is used to iterate over the raw logs and unpacked data for Withdrawal0 events raised by the L1FeeVault contract.
+type L1FeeVaultWithdrawal0Iterator struct {
+	Event *L1FeeVaultWithdrawal0 // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *L1FeeVaultWithdrawal0Iterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(L1FeeVaultWithdrawal0)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(L1FeeVaultWithdrawal0)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *L1FeeVaultWithdrawal0Iterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *L1FeeVaultWithdrawal0Iterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// L1FeeVaultWithdrawal0 represents a Withdrawal0 event raised by the L1FeeVault contract.
+type L1FeeVaultWithdrawal0 struct {
+	Value             *big.Int
+	To                common.Address
+	From              common.Address
+	WithdrawalNetwork uint8
+	Raw               types.Log // Blockchain specific contextual infos
+}
+
+// FilterWithdrawal0 is a free log retrieval operation binding the contract event 0x38e04cbeb8c10f8f568618aa75be0f10b6729b8b4237743b4de20cbcde2839ee.
+//
+// Solidity: event Withdrawal(uint256 value, address to, address from, uint8 withdrawalNetwork)
+func (_L1FeeVault *L1FeeVaultFilterer) FilterWithdrawal0(opts *bind.FilterOpts) (*L1FeeVaultWithdrawal0Iterator, error) {
+
+	logs, sub, err := _L1FeeVault.contract.FilterLogs(opts, "Withdrawal0")
+	if err != nil {
+		return nil, err
+	}
+	return &L1FeeVaultWithdrawal0Iterator{contract: _L1FeeVault.contract, event: "Withdrawal0", logs: logs, sub: sub}, nil
+}
+
+// WatchWithdrawal0 is a free log subscription operation binding the contract event 0x38e04cbeb8c10f8f568618aa75be0f10b6729b8b4237743b4de20cbcde2839ee.
+//
+// Solidity: event Withdrawal(uint256 value, address to, address from, uint8 withdrawalNetwork)
+func (_L1FeeVault *L1FeeVaultFilterer) WatchWithdrawal0(opts *bind.WatchOpts, sink chan<- *L1FeeVaultWithdrawal0) (event.Subscription, error) {
+
+	logs, sub, err := _L1FeeVault.contract.WatchLogs(opts, "Withdrawal0")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(L1FeeVaultWithdrawal0)
+				if err := _L1FeeVault.contract.UnpackLog(event, "Withdrawal0", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseWithdrawal0 is a log parse operation binding the contract event 0x38e04cbeb8c10f8f568618aa75be0f10b6729b8b4237743b4de20cbcde2839ee.
+//
+// Solidity: event Withdrawal(uint256 value, address to, address from, uint8 withdrawalNetwork)
+func (_L1FeeVault *L1FeeVaultFilterer) ParseWithdrawal0(log types.Log) (*L1FeeVaultWithdrawal0, error) {
+	event := new(L1FeeVaultWithdrawal0)
+	if err := _L1FeeVault.contract.UnpackLog(event, "Withdrawal0", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

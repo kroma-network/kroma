@@ -12,9 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 func TestParseMessagePassed(t *testing.T) {
@@ -28,8 +27,8 @@ func TestParseMessagePassed(t *testing.T) {
 			"bridge-withdrawal.json",
 			&bindings.L2ToL1MessagePasserMessagePassed{
 				Nonce:    new(big.Int),
-				Sender:   common.HexToAddress(predeploys.L2CrossDomainMessenger),
-				Target:   common.HexToAddress(predeploys.DevL1CrossDomainMessenger),
+				Sender:   common.HexToAddress("0x4200000000000000000000000000000000000007"),
+				Target:   common.HexToAddress("0x6900000000000000000000000000000000000002"),
 				Value:    new(big.Int),
 				GasLimit: big.NewInt(203648),
 				Data: hexutil.MustDecode(
@@ -51,12 +50,12 @@ func TestParseMessagePassed(t *testing.T) {
 				),
 				WithdrawalHash: common.HexToHash("0x0d827f8148288e3a2466018f71b968ece4ea9f9e2a81c30da9bd46cce2868285"),
 				Raw: types.Log{
-					Address: common.HexToAddress(predeploys.L2ToL1MessagePasser),
+					Address: common.HexToAddress("0x4200000000000000000000000000000000000016"),
 					Topics: []common.Hash{
 						common.HexToHash("0x02a52367d10742d8032712c1bb8e0144ff1ec5ffda1ed7d70bb05a2744955054"),
 						common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-						common.HexToHash(predeploys.L2CrossDomainMessenger),
-						common.HexToHash(predeploys.DevL1CrossDomainMessenger),
+						common.HexToHash("0x0000000000000000000000004200000000000000000000000000000000000007"),
+						common.HexToHash("0x0000000000000000000000006900000000000000000000000000000000000002"),
 					},
 					Data: hexutil.MustDecode(
 						"0x00000000000000000000000000000000000000000000000000000000000000" +

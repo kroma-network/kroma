@@ -581,7 +581,7 @@ The finalization period is necessary to afford sufficient time for [validators][
 
 Data availability is the guarantee that some data will be "available" (i.e. *retrievable*) during a reasonably long time
 window. In Kroma's case, the data in question are [sequencer batches][sequencer-batch] that [validators][validator]
-needs in order to verify the sequencer's work and validate the [L2] chain.
+need in order to verify the sequencer's work and validate the L2 chain.
 
 The [finalization period][finalization-period] should be taken as the lower bound on the availability window, since
 that is when data availability is the most crucial, as it is needed to perform a [ZK fault proof][zk-fault-proof].
@@ -659,10 +659,9 @@ A batcher transaction is a transaction submitted by a [batcher] to a [data avail
 in order to make channels available. These transactions carry one or more full frames, which may belong to different
 channels. A channel's frame may be split between multiple batcher transactions.
 
-When submitted to Ethereum calldata, the batcher transaction's receiver must be the batch inbox address. The
-transaction must also be signed by a recognized batch submitter account.
-
-> **TODO** specify where these recognized batch submitter accounts are stored
+When submitted to Ethereum calldata, the batcher transaction's receiver must be the sequencer inbox address. The
+transaction must also be signed by a recognized batch submitter account. The recognized batch submitter account
+is stored in the [System Configuration][system-config].
 
 ## Channel Timeout
 

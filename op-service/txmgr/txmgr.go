@@ -24,17 +24,17 @@ import (
 const (
 	// Geth requires a minimum fee bump of 10% for tx resubmission
 	priceBump int64 = 10
-
-	// The multiplier applied to fee suggestions to put a hard limit on fee increases
-	feeLimitMultiplier = 5
 )
 
 // new = old * (100 + priceBump) / 100
 var priceBumpPercent = big.NewInt(100 + priceBump)
 var oneHundred = big.NewInt(100)
 
+// [Kroma: START]
 // ErrTxReceiptNotSucceed is the error returned when tx confirmed but the status is not success.
 var ErrTxReceiptNotSucceed = errors.New("transaction confirmed but the status is not success")
+
+// [Kroma: END]
 
 // TxManager is an interface that allows callers to reliably publish txs,
 // bumping the gas price if needed, and obtain the receipt of the resulting tx.
@@ -124,9 +124,9 @@ func NewSimpleTxManagerFromConfig(name string, l log.Logger, m metrics.TxMetrice
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 	return &SimpleTxManager{
+		Config:  conf,
 		chainID: conf.ChainID,
 		name:    name,
-		Config:  conf,
 		backend: conf.Backend,
 		l:       l.New("service", name),
 		metr:    m,
@@ -187,9 +187,9 @@ func (m *SimpleTxManager) Call(ctx context.Context, msg ethereum.CallMsg, blockN
 
 // send performs the actual transaction creation and sending.
 func (m *SimpleTxManager) send(ctx context.Context, candidate TxCandidate) (*types.Receipt, error) {
-	if m.TxSendTimeout != 0 {
+	if m.Config.TxSendTimeout != 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, m.TxSendTimeout)
+		ctx, cancel = context.WithTimeout(ctx, m.Config.TxSendTimeout)
 		defer cancel()
 	}
 	tx, err := retry.Do(ctx, 30, retry.Fixed(2*time.Second), func() (*types.Transaction, error) {
@@ -231,7 +231,7 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		AccessList: candidate.AccessList,
 	}
 
-	m.l.Info("Creating tx", "to", rawTx.To, "from", m.From())
+	m.l.Info("Creating tx", "to", rawTx.To, "from", m.Config.From)
 
 	// If the gas limit is set, we can use that as the gas
 	if candidate.GasLimit != 0 {
@@ -252,42 +252,44 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		rawTx.Gas = gas
 	}
 
-	// Avoid bumping the nonce if the gas estimation fails.
-	nonce, err := m.nextNonce(ctx)
-	if err != nil {
-		return nil, err
-	}
-	rawTx.Nonce = nonce
-
-	ctx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
-	defer cancel()
-	return m.Signer(ctx, m.Config.From, types.NewTx(rawTx))
+	return m.signWithNextNonce(ctx, rawTx)
 }
 
-// nextNonce returns a nonce to use for the next transaction. It uses
-// eth_getTransactionCount with "latest" once, and then subsequent calls simply
-// increment this number. If the transaction manager is reset, it will query the
-// eth_getTransactionCount nonce again.
-func (m *SimpleTxManager) nextNonce(ctx context.Context) (uint64, error) {
+// signWithNextNonce returns a signed transaction with the next available nonce.
+// The nonce is fetched once using eth_getTransactionCount with "latest", and
+// then subsequent calls simply increment this number. If the transaction manager
+// is reset, it will query the eth_getTransactionCount nonce again. If signing
+// fails, the nonce is not incremented.
+func (m *SimpleTxManager) signWithNextNonce(ctx context.Context, rawTx *types.DynamicFeeTx) (*types.Transaction, error) {
 	m.nonceLock.Lock()
 	defer m.nonceLock.Unlock()
 
 	if m.nonce == nil {
 		// Fetch the sender's nonce from the latest known block (nil `blockNumber`)
-		childCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+		childCtx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 		defer cancel()
 		nonce, err := m.backend.NonceAt(childCtx, m.Config.From, nil)
 		if err != nil {
 			m.metr.RPCError()
-			return 0, fmt.Errorf("failed to get nonce: %w", err)
+			return nil, fmt.Errorf("failed to get nonce: %w", err)
 		}
 		m.nonce = &nonce
 	} else {
 		*m.nonce++
 	}
 
-	m.metr.RecordNonce(*m.nonce)
-	return *m.nonce, nil
+	rawTx.Nonce = *m.nonce
+	ctx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
+	defer cancel()
+	tx, err := m.Config.Signer(ctx, m.Config.From, types.NewTx(rawTx))
+	if err != nil {
+		// decrement the nonce, so we can retry signing with the same nonce next time
+		// signWithNextNonce is called
+		*m.nonce--
+	} else {
+		m.metr.RecordNonce(*m.nonce)
+	}
+	return tx, err
 }
 
 // resetNonce resets the internal nonce tracking. This is called if any pending send
@@ -306,21 +308,28 @@ func (m *SimpleTxManager) sendTx(ctx context.Context, tx *types.Transaction) (*t
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	sendState := NewSendState(m.SafeAbortNonceTooLowCount, m.TxNotInMempoolTimeout)
+	sendState := NewSendState(m.Config.SafeAbortNonceTooLowCount, m.Config.TxNotInMempoolTimeout)
 	receiptChan := make(chan *types.Receipt, 1)
-	sendTxAsync := func(tx *types.Transaction) {
-		defer wg.Done()
-		m.publishAndWaitForTx(ctx, tx, sendState, receiptChan)
+	publishAndWait := func(tx *types.Transaction, bumpFees bool) *types.Transaction {
+		wg.Add(1)
+		tx, published := m.publishTx(ctx, tx, sendState, bumpFees)
+		if published {
+			go func() {
+				defer wg.Done()
+				m.waitForTx(ctx, tx, sendState, receiptChan)
+			}()
+		} else {
+			wg.Done()
+		}
+		return tx
 	}
 
 	// Immediately publish a transaction before starting the resumbission loop
-	wg.Add(1)
-	go sendTxAsync(tx)
+	tx = publishAndWait(tx, false)
 
-	ticker := time.NewTicker(m.ResubmissionTimeout)
+	ticker := time.NewTicker(m.Config.ResubmissionTimeout)
 	defer ticker.Stop()
 
-	bumpCounter := 0
 	for {
 		select {
 		case <-ticker.C:
@@ -333,25 +342,13 @@ func (m *SimpleTxManager) sendTx(ctx context.Context, tx *types.Transaction) (*t
 				m.l.Warn("Aborting transaction submission")
 				return nil, errors.New("aborted transaction sending")
 			}
-			// Increase the gas price & submit the new transaction
-			newTx, err := m.increaseGasPrice(ctx, tx)
-			if err != nil || sendState.IsWaitingForConfirmation() {
-				// there is a chance the previous tx goes into "waiting for confirmation" state
-				// during the increaseGasPrice call. In some (but not all) cases increaseGasPrice
-				// will error out during gas estimation. In either case we should continue waiting
-				// rather than resubmit the tx.
-				continue
-			}
-			tx = newTx
-			wg.Add(1)
-			bumpCounter += 1
-			go sendTxAsync(tx)
+			tx = publishAndWait(tx, true)
 
 		case <-ctx.Done():
 			return nil, ctx.Err()
 
 		case receipt := <-receiptChan:
-			m.metr.RecordGasBumpCount(bumpCounter)
+			m.metr.RecordGasBumpCount(sendState.bumpCount)
 			m.metr.TxConfirmed(receipt)
 			// [Kroma: START]
 			// If transaction confirmed but the status is not success, return ErrTxReceiptNotSucceed
@@ -365,48 +362,82 @@ func (m *SimpleTxManager) sendTx(ctx context.Context, tx *types.Transaction) (*t
 	}
 }
 
-// publishAndWaitForTx publishes the transaction to the transaction pool and then waits for it with [waitMined].
-// It should be called in a new go-routine. It will send the receipt to receiptChan in a non-blocking way if a receipt is found
-// for the transaction.
-func (m *SimpleTxManager) publishAndWaitForTx(ctx context.Context, tx *types.Transaction, sendState *SendState, receiptChan chan *types.Receipt) {
-	log := m.l.New("hash", tx.Hash(), "nonce", tx.Nonce(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
-	log.Info("Publishing transaction")
+// publishTx publishes the transaction to the transaction pool. If it receives any underpriced errors
+// it will bump the fees and retry.
+// Returns the latest fee bumped tx, and a boolean indicating whether the tx was sent or not
+func (m *SimpleTxManager) publishTx(ctx context.Context, tx *types.Transaction, sendState *SendState, bumpFeesImmediately bool) (*types.Transaction, bool) {
+	updateLogFields := func(tx *types.Transaction) log.Logger {
+		return m.l.New("hash", tx.Hash(), "nonce", tx.Nonce(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
+	}
+	l := updateLogFields(tx)
 
-	cCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
-	defer cancel()
-	t := time.Now()
-	err := m.backend.SendTransaction(cCtx, tx)
-	sendState.ProcessSendError(err)
+	l.Info("Publishing transaction")
 
-	// Properly log & exit if there is an error
-	if err != nil {
+	for {
+		if bumpFeesImmediately {
+			newTx, err := m.increaseGasPrice(ctx, tx)
+			if err != nil {
+				l.Error("unable to increase gas", "err", err)
+				m.metr.TxPublished("bump_failed")
+				return tx, false
+			}
+			tx = newTx
+			sendState.bumpCount++
+			l = updateLogFields(tx)
+		}
+		bumpFeesImmediately = true // bump fees next loop
+
+		if sendState.IsWaitingForConfirmation() {
+			// there is a chance the previous tx goes into "waiting for confirmation" state
+			// during the increaseGasPrice call; continue waiting rather than resubmit the tx
+			return tx, false
+		}
+
+		cCtx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
+		err := m.backend.SendTransaction(cCtx, tx)
+		cancel()
+		sendState.ProcessSendError(err)
+
+		if err == nil {
+			m.metr.TxPublished("")
+			log.Info("Transaction successfully published")
+			return tx, true
+		}
+
 		switch {
 		case errStringMatch(err, core.ErrNonceTooLow):
-			log.Warn("nonce too low", "err", err)
+			l.Warn("nonce too low", "err", err)
 			m.metr.TxPublished("nonce_to_low")
 		case errStringMatch(err, context.Canceled):
 			m.metr.RPCError()
-			log.Warn("transaction send cancelled", "err", err)
+			l.Warn("transaction send cancelled", "err", err)
 			m.metr.TxPublished("context_cancelled")
 		case errStringMatch(err, txpool.ErrAlreadyKnown):
-			log.Warn("resubmitted already known transaction", "err", err)
+			l.Warn("resubmitted already known transaction", "err", err)
 			m.metr.TxPublished("tx_already_known")
 		case errStringMatch(err, txpool.ErrReplaceUnderpriced):
-			log.Warn("transaction replacement is underpriced", "err", err)
+			l.Warn("transaction replacement is underpriced", "err", err)
 			m.metr.TxPublished("tx_replacement_underpriced")
+			continue // retry with fee bump
 		case errStringMatch(err, txpool.ErrUnderpriced):
-			log.Warn("transaction is underpriced", "err", err)
+			l.Warn("transaction is underpriced", "err", err)
 			m.metr.TxPublished("tx_underpriced")
+			continue // retry with fee bump
 		default:
 			m.metr.RPCError()
-			log.Error("unable to publish transaction", "err", err)
+			l.Error("unable to publish transaction", "err", err)
 			m.metr.TxPublished("unknown_error")
 		}
-		return
-	}
-	m.metr.TxPublished("")
 
-	log.Info("Transaction successfully published")
+		// on non-underpriced error return immediately; will retry on next resubmission timeout
+		return tx, false
+	}
+}
+
+// waitForTx calls waitMined, and then sends the receipt to receiptChan in a non-blocking way if a receipt is found
+// for the transaction. It should be called in a separate goroutine.
+func (m *SimpleTxManager) waitForTx(ctx context.Context, tx *types.Transaction, sendState *SendState, receiptChan chan *types.Receipt) {
+	t := time.Now()
 	// Poll for the transaction to be ready & then send the result to receiptChan
 	receipt, err := m.waitMined(ctx, tx, sendState)
 	if err != nil {
@@ -424,7 +455,7 @@ func (m *SimpleTxManager) publishAndWaitForTx(ctx context.Context, tx *types.Tra
 // waitMined waits for the transaction to be mined or for the context to be cancelled.
 func (m *SimpleTxManager) waitMined(ctx context.Context, tx *types.Transaction, sendState *SendState) (*types.Receipt, error) {
 	txHash := tx.Hash()
-	queryTicker := time.NewTicker(m.ReceiptQueryInterval)
+	queryTicker := time.NewTicker(m.Config.ReceiptQueryInterval)
 	defer queryTicker.Stop()
 	for {
 		select {
@@ -440,7 +471,7 @@ func (m *SimpleTxManager) waitMined(ctx context.Context, tx *types.Transaction, 
 
 // queryReceipt queries for the receipt and returns the receipt if it has passed the confirmation depth
 func (m *SimpleTxManager) queryReceipt(ctx context.Context, txHash common.Hash, sendState *SendState) *types.Receipt {
-	ctx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+	ctx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
 	receipt, err := m.backend.TransactionReceipt(ctx, txHash)
 	if errors.Is(err, ethereum.NotFound) {
@@ -468,7 +499,7 @@ func (m *SimpleTxManager) queryReceipt(ctx context.Context, txHash common.Hash, 
 	}
 
 	m.l.Debug("Transaction mined, checking confirmations", "hash", txHash, "txHeight", txHeight,
-		"tipHeight", tipHeight, "numConfirmations", m.NumConfirmations)
+		"tipHeight", tipHeight, "numConfirmations", m.Config.NumConfirmations)
 
 	// The transaction is considered confirmed when
 	// txHeight+numConfirmations-1 <= tipHeight. Note that the -1 is
@@ -477,13 +508,13 @@ func (m *SimpleTxManager) queryReceipt(ctx context.Context, txHash common.Hash, 
 	// transaction should be confirmed when txHeight is equal to
 	// tipHeight. The equation is rewritten in this form to avoid
 	// underflows.
-	if txHeight+m.NumConfirmations <= tipHeight+1 {
+	if txHeight+m.Config.NumConfirmations <= tipHeight+1 {
 		m.l.Info("Transaction confirmed", "hash", txHash)
 		return receipt
 	}
 
 	// Safe to subtract since we know the LHS above is greater.
-	confsRemaining := (txHeight + m.NumConfirmations) - (tipHeight + 1)
+	confsRemaining := (txHeight + m.Config.NumConfirmations) - (tipHeight + 1)
 	m.l.Debug("Transaction not yet confirmed", "hash", txHash, "confsRemaining", confsRemaining)
 	return nil
 }
@@ -502,16 +533,14 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 	}
 	bumpedTip, bumpedFee := updateFees(tx.GasTipCap(), tx.GasFeeCap(), tip, basefee, m.l)
 
-	// Make sure increase is at most 5x the suggested values
-	maxTip := new(big.Int).Mul(tip, big.NewInt(feeLimitMultiplier))
+	// Make sure increase is at most [FeeLimitMultiplier] the suggested values
+	maxTip := new(big.Int).Mul(tip, big.NewInt(int64(m.Config.FeeLimitMultiplier)))
 	if bumpedTip.Cmp(maxTip) > 0 {
-		m.l.Warn(fmt.Sprintf("bumped tip getting capped at %dx multiple of the suggested value", feeLimitMultiplier), "bumped", bumpedTip, "suggestion", tip)
-		bumpedTip.Set(maxTip)
+		return nil, fmt.Errorf("bumped tip 0x%s is over %dx multiple of the suggested value", bumpedTip.Text(16), m.Config.FeeLimitMultiplier)
 	}
-	maxFee := CalcGasFeeCap(new(big.Int).Mul(basefee, big.NewInt(feeLimitMultiplier)), maxTip)
+	maxFee := CalcGasFeeCap(new(big.Int).Mul(basefee, big.NewInt(int64(m.Config.FeeLimitMultiplier))), maxTip)
 	if bumpedFee.Cmp(maxFee) > 0 {
-		m.l.Warn("bumped fee getting capped at multiple of the implied suggested value", "bumped", bumpedFee, "suggestion", maxFee)
-		bumpedFee.Set(maxFee)
+		return nil, fmt.Errorf("bumped fee 0x%s is over %dx multiple of the suggested value", bumpedFee.Text(16), m.Config.FeeLimitMultiplier)
 	}
 	rawTx := &types.DynamicFeeTx{
 		ChainID:    tx.ChainId(),
@@ -526,7 +555,7 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 
 	// Re-estimate gaslimit in case things have changed or a previous gaslimit estimate was wrong
 	gas, err := m.backend.EstimateGas(ctx, ethereum.CallMsg{
-		From:      m.From(),
+		From:      m.Config.From,
 		To:        rawTx.To,
 		GasFeeCap: bumpedTip,
 		GasTipCap: bumpedFee,
@@ -545,9 +574,9 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 	}
 	rawTx.Gas = gas
 
-	ctx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+	ctx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
-	newTx, err := m.Signer(ctx, m.Config.From, types.NewTx(rawTx))
+	newTx, err := m.Config.Signer(ctx, m.Config.From, types.NewTx(rawTx))
 	if err != nil {
 		m.l.Warn("failed to sign new transaction", "err", err)
 		return tx, nil
@@ -557,7 +586,7 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 
 // SuggestGasPriceCaps suggests what the new tip & new basefee should be based on the current L1 conditions
 func (m *SimpleTxManager) SuggestGasPriceCaps(ctx context.Context) (*big.Int, *big.Int, error) {
-	cCtx, cancel := context.WithTimeout(ctx, m.NetworkTimeout)
+	cCtx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
 	tip, err := m.backend.SuggestGasTipCap(cCtx)
 	if err != nil {
@@ -566,7 +595,7 @@ func (m *SimpleTxManager) SuggestGasPriceCaps(ctx context.Context) (*big.Int, *b
 	} else if tip == nil {
 		return nil, nil, errors.New("the suggested tip was nil")
 	}
-	cCtx, cancel = context.WithTimeout(ctx, m.NetworkTimeout)
+	cCtx, cancel = context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
 	head, err := m.backend.HeaderByNumber(cCtx, nil)
 	if err != nil {

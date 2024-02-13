@@ -38,7 +38,10 @@ const deployFn: DeployFunction = async (hre) => {
     const balance = await token.balanceOf(guardian)
     if (balance.toNumber() === 0) {
       const res = `${index + 1}.png`
-      await token.safeMint(guardian, res)
+      const gas = await token.provider.estimateGas(
+        await token.populateTransaction.safeMint(guardian, res)
+      )
+      await token.safeMint(guardian, res, { gasLimit: gas.mul(2) })
     }
   }
 }

@@ -6,10 +6,11 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 // ForOutputRootPublished waits until there is an output published for an L2 block number larger than the supplied l2BlockNumber

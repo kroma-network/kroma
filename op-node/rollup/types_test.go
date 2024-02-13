@@ -3,6 +3,7 @@ package rollup
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -157,6 +158,44 @@ func TestRandomConfigDescription(t *testing.T) {
 		require.Contains(t, out, "(unknown L1)")
 		require.Contains(t, out, "(unknown L2)")
 	})
+	t.Run("regolith unset", func(t *testing.T) {
+		config := randConfig()
+		config.RegolithTime = nil
+		out := config.Description(nil)
+		require.Contains(t, out, "Regolith: (not configured)")
+	})
+	t.Run("regolith genesis", func(t *testing.T) {
+		config := randConfig()
+		config.RegolithTime = new(uint64)
+		out := config.Description(nil)
+		require.Contains(t, out, "Regolith: @ genesis")
+	})
+	t.Run("regolith date", func(t *testing.T) {
+		config := randConfig()
+		x := uint64(1677119335)
+		config.RegolithTime = &x
+		out := config.Description(nil)
+		// Don't check human-readable part of the date, it's timezone-dependent.
+		// Don't make this test fail only in Australia :')
+		require.Contains(t, out, fmt.Sprintf("Regolith: @ %d ~ ", x))
+	})
+}
+
+// TestRegolithActivation tests the activation condition of the Regolith upgrade.
+func TestRegolithActivation(t *testing.T) {
+	config := randConfig()
+	config.RegolithTime = nil
+	require.False(t, config.IsRegolith(0), "false if nil time, even if checking 0")
+	require.False(t, config.IsRegolith(123456), "false if nil time")
+	config.RegolithTime = new(uint64)
+	require.True(t, config.IsRegolith(0), "true at zero")
+	require.True(t, config.IsRegolith(123456), "true for any")
+	x := uint64(123)
+	config.RegolithTime = &x
+	require.False(t, config.IsRegolith(0))
+	require.False(t, config.IsRegolith(122))
+	require.True(t, config.IsRegolith(123))
+	require.True(t, config.IsRegolith(124))
 }
 
 type mockL2Client struct {
@@ -357,4 +396,55 @@ func TestConfig_Check(t *testing.T) {
 			assert.Same(t, err, test.expectedErr)
 		})
 	}
+}
+
+func TestTimestampForBlock(t *testing.T) {
+	config := randConfig()
+
+	tests := []struct {
+		name              string
+		genesisTime       uint64
+		genesisBlock      uint64
+		blockTime         uint64
+		blockNum          uint64
+		expectedBlockTime uint64
+	}{
+		{
+			name:              "FirstBlock",
+			genesisTime:       100,
+			genesisBlock:      0,
+			blockTime:         2,
+			blockNum:          0,
+			expectedBlockTime: 100,
+		},
+		{
+			name:              "SecondBlock",
+			genesisTime:       100,
+			genesisBlock:      0,
+			blockTime:         2,
+			blockNum:          1,
+			expectedBlockTime: 102,
+		},
+		{
+			name:              "NBlock",
+			genesisTime:       100,
+			genesisBlock:      0,
+			blockTime:         2,
+			blockNum:          25,
+			expectedBlockTime: 150,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(fmt.Sprintf("TestTimestampForBlock_%s", test.name), func(t *testing.T) {
+			config.Genesis.L2Time = test.genesisTime
+			config.Genesis.L2.Number = test.genesisBlock
+			config.BlockTime = test.blockTime
+
+			timestamp := config.TimestampForBlock(test.blockNum)
+			assert.Equal(t, timestamp, test.expectedBlockTime)
+		})
+	}
+
 }

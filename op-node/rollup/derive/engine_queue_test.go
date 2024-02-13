@@ -8,11 +8,12 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/holiman/uint256"
-	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -274,6 +275,7 @@ func TestEngineQueue_Finalize(t *testing.T) {
 	l1F.AssertExpectations(t)
 	eng.AssertExpectations(t)
 }
+
 func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 	logger := testlog.Logger(t, log.LvlInfo)
 
@@ -961,7 +963,7 @@ func TestBlockBuildingRace(t *testing.T) {
 		InfoGasLimit:         0,
 		InfoBloom:            types.Bloom{},
 		InfoExtra:            []byte{},
-	}, cfg.Genesis.SystemConfig)
+	}, cfg.Genesis.SystemConfig, false)
 
 	require.NoError(t, err)
 	payloadA1 := &eth.ExecutionPayload{

@@ -13,7 +13,8 @@ var (
 	Bytes32Type, _ = abi.NewType("bytes32", "", nil)
 )
 
-// WithdrawalMessage represents a Withdrawal.
+// WithdrawalMessage represents a Withdrawal. The Withdrawal
+// and LegacyWithdrawal types must implement this interface.
 type WithdrawalMessage interface {
 	Encode() ([]byte, error)
 	Decode([]byte) error

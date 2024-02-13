@@ -258,7 +258,7 @@ func TestSequencerChaosMonkey(t *testing.T) {
 			InfoBloom:            types.Bloom{},
 			InfoExtra:            []byte{},
 		}
-		infoDep, err := derive.L1InfoDepositBytes(seqNr, l1Info, cfg.Genesis.SystemConfig)
+		infoDep, err := derive.L1InfoDepositBytes(seqNr, l1Info, cfg.Genesis.SystemConfig, false)
 		require.NoError(t, err)
 
 		testGasLimit := eth.Uint64Quantity(10_000_000)

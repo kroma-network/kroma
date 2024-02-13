@@ -3,8 +3,8 @@ name: Tests
 on:
   pull_request:
     branches:
-    - dev
-    - main
+      - dev
+      - main
 
 jobs:
   test:
@@ -24,36 +24,44 @@ jobs:
           go-version: '1.21'
       - run: go mod download
 
-      - name: Setup Node.js 16.x
-        uses: actions/setup-node@master
+      - name: Setup Node.js using .nvmrc
+        uses: actions/setup-node@v4
         with:
-          node-version: 16.x
+          node-version-file: .nvmrc
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "::set-output name=dir::$(yarn cache dir)"
-
-      - name: Yarn Cache
-        uses: actions/cache@v3
-        id: yarn-cache
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
         with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ runner.os }}-pnpm-store-
 
-      - name: Install Dependencies
-        run: yarn --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly-d369d2486f85576eec4ca41d277391dfdae21ba7
 
       - name: Build
-        run: yarn build
+        run: pnpm build
+
+      - name: Generate L1 allocs
+        run: make devnet-allocs
 
       - name: Run tests
         env:
-          E2E_DISABLE_PARALLEL: true
+          OP_E2E_DISABLE_PARALLEL: true
+          OP_E2E_USE_CANYON: true
         run: make test

@@ -56,22 +56,22 @@ We work on this repository with a combination of [Hardhat](https://hardhat.org) 
    > foundryup --version nightly-d369d2486f85576eec4ca41d277391dfdae21ba7
    ```
 
-2. Install node modules with yarn (v1) and Node.js (16+):
+2. Install node modules with pnpm and Node.js:
 
    ```shell
-   > yarn install
+   > pnpm i
    ```
 
 ### Build
 
 ```shell
-> yarn build
+> pnpm build
 ```
 
 ### Test
 
 ```shell
-> yarn test
+> pnpm test
 ```
 
 #### Running Echidna tests
@@ -79,10 +79,10 @@ We work on this repository with a combination of [Hardhat](https://hardhat.org) 
 You must have [Echidna](https://github.com/crytic/echidna) installed.
 
 Contracts targeted for Echidna testing are located in `./contracts/echidna`
-Each target contract is tested with a separate yarn command, for example:
+Each target contract is tested with a separate pnpm command, for example:
 
 ```shell
-> yarn echidna:aliasing
+> pnpm echidna:aliasing
 ```
 
 ### Deployment

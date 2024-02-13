@@ -3,9 +3,10 @@ package op_e2e
 import (
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 )
 
 func TestTxGossip(t *testing.T) {

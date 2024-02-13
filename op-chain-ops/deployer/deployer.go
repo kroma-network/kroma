@@ -40,11 +40,19 @@ type Deployment struct {
 
 type Deployer func(*backends.SimulatedBackend, *bind.TransactOpts, Constructor) (*types.Transaction, error)
 
-func NewBackend(zktrie bool) *backends.SimulatedBackend {
-	return NewBackendWithGenesisTimestamp(0, zktrie)
+// NewL1Backend returns a SimulatedBackend suitable for L1. It has
+// the latest L1 hardforks enabled.
+func NewL1Backend() *backends.SimulatedBackend {
+	return NewBackendWithGenesisTimestamp(0, true)
 }
 
-func NewBackendWithGenesisTimestamp(ts uint64, zktrie bool) *backends.SimulatedBackend {
+// NewL2Backend returns a SimulatedBackend suitable for L2.
+// It has the latest L2 hardforks enabled.
+func NewL2Backend() *backends.SimulatedBackend {
+	return NewBackendWithGenesisTimestamp(0, false)
+}
+
+func NewBackendWithGenesisTimestamp(ts uint64, shanghai bool) *backends.SimulatedBackend {
 	chainConfig := params.ChainConfig{
 		ChainID:             ChainID,
 		HomesteadBlock:      big.NewInt(0),
@@ -68,7 +76,10 @@ func NewBackendWithGenesisTimestamp(ts uint64, zktrie bool) *backends.SimulatedB
 		MergeNetsplitBlock:            big.NewInt(0),
 		TerminalTotalDifficulty:       big.NewInt(0),
 		TerminalTotalDifficultyPassed: true,
-		Zktrie:                        zktrie,
+	}
+
+	if shanghai {
+		chainConfig.ShanghaiTime = u64ptr(0)
 	}
 
 	return backends.NewSimulatedBackendWithOpts(
@@ -132,4 +143,8 @@ func Deploy(backend *backends.SimulatedBackend, constructors []Constructor, cb D
 	}
 
 	return results, nil
+}
+
+func u64ptr(n uint64) *uint64 {
+	return &n
 }

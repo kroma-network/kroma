@@ -1,13 +1,14 @@
 package metrics
 
 import (
-	"context"
+	"io"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -26,6 +27,10 @@ type Metricer interface {
 
 	// Record Tx metrics
 	txmetrics.TxMetricer
+
+	opmetrics.RPCMetricer
+
+	StartBalanceMetrics(l log.Logger, client *ethclient.Client, account common.Address) io.Closer
 
 	RecordLatestL1Block(l1ref eth.L1BlockRef)
 	RecordL2BlocksLoaded(l2ref eth.L2BlockRef)
@@ -79,6 +84,9 @@ type Metrics struct {
 }
 
 var _ Metricer = (*Metrics)(nil)
+
+// implements the Registry getter, for metrics HTTP server to hook into
+var _ opmetrics.RegistryMetricer = (*Metrics)(nil)
 
 func NewMetrics(procName string) *Metrics {
 	if procName == "" {
@@ -165,11 +173,6 @@ func NewMetrics(procName string) *Metrics {
 			Help:      "Compression ratios of closed channel.",
 			Buckets:   append([]float64{0.1, 0.2}, prometheus.LinearBuckets(0.3, 0.05, 14)...),
 		}),
-		channelComprRatioValue: factory.NewGauge(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "channel_compr_ratio_value",
-			Help:      "Compression ratios of closed channel.",
-		}),
 		channelInputBytesTotal: factory.NewCounter(prometheus.CounterOpts{
 			Namespace: ns,
 			Name:      "input_bytes_total",
@@ -182,20 +185,27 @@ func NewMetrics(procName string) *Metrics {
 		}),
 
 		batcherTxEvs: opmetrics.NewEventVec(factory, ns, "", "batcher_tx", "BatcherTx", []string{"stage"}),
+
+		// [Kroma: START]
+		channelComprRatioValue: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace: ns,
+			Name:      "channel_compr_ratio_value",
+			Help:      "Compression ratios of closed channel.",
+		}),
+		// [Kroma: END]
 	}
 }
 
-func (m *Metrics) Serve(ctx context.Context, host string, port int) error {
-	return opmetrics.ListenAndServe(ctx, m.registry, host, port)
+func (m *Metrics) Registry() *prometheus.Registry {
+	return m.registry
 }
 
 func (m *Metrics) Document() []opmetrics.DocumentedMetric {
 	return m.factory.Document()
 }
 
-func (m *Metrics) StartBalanceMetrics(ctx context.Context,
-	l log.Logger, client *ethclient.Client, account common.Address) {
-	opmetrics.LaunchBalanceMetrics(ctx, l, m.registry, m.ns, client, account)
+func (m *Metrics) StartBalanceMetrics(l log.Logger, client *ethclient.Client, account common.Address) io.Closer {
+	return opmetrics.LaunchBalanceMetrics(l, m.registry, m.ns, client, account)
 }
 
 // RecordInfo sets a pseudo-metric that contains versioning and
