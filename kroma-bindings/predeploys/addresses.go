@@ -1,6 +1,10 @@
 package predeploys
 
-import "github.com/ethereum/go-ethereum/common"
+import (
+	"github.com/ethereum/go-ethereum/common"
+
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+)
 
 const (
 	ProxyAdmin                 = "0x4200000000000000000000000000000000000000"
@@ -17,6 +21,7 @@ const (
 	L2ERC721Bridge             = "0x420000000000000000000000000000000000000A"
 	KromaMintableERC20Factory  = "0x420000000000000000000000000000000000000B"
 	KromaMintableERC721Factory = "0x420000000000000000000000000000000000000C"
+	Create2Deployer            = "0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2"
 )
 
 var (
@@ -34,8 +39,10 @@ var (
 	L2ERC721BridgeAddr             = common.HexToAddress(L2ERC721Bridge)
 	KromaMintableERC20FactoryAddr  = common.HexToAddress(KromaMintableERC20Factory)
 	KromaMintableERC721FactoryAddr = common.HexToAddress(KromaMintableERC721Factory)
+	Create2DeployerAddr            = common.HexToAddress(Create2Deployer)
 
-	Predeploys = make(map[string]*common.Address)
+	Predeploys          = make(map[string]*oppredeploys.Predeploy)
+	PredeploysByAddress = make(map[common.Address]*oppredeploys.Predeploy)
 )
 
 // IsProxied returns true for predeploys that will sit behind a proxy contract
@@ -50,18 +57,36 @@ func IsProxied(predeployAddr common.Address) bool {
 }
 
 func init() {
-	Predeploys["ProxyAdmin"] = &ProxyAdminAddr
-	Predeploys["WETH9"] = &WETH9Addr
-	Predeploys["L1Block"] = &L1BlockAddr
-	Predeploys["L2ToL1MessagePasser"] = &L2ToL1MessagePasserAddr
-	Predeploys["L2CrossDomainMessenger"] = &L2CrossDomainMessengerAddr
-	Predeploys["GasPriceOracle"] = &GasPriceOracleAddr
-	Predeploys["ProtocolVault"] = &ProtocolVaultAddr
-	Predeploys["L1FeeVault"] = &L1FeeVaultAddr
-	Predeploys["ValidatorRewardVault"] = &ValidatorRewardVaultAddr
-	Predeploys["L2StandardBridge"] = &L2StandardBridgeAddr
-	Predeploys["GovernanceToken"] = &GovernanceTokenAddr
-	Predeploys["L2ERC721Bridge"] = &L2ERC721BridgeAddr
-	Predeploys["KromaMintableERC20Factory"] = &KromaMintableERC20FactoryAddr
-	Predeploys["KromaMintableERC721Factory"] = &KromaMintableERC721FactoryAddr
+	Predeploys["ProxyAdmin"] = &oppredeploys.Predeploy{Address: ProxyAdminAddr}
+	Predeploys["WETH9"] = &oppredeploys.Predeploy{Address: WETH9Addr, ProxyDisabled: true}
+	Predeploys["L1Block"] = &oppredeploys.Predeploy{Address: L1BlockAddr}
+	Predeploys["L2ToL1MessagePasser"] = &oppredeploys.Predeploy{Address: L2ToL1MessagePasserAddr}
+	Predeploys["L2CrossDomainMessenger"] = &oppredeploys.Predeploy{Address: L2CrossDomainMessengerAddr}
+	Predeploys["GasPriceOracle"] = &oppredeploys.Predeploy{Address: GasPriceOracleAddr}
+	Predeploys["ProtocolVault"] = &oppredeploys.Predeploy{Address: ProtocolVaultAddr}
+	Predeploys["L1FeeVault"] = &oppredeploys.Predeploy{Address: L1FeeVaultAddr}
+	Predeploys["ValidatorRewardVault"] = &oppredeploys.Predeploy{Address: ValidatorRewardVaultAddr}
+	Predeploys["L2StandardBridge"] = &oppredeploys.Predeploy{Address: L2StandardBridgeAddr}
+	Predeploys["GovernanceToken"] = &oppredeploys.Predeploy{
+		Address:       GovernanceTokenAddr,
+		ProxyDisabled: true,
+		Enabled: func(config oppredeploys.DeployConfig) bool {
+			return config.GovernanceEnabled()
+		},
+	}
+	Predeploys["L2ERC721Bridge"] = &oppredeploys.Predeploy{Address: L2ERC721BridgeAddr}
+	Predeploys["KromaMintableERC20Factory"] = &oppredeploys.Predeploy{Address: KromaMintableERC20FactoryAddr}
+	Predeploys["KromaMintableERC721Factory"] = &oppredeploys.Predeploy{Address: KromaMintableERC721FactoryAddr}
+	Predeploys["Create2Deployer"] = &oppredeploys.Predeploy{
+		Address:       Create2DeployerAddr,
+		ProxyDisabled: true,
+		Enabled: func(config oppredeploys.DeployConfig) bool {
+			canyonTime := config.CanyonTime(0)
+			return canyonTime != nil && *canyonTime == 0
+		},
+	}
+
+	for _, predeploy := range Predeploys {
+		PredeploysByAddress[predeploy.Address] = predeploy
+	}
 }

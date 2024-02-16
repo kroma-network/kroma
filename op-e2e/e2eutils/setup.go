@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
@@ -64,7 +65,9 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	// deployConfig.L2GenesisRegolithTimeOffset = nil
 	// [Kroma: END]
 	deployConfig.L2GenesisCanyonTimeOffset = CanyonTimeOffset()
-	deployConfig.L2GenesisSpanBatchTimeOffset = SpanBatchTimeOffset()
+	// [Kroma: START]
+	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
+	// [Kroma: END]
 
 	require.NoError(t, deployConfig.Check())
 	require.Equal(t, addresses.Batcher, deployConfig.BatchSenderAddress)
@@ -106,10 +109,10 @@ func Ether(v uint64) *big.Int {
 // Setup computes the testing setup configurations from deployment configuration and optional allocation parameters.
 func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *SetupData {
 	deployConf := deployParams.DeployConfig.Copy()
+	deployConf.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	// [Kroma: START]
 	deployConf.ValidatorPoolRoundDuration = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
 	// [Kroma: END]
-	deployConf.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	require.NoError(t, deployConf.Check())
 
 	l1Deployments := config.L1Deployments.Copy()
@@ -167,7 +170,10 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		L1SystemConfigAddress:  deployConf.SystemConfigProxy,
 		RegolithTime:           deployConf.RegolithTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		CanyonTime:             deployConf.CanyonTime(uint64(deployConf.L1GenesisBlockTimestamp)),
-		SpanBatchTime:          deployConf.SpanBatchTime(uint64(deployConf.L1GenesisBlockTimestamp)),
+		DeltaTime:              deployConf.DeltaTime(uint64(deployConf.L1GenesisBlockTimestamp)),
+		EclipseTime:            deployConf.EclipseTime(uint64(deployConf.L1GenesisBlockTimestamp)),
+		FjordTime:              deployConf.FjordTime(uint64(deployConf.L1GenesisBlockTimestamp)),
+		InteropTime:            deployConf.InteropTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 	}
 
 	require.NoError(t, rollupCfg.Check())
@@ -193,14 +199,6 @@ func SystemConfigFromDeployConfig(deployConfig *genesis.DeployConfig) eth.System
 		GasLimit:              uint64(deployConfig.L2GenesisBlockGasLimit),
 		ValidatorRewardScalar: eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(deployConfig.ValidatorRewardScalar))),
 	}
-}
-
-func SpanBatchTimeOffset() *hexutil.Uint64 {
-	if os.Getenv("OP_E2E_USE_SPAN_BATCH") == "true" {
-		offset := hexutil.Uint64(0)
-		return &offset
-	}
-	return nil
 }
 
 func CanyonTimeOffset() *hexutil.Uint64 {

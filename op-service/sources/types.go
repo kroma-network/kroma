@@ -1,7 +1,6 @@
 package sources
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -17,10 +16,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
-
-type BatchCallContextFn func(ctx context.Context, b []rpc.BatchElem) error
-
-type CallContextFn func(ctx context.Context, result any, method string, args ...any) error
 
 // Note: these types are used, instead of the geth types, to enable:
 // - batched calls of many block requests (standard bindings do extra uncle-header fetches, cannot be batched nicely)
@@ -83,6 +78,12 @@ func (h headerInfo) GasUsed() uint64 {
 	return h.header.GasUsed
 }
 
+func (h headerInfo) GasLimit() uint64 {
+	// [Kroma: START]
+	return h.header.GasLimit
+	// [Kroma: END]
+}
+
 func (h headerInfo) HeaderRLP() ([]byte, error) {
 	return rlp.EncodeToBytes(h.header)
 }
@@ -99,9 +100,7 @@ func (h headerInfo) WithdrawalsHash() *common.Hash {
 	return h.header.WithdrawalsHash
 }
 
-func (h headerInfo) GasLimit() uint64 {
-	return h.header.GasLimit
-}
+// [Kroma: START]
 
 func (h headerInfo) Bloom() types.Bloom {
 	return h.header.Bloom
@@ -114,6 +113,8 @@ func (h headerInfo) Extra() []byte {
 func (h headerInfo) Header() *types.Header {
 	return h.header
 }
+
+// [Kroma: END]
 
 type rpcHeader struct {
 	ParentHash  common.Hash      `json:"parentHash"`
@@ -219,6 +220,13 @@ func (hdr *rpcHeader) Info(trustCache bool, mustBePostMerge bool) (eth.BlockInfo
 	return &headerInfo{hdr.Hash, hdr.createGethHeader()}, nil
 }
 
+func (hdr *rpcHeader) BlockID() eth.BlockID {
+	return eth.BlockID{
+		Hash:   hdr.Hash,
+		Number: uint64(hdr.Number),
+	}
+}
+
 type rpcBlock struct {
 	rpcHeader
 	Transactions []*types.Transaction `json:"transactions"`
@@ -231,7 +239,7 @@ func (block *rpcBlock) verify() error {
 	}
 	for i, tx := range block.Transactions {
 		if tx == nil {
-			return fmt.Errorf("block tx %d is null", i)
+			return fmt.Errorf("block tx %d is nil", i)
 		}
 	}
 	if computed := types.DeriveSha(types.Transactions(block.Transactions), trie.NewStackTrie(nil)); block.TxHash != computed {
@@ -340,5 +348,6 @@ func unusableMethod(err error) bool {
 	return strings.Contains(errText, "unsupported method") || // alchemy -32600 message
 		strings.Contains(errText, "unknown method") ||
 		strings.Contains(errText, "invalid param") ||
-		strings.Contains(errText, "is not available")
+		strings.Contains(errText, "is not available") ||
+		strings.Contains(errText, "rpc method is not whitelisted") // proxyd -32001 error code
 }

@@ -40,6 +40,7 @@ var Mainnet = &rollup.Config{
 	L1SystemConfigAddress:  common.HexToAddress("0x3971eb866aa9b2b8afea8a7c816f3b7e8b195a35"),
 	RegolithTime:           u64Ptr(0),
 	CanyonTime:             u64Ptr(1708502400),
+	DeltaTime:              nil,
 }
 
 var Sepolia = &rollup.Config{
@@ -72,6 +73,7 @@ var Sepolia = &rollup.Config{
 	L1SystemConfigAddress:  common.HexToAddress("0x398c8ea789968893095d86cba168378a4f452e33"),
 	RegolithTime:           u64Ptr(0),
 	CanyonTime:             u64Ptr(1707897600),
+	DeltaTime:              u64Ptr(1708416000),
 }
 
 var NetworksByName = map[string]*rollup.Config{

@@ -5,9 +5,10 @@ import (
 	"math/big"
 	"math/rand"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 type MockBlockInfo struct {
@@ -23,11 +24,11 @@ type MockBlockInfo struct {
 	InfoBaseFee     *big.Int
 	InfoReceiptRoot common.Hash
 	InfoGasUsed     uint64
+	InfoGasLimit    uint64
 	InfoHeaderRLP   []byte
 	// [Kroma: START]
 	InfoTransactionsRoot common.Hash
 	InfoWithdrawalsRoot  *common.Hash
-	InfoGasLimit         uint64
 	InfoBloom            types.Bloom
 	InfoExtra            []byte
 	// [Kroma: END]
@@ -73,6 +74,10 @@ func (l *MockBlockInfo) GasUsed() uint64 {
 	return l.InfoGasUsed
 }
 
+func (l *MockBlockInfo) GasLimit() uint64 {
+	return l.InfoGasLimit
+}
+
 func (l *MockBlockInfo) ID() eth.BlockID {
 	return eth.BlockID{Hash: l.InfoHash, Number: l.InfoNum}
 }
@@ -86,10 +91,6 @@ func (l *MockBlockInfo) HeaderRLP() ([]byte, error) {
 
 func (l *MockBlockInfo) TxHash() common.Hash {
 	return l.InfoTransactionsRoot
-}
-
-func (l *MockBlockInfo) GasLimit() uint64 {
-	return l.InfoGasLimit
 }
 
 func (l *MockBlockInfo) Bloom() types.Bloom {
