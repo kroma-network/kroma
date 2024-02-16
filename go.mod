@@ -198,4 +198,4 @@ require (
 
 replace github.com/ethereum-optimism/optimism v1.2.0 => ./
 
-replace github.com/ethereum/go-ethereum v1.13.1 => github.com/kroma-network/go-ethereum v0.4.2
+replace github.com/ethereum/go-ethereum v1.13.1 => github.com/kroma-network/go-ethereum v0.4.3
