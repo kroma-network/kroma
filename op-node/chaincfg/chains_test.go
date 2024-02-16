@@ -66,7 +66,7 @@ var mainnetCfg = rollup.Config{
 	DepositContractAddress: common.HexToAddress("0x31f648572b67e60ec6eb8e197e1848cc5f5558de"),
 	L1SystemConfigAddress:  common.HexToAddress("0x3971eb866aa9b2b8afea8a7c816f3b7e8b195a35"),
 	RegolithTime:           u64Ptr(0),
-	CanyonTime:             nil,
+	CanyonTime:             u64Ptr(1708502400),
 	DeltaTime:              nil,
 }
 
