@@ -40,7 +40,7 @@ var Mainnet = &rollup.Config{
 	L1SystemConfigAddress:  common.HexToAddress("0x3971eb866aa9b2b8afea8a7c816f3b7e8b195a35"),
 	RegolithTime:           u64Ptr(0),
 	CanyonTime:             u64Ptr(1708502400),
-	DeltaTime:              nil,
+	DeltaTime:              u64Ptr(1709107200),
 }
 
 var Sepolia = &rollup.Config{
