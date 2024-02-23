@@ -24,7 +24,7 @@ var testingJWTSecret = [32]byte{123}
 func WriteDefaultJWT(t TestingBase) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -66,6 +66,9 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	// [Kroma: END]
 	deployConfig.L2GenesisCanyonTimeOffset = CanyonTimeOffset()
 	// [Kroma: START]
+	// If you want to test for the Burgundy hardfork, set the value directly in that test.
+	// Burgundy hardfork should be disabled by default to prevent Optimism tests from failing.
+	deployConfig.L2GenesisBurgundyTimeOffset = nil
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
 
@@ -174,6 +177,9 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		EclipseTime:            deployConf.EclipseTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		FjordTime:              deployConf.FjordTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		InteropTime:            deployConf.InteropTime(uint64(deployConf.L1GenesisBlockTimestamp)),
+		// [Kroma: START]
+		BurgundyTime: deployConf.BurgundyTime(uint64(deployConf.L1GenesisBlockTimestamp)),
+		// [Kroma: END]
 	}
 
 	require.NoError(t, rollupCfg.Check())
