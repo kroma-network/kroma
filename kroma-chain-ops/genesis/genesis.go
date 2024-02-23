@@ -64,13 +64,14 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 		// [Kroma: START]
 		// kroma-geth is not yet ready. it should be upstream to v1.101304.2
 		// InteropTime:                   config.InteropTime(block.Time()),
-		//
+		BurgundyTime: config.BurgundyTime(block.Time()),
 		Kroma: &params.KromaConfig{
 			EIP1559Denominator:       eip1559Denom,
 			EIP1559Elasticity:        eip1559Elasticity,
 			EIP1559DenominatorCanyon: eip1559DenomCanyon,
 		},
 		Zktrie: true,
+		// [Kroma: END]
 	}
 
 	gasLimit := config.L2GenesisBlockGasLimit

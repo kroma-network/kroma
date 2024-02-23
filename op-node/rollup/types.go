@@ -108,6 +108,10 @@ type Config struct {
 	// [Kroma: START]
 	// L1 address that declares the protocol versions, optional (Beta feature)
 	// ProtocolVersionsAddress common.Address `json:"protocol_versions_address,omitempty"`
+
+	// BurgundyTime sets the activation time of the Kroma Burgundy network upgrade.
+	// Active if BurgundyTime != nil && L2 block timestamp >= *BurgundyTime, inactive otherwise.
+	BurgundyTime *uint64 `json:"burgundy_time,omitempty"`
 	// [Kroma: END]
 }
 
@@ -310,6 +314,11 @@ func (c *Config) IsInterop(timestamp uint64) bool {
 	return c.InteropTime != nil && timestamp >= *c.InteropTime
 }
 
+// IsBurgundy returns true if the Kroma Burgundy hardfork is active at or past the given timestamp.
+func (c *Config) IsBurgundy(timestamp uint64) bool {
+	return c.BurgundyTime != nil && timestamp >= *c.BurgundyTime
+}
+
 // Description outputs a banner describing the important parts of rollup configuration in a human-readable form.
 // Optionally provide a mapping of L2 chain IDs to network names to label the L2 chain with if not unknown.
 // The config should be config.Check()-ed before creating a description.
@@ -345,6 +354,8 @@ func (c *Config) Description(l2Chains map[string]string) string {
 	// Report the protocol version
 	// [Kroma: START]
 	// banner += fmt.Sprintf("Node supports up to OP-Stack Protocol Version: %s\n", OPStackSupport)
+	banner += "Kroma Network Upgrades (timestamp based):\n"
+	banner += fmt.Sprintf("  - Burgundy: %s\n", fmtForkTimeOrUnset(c.BurgundyTime))
 	// [Kroma: END]
 	return banner
 }
@@ -374,6 +385,7 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 		"eclipse_time", fmtForkTimeOrUnset(c.EclipseTime),
 		"fjord_time", fmtForkTimeOrUnset(c.FjordTime),
 		"interop_time", fmtForkTimeOrUnset(c.InteropTime),
+		"burgundy_time", fmtForkTimeOrUnset(c.BurgundyTime),
 	)
 }
 

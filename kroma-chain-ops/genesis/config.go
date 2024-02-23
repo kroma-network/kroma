@@ -253,6 +253,10 @@ type DeployConfig struct {
 	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
+
+	// L2GenesisBurgundyTimeOffset is the number of seconds after genesis block that Kroma Burgundy hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable Burgundy.
+	L2GenesisBurgundyTimeOffset *hexutil.Uint64 `json:"l2GenesisBurgundyTimeOffset,omitempty"`
 	// [Kroma: END]
 }
 
@@ -591,6 +595,21 @@ func (d *DeployConfig) InteropTime(genesisTime uint64) *uint64 {
 	return &v
 }
 
+// [Kroma: START]
+
+func (d *DeployConfig) BurgundyTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisBurgundyTimeOffset == nil {
+		return nil
+	}
+	v := uint64(0)
+	if offset := *d.L2GenesisBurgundyTimeOffset; offset > 0 {
+		v = genesisTime + uint64(offset)
+	}
+	return &v
+}
+
+// [Kroma: END
+
 // RollupConfig converts a DeployConfig to a rollup.Config
 func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHash common.Hash, l2GenesisBlockNumber uint64) (*rollup.Config, error) {
 	if d.KromaPortalProxy == (common.Address{}) {
@@ -634,6 +653,9 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		EclipseTime:            d.EclipseTime(l1StartBlock.Time()),
 		FjordTime:              d.FjordTime(l1StartBlock.Time()),
 		InteropTime:            d.InteropTime(l1StartBlock.Time()),
+		// [Kroma: START]
+		BurgundyTime: d.BurgundyTime(l1StartBlock.Time()),
+		// [Kroma: END]
 	}, nil
 }
 

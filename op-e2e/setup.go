@@ -70,9 +70,7 @@ import (
 	"github.com/kroma-network/kroma/op-service/client"
 )
 
-var (
-	testingJWTSecret = [32]byte{123}
-)
+var testingJWTSecret = [32]byte{123}
 
 func newTxMgrConfig(l1Addr string, privKey *ecdsa.PrivateKey) txmgr.CLIConfig {
 	return txmgr.CLIConfig{
@@ -485,6 +483,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			InteropTime:            cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			// [Kroma: START]
 			// ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
+			BurgundyTime: cfg.DeployConfig.BurgundyTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			// [Kroma: END]
 		}
 	}
