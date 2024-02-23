@@ -1,4 +1,4 @@
-import {ethers} from "ethers";
+import {ethers} from 'ethers'
 
 /**
  * Predeploys are Solidity contracts that are injected into the initial L2 state and provide
@@ -31,4 +31,5 @@ export const defaultResourceConfig = {
   minimumBaseFee: ethers.utils.parseUnits('1', 'gwei'),
   systemTxMaxGas: 1_000_000,
   maximumBaseFee: uint128Max,
+  mintTokenTxMaxGas: 1_000_000,
 }

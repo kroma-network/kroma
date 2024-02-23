@@ -7,15 +7,18 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 )
 
-var ErrMaxFrameSizeTooSmall = errors.New("maxSize is too small to fit the fixed frame overhead")
-var ErrNotDepositTx = errors.New("first transaction in block is not a deposit tx")
-var ErrTooManyRLPBytes = errors.New("batch would cause RLP bytes to go over limit")
+var (
+	ErrMaxFrameSizeTooSmall = errors.New("maxSize is too small to fit the fixed frame overhead")
+	ErrNotDepositTx         = errors.New("first transaction in block is not a deposit tx")
+	ErrTooManyRLPBytes      = errors.New("batch would cause RLP bytes to go over limit")
+)
 
 // FrameV0OverHeadSize is the absolute minimum size of a frame.
 // This is the fixed overhead frame size, calculated as specified
@@ -225,7 +228,7 @@ func (co *SingularChannelOut) OutputFrame(w *bytes.Buffer, maxSize uint64) (uint
 func BlockToSingularBatch(block *types.Block) (*SingularBatch, L1BlockInfo, error) {
 	opaqueTxs := make([]hexutil.Bytes, 0, len(block.Transactions()))
 	for i, tx := range block.Transactions() {
-		if tx.Type() == types.DepositTxType {
+		if tx.Type() == types.DepositTxType || tx.Type() == types.MintTokenTxType {
 			continue
 		}
 		otx, err := tx.MarshalBinary()

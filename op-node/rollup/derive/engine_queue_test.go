@@ -985,6 +985,16 @@ func TestBlockBuildingRace(t *testing.T) {
 			a1InfoTx,
 		},
 	}
+
+	// [Kroma: START]
+	if cfg.BurgundyTime != nil && refA1.Time >= *cfg.BurgundyTime {
+		a1MintTx, err := MintTokenTxBytes(refA1.Number)
+		require.NoError(t, err)
+
+		payloadA1.Transactions = append(payloadA1.Transactions, a1MintTx)
+	}
+	// [Kroma: END]
+
 	eng.ExpectGetPayload(id, payloadA1, nil)
 	eng.ExpectNewPayload(payloadA1, &eth.PayloadStatusV1{
 		Status:          eth.ExecutionValid,

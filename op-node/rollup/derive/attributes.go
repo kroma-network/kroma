@@ -106,6 +106,14 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 
 	txs := make([]hexutil.Bytes, 0, 1+len(depositTxs))
 	txs = append(txs, l1InfoTx)
+	if ba.cfg.IsBurgundy(nextL2Time) {
+		mintTokenTx, err := MintTokenTxBytes(l2Parent.Number + 1)
+		if err != nil {
+			return nil, NewCriticalError(fmt.Errorf("failed to create mintTokenTx: %w", err))
+		}
+
+		txs = append(txs, mintTokenTx)
+	}
 	txs = append(txs, depositTxs...)
 
 	var withdrawals *types.Withdrawals

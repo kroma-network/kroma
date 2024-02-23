@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 type BatchWithL1InclusionBlock struct {
@@ -32,7 +33,8 @@ const (
 // The first entry of the l1Blocks should match the origin of the l2SafeHead. One or more consecutive l1Blocks should be provided.
 // In case of only a single L1 block, the decision whether a batch is valid may have to stay undecided.
 func CheckBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef,
-	l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, l2Fetcher SafeBlockFetcher) BatchValidity {
+	l2SafeHead eth.L2BlockRef, batch *BatchWithL1InclusionBlock, l2Fetcher SafeBlockFetcher,
+) BatchValidity {
 	switch batch.Batch.GetBatchType() {
 	case SingularBatchType:
 		singularBatch, ok := batch.Batch.(*SingularBatch)
@@ -166,7 +168,8 @@ func checkSingularBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 
 // checkSpanBatch implements SpanBatch validation rule.
 func checkSpanBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef,
-	batch *SpanBatch, l1InclusionBlock eth.L1BlockRef, l2Fetcher SafeBlockFetcher) BatchValidity {
+	batch *SpanBatch, l1InclusionBlock eth.L1BlockRef, l2Fetcher SafeBlockFetcher,
+) BatchValidity {
 	// add details to the log
 	log = batch.LogContext(log)
 
@@ -282,7 +285,6 @@ func checkSpanBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1B
 				originIdx = j
 				break
 			}
-
 		}
 		if i > 0 {
 			originAdvanced = false
@@ -349,7 +351,7 @@ func checkSpanBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1B
 			// execution payload has deposit TXs, but batch does not.
 			depositCount := 0
 			for _, tx := range safeBlockTxs {
-				if tx[0] == types.DepositTxType {
+				if tx[0] == types.DepositTxType || tx[0] == types.MintTokenTxType {
 					depositCount++
 				}
 			}

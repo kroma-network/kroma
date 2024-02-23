@@ -20,6 +20,15 @@ func isDepositTx(opaqueTx eth.Data) (bool, error) {
 	return opaqueTx[0] == types.DepositTxType, nil
 }
 
+// isMintTokenTx checks an opaqueTx to determine if it is a Mint Token Transaction
+// It has to return an error in the case the transaction is empty
+func isMintTokenTx(opaqueTx eth.Data) (bool, error) {
+	if len(opaqueTx) == 0 {
+		return false, errors.New("empty transaction")
+	}
+	return opaqueTx[0] == types.MintTokenTxType, nil
+}
+
 // lastDeposit finds the index of last deposit at the start of the transactions.
 // It walks the transactions from the start until it finds a non-deposit tx.
 // An error is returned if any looked at transaction cannot be decoded
@@ -30,6 +39,15 @@ func lastDeposit(txns []eth.Data) (int, error) {
 		if err != nil {
 			return 0, fmt.Errorf("invalid transaction at idx %d", i)
 		}
+		// [Kroma: START]
+		mintToken, err := isMintTokenTx(tx)
+		if err != nil {
+			return 0, fmt.Errorf("invalid transaction at idx %d", i)
+		}
+		if mintToken {
+			continue
+		}
+		// [Kroma: END]
 		if deposit {
 			lastDeposit = i
 		} else {
