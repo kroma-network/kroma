@@ -16,11 +16,7 @@ import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
  *         This token has a cap of 50m in total supply, and is minted once every block by the MintManager.
  */
 contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes {
-    uint256 internal constant MAX_TOTAL_SUPPLY = 50_000_000 ether;
-
     address public immutable MINT_MANAGER;
-
-    uint256 private _totalMinted;
 
     /**
      * @custom:semver 1.0.0
@@ -50,25 +46,19 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes {
         );
 
         _mint(_account, _amount);
-        emit Mint(_account, _amount);
     }
 
     /**
-     * @notice Returns the total minted amount.
+     * @notice Allows the StandardBridge on this network to burn tokens.
      *
-     * @return The total minted amount.
+     * @param _from   Address to burn tokens from.
+     * @param _amount Amount of tokens to burn.
      */
-    function totalMinted() public view returns (uint256) {
-        return _totalMinted;
-    }
-
-    /**
-     * @notice Returns the maximum number of tokens that can be minted.
-     *
-     * @return The maximum number of tokens.
-     */
-    function cap() public pure returns (uint256) {
-        return MAX_TOTAL_SUPPLY;
+    function burn(
+        address _from,
+        uint256 _amount
+    ) external override onlyBridge {
+        _burn(_from, _amount);
     }
 
     /**
@@ -93,11 +83,7 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes {
      * @param _amount  The amount of tokens to mint.
      */
     function _mint(address _account, uint256 _amount) internal override(ERC20, ERC20Votes) {
-        uint256 minted = _totalMinted + _amount;
-        require(minted <= MAX_TOTAL_SUPPLY, "GovernanceToken: cap exceeded");
         super._mint(_account, _amount);
-        _totalMinted = minted;
-        emit Mint(_account, _amount);
     }
 
     /**
@@ -108,6 +94,5 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes {
      */
     function _burn(address _account, uint256 _amount) internal override(ERC20, ERC20Votes) {
         super._burn(_account, _amount);
-        emit Burn(_account, _amount);
     }
 }

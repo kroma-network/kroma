@@ -70,25 +70,6 @@ contract GovernanceToken_Test is CommonTest {
         assertEq(governanceToken.totalSupply(), 0);
     }
 
-    function test_mint_maxCapExceeded_reverts() external {
-        uint256 cap = governanceToken.cap();
-
-        // Mint up to the maximum total supply.
-        vm.prank(mintManager);
-        governanceToken.mint(owner, cap);
-
-        assertEq(governanceToken.balanceOf(owner), cap);
-        assertEq(governanceToken.totalSupply(), cap);
-
-        // Then mint one more to exceed the total supply.
-        vm.prank(mintManager);
-        vm.expectRevert("GovernanceToken: cap exceeded");
-        governanceToken.mint(owner, 1);
-
-        // Balance does not update.
-        assertEq(governanceToken.balanceOf(owner), cap);
-        assertEq(governanceToken.totalSupply(), cap);
-    }
 
     /// @dev Tests that the owner can successfully call `burn`.
     function test_burn_succeeds() external {
@@ -223,26 +204,5 @@ contract GovernanceToken_Test is CommonTest {
 
         // Allowances have updated.
         assertEq(governanceToken.allowance(rando, owner), 50);
-    }
-
-    /// @dev Tests that `totalMinted` correctly returns the actual minted amount.
-    function test_totalMinted_succeeds() external {
-        // Mint 100 tokens to rando.
-        vm.prank(mintManager);
-        governanceToken.mint(rando, 100);
-
-        assertEq(governanceToken.totalMinted(), 100);
-
-        // Rando burns their tokens.
-        vm.prank(rando);
-        governanceToken.burn(50);
-
-        // `totalMinted` does not changed.
-        assertEq(governanceToken.totalMinted(), 100);
-    }
-
-    /// @dev Tests that `cap` correctly returns the maximum number of tokens that can be minted.
-    function test_cap_succeeds() external {
-        assertEq(governanceToken.cap(), 50_000_000 ether);
     }
 }
