@@ -277,6 +277,7 @@ func (l *L2OutputSubmitter) HasEnoughDeposit(ctx context.Context) (bool, error) 
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 	}
+	l.metr.RecordDepositAmount(balance)
 
 	if balance.Cmp(l.requiredBondAmount) == -1 {
 		l.log.Warn(
@@ -287,7 +288,6 @@ func (l *L2OutputSubmitter) HasEnoughDeposit(ctx context.Context) (bool, error) 
 		return false, nil
 	}
 	l.log.Info("deposit amount", "deposit", balance)
-	l.metr.RecordDepositAmount(balance)
 
 	return true, nil
 }
