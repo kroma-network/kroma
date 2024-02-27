@@ -105,7 +105,12 @@ func TestDropSpanBatchBeforeHardfork(gt *testing.T) {
 		require.NoError(t, err)
 		// because verifier drops every span batch, it should generate empty blocks.
 		// so every block has only L1 attribute deposit transaction.
-		require.Equal(t, block.Transactions().Len(), 1)
+		// if Kroma Burgundy enabled, every block has L1 attr tx and mint token tx.
+		if sd.RollupCfg.BurgundyTime != nil && block.Time() > *sd.RollupCfg.BurgundyTime {
+			require.Equal(t, block.Transactions().Len(), 2)
+		} else {
+			require.Equal(t, block.Transactions().Len(), 1)
+		}
 	}
 	// check that the tx from alice is not included in verifier's chain
 	_, _, err = verifCl.TransactionByHash(t.Ctx(), tx.Hash())
@@ -212,7 +217,12 @@ func TestHardforkMiddleOfSpanBatch(gt *testing.T) {
 		require.NoError(t, err)
 		// Because verifier drops every span batch, it should generate empty blocks.
 		// So every block has only L1 attribute deposit transaction.
-		require.Equal(t, block.Transactions().Len(), 1)
+		// if Kroma Burgundy enabled, every block has L1 attr tx and mint token tx.
+		if sd.RollupCfg.BurgundyTime != nil && block.Time() > *sd.RollupCfg.BurgundyTime {
+			require.Equal(t, block.Transactions().Len(), 2)
+		} else {
+			require.Equal(t, block.Transactions().Len(), 1)
+		}
 	}
 	// Check that the tx from alice is not included in verifier's chain
 	_, _, err = verifCl.TransactionByHash(t.Ctx(), tx.Hash())
