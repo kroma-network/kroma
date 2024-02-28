@@ -215,8 +215,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
 
     // Advance the evm's time to meet the L2OutputOracle's requirements for submitL2Output
-    function warpToSubmitTime(uint256 _nextBlockNumber) public {
-        vm.warp(oracle.computeL2Timestamp(_nextBlockNumber + 1));
+    function warpToSubmitTime() public {
+        vm.warp(oracle.nextOutputMinL2Timestamp());
     }
 
     function setUp() public virtual override {
