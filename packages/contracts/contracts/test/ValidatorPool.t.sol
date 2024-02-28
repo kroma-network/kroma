@@ -13,9 +13,10 @@ import { Proxy } from "../universal/Proxy.sol";
 import { L2OutputOracle_Initializer } from "./CommonTest.t.sol";
 
 contract MockL2OutputOracle is L2OutputOracle {
-    constructor(ValidatorPool _validatorPool, address _colosseum)
-        L2OutputOracle(_validatorPool, _colosseum, 1800, 2, 0, 0, 7 days)
-    {}
+    constructor(
+        ValidatorPool _validatorPool,
+        address _colosseum
+    ) L2OutputOracle(_validatorPool, _colosseum, 1800, 2, 0, 0, 7 days) {}
 
     function addOutput(bytes32 _outputRoot, uint256 _l2BlockNumber) external payable {
         l2Outputs.push(
@@ -218,7 +219,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
         address validator = pool.nextValidator();
 
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
 
         vm.prank(validator);
         mockOracle.addOutput(outputRoot, nextBlockNumber);
@@ -299,7 +300,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
         address validator = pool.nextValidator();
 
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
 
         vm.prank(validator);
         mockOracle.addOutput(outputRoot, nextBlockNumber);
@@ -351,7 +352,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint128 expiresAt = 0;
         for (uint256 i = 0; i < tries; i++) {
             blockNumber = oracle.nextBlockNumber();
-            warpToSubmitTime(blockNumber);
+            warpToSubmitTime();
             expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
             assertEq(pool.nextValidator(), trusted);
             vm.prank(trusted);
@@ -424,7 +425,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint128 expiresAt = 0;
         for (uint256 i = 0; i < tries; i++) {
             blockNumber = oracle.nextBlockNumber();
-            warpToSubmitTime(blockNumber);
+            warpToSubmitTime();
             expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
             assertEq(pool.nextValidator(), trusted);
             vm.prank(trusted);
@@ -507,7 +508,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint256 outputIndex = oracle.latestOutputIndex();
         Types.Bond memory prevBond = pool.getBond(outputIndex);
         uint128 pendingBond = pool.getPendingBond(outputIndex, challenger);
-        uint128 tax = pendingBond * 20 / 100; // 20% tax
+        uint128 tax = (pendingBond * 20) / 100; // 20% tax
         uint128 increased = pendingBond - tax;
 
         vm.prank(oracle.COLOSSEUM());
@@ -628,7 +629,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         for (uint256 i = 0; i < tries; i++) {
             outputIndex = oracle.nextOutputIndex();
             blockNumber = oracle.nextBlockNumber();
-            warpToSubmitTime(blockNumber);
+            warpToSubmitTime();
             expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
             vm.prank(pool.nextValidator());
             mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
@@ -637,7 +638,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         }
 
         // warp to first finalization time and submit new output
-        warpToSubmitTime(oracle.nextBlockNumber());
+        warpToSubmitTime();
         outputIndex = oracle.nextOutputIndex();
         blockNumber = (expiresAt / oracle.L2_BLOCK_TIME()) - 1;
         vm.warp(expiresAt);
@@ -659,7 +660,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
             // submit next output and finalize prev output
             outputIndex = oracle.nextOutputIndex();
             blockNumber = oracle.nextBlockNumber();
-            warpToSubmitTime(blockNumber);
+            warpToSubmitTime();
             expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
             vm.prank(pool.nextValidator());
             mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
@@ -670,7 +671,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         assertTrue(changed, "the next validator has not changed");
 
         // warp to public round
-        uint256 l2Timestamp = oracle.computeL2Timestamp(oracle.nextBlockNumber() + 1);
+        uint256 l2Timestamp = oracle.nextOutputMinL2Timestamp();
         vm.warp(l2Timestamp + roundDuration + 1);
         assertEq(pool.nextValidator(), Constants.VALIDATOR_PUBLIC_ROUND_ADDRESS);
     }
@@ -681,7 +682,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         vm.deal(sc, depositAmount + 1 ether);
 
         vm.prank(sc);
-        pool.deposit{value: depositAmount}();
+        pool.deposit{ value: depositAmount }();
         assertEq(pool.balanceOf(sc), depositAmount);
         assertFalse(pool.isValidator(sc));
     }

@@ -128,10 +128,10 @@ contract L2OutputOracle is Initializable, ISemver {
      * @param _startingBlockNumber Block number for the first recorded L2 block.
      * @param _startingTimestamp   Timestamp for the first recorded L2 block.
      */
-    function initialize(uint256 _startingBlockNumber, uint256 _startingTimestamp)
-        public
-        initializer
-    {
+    function initialize(
+        uint256 _startingBlockNumber,
+        uint256 _startingTimestamp
+    ) public initializer {
         require(
             _startingTimestamp <= block.timestamp,
             "L2OutputOracle: starting L2 timestamp must be less than current time"
@@ -211,7 +211,7 @@ contract L2OutputOracle is Initializable, ISemver {
         );
 
         require(
-            computeL2Timestamp(_l2BlockNumber) < block.timestamp,
+            nextOutputMinL2Timestamp() <= block.timestamp,
             "L2OutputOracle: cannot submit L2 output in the future"
         );
 
@@ -257,11 +257,9 @@ contract L2OutputOracle is Initializable, ISemver {
      *
      * @return The output at the given index.
      */
-    function getL2Output(uint256 _l2OutputIndex)
-        external
-        view
-        returns (Types.CheckpointOutput memory)
-    {
+    function getL2Output(
+        uint256 _l2OutputIndex
+    ) external view returns (Types.CheckpointOutput memory) {
         return l2Outputs[_l2OutputIndex];
     }
 
@@ -308,11 +306,9 @@ contract L2OutputOracle is Initializable, ISemver {
      *
      * @return First checkpoint that commits to the given L2 block number.
      */
-    function getL2OutputAfter(uint256 _l2BlockNumber)
-        external
-        view
-        returns (Types.CheckpointOutput memory)
-    {
+    function getL2OutputAfter(
+        uint256 _l2BlockNumber
+    ) external view returns (Types.CheckpointOutput memory) {
         return l2Outputs[getL2OutputIndexAfter(_l2BlockNumber)];
     }
 
@@ -369,6 +365,17 @@ contract L2OutputOracle is Initializable, ISemver {
      */
     function computeL2Timestamp(uint256 _l2BlockNumber) public view returns (uint256) {
         return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * L2_BLOCK_TIME);
+    }
+
+    /**
+     * @notice Returns the L2 timestamp corresponding to the right next block of the block that needs
+     *         to be checkpointed.
+     *         Note that the added one is because of the existence of next block hash in the output.
+     *
+     * @return L2 timestamp of the right next block of the block that needs to be checkpointed.
+     */
+    function nextOutputMinL2Timestamp() public view returns (uint256) {
+        return computeL2Timestamp(nextBlockNumber() + 1);
     }
 
     /**
