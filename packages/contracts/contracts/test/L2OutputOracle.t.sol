@@ -77,7 +77,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 submittedNumber = oracle.nextBlockNumber();
 
         // Roll to after the block number we'll submit
-        warpToSubmitTime(submittedNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(submittedOutput1, submittedNumber, 0, 0);
         assertEq(oracle.latestBlockNumber(), submittedNumber);
@@ -87,7 +87,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_getL2Output_succeeds() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         uint256 nextOutputIndex = oracle.nextOutputIndex();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(submittedOutput1, nextBlockNumber, 0, 0);
 
@@ -104,7 +104,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_getL2OutputIndexAfter_sameBlock_succeeds() external {
         bytes32 output1 = keccak256(abi.encode(1));
         uint256 nextBlockNumber1 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber1);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output1, nextBlockNumber1, 0, 0);
 
@@ -117,7 +117,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_getL2OutputIndexAfter_previousBlock_succeeds() external {
         bytes32 output1 = keccak256(abi.encode(1));
         uint256 nextBlockNumber1 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber1);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output1, nextBlockNumber1, 0, 0);
 
@@ -130,25 +130,25 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_getL2OutputIndexAfter_multipleOutputsExist_succeeds() external {
         bytes32 output1 = keccak256(abi.encode(1));
         uint256 nextBlockNumber1 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber1);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output1, nextBlockNumber1, 0, 0);
 
         bytes32 output2 = keccak256(abi.encode(2));
         uint256 nextBlockNumber2 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber2);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output2, nextBlockNumber2, 0, 0);
 
         bytes32 output3 = keccak256(abi.encode(3));
         uint256 nextBlockNumber3 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber3);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output3, nextBlockNumber3, 0, 0);
 
         bytes32 output4 = keccak256(abi.encode(4));
         uint256 nextBlockNumber4 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber4);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output4, nextBlockNumber4, 0, 0);
 
@@ -206,6 +206,13 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         );
     }
 
+    function test_nextOutputMinL2Timestamp_succeeds() external {
+        assertEq(
+            oracle.nextOutputMinL2Timestamp(),
+            oracle.computeL2Timestamp(oracle.nextBlockNumber() + 1)
+        );
+    }
+
     /*****************************
      * Submit Tests - Happy Path *
      *****************************/
@@ -217,7 +224,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         bytes32 submittedOutput2 = keccak256(abi.encode());
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         uint256 nextOutputIndex = oracle.nextOutputIndex();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         uint256 submittedNumber = oracle.latestBlockNumber();
 
         // Ensure the submissionInterval is enforced
@@ -232,11 +239,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint128 finalizedAt = uint128(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
         vm.expectCall(
             address(oracle.VALIDATOR_POOL()),
-            abi.encodeWithSelector(
-                ValidatorPool.createBond.selector,
-                nextOutputIndex,
-                finalizedAt
-            )
+            abi.encodeWithSelector(ValidatorPool.createBond.selector, nextOutputIndex, finalizedAt)
         );
         vm.expectEmit(true, true, true, true);
         emit OutputSubmitted(submittedOutput2, nextOutputIndex, nextBlockNumber, block.timestamp);
@@ -251,15 +254,10 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 prevL1BlockNumber = block.number - 1;
         bytes32 prevL1BlockHash = blockhash(prevL1BlockNumber);
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
 
         vm.prank(trusted);
-        oracle.submitL2Output(
-            nonZeroHash,
-            nextBlockNumber,
-            prevL1BlockHash,
-            prevL1BlockNumber
-        );
+        oracle.submitL2Output(nonZeroHash, nextBlockNumber, prevL1BlockHash, prevL1BlockNumber);
     }
 
     /***************************
@@ -269,7 +267,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     // Test: submitL2Output fails if called by a party that is not the validator.
     function test_submitL2Output_notValidator_reverts() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
 
         vm.prank(address(128));
         vm.expectRevert("L2OutputOracle: only the next selected validator can submit output");
@@ -280,7 +278,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_submitL2Output_emptyOutput_reverts() external {
         bytes32 outputToSubmit = bytes32(0);
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         vm.expectRevert("L2OutputOracle: L2 checkpoint output cannot be the zero hash");
         oracle.submitL2Output(outputToSubmit, nextBlockNumber, 0, 0);
@@ -289,7 +287,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     // Test: submitL2Output fails if the block number doesn't match the next expected number.
     function test_submitL2Output_unexpectedBlockNumber_reverts() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         vm.expectRevert("L2OutputOracle: block number must be equal to next expected block number");
         oracle.submitL2Output(nonZeroHash, nextBlockNumber - 1, 0, 0);
@@ -298,8 +296,8 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     // Test: submitL2Output fails if it would have a timestamp in the future.
     function test_submitL2Output_futureTimetamp_reverts() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        uint256 nextTimestamp = oracle.computeL2Timestamp(nextBlockNumber);
-        vm.warp(nextTimestamp);
+        uint256 nextTimestamp = oracle.nextOutputMinL2Timestamp();
+        vm.warp(nextTimestamp - 1);
         vm.prank(trusted);
         vm.expectRevert("L2OutputOracle: cannot submit L2 output in the future");
         oracle.submitL2Output(nonZeroHash, nextBlockNumber, 0, 0);
@@ -309,7 +307,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     // protection.
     function test_submitL2Output_wrongFork_reverts() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         vm.expectRevert(
             "L2OutputOracle: block hash does not match the hash at the expected height"
@@ -333,19 +331,14 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         bytes32 l1BlockHash = blockhash(l1BlockNumber);
 
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
 
         // This will fail when foundry no longer returns zerod block hashes
         vm.expectRevert(
             "L2OutputOracle: block hash does not match the hash at the expected height"
         );
-        oracle.submitL2Output(
-            nonZeroHash,
-            nextBlockNumber,
-            l1BlockHash,
-            l1BlockNumber - 1
-        );
+        oracle.submitL2Output(nonZeroHash, nextBlockNumber, l1BlockHash, l1BlockNumber - 1);
     }
 
     /*****************************

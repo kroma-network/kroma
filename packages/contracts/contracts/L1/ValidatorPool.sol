@@ -577,8 +577,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
      */
     function nextValidator() public view returns (address) {
         if (nextPriorityValidator != address(0)) {
-            uint256 l2BlockNumber = L2_ORACLE.nextBlockNumber();
-            uint256 l2Timestamp = L2_ORACLE.computeL2Timestamp(l2BlockNumber + 1);
+            uint256 l2Timestamp = L2_ORACLE.nextOutputMinL2Timestamp();
             if (block.timestamp >= l2Timestamp) {
                 uint256 elapsed = block.timestamp - l2Timestamp;
                 // If the current time exceeds one round time, it is a public round.

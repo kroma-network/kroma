@@ -31,13 +31,13 @@ contract ColosseumTest is Colosseum_Initializer {
         // Submit genesis output
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         // Roll to after the block number we'll submit
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(pool.nextValidator());
         oracle.submitL2Output(bytes32(nextBlockNumber), nextBlockNumber, 0, 0);
 
         // Submit invalid output
         nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(pool.nextValidator());
         oracle.submitL2Output(keccak256(abi.encode()), nextBlockNumber, 0, 0);
 

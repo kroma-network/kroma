@@ -10,11 +10,7 @@ import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
 import "./CommonTest.t.sol";
 
 // Free function for setting the prevBaseFee param in the KromaPortal.
-function setPrevBaseFee(
-    Vm _vm,
-    address _portal,
-    uint128 _prevBaseFee
-) {
+function setPrevBaseFee(Vm _vm, address _portal, uint128 _prevBaseFee) {
     _vm.store(address(_portal), bytes32(uint256(1)), bytes32((block.number << 192) | _prevBaseFee));
 }
 
@@ -75,7 +71,7 @@ contract GasBenchMark_KromaPortal is Portal_Initializer {
     // Get the system into a nice ready-to-use state.
     function setUp() public override {
         // Configure the oracle to return the output root we've prepared.
-        vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber) + 1);
+        vm.warp(oracle.nextOutputMinL2Timestamp());
         vm.prank(trusted);
         oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
 
@@ -224,7 +220,7 @@ contract GasBenchMark_L2OutputOracle is L2OutputOracle_Initializer {
         pool.deposit{ value: requiredBondAmount }();
 
         nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.startPrank(trusted);
     }
 
