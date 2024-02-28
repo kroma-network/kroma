@@ -99,6 +99,9 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	deployConfig.L2GenesisCanyonTimeOffset = e2eutils.CanyonTimeOffset()
 	// [Kroma: START]
+	// If you want to test for the Burgundy hardfork, set the value directly in that test.
+	// Burgundy hardfork should be disabled by default to prevent Optimism tests from failing.
+	deployConfig.L2GenesisBurgundyTimeOffset = nil
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
 	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")

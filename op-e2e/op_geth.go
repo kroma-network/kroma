@@ -8,6 +8,15 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
+	gn "github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
@@ -17,14 +26,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
-	gn "github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/stretchr/testify/require"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
@@ -208,6 +209,15 @@ func (d *OpGeth) CreatePayloadAttributes(txs ...*types.Transaction) (*eth.Payloa
 
 	var txBytes []hexutil.Bytes
 	txBytes = append(txBytes, l1Info)
+	// [Kroma: START]
+	burgundy := d.L2ChainConfig.IsBurgundy(uint64(timestamp))
+	if burgundy {
+		mintToken, err := derive.MintTokenTxBytes(uint64(d.L2Head.BlockNumber) + 1)
+		if err != nil {
+			return nil, err
+		}
+		txBytes = append(txBytes, mintToken)
+	}
 	for _, tx := range txs {
 		bin, err := tx.MarshalBinary()
 		if err != nil {

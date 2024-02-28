@@ -241,6 +241,57 @@ func TestPreparePayloadAttributes(t *testing.T) {
 			})
 		}
 	})
+
+	// Test that the payload attributes builder includes the mint token tx based on L2-time-based burgundy activation
+	t.Run("burgundy", func(t *testing.T) {
+		testCases := []struct {
+			name         string
+			l1Time       uint64
+			l2ParentTime uint64
+			burgundyTime uint64
+			burgundy     bool
+		}{
+			{"exactly", 900, 1000 - cfg.BlockTime, 1000, true},
+			{"almost", 900, 1000 - cfg.BlockTime - 1, 1000, false},
+			{"inactive", 700, 700, 1000, false},
+			{"l1 time before burgundy", 1000, 1001, 1001, true},
+			{"l1 time way before burgundy", 1000, 2000, 2000, true},
+			{"l1 time before burgundy and l2 after", 1000, 3000, 2000, true},
+		}
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				cfgCopy := *cfg // copy, we are making burgundy config modifications
+				cfg := &cfgCopy
+				rng := rand.New(rand.NewSource(1234))
+				l1Fetcher := &testutils.MockL1Source{}
+				defer l1Fetcher.AssertExpectations(t)
+				l2Parent := testutils.RandomL2BlockRef(rng)
+				cfg.BurgundyTime = &tc.burgundyTime
+				l2Parent.Time = tc.l2ParentTime
+
+				l1CfgFetcher := &testutils.MockL2Client{}
+				l1CfgFetcher.ExpectSystemConfigByL2Hash(l2Parent.Hash, testSysCfg, nil)
+				defer l1CfgFetcher.AssertExpectations(t)
+
+				l1Info := testutils.RandomBlockInfo(rng)
+				l1Info.InfoParentHash = l2Parent.L1Origin.Hash
+				l1Info.InfoNum = l2Parent.L1Origin.Number + 1
+				l1Info.InfoTime = tc.l1Time
+
+				epoch := l1Info.ID()
+				l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, nil, nil)
+				attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)
+				attrs, err := attrBuilder.PreparePayloadAttributes(context.Background(), l2Parent, epoch)
+				require.NoError(t, err)
+
+				if tc.burgundy {
+					mintTx, err := MintTokenTxBytes(l2Parent.Number + 1)
+					require.NoError(t, err)
+					require.Equal(t, mintTx, []byte(attrs.Transactions[1]))
+				}
+			})
+		}
+	})
 }
 
 func encodeDeposits(deposits []*types.DepositTx) (out []eth.Data, err error) {

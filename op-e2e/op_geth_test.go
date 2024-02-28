@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/txpool"
@@ -19,6 +19,12 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	crypto2 "github.com/kroma-network/kroma/op-service/crypto"
 )
 
 // TestMissingGasLimit tests that op-geth cannot build a block without gas limit while optimism is active in the chain config.
@@ -63,7 +69,6 @@ func TestTxGasSameAsBlockGasLimit(t *testing.T) {
 	l2Seq := sys.Clients["sequencer"]
 	err = l2Seq.SendTransaction(ctx, tx)
 	require.ErrorContains(t, err, txpool.ErrGasLimit.Error())
-
 }
 
 // TestInvalidDepositInFCU runs an invalid deposit through a FCU/GetPayload/NewPayload/FCU set of calls.
@@ -824,7 +829,6 @@ func TestPreCanyon(t *testing.T) {
 			assert.Equal(t, types.ReceiptStatusFailed, receipt.Status)
 		})
 	}
-
 }
 
 func TestCanyon(t *testing.T) {
@@ -899,6 +903,180 @@ func TestCanyon(t *testing.T) {
 			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, pushZeroContractCreateTxn.Hash())
 			require.NoError(t, err)
 			assert.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+		})
+	}
+}
+
+func TestPreBurgundy(t *testing.T) {
+	InitParallel(t)
+	futureTimestamp := hexutil.Uint64(4)
+
+	tests := []struct {
+		name         string
+		burgundyTime *hexutil.Uint64
+	}{
+		{name: "BurgundyNotScheduled"},
+		{name: "BurgundyNotYetActive", burgundyTime: &futureTimestamp},
+	}
+	for _, test := range tests {
+		test := test
+
+		t.Run(fmt.Sprintf("NoMintTokenTx_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			s := hexutil.Uint64(0)
+			cfg.DeployConfig.L2GenesisRegolithTimeOffset = &s
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &s
+			cfg.DeployConfig.L2GenesisBurgundyTimeOffset = test.burgundyTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			_, err = opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+
+			block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+			require.Nil(t, err)
+
+			txs := block.Transactions()
+			for _, tx := range txs {
+				require.False(t, tx.IsMintTokenTx())
+			}
+		})
+	}
+}
+
+func TestBurgundy(t *testing.T) {
+	InitParallel(t)
+
+	tests := []struct {
+		name           string
+		burgundyTime   hexutil.Uint64
+		applyConfig    func(cfg *SystemConfig)
+		activeBurgundy func(ctx context.Context, opGeth *OpGeth, cfg *SystemConfig)
+	}{
+		{
+			name:           "ActivateAtGenesis",
+			burgundyTime:   0,
+			applyConfig:    func(cfg *SystemConfig) {},
+			activeBurgundy: func(ctx context.Context, opGeth *OpGeth, cfg *SystemConfig) {},
+		},
+		{
+			name:         "ActivateAfterGenesis",
+			burgundyTime: 2,
+			applyConfig: func(cfg *SystemConfig) {
+				cfg.DeployConfig.EnableGovernance = false
+			},
+			activeBurgundy: func(ctx context.Context, opGeth *OpGeth, cfg *SystemConfig) {
+				nonce, err := opGeth.L2Client.NonceAt(ctx, cfg.Secrets.Addresses().SysCfgOwner, nil)
+				require.NoError(t, err)
+				signerFn := crypto2.PrivateKeySignerFn(cfg.Secrets.SysCfgOwner, opGeth.L2ChainConfig.ChainID)
+				txOpts := &bind.TransactOpts{
+					Context:  ctx,
+					From:     cfg.Secrets.Addresses().SysCfgOwner,
+					Nonce:    new(big.Int).SetUint64(nonce),
+					Signer:   signerFn,
+					NoSend:   true,
+					GasLimit: 10_000_000,
+				}
+
+				proxyAdmin, err := bindings.NewProxyAdminTransactor(predeploys.ProxyAdminAddr, opGeth.L2Client)
+				require.NoError(t, err)
+
+				txs := make([]*types.Transaction, 4)
+				// Deploy a GovernanceToken implementation
+				impl, deployTx, _, err := bindings.DeployGovernanceToken(txOpts, opGeth.L2Client,
+					predeploys.L2StandardBridgeAddr,
+					cfg.DeployConfig.L1GovernanceTokenProxy,
+					predeploys.MintManagerAddr,
+				)
+				require.NoError(t, err)
+				txs[0] = deployTx
+				// And upgrade GovernanceTokenProxy to the deployed implementation
+				txOpts.Nonce.Add(txOpts.Nonce, common.Big1)
+				upgradeTx, err := proxyAdmin.Upgrade(txOpts, predeploys.GovernanceTokenAddr, impl)
+				require.NoError(t, err)
+				txs[1] = upgradeTx
+
+				// Deploy a MintManager implementation
+				initMintPerBlock := big.NewInt(1e18)
+				if cfg.DeployConfig.MintManagerInitMintPerBlock != nil {
+					initMintPerBlock = new(big.Int).Set(cfg.DeployConfig.MintManagerInitMintPerBlock.ToInt())
+				}
+				txOpts.Nonce.Add(txOpts.Nonce, common.Big1)
+				impl, deployTx, _, err = bindings.DeployMintManager(txOpts, opGeth.L2Client,
+					predeploys.GovernanceTokenAddr,
+					initMintPerBlock,
+					new(big.Int).SetUint64(cfg.DeployConfig.MintManagerSlidingWindowBlocks),
+					new(big.Int).SetUint64(cfg.DeployConfig.MintManagerDecayingFactor),
+				)
+				require.NoError(t, err)
+				txs[2] = deployTx
+				// And upgrade MintManagerProxy to the deployed implementation
+				var mintManagerAbi abi.ABI
+				err = mintManagerAbi.UnmarshalJSON([]byte(bindings.MintManagerMetaData.ABI))
+				require.NoError(t, err)
+				shares := make([]*big.Int, len(cfg.DeployConfig.MintManagerShares))
+				for i, v := range cfg.DeployConfig.MintManagerShares {
+					shares[i] = new(big.Int).SetUint64(v)
+				}
+				txOpts.Nonce.Add(txOpts.Nonce, common.Big1)
+				initBytes, err := mintManagerAbi.Pack("initialize", cfg.DeployConfig.MintManagerRecipients, shares)
+				require.NoError(t, err)
+				upgradeTx, err = proxyAdmin.UpgradeAndCall(txOpts, predeploys.MintManagerAddr, impl, initBytes)
+				require.NoError(t, err)
+				txs[3] = upgradeTx
+
+				// Adding this block advances us to the fork time.
+				_, err = opGeth.AddL2Block(ctx, txs...)
+				require.NoError(t, err)
+			},
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(fmt.Sprintf("MintTokenTxExecuted_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			s := hexutil.Uint64(0)
+			cfg.DeployConfig.L2GenesisRegolithTimeOffset = &s
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &s
+			cfg.DeployConfig.L2GenesisBurgundyTimeOffset = &test.burgundyTime
+
+			test.applyConfig(&cfg)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			test.activeBurgundy(ctx, opGeth, &cfg)
+
+			_, err = opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+
+			block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+			require.Nil(t, err)
+
+			var mintTokenTx *types.Transaction
+			txs := block.Transactions()
+			for _, tx := range txs {
+				if tx.IsMintTokenTx() {
+					mintTokenTx = tx
+					break
+				}
+			}
+			require.NotNil(t, mintTokenTx)
+			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, mintTokenTx.Hash())
+			require.NoError(t, err)
+			require.Equal(t, receipt.Status, types.ReceiptStatusSuccessful)
+			require.NotEmpty(t, receipt.Logs)
 		})
 	}
 }
