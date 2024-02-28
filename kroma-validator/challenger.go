@@ -606,13 +606,13 @@ func (c *Challenger) HasEnoughDeposit(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 	}
+	c.metr.RecordDepositAmount(balance)
 
 	if balance.Cmp(c.requiredBondAmount) == -1 {
 		c.log.Warn("deposit is less than bond amount", "required", c.requiredBondAmount, "deposit", balance)
 		return false, nil
 	}
 	c.log.Info("deposit amount and bond amount", "deposit", balance, "bond", c.requiredBondAmount)
-	c.metr.RecordDepositAmount(balance)
 
 	return true, nil
 }
