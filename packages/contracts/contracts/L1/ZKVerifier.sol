@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.15;
 
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
-contract ZKVerifier is Semver {
+contract ZKVerifier is ISemver {
     uint256 internal immutable HASH_SCALAR_VALUE;
     uint256 internal immutable M_56_PX_VALUE;
     uint256 internal immutable M_56_PY_VALUE;
 
-    constructor(
-        uint256 _hashScalar,
-        uint256 _m56Px,
-        uint256 _m56Py
-    ) Semver(0, 1, 4) {
+    /**
+     * @notice Semantic version.
+     * @custom:semver 0.1.4
+     */
+    string public constant version = "0.1.4";
+
+    constructor(uint256 _hashScalar, uint256 _m56Px, uint256 _m56Py) {
         HASH_SCALAR_VALUE = _hashScalar;
         M_56_PX_VALUE = _m56Px;
         M_56_PY_VALUE = _m56Py;

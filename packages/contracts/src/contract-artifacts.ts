@@ -54,12 +54,6 @@
         } catch {}
         
 
-        let MintManager
-        try {
-          MintManager = require('../artifacts/contracts/governance/MintManager.sol/MintManager.json')
-        } catch {}
-        
-
         let SecurityCouncilToken
         try {
           SecurityCouncilToken = require('../artifacts/contracts/governance/SecurityCouncilToken.sol/SecurityCouncilToken.json')
@@ -330,6 +324,12 @@
         } catch {}
         
 
+        let ISemver
+        try {
+          ISemver = require('../artifacts/contracts/universal/ISemver.sol/ISemver.json')
+        } catch {}
+        
+
         let KromaMintableERC20
         try {
           KromaMintableERC20 = require('../artifacts/contracts/universal/KromaMintableERC20.sol/KromaMintableERC20.json')
@@ -384,12 +384,6 @@
         } catch {}
         
 
-        let Semver
-        try {
-          Semver = require('../artifacts/contracts/universal/Semver.sol/Semver.json')
-        } catch {}
-        
-
         let StandardBridge
         try {
           StandardBridge = require('../artifacts/contracts/universal/StandardBridge.sol/StandardBridge.json')
@@ -418,7 +412,6 @@ EchidnaFuzzHashing,
 EchidnaFuzzKromaPortal,
 EchidnaFuzzResourceMetering,
 GovernanceToken,
-MintManager,
 SecurityCouncilToken,
 TimeLock,
 UpgradeGovernor,
@@ -464,6 +457,7 @@ CrossDomainMessenger,
 ERC721Bridge,
 IKromaMintableERC20,
 IKromaMintableERC721,
+ISemver,
 KromaMintableERC20,
 KromaMintableERC20Factory,
 KromaMintableERC721,
@@ -473,7 +467,6 @@ KromaSoulBoundERC721,
 Proxy,
 IStaticERC1967Proxy,
 ProxyAdmin,
-Semver,
 StandardBridge,
 AddressAliasHelper,
 WETH9

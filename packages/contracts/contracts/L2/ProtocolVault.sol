@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 import { FeeVault } from "../universal/FeeVault.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @custom:proxied
@@ -10,11 +10,17 @@ import { Semver } from "../universal/Semver.sol";
  * @title ProtocolVault
  * @notice The ProtocolVault accumulates transaction fees to fund network operation.
  */
-contract ProtocolVault is FeeVault, Semver {
+contract ProtocolVault is FeeVault, ISemver {
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.1
+     */
+    string public constant version = "1.0.1";
+
+    /**
+     * @notice Constructs the ProtocolVault contract.
      *
      * @param _recipient Address that will receive the accumulated fees.
      */
-    constructor(address _recipient) FeeVault(_recipient, 0) Semver(1, 0, 1) {}
+    constructor(address _recipient) FeeVault(_recipient, 0) {}
 }

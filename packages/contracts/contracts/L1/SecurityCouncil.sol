@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 import { TokenMultiSigWallet } from "../universal/TokenMultiSigWallet.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { Colosseum } from "./Colosseum.sol";
 
 /**
@@ -11,7 +11,7 @@ import { Colosseum } from "./Colosseum.sol";
  * @notice SecurityCouncil receives validation requests for specific output data,
  *         and allows security council parties to validate & agree on transactions before execution.
  */
-contract SecurityCouncil is TokenMultiSigWallet, Semver {
+contract SecurityCouncil is TokenMultiSigWallet, ISemver {
     /**
      * @notice The address of the colosseum contract. Can be updated via upgrade.
      */
@@ -55,15 +55,18 @@ contract SecurityCouncil is TokenMultiSigWallet, Semver {
     }
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.1.0
+     */
+    string public constant version = "1.1.0";
+
+    /**
+     * @notice Constructs the SecurityCouncil contract.
      *
      * @param _colosseum Address of the Colosseum contract.
      * @param _governor  Address of Governor contract.
      */
-    constructor(address _colosseum, address payable _governor)
-        TokenMultiSigWallet(_governor)
-        Semver(1, 1, 0)
-    {
+    constructor(address _colosseum, address payable _governor) TokenMultiSigWallet(_governor) {
         COLOSSEUM = _colosseum;
     }
 

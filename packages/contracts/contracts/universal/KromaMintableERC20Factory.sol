@@ -3,7 +3,7 @@ pragma solidity 0.8.15;
 
 /* Contract Imports */
 import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
-import { Semver } from "./Semver.sol";
+import { ISemver } from "./ISemver.sol";
 
 /**
  * @custom:proxied
@@ -14,7 +14,7 @@ import { Semver } from "./Semver.sol";
  *         who may be less familiar with deploying smart contracts. Designed to be backwards
  *         compatible with the older StandardL2ERC20Factory contract.
  */
-contract KromaMintableERC20Factory is Semver {
+contract KromaMintableERC20Factory is ISemver {
     /**
      * @notice Address of the StandardBridge on this chain.
      */
@@ -34,7 +34,13 @@ contract KromaMintableERC20Factory is Semver {
     );
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the KromaMintableERC20Factory contract.@author
      *
      * @notice The semver MUST be bumped any time that there is a change in
      *         the KromaMintableERC20 token contract since this contract
@@ -42,7 +48,7 @@ contract KromaMintableERC20Factory is Semver {
      *
      * @param _bridge Address of the StandardBridge on this chain.
      */
-    constructor(address _bridge) Semver(1, 0, 0) {
+    constructor(address _bridge) {
         BRIDGE = _bridge;
     }
 

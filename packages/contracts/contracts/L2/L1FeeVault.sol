@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 import { FeeVault } from "../universal/FeeVault.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @custom:proxied
@@ -10,11 +10,17 @@ import { Semver } from "../universal/Semver.sol";
  * @title L1FeeVault
  * @notice The L1FeeVault accumulates the L1 portion of the transaction fees.
  */
-contract L1FeeVault is FeeVault, Semver {
+contract L1FeeVault is FeeVault, ISemver {
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.2
+     */
+    string public constant version = "1.0.2";
+
+    /**
+     * @notice Constructs the L1FeeVault contract.
      *
      * @param _recipient Address that will receive the accumulated fees.
      */
-    constructor(address _recipient) FeeVault(_recipient, 0) Semver(1, 0, 2) {}
+    constructor(address _recipient) FeeVault(_recipient, 0) {}
 }

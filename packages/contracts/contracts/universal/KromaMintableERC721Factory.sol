@@ -2,13 +2,13 @@
 pragma solidity 0.8.15;
 
 import { KromaMintableERC721 } from "./KromaMintableERC721.sol";
-import { Semver } from "./Semver.sol";
+import { ISemver } from "./ISemver.sol";
 
 /**
  * @title KromaMintableERC721Factory
  * @notice Factory contract for creating KromaMintableERC721 contracts.
  */
-contract KromaMintableERC721Factory is Semver {
+contract KromaMintableERC721Factory is ISemver {
     /**
      * @notice Address of the ERC721 bridge on this network.
      */
@@ -38,15 +38,21 @@ contract KromaMintableERC721Factory is Semver {
     );
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
-     * @notice The semver MUST be bumped any time that there is a change in
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the KromaMintableERC721Factory contract.
+     *         The semver MUST be bumped any time that there is a change in
      *         the KromaMintableERC721 token contract since this contract
      *         is responsible for deploying KromaMintableERC721 contracts.
      *
      * @param _bridge Address of the ERC721 bridge on this network.
      * @param _remoteChainId Chain ID for the remote network.
      */
-    constructor(address _bridge, uint256 _remoteChainId) Semver(1, 0, 0) {
+    constructor(address _bridge, uint256 _remoteChainId) {
         BRIDGE = _bridge;
         REMOTE_CHAIN_ID = _remoteChainId;
     }

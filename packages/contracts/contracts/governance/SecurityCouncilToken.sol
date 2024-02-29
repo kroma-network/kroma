@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import "../universal/KromaSoulBoundERC721.sol";
 
 /**
@@ -9,11 +9,12 @@ import "../universal/KromaSoulBoundERC721.sol";
  * @title SecurityCouncilToken
  * @notice The SecurityCouncilToken is a basic token based on KromaSoulBoundERC721.
  */
-contract SecurityCouncilToken is KromaSoulBoundERC721, Semver {
+contract SecurityCouncilToken is KromaSoulBoundERC721, ISemver {
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.1
      */
-    constructor() Semver(1, 0, 1) {}
+    string public constant version = "1.0.1";
 
     /**
      * @notice Initializer.

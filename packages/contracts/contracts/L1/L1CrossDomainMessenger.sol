@@ -3,7 +3,7 @@ pragma solidity 0.8.15;
 
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { KromaPortal } from "./KromaPortal.sol";
 
 /**
@@ -13,21 +13,24 @@ import { KromaPortal } from "./KromaPortal.sol";
  *         for sending and receiving data on the L1 side. Users are encouraged to use this
  *         interface instead of interacting with lower-level contracts directly.
  */
-contract L1CrossDomainMessenger is CrossDomainMessenger, Semver {
+contract L1CrossDomainMessenger is CrossDomainMessenger, ISemver {
     /**
      * @notice Address of the KromaPortal.
      */
     KromaPortal public immutable PORTAL;
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the L1CrossDomainMessenger contract.
      *
      * @param _portal Address of the KromaPortal contract on this network.
      */
-    constructor(KromaPortal _portal)
-        Semver(1, 0, 0)
-        CrossDomainMessenger(Predeploys.L2_CROSS_DOMAIN_MESSENGER)
-    {
+    constructor(KromaPortal _portal) CrossDomainMessenger(Predeploys.L2_CROSS_DOMAIN_MESSENGER) {
         PORTAL = _portal;
         initialize();
     }
