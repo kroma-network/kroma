@@ -9,7 +9,7 @@ require (
 	github.com/ethereum-optimism/go-ethereum-hdwallet v0.1.3
 	github.com/ethereum-optimism/optimism v1.4.0
 	github.com/ethereum-optimism/superchain-registry/superchain v0.0.0-20231212175319-52e98f4ad4d5
-	github.com/ethereum/go-ethereum v1.13.1
+	github.com/ethereum/go-ethereum v1.13.8
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb
 	github.com/google/go-cmp v0.6.0
@@ -198,4 +198,4 @@ require (
 
 replace github.com/ethereum-optimism/optimism v1.4.0 => ./
 
-replace github.com/ethereum/go-ethereum v1.13.1 => github.com/kroma-network/go-ethereum v0.4.3
+replace github.com/ethereum/go-ethereum v1.13.8 => github.com/kroma-network/go-ethereum v0.4.4
