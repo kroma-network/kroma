@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 import { Constants } from "../libraries/Constants.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @custom:proxied
@@ -13,7 +13,7 @@ import { Semver } from "../universal/Semver.sol";
  *         set by the "depositor" account, a special system address. Depositor account transactions
  *         are created by the protocol whenever we move to a new epoch.
  */
-contract L1Block is Semver {
+contract L1Block is ISemver {
     /**
      * @notice Address of the special depositor account.
      */
@@ -68,9 +68,10 @@ contract L1Block is Semver {
     uint256 public validatorRewardScalar;
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
      */
-    constructor() Semver(1, 0, 0) {}
+    string public constant version = "1.0.0";
 
     /**
      * @notice Updates the L1 block values.

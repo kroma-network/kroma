@@ -4,18 +4,19 @@ pragma solidity ^0.8.15;
 import "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @custom:proxied
  * @title TimeLock
  * @notice The TimeLock is a timelock controller based on OpenZeppelin TimelockController.
  */
-contract TimeLock is Initializable, TimelockControllerUpgradeable, Semver {
+contract TimeLock is Initializable, TimelockControllerUpgradeable, ISemver {
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
      */
-    constructor() Semver(1, 0, 0) {}
+    string public constant version = "1.0.0";
 
     /**
      * @notice Initializer.

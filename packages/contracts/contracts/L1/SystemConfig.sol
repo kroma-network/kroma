@@ -6,7 +6,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import { Constants } from "../libraries/Constants.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { ResourceMetering } from "./ResourceMetering.sol";
 
 /**
@@ -15,7 +15,7 @@ import { ResourceMetering } from "./ResourceMetering.sol";
  *         configuration is stored on L1 and picked up by L2 as part of the derivation of the L2
  *         chain.
  */
-contract SystemConfig is OwnableUpgradeable, Semver {
+contract SystemConfig is OwnableUpgradeable, ISemver {
     /**
      * @notice Enum representing different types of updates.
      *
@@ -90,7 +90,13 @@ contract SystemConfig is OwnableUpgradeable, Semver {
     event ConfigUpdate(uint256 indexed version, UpdateType indexed updateType, bytes data);
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the SystemConfig contract.
      *
      * @param _owner                 Initial owner of the contract.
      * @param _overhead              Initial overhead value.
@@ -110,7 +116,7 @@ contract SystemConfig is OwnableUpgradeable, Semver {
         address _unsafeBlockSigner,
         ResourceMetering.ResourceConfig memory _config,
         uint256 _validatorRewardScalar
-    ) Semver(1, 0, 0) {
+    ) {
         initialize(
             _owner,
             _overhead,

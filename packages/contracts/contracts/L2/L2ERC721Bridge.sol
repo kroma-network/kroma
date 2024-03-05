@@ -6,7 +6,7 @@ import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC16
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
 import { ERC721Bridge } from "../universal/ERC721Bridge.sol";
 import { IKromaMintableERC721 } from "../universal/IKromaMintableERC721.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @title L2ERC721Bridge
@@ -19,17 +19,20 @@ import { Semver } from "../universal/Semver.sol";
  *         wait for the one-week challenge period to elapse before their Kroma-native NFT
  *         can be refunded on L2.
  */
-contract L2ERC721Bridge is ERC721Bridge, Semver {
+contract L2ERC721Bridge is ERC721Bridge, ISemver {
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the L2ERC721Bridge contract.
      *
      * @param _messenger   Address of the CrossDomainMessenger on this network.
      * @param _otherBridge Address of the ERC721 bridge on the other network.
      */
-    constructor(address _messenger, address _otherBridge)
-        Semver(1, 0, 0)
-        ERC721Bridge(_messenger, _otherBridge)
-    {}
+    constructor(address _messenger, address _otherBridge) ERC721Bridge(_messenger, _otherBridge) {}
 
     /**
      * @notice Completes an ERC721 bridge from the other domain and sends the ERC721 token to the

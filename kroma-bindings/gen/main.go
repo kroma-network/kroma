@@ -175,33 +175,15 @@ func main() {
 			deployedSourceMap = artifact.DeployedBytecode.SourceMap
 		}
 
-		// [Kroma: START]
-		// Kroma contracts still use Semver as immutable variables, so remove all Semver refs to ignore it.
-		//
-		// re := regexp.MustCompile(`\s+`)
-		// immutableRefs, err := json.Marshal(re.ReplaceAllString(string(artifact.DeployedBytecode.ImmutableReferences), ""))
-		//
-		// if err != nil {
-		// 	log.Fatalf("error marshaling immutable references: %v\n", err)
-		// }
-		//
-		// hasImmutables := string(immutableRefs) != `""`
-		hasImmutables := false
-		if artifact.DeployedBytecode.ImmutableReferences != nil {
-			var immutableRefs map[string]any
-			err = json.Unmarshal(artifact.DeployedBytecode.ImmutableReferences, &immutableRefs)
-			if err != nil {
-				log.Fatalf("error unmarshaling immutable references: %v\n", err)
-			}
-			for key := range immutableRefs {
-				// Skip references of Semver.MAJOR_VERSION, Semver.MINOR_VERSION, and Semver.PATCH_VERSION
-				if key == "104053" || key == "104056" || key == "104059" {
-					delete(immutableRefs, key)
-				}
-			}
-			hasImmutables = len(immutableRefs) > 0
+		re := regexp.MustCompile(`\s+`)
+		immutableRefs, err := json.Marshal(re.ReplaceAllString(string(artifact.DeployedBytecode.ImmutableReferences), ""))
+		if err != nil {
+			log.Fatalf("error marshaling immutable references: %v\n", err)
 		}
 
+		hasImmutables := string(immutableRefs) != `""`
+
+		// [Kroma: START]
 		if name == "GovernanceToken" {
 			hasImmutables = false
 		}

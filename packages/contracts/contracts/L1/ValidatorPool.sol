@@ -10,7 +10,7 @@ import { Constants } from "../libraries/Constants.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { SafeCall } from "../libraries/SafeCall.sol";
 import { Types } from "../libraries/Types.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { ValidatorRewardVault } from "../L2/ValidatorRewardVault.sol";
 import { KromaPortal } from "./KromaPortal.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
@@ -20,7 +20,7 @@ import { L2OutputOracle } from "./L2OutputOracle.sol";
  * @title ValidatorPool
  * @notice The ValidatorPool determines whether the validator is present and manages the validator's deposit.
  */
-contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
+contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
     /**
      * @notice The gas limit to use when rewarding validator in the ValidatorRewardVault on L2.
      *         This value is measured through simulation.
@@ -172,9 +172,14 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         require(msg.sender == L2_ORACLE.COLOSSEUM(), "ValidatorPool: sender is not Colosseum");
         _;
     }
+    /**
+     * @notice Semantic version.
+     * @custom:semver 1.0.1
+     */
+    string public constant version = "1.0.1";
 
     /**
-     * @custom:semver 1.0.1
+     * @notice Constructs the ValidatorPool contract.
      *
      * @param _l2OutputOracle     Address of the L2OutputOracle.
      * @param _portal             Address of the KromaPortal.
@@ -192,7 +197,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, Semver {
         uint256 _requiredBondAmount,
         uint256 _maxUnbond,
         uint256 _roundDuration
-    ) Semver(1, 0, 1) {
+    ) {
         L2_ORACLE = _l2OutputOracle;
         PORTAL = _portal;
         SECURITY_COUNCIL = _securityCouncil;

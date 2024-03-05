@@ -5,7 +5,7 @@ import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable
 
 import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { ValidatorPool } from "./ValidatorPool.sol";
 
 /**
@@ -15,7 +15,7 @@ import { ValidatorPool } from "./ValidatorPool.sol";
  *         commitment to the state of the L2 chain. Other contracts like the KromaPortal use
  *         these outputs to verify information about the state of L2.
  */
-contract L2OutputOracle is Initializable, Semver {
+contract L2OutputOracle is Initializable, ISemver {
     /**
      * @notice The address of the validator pool contract. Can be updated via upgrade.
      */
@@ -82,7 +82,13 @@ contract L2OutputOracle is Initializable, Semver {
     event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the L2OutputOracle contract.
      *
      * @param _validatorPool             The address of the ValidatorPool contract.
      * @param _colosseum                 The address of the Colosseum contract.
@@ -100,7 +106,7 @@ contract L2OutputOracle is Initializable, Semver {
         uint256 _startingBlockNumber,
         uint256 _startingTimestamp,
         uint256 _finalizationPeriodSeconds
-    ) Semver(1, 0, 0) {
+    ) {
         require(_l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
         require(
             _submissionInterval > 0,

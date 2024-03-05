@@ -5,7 +5,7 @@ import { L2StandardBridge } from "../L2/L2StandardBridge.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { SafeCall } from "../libraries/SafeCall.sol";
 import { FeeVault } from "../universal/FeeVault.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 
 /**
@@ -14,7 +14,7 @@ import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
  * @title ValidatorRewardVault
  * @notice The ValidatorRewardVault accumulates transaction fees and pays rewards to validators.
  */
-contract ValidatorRewardVault is FeeVault, Semver {
+contract ValidatorRewardVault is FeeVault, ISemver {
     /**
      * @notice Address of the ValidatorPool contract on L1.
      */
@@ -50,15 +50,18 @@ contract ValidatorRewardVault is FeeVault, Semver {
     event Rewarded(address indexed validator, uint256 indexed l2BlockNumber, uint256 amount);
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the ValidatorRewardVault contract.
      *
      * @param _validatorPool Address of the ValidatorPool contract on L1.
      * @param _rewardDivider A value to divide the vault balance by when determining the reward amount.
      */
-    constructor(address _validatorPool, uint256 _rewardDivider)
-        FeeVault(address(0), 0)
-        Semver(1, 0, 0)
-    {
+    constructor(address _validatorPool, uint256 _rewardDivider) FeeVault(address(0), 0) {
         VALIDATOR_POOL = _validatorPool;
         REWARD_DIVIDER = _rewardDivider;
     }
