@@ -2,10 +2,10 @@
 pragma solidity 0.8.15;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { Atan2 } from "../libraries/Atan2.sol";
 import { BalancedWeightTree } from "../libraries/BalancedWeightTree.sol";
@@ -24,6 +24,37 @@ abstract contract AssetManager is IERC721Receiver {
     using Math for uint256;
     using Uint128Math for uint128;
     using BalancedWeightTree for BalancedWeightTree.Tree;
+
+    /**
+     * @notice Represents the parameters of constructor.
+     *
+     * @custom:field _l2OutputOracle         Address of the L2OutputOracle contract.
+     * @custom:field _assetToken             Address of the KRO token.
+     * @custom:field _kgh                    Address of the KGH token.
+     * @custom:field _kghManager             Address of the KGHManager contract.
+     * @custom:field _securityCouncil        Address of the SecurityCouncil contract.
+     * @custom:field _maxOutputFinalizations Max number of finalized outputs.
+     * @custom:field _baseReward             Base reward for the validator.
+     * @custom:field _slashingRateNumerator  Numerator of the slashing rate.
+     * @custom:field _minSlashingAmount      Minimum amount to slash.
+     * @custom:field _minRegisterAmount      Minimum amount to register as a validator.
+     * @custom:field _minStartAmount         Minimum amount to start submitting outputs.
+     * @custom:field _undelegationPeriod     Period that should wait to finalize the undelegation.
+     */
+    struct ConstructorParams {
+        L2OutputOracle _l2OutputOracle;
+        IERC20 _assetToken;
+        IERC721 _kgh;
+        IKGHManager _kghManager;
+        address _securityCouncil;
+        uint128 _maxOutputFinalizations;
+        uint128 _baseReward;
+        uint128 _slashingRateNumerator;
+        uint128 _minSlashingAmount;
+        uint128 _minRegisterAmount;
+        uint128 _minStartAmount;
+        uint256 _undelegationPeriod;
+    }
 
     /**
      * @notice Represents the asset information of the vault of a validator.
@@ -245,19 +276,9 @@ abstract contract AssetManager is IERC721Receiver {
     BalancedWeightTree.Tree internal _validatorTree;
 
     /**
-     * @notice The output index to distribute reward next.
-     */
-    uint256 internal _nextRewardOutputIndex;
-
-    /**
      * @notice A mapping of validator address to the vault.
      */
     mapping(address => Vault) internal _vaults;
-
-    /**
-     * @notice A mapping of the submitted output index to finalization timestamp.
-     */
-    mapping(uint256 => uint256) internal _submittedOutputs;
 
     /**
      * @notice A mapping of output index challenged successfully to pending challenge rewards.
@@ -426,10 +447,17 @@ abstract contract AssetManager is IERC721Receiver {
     /**
      * @notice Emitted when the output reward is distributed.
      *
-     * @param recipient Address of the reward recipient.
-     * @param amount    The amount of reward.
+     * @param validator       Address of the validator whose vault is rewarded.
+     * @param validatorReward The amount of validator reward.
+     * @param baseReward      The amount of base reward for KRO delegators.
+     * @param boostedReward   The amount of boosted reward for KGH delegators.
      */
-    event RewardDistributed(address indexed recipient, uint128 amount);
+    event RewardDistributed(
+        address indexed validator,
+        uint128 validatorReward,
+        uint128 baseReward,
+        uint128 boostedReward
+    );
 
     /**
      * @notice Modifier to check if the caller is the Colosseum contract.
@@ -456,45 +484,27 @@ abstract contract AssetManager is IERC721Receiver {
     /**
      * @notice Constructs the AssetManager contract.
      *
-     * @param _l2OutputOracle         Address of the L2OutputOracle contract.
-     * @param _assetToken             Address of the KRO token.
-     * @param _kgh                    Address of the KGH token.
-     * @param _kghManager             Address of the KGHManager contract.
-     * @param _securityCouncil        Address of the SecurityCouncil contract.
-     * @param _maxOutputFinalizations Max number of finalized outputs.
-     * @param _baseReward             Base reward for the validator.
-     * @param _slashingRateNumerator  Numerator of the slashing rate.
-     * @param _minSlashingAmount      Minimum amount to slash.
-     * @param _minRegisterAmount      Minimum amount to register as a validator.
-     * @param _minStartAmount         Minimum amount to start submitting outputs.
-     * @param _undelegationPeriod     Period that should wait to finalize the undelegation.
+     * @param _constructorParams The parameters of constructor.
      */
-    constructor(
-        L2OutputOracle _l2OutputOracle,
-        IERC20 _assetToken,
-        IERC721 _kgh,
-        IKGHManager _kghManager,
-        address _securityCouncil,
-        uint128 _maxOutputFinalizations,
-        uint128 _baseReward,
-        uint128 _slashingRateNumerator,
-        uint128 _minSlashingAmount,
-        uint128 _minRegisterAmount,
-        uint128 _minStartAmount,
-        uint256 _undelegationPeriod
-    ) {
-        L2_ORACLE = _l2OutputOracle;
-        ASSET_TOKEN = _assetToken;
-        KGH = _kgh;
-        KGH_MANAGER = _kghManager;
-        SECURITY_COUNCIL = _securityCouncil;
-        MAX_OUTPUT_FINALIZATIONS = _maxOutputFinalizations;
-        BASE_REWARD = _baseReward;
-        SLASHING_RATE_NUMERATOR = _slashingRateNumerator;
-        MIN_SLASHING_AMOUNT = _minSlashingAmount;
-        MIN_REGISTER_AMOUNT = _minRegisterAmount;
-        MIN_START_AMOUNT = _minStartAmount;
-        UNDELEGATION_PERIOD = _undelegationPeriod;
+    constructor(ConstructorParams memory _constructorParams) {
+        L2_ORACLE = _constructorParams._l2OutputOracle;
+        ASSET_TOKEN = _constructorParams._assetToken;
+        KGH = _constructorParams._kgh;
+        KGH_MANAGER = _constructorParams._kghManager;
+        SECURITY_COUNCIL = _constructorParams._securityCouncil;
+        MAX_OUTPUT_FINALIZATIONS = _constructorParams._maxOutputFinalizations;
+        BASE_REWARD = _constructorParams._baseReward;
+        SLASHING_RATE_NUMERATOR = _constructorParams._slashingRateNumerator;
+        MIN_SLASHING_AMOUNT = _constructorParams._minSlashingAmount;
+
+        require(
+            _constructorParams._minRegisterAmount <= _constructorParams._minStartAmount,
+            "AssetManager: min register amount should not exceed min start amount"
+        );
+        MIN_REGISTER_AMOUNT = _constructorParams._minRegisterAmount;
+        MIN_START_AMOUNT = _constructorParams._minStartAmount;
+
+        UNDELEGATION_PERIOD = _constructorParams._undelegationPeriod;
     }
 
     /**
@@ -708,8 +718,7 @@ abstract contract AssetManager is IERC721Receiver {
         uint128 assets
     ) external checkIsActive(validator) returns (uint128) {
         require(assets > 0, "AssetManager: cannot delegate 0 asset");
-        uint128 shares = previewDelegate(validator, assets);
-        _delegate(validator, msg.sender, assets, shares);
+        uint128 shares = _delegate(validator, msg.sender, assets, true);
         emit KroDelegated(validator, msg.sender, assets, shares);
         return shares;
     }
@@ -796,6 +805,8 @@ abstract contract AssetManager is IERC721Receiver {
         );
 
         uint128 assets = previewUndelegate(validator, shares);
+        require(assets > 0, "AssetManager: cannot undelegate 0 asset");
+
         _initUndelegate(validator, msg.sender, assets, shares);
         emit KroUndelegationInitiated(validator, msg.sender, assets, shares);
     }
@@ -881,7 +892,7 @@ abstract contract AssetManager is IERC721Receiver {
             reward.claimRequestTimes.push(block.timestamp);
         }
 
-        _updateValidatorTree(msg.sender, _vaults[msg.sender]);
+        _updateValidatorTree(msg.sender, _vaults[msg.sender], true);
 
         emit RewardClaimInitiated(msg.sender, amount);
     }
@@ -896,10 +907,7 @@ abstract contract AssetManager is IERC721Receiver {
      */
     function finalizeUndelegate(address validator) external returns (uint128) {
         Asset storage asset = _vaults[validator].asset;
-        require(
-            asset.totalPendingKroShares > 0,
-            "AssetManager: No pending shares to finalize"
-        );
+        require(asset.totalPendingKroShares > 0, "AssetManager: No pending shares to finalize");
 
         KroDelegator storage delegator = _vaults[validator].kroDelegators[msg.sender];
         uint256[] memory requestTimes = delegator.undelegateRequestTimes;
@@ -1081,15 +1089,22 @@ abstract contract AssetManager is IERC721Receiver {
      * @return Whether the reward distribution is done at least once or not.
      */
     function _distributeReward() internal returns (bool) {
-        // TODO - Query the index from L2OutputOracle
-        uint256 outputIndex = _nextRewardOutputIndex;
+        uint256 outputIndex = L2_ORACLE.latestFinalizedOutputIndex() + 1;
+        uint256 latestOutputIndex = L2_ORACLE.latestOutputIndex();
+
+        if (!L2_ORACLE.VALIDATOR_POOL().isTerminated(outputIndex)) {
+            return false;
+        }
+
         uint128 finalizedOutputNum = 0;
         Types.CheckpointOutput memory output;
 
-        for (; finalizedOutputNum < MAX_OUTPUT_FINALIZATIONS; ) {
-            uint256 expiryTime = _submittedOutputs[outputIndex];
-            if (block.timestamp >= expiryTime && expiryTime != 0) {
-                delete _submittedOutputs[outputIndex];
+        for (
+            ;
+            finalizedOutputNum < MAX_OUTPUT_FINALIZATIONS && outputIndex <= latestOutputIndex;
+
+        ) {
+            if (L2_ORACLE.isFinalized(outputIndex)) {
                 output = L2_ORACLE.getL2Output(outputIndex);
                 _increaseBalanceWithReward(output.submitter);
 
@@ -1101,7 +1116,7 @@ abstract contract AssetManager is IERC721Receiver {
                     emit ChallengeRewardDistributed(output.submitter, challengeReward);
                 }
 
-                _updateValidatorTree(output.submitter, _vaults[output.submitter]);
+                _updateValidatorTree(output.submitter, _vaults[output.submitter], false);
 
                 unchecked {
                     ++outputIndex;
@@ -1113,9 +1128,8 @@ abstract contract AssetManager is IERC721Receiver {
         }
 
         if (finalizedOutputNum > 0) {
-            unchecked {
-                _nextRewardOutputIndex = outputIndex;
-            }
+            L2_ORACLE.setLatestFinalizedOutputIndex(outputIndex - 1);
+
             return true;
         }
 
@@ -1134,7 +1148,7 @@ abstract contract AssetManager is IERC721Receiver {
         uint128 amountToSlash = _modifyBalanceWithSlashing(loserVault, 0, true);
         _pendingChallengeReward[outputIndex] = amountToSlash;
 
-        _updateValidatorTree(loser, loserVault);
+        _updateValidatorTree(loser, loserVault, true);
 
         emit Slashed(loser, winner, amountToSlash);
     }
@@ -1256,18 +1270,20 @@ abstract contract AssetManager is IERC721Receiver {
     /**
      * @notice Internal function to delegate KRO to the validator.
      *
-     * @param validator Address of the validator.
-     * @param owner     Address of the delegator.
-     * @param assets    The amount of KRO to delegate.
-     * @param shares    The amount of shares to receive.
+     * @param validator  Address of the validator.
+     * @param owner      Address of the delegator.
+     * @param assets     The amount of KRO to delegate.
+     * @param updateTree Flag to update validator tree or not.
      */
     function _delegate(
         address validator,
         address owner,
         uint128 assets,
-        uint128 shares
-    ) internal virtual {
+        bool updateTree
+    ) internal virtual returns (uint128) {
+        uint128 shares = previewDelegate(validator, assets);
         Vault storage vault = _vaults[validator];
+
         ASSET_TOKEN.safeTransferFrom(owner, address(this), assets);
 
         unchecked {
@@ -1280,7 +1296,11 @@ abstract contract AssetManager is IERC721Receiver {
             }
         }
 
-        _updateValidatorTree(validator, vault);
+        if (updateTree) {
+            _updateValidatorTree(validator, vault, false);
+        }
+
+        return shares;
     }
 
     /**
@@ -1316,7 +1336,7 @@ abstract contract AssetManager is IERC721Receiver {
         }
 
         if (kroInKgh > 0) {
-            _updateValidatorTree(validator, vault);
+            _updateValidatorTree(validator, vault, false);
         }
     }
 
@@ -1348,7 +1368,7 @@ abstract contract AssetManager is IERC721Receiver {
         }
 
         if (kroInKghs > 0) {
-            _updateValidatorTree(validator, _vaults[validator]);
+            _updateValidatorTree(validator, _vaults[validator], false);
         }
     }
 
@@ -1379,8 +1399,7 @@ abstract contract AssetManager is IERC721Receiver {
             _addPendingKroShares(vault, assets, shares);
         }
 
-        _updateValidatorTree(validator, vault);
-        _tryRemoveFromWeightTree(validator, vault);
+        _updateValidatorTree(validator, vault, true);
     }
 
     /**
@@ -1437,7 +1456,7 @@ abstract contract AssetManager is IERC721Receiver {
         }
 
         if (kroAssetsToWithdraw + boostedRewardsToReceive > 0) {
-            _updateValidatorTree(validator, vault);
+            _updateValidatorTree(validator, vault, true);
         }
     }
 
@@ -1490,7 +1509,7 @@ abstract contract AssetManager is IERC721Receiver {
         }
 
         if (kroAssetsToWithdraw + boostedRewardsToReceive > 0) {
-            _updateValidatorTree(validator, vault);
+            _updateValidatorTree(validator, vault, true);
         }
     }
 
@@ -1501,21 +1520,33 @@ abstract contract AssetManager is IERC721Receiver {
      */
     function _increaseBalanceWithReward(address validator) internal {
         Vault storage vault = _vaults[validator];
-        uint128 boostedReward = _getBoostedReward(vault.asset.totalKgh);
         uint128 commissionRate = uint128(vault.reward.commissionRate);
+        uint128 boostedReward = _getBoostedReward(vault.asset.totalKgh);
+        uint128 baseReward;
         uint128 validatorReward;
 
         unchecked {
-            validatorReward = (BASE_REWARD + boostedReward).mulDiv(commissionRate, COMMISSION_RATE_DENOM);
+            validatorReward = (BASE_REWARD + boostedReward).mulDiv(
+                commissionRate,
+                COMMISSION_RATE_DENOM
+            );
+            baseReward = BASE_REWARD.mulDiv(
+                COMMISSION_RATE_DENOM - commissionRate,
+                COMMISSION_RATE_DENOM
+            );
+            boostedReward = boostedReward.mulDiv(
+                COMMISSION_RATE_DENOM - commissionRate,
+                COMMISSION_RATE_DENOM
+            );
 
-            vault.asset.totalKro += BASE_REWARD.mulDiv(COMMISSION_RATE_DENOM - commissionRate, COMMISSION_RATE_DENOM);
-            vault.reward.boostedReward += boostedReward.mulDiv(COMMISSION_RATE_DENOM - commissionRate, COMMISSION_RATE_DENOM);
+            vault.asset.totalKro += baseReward;
+            vault.reward.boostedReward += boostedReward;
             vault.reward.validatorRewardKro += validatorReward;
         }
 
         // TODO - Distribute the reward from a designated vault to the ValidatorManager contract.
 
-        emit RewardDistributed(validator, validatorReward);
+        emit RewardDistributed(validator, validatorReward, baseReward, boostedReward);
     }
 
     /**
@@ -1611,32 +1642,32 @@ abstract contract AssetManager is IERC721Receiver {
     }
 
     /**
-     * @notice Internal function to try to remove the validator from the weight tree.
-     *
-     * @param validator Address of the validator.
-     * @param vault     Vault of the validator.
-     */
-    function _tryRemoveFromWeightTree(address validator, Vault storage vault) internal {
-        if (vault.asset.validatorKro < MIN_START_AMOUNT) {
-            _validatorTree.remove(validator);
-        }
-    }
-
-    /**
      * @notice Internal function to update the weight tree of the validator.
      *
      * @param validator Address of the validator.
      * @param vault     Vault of the validator.
+     * @param tryRemove Flag to try remove the validator from weight tree.
      */
-    function _updateValidatorTree(address validator, Vault storage vault) internal {
-        _validatorTree.update(
-            validator,
-            uint120(
-                (vault.asset.totalKro +
-                    vault.reward.boostedReward +
-                    vault.reward.validatorRewardKro)
-            )
-        );
+    function _updateValidatorTree(address validator, Vault storage vault, bool tryRemove) internal {
+        uint128 newWeight = _reflectiveWeight(vault);
+        if (tryRemove && newWeight - vault.asset.totalKroInKgh < MIN_START_AMOUNT) {
+            _validatorTree.remove(validator);
+        } else {
+            _validatorTree.update(validator, uint120(newWeight));
+        }
+    }
+
+    /**
+     * @notice Returns the reflective weight of given vault. It can be different from the actual
+     *         current weight of the validator in weight tree since it includes all accumulated
+     *         rewards.
+     *
+     * @param vault Vault of the validator.
+     *
+     * @return The reflective weight of given vault.
+     */
+    function _reflectiveWeight(Vault storage vault) internal view returns (uint128) {
+        return vault.asset.totalKro + vault.reward.boostedReward + vault.reward.validatorRewardKro;
     }
 
     /**
