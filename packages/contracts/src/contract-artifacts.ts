@@ -84,6 +84,12 @@
         } catch {}
 
 
+        let AssetManager
+        try {
+          AssetManager = require('../artifacts/contracts/L1/AssetManager.sol/AssetManager.json')
+        } catch {}
+        
+
         let Colosseum
         try {
           Colosseum = require('../artifacts/contracts/L1/Colosseum.sol/Colosseum.json')
@@ -258,6 +264,18 @@
         } catch {}
 
 
+        let Atan2
+        try {
+          Atan2 = require('../artifacts/contracts/libraries/Atan2.sol/Atan2.json')
+        } catch {}
+        
+
+        let BalancedWeightTree
+        try {
+          BalancedWeightTree = require('../artifacts/contracts/libraries/BalancedWeightTree.sol/BalancedWeightTree.json')
+        } catch {}
+        
+
         let Burn
         try {
           Burn = require('../artifacts/contracts/libraries/Burn.sol/Burn.json')
@@ -336,6 +354,12 @@
         } catch {}
 
 
+        let Uint128Math
+        try {
+          Uint128Math = require('../artifacts/contracts/libraries/Uint128Math.sol/Uint128Math.json')
+        } catch {}
+        
+
         let ColosseumTestData
         try {
           ColosseumTestData = require('../artifacts/contracts/test/testdata/ColosseumTestData.sol/ColosseumTestData.json')
@@ -359,6 +383,12 @@
           IKGHManager = require('../artifacts/contracts/universal/IKGHManager.sol/IKGHManager.json')
         } catch {}
 
+
+        let IKGHManager
+        try {
+          IKGHManager = require('../artifacts/contracts/universal/IKGHManager.sol/IKGHManager.json')
+        } catch {}
+        
 
         let IKromaMintableERC20
         try {
