@@ -1,25 +1,25 @@
-# 2024-03-12 ZKTrie Hardfork Post-Mortem
+# 2024-03-12 Chain Halt due to ZKTrie Upgrade Post-Mortem
 
-# Incident Summary
+# Incident summary
 
-On March 12, 2024, at 15:16:25 UTC, a hardfork occurred at block number 8171899.
+On March 12, 2024, at 15:16:25 UTC, a fork occurred at block number [8171899](https://kromascan.com/block/8171899).
 
-Nodes that had not upgraded to kroma [`v1.3.2`](https://github.com/kroma-network/kroma/releases/tag/v1.3.2) and 
-kroma-geth [`v0.4.4`](https://github.com/kroma-network/go-ethereum/releases/tag/v0.4.4), which were backward compatible,
-encountered a `BAD BLOCK` error at that block. This was due to a bug in `KromaZKTrie` introduced in kroma-geth `v0.4.4`.
-The `KromaZKTrie` resulted in a different state root, leading to different block hashes.
+Some nodes encountered a `BAD BLOCK` error due to a hash discrepancy in that block compared to the block hash of 
+the sequencer. This discrepancy was caused by a bug introduced in `KromaZKTrie` in `v0.4.4`.
 
-This issue was resolved by rolling back the chain data of nodes that had not undergone the upgrade to a snapshot of the 
-chain. All nodes, including the sequencer, downgraded to kroma [`v1.3.1`](https://github.com/kroma-network/kroma/releases/tag/v1.3.1)
-and kroma-geth [`v0.4.3`](https://github.com/kroma-network/go-ethereum/releases/tag/v0.4.3), allowing for the correct 
-blocks to be regenerated.
+Since the sequencer was using `v0.4.4`, it was recovered by rollback using the chain data of nodes running kroma-geth
+`v0.4.3`.
 
-# Leadup
+Block generation was halted for about 7 and a half hours due to this issue, and it took 9 and a half hours for the chain
+to be normalized.
 
-On Thu, Mar 07, 2024, at 05:00:00 UTC, an upgrade was conducted to enhance ZKTrie, which stores the state of accounts 
-and storage. The upgrade was first tested on the internal devnet and Kroma sepolia to validate backward compatibility 
-before being applied to the Kroma mainnet. Nodes with the improved ZKTrie were also synced from the genesis block to 
-approximately 7 million blocks to ensure proper functionality.
+# Background
+
+On Thu, Mar 07, 2024, at 05:00:00 UTC, an upgrade to kroma `v1.3.2` and kroma-geth `v0.4.4` was conducted to enhance 
+ZKTrie, which is to store the state of accounts and storage. The upgrade was first tested on the internal devnet and 
+Kroma sepolia to validate backward compatibility before being applied to the Kroma mainnet. Nodes with the improved 
+ZKTrie were also tested by syncing the canonical chain from the genesis block to approximately 7 million blocks to 
+ensure proper functionality. The ZKTrie has also been audited by [Chainlight](https://github.com/kroma-network/go-ethereum/blob/main/docs/audits/2024-02-23_KromaZKTrie_Security_Audit_ChainLight.pdf).
 
 # Causes
 
@@ -29,12 +29,60 @@ mistakenly set as the root node, altering the state tree and resulting in a diff
 
 ![zktrie-deletion.svg](assets/zktrie-deletion.svg)
 
-# Recovery and Lessons Learned
+This issue is first discovered when executing a specific 
+[transaction](https://kromascan.com/tx/0x50580775422fee57c8ec78dce4a3598e2246c12d7a73756f874dd117bed0ad72). As a result 
+of execution of the transaction, the structure of the tree changed, leading to the calculation of different state roots
+and thus causing a fork with different block hashes.
 
-Nodes that had not upgraded to kroma `v1.3.2` and kroma-geth `v0.4.4` retained the correct state root values. Therefore,
-the chain was rolled back using the chain data of these nodes. All nodes, including the sequencer, were downgraded to 
-kroma `v1.3.1` and kroma-geth `v0.4.3` to continue generating correct blocks.
+# Recovery
 
-Significant time was required for the chain to be fully recovered after this incident, resulting in a prolonged halt in 
-block generation. This was due to the absence of a rollback strategy during the upgrade process. In future upgrades, a 
-rollback strategy will always be provided alongside the upgrade.
+Nodes running kroma-geth `v0.4.3` had the correct state root. Therefore, the chain was rolled back using the chain data 
+of these nodes. All nodes, including the sequencer, were downgraded to kroma `v1.3.1` and kroma-geth `v0.4.3` to 
+continue generating correct blocks.
+
+## Timeline (UTC)
+
+- 2024-03-12 1516: fork occurred at 8171899
+- 2024-03-12 1519: received alerts from some RPC nodes about discrepancies of latest block
+- 2024-03-12 1520: started investigating the fork
+- 2024-03-12 1549: announced fork occurrence on discord
+- 2024-03-12 1714: requested canonical chain snapshot data from Wemade
+- 2024-03-12 1807: announced rollback of Kroma mainnet on discord
+- 2024-03-12 1842: set up a new sequencer using the snapshot data provided by Wemade
+- 2024-03-12 1849: Chainlight notified
+- 2024-03-12 2229: announced that the recovery of Kroma mainnet is on going on discord
+- 2024-03-12 2248: restarted a new sequencer
+- 2024-03-13 0021: provided rollback snapshot and instructions to security council members
+- 2024-03-13 0033: provided rollback snapshot and instructions to etherscan
+- 2024-03-13 0048: announced the recovery of Kroma mainnet (RPC, P2P, validator) on discord
+- 2024-03-13 1341: found a bug in `KromaZKTrie` and proposed workaround by Chainlight
+- 2024-03-13 1912: completed test of rollback for node operators
+- 2024-03-13 1939: provided rollback snapshot and instructions on discord
+- 2024-03-14 1526: opened PR to fix a bug in `KromaZKTrie`
+
+# How it is fixed
+
+The logic for deleting node with a depth of 1 was modified to ensure proper deletion. This was achieved by removing a 
+separate case handling for depth 1 that caused incorrect deletion. 
+
+Related PR: https://github.com/kroma-network/go-ethereum/pull/81
+
+# Lessons learned
+
+## No tests for deletion
+
+The absence of tests for node deletion made it impossible to prevent this issue in advance. In the future, more tests 
+will be implemented to thoroughly examine the functionality of all functions, thereby preventing such issues in advance.
+
+## Lack of rollback strategy
+
+It took approximately 7 and a half hours for block generation to resume after the incident. This was due to the absence 
+of a rollback strategy. In the future upgrades, a rollback strategy will always be provided alongside the upgrade.
+
+# Future plan
+
+The bug will be fixed in this [PR](https://github.com/kroma-network/go-ethereum/pull/81), and once merged, it will 
+undergo sufficient test on the internal devnet and Kroma sepolia. Additionally, we will re-execute the problematic 
+transaction using the `KromaZKTrie` and see if it results in the correct state root. Once all tests are completed, it 
+will be applied to the Kroma mainnet, and relevant instructions will be provided via 
+[kroma-up](https://github.com/kroma-network/kroma-up).
