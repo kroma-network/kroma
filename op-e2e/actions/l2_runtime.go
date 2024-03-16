@@ -59,6 +59,7 @@ type Runtime struct {
 
 type SetupSequencerTestFunc = func(t Testing, sd *e2eutils.SetupData, log log.Logger) (*L1Miner, *L2Engine, *L2Sequencer)
 
+// defaultRuntime is currently only used for l2_challenger_test
 func defaultRuntime(gt *testing.T, setupSequencerTest SetupSequencerTestFunc) Runtime {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)

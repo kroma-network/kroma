@@ -286,9 +286,7 @@ func (g *Guardian) inspectOutput(outputIndex, fromBlock, toBlock *big.Int) {
 			return
 		default:
 			retry := func() bool {
-				cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
-				defer cCancel()
-				isFinalized, err := g.IsOutputFinalized(cCtx, outputIndex)
+				isFinalized, err := g.isOutputFinalized(g.ctx, outputIndex)
 				if err != nil {
 					g.log.Error("unable to check if the output is finalized or not", "err", err, "outputIndex", outputIndex)
 					return true
@@ -300,7 +298,7 @@ func (g *Guardian) inspectOutput(outputIndex, fromBlock, toBlock *big.Int) {
 					return false
 				}
 
-				cCtx, cCancel = context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+				cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 				defer cCancel()
 				isInCreationPeriod, err := g.colosseumContract.IsInCreationPeriod(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 				if err != nil {
@@ -416,7 +414,7 @@ func (g *Guardian) tryConfirmRequestValidationTx(event *bindings.SecurityCouncil
 		return fmt.Errorf("failed to get output index after. (l2BlockNumber: %d): %w", event.L2BlockNumber.Int64(), err)
 	}
 
-	needConfirm, err := g.checkConfirmCondition(event.TransactionId, outputIndex)
+	needConfirm, err := g.CheckConfirmCondition(g.ctx, event.TransactionId, outputIndex)
 	if err != nil {
 		return fmt.Errorf("failed to check confirm condition. (transactionId: %d): %w", event.TransactionId.Int64(), err)
 	}
@@ -448,7 +446,7 @@ func (g *Guardian) tryConfirmRequestValidationTx(event *bindings.SecurityCouncil
 }
 
 func (g *Guardian) tryConfirmRequestDeletionTx(event *bindings.SecurityCouncilDeletionRequested) error {
-	needConfirm, err := g.checkConfirmCondition(event.TransactionId, event.OutputIndex)
+	needConfirm, err := g.CheckConfirmCondition(g.ctx, event.TransactionId, event.OutputIndex)
 	if err != nil {
 		return fmt.Errorf("failed to check confirm condition. (transactionId: %d): %w", event.TransactionId.Int64(), err)
 	}
@@ -486,8 +484,8 @@ func (g *Guardian) tryConfirmRequestDeletionTx(event *bindings.SecurityCouncilDe
 	return nil
 }
 
-func (g *Guardian) checkConfirmCondition(transactionId *big.Int, outputIndex *big.Int) (bool, error) {
-	outputFinalized, err := g.IsOutputFinalized(g.ctx, outputIndex)
+func (g *Guardian) CheckConfirmCondition(ctx context.Context, transactionId *big.Int, outputIndex *big.Int) (bool, error) {
+	outputFinalized, err := g.isOutputFinalized(ctx, outputIndex)
 	if err != nil {
 		return true, fmt.Errorf("failed to get if output is finalized. (outputIndex: %d): %w", outputIndex.Int64(), err)
 	}
@@ -496,7 +494,7 @@ func (g *Guardian) checkConfirmCondition(transactionId *big.Int, outputIndex *bi
 		return false, nil
 	}
 
-	isConfirmed, err := g.isTransactionConfirmed(transactionId)
+	isConfirmed, err := g.isTransactionConfirmed(ctx, transactionId)
 	if err != nil {
 		return true, fmt.Errorf("failed to get confirmation. (transactionId: %d): %w", transactionId.Int64(), err)
 	}
@@ -505,7 +503,7 @@ func (g *Guardian) checkConfirmCondition(transactionId *big.Int, outputIndex *bi
 		return false, nil
 	}
 
-	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	executionTx, err := g.securityCouncilContract.Transactions(optsutils.NewSimpleCallOpts(cCtx), transactionId)
 	if err != nil {
@@ -602,14 +600,14 @@ func (g *Guardian) getL2OutputIndexAfter(l2BlockNumber *big.Int) (*big.Int, erro
 	return g.l2ooContract.GetL2OutputIndexAfter(optsutils.NewSimpleCallOpts(cCtx), l2BlockNumber)
 }
 
-func (g *Guardian) IsOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {
+func (g *Guardian) isOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	return g.l2ooContract.IsFinalized(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 }
 
-func (g *Guardian) isTransactionConfirmed(transactionId *big.Int) (bool, error) {
-	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+func (g *Guardian) isTransactionConfirmed(ctx context.Context, transactionId *big.Int) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	return g.securityCouncilContract.IsConfirmed(optsutils.NewSimpleCallOpts(cCtx), transactionId)
 }
