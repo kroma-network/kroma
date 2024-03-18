@@ -4,7 +4,6 @@ pragma solidity 0.8.15;
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { Constants } from "../libraries/Constants.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
@@ -72,6 +71,11 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
      *         Note that there are two submission rounds for an output: PRIORITY ROUND and PUBLIC ROUND.
      */
     uint256 public immutable ROUND_DURATION;
+
+    /**
+     * @notice The L2 block number where the validator system hardfork begins.
+     */
+    uint256 public immutable VALIDATOR_HARDFORK_BLOCK;
 
     /**
      * @notice A mapping of balances.
@@ -174,20 +178,21 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
     }
     /**
      * @notice Semantic version.
-     * @custom:semver 1.0.1
+     * @custom:semver 1.1.1
      */
-    string public constant version = "1.0.1";
+    string public constant version = "1.1.1";
 
     /**
      * @notice Constructs the ValidatorPool contract.
      *
-     * @param _l2OutputOracle     Address of the L2OutputOracle.
-     * @param _portal             Address of the KromaPortal.
-     * @param _securityCouncil    Address of the security council.
-     * @param _trustedValidator   Address of the trusted validator.
-     * @param _requiredBondAmount The required bond amount.
-     * @param _maxUnbond          The max number of unbonds when trying unbond.
-     * @param _roundDuration      The duration of one submission round in seconds.
+     * @param _l2OutputOracle         Address of the L2OutputOracle.
+     * @param _portal                 Address of the KromaPortal.
+     * @param _securityCouncil        Address of the security council.
+     * @param _trustedValidator       Address of the trusted validator.
+     * @param _requiredBondAmount     The required bond amount.
+     * @param _maxUnbond              The max number of unbonds when trying unbond.
+     * @param _roundDuration          The duration of one submission round in seconds.
+     * @param _validatorHardforkBlock The L2 block number where the validator hardfork begins.
      */
     constructor(
         L2OutputOracle _l2OutputOracle,
@@ -196,7 +201,8 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
         address _trustedValidator,
         uint256 _requiredBondAmount,
         uint256 _maxUnbond,
-        uint256 _roundDuration
+        uint256 _roundDuration,
+        uint256 _validatorHardforkBlock
     ) {
         L2_ORACLE = _l2OutputOracle;
         PORTAL = _portal;
@@ -204,6 +210,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
         TRUSTED_VALIDATOR = _trustedValidator;
         REQUIRED_BOND_AMOUNT = uint128(_requiredBondAmount);
         MAX_UNBOND = _maxUnbond;
+        VALIDATOR_HARDFORK_BLOCK = _validatorHardforkBlock;
 
         // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
         ROUND_DURATION = _roundDuration;
@@ -222,6 +229,11 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
      * @notice Deposit ETH to be used as bond.
      */
     function deposit() external payable {
+        require(
+            block.timestamp < L2_ORACLE.computeL2Timestamp(VALIDATOR_HARDFORK_BLOCK),
+            "ValidatorPool: only can deposit to ValidatorPool before validator hardfork"
+        );
+
         _increaseBalance(msg.sender, msg.value);
     }
 
@@ -280,7 +292,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
         emit Bonded(submitter, _outputIndex, REQUIRED_BOND_AMOUNT, _expiresAt);
 
         // Select the next priority validator
-        _updatePriorityValidator();
+        _updatePriorityValidator(_outputIndex);
     }
 
     /**
@@ -402,6 +414,10 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
             unchecked {
                 nextUnbondOutputIndex = outputIndex;
             }
+
+            // Set the latest finalized output index in L2OutputOracle.
+            L2_ORACLE.setLatestFinalizedOutputIndex(outputIndex - 1);
+
             return true;
         }
 
@@ -410,10 +426,20 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
 
     /**
      * @notice Updates next priority validator address.
+     *         Note that it updates next priority validator for the outputs after validator hardfork
+     *         to zero address, which means trusted validator.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output submitted at this time.
      */
-    function _updatePriorityValidator() private {
+    function _updatePriorityValidator(uint256 _outputIndex) private {
         uint256 len = validators.length;
-        if (len > 0 && nextUnbondOutputIndex > 0) {
+        if (
+            len > 0 &&
+            nextUnbondOutputIndex > 0 &&
+            _outputIndex <
+            (VALIDATOR_HARDFORK_BLOCK - L2_ORACLE.startingBlockNumber()) /
+                L2_ORACLE.SUBMISSION_INTERVAL()
+        ) {
             // TODO(pangssu): improve next validator selection
             Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(nextUnbondOutputIndex - 1);
             uint256 validatorIndex = uint256(
@@ -589,5 +615,23 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
         } else {
             return TRUSTED_VALIDATOR;
         }
+    }
+
+    /**
+     * @notice Determines whether the given output index must not interact with ValidatorPool.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     *
+     * @return Whether the given output index must not interact with ValidatorPool.
+     */
+    function isTerminated(uint256 _outputIndex) external view returns (bool) {
+        return
+            _outputIndex >
+            (VALIDATOR_HARDFORK_BLOCK -
+                L2_ORACLE.startingBlockNumber() +
+                L2_ORACLE.FINALIZATION_PERIOD_SECONDS() /
+                L2_ORACLE.L2_BLOCK_TIME()) /
+                L2_ORACLE.SUBMISSION_INTERVAL() +
+                1;
     }
 }
