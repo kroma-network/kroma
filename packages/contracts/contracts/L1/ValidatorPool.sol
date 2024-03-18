@@ -4,7 +4,6 @@ pragma solidity 0.8.15;
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { Constants } from "../libraries/Constants.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
@@ -72,6 +71,12 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
      *         Note that there are two submission rounds for an output: PRIORITY ROUND and PUBLIC ROUND.
      */
     uint256 public immutable ROUND_DURATION;
+
+    /**
+     * @notice The output index where ValidatorPool is terminated after. Validator system is
+     *         upgraded to ValidatorManager.
+     */
+    uint256 public immutable TERMINATE_OUTPUT_INDEX;
 
     /**
      * @notice A mapping of balances.
@@ -174,20 +179,21 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
     }
     /**
      * @notice Semantic version.
-     * @custom:semver 1.0.1
+     * @custom:semver 1.1.1
      */
-    string public constant version = "1.0.1";
+    string public constant version = "1.1.1";
 
     /**
      * @notice Constructs the ValidatorPool contract.
      *
-     * @param _l2OutputOracle     Address of the L2OutputOracle.
-     * @param _portal             Address of the KromaPortal.
-     * @param _securityCouncil    Address of the security council.
-     * @param _trustedValidator   Address of the trusted validator.
-     * @param _requiredBondAmount The required bond amount.
-     * @param _maxUnbond          The max number of unbonds when trying unbond.
-     * @param _roundDuration      The duration of one submission round in seconds.
+     * @param _l2OutputOracle       Address of the L2OutputOracle.
+     * @param _portal               Address of the KromaPortal.
+     * @param _securityCouncil      Address of the security council.
+     * @param _trustedValidator     Address of the trusted validator.
+     * @param _requiredBondAmount   The required bond amount.
+     * @param _maxUnbond            The max number of unbonds when trying unbond.
+     * @param _roundDuration        The duration of one submission round in seconds.
+     * @param _terminateOutputIndex The output index where ValidatorPool is terminated after.
      */
     constructor(
         L2OutputOracle _l2OutputOracle,
@@ -196,7 +202,8 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
         address _trustedValidator,
         uint256 _requiredBondAmount,
         uint256 _maxUnbond,
-        uint256 _roundDuration
+        uint256 _roundDuration,
+        uint256 _terminateOutputIndex
     ) {
         L2_ORACLE = _l2OutputOracle;
         PORTAL = _portal;
@@ -204,6 +211,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
         TRUSTED_VALIDATOR = _trustedValidator;
         REQUIRED_BOND_AMOUNT = uint128(_requiredBondAmount);
         MAX_UNBOND = _maxUnbond;
+        TERMINATE_OUTPUT_INDEX = _terminateOutputIndex;
 
         // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
         ROUND_DURATION = _roundDuration;
@@ -219,9 +227,19 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
     }
 
     /**
-     * @notice Deposit ETH to be used as bond.
+     * @notice Deposit ETH to be used as bond. Note that deposit after termination is not allowed.
      */
     function deposit() external payable {
+        require(
+            block.timestamp <
+                L2_ORACLE.computeL2Timestamp(
+                    L2_ORACLE.startingBlockNumber() +
+                        (TERMINATE_OUTPUT_INDEX + 1) *
+                        L2_ORACLE.SUBMISSION_INTERVAL()
+                ),
+            "ValidatorPool: only can deposit to ValidatorPool before terminated"
+        );
+
         _increaseBalance(msg.sender, msg.value);
     }
 
@@ -402,6 +420,10 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
             unchecked {
                 nextUnbondOutputIndex = outputIndex;
             }
+
+            // Set the latest finalized output index in L2OutputOracle.
+            L2_ORACLE.setLatestFinalizedOutputIndex(outputIndex - 1);
+
             return true;
         }
 
@@ -522,11 +544,10 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
      *
      * @return Amount of the pending bond.
      */
-    function getPendingBond(uint256 _outputIndex, address _challenger)
-        external
-        view
-        returns (uint128)
-    {
+    function getPendingBond(
+        uint256 _outputIndex,
+        address _challenger
+    ) external view returns (uint128) {
         uint128 pendingBond = pendingBonds[_outputIndex][_challenger];
         require(pendingBond > 0, "ValidatorPool: the pending bond does not exist");
         return pendingBond;
@@ -590,5 +611,16 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
         } else {
             return TRUSTED_VALIDATOR;
         }
+    }
+
+    /**
+     * @notice Determines whether the given output index must not interact with ValidatorPool.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     *
+     * @return Whether the given output index must not interact with ValidatorPool.
+     */
+    function isTerminated(uint256 _outputIndex) external view returns (bool) {
+        return _outputIndex > TERMINATE_OUTPUT_INDEX;
     }
 }

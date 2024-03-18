@@ -4,13 +4,18 @@ pragma solidity 0.8.15;
 /* Testing utilities */
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { Test, StdUtils } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
 import { SecurityCouncilToken } from "../governance/SecurityCouncilToken.sol";
 import { TimeLock } from "../governance/TimeLock.sol";
 import { UpgradeGovernor } from "../governance/UpgradeGovernor.sol";
+import { AssetManager } from "../L1/AssetManager.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
+import { IValidatorManager } from "../L1/IValidatorManager.sol";
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
@@ -18,6 +23,7 @@ import { L1StandardBridge } from "../L1/L1StandardBridge.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { SecurityCouncil } from "../L1/SecurityCouncil.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
+import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { SystemConfig } from "../L1/SystemConfig.sol";
 import { ZKMerkleTrie } from "../L1/ZKMerkleTrie.sol";
@@ -30,11 +36,10 @@ import { CodeDeployer } from "../libraries/CodeDeployer.sol";
 import { Constants } from "../libraries/Constants.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
+import { IKGHManager } from "../universal/IKGHManager.sol";
 import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
-import { KromaMintableERC721Factory } from "../universal/KromaMintableERC721Factory.sol";
 import { Proxy } from "../universal/Proxy.sol";
-import { ProxyAdmin } from "../universal/ProxyAdmin.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 
 contract CommonTest is Test {
@@ -101,7 +106,6 @@ contract CommonTest is Test {
 }
 
 contract UpgradeGovernor_Initializer is CommonTest {
-    address superAdmin = makeAddr("superAdmin");
     address owner = makeAddr("owner");
 
     // Constructor arguments
@@ -175,14 +179,41 @@ contract UpgradeGovernor_Initializer is CommonTest {
     }
 }
 
+contract MockKro is ERC20 {
+    constructor() ERC20("Kroma", "KRO") {}
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+}
+
+contract MockKgh is ERC721 {
+    constructor() ERC721("Test", "TST") {}
+
+    function mint(address to, uint256 tokenId) external {
+        _mint(to, tokenId);
+    }
+}
+
+contract MockKghManager is IKGHManager {
+    function totalKroInKgh(uint256 /* tokenId */) external pure override returns (uint128) {
+        return 100e18;
+    }
+}
+
 contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     // Test target
     ValidatorPool pool;
     ValidatorPool poolImpl;
+    AssetManager assetMan;
+    AssetManager assetManImpl;
+    ValidatorManager valMan;
+    ValidatorManager valManImpl;
     L2OutputOracle oracle;
     L2OutputOracle oracleImpl;
     Colosseum colosseum;
     SystemConfig systemConfig;
+    KromaPortal mockPortal;
 
     L2ToL1MessagePasser messagePasser =
         L2ToL1MessagePasser(payable(Predeploys.L2_TO_L1_MESSAGE_PASSER));
@@ -192,6 +223,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint256 internal l2BlockTime = 2;
     uint256 internal startingBlockNumber = 10;
     uint256 internal startingTimestamp = 1000;
+    uint256 internal finalizationPeriodSeconds = 7 days;
     address internal guardian = 0x000000000000000000000000000000000000AaaD;
 
     // ValidatorPool constructor arguments
@@ -199,6 +231,25 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint256 internal requiredBondAmount = 0.1 ether;
     uint256 internal maxUnbond = 2;
     uint256 internal roundDuration = (submissionInterval * l2BlockTime) / 2;
+    uint256 internal terminateOutputIndex = 300; // just large enough value, set again in upgrade test
+
+    // AssetManager constructor arguments
+    MockKro assetToken;
+    MockKgh kgh;
+    MockKghManager kghManager;
+    uint256 internal undelegationPeriod = 7 days;
+    uint128 internal slashingRate = 20;
+    uint128 internal minSlashingAmount = 1e18;
+
+    // ValidatorManager constructor arguments
+    uint128 internal commissionRateMinChangeSeconds = 7 days;
+    uint128 internal jailPeriodSeconds = 7 days;
+    uint128 internal jailThreshold = 2;
+    uint128 internal maxOutputFinalizations = 10;
+    uint128 internal baseReward = 20e18;
+    uint128 internal minRegisterAmount = 10e18;
+    uint128 internal minStartAmount = 100e18;
+    IValidatorManager.ConstructorParams constructorParams;
 
     // Test data
     address internal asserter = 0x000000000000000000000000000000000000aAaB;
@@ -219,9 +270,27 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         vm.warp(oracle.nextOutputMinL2Timestamp());
     }
 
+    function _registerValidator(address validator, uint128 assets) internal {
+        vm.startPrank(validator);
+        assetToken.approve(address(assetMan), uint256(assets));
+        valMan.registerValidator(assets, 10, 5);
+        vm.stopPrank();
+    }
+
     function setUp() public virtual override {
         super.setUp();
 
+        // Set up asset token and give actors some amount
+        assetToken = new MockKro();
+        assetToken.mint(trusted, minStartAmount * 10);
+        assetToken.mint(asserter, minStartAmount * 10);
+        assetToken.mint(challenger, minStartAmount * 10);
+
+        // Set up KGH and KGHManager
+        kgh = new MockKgh();
+        kghManager = new MockKghManager();
+
+        // Give actors some ETH
         vm.deal(trusted, requiredBondAmount * 10);
         vm.deal(asserter, requiredBondAmount * 10);
         vm.deal(challenger, requiredBondAmount * 10);
@@ -229,6 +298,10 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         // Deploy proxies
         pool = ValidatorPool(address(new Proxy(multisig)));
         vm.label(address(pool), "ValidatorPool");
+        assetMan = AssetManager(address(new Proxy(multisig)));
+        vm.label(address(assetMan), "AssetManager");
+        valMan = ValidatorManager(address(new Proxy(multisig)));
+        vm.label(address(valMan), "ValidatorManager");
         oracle = L2OutputOracle(address(new Proxy(multisig)));
         vm.label(address(oracle), "L2OutputOracle");
 
@@ -245,7 +318,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         });
 
         // Mock KromaPortal
-        KromaPortal mockPortal = new KromaPortal({
+        mockPortal = new KromaPortal({
             _l2Oracle: oracle,
             _validatorPool: address(pool),
             _guardian: guardian,
@@ -262,8 +335,37 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _trustedValidator: trusted,
             _requiredBondAmount: requiredBondAmount,
             _maxUnbond: maxUnbond,
-            _roundDuration: roundDuration
+            _roundDuration: roundDuration,
+            _terminateOutputIndex: terminateOutputIndex
         });
+
+        // Deploy the AssetManager
+        assetManImpl = new AssetManager({
+            _assetToken: IERC20(assetToken),
+            _kgh: IERC721(kgh),
+            _kghManager: IKGHManager(kghManager),
+            _securityCouncil: guardian,
+            _validatorManager: valMan,
+            _undelegationPeriod: uint128(undelegationPeriod),
+            _slashingRate: slashingRate,
+            _minSlashingAmount: minSlashingAmount
+        });
+
+        // Deploy the ValidatorManager
+        constructorParams = IValidatorManager.ConstructorParams({
+            _l2Oracle: oracle,
+            _assetManager: assetMan,
+            _trustedValidator: trusted,
+            _commissionRateMinChangeSeconds: commissionRateMinChangeSeconds,
+            _roundDurationSeconds: uint128(roundDuration),
+            _jailPeriodSeconds: jailPeriodSeconds,
+            _jailThreshold: jailThreshold,
+            _maxOutputFinalizations: maxOutputFinalizations,
+            _baseReward: baseReward,
+            _minRegisterAmount: minRegisterAmount,
+            _minStartAmount: minStartAmount
+        });
+        valManImpl = new ValidatorManager({ _constructorParams: constructorParams });
 
         // By default the first block has timestamp and number zero, which will cause underflows in
         // the tests, so we'll move forward to these block values.
@@ -273,19 +375,26 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         // Deploy the L2OutputOracle
         oracleImpl = new L2OutputOracle({
             _validatorPool: pool,
+            _validatorManager: valMan,
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: startingTimestamp,
-            _finalizationPeriodSeconds: 7 days
+            _finalizationPeriodSeconds: finalizationPeriodSeconds
         });
 
         vm.prank(multisig);
         Proxy(payable(address(pool))).upgradeToAndCall(
             address(poolImpl),
-            abi.encodeWithSelector(ValidatorPool.initialize.selector, false)
+            abi.encodeWithSelector(ValidatorPool.initialize.selector)
         );
+
+        vm.prank(multisig);
+        Proxy(payable(address(assetMan))).upgradeTo(address(assetManImpl));
+
+        vm.prank(multisig);
+        Proxy(payable(address(valMan))).upgradeTo(address(valManImpl));
 
         vm.prank(multisig);
         Proxy(payable(address(oracle))).upgradeToAndCall(
@@ -297,6 +406,48 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         vm.etch(Predeploys.L2_TO_L1_MESSAGE_PASSER, address(new L2ToL1MessagePasser()).code);
 
         vm.label(Predeploys.L2_TO_L1_MESSAGE_PASSER, "L2ToL1MessagePasser");
+    }
+}
+
+contract L2OutputOracle_ValidatorSystemUpgrade_Initializer is L2OutputOracle_Initializer {
+    uint256 finalizationPeriodOutputNum;
+
+    function setUp() public virtual override {
+        super.setUp();
+
+        // last output index of ValidatorPool is 3, first output index of ValidatorManager is 4
+        terminateOutputIndex = 3;
+        finalizationPeriodSeconds = 2 hours;
+
+        oracleImpl = new L2OutputOracle({
+            _validatorPool: pool,
+            _validatorManager: valMan,
+            _colosseum: address(colosseum),
+            _submissionInterval: submissionInterval,
+            _l2BlockTime: l2BlockTime,
+            _startingBlockNumber: startingBlockNumber,
+            _startingTimestamp: startingTimestamp,
+            _finalizationPeriodSeconds: finalizationPeriodSeconds
+        });
+        vm.prank(multisig);
+        Proxy(payable(address(oracle))).upgradeTo(address(oracleImpl));
+
+        poolImpl = new ValidatorPool({
+            _l2OutputOracle: oracle,
+            _portal: mockPortal,
+            _securityCouncil: guardian,
+            _trustedValidator: trusted,
+            _requiredBondAmount: requiredBondAmount,
+            _maxUnbond: maxUnbond,
+            _roundDuration: roundDuration,
+            _terminateOutputIndex: terminateOutputIndex
+        });
+        vm.prank(multisig);
+        Proxy(payable(address(pool))).upgradeTo(address(poolImpl));
+
+        finalizationPeriodOutputNum =
+            oracle.FINALIZATION_PERIOD_SECONDS() /
+            (oracle.SUBMISSION_INTERVAL() * oracle.L2_BLOCK_TIME());
     }
 }
 
