@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	gstate "github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 )
 
 var (
@@ -108,39 +108,90 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 		return fmt.Errorf("portal proxy doesn't exist at %s", deployments.KromaPortalProxy)
 	}
 
-	layout, err := bindings.GetStorageLayout("KromaPortal")
+	// [Kroma: START]
+	slot, err := getStorageSlot("KromaPortal", "params")
 	if err != nil {
-		return errors.New("failed to get storage layout for KromaPortal")
+		return err
 	}
-
-	entry, err := layout.GetStorageLayoutEntry("params")
-	if err != nil {
-		return errors.New("failed to get storage layout entry for KromaPortal.params")
-	}
-	slot := common.BigToHash(big.NewInt(int64(entry.Slot)))
 
 	stateDB.SetState(deployments.KromaPortalProxy, slot, common.Hash{})
-	log.Info("Post process update", "address", deployments.KromaPortalProxy, "slot", slot.Hex(), "value", common.Hash{}.Hex())
+	log.Info("Post process update", "name", "KromaPortal", "address", deployments.KromaPortalProxy, "slot", slot.Hex(), "value", common.Hash{}.Hex())
 
-	// [Kroma: START] Transfer ownership of SystemConfig to ProxyAdminOwner for test
+	// Transfer ownership of SystemConfig to ProxyAdminOwner for test
 	if !stateDB.Exist(deployments.SystemConfigProxy) {
 		return fmt.Errorf("sysCfg proxy doesn't exist at %s", deployments.SystemConfigProxy)
 	}
 
-	layout, err = bindings.GetStorageLayout("SystemConfig")
+	slot, err = getStorageSlot("SystemConfig", "_owner")
 	if err != nil {
-		return errors.New("failed to get storage layout for SystemConfig")
+		return err
 	}
 
-	entry, err = layout.GetStorageLayoutEntry("_owner")
-	if err != nil {
-		return errors.New("failed to get storage layout entry for SystemConfig._owner")
-	}
-	slot = common.BigToHash(big.NewInt(int64(entry.Slot)))
 	val := stateDB.GetState(deployments.ProxyAdmin, common.BigToHash(common.Big0))
-
 	stateDB.SetState(deployments.SystemConfigProxy, slot, val)
-	log.Info("Post process update", "address", deployments.SystemConfigProxy, "slot", slot.Hex(), "value", val.Hex())
-	// [Kroma: END]
+	log.Info("Post process update", "name", "SystemConfig", "address", deployments.SystemConfigProxy, "slot", slot.Hex(), "value", val.Hex())
+
+	// Change the key of _quorumNumeratorHistory in UpgradeGovernor to 1 which means that quorumNumerator has been set at L1 block number 1 for guardian test
+	if !stateDB.Exist(deployments.UpgradeGovernorProxy) {
+		return fmt.Errorf("upgardeGovernor proxy doesn't exist at %s", deployments.UpgradeGovernorProxy)
+	}
+
+	slot, err = getStorageSlot("UpgradeGovernor", "_quorumNumeratorHistory")
+	if err != nil {
+		return err
+	}
+	slot = crypto.Keccak256Hash(slot.Bytes())
+
+	beforeVal := stateDB.GetState(deployments.UpgradeGovernorProxy, slot)
+	checkpointVal := make([]byte, 28)
+	copy(checkpointVal, beforeVal[:28])
+	checkpointKey := [4]byte{}
+	checkpointKey[3] = 0x01
+	val = common.BytesToHash(append(checkpointVal, checkpointKey[:]...))
+
+	stateDB.SetState(deployments.UpgradeGovernorProxy, slot, val)
+	log.Info("Post process update", "name", "UpgradeGovernor", "address", deployments.UpgradeGovernorProxy, "slot", slot.Hex(), "beforeVal", beforeVal.Hex(), "afterVal", val.Hex())
+
+	// Change the keys of _totalCheckpoints in SecurityCouncilToken to 1 which means that tokens have been minted at L1 block number 1 for guardian test
+	if !stateDB.Exist(deployments.SecurityCouncilTokenProxy) {
+		return fmt.Errorf("securityCouncilToken proxy doesn't exist at %s", deployments.SecurityCouncilTokenProxy)
+	}
+
+	slot, err = getStorageSlot("SecurityCouncilToken", "_totalCheckpoints")
+	if err != nil {
+		return err
+	}
+	startSlot := new(big.Int).SetBytes(crypto.Keccak256(slot.Bytes()))
+
+	mintedNum := stateDB.GetState(deployments.SecurityCouncilTokenProxy, slot).Big().Uint64()
+	for i := 0; uint64(i) < mintedNum; i++ {
+		slot = common.BigToHash(new(big.Int).Add(startSlot, big.NewInt(int64(i))))
+
+		beforeVal = stateDB.GetState(deployments.SecurityCouncilTokenProxy, slot)
+		checkpointVal = make([]byte, 28)
+		copy(checkpointVal, beforeVal[:28])
+		checkpointKey = [4]byte{}
+		checkpointKey[3] = 0x01
+		val = common.BytesToHash(append(checkpointVal, checkpointKey[:]...))
+
+		stateDB.SetState(deployments.SecurityCouncilTokenProxy, slot, val)
+		log.Info("Post process update", "name", "SecurityCouncilToken", "address", deployments.SecurityCouncilTokenProxy, "slot", slot.Hex(), "beforeVal", beforeVal.Hex(), "afterVal", val.Hex())
+	}
 	return nil
 }
+
+func getStorageSlot(contractName, entryName string) (common.Hash, error) {
+	layout, err := bindings.GetStorageLayout(contractName)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to get storage layout for %s", contractName)
+	}
+
+	entry, err := layout.GetStorageLayoutEntry(entryName)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to get storage layout entry for %s.%s", contractName, entryName)
+	}
+
+	return common.BigToHash(big.NewInt(int64(entry.Slot))), nil
+}
+
+// [Kroma: END]

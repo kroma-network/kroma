@@ -10,27 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
-
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
-
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	gethutils "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -45,7 +26,24 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/op-e2e/testdata"
@@ -1061,7 +1059,6 @@ func TestL1InfoContract(t *testing.T) {
 	checkInfoList("On sequencer with state", l1InfosFromSequencerState)
 	checkInfoList("On verifier with tx", l1InfosFromVerifierTransactions)
 	checkInfoList("On verifier with state", l1InfosFromVerifierState)
-
 }
 
 // calcGasFees determines the actual cost of the transaction given a specific basefee
@@ -1467,12 +1464,12 @@ func TestChallenge(t *testing.T) {
 	require.NoError(t, err)
 
 	// SecurityCouncil is already deployed
-	securityCouncil, err := bindings.NewSecurityCouncilCaller(cfg.L1Deployments.SecurityCouncilProxy, l1Client)
+	securityCouncil, err := bindings.NewSecurityCouncil(cfg.L1Deployments.SecurityCouncilProxy, l1Client)
 	require.NoError(t, err)
 
 	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
 
-	// set a timeout for one cycle of challenge
+	// set a timeout for waiting READY_TO_PROVE of challenge
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
 	defer cancel()
 
@@ -1496,14 +1493,16 @@ func TestChallenge(t *testing.T) {
 	}
 	cancel()
 
-	// set a timeout for security council to validate output
-	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	// set a timeout for security council to validate output (provingTimeout + buffer)
+	provingTimeout, err := colosseum.PROVINGTIMEOUT(&bind.CallOpts{})
+	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(provingTimeout.Uint64()+5)*time.Second)
 	defer cancel()
 
-	for ; ; <-ticker.C {
+	for numCheck := 0; ; <-ticker.C {
 		select {
 		case <-ctx.Done():
-			// after security council timed out, the challenge is regarded to be correct
+			// after enough time for security council elapsed, the challenge is regarded to be correct
+			require.True(t, numCheck >= 5, "at least 5 sec should be elapsed after challenge succeed")
 			return
 		default:
 			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), cfg.Secrets.Addresses().Challenger1)
@@ -1511,24 +1510,34 @@ func TestChallenge(t *testing.T) {
 
 			// after challenge is proven, status is NONE
 			if challengeStatus == chal.StatusNone {
-				// check tx not executed
-				tx, err := securityCouncil.Transactions(&bind.CallOpts{}, new(big.Int).SetUint64(0))
+				// check validation request tx exists and not executed
+				toBlock := latestBlock(t, l1Client)
+				iter, err := securityCouncil.FilterValidationRequested(&bind.FilterOpts{End: &toBlock}, nil)
 				require.NoError(t, err)
+				eventExists := iter.Next()
+				require.True(t, eventExists)
+				tx, err := securityCouncil.Transactions(&bind.CallOpts{}, iter.Event.TransactionId)
+				require.NoError(t, err)
+				eventExists = iter.Next()
+				require.False(t, eventExists)
+				err = iter.Close()
+				require.NoError(t, err)
+				require.NotEqual(t, tx.Target, common.Address{})
 				require.False(t, tx.Executed)
 
 				// check output is deleted by challenger
 				output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
 				require.NoError(t, err)
 				require.Equal(t, output.Submitter, cfg.Secrets.Addresses().Challenger1)
-				outputDeleted := val.IsOutputDeleted(output.OutputRoot)
-				require.True(t, outputDeleted)
+				require.True(t, val.IsOutputDeleted(output.OutputRoot))
+
+				numCheck++
+				if numCheck >= 5 {
+					return
+				}
 			}
 		}
 	}
-}
-
-func safeAddBig(a *big.Int, b *big.Int) *big.Int {
-	return new(big.Int).Add(a, b)
 }
 
 func TestBatcherMultiTx(t *testing.T) {
