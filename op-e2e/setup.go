@@ -102,6 +102,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	e2eutils.ApplyDeployConfigForks(deployConfig)
 	// [Kroma: START]
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
+	deployConfig.MintManagerMintActivatedBlock = nil
 	// [Kroma: END]
 	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")
 	l1Deployments := config.L1Deployments.Copy()

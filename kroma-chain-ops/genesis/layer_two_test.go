@@ -90,7 +90,7 @@ func TestBuildL2MainnetGenesis(t *testing.T) {
 	config.EnableGovernance = true
 	config.FundDevAccounts = false
 	gen := testBuildL2Genesis(t, config)
-	require.Equal(t, 536, len(gen.Alloc))
+	require.Equal(t, 538, len(gen.Alloc))
 }
 
 func TestBuildL2MainnetNoGovernanceGenesis(t *testing.T) {
