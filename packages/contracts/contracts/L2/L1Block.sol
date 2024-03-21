@@ -3,6 +3,8 @@ pragma solidity 0.8.15;
 
 import { Constants } from "../libraries/Constants.sol";
 import { ISemver } from "../universal/ISemver.sol";
+import { Predeploys } from "../libraries/Predeploys.sol";
+import { SafeCall } from "../libraries/SafeCall.sol";
 
 /// @custom:proxied
 /// @custom:predeploy 0x4200000000000000000000000000000000000002
@@ -11,6 +13,7 @@ import { ISemver } from "../universal/ISemver.sol";
 ///         Values within this contract are updated once per epoch (every L1 block) and can only be
 ///         set by the "depositor" account, a special system address. Depositor account transactions
 ///         are created by the protocol whenever we move to a new epoch.
+///         This contract calls MintManager to mint governance tokens.
 contract L1Block is ISemver {
     /// @notice Address of the special depositor account.
     address public constant DEPOSITOR_ACCOUNT = 0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001;
@@ -60,6 +63,7 @@ contract L1Block is ISemver {
 
     /// @custom:legacy
     /// @notice Updates the L1 block values.
+    ///         After updating, call the mint function of MintManager to mint GovernanceToken.
     /// @param _number                L1 blocknumber.
     /// @param _timestamp             L1 timestamp.
     /// @param _basefee               L1 basefee.
@@ -80,7 +84,7 @@ contract L1Block is ISemver {
         uint256 _l1FeeScalar,
         uint256 _validatorRewardScalar
     )
-        external
+    external
     {
         require(msg.sender == DEPOSITOR_ACCOUNT, "L1Block: only the depositor account can set L1 block values");
 
@@ -98,6 +102,10 @@ contract L1Block is ISemver {
         l1FeeOverhead = _l1FeeOverhead;
         l1FeeScalar = _l1FeeScalar;
         validatorRewardScalar = _validatorRewardScalar;
+
+        // Call MintManager to mint governance tokens. Note that SafeCall is used to call the mint function,
+        // ensuring that the L1 block values are updated even if a revert occurs in the MintManager contract.
+        SafeCall.call(Predeploys.MINT_MANAGER, gasleft(), 0, abi.encodeWithSignature("mint()"));
     }
 
     /// @notice Updates the L1 block values for an Ecotone upgraded chain.
@@ -113,17 +121,18 @@ contract L1Block is ISemver {
     ///   8. _hash                  L1 blockhash.
     ///   9. _batcherHash           Versioned hash to authenticate batcher by.
     ///   10. _validatorRewardScalar Validator reward scalar.
+    /// After updating, call the mint function of MintManager to mint GovernanceToken.
     function setL1BlockValuesEcotone() external {
         assembly {
-            // Revert if the caller is not the depositor account.
+        // Revert if the caller is not the depositor account.
             if xor(caller(), DEPOSITOR_ACCOUNT) {
                 mstore(0x00, 0x3cc50b45) // 0x3cc50b45 is the 4-byte selector of "NotDepositor()"
                 revert(0x1C, 0x04) // returns the stored 4-byte selector from above
             }
             let data := calldataload(4)
-            // sequencenum (uint64), blobBaseFeeScalar (uint32), baseFeeScalar (uint32)
+        // sequencenum (uint64), blobBaseFeeScalar (uint32), baseFeeScalar (uint32)
             sstore(sequenceNumber.slot, shr(128, calldataload(4)))
-            // number (uint64) and timestamp (uint64)
+        // number (uint64) and timestamp (uint64)
             sstore(number.slot, shr(128, calldataload(20)))
             sstore(basefee.slot, calldataload(36)) // uint256
             sstore(blobBaseFee.slot, calldataload(68)) // uint256
@@ -131,5 +140,9 @@ contract L1Block is ISemver {
             sstore(batcherHash.slot, calldataload(132)) // bytes32
             sstore(validatorRewardScalar.slot, calldataload(164)) // uint256
         }
+
+        // Call MintManager to mint governance tokens. Note that SafeCall is used to call the mint function,
+        // ensuring that the L1 block values are updated even if a revert occurs in the MintManager contract.
+        SafeCall.call(Predeploys.MINT_MANAGER, gasleft(), 0, abi.encodeWithSignature("mint()"));
     }
 }

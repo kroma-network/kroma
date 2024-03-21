@@ -17,10 +17,11 @@ const (
 	L1FeeVault                   = "0x4200000000000000000000000000000000000007"
 	ValidatorRewardVault         = "0x4200000000000000000000000000000000000008"
 	L2StandardBridge             = "0x4200000000000000000000000000000000000009"
-	GovernanceToken              = "0x4200000000000000000000000000000000000010"
 	L2ERC721Bridge               = "0x420000000000000000000000000000000000000A"
 	KromaMintableERC20Factory    = "0x420000000000000000000000000000000000000B"
 	KromaMintableERC721Factory   = "0x420000000000000000000000000000000000000C"
+	MintManager                  = "0x4200000000000000000000000000000000000070"
+	GovernanceToken              = "0x42000000000000000000000000000000000000FF"
 	Create2Deployer              = "0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2"
 	MultiCall3                   = "0xcA11bde05977b3631167028862bE2a173976CA11"
 	Safe_v130                    = "0x69f4D1788e39c87893C980c06EdF4b7f686e2938"
@@ -49,6 +50,7 @@ var (
 	L2ERC721BridgeAddr               = common.HexToAddress(L2ERC721Bridge)
 	KromaMintableERC20FactoryAddr    = common.HexToAddress(KromaMintableERC20Factory)
 	KromaMintableERC721FactoryAddr   = common.HexToAddress(KromaMintableERC721Factory)
+	MintManagerAddr                  = common.HexToAddress(MintManager)
 	Create2DeployerAddr              = common.HexToAddress(Create2Deployer)
 	MultiCall3Addr                   = common.HexToAddress(MultiCall3)
 	Safe_v130Addr                    = common.HexToAddress(Safe_v130)
@@ -69,7 +71,9 @@ var (
 func IsProxied(predeployAddr common.Address) bool {
 	switch predeployAddr {
 	case WETH9Addr:
+	/* [Kroma: START]
 	case GovernanceTokenAddr:
+	[Kroma: END] */
 	default:
 		return true
 	}
@@ -88,8 +92,10 @@ func init() {
 	Predeploys["ValidatorRewardVault"] = &oppredeploys.Predeploy{Address: ValidatorRewardVaultAddr}
 	Predeploys["L2StandardBridge"] = &oppredeploys.Predeploy{Address: L2StandardBridgeAddr}
 	Predeploys["GovernanceToken"] = &oppredeploys.Predeploy{
-		Address:       GovernanceTokenAddr,
+		Address: GovernanceTokenAddr,
+		/* [Kroma: START]
 		ProxyDisabled: true,
+		*/
 		Enabled: func(config oppredeploys.DeployConfig) bool {
 			return config.GovernanceEnabled()
 		},
@@ -97,6 +103,12 @@ func init() {
 	Predeploys["L2ERC721Bridge"] = &oppredeploys.Predeploy{Address: L2ERC721BridgeAddr}
 	Predeploys["KromaMintableERC20Factory"] = &oppredeploys.Predeploy{Address: KromaMintableERC20FactoryAddr}
 	Predeploys["KromaMintableERC721Factory"] = &oppredeploys.Predeploy{Address: KromaMintableERC721FactoryAddr}
+	Predeploys["MintManager"] = &oppredeploys.Predeploy{
+		Address: MintManagerAddr,
+		Enabled: func(config oppredeploys.DeployConfig) bool {
+			return config.GovernanceEnabled()
+		},
+	}
 	Predeploys["Create2Deployer"] = &oppredeploys.Predeploy{
 		Address:       Create2DeployerAddr,
 		ProxyDisabled: true,
