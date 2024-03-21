@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gstate "github.com/ethereum/go-ethereum/core/state"
@@ -19,11 +20,11 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
 
 var (
@@ -253,6 +254,21 @@ type DeployConfig struct {
 	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
+
+	// L1GovernanceTokenProxy represents the address of the L1GovernanceTokenProxy on L1.
+	L1GovernanceTokenProxy common.Address `json:"l1GovernanceTokenProxy"`
+	// MintManagerMintActivatedBlock is the number of the L2 block where the mint function is activated.
+	MintManagerMintActivatedBlock *hexutil.Big `json:"mintManagerMintActivatedBlock,omitempty"`
+	// MintManagerInitMintPerBlock is the initial amount of governance tokens minted per block.
+	MintManagerInitMintPerBlock *hexutil.Big `json:"mintManagerInitMintPerBlock,omitempty"`
+	// MintManagerSlidingWindowBlocks is the period (in blocks) which the mint amount per block decreases.
+	MintManagerSlidingWindowBlocks uint64 `json:"mintManagerSlidingWindowBlocks"`
+	// MintManagerDecayingFactor is the ratio by which the mint amount decreases from the previous epoch.
+	MintManagerDecayingFactor uint64 `json:"mintManagerDecayingFactor"`
+	// MintManagerRecipients is an array of recipient addresses to which minted tokens will be distributed.
+	MintManagerRecipients []common.Address `json:"mintManagerRecipients"`
+	// MintManagerShares is an array of each recipient's shares of minted tokens.
+	MintManagerShares []uint64 `json:"mintManagerShares"`
 	// [Kroma: END]
 }
 
@@ -354,8 +370,25 @@ func (d *DeployConfig) Check() error {
 		if d.GovernanceTokenSymbol == "" {
 			return fmt.Errorf("%w: GovernanceToken.symbol cannot be empty", ErrInvalidDeployConfig)
 		}
-		if d.GovernanceTokenOwner == (common.Address{}) {
-			return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
+		// [Kroma: START]
+		// if d.GovernanceTokenOwner == (common.Address{}) {
+		// 	return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
+		// }
+		// [Kroma: END]
+		if d.MintManagerSlidingWindowBlocks == 0 {
+			return fmt.Errorf("%w: MintManagerSlidingWindowBlocks cannot be 0", ErrInvalidDeployConfig)
+		}
+		if d.MintManagerDecayingFactor == 0 {
+			return fmt.Errorf("%w: MintManagerDecayingFactor cannot be 0", ErrInvalidDeployConfig)
+		}
+		if d.MintManagerDecayingFactor > 100000 {
+			return fmt.Errorf("%w: MintManagerDecayingFactor cannot be greater than 100000", ErrInvalidDeployConfig)
+		}
+		if len(d.MintManagerRecipients) == 0 {
+			return fmt.Errorf("%w: MintManagerRecipients array cannot be empty", ErrInvalidDeployConfig)
+		}
+		if len(d.MintManagerRecipients) != len(d.MintManagerShares) {
+			return fmt.Errorf("%w: MintManagerRecipients and MintManagerShares must be the same length", ErrInvalidDeployConfig)
 		}
 	}
 	// L2 block time must always be smaller than L1 block time
@@ -451,6 +484,12 @@ func (d *DeployConfig) CheckAddresses() error {
 	if d.KromaPortalProxy == (common.Address{}) {
 		return fmt.Errorf("%w: KromaPortalProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
+
+	// [Kroma: START]
+	if d.L1GovernanceTokenProxy == (common.Address{}) {
+		return fmt.Errorf("%w: L1GovernanceTokenProxy cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	// [Kroma: END]
 	return nil
 }
 
@@ -464,6 +503,7 @@ func (d *DeployConfig) SetDeployments(deployments *L1Deployments) {
 
 	// [Kroma: START]
 	d.ValidatorPoolProxy = deployments.ValidatorPoolProxy
+	d.L1GovernanceTokenProxy = deployments.L1GovernanceTokenProxy
 	// [Kroma: END]
 }
 
@@ -510,6 +550,7 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 		d.KromaPortalProxy = kromaPortalProxyDeployment.Address
 	}
 
+	// [Kroma: START]
 	if d.ValidatorPoolProxy == (common.Address{}) {
 		validatorPoolProxyDeployment, err := hh.GetDeployment("ValidatorPoolProxy")
 		if err != nil {
@@ -517,6 +558,15 @@ func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
 		}
 		d.ValidatorPoolProxy = validatorPoolProxyDeployment.Address
 	}
+
+	if d.L1GovernanceTokenProxy == (common.Address{}) {
+		L1GovernanceTokenProxyDeployment, err := hh.GetDeployment("L1GovernanceTokenProxy")
+		if err != nil {
+			return fmt.Errorf("cannot find L1GovernanceTokenProxy artifact: %w", err)
+		}
+		d.L1GovernanceTokenProxy = L1GovernanceTokenProxyDeployment.Address
+	}
+	// [Kroma: END]
 
 	return nil
 }
@@ -694,6 +744,8 @@ type L1Deployments struct {
 	// [Kroma: START]
 	Colosseum                 common.Address `json:"Colosseum"`
 	ColosseumProxy            common.Address `json:"ColosseumProxy"`
+	L1GovernanceToken         common.Address `json:"L1GovernanceToken"`
+	L1GovernanceTokenProxy    common.Address `json:"L1GovernanceTokenProxy"`
 	Poseidon2                 common.Address `json:"Poseidon2"`
 	SecurityCouncil           common.Address `json:"SecurityCouncil"`
 	SecurityCouncilProxy      common.Address `json:"SecurityCouncilProxy"`
@@ -820,6 +872,21 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 
 	rewardDivider := config.FinalizationPeriodSeconds / (config.L2OutputOracleSubmissionInterval * config.L2BlockTime)
 
+	// Set the default value for the initial mint amount per block.
+	initMintPerBlock := big.NewInt(1e18)
+	if config.MintManagerInitMintPerBlock != nil {
+		v := new(big.Int).Set(config.MintManagerInitMintPerBlock.ToInt())
+		if v.Uint64() > 0 {
+			initMintPerBlock = v
+		}
+	}
+
+	// Set the default value for the block where the mint function is activated.
+	mintActivatedBlock := abi.MaxUint256
+	if config.MintManagerMintActivatedBlock != nil {
+		mintActivatedBlock = new(big.Int).Set(config.MintManagerMintActivatedBlock.ToInt())
+	}
+
 	cfg := immutables.PredeploysImmutableConfig{
 		L2ToL1MessagePasser: struct{}{},
 		// [Kroma: START]
@@ -840,11 +907,19 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 			// Messenger:   predeploys.L2CrossDomainMessengerAddr,
 			// [Kroma: END]
 		},
-		L1BlockNumber:   struct{}{},
-		GasPriceOracle:  struct{}{},
-		L1Block:         struct{}{},
-		GovernanceToken: struct{}{},
+		L1BlockNumber:  struct{}{},
+		GasPriceOracle: struct{}{},
+		L1Block:        struct{}{},
 		// [Kroma: START]
+		GovernanceToken: struct {
+			Bridge      common.Address
+			RemoteToken common.Address
+			MintManager common.Address
+		}{
+			Bridge:      predeploys.L2StandardBridgeAddr,
+			RemoteToken: config.L1GovernanceTokenProxy,
+			MintManager: predeploys.MintManagerAddr,
+		},
 		// LegacyMessagePasser: struct{}{},
 		// [Kroma: END]
 		L2ERC721Bridge: struct {
@@ -894,6 +969,17 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		}{
 			ValidatorPoolAddress: config.ValidatorPoolProxy,
 			RewardDivider:        new(big.Int).SetUint64(rewardDivider),
+		},
+		MintManager: struct {
+			MintActivatedBlock  *big.Int
+			InitMintPerBlock    *big.Int
+			SlidingWindowBlocks *big.Int
+			DecayingFactor      *big.Int
+		}{
+			MintActivatedBlock:  mintActivatedBlock,
+			InitMintPerBlock:    initMintPerBlock,
+			SlidingWindowBlocks: new(big.Int).SetUint64(config.MintManagerSlidingWindowBlocks),
+			DecayingFactor:      new(big.Int).SetUint64(config.MintManagerDecayingFactor),
 		},
 		// [Kroma: END]
 	}
@@ -961,8 +1047,22 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		storage["GovernanceToken"] = state.StorageValues{
 			"_name":   config.GovernanceTokenName,
 			"_symbol": config.GovernanceTokenSymbol,
-			"_owner":  config.GovernanceTokenOwner,
+			// "_owner":  config.GovernanceTokenOwner,
 		}
+
+		// [Kroma: START]
+		shares := make(map[any]any)
+		for i, recipient := range config.MintManagerRecipients {
+			shares[recipient] = config.MintManagerShares[i]
+		}
+
+		storage["MintManager"] = state.StorageValues{
+			"_initialized":  1,
+			"_initializing": false,
+			"recipients":    config.MintManagerRecipients,
+			"shareOf":       shares,
+		}
+		// [Kroma: END]
 	}
 	storage["ProxyAdmin"] = state.StorageValues{
 		"_owner": config.ProxyAdminOwner,

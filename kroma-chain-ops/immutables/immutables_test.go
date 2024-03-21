@@ -37,10 +37,18 @@ func TestBuildKroma(t *testing.T) {
 		// 	MinWithdrawalAmount: big.NewInt(100),
 		// 	WithdrawalNetwork:   0,
 		// },
-		L1BlockNumber:   struct{}{},
-		GasPriceOracle:  struct{}{},
-		L1Block:         struct{}{},
-		GovernanceToken: struct{}{},
+		L1BlockNumber:  struct{}{},
+		GasPriceOracle: struct{}{},
+		L1Block:        struct{}{},
+		GovernanceToken: struct {
+			Bridge      common.Address
+			RemoteToken common.Address
+			MintManager common.Address
+		}{
+			Bridge:      predeploys.L2StandardBridgeAddr,
+			RemoteToken: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+			MintManager: predeploys.MintManagerAddr,
+		},
 		// LegacyMessagePasser: struct{}{},
 		L2ERC721Bridge: struct {
 			OtherBridge common.Address
@@ -93,6 +101,17 @@ func TestBuildKroma(t *testing.T) {
 		}{
 			ValidatorPoolAddress: common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			RewardDivider:        new(big.Int).SetUint64(24 * 7),
+		},
+		MintManager: struct {
+			MintActivatedBlock  *big.Int
+			InitMintPerBlock    *big.Int
+			SlidingWindowBlocks *big.Int
+			DecayingFactor      *big.Int
+		}{
+			MintActivatedBlock:  big.NewInt(0),
+			InitMintPerBlock:    big.NewInt(1e18),
+			SlidingWindowBlocks: new(big.Int).SetUint64(3888000),
+			DecayingFactor:      new(big.Int).SetUint64(92224),
 		},
 		// [Kroma: END]
 	}
