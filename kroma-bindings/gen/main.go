@@ -183,12 +183,6 @@ func main() {
 
 		hasImmutables := string(immutableRefs) != `""`
 
-		// [Kroma: START]
-		if name == "GovernanceToken" {
-			hasImmutables = false
-		}
-		// [Kroma: END]
-
 		d := data{
 			Name:                   name,
 			StorageLayout:          serStr,

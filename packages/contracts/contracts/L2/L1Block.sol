@@ -2,6 +2,8 @@
 pragma solidity 0.8.15;
 
 import { Constants } from "../libraries/Constants.sol";
+import { Predeploys } from "../libraries/Predeploys.sol";
+import { SafeCall } from "../libraries/SafeCall.sol";
 import { ISemver } from "../universal/ISemver.sol";
 
 /**
@@ -12,6 +14,7 @@ import { ISemver } from "../universal/ISemver.sol";
  *         Values within this contract are updated once per epoch (every L1 block) and can only be
  *         set by the "depositor" account, a special system address. Depositor account transactions
  *         are created by the protocol whenever we move to a new epoch.
+ *         This contract calls MintManager to mint governance tokens.
  */
 contract L1Block is ISemver {
     /**
@@ -69,12 +72,13 @@ contract L1Block is ISemver {
 
     /**
      * @notice Semantic version.
-     * @custom:semver 1.0.0
+     * @custom:semver 1.1.0
      */
-    string public constant version = "1.0.0";
+    string public constant version = "1.1.0";
 
     /**
      * @notice Updates the L1 block values.
+     *         After updating, call the mint function of MintManager to mint GovernanceToken.
      *
      * @param _number                  L1 blocknumber.
      * @param _timestamp               L1 timestamp.
@@ -115,5 +119,9 @@ contract L1Block is ISemver {
         l1FeeOverhead = _l1FeeOverhead;
         l1FeeScalar = _l1FeeScalar;
         validatorRewardScalar = _validatorRewardScalar;
+
+        // Call MintManager to mint governance tokens. Note that SafeCall is used to call the mint function,
+        // ensuring that the L1 block values are updated even if a revert occurs in the MintManager contract.
+        SafeCall.call(Predeploys.MINT_MANAGER, gasleft(), 0, abi.encodeWithSignature("mint()"));
     }
 }
