@@ -792,10 +792,10 @@ contract Colosseum is Initializable, ISemver {
             "Colosseum: the state root must be matched"
         );
 
-        bytes32 blockHash = Hashing.hashBlockHeader(_publicInput, _rlps);
+        bytes32 blockHash = Hashing.hashBlockHeaderShanghai(_publicInput, _rlps);
         require(
             _srcOutputRootProof.nextBlockHash == blockHash,
-            "Colosseum: the block hash must be matched"
+            "Colosseum: the block hash from public input must be matched"
         );
     }
 
