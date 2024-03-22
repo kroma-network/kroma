@@ -238,6 +238,21 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
     }
 
     /**
+     * @notice Withdraw a given amount.
+     *
+     * @param _to     Address to withdraw asset to.
+     * @param _amount Amount to withdraw.
+     */
+    function withdrawTo(address _to, uint256 _amount) external nonReentrant {
+        require(_to != address(0), "ValidatorPool: cannot withdraw to the zero address");
+
+        _decreaseBalance(msg.sender, _amount);
+
+        bool success = SafeCall.call(_to, gasleft(), _amount, "");
+        require(success, "ValidatorPool: ETH transfer failed");
+    }
+
+    /**
      * @notice Bond asset corresponding to the given output index.
      *         This function is called when submitting output.
      *
