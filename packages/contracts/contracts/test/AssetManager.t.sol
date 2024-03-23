@@ -537,20 +537,73 @@ contract AssetManagerTest is L2OutputOracle_Initializer {
         assertEq(assetManager.ASSET_TOKEN().balanceOf(delegator), 109999999999999999999);
     }
 
-    function test_finalizeUndelegateKgh_succeeds() external {
+    function test_finalizeUndelegate_zeroRequest_reverts() external {
+        test_initUndelegate_succeeds();
+
+        vm.warp(block.timestamp + undelegationPeriod);
+
+        vm.prank(validator);
+        vm.expectRevert("AssetManager: no undelegation requests exist");
+        assetManager.finalizeUndelegate(validator);
+    }
+
+    function test_finalizeUndelegate_undelegationPeriodNotElapsed_reverts() external {
+        test_initUndelegate_succeeds();
+
+        vm.prank(delegator);
+        vm.expectRevert("AssetManager: no pending KRO undelegation to finalize");
+        assetManager.finalizeUndelegate(validator);
+    }
+
+    function test_finalizeUndelegateKgh_noReward_succeeds() external {
         _setUpKghDelegation(1);
         assertEq(assetManager.totalKghNum(validator), 1);
 
         vm.startPrank(delegator);
         assetManager.initUndelegateKgh(validator, 1);
 
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + undelegationPeriod);
 
         assetManager.finalizeUndelegateKgh(validator);
         vm.stopPrank();
 
         assertEq(assetManager.totalKghAssets(validator), 0);
         assertEq(kgh.balanceOf(delegator), 1);
+        assertEq(assetManager.ASSET_TOKEN().balanceOf(delegator), 0);
+    }
+
+    function test_finalizeUndelegateKgh_rewardExists_succeeds() external {
+        _setUpKghDelegation(1);
+        assertEq(assetManager.totalKghNum(validator), 1);
+
+        _submitOutputRoot(validator);
+        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
+
+        vm.prank(address(oracle));
+        assetManager.distributeReward();
+
+        vm.startPrank(delegator);
+        assetManager.initUndelegateKgh(validator, 1);
+
+        vm.warp(block.timestamp + undelegationPeriod);
+
+        assetManager.finalizeUndelegateKgh(validator);
+        vm.stopPrank();
+
+        assertEq(assetManager.totalKghNum(validator), 0);
+        assertEq(kgh.balanceOf(delegator), 1);
+        assertTrue(assetManager.ASSET_TOKEN().balanceOf(delegator) > 0);
+    }
+
+    function test_finalizeUndelegateKgh_undelegationPeriodNotElapsed_reverts() external {
+        _setUpKghDelegation(1);
+        assertEq(assetManager.totalKghNum(validator), 1);
+
+        vm.startPrank(delegator);
+        assetManager.initUndelegateKgh(validator, 1);
+
+        vm.expectRevert("AssetManager: no pending KGH undelegation to finalize");
+        assetManager.finalizeUndelegateKgh(validator);
     }
 
     function test_finalizeClaimValidatorReward_succeeds() external {

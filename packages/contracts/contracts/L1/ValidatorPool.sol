@@ -522,11 +522,10 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
      *
      * @return Amount of the pending bond.
      */
-    function getPendingBond(uint256 _outputIndex, address _challenger)
-        external
-        view
-        returns (uint128)
-    {
+    function getPendingBond(
+        uint256 _outputIndex,
+        address _challenger
+    ) external view returns (uint128) {
         uint128 pendingBond = pendingBonds[_outputIndex][_challenger];
         require(pendingBond > 0, "ValidatorPool: the pending bond does not exist");
         return pendingBond;

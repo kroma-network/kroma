@@ -12,7 +12,6 @@ import { BalancedWeightTree } from "../libraries/BalancedWeightTree.sol";
 import { Types } from "../libraries/Types.sol";
 import { Uint128Math } from "../libraries/Uint128Math.sol";
 import { IKGHManager } from "../universal/IKGHManager.sol";
-import { Colosseum } from "./Colosseum.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
 
 /**
@@ -21,6 +20,7 @@ import { L2OutputOracle } from "./L2OutputOracle.sol";
  *         the distribution of rewards to the delegators and the validator.
  */
 abstract contract AssetManager is IERC721Receiver {
+    using SafeERC20 for IERC20;
     using Math for uint256;
     using Uint128Math for uint128;
     using BalancedWeightTree for BalancedWeightTree.Tree;
@@ -139,6 +139,11 @@ abstract contract AssetManager is IERC721Receiver {
     }
 
     /**
+     * @notice The denominator for the commission rate.
+     */
+    uint128 public constant COMMISSION_RATE_DENOM = 100;
+
+    /**
      * @notice The numerator for the boosted reward.
      */
     uint128 public constant BOOSTED_REWARD_NUMERATOR = 40;
@@ -149,9 +154,9 @@ abstract contract AssetManager is IERC721Receiver {
     uint128 public constant BOOSTED_REWARD_DENOM = 100;
 
     /**
-     * @notice The denominator for per-mille used at slashing and initialization of undelegation.
+     * @notice The denominator for the slashing rate.
      */
-    uint128 public constant PER_MILLE_DENOM = 1000;
+    uint128 public constant SLASHING_RATE_DENOM = 1000;
 
     /**
      * @notice Virtual KRO amount per KGH.
@@ -199,7 +204,7 @@ abstract contract AssetManager is IERC721Receiver {
     address public immutable SECURITY_COUNCIL;
 
     /**
-     * @notice The max number of outputs to be finalized at once.
+     * @notice The max number of outputs to be finalized at once when distributing rewards.
      */
     uint128 public immutable MAX_OUTPUT_FINALIZATIONS;
 
@@ -209,7 +214,7 @@ abstract contract AssetManager is IERC721Receiver {
     uint128 public immutable BASE_REWARD;
 
     /**
-     * @notice The numerator of the slashing rate. It will be divided by PER_MILLE_DENOM.
+     * @notice The numerator of the slashing rate.
      */
     uint128 public immutable SLASHING_RATE_NUMERATOR;
 
@@ -224,7 +229,8 @@ abstract contract AssetManager is IERC721Receiver {
     uint128 public immutable MIN_REGISTER_AMOUNT;
 
     /**
-     * @notice Minimum amount to start submitting outputs.
+     * @notice Minimum amount to start a validator and add it to the validator tree.
+     *         Note that only the started validators can submit outputs.
      */
     uint128 public immutable MIN_START_AMOUNT;
 
@@ -561,8 +567,10 @@ abstract contract AssetManager is IERC721Receiver {
         address delegator,
         uint256 tokenId
     ) external view returns (uint128, uint128) {
-        KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[delegator];
-        return (kghDelegator.kroShares[tokenId], kghDelegator.kghShares[tokenId]);
+        return (
+            _vaults[validator].kghDelegators[delegator].kroShares[tokenId],
+            _vaults[validator].kghDelegators[delegator].kghShares[tokenId]
+        );
     }
 
     /**
@@ -658,8 +666,10 @@ abstract contract AssetManager is IERC721Receiver {
      * @return The total amount of KGH assets held by the vault.
      */
     function _totalKghAssets(address validator) internal view virtual returns (uint128) {
-        Vault storage vault = _vaults[validator];
-        return vault.asset.totalKgh * VKRO_PER_KGH + vault.reward.boostedReward;
+        return
+            _vaults[validator].asset.totalKgh *
+            VKRO_PER_KGH +
+            _vaults[validator].reward.boostedReward;
     }
 
     /**
@@ -697,6 +707,7 @@ abstract contract AssetManager is IERC721Receiver {
         address validator,
         uint128 assets
     ) external checkIsActive(validator) returns (uint128) {
+        require(assets > 0, "AssetManager: cannot delegate 0 asset");
         uint128 shares = previewDelegate(validator, assets);
         _delegate(validator, msg.sender, assets, shares);
         emit KroDelegated(validator, msg.sender, assets, shares);
@@ -740,6 +751,8 @@ abstract contract AssetManager is IERC721Receiver {
         address validator,
         uint256[] calldata tokenIds
     ) external checkIsActive(validator) returns (uint128, uint128) {
+        require(tokenIds.length > 0, "AssetManager: cannot delegate 0 KGH");
+
         uint128 kroShares;
         uint128 kghShares = previewKghDelegate(validator);
         uint128 kroInKghs;
@@ -771,7 +784,7 @@ abstract contract AssetManager is IERC721Receiver {
     }
 
     /**
-     * @notice Initiate KRO undelegation for given validator and per-mille.
+     * @notice Initiate KRO undelegation of given shares for given validator.
      *
      * @param validator Address of the validator.
      * @param shares    The amount of shares to undelegate.
@@ -810,6 +823,8 @@ abstract contract AssetManager is IERC721Receiver {
      * @param tokenIds  Array of token ids of KGHs to undelegate.
      */
     function initUndelegateKghBatch(address validator, uint256[] calldata tokenIds) external {
+        require(tokenIds.length > 0, "AssetManager: cannot undelegate 0 KGH");
+
         KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
         uint128 kroShares;
         uint128 kghShares;
@@ -849,7 +864,7 @@ abstract contract AssetManager is IERC721Receiver {
     /**
      * @notice Claim the reward of the validator.
      *
-     * @param amount The amount of reward to be claimed.
+     * @param amount The amount of reward to claim.
      */
     function initClaimValidatorReward(uint128 amount) external {
         Reward storage reward = _vaults[msg.sender].reward;
@@ -866,7 +881,7 @@ abstract contract AssetManager is IERC721Receiver {
             reward.claimRequestTimes.push(block.timestamp);
         }
 
-        _updateWeightTree(msg.sender, _vaults[msg.sender]);
+        _updateValidatorTree(msg.sender, _vaults[msg.sender]);
 
         emit RewardClaimInitiated(msg.sender, amount);
     }
@@ -879,51 +894,50 @@ abstract contract AssetManager is IERC721Receiver {
      *
      * @return The amount of assets that the vault would exchange for the pending KRO shares.
      */
-    function finalizeUndelegate(address validator) public returns (uint128) {
+    function finalizeUndelegate(address validator) external returns (uint128) {
+        Asset storage asset = _vaults[validator].asset;
         require(
-            _vaults[validator].asset.totalPendingKroShares > 0,
+            asset.totalPendingKroShares > 0,
             "AssetManager: No pending shares to finalize"
         );
 
-        Asset storage asset = _vaults[validator].asset;
         KroDelegator storage delegator = _vaults[validator].kroDelegators[msg.sender];
         uint256[] memory requestTimes = delegator.undelegateRequestTimes;
+        require(requestTimes.length > 0, "AssetManager: no undelegation requests exist");
+
         uint128 assetsToUndelegate;
         uint128 sharesToUndelegate;
-
-        for (uint256 index = requestTimes.length; index > 0; ) {
-            uint256 i = index - 1;
+        // Loop only while the undelegation request time does exist.
+        for (uint256 i = requestTimes.length - 1; i >= 0 && requestTimes[i] > 0; ) {
             if (requestTimes[i] + UNDELEGATION_PERIOD <= block.timestamp) {
-                // If the latest undelegation request has no pending shares, then break the loop.
-                if (delegator.pendingKroShares[requestTimes[i]] > 0) {
-                    uint128 sharesToBurn = delegator.pendingKroShares[requestTimes[i]];
-
-                    unchecked {
-                        assetsToUndelegate += sharesToBurn.mulDiv(
-                            asset.totalPendingAssets,
-                            asset.totalPendingKroShares
-                        );
-                        sharesToUndelegate += sharesToBurn;
-                    }
-
-                    delete delegator.pendingKroShares[requestTimes[i]];
-                    delete delegator.undelegateRequestTimes[i];
-                } else {
-                    break;
+                unchecked {
+                    sharesToUndelegate += delegator.pendingKroShares[requestTimes[i]];
                 }
+
+                delete delegator.pendingKroShares[requestTimes[i]];
+                delete delegator.undelegateRequestTimes[i];
             }
 
+            if (i == 0) {
+                break;
+            }
             unchecked {
-                --index;
+                --i;
             }
         }
 
+        require(sharesToUndelegate > 0, "AssetManager: no pending KRO undelegation to finalize");
+
         unchecked {
+            assetsToUndelegate = sharesToUndelegate.mulDiv(
+                asset.totalPendingAssets,
+                asset.totalPendingKroShares
+            );
             asset.totalPendingAssets -= assetsToUndelegate;
             asset.totalPendingKroShares -= sharesToUndelegate;
         }
 
-        SafeERC20.safeTransfer(ASSET_TOKEN, msg.sender, assetsToUndelegate);
+        ASSET_TOKEN.safeTransfer(msg.sender, assetsToUndelegate);
 
         emit KroUndelegationFinalized(validator, msg.sender, assetsToUndelegate);
         return assetsToUndelegate;
@@ -938,77 +952,79 @@ abstract contract AssetManager is IERC721Receiver {
      * @return The amount of assets that the vault would exchange for the pending KRO and KGH shares.
      */
     function finalizeUndelegateKgh(address validator) external returns (uint128) {
-        Asset storage asset = _vaults[validator].asset;
         KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
         uint256[] memory requestTimes = kghDelegator.undelegateRequestTimes;
 
-        uint128 kroAssetsToUndelegate;
+        require(requestTimes.length > 0, "AssetManager: no undelegation requests exist");
+
+        Asset storage asset = _vaults[validator].asset;
+        bool rewardExists = asset.totalPendingKghShares > 0;
         uint128 kroSharesToUndelegate;
-        uint128 kghAssetsToUndelegate;
         uint128 kghSharesToUndelegate;
+        uint128 assetsToUndelegate;
 
-        for (uint256 index = requestTimes.length; index > 0; ) {
-            uint256 i = index - 1;
+        // Loop only while the undelegation request time does exist.
+        uint256 finalizedNum;
+        for (uint256 i = requestTimes.length - 1; i >= 0 && requestTimes[i] > 0; ) {
             if (requestTimes[i] + UNDELEGATION_PERIOD <= block.timestamp) {
-                // If the latest undelegation request has no pending shares or no pending KGHs,
-                // then break the loop.
-                if (
-                    kghDelegator.pendingShares[requestTimes[i]].kroShares > 0 ||
-                    kghDelegator.pendingKghIds[requestTimes[i]].length > 0
-                ) {
-                    uint256[] memory tokenId = kghDelegator.pendingKghIds[requestTimes[i]];
-
-                    if (asset.totalPendingKghShares > 0) {
-                        UndelegateShares memory pendingShares = kghDelegator.pendingShares[
-                            requestTimes[i]
-                        ];
-                        uint128 kroSharesToBurn = pendingShares.kroShares;
-                        uint128 kghSharesToBurn = pendingShares.kghShares;
-                        unchecked {
-                            kroAssetsToUndelegate += kroSharesToBurn.mulDiv(
-                                asset.totalPendingAssets,
-                                asset.totalPendingKroShares
-                            );
-                            kghAssetsToUndelegate += kghSharesToBurn.mulDiv(
-                                asset.totalPendingBoostedRewards,
-                                asset.totalPendingKghShares
-                            );
-                            kroSharesToUndelegate += kroSharesToBurn;
-                            kghSharesToUndelegate += kghSharesToBurn;
-                        }
+                // Calculate the shares only if reward exists.
+                if (rewardExists) {
+                    UndelegateShares memory pendingShares = kghDelegator.pendingShares[
+                        requestTimes[i]
+                    ];
+                    unchecked {
+                        kroSharesToUndelegate += pendingShares.kroShares;
+                        kghSharesToUndelegate += pendingShares.kghShares;
                     }
+                }
 
-                    for (uint256 tokenIdIndex = 0; tokenIdIndex < tokenId.length; ) {
-                        KGH.safeTransferFrom(address(this), msg.sender, tokenId[tokenIdIndex]);
+                uint256[] memory tokenIds = kghDelegator.pendingKghIds[requestTimes[i]];
+                for (uint256 tokenIdIndex = 0; tokenIdIndex < tokenIds.length; ) {
+                    KGH.safeTransferFrom(address(this), msg.sender, tokenIds[tokenIdIndex]);
 
-                        unchecked {
-                            ++tokenIdIndex;
-                        }
+                    unchecked {
+                        ++tokenIdIndex;
                     }
+                }
 
-                    delete kghDelegator.pendingShares[requestTimes[i]];
-                    delete kghDelegator.pendingKghIds[requestTimes[i]];
-                    delete kghDelegator.undelegateRequestTimes[i];
-                } else {
-                    break;
+                delete kghDelegator.pendingShares[requestTimes[i]];
+                delete kghDelegator.pendingKghIds[requestTimes[i]];
+                delete kghDelegator.undelegateRequestTimes[i];
+
+                unchecked {
+                    ++finalizedNum;
                 }
             }
 
+            if (i == 0) {
+                break;
+            }
             unchecked {
-                --index;
+                --i;
             }
         }
 
-        unchecked {
-            asset.totalPendingAssets -= kroAssetsToUndelegate;
-            asset.totalPendingKroShares -= kroSharesToUndelegate;
-            asset.totalPendingBoostedRewards -= kghAssetsToUndelegate;
-            asset.totalPendingKghShares -= kghSharesToUndelegate;
+        require(finalizedNum > 0, "AssetManager: no pending KGH undelegation to finalize");
+
+        if (rewardExists) {
+            unchecked {
+                uint128 kroAssetsToUndelegate = kroSharesToUndelegate.mulDiv(
+                    asset.totalPendingAssets,
+                    asset.totalPendingKroShares
+                );
+                uint128 kghAssetsToUndelegate = kghSharesToUndelegate.mulDiv(
+                    asset.totalPendingBoostedRewards,
+                    asset.totalPendingKghShares
+                );
+                asset.totalPendingAssets -= kroAssetsToUndelegate;
+                asset.totalPendingKroShares -= kroSharesToUndelegate;
+                asset.totalPendingBoostedRewards -= kghAssetsToUndelegate;
+                asset.totalPendingKghShares -= kghSharesToUndelegate;
+                assetsToUndelegate = kroAssetsToUndelegate + kghAssetsToUndelegate;
+            }
+
+            ASSET_TOKEN.safeTransfer(msg.sender, assetsToUndelegate);
         }
-
-        uint128 assetsToUndelegate = kroAssetsToUndelegate + kghAssetsToUndelegate;
-
-        SafeERC20.safeTransfer(ASSET_TOKEN, msg.sender, assetsToUndelegate);
 
         emit KghUndelegationFinalized(validator, msg.sender, assetsToUndelegate);
         return assetsToUndelegate;
@@ -1019,36 +1035,44 @@ abstract contract AssetManager is IERC721Receiver {
      */
     function finalizeClaimValidatorReward() external {
         Reward storage reward = _vaults[msg.sender].reward;
+        require(
+            reward.totalPendingValidatorRewards > 0,
+            "AssetManager: no pending validator rewards to finalize"
+        );
+
         uint256[] memory requestTimes = reward.claimRequestTimes;
-
-        uint128 assetsToWithdraw;
-        for (uint256 index = requestTimes.length; index > 0; ) {
-            uint256 i = index - 1;
+        uint128 rewardsToClaim;
+        for (uint256 i = requestTimes.length - 1; i >= 0 && requestTimes[i] > 0; ) {
             if (requestTimes[i] + UNDELEGATION_PERIOD <= block.timestamp) {
-                if (reward.pendingValidatorRewards[requestTimes[i]] > 0) {
-                    assetsToWithdraw += reward.pendingValidatorRewards[requestTimes[i]];
-
-                    delete reward.pendingValidatorRewards[requestTimes[i]];
-                    delete reward.claimRequestTimes[i];
-                } else {
-                    break;
+                unchecked {
+                    rewardsToClaim += reward.pendingValidatorRewards[requestTimes[i]];
                 }
+
+                delete reward.pendingValidatorRewards[requestTimes[i]];
+                delete reward.claimRequestTimes[i];
             }
 
+            if (i == 0) {
+                break;
+            }
             unchecked {
-                --index;
+                --i;
             }
         }
+
+        require(rewardsToClaim > 0, "AssetManager: no pending reward claim to finalize yet");
 
         // To prevent the underflow of the totalPendingValidatorRewards when the validator is slashed.
-        if (reward.totalPendingValidatorRewards < assetsToWithdraw) {
-            assetsToWithdraw = reward.totalPendingValidatorRewards;
+        if (reward.totalPendingValidatorRewards < rewardsToClaim) {
+            rewardsToClaim = reward.totalPendingValidatorRewards;
         }
 
-        reward.totalPendingValidatorRewards -= assetsToWithdraw;
-        SafeERC20.safeTransfer(ASSET_TOKEN, msg.sender, assetsToWithdraw);
+        unchecked {
+            reward.totalPendingValidatorRewards -= rewardsToClaim;
+        }
+        ASSET_TOKEN.safeTransfer(msg.sender, rewardsToClaim);
 
-        emit RewardClaimFinalized(msg.sender, assetsToWithdraw);
+        emit RewardClaimFinalized(msg.sender, rewardsToClaim);
     }
 
     /**
@@ -1077,7 +1101,7 @@ abstract contract AssetManager is IERC721Receiver {
                     emit ChallengeRewardDistributed(output.submitter, challengeReward);
                 }
 
-                _updateWeightTree(output.submitter, _vaults[output.submitter]);
+                _updateValidatorTree(output.submitter, _vaults[output.submitter]);
 
                 unchecked {
                     ++outputIndex;
@@ -1110,7 +1134,7 @@ abstract contract AssetManager is IERC721Receiver {
         uint128 amountToSlash = _modifyBalanceWithSlashing(loserVault, 0, true);
         _pendingChallengeReward[outputIndex] = amountToSlash;
 
-        _updateWeightTree(loser, loserVault);
+        _updateValidatorTree(loser, loserVault);
 
         emit Slashed(loser, winner, amountToSlash);
     }
@@ -1134,37 +1158,31 @@ abstract contract AssetManager is IERC721Receiver {
      *
      * @param vault          Vault of the validator.
      * @param tokenIds       Array of token ids of the KGH.
-     * @param basedRewards   The amount of based rewards to add as pending asset.
+     * @param baseRewards    The amount of base rewards to add as pending asset.
      * @param boostedRewards The amount of boosted rewards to add as pending asset.
      * @param shares         The amount of KRO and KGH shares to add as pending share.
      */
     function _addPendingKghShares(
         Vault storage vault,
         uint256[] memory tokenIds,
-        uint128 basedRewards,
+        uint128 baseRewards,
         uint128 boostedRewards,
         UndelegateShares memory shares
     ) internal {
-        for (uint256 i = 0; i < tokenIds.length; ) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             vault.kghDelegators[msg.sender].pendingKghIds[block.timestamp].push(tokenIds[i]);
-
-            unchecked {
-                ++i;
-            }
         }
 
-        unchecked {
-            vault.asset.totalPendingAssets += basedRewards;
-            vault.asset.totalPendingKroShares += shares.kroShares;
-            vault.asset.totalPendingBoostedRewards += boostedRewards;
-            vault.asset.totalPendingKghShares += shares.kghShares;
+        vault.asset.totalPendingAssets += baseRewards;
+        vault.asset.totalPendingKroShares += shares.kroShares;
+        vault.asset.totalPendingBoostedRewards += boostedRewards;
+        vault.asset.totalPendingKghShares += shares.kghShares;
 
-            vault.kghDelegators[msg.sender].pendingShares[block.timestamp].kroShares += shares
-                .kroShares;
-            vault.kghDelegators[msg.sender].pendingShares[block.timestamp].kghShares += shares
-                .kghShares;
-            vault.kghDelegators[msg.sender].undelegateRequestTimes.push(block.timestamp);
-        }
+        vault.kghDelegators[msg.sender].pendingShares[block.timestamp].kroShares += shares
+            .kroShares;
+        vault.kghDelegators[msg.sender].pendingShares[block.timestamp].kghShares += shares
+            .kghShares;
+        vault.kghDelegators[msg.sender].undelegateRequestTimes.push(block.timestamp);
     }
 
     /**
@@ -1250,7 +1268,7 @@ abstract contract AssetManager is IERC721Receiver {
         uint128 shares
     ) internal virtual {
         Vault storage vault = _vaults[validator];
-        SafeERC20.safeTransferFrom(ASSET_TOKEN, owner, address(this), assets);
+        ASSET_TOKEN.safeTransferFrom(owner, address(this), assets);
 
         unchecked {
             vault.asset.totalKro += assets;
@@ -1262,7 +1280,7 @@ abstract contract AssetManager is IERC721Receiver {
             }
         }
 
-        _updateWeightTree(validator, vault);
+        _updateValidatorTree(validator, vault);
     }
 
     /**
@@ -1297,7 +1315,9 @@ abstract contract AssetManager is IERC721Receiver {
             vault.kghDelegators[msg.sender].kghShares[tokenId] = kghShares;
         }
 
-        _updateWeightTree(validator, vault);
+        if (kroInKgh > 0) {
+            _updateValidatorTree(validator, vault);
+        }
     }
 
     /**
@@ -1327,7 +1347,9 @@ abstract contract AssetManager is IERC721Receiver {
             asset.totalKghShares += kghShares;
         }
 
-        _updateWeightTree(validator, _vaults[validator]);
+        if (kroInKghs > 0) {
+            _updateValidatorTree(validator, _vaults[validator]);
+        }
     }
 
     /**
@@ -1357,7 +1379,7 @@ abstract contract AssetManager is IERC721Receiver {
             _addPendingKroShares(vault, assets, shares);
         }
 
-        _updateWeightTree(validator, vault);
+        _updateValidatorTree(validator, vault);
         _tryRemoveFromWeightTree(validator, vault);
     }
 
@@ -1380,6 +1402,7 @@ abstract contract AssetManager is IERC721Receiver {
         Vault storage vault = _vaults[validator];
         uint128 kroAssetsToWithdraw = previewUndelegate(validator, kroShares);
         uint128 kghAssetsToWithdraw = previewKghUndelegate(validator, tokenId);
+        uint128 boostedRewardsToReceive;
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
@@ -1392,7 +1415,7 @@ abstract contract AssetManager is IERC721Receiver {
 
             uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenId);
             uint128 baseRewardsToReceive = kroAssetsToWithdraw - kroInKgh;
-            uint128 boostedRewardsToReceive = kghAssetsToWithdraw - VKRO_PER_KGH;
+            boostedRewardsToReceive = kghAssetsToWithdraw - VKRO_PER_KGH;
 
             vault.asset.totalKro -= kroAssetsToWithdraw;
             vault.asset.totalKroInKgh -= kroInKgh;
@@ -1413,7 +1436,9 @@ abstract contract AssetManager is IERC721Receiver {
             );
         }
 
-        _updateWeightTree(validator, vault);
+        if (kroAssetsToWithdraw + boostedRewardsToReceive > 0) {
+            _updateValidatorTree(validator, vault);
+        }
     }
 
     /**
@@ -1436,15 +1461,14 @@ abstract contract AssetManager is IERC721Receiver {
     ) internal virtual {
         Vault storage vault = _vaults[validator];
         uint128 kroAssetsToWithdraw = previewUndelegate(validator, kroShares);
+        uint128 boostedRewardsToReceive;
 
         unchecked {
             vault.asset.totalKroShares -= kroShares;
             vault.asset.totalKghShares -= kghShares;
 
             uint128 baseRewardsToReceive = kroAssetsToWithdraw - kroInKghs;
-            uint128 boostedRewardsToReceive = kghAssetsToWithdraw -
-                VKRO_PER_KGH *
-                uint128(tokenIds.length);
+            boostedRewardsToReceive = kghAssetsToWithdraw - VKRO_PER_KGH * uint128(tokenIds.length);
 
             vault.asset.totalKro -= kroAssetsToWithdraw;
             vault.asset.totalKroInKgh -= kroInKghs;
@@ -1465,7 +1489,9 @@ abstract contract AssetManager is IERC721Receiver {
             );
         }
 
-        _updateWeightTree(validator, vault);
+        if (kroAssetsToWithdraw + boostedRewardsToReceive > 0) {
+            _updateValidatorTree(validator, vault);
+        }
     }
 
     /**
@@ -1480,10 +1506,10 @@ abstract contract AssetManager is IERC721Receiver {
         uint128 validatorReward;
 
         unchecked {
-            validatorReward = (BASE_REWARD + boostedReward).mulDiv(commissionRate, 100);
+            validatorReward = (BASE_REWARD + boostedReward).mulDiv(commissionRate, COMMISSION_RATE_DENOM);
 
-            vault.asset.totalKro += BASE_REWARD.mulDiv(100 - commissionRate, 100);
-            vault.reward.boostedReward += boostedReward.mulDiv(100 - commissionRate, 100);
+            vault.asset.totalKro += BASE_REWARD.mulDiv(COMMISSION_RATE_DENOM - commissionRate, COMMISSION_RATE_DENOM);
+            vault.reward.boostedReward += boostedReward.mulDiv(COMMISSION_RATE_DENOM - commissionRate, COMMISSION_RATE_DENOM);
             vault.reward.validatorRewardKro += validatorReward;
         }
 
@@ -1524,7 +1550,7 @@ abstract contract AssetManager is IERC721Receiver {
         ];
 
         if (isLoser) {
-            amountToSlashOrAdd = totalAmount.mulDiv(SLASHING_RATE_NUMERATOR, PER_MILLE_DENOM);
+            amountToSlashOrAdd = totalAmount.mulDiv(SLASHING_RATE_NUMERATOR, SLASHING_RATE_DENOM);
             if (amountToSlashOrAdd < MIN_SLASHING_AMOUNT) {
                 amountToSlashOrAdd = MIN_SLASHING_AMOUNT;
             }
@@ -1549,7 +1575,7 @@ abstract contract AssetManager is IERC721Receiver {
                 amountToSlashOrAdd -= tax;
             }
 
-            SafeERC20.safeTransfer(ASSET_TOKEN, SECURITY_COUNCIL, tax);
+            ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, tax);
 
             return amountToSlashOrAdd;
         } else {
@@ -1602,7 +1628,7 @@ abstract contract AssetManager is IERC721Receiver {
      * @param validator Address of the validator.
      * @param vault     Vault of the validator.
      */
-    function _updateWeightTree(address validator, Vault storage vault) internal {
+    function _updateValidatorTree(address validator, Vault storage vault) internal {
         _validatorTree.update(
             validator,
             uint120(
