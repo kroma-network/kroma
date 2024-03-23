@@ -9,6 +9,7 @@ import datetime
 import time
 import shutil
 import http.client
+import gzip
 from multiprocessing import Process, Queue
 import concurrent.futures
 from collections import namedtuple
@@ -24,6 +25,9 @@ parser.add_argument('--allocs', help='Only create the allocs and exit', type=boo
 parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
 
 log = logging.getLogger()
+
+# Global environment variables
+DEVNET_NO_BUILD = os.getenv('DEVNET_NO_BUILD') == "true"
 
 class Bunch:
     def __init__(self, **kwds):
@@ -101,7 +105,7 @@ def main():
     git_date = subprocess.run(['git', 'show', '-s', "--format=%ct"], capture_output=True, text=True).stdout.strip()
 
     # CI loads the images from workspace, and does not otherwise know the images are good as-is
-    if os.getenv('DEVNET_NO_BUILD') == "true":
+    if DEVNET_NO_BUILD:
         log.info('Skipping docker images build')
     else:
         log.info(f'Building docker images for git commit {git_commit} ({git_date})')
@@ -164,7 +168,6 @@ def init_devnet_l1_deploy_config(paths, update_timestamp=False):
     if update_timestamp:
         deploy_config['l1GenesisBlockTimestamp'] = '{:#x}'.format(int(time.time()))
     write_json(paths.devnet_config_path, deploy_config)
-
 
 def devnet_l1_genesis(paths):
     log.info('Generating L1 genesis state')
@@ -246,14 +249,18 @@ def devnet_deploy(paths):
     rollup_config = read_json(paths.rollup_config_path)
     addresses = read_json(paths.addresses_json_path)
 
+    # Start the L2.
     log.info('Bringing up L2.')
     run_command(['docker', 'compose', 'up', '-d', 'l2'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir
     })
+
+    # Wait for the L2 to be available.
     wait_up(9545)
     wait_for_rpc_server('127.0.0.1:9545')
 
     # [Kroma: START]
+    # Print out the addresses being used for easier debugging.
     l2_output_oracle = addresses['L2OutputOracleProxy']
     log.info(f'Using L2OutputOracle {l2_output_oracle}')
     batch_inbox_address = rollup_config['batch_inbox_address']
@@ -335,12 +342,6 @@ CommandPreset = namedtuple('Command', ['name', 'args', 'cwd', 'timeout'])
 
 
 def devnet_test(paths):
-    # Check the L2 config
-    run_command(
-        ['go', 'run', 'cmd/check-l2/main.go', '--l2-rpc-url', 'http://localhost:9545', '--l1-rpc-url', 'http://localhost:8545'],
-        cwd=paths.ops_chain_ops,
-    )
-
     # Run the two commands with different signers, so the ethereum nonce management does not conflict
     # And do not use devnet system addresses, to avoid breaking fee-estimation or nonce values.
     run_commands([
@@ -395,7 +396,6 @@ def run_command_preset(command: CommandPreset):
 
 def run_command(args, check=True, shell=False, cwd=None, env=None, timeout=None):
     env = env if env else {}
-
     return subprocess.run(
         args,
         check=check,

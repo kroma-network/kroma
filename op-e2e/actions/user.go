@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -28,8 +30,12 @@ import (
 type L1Bindings struct {
 	// contract bindings
 	KromaPortal *bindings.KromaPortal
+	L2OutputOracle     *bindings.L2OutputOracle
 
-	L2OutputOracle *bindings.L2OutputOracle
+	// [Kroma: START]
+	// OptimismPortal2    *bindingspreview.OptimismPortal2
+	// DisputeGameFactory *bindings.DisputeGameFactory
+	// [Kroma: END]
 }
 
 func NewL1Bindings(t Testing, l1Cl *ethclient.Client) *L1Bindings {
@@ -39,9 +45,21 @@ func NewL1Bindings(t Testing, l1Cl *ethclient.Client) *L1Bindings {
 	l2OutputOracle, err := bindings.NewL2OutputOracle(config.L1Deployments.L2OutputOracleProxy, l1Cl)
 	require.NoError(t, err)
 
+	// [Kroma: START]
+	// optimismPortal2, err := bindingspreview.NewOptimismPortal2(config.L1Deployments.OptimismPortalProxy, l1Cl)
+	// require.NoError(t, err)
+	//
+	// disputeGameFactory, err := bindings.NewDisputeGameFactory(config.L1Deployments.DisputeGameFactoryProxy, l1Cl)
+	// require.NoError(t, err)
+	// [Kroma: END]
+
 	return &L1Bindings{
 		KromaPortal:    kromaPortal,
 		L2OutputOracle: l2OutputOracle,
+		// [Kroma: START]
+		// OptimismPortal2:    optimismPortal2,
+		// DisputeGameFactory: disputeGameFactory,
+		// [Kroma: END]
 	}
 }
 

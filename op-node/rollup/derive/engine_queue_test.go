@@ -17,6 +17,8 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -43,7 +45,7 @@ func (f *fakeAttributesQueue) NextAttributes(_ context.Context, safeHead eth.L2B
 var _ NextAttributesProvider = (*fakeAttributesQueue)(nil)
 
 func TestEngineQueue_Finalize(t *testing.T) {
-	logger := testlog.Logger(t, log.LvlInfo)
+	logger := testlog.Logger(t, log.LevelInfo)
 
 	rng := rand.New(rand.NewSource(1234))
 
@@ -249,36 +251,37 @@ func TestEngineQueue_Finalize(t *testing.T) {
 
 	prev := &fakeAttributesQueue{}
 
-	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
+	ec := NewEngineController(eng, logger, metrics, &rollup.Config{}, sync.CLSync)
+	eq := NewEngineQueue(logger, cfg, eng, ec, metrics, prev, l1F, &sync.Config{})
 	require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
-	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to sequence window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
+	require.Equal(t, refB1, ec.SafeL2Head(), "L2 reset should go back to sequence window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
 	require.Equal(t, refB, eq.Origin(), "Expecting to be set back derivation L1 progress to B")
-	require.Equal(t, refA1, eq.Finalized(), "A1 is recognized as finalized before we run any steps")
+	require.Equal(t, refA1, ec.Finalized(), "A1 is recognized as finalized before we run any steps")
 
 	// now say C1 was included in D and became the new safe head
 	eq.origin = refD
 	prev.origin = refD
-	eq.safeHead = refC1
+	eq.ec.SetSafeHead(refC1)
 	eq.postProcessSafeL2()
 
 	// now say D0 was included in E and became the new safe head
 	eq.origin = refE
 	prev.origin = refE
-	eq.safeHead = refD0
+	eq.ec.SetSafeHead(refD0)
 	eq.postProcessSafeL2()
 
 	// let's finalize D (current L1), from which we fully derived C1 (it was safe head), but not D0 (included in E)
 	eq.Finalize(refD)
 
-	require.Equal(t, refC1, eq.Finalized(), "C1 was included in finalized D, and should now be finalized")
+	require.Equal(t, refC1, ec.Finalized(), "C1 was included in finalized D, and should now be finalized")
 
 	l1F.AssertExpectations(t)
 	eng.AssertExpectations(t)
 }
 
 func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
-	logger := testlog.Logger(t, log.LvlInfo)
+	logger := testlog.Logger(t, log.LevelInfo)
 
 	rng := rand.New(rand.NewSource(1234))
 
@@ -484,24 +487,24 @@ func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 
 	prev := &fakeAttributesQueue{origin: refE}
 
-	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
+	ec := NewEngineController(eng, logger, metrics, &rollup.Config{}, sync.CLSync)
+	eq := NewEngineQueue(logger, cfg, eng, ec, metrics, prev, l1F, &sync.Config{})
 	require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
-	require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to sequence window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
+	require.Equal(t, refB1, ec.SafeL2Head(), "L2 reset should go back to sequence window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
 	require.Equal(t, refB, eq.Origin(), "Expecting to be set back derivation L1 progress to B")
-	require.Equal(t, refA1, eq.Finalized(), "A1 is recognized as finalized before we run any steps")
+	require.Equal(t, refA1, ec.Finalized(), "A1 is recognized as finalized before we run any steps")
 
 	// First step after reset will do a fork choice update
-	require.True(t, eq.needForkchoiceUpdate)
 	eng.ExpectForkchoiceUpdate(&eth.ForkchoiceState{
-		HeadBlockHash:      eq.unsafeHead.Hash,
-		SafeBlockHash:      eq.safeHead.Hash,
-		FinalizedBlockHash: eq.finalized.Hash,
+		HeadBlockHash:      eq.ec.UnsafeL2Head().Hash,
+		SafeBlockHash:      eq.ec.SafeL2Head().Hash,
+		FinalizedBlockHash: eq.ec.Finalized().Hash,
 	}, nil, &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionValid}}, nil)
 	err := eq.Step(context.Background())
 	require.NoError(t, err)
 
-	require.Equal(t, refF.ID(), eq.unsafeHead.L1Origin, "should have refF as unsafe head origin")
+	require.Equal(t, refF.ID(), eq.ec.UnsafeL2Head().L1Origin, "should have refF as unsafe head origin")
 
 	// L1 chain reorgs so new origin is at same slot as refF but on a different fork
 	prev.origin = eth.L1BlockRef{
@@ -510,7 +513,6 @@ func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 		ParentHash: refE.Hash,
 		Time:       refF.Time,
 	}
-	eq.UnsafeL2Head()
 	err = eq.Step(context.Background())
 	require.ErrorIs(t, err, ErrReset, "should reset pipeline due to mismatched origin")
 
@@ -519,7 +521,7 @@ func TestEngineQueue_ResetWhenUnsafeOriginNotCanonical(t *testing.T) {
 }
 
 func TestVerifyNewL1Origin(t *testing.T) {
-	logger := testlog.Logger(t, log.LvlInfo)
+	logger := testlog.Logger(t, log.LevelInfo)
 
 	rng := rand.New(rand.NewSource(1234))
 
@@ -815,28 +817,27 @@ func TestVerifyNewL1Origin(t *testing.T) {
 			}, nil)
 
 			prev := &fakeAttributesQueue{origin: refE}
-			eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
+			ec := NewEngineController(eng, logger, metrics, &rollup.Config{}, sync.CLSync)
+			eq := NewEngineQueue(logger, cfg, eng, ec, metrics, prev, l1F, &sync.Config{})
 			require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
-			require.Equal(t, refB1, eq.SafeL2Head(), "L2 reset should go back to sequence window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
+			require.Equal(t, refB1, ec.SafeL2Head(), "L2 reset should go back to sequence window ago: blocks with origin E and D are not safe until we reconcile, C is extra, and B1 is the end we look for")
 			require.Equal(t, refB, eq.Origin(), "Expecting to be set back derivation L1 progress to B")
-			require.Equal(t, refA1, eq.Finalized(), "A1 is recognized as finalized before we run any steps")
+			require.Equal(t, refA1, ec.Finalized(), "A1 is recognized as finalized before we run any steps")
 
 			// First step after reset will do a fork choice update
-			require.True(t, eq.needForkchoiceUpdate)
 			eng.ExpectForkchoiceUpdate(&eth.ForkchoiceState{
-				HeadBlockHash:      eq.unsafeHead.Hash,
-				SafeBlockHash:      eq.safeHead.Hash,
-				FinalizedBlockHash: eq.finalized.Hash,
+				HeadBlockHash:      eq.ec.UnsafeL2Head().Hash,
+				SafeBlockHash:      eq.ec.SafeL2Head().Hash,
+				FinalizedBlockHash: eq.ec.Finalized().Hash,
 			}, nil, &eth.ForkchoiceUpdatedResult{PayloadStatus: eth.PayloadStatusV1{Status: eth.ExecutionValid}}, nil)
 			err := eq.Step(context.Background())
 			require.NoError(t, err)
 
-			require.Equal(t, refF.ID(), eq.unsafeHead.L1Origin, "should have refF as unsafe head origin")
+			require.Equal(t, refF.ID(), eq.ec.UnsafeL2Head().L1Origin, "should have refF as unsafe head origin")
 
 			// L1 chain reorgs so new origin is at same slot as refF but on a different fork
 			prev.origin = test.newOrigin
-			eq.UnsafeL2Head()
 			err = eq.Step(context.Background())
 			if test.expectReset {
 				require.ErrorIs(t, err, ErrReset, "should reset pipeline due to mismatched origin")
@@ -851,7 +852,7 @@ func TestVerifyNewL1Origin(t *testing.T) {
 }
 
 func TestBlockBuildingRace(t *testing.T) {
-	logger := testlog.Logger(t, log.LvlInfo)
+	logger := testlog.Logger(t, log.LevelInfo)
 	eng := &testutils.MockEngine{}
 
 	rng := rand.New(rand.NewSource(1234))
@@ -913,7 +914,8 @@ func TestBlockBuildingRace(t *testing.T) {
 	}
 
 	prev := &fakeAttributesQueue{origin: refA, attrs: attrs, islastInSpan: true}
-	eq := NewEngineQueue(logger, cfg, eng, metrics, prev, l1F, &sync.Config{})
+	ec := NewEngineController(eng, logger, metrics, &rollup.Config{}, sync.CLSync)
+	eq := NewEngineQueue(logger, cfg, eng, ec, metrics, prev, l1F, &sync.Config{})
 	require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
 	id := eth.PayloadID{0xff}
@@ -948,15 +950,15 @@ func TestBlockBuildingRace(t *testing.T) {
 	require.NotNil(t, eq.safeAttributes, "still have attributes")
 
 	// Now allow the building to complete
-	a1InfoTx, err := L1InfoDepositBytes(refA1.SequenceNumber, &testutils.MockBlockInfo{
-		InfoHash:             refA.Hash,
-		InfoParentHash:       refA.ParentHash,
-		InfoCoinbase:         common.Address{},
-		InfoRoot:             common.Hash{},
-		InfoNum:              refA.Number,
-		InfoTime:             refA.Time,
-		InfoMixDigest:        [32]byte{},
-		InfoBaseFee:          big.NewInt(7),
+	a1InfoTx, err := L1InfoDepositBytes(cfg, cfg.Genesis.SystemConfig, refA1.SequenceNumber, &testutils.MockBlockInfo{
+		InfoHash:        refA.Hash,
+		InfoParentHash:  refA.ParentHash,
+		InfoCoinbase:    common.Address{},
+		InfoRoot:        common.Hash{},
+		InfoNum:         refA.Number,
+		InfoTime:        refA.Time,
+		InfoMixDigest:   [32]byte{},
+		InfoBaseFee:     big.NewInt(7),
 		InfoTransactionsRoot: common.Hash{},
 		InfoReceiptRoot:      common.Hash{},
 		InfoWithdrawalsRoot:  nil,
@@ -964,7 +966,7 @@ func TestBlockBuildingRace(t *testing.T) {
 		InfoGasLimit:         0,
 		InfoBloom:            types.Bloom{},
 		InfoExtra:            []byte{},
-	}, cfg.Genesis.SystemConfig, false)
+	}, 0)
 
 	require.NoError(t, err)
 	payloadA1 := &eth.ExecutionPayload{
@@ -979,14 +981,15 @@ func TestBlockBuildingRace(t *testing.T) {
 		GasUsed:       0,
 		Timestamp:     eth.Uint64Quantity(refA1.Time),
 		ExtraData:     nil,
-		BaseFeePerGas: *uint256.NewInt(7),
+		BaseFeePerGas: eth.Uint256Quantity(*uint256.NewInt(7)),
 		BlockHash:     refA1.Hash,
 		Transactions: []eth.Data{
 			a1InfoTx,
 		},
 	}
-	eng.ExpectGetPayload(id, payloadA1, nil)
-	eng.ExpectNewPayload(payloadA1, &eth.PayloadStatusV1{
+	envelope := &eth.ExecutionPayloadEnvelope{ExecutionPayload: payloadA1}
+	eng.ExpectGetPayload(id, envelope, nil)
+	eng.ExpectNewPayload(payloadA1, nil, &eth.PayloadStatusV1{
 		Status:          eth.ExecutionValid,
 		LatestValidHash: &refA1.Hash,
 		ValidationError: nil,
@@ -1007,9 +1010,9 @@ func TestBlockBuildingRace(t *testing.T) {
 	eng.ExpectForkchoiceUpdate(postFc, nil, postFcRes, nil)
 
 	// Now complete the job, as external user of the engine
-	_, _, err = eq.ConfirmPayload(context.Background())
+	_, _, err = eq.ConfirmPayload(context.Background(), async.NoOpGossiper{}, &conductor.NoOpConductor{})
 	require.NoError(t, err)
-	require.Equal(t, refA1, eq.SafeL2Head(), "safe head should have changed")
+	require.Equal(t, refA1, ec.SafeL2Head(), "safe head should have changed")
 
 	require.NoError(t, eq.Step(context.Background()))
 	require.Nil(t, eq.safeAttributes, "attributes should now be invalidated")
@@ -1019,7 +1022,7 @@ func TestBlockBuildingRace(t *testing.T) {
 }
 
 func TestResetLoop(t *testing.T) {
-	logger := testlog.Logger(t, log.LvlInfo)
+	logger := testlog.Logger(t, log.LevelInfo)
 	eng := &testutils.MockEngine{}
 	l1F := &testutils.MockL1Source{}
 
@@ -1088,27 +1091,35 @@ func TestResetLoop(t *testing.T) {
 
 	prev := &fakeAttributesQueue{origin: refA, attrs: attrs, islastInSpan: true}
 
-	eq := NewEngineQueue(logger, cfg, eng, metrics.NoopMetrics, prev, l1F, &sync.Config{})
-	eq.unsafeHead = refA2
-	eq.engineSyncTarget = refA2
-	eq.safeHead = refA1
-	eq.finalized = refA0
+	ec := NewEngineController(eng, logger, metrics.NoopMetrics, &rollup.Config{}, sync.CLSync)
+	eq := NewEngineQueue(logger, cfg, eng, ec, metrics.NoopMetrics, prev, l1F, &sync.Config{})
+	eq.ec.SetUnsafeHead(refA2)
+	eq.ec.SetSafeHead(refA1)
+	eq.ec.SetFinalizedHead(refA0)
 
-	// Qeueue up the safe attributes
+	// Queue up the safe attributes
+	// Expect a FCU after during the first step
+	preFc := &eth.ForkchoiceState{
+		HeadBlockHash:      refA2.Hash,
+		SafeBlockHash:      refA1.Hash,
+		FinalizedBlockHash: refA0.Hash,
+	}
+	eng.ExpectForkchoiceUpdate(preFc, nil, nil, nil)
 	require.Nil(t, eq.safeAttributes)
+	require.ErrorIs(t, eq.Step(context.Background()), nil)
 	require.ErrorIs(t, eq.Step(context.Background()), NotEnoughData)
 	require.NotNil(t, eq.safeAttributes)
 
-	// Peform the reset
+	// Perform the reset
 	require.ErrorIs(t, eq.Reset(context.Background(), eth.L1BlockRef{}, eth.SystemConfig{}), io.EOF)
 
 	// Expect a FCU after the reset
-	preFc := &eth.ForkchoiceState{
+	postFc := &eth.ForkchoiceState{
 		HeadBlockHash:      refA2.Hash,
 		SafeBlockHash:      refA0.Hash,
 		FinalizedBlockHash: refA0.Hash,
 	}
-	eng.ExpectForkchoiceUpdate(preFc, nil, nil, nil)
+	eng.ExpectForkchoiceUpdate(postFc, nil, nil, nil)
 	require.NoError(t, eq.Step(context.Background()), "clean forkchoice state after reset")
 
 	// Crux of the test. Should be in a valid state after the reset.
@@ -1119,7 +1130,7 @@ func TestResetLoop(t *testing.T) {
 }
 
 func TestEngineQueue_StepPopOlderUnsafe(t *testing.T) {
-	logger := testlog.Logger(t, log.LvlInfo)
+	logger := testlog.Logger(t, log.LevelInfo)
 	eng := &testutils.MockEngine{}
 	l1F := &testutils.MockL1Source{}
 
@@ -1167,7 +1178,7 @@ func TestEngineQueue_StepPopOlderUnsafe(t *testing.T) {
 		L1Origin:       refA.ID(),
 		SequenceNumber: 2,
 	}
-	payloadA1 := &eth.ExecutionPayload{
+	payloadA1 := &eth.ExecutionPayloadEnvelope{ExecutionPayload: &eth.ExecutionPayload{
 		ParentHash:    refA1.ParentHash,
 		FeeRecipient:  common.Address{},
 		StateRoot:     eth.Bytes32{},
@@ -1179,22 +1190,32 @@ func TestEngineQueue_StepPopOlderUnsafe(t *testing.T) {
 		GasUsed:       0,
 		Timestamp:     eth.Uint64Quantity(refA1.Time),
 		ExtraData:     nil,
-		BaseFeePerGas: *uint256.NewInt(7),
+		BaseFeePerGas: eth.Uint256Quantity(*uint256.NewInt(7)),
 		BlockHash:     refA1.Hash,
 		Transactions:  []eth.Data{},
-	}
+	}}
 
 	prev := &fakeAttributesQueue{origin: refA}
 
-	eq := NewEngineQueue(logger, cfg, eng, metrics.NoopMetrics, prev, l1F, &sync.Config{})
-	eq.unsafeHead = refA2
-	eq.safeHead = refA0
-	eq.finalized = refA0
+	ec := NewEngineController(eng, logger, metrics.NoopMetrics, &rollup.Config{}, sync.CLSync)
+	eq := NewEngineQueue(logger, cfg, eng, ec, metrics.NoopMetrics, prev, l1F, &sync.Config{})
+	eq.ec.SetUnsafeHead(refA2)
+	eq.ec.SetSafeHead(refA0)
+	eq.ec.SetFinalizedHead(refA0)
 
 	eq.AddUnsafePayload(payloadA1)
 
-	err := eq.Step(context.Background())
-	require.NoError(t, err)
+	// First Step calls FCU
+	preFc := &eth.ForkchoiceState{
+		HeadBlockHash:      refA2.Hash,
+		SafeBlockHash:      refA0.Hash,
+		FinalizedBlockHash: refA0.Hash,
+	}
+	eng.ExpectForkchoiceUpdate(preFc, nil, nil, nil)
+	require.NoError(t, eq.Step(context.Background()))
+
+	// Second Step pops the unsafe payload
+	require.NoError(t, eq.Step(context.Background()))
 
 	require.Nil(t, eq.unsafePayloads.Peek(), "should pop the unsafe payload because it is too old")
 	fmt.Println(eq.unsafePayloads.Peek())

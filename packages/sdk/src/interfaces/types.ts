@@ -32,6 +32,9 @@ export interface L1Contracts {
   L1CrossDomainMessenger: Contract
   L1StandardBridge: Contract
   L2OutputOracle: Contract
+  // FPAC
+  OptimismPortal2?: Contract
+  DisputeGameFactory?: Contract
 }
 
 /**

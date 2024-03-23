@@ -1,9 +1,12 @@
 package actions
 
 import (
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -45,15 +48,12 @@ func RunValidatorTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
-	log := testlog.Logger(t, log.LvlDebug)
+	log := testlog.Logger(t, log.LevelDebug)
 	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
 
 	rollupSeqCl := sequencer.RollupClient()
-	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
-		MinL1TxSize: 0,
-		MaxL1TxSize: 128_000,
-		BatcherKey:  dp.Secrets.Batcher,
-	}, rollupSeqCl, miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
+	batcher := NewL2Batcher(log, sd.RollupCfg, DefaultBatcherCfg(dp),
+		rollupSeqCl, miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
 
 	validator := NewL2Validator(t, log, &ValidatorCfg{
 		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,

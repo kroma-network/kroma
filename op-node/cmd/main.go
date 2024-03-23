@@ -74,8 +74,9 @@ func main() {
 func RollupNodeMain(ctx *cli.Context, closeApp context.CancelCauseFunc) (cliapp.Lifecycle, error) {
 	logCfg := oplog.ReadCLIConfig(ctx)
 	log := oplog.NewLogger(oplog.AppOut(ctx), logCfg)
-	oplog.SetGlobalLogHandler(log.GetHandler())
+	oplog.SetGlobalLogHandler(log.Handler())
 	opservice.ValidateEnvVars(flags.EnvVarPrefix, flags.Flags, log)
+	opservice.WarnOnDeprecatedFlags(ctx, flags.DeprecatedFlags, log)
 	m := metrics.NewMetrics("default")
 
 	cfg, err := opnode.NewConfig(ctx, log)

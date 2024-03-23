@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -exu
 
 VERBOSITY=${GETH_VERBOSITY:-3}
@@ -16,8 +16,8 @@ WS_PORT="${WS_PORT:-8546}"
 if [ ! -d "$GETH_KEYSTORE_DIR" ]; then
 	echo "$GETH_KEYSTORE_DIR missing, running account import"
 	echo -n "pwd" > "$GETH_DATA_DIR"/password
-	echo -n "$BLOCK_SIGNER_PRIVATE_KEY" | sed 's/0x//' > "$GETH_DATA_DIR"/block-signer-key
-	geth account import \
+  echo -n "$BLOCK_SIGNER_PRIVATE_KEY" | sed 's/0x//' > "$GETH_DATA_DIR"/block-signer-key
+  geth account import \
 		--datadir="$GETH_DATA_DIR" \
 		--password="$GETH_DATA_DIR"/password \
 		"$GETH_DATA_DIR"/block-signer-key
@@ -55,10 +55,10 @@ exec geth \
 	--syncmode=full \
 	--nodiscover \
 	--maxpeers=1 \
-	--networkid=$CHAIN_ID \
-	--unlock=$BLOCK_SIGNER_ADDRESS \
+	--networkid="$CHAIN_ID" \
+	--unlock="$BLOCK_SIGNER_ADDRESS" \
 	--mine \
-	--miner.etherbase=$BLOCK_SIGNER_ADDRESS \
+	--miner.etherbase="$BLOCK_SIGNER_ADDRESS" \
 	--password="$GETH_DATA_DIR"/password \
 	--allow-insecure-unlock \
 	--authrpc.addr="0.0.0.0" \

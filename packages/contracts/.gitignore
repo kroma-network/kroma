@@ -3,6 +3,9 @@ artifacts
 forge-artifacts
 cache
 broadcast
+kout-deployment
+kout-proofs
+test/kontrol/logs
 
 # Metrics
 coverage.out

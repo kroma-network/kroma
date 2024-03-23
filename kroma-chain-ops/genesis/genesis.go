@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -14,8 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
-// DefaultGasLimit represents the default gas limit for a genesis block.
-const DefaultGasLimit = 30_000_000
+// defaultGasLimit represents the default gas limit for a genesis block.
+const defaultGasLimit = 30_000_000
 
 // NewL2Genesis will create a new L2 genesis
 func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, error) {
@@ -60,11 +61,9 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 		RegolithTime:                  config.RegolithTime(block.Time()),
 		CanyonTime:                    config.CanyonTime(block.Time()),
 		ShanghaiTime:                  config.CanyonTime(block.Time()),
-		CancunTime:                    nil, // no Dencun on L2 yet.
-		// [Kroma: START]
-		// kroma-geth is not yet ready. it should be upstream to v1.101304.2
-		// InteropTime:                   config.InteropTime(block.Time()),
-		//
+		CancunTime:                    config.EcotoneTime(block.Time()),
+		EcotoneTime:                   config.EcotoneTime(block.Time()),
+		InteropTime:                   config.InteropTime(block.Time()),
 		Kroma: &params.KromaConfig{
 			EIP1559Denominator:       eip1559Denom,
 			EIP1559Elasticity:        eip1559Elasticity,
@@ -75,7 +74,7 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 
 	gasLimit := config.L2GenesisBlockGasLimit
 	if gasLimit == 0 {
-		gasLimit = DefaultGasLimit
+		gasLimit = defaultGasLimit
 	}
 	baseFee := config.L2GenesisBlockBaseFeePerGas
 	if baseFee == nil {
@@ -96,7 +95,7 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 		return nil, fmt.Errorf("transition block extradata too long: %d", size)
 	}
 
-	return &core.Genesis{
+	genesis := &core.Genesis{
 		Config:     &kromaChainConfig,
 		Nonce:      uint64(config.L2GenesisBlockNonce),
 		Timestamp:  block.Time(),
@@ -110,7 +109,14 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 		ParentHash: config.L2GenesisBlockParentHash,
 		BaseFee:    baseFee.ToInt(),
 		Alloc:      map[common.Address]core.GenesisAccount{},
-	}, nil
+	}
+
+	if kromaChainConfig.IsEcotone(genesis.Timestamp) {
+		genesis.BlobGasUsed = u64ptr(0)
+		genesis.ExcessBlobGas = u64ptr(0)
+	}
+
+	return genesis, nil
 }
 
 // NewL1Genesis will create a new L1 genesis config
@@ -154,11 +160,12 @@ func NewL1Genesis(config *DeployConfig) (*core.Genesis, error) {
 		chainConfig.TerminalTotalDifficulty = big.NewInt(0)
 		chainConfig.TerminalTotalDifficultyPassed = true
 		chainConfig.ShanghaiTime = u64ptr(0)
+		chainConfig.CancunTime = u64ptr(0)
 	}
 
 	gasLimit := config.L1GenesisBlockGasLimit
 	if gasLimit == 0 {
-		gasLimit = DefaultGasLimit
+		gasLimit = defaultGasLimit
 	}
 	baseFee := config.L1GenesisBlockBaseFeePerGas
 	if baseFee == nil {
@@ -173,7 +180,7 @@ func NewL1Genesis(config *DeployConfig) (*core.Genesis, error) {
 		timestamp = hexutil.Uint64(time.Now().Unix())
 	}
 	if !config.L1UseClique && config.L1CancunTimeOffset != nil {
-		cancunTime := uint64(timestamp) + *config.L1CancunTimeOffset
+		cancunTime := uint64(timestamp) + uint64(*config.L1CancunTimeOffset)
 		chainConfig.CancunTime = &cancunTime
 	}
 

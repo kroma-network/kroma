@@ -16,6 +16,7 @@ import (
 	gstate "github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
@@ -117,9 +118,9 @@ type DeployConfig struct {
 	// L2GenesisDeltaTimeOffset is the number of seconds after genesis block that Delta hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Delta.
 	L2GenesisDeltaTimeOffset *hexutil.Uint64 `json:"l2GenesisDeltaTimeOffset,omitempty"`
-	// L2GenesisEclipseTimeOffset is the number of seconds after genesis block that Eclipse hard fork activates.
-	// Set it to 0 to activate at genesis. Nil to disable Eclipse.
-	L2GenesisEclipseTimeOffset *hexutil.Uint64 `json:"l2GenesisEclipseTimeOffset,omitempty"`
+	// L2GenesisEcotoneTimeOffset is the number of seconds after genesis block that Ecotone hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable Ecotone.
+	L2GenesisEcotoneTimeOffset *hexutil.Uint64 `json:"l2GenesisEcotoneTimeOffset,omitempty"`
 	// L2GenesisFjordTimeOffset is the number of seconds after genesis block that Fjord hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Fjord.
 	L2GenesisFjordTimeOffset *hexutil.Uint64 `json:"l2GenesisFjordTimeOffset,omitempty"`
@@ -179,10 +180,6 @@ type DeployConfig struct {
 	// // FaultGameAbsolutePrestate is the absolute prestate of Cannon. This is computed
 	// // by generating a proof from the 0th -> 1st instruction and grabbing the prestate from
 	// // the output JSON. All honest challengers should agree on the setup state of the program.
-	// // TODO(clabby): Right now, the build of the `op-program` is nondeterministic, meaning that
-	// // the binary must be distributed in order for honest actors to agree. In the future, we'll
-	// // look to make the build deterministic so that users may build Cannon / the `op-program`
-	// // from source.
 	// FaultGameAbsolutePrestate common.Hash `json:"faultGameAbsolutePrestate"`
 	// // FaultGameMaxDepth is the maximum depth of the position tree within the fault dispute game.
 	// // `2^{FaultGameMaxDepth}` is how many instructions the execution trace bisection game
@@ -193,12 +190,18 @@ type DeployConfig struct {
 	// // game can run for before it is ready to be resolved. Each side receives half of this value
 	// // on their chess clock at the inception of the dispute.
 	// FaultGameMaxDuration uint64 `json:"faultGameMaxDuration"`
-	// // OutputBisectionGameGenesisBlock is the block number for genesis.
-	// OutputBisectionGameGenesisBlock uint64 `json:"outputBisectionGameGenesisBlock"`
-	// // OutputBisectionGameGenesisOutputRoot is the output root for the genesis block.
-	// OutputBisectionGameGenesisOutputRoot common.Hash `json:"outputBisectionGameGenesisOutputRoot"`
-	// // OutputBisectionGameSplitDepth is the depth at which the output bisection game splits.
-	// OutputBisectionGameSplitDepth uint64 `json:"outputBisectionGameSplitDepth"`
+	// // FaultGameGenesisBlock is the block number for genesis.
+	// FaultGameGenesisBlock uint64 `json:"faultGameGenesisBlock"`
+	// // FaultGameGenesisOutputRoot is the output root for the genesis block.
+	// FaultGameGenesisOutputRoot common.Hash `json:"faultGameGenesisOutputRoot"`
+	// // FaultGameSplitDepth is the depth at which the fault dispute game splits from output roots to execution trace claims.
+	// FaultGameSplitDepth uint64 `json:"faultGameSplitDepth"`
+	// // PreimageOracleMinProposalSize is the minimum number of bytes that a large preimage oracle proposal can be.
+	// PreimageOracleMinProposalSize uint64 `json:"preimageOracleMinProposalSize"`
+	// // PreimageOracleChallengePeriod is the number of seconds that challengers have to challenge a large preimage proposal.
+	// PreimageOracleChallengePeriod uint64 `json:"preimageOracleChallengePeriod"`
+	// // PreimageOracleCancunActivationTimestamp is the timestamp at which blob preimages are able to be loaded into the preimage oracle.
+	// PreimageOracleCancunActivationTimestamp uint64 `json:"preimageOracleCancunActivationTimestamp"`
 	// [Kroma: END]
 	// FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
 	// during devnet deployments.
@@ -210,10 +213,22 @@ type DeployConfig struct {
 	// // RequiredProtocolVersion indicates the protocol version that
 	// // nodes are recommended to adopt, to stay in sync with the network.
 	// RecommendedProtocolVersion params.ProtocolVersion `json:"recommendedProtocolVersion"`
+	// // ProofMaturityDelaySeconds is the number of seconds that a proof must be
+	// // mature before it can be used to finalize a withdrawal.
+	// ProofMaturityDelaySeconds uint64 `json:"proofMaturityDelaySeconds"`
+	// // DisputeGameFinalityDelaySeconds is an additional number of seconds a
+	// // dispute game must wait before it can be used to finalize a withdrawal.
+	// DisputeGameFinalityDelaySeconds uint64 `json:"disputeGameFinalityDelaySeconds"`
+	// // RespectedGameType is the dispute game type that the OptimismPortal
+	// // contract will respect for finalizing withdrawals.
+	// RespectedGameType uint32 `json:"respectedGameType"`
+	// // UseFaultProofs is a flag that indicates if the system is using fault
+	// // proofs instead of the older output oracle mechanism.
+	// UseFaultProofs bool `json:"useFaultProofs"`
 	// [Kroma: END]
 
 	// When Cancun activates. Relative to L1 genesis.
-	L1CancunTimeOffset *uint64 `json:"l1CancunTimeOffset,omitempty"`
+	L1CancunTimeOffset *hexutil.Uint64 `json:"l1CancunTimeOffset,omitempty"`
 
 	// [Kroma: START]
 	// ValidatorPool proxy address on L1
@@ -558,12 +573,12 @@ func (d *DeployConfig) DeltaTime(genesisTime uint64) *uint64 {
 	return &v
 }
 
-func (d *DeployConfig) EclipseTime(genesisTime uint64) *uint64 {
-	if d.L2GenesisEclipseTimeOffset == nil {
+func (d *DeployConfig) EcotoneTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisEcotoneTimeOffset == nil {
 		return nil
 	}
 	v := uint64(0)
-	if offset := *d.L2GenesisEclipseTimeOffset; offset > 0 {
+	if offset := *d.L2GenesisEcotoneTimeOffset; offset > 0 {
 		v = genesisTime + uint64(offset)
 	}
 	return &v
@@ -631,7 +646,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		RegolithTime:           d.RegolithTime(l1StartBlock.Time()),
 		CanyonTime:             d.CanyonTime(l1StartBlock.Time()),
 		DeltaTime:              d.DeltaTime(l1StartBlock.Time()),
-		EclipseTime:            d.EclipseTime(l1StartBlock.Time()),
+		EcotoneTime:            d.EcotoneTime(l1StartBlock.Time()),
 		FjordTime:              d.FjordTime(l1StartBlock.Time()),
 		InteropTime:            d.InteropTime(l1StartBlock.Time()),
 	}, nil
@@ -779,7 +794,7 @@ func NewL1Deployments(path string) (*L1Deployments, error) {
 
 	var deployments L1Deployments
 	if err := json.Unmarshal(file, &deployments); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal L1 deployements: %w", err)
+		return nil, fmt.Errorf("cannot unmarshal L1 deployments: %w", err)
 	}
 
 	return &deployments, nil
@@ -792,11 +807,53 @@ func NewStateDump(path string) (*gstate.Dump, error) {
 		return nil, fmt.Errorf("dump at %s not found: %w", path, err)
 	}
 
-	var dump gstate.Dump
-	if err := json.Unmarshal(file, &dump); err != nil {
+	var fdump ForgeDump
+	if err := json.Unmarshal(file, &fdump); err != nil {
 		return nil, fmt.Errorf("cannot unmarshal dump: %w", err)
 	}
+	dump := (gstate.Dump)(fdump)
 	return &dump, nil
+}
+
+// ForgeDump is a simple alias for state.Dump that can read "nonce" as a hex string.
+// It appears as if updates to foundry have changed the serialization of the state dump.
+type ForgeDump gstate.Dump
+
+func (d *ForgeDump) UnmarshalJSON(b []byte) error {
+	type forgeDumpAccount struct {
+		Balance     string                 `json:"balance"`
+		Nonce       hexutil.Uint64         `json:"nonce"`
+		Root        hexutil.Bytes          `json:"root"`
+		CodeHash    hexutil.Bytes          `json:"codeHash"`
+		Code        hexutil.Bytes          `json:"code,omitempty"`
+		Storage     map[common.Hash]string `json:"storage,omitempty"`
+		Address     *common.Address        `json:"address,omitempty"`
+		AddressHash hexutil.Bytes          `json:"key,omitempty"`
+	}
+	type forgeDump struct {
+		Root     string                              `json:"root"`
+		Accounts map[common.Address]forgeDumpAccount `json:"accounts"`
+	}
+	var dump forgeDump
+	if err := json.Unmarshal(b, &dump); err != nil {
+		return err
+	}
+
+	d.Root = dump.Root
+	d.Accounts = make(map[string]gstate.DumpAccount)
+	for addr, acc := range dump.Accounts {
+		d.Accounts[addr.String()] = gstate.DumpAccount{
+			Balance:     acc.Balance,
+			Nonce:       (uint64)(acc.Nonce),
+			Root:        acc.Root,
+			CodeHash:    acc.CodeHash,
+			Code:        acc.Code,
+			Storage:     acc.Storage,
+			Address:     acc.Address,
+			AddressHash: acc.AddressHash,
+		}
+	}
+	return nil
 }
 
 // NewL2ImmutableConfig will create an ImmutableConfig given an instance of a
@@ -904,8 +961,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 	return &cfg, nil
 }
 
-// NewL2StorageConfig will create a StorageConfig given an instance of a
-// Hardhat and a DeployConfig.
+// NewL2StorageConfig will create a StorageConfig given an instance of a DeployConfig and genesis block.
 func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.StorageConfig, error) {
 	storage := make(state.StorageConfig)
 

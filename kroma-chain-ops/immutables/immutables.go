@@ -82,6 +82,17 @@ type PredeploysImmutableConfig struct {
 	// }
 	// [Kroma: END]
 	Create2Deployer struct{}
+	// TODO: prepare needed
+	MultiCall3                   struct{}
+	Safe_v130                    struct{}
+	SafeL2_v130                  struct{}
+	MultiSendCallOnly_v130       struct{}
+	SafeSingletonFactory         struct{}
+	DeterministicDeploymentProxy struct{}
+	MultiSend_v130               struct{}
+	Permit2                      struct{}
+	SenderCreator                struct{}
+	EntryPoint                   struct{}
 
 	// [Kroma: START]
 	ValidatorRewardVault struct {
@@ -184,7 +195,11 @@ func Deploy(config *PredeploysImmutableConfig) (DeploymentResults, error) {
 // can be properly set. The bytecode returned in the results is suitable to be
 // inserted into the state via state surgery.
 func deployContractsWithImmutables(constructors []deployer.Constructor) (DeploymentResults, error) {
-	deployments, err := deployer.Deploy(deployer.NewL2Backend(), constructors, l2ImmutableDeployer)
+	backend, err := deployer.NewL2Backend()
+	if err != nil {
+		return nil, err
+	}
+	deployments, err := deployer.Deploy(backend, constructors, l2ImmutableDeployer)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +272,7 @@ func l2ImmutableDeployer(backend *backends.SimulatedBackend, opts *bind.Transact
 		if !ok {
 			return nil, fmt.Errorf("invalid type for messenger")
 		}
-		otherBridge, ok := deployment.Args[0].(common.Address)
+		otherBridge, ok := deployment.Args[1].(common.Address)
 		if !ok {
 			return nil, fmt.Errorf("invalid type for otherBridge")
 		}
