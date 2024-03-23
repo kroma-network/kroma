@@ -2,7 +2,6 @@ package op_e2e
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	gethutils "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
@@ -24,7 +22,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -599,7 +597,7 @@ func L1InfoFromState(ctx context.Context, contract *bindings.L1Block, l2Number *
 
 	validatorRewardScalar, err := contract.ValidatorRewardScalar(&opts)
 	if err != nil {
-		return derive.L1BlockInfo{}, fmt.Errorf("failed to get validator reward scalar: %w", err)
+		return nil, fmt.Errorf("failed to get validator reward scalar: %w", err)
 	}
 	out.ValidatorRewardScalar = eth.Bytes32(common.BigToHash(validatorRewardScalar))
 
@@ -990,12 +988,12 @@ func TestL1InfoContract(t *testing.T) {
 		require.Nil(t, err)
 
 		l1blocks[h] = &derive.L1BlockInfo{
-			Number:         b.NumberU64(),
-			Time:           b.Time(),
-			BaseFee:        b.BaseFee(),
-			BlockHash:      h,
-			SequenceNumber: 0, // ignored, will be overwritten
-			BatcherAddr:    sys.RollupConfig.Genesis.SystemConfig.BatcherAddr,
+			Number:                b.NumberU64(),
+			Time:                  b.Time(),
+			BaseFee:               b.BaseFee(),
+			BlockHash:             h,
+			SequenceNumber:        0, // ignored, will be overwritten
+			BatcherAddr:           sys.RollupConfig.Genesis.SystemConfig.BatcherAddr,
 			ValidatorRewardScalar: sys.RollupConfig.Genesis.SystemConfig.ValidatorRewardScalar,
 		}
 		if sys.RollupConfig.IsEcotone(b.Time()) && !sys.RollupConfig.IsEcotoneActivationBlock(b.Time()) {
@@ -1252,7 +1250,7 @@ func testFees(t *testing.T, cfg SystemConfig) {
 		require.ErrorContains(t, err, "deprecated")
 	}
 
-	decimals, err := gpoContract.Decimals(&bind.CallOpts{})
+	decimals, err := gpoContract.DECIMALS(&bind.CallOpts{})
 	require.Nil(t, err, "reading gpo decimals")
 
 	require.Equal(t, decimals.Uint64(), uint64(6), "wrong gpo decimals")
@@ -1340,7 +1338,7 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	require.Nil(t, err)
 
 	l1Fee := l1CostFn(tx.RollupCostData(), header.Time)
-	require.Equalf(t, l1Fee, l1FeeRecipientDiff, "L1 fee mismatch: start balance %v, end balance %v", l1FeeRecipientStartBalance, l1FeeRecipientEndBalance)
+	require.Equalf(t, l1Fee, l1FeeVaultDiff, "L1 fee mismatch: start balance %v, end balance %v", l1FeeVaultStartBalance, l1FeeVaultEndBalance)
 
 	gpoEcotone, err := gpoContract.IsEcotone(nil)
 	require.NoError(t, err)

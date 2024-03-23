@@ -960,7 +960,9 @@ func TestPreEcotone(t *testing.T) {
 					byte(vm.PUSH2),
 					byte(vm.TSTORE),
 				},
-				IsSystemTransaction: false,
+				// [Kroma: START]
+				// IsSystemTransaction: false,
+				// [Kroma: END]
 			})
 
 			_, err = opGeth.AddL2Block(ctx, tstoreTxn)
@@ -1041,7 +1043,9 @@ func TestEcotone(t *testing.T) {
 					byte(vm.TSTORE),
 					byte(vm.PUSH0),
 				},
-				IsSystemTransaction: false,
+				// [Kroma: START]
+				// IsSystemTransaction: false,
+				// [Kroma: END]
 			})
 
 			_, err = opGeth.AddL2Block(ctx, tstoreTxn)

@@ -384,9 +384,11 @@ func (n *OpNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger
 	}
 
 	var sequencerConductor conductor.SequencerConductor = &conductor.NoOpConductor{}
-	if cfg.ConductorEnabled {
-		sequencerConductor = NewConductorClient(cfg, n.log, n.metrics)
-	}
+	// [Kroma: START]
+	// if cfg.ConductorEnabled {
+	//	sequencerConductor = NewConductorClient(cfg, n.log, n.metrics)
+	// }
+	// [Kroma: END]
 
 	plasmaDA := plasma.NewPlasmaDA(n.log, cfg.Plasma)
 	if cfg.Plasma.Enabled {
@@ -679,7 +681,6 @@ func (n *OpNode) Stop(ctx context.Context) error {
 	if result == nil { // mark as closed if we successfully fully closed
 		n.closed.Store(true)
 	}
-
 
 	// [Kroma: START]
 	// if n.halted.Load() {

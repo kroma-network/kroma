@@ -451,7 +451,7 @@ export abstract class BaseServiceV2<
     this.logger.info('waiting for main to complete')
     // if main is in the middle of running wait for it to complete
     await this.mainPromise
-    this.logger.info('main loop stopped.')
+    this.logger.info('main loop stoped.')
 
     // Shut down the metrics server if it's running.
     if (this.server) {

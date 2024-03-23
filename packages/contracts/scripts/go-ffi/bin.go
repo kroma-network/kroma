@@ -11,8 +11,6 @@ func main() {
 		DiffTestUtils()
 	case "trie":
 		FuzzTrie()
-	case "merkle":
-		DiffMerkle()
 	default:
 		log.Fatal("Must pass a subcommand")
 	}

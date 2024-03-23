@@ -130,10 +130,10 @@ func (h headerBlockInfo) BaseFee() *big.Int {
 }
 
 func (h headerBlockInfo) BlobBaseFee() *big.Int {
-	if h.ExcessBlobGas == nil {
+	if h.header.ExcessBlobGas == nil {
 		return nil
 	}
-	return eip4844.CalcBlobFee(*h.ExcessBlobGas)
+	return eip4844.CalcBlobFee(*h.header.ExcessBlobGas)
 }
 
 func (h headerBlockInfo) ReceiptHash() common.Hash {
@@ -149,7 +149,7 @@ func (h headerBlockInfo) GasLimit() uint64 {
 }
 
 func (h headerBlockInfo) ParentBeaconRoot() *common.Hash {
-	return h.Header.ParentBeaconRoot
+	return h.header.ParentBeaconRoot
 }
 
 func (h headerBlockInfo) HeaderRLP() ([]byte, error) {

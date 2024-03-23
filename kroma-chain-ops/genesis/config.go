@@ -16,15 +16,14 @@ import (
 	gstate "github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
 
 var (
@@ -822,7 +821,7 @@ type ForgeDump gstate.Dump
 func (d *ForgeDump) UnmarshalJSON(b []byte) error {
 	type forgeDumpAccount struct {
 		Balance     string                 `json:"balance"`
-		Nonce       hexutil.Uint64         `json:"nonce"`
+		Nonce       uint64                 `json:"nonce"`
 		Root        hexutil.Bytes          `json:"root"`
 		CodeHash    hexutil.Bytes          `json:"codeHash"`
 		Code        hexutil.Bytes          `json:"code,omitempty"`

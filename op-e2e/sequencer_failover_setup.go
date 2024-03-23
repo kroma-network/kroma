@@ -295,9 +295,11 @@ func sequencerCfg(rpcPort int) *rollupNode.Config {
 		RuntimeConfigReloadInterval: time.Minute * 10,
 		ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
 		Sync:                        sync.Config{SyncMode: sync.CLSync},
-		ConductorEnabled:            true,
-		ConductorRpc:                fmt.Sprintf("http://%s:%d", localhost, rpcPort),
-		ConductorRpcTimeout:         1 * time.Second,
+		// [Kroma: START]
+		// ConductorEnabled:    true,
+		// ConductorRpc:        fmt.Sprintf("http://%s:%d", localhost, rpcPort),
+		// ConductorRpcTimeout: 1 * time.Second,
+		// [Kroma: END]
 	}
 }
 

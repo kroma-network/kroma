@@ -452,14 +452,14 @@ func (l *L2OutputSubmitter) submitL2OutputTx(data []byte) *txmgr.TxResponse {
 	}
 
 	// Do the gas estimation and set 150% of it to gas limit to prevent tx failed because of dynamic gas usage in unbond and priority validator selection
-	gasTipCap, basefee, err := l.cfg.TxManager.SuggestGasPriceCaps(l.ctx)
+	gasTipCap, baseFee, _, err := l.cfg.TxManager.SuggestGasPriceCaps(l.ctx)
 	if err != nil {
 		return &txmgr.TxResponse{
 			Receipt: nil,
 			Err:     fmt.Errorf("failed to get gas price info: %w", err),
 		}
 	}
-	gasFeeCap := txmgr.CalcGasFeeCap(basefee, gasTipCap)
+	gasFeeCap := txmgr.CalcGasFeeCap(baseFee, gasTipCap)
 
 	to := &l.cfg.L2OutputOracleAddr
 	estimatedGas, err := l.cfg.L1Client.EstimateGas(l.ctx, ethereum.CallMsg{

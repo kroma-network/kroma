@@ -10,6 +10,8 @@ COPY ./op-bindings /app/op-bindings
 COPY ./op-chain-ops /app/op-chain-ops
 COPY ./op-node /app/op-node
 COPY ./op-service /app/op-service
+COPY ./op-plasma /app/op-plasma
+COPY ./op-conductor /app/op-conductor
 COPY ./kroma-bindings /app/kroma-bindings
 COPY ./kroma-chain-ops /app/kroma-chain-ops
 COPY ./kroma-validator /app/kroma-validator

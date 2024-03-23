@@ -25,7 +25,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-
 )
 
 const (
@@ -172,7 +171,7 @@ func (g *gasPricer) feesForEpoch(epoch int64) (*big.Int, *big.Int, uint64) {
 	e := big.NewInt(epoch)
 	epochBaseFee := new(big.Int).Mul(g.baseBaseFee, e)
 	epochGasTipCap := new(big.Int).Mul(g.baseGasTipFee, e)
-	epochGasFeeCap := calcGasFeeCap(epochBaseFee, epochGasTipCap)
+	epochGasFeeCap := CalcGasFeeCap(epochBaseFee, epochGasTipCap)
 	epochExcessBlobGas := g.excessBlobGas * uint64(epoch)
 	return epochGasTipCap, epochGasFeeCap, epochExcessBlobGas
 }
@@ -337,7 +336,7 @@ func (b *mockBackend) TransactionReceipt(ctx context.Context, txHash common.Hash
 		GasUsed:           txInfo.gasFeeCap.Uint64(),
 		CumulativeGasUsed: blobFeeCap,
 		BlockNumber:       big.NewInt(int64(txInfo.blockNumber)),
-		Status:      types.ReceiptStatusSuccessful,
+		Status:            types.ReceiptStatusSuccessful,
 	}, nil
 }
 
@@ -1315,7 +1314,7 @@ func TestMinFees(t *testing.T) {
 			conf.MinTipCap = tt.minTipCap
 			h := newTestHarnessWithConfig(t, conf)
 
-			tip, baseFee, _, err := h.mgr.suggestGasPriceCaps(context.TODO())
+			tip, baseFee, _, err := h.mgr.SuggestGasPriceCaps(context.TODO())
 			require.NoError(err)
 
 			if tt.expectMinBaseFee {

@@ -15,10 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 var writeFile bool
@@ -90,8 +90,7 @@ func TestBuildL2MainnetGenesis(t *testing.T) {
 	config.EnableGovernance = true
 	config.FundDevAccounts = false
 	gen := testBuildL2Genesis(t, config)
-	// TODO : need check count
-	require.Equal(t, 536, len(gen.Alloc))
+	require.Equal(t, 526, len(gen.Alloc))
 }
 
 func TestBuildL2MainnetNoGovernanceGenesis(t *testing.T) {

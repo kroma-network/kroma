@@ -24,6 +24,7 @@ import (
 // TestPlasmaDataSource verifies that commitments are correctly read from l1 and then
 // forwarded to the Plasma DA to return the correct inputs in the iterator.
 func TestPlasmaDataSource(t *testing.T) {
+	t.Skip("kroma does not support")
 	logger := testlog.Logger(t, log.LevelDebug)
 	ctx := context.Background()
 
@@ -57,10 +58,12 @@ func TestPlasmaDataSource(t *testing.T) {
 			L2:     refA0.ID(),
 			L2Time: refA0.Time,
 		},
-		BlockTime:          1,
-		SeqWindowSize:      20,
-		BatchInboxAddress:  batcherInbox,
-		DAChallengeAddress: common.Address{43},
+		BlockTime:         1,
+		SeqWindowSize:     20,
+		BatchInboxAddress: batcherInbox,
+		// [Kroma: START]
+		// DAChallengeAddress: common.Address{43},
+		// [Kroma: END]
 	}
 	// keep track of random input data to validate against
 	var inputs [][]byte

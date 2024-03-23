@@ -68,11 +68,11 @@ type Config struct {
 	// [OPTIONAL] The reth DB path to read receipts from
 	RethDBPath string
 
-	// [Kroma: START]
+	// [Kroma: START] TODO : not used, disabled by config
 	// Conductor is used to determine this node is the leader sequencer.
-	// ConductorEnabled    bool
-	// ConductorRpc        string
-	// ConductorRpcTimeout time.Duration
+	ConductorEnabled    bool
+	ConductorRpc        string
+	ConductorRpcTimeout time.Duration
 	// [Kroma: END]
 
 	// Plasma DA config
@@ -161,17 +161,20 @@ func (cfg *Config) Check() error {
 			return fmt.Errorf("p2p config error: %w", err)
 		}
 	}
-	if !(cfg.RollupHalt == "" || cfg.RollupHalt == "major" || cfg.RollupHalt == "minor" || cfg.RollupHalt == "patch") {
-		return fmt.Errorf("invalid rollup halting option: %q", cfg.RollupHalt)
-	}
-	if cfg.ConductorEnabled {
-		if state, _ := cfg.ConfigPersistence.SequencerState(); state != StateUnset {
-			return fmt.Errorf("config persistence must be disabled when conductor is enabled")
-		}
-		if !cfg.Driver.SequencerEnabled {
-			return fmt.Errorf("sequencer must be enabled when conductor is enabled")
-		}
-	}
+	// [Kroma: START]
+	// if !(cfg.RollupHalt == "" || cfg.RollupHalt == "major" || cfg.RollupHalt == "minor" || cfg.RollupHalt == "patch") {
+	//	return fmt.Errorf("invalid rollup halting option: %q", cfg.RollupHalt)
+	// }
+	//
+	// if cfg.ConductorEnabled {
+	//	if state, _ := cfg.ConfigPersistence.SequencerState(); state != StateUnset {
+	//		return fmt.Errorf("config persistence must be disabled when conductor is enabled")
+	//	}
+	//	if !cfg.Driver.SequencerEnabled {
+	//		return fmt.Errorf("sequencer must be enabled when conductor is enabled")
+	//	}
+	//}
+	// [Kroma: END]
 	if err := cfg.Plasma.Check(); err != nil {
 		return fmt.Errorf("plasma config error: %w", err)
 	}

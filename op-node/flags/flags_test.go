@@ -129,7 +129,7 @@ func TestEnvVarFormat(t *testing.T) {
 			envFlags := envFlagGetter.GetEnvVars()
 			require.True(t, ok, "must be able to cast the flag to an EnvVar interface")
 			require.Equal(t, 1, len(envFlags), "flags should have exactly one env var")
-			expectedEnvVar := opservice.FlagNameToEnvVarName(flagName, "OP_NODE")
+			expectedEnvVar := opservice.FlagNameToEnvVarName(flagName, "NODE")
 			require.Equal(t, expectedEnvVar, envFlags[0])
 		})
 	}

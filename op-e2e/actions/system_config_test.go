@@ -441,9 +441,9 @@ func TestValidatorRewardScalarChange(gt *testing.T) {
 	require.Equal(t, validatorRewardScalar.Uint64(), dp.DeployConfig.ValidatorRewardScalar)
 
 	// However, it should be set to the default value (2000) for L2 payload.
-	payload, err := engCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
+	envelope, err := engCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
 	require.NoError(t, err)
-	sysCfg, err := derive.PayloadToSystemConfig(payload, sd.RollupCfg)
+	sysCfg, err := derive.PayloadToSystemConfig(sd.RollupCfg, envelope.ExecutionPayload)
 	require.NoError(t, err)
 	expected := eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(dp.DeployConfig.ValidatorRewardScalar)))
 	require.Equal(t, expected, sysCfg.ValidatorRewardScalar, "validator reward scalar changed")
@@ -465,9 +465,9 @@ func TestValidatorRewardScalarChange(gt *testing.T) {
 	sequencer.ActBuildToL1Head(t)
 
 	require.NoError(t, err)
-	payload, err = engCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
+	envelope, err = engCl.PayloadByLabel(t.Ctx(), eth.Unsafe)
 	require.NoError(t, err)
-	sysCfg, err = derive.PayloadToSystemConfig(payload, sd.RollupCfg)
+	sysCfg, err = derive.PayloadToSystemConfig(sd.RollupCfg, envelope.ExecutionPayload)
 	require.NoError(t, err)
 	require.Equal(t, eth.Bytes32(common.BigToHash(newScalar)), sysCfg.ValidatorRewardScalar, "validator reward scalar changed")
 
@@ -477,7 +477,7 @@ func TestValidatorRewardScalarChange(gt *testing.T) {
 	miner.ActL1IncludeTx(dp.Addresses.Batcher)(t)
 	miner.ActL1EndBlock(t)
 
-	_, verifier := setupVerifier(t, sd, log, miner.L1Client(t, sd.RollupCfg), &sync.Config{})
+	_, verifier := setupVerifier(t, sd, log, miner.L1Client(t, sd.RollupCfg), miner.BlobStore(), &sync.Config{})
 	verifier.ActL2PipelineFull(t)
 
 	require.Equal(t, sequencer.L2Unsafe(), verifier.L2Safe(), "syncer stays in sync, even with validator reward scalar changes")

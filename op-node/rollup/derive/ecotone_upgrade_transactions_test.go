@@ -52,7 +52,9 @@ func toDepositTxn(t *testing.T, data hexutil.Bytes) (common.Address, *types.Tran
 	err := txn.UnmarshalBinary(data)
 	require.NoError(t, err)
 	require.Truef(t, txn.IsDepositTx(), "expected deposit txn, got %v", txn.Type())
-	require.False(t, txn.IsSystemTx())
+	// [Kroma: START]
+	// require.False(t, txn.IsSystemTx())
+	// [Kroma: END]
 
 	signer := types.NewLondonSigner(big.NewInt(420))
 	from, err := signer.Sender(txn)

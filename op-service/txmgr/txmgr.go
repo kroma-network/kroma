@@ -261,7 +261,7 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		m.metr.RPCError()
 		return nil, fmt.Errorf("failed to get gas price info: %w", err)
 	}
-	gasFeeCap := CalcGasFeeCap(basefee, gasTipCap)
+	gasFeeCap := CalcGasFeeCap(baseFee, gasTipCap)
 
 	gasLimit := candidate.GasLimit
 
@@ -315,14 +315,14 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		// such as gas prices, due to subsequent code modifications.
 		// To avoid this, we need to add logic to calculate the accessList automatically using `eth_createAccessList`.
 		txMessage = &types.DynamicFeeTx{
-			ChainID:   m.chainID,
-			To:        candidate.To,
-			GasTipCap: gasTipCap,
-			GasFeeCap: gasFeeCap,
-			Value:     candidate.Value,
-			Data:      candidate.TxData,
+			ChainID:    m.chainID,
+			To:         candidate.To,
+			GasTipCap:  gasTipCap,
+			GasFeeCap:  gasFeeCap,
+			Value:      candidate.Value,
+			Data:       candidate.TxData,
 			AccessList: candidate.AccessList,
-			Gas:       gasLimit,
+			Gas:        gasLimit,
 		}
 	}
 	return m.signWithNextNonce(ctx, txMessage) // signer sets the nonce field of the tx
@@ -383,7 +383,7 @@ func (m *SimpleTxManager) signWithNextNonce(ctx context.Context, txMessage types
 	default:
 		return nil, fmt.Errorf("unrecognized tx type: %T", x)
 	}
-	ctx, cancel := context.WithTimeout(ctx, m.cfg.NetworkTimeout)
+	ctx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
 	tx, err := m.Config.Signer(ctx, m.Config.From, types.NewTx(txMessage))
 	if err != nil {
@@ -642,7 +642,7 @@ func (m *SimpleTxManager) queryReceipt(ctx context.Context, txHash common.Hash, 
 // multiple of the suggested values.
 func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transaction) (*types.Transaction, error) {
 	m.txLogger(tx, true).Info("bumping gas price for transaction")
-	tip, baseFee, blobBaseFee, err := m.suggestGasPriceCaps(ctx)
+	tip, baseFee, blobBaseFee, err := m.SuggestGasPriceCaps(ctx)
 	if err != nil {
 		m.txLogger(tx, false).Warn("failed to get suggested gas tip and base fee", "err", err)
 		return nil, err
@@ -725,10 +725,10 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 	return signedTx, nil
 }
 
-// suggestGasPriceCaps suggests what the new tip, base fee, and blob base fee should be based on
+// SuggestGasPriceCaps suggests what the new tip, base fee, and blob base fee should be based on
 // the current L1 conditions. blobfee will be nil if 4844 is not yet active.
-func (m *SimpleTxManager) suggestGasPriceCaps(ctx context.Context) (*big.Int, *big.Int, *big.Int, error) {
-	cCtx, cancel := context.WithTimeout(ctx, m.cfg.NetworkTimeout)
+func (m *SimpleTxManager) SuggestGasPriceCaps(ctx context.Context) (*big.Int, *big.Int, *big.Int, error) {
+	cCtx, cancel := context.WithTimeout(ctx, m.Config.NetworkTimeout)
 	defer cancel()
 	tip, err := m.backend.SuggestGasTipCap(cCtx)
 	if err != nil {
@@ -774,7 +774,7 @@ func (m *SimpleTxManager) checkLimits(tip, baseFee, bumpedTip, bumpedFee *big.In
 	threshold := m.Config.FeeLimitThreshold
 	limit := big.NewInt(int64(m.Config.FeeLimitMultiplier))
 	maxTip := new(big.Int).Mul(tip, limit)
-	maxFee := calcGasFeeCap(new(big.Int).Mul(baseFee, limit), maxTip)
+	maxFee := CalcGasFeeCap(new(big.Int).Mul(baseFee, limit), maxTip)
 
 	// generic check function to check tip and fee, and build up an error
 	check := func(v, max *big.Int, name string) {

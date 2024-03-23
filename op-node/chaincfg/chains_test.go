@@ -68,7 +68,9 @@ var mainnetCfg = rollup.Config{
 	RegolithTime:           u64Ptr(0),
 	CanyonTime:             u64Ptr(1708502400),
 	DeltaTime:              u64Ptr(1709107200),
-	EcotoneTime:            u64Ptr(1709107200),
+	EcotoneTime:            nil,
+	FjordTime:              nil,
+	InteropTime:            nil,
 	// [Kroma: START]
 	// ProtocolVersionsAddress: common.HexToAddress("0x8062AbC286f5e7D9428a0Ccb9AbD71e50d93b935"),
 	// [Kroma: END]
@@ -105,11 +107,10 @@ var sepoliaCfg = rollup.Config{
 	RegolithTime:           u64Ptr(0),
 	CanyonTime:             u64Ptr(1707897600),
 	DeltaTime:              u64Ptr(1708416000),
-	EcotoneTime:            u64Ptr(1708416000),
+	EcotoneTime:            nil,
+	FjordTime:              nil,
+	InteropTime:            nil,
 	// [Kroma: START]
 	// ProtocolVersionsAddress: common.HexToAddress("0x79ADD5713B383DAa0a138d3C4780C7A1804a8090"),
 	// [Kroma: END]
-}
-func u64Ptr(v uint64) *uint64 {
-	return &v
 }

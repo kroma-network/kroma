@@ -23,7 +23,6 @@ import (
 	gstate "github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	tracelogger "github.com/ethereum/go-ethereum/eth/tracers/logger"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -123,7 +122,7 @@ func mainAction(c *cli.Context) error {
 
 // TraceConfig is different than Geth TraceConfig, quicknode sin't flexible
 type TraceConfig struct {
-	*tracelogger.Config
+	Config  *vm.LogConfig
 	Tracer  string  `json:"tracer"`
 	Timeout *string `json:"timeout"`
 	// Config specific to given tracer. Note struct logger
@@ -148,7 +147,7 @@ func fetchPrestate(ctx context.Context, cl *rpc.Client, dir string, txHash commo
 	}
 	var result json.RawMessage
 	if err := cl.CallContext(ctx, &result, "debug_traceTransaction", txHash, TraceConfig{
-		Config: &tracelogger.Config{
+		Config: &vm.LogConfig{
 			EnableMemory:     false,
 			DisableStack:     true,
 			DisableStorage:   true,
@@ -170,20 +169,23 @@ func fetchPrestate(ctx context.Context, cl *rpc.Client, dir string, txHash commo
 }
 
 func fetchChainConfig(ctx context.Context, cl *rpc.Client) (*params.ChainConfig, error) {
-	// first try the chain-ID RPC, this is widely available on any RPC provider.
-	var idResult hexutil.Big
-	if err := cl.CallContext(ctx, &idResult, "eth_chainId"); err != nil {
-		return nil, fmt.Errorf("failed to retrieve chain ID: %w", err)
-	}
-	// if we recognize the chain ID, we can get the chain config
-	id := (*big.Int)(&idResult)
-	if id.IsUint64() {
-		cfg, err := params.LoadOPStackChainConfig(id.Uint64())
-		if err == nil {
-			return cfg, nil
-		}
-		// ignore error, try to fetch chain config in full
-	}
+	// [Kroma: START]
+	//// first try the chain-ID RPC, this is widely available on any RPC provider.
+	//var idResult hexutil.Big
+	//if err := cl.CallContext(ctx, &idResult, "eth_chainId"); err != nil {
+	//	return nil, fmt.Errorf("failed to retrieve chain ID: %w", err)
+	//}
+	//// if we recognize the chain ID, we can get the chain config
+	//id := (*big.Int)(&idResult)
+	//if id.IsUint64() {
+	//	cfg, err := params.LoadOPStackChainConfig(id.Uint64())
+	//	if err == nil {
+	//		return cfg, nil
+	//	}
+	//	// ignore error, try to fetch chain config in full
+	//}
+	// [Kroma: END]
+
 	// if not already recognized, then fetch the chain config manually
 	var config params.ChainConfig
 	if err := cl.CallContext(ctx, &config, "eth_chainConfig"); err != nil {

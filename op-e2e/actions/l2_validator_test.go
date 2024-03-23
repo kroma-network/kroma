@@ -1,12 +1,9 @@
 package actions
 
 import (
-	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -17,7 +14,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
-
 
 // TestValidatorBatchType run each validator-related test case in singular batch mode and span batch mode.
 func TestValidatorBatchType(t *testing.T) {

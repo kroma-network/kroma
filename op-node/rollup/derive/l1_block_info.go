@@ -11,18 +11,18 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/solabi"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 const (
 	L1InfoFuncBedrockSignature = "setL1BlockValues(uint64,uint64,uint256,bytes32,uint64,bytes32,uint256,uint256,uint256)"
 	L1InfoFuncEcotoneSignature = "setL1BlockValuesEcotone()"
-	L1InfoArguments     = 9
-	L1InfoBedrockLen    = 4 + 32*L1InfoArguments
-	L1InfoEcotoneLen    = 4 + 32*5 // after Ecotone upgrade, args are packed into 5 32-byte slots
+	L1InfoArguments            = 9
+	L1InfoBedrockLen           = 4 + 32*L1InfoArguments
+	L1InfoEcotoneLen           = 4 + 32*5 // after Ecotone upgrade, args are packed into 5 32-byte slots
 )
 
 var (
@@ -252,7 +252,7 @@ func (info *L1BlockInfo) unmarshalBinaryEcotone(data []byte) error {
 	if info.BatcherAddr, err = solabi.ReadAddress(r); err != nil {
 		return err
 	}
-	if info.ValidatorRewardScalar, err = solabi.ReadEthBytes32(reader); err != nil {
+	if info.ValidatorRewardScalar, err = solabi.ReadEthBytes32(r); err != nil {
 		return err
 	}
 	if !solabi.EmptyReader(r) {
@@ -280,12 +280,12 @@ func L1BlockInfoFromBytes(rollupCfg *rollup.Config, l2BlockTime uint64, data []b
 // and the L2 block-height difference with the start of the epoch.
 func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber uint64, block eth.BlockInfo, l2BlockTime uint64) (*types.DepositTx, error) {
 	l1BlockInfo := L1BlockInfo{
-		Number:         block.NumberU64(),
-		Time:           block.Time(),
-		BaseFee:        block.BaseFee(),
-		BlockHash:      block.Hash(),
-		SequenceNumber: seqNumber,
-		BatcherAddr:    sysCfg.BatcherAddr,
+		Number:                block.NumberU64(),
+		Time:                  block.Time(),
+		BaseFee:               block.BaseFee(),
+		BlockHash:             block.Hash(),
+		SequenceNumber:        seqNumber,
+		BatcherAddr:           sysCfg.BatcherAddr,
 		ValidatorRewardScalar: sysCfg.ValidatorRewardScalar,
 	}
 	var data []byte

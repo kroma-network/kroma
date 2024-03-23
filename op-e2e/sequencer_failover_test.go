@@ -13,6 +13,7 @@ import (
 // [Category: Initial Setup]
 // In this test, we test that we can successfully setup a working cluster.
 func TestSequencerFailover_SetupCluster(t *testing.T) {
+	t.Skip("kroma does not support")
 	sys, conductors := setupSequencerFailoverTest(t)
 	defer sys.Close()
 
@@ -25,6 +26,7 @@ func TestSequencerFailover_SetupCluster(t *testing.T) {
 // [Category: conductor rpc]
 // In this test, we test all rpcs exposed by conductor.
 func TestSequencerFailover_ConductorRPC(t *testing.T) {
+	t.Skip("kroma does not support")
 	ctx := context.Background()
 	sys, conductors := setupSequencerFailoverTest(t)
 	defer sys.Close()

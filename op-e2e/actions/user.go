@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -19,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -29,8 +27,8 @@ import (
 
 type L1Bindings struct {
 	// contract bindings
-	KromaPortal *bindings.KromaPortal
-	L2OutputOracle     *bindings.L2OutputOracle
+	KromaPortal    *bindings.KromaPortal
+	L2OutputOracle *bindings.L2OutputOracle
 
 	// [Kroma: START]
 	// OptimismPortal2    *bindingspreview.OptimismPortal2

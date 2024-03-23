@@ -2,10 +2,8 @@ package flags
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	openum "github.com/ethereum-optimism/optimism/op-service/enum"
@@ -68,18 +66,6 @@ var (
 		Usage:    "Address of L1 Beacon-node HTTP endpoint to use.",
 		Required: false,
 		EnvVars:  prefixEnvVars("L1_BEACON"),
-		Category: RollupCategory,
-	}
-	RollupConfig = &cli.StringFlag{
-		Name:    "rollup.config",
-		Usage:   "Rollup chain parameters",
-		EnvVars: prefixEnvVars("ROLLUP_CONFIG"),
-		Category: RollupCategory,
-	}
-	Network = &cli.StringFlag{
-		Name:    "network",
-		Usage:   fmt.Sprintf("Predefined network selection. Available networks: %s", strings.Join(chaincfg.AvailableNetworks(), ", ")),
-		EnvVars: prefixEnvVars("NETWORK"),
 		Category: RollupCategory,
 	}
 	/* Optional Flags */
@@ -347,10 +333,13 @@ var (
 		Hidden:  true,
 	}
 	ConductorEnabledFlag = &cli.BoolFlag{
-		Name:     "conductor.enabled",
-		Usage:    "Enable the conductor service",
-		EnvVars:  prefixEnvVars("CONDUCTOR_ENABLED"),
-		Value:    false,
+		Name:    "conductor.enabled",
+		Usage:   "Enable the conductor service",
+		EnvVars: prefixEnvVars("CONDUCTOR_ENABLED"),
+		Value:   false,
+		// [Kroma: START]
+		Hidden: true,
+		// [Kroma: END]
 		Category: SequencerCategory,
 	}
 	ConductorRpcFlag = &cli.StringFlag{
@@ -384,8 +373,6 @@ var optionalFlags = []cli.Flag{
 	SyncModeFlag,
 	RPCListenAddr,
 	RPCListenPort,
-	RollupConfig,
-	Network,
 	L1TrustRPC,
 	L1RPCProviderKind,
 	L1RPCRateLimit,

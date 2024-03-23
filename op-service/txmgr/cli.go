@@ -46,13 +46,13 @@ var (
 		Name: "sequencer-hd-path",
 		Usage: "DEPRECATED: The HD path used to derive the sequencer wallet from the " +
 			"mnemonic. The mnemonic flag must also be set.",
-		EnvVars: []string{"OP_BATCHER_SEQUENCER_HD_PATH"},
+		EnvVars: []string{"BATCHER_SEQUENCER_HD_PATH"},
 	}
 	L2OutputHDPathFlag = &cli.StringFlag{
 		Name: "l2-output-hd-path",
 		Usage: "DEPRECATED:The HD path used to derive the l2output wallet from the " +
 			"mnemonic. The mnemonic flag must also be set.",
-		EnvVars: []string{"OP_PROPOSER_L2_OUTPUT_HD_PATH"},
+		EnvVars: []string{"PROPOSER_L2_OUTPUT_HD_PATH"},
 	}
 )
 
@@ -91,7 +91,7 @@ var (
 	// NumConfirmations:          uint64(3),
 	// SafeAbortNonceTooLowCount: uint64(3),
 	// FeeLimitMultiplier:        uint64(5),
-    // ResubmissionTimeout:       24 * time.Second,
+	// ResubmissionTimeout:       24 * time.Second,
 	// NetworkTimeout:            10 * time.Second,
 	// TxSendTimeout:             2 * time.Minute,
 	// TxNotInMempoolTimeout:     1 * time.Minute,
@@ -221,7 +221,7 @@ type CLIConfig struct {
 	TxSendTimeout             time.Duration
 	TxNotInMempoolTimeout     time.Duration
 	// [Kroma: START]
-	TxBufferSize              uint64
+	TxBufferSize uint64
 	// [Kroma: END]
 }
 
@@ -241,7 +241,7 @@ func NewCLIConfig(l1RPCURL string, defaults DefaultFlagValues) CLIConfig {
 		ReceiptQueryInterval:      defaults.ReceiptQueryInterval,
 		SignerCLIConfig:           opsigner.NewCLIConfig(),
 		// [Kroma: START]
-		TxBufferSize:              defaults.TxBufferSize,
+		TxBufferSize: defaults.TxBufferSize,
 		// [Kroma: END]
 	}
 }
@@ -307,7 +307,7 @@ func ReadCLIConfig(ctx *cli.Context) CLIConfig {
 		TxSendTimeout:             ctx.Duration(TxSendTimeoutFlagName),
 		TxNotInMempoolTimeout:     ctx.Duration(TxNotInMempoolTimeoutFlagName),
 		// [Kroma: START]
-		TxBufferSize:              ctx.Uint64(BufferSizeFlagName),
+		TxBufferSize: ctx.Uint64(BufferSizeFlagName),
 		// [Kroma: END]
 	}
 }
@@ -376,7 +376,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (Config, error) {
 		Signer:                    signerFactory(chainID),
 		From:                      from,
 		// [Kroma: START]
-		TxBufferSize:              cfg.TxBufferSize,
+		TxBufferSize: cfg.TxBufferSize,
 		// [Kroma: END]
 	}, nil
 }

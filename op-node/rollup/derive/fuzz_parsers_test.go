@@ -71,16 +71,16 @@ func FuzzL1InfoBedrockRoundTrip(f *testing.F) {
 
 // FuzzL1InfoEcotoneRoundTrip checks that our Ecotone encoder round trips properly
 func FuzzL1InfoEcotoneRoundTrip(f *testing.F) {
-	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, blobBaseFee, hash []byte, seqNumber uint64, baseFeeScalar, blobBaseFeeScalar uint32) {
+	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, blobBaseFee, hash []byte, seqNumber uint64, baseFeeScalar, blobBaseFeeScalar uint32, validatorRewardScalar []byte) {
 		in := L1BlockInfo{
-			Number:            number,
-			Time:              time,
-			BaseFee:           BytesToBigInt(baseFee),
-			BlockHash:         common.BytesToHash(hash),
-			SequenceNumber:    seqNumber,
-			BlobBaseFee:       BytesToBigInt(blobBaseFee),
-			BaseFeeScalar:     baseFeeScalar,
-			BlobBaseFeeScalar: blobBaseFeeScalar,
+			Number:                number,
+			Time:                  time,
+			BaseFee:               BytesToBigInt(baseFee),
+			BlockHash:             common.BytesToHash(hash),
+			SequenceNumber:        seqNumber,
+			BlobBaseFee:           BytesToBigInt(blobBaseFee),
+			BaseFeeScalar:         baseFeeScalar,
+			BlobBaseFeeScalar:     blobBaseFeeScalar,
 			ValidatorRewardScalar: eth.Bytes32(common.BytesToHash(validatorRewardScalar)),
 		}
 		enc, err := in.marshalBinaryEcotone()
@@ -104,7 +104,7 @@ func FuzzL1InfoEcotoneRoundTrip(f *testing.F) {
 // bindings. Note that we don't test setL1BlockValuesEcotone since it accepts only custom packed
 // calldata and cannot be invoked using the generated bindings.
 func FuzzL1InfoBedrockAgainstContract(f *testing.F) {
-	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, hash []byte, seqNumber uint64, batcherHash []byte, l1FeeOverhead []byte, l1FeeScalar []byte) {
+	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, hash []byte, seqNumber uint64, batcherHash []byte, l1FeeOverhead []byte, l1FeeScalar []byte, validatorRewardScalar []byte) {
 		expected := L1BlockInfo{
 			Number:                number,
 			Time:                  time,

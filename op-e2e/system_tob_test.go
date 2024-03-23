@@ -10,12 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/kroma-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
@@ -30,6 +28,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	fuzz "github.com/google/gofuzz"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/stretchr/testify/require"
 )
 
@@ -538,26 +538,28 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			// Wait for the finalization period, then we can finalize this withdrawal.
 			require.NotEqual(t, cfg.L1Deployments.L2OutputOracleProxy, common.Address{})
 			var blockNumber uint64
-			if e2eutils.UseFPAC() {
-				blockNumber, err = wait.ForGamePublished(ctx, l1Client, cfg.L1Deployments.OptimismPortalProxy, cfg.L1Deployments.DisputeGameFactoryProxy, receipt.BlockNumber)
-			} else {
-				blockNumber, err = wait.ForOutputRootPublished(ctx, l1Client, cfg.L1Deployments.L2OutputOracleProxy, receipt.BlockNumber)
-			}
+			// [Kroma: START]
+			//if e2eutils.UseFPAC() {
+			//	blockNumber, err = wait.ForGamePublished(ctx, l1Client, cfg.L1Deployments.OptimismPortalProxy, cfg.L1Deployments.DisputeGameFactoryProxy, receipt.BlockNumber)
+			//} else {
+			//	blockNumber, err = wait.ForOutputRootPublished(ctx, l1Client, cfg.L1Deployments.L2OutputOracleProxy, receipt.BlockNumber)
+			//}
+			blockNumber, err = wait.ForOutputRootPublished(ctx, l1Client, cfg.L1Deployments.L2OutputOracleProxy, receipt.BlockNumber)
+			// [Kroma: END]
 			require.Nil(t, err)
 
 			header, err = l2Verif.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 			require.Nil(t, err)
 
-			ctx, cancel = context.WithTimeout(context.Background(), txTimeoutDuration)
-			nextHeader, err := l2Verif.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber+1))
-			cancel()
+			txCtx, txCancel = context.WithTimeout(context.Background(), txTimeoutDuration)
+			nextHeader, err := l2Verif.HeaderByNumber(txCtx, new(big.Int).SetUint64(blockNumber+1))
+			txCancel()
 			require.Nil(t, err)
 
 			rpcClient, err := rpc.Dial(sys.EthInstances["verifier"].WSEndpoint())
 			require.Nil(t, err)
 			proofCl := gethclient.New(rpcClient)
 			receiptCl := ethclient.NewClient(rpcClient)
-			blockCl := ethclient.NewClient(rpcClient)
 
 			// Now create the withdrawal
 			version := eth.OutputVersionV0

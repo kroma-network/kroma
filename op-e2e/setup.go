@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
+	"github.com/kroma-network/kroma/op-e2e/e2eutils/batcher"
 	"math/big"
 	"net"
 	"os"
@@ -67,7 +69,6 @@ import (
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 	validator "github.com/kroma-network/kroma/kroma-validator"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
-	"github.com/kroma-network/kroma/op-e2e/e2eutils/fakebeacon"
 	"github.com/kroma-network/kroma/op-e2e/testdata"
 	"github.com/kroma-network/kroma/op-service/client"
 )
@@ -159,11 +160,11 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			},
 		},
 		Loggers: map[string]log.Logger{
-			"verifier":   testlog.Logger(t, log.LvlInfo).New("role", "verifier"),
-			"sequencer":  testlog.Logger(t, log.LvlInfo).New("role", "sequencer"),
-			"batcher":    testlog.Logger(t, log.LvlInfo).New("role", "batcher"),
-			"validator":  testlog.Logger(t, log.LvlCrit).New("role", "validator"),
-			"challenger": testlog.Logger(t, log.LvlCrit).New("role", "challenger"),
+			"verifier":   testlog.Logger(t, log.LevelInfo).New("role", "verifier"),
+			"sequencer":  testlog.Logger(t, log.LevelInfo).New("role", "sequencer"),
+			"batcher":    testlog.Logger(t, log.LevelInfo).New("role", "batcher"),
+			"validator":  testlog.Logger(t, log.LevelCrit).New("role", "validator"),
+			"challenger": testlog.Logger(t, log.LevelCrit).New("role", "challenger"),
 		},
 		GethOptions:                map[string][]geth.GethOption{},
 		P2PTopology:                nil, // no P2P connectivity by default
@@ -526,21 +527,21 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 				L2Time:       uint64(cfg.DeployConfig.L1GenesisBlockTimestamp),
 				SystemConfig: e2eutils.SystemConfigFromDeployConfig(cfg.DeployConfig),
 			},
-			BlockTime:               cfg.DeployConfig.L2BlockTime,
-			MaxSequencerDrift:       cfg.DeployConfig.MaxSequencerDrift,
-			SeqWindowSize:           cfg.DeployConfig.SequencerWindowSize,
-			ChannelTimeout:          cfg.DeployConfig.ChannelTimeout,
-			L1ChainID:               cfg.L1ChainIDBig(),
-			L2ChainID:               cfg.L2ChainIDBig(),
-			BatchInboxAddress:       cfg.DeployConfig.BatchInboxAddress,
-			DepositContractAddress:  cfg.DeployConfig.OptimismPortalProxy,
-			L1SystemConfigAddress:   cfg.DeployConfig.SystemConfigProxy,
-			RegolithTime:            cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			CanyonTime:              cfg.DeployConfig.CanyonTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			DeltaTime:               cfg.DeployConfig.DeltaTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			EcotoneTime:             cfg.DeployConfig.EcotoneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			FjordTime:               cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			InteropTime:             cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			BlockTime:              cfg.DeployConfig.L2BlockTime,
+			MaxSequencerDrift:      cfg.DeployConfig.MaxSequencerDrift,
+			SeqWindowSize:          cfg.DeployConfig.SequencerWindowSize,
+			ChannelTimeout:         cfg.DeployConfig.ChannelTimeout,
+			L1ChainID:              cfg.L1ChainIDBig(),
+			L2ChainID:              cfg.L2ChainIDBig(),
+			BatchInboxAddress:      cfg.DeployConfig.BatchInboxAddress,
+			DepositContractAddress: cfg.DeployConfig.KromaPortalProxy,
+			L1SystemConfigAddress:  cfg.DeployConfig.SystemConfigProxy,
+			RegolithTime:           cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			CanyonTime:             cfg.DeployConfig.CanyonTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			DeltaTime:              cfg.DeployConfig.DeltaTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			EcotoneTime:            cfg.DeployConfig.EcotoneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			FjordTime:              cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			InteropTime:            cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			// [Kroma: START]
 			// ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
 			// [Kroma: END]
@@ -796,7 +797,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		OutputSubmitterAllowPublicRound: true,
 		SecurityCouncilAddress:          config.L1Deployments.SecurityCouncilProxy.Hex(),
 		LogConfig: oplog.CLIConfig{
-			Level:  log.LvlInfo,
+			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
 		},
 	}
@@ -852,7 +853,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		SecurityCouncilAddress: config.L1Deployments.SecurityCouncilProxy.Hex(),
 		GuardianEnabled:        cfg.EnableGuardian,
 		LogConfig: oplog.CLIConfig{
-			Level:  log.LvlInfo,
+			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
 		},
 	}

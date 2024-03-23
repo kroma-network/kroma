@@ -400,7 +400,11 @@ func (c *Config) GetPayloadVersion(timestamp uint64) eth.EngineAPIMethod {
 
 // IsPlasmaEnabled returns true if a DA Challenge proxy Address is provided in the rollup config.
 func (c *Config) IsPlasmaEnabled() bool {
-	return c.DAChallengeAddress != (common.Address{})
+	// [Kroma: START]
+	// Kroma not supported
+	//return c.DAChallengeAddress != (common.Address{})
+	// [Kroma: END]
+	return false
 }
 
 // Description outputs a banner describing the important parts of rollup configuration in a human-readable form.

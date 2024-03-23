@@ -71,19 +71,12 @@ export const estimateL1Gas = async (
   const gpo = connectGasPriceOracle(l2Provider)
   return gpo.getL1GasUsed(
     serialize({
-      to: tx.to,
-      gasLimit: tx.gasLimit,
-      gasPrice: tx.gasPrice,
-      maxFeePerGas: tx.maxFeePerGas,
-      maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
       data: tx.data,
-      value: tx.value,
-      chainId: tx.chainId,
+      to: tx.to,
+      gasPrice: tx.gasPrice,
       type: tx.type,
-      accessList: tx.accessList,
-      nonce: tx.nonce
-        ? BigNumber.from(tx.nonce).toNumber()
-        : await getNonceForTx(l2Provider, tx),
+      gasLimit: tx.gasLimit,
+      nonce: await getNonceForTx(l2Provider, tx),
     })
   )
 }
@@ -102,19 +95,12 @@ export const estimateL1GasCost = async (
   const gpo = connectGasPriceOracle(l2Provider)
   return gpo.getL1Fee(
     serialize({
-      to: tx.to,
-      gasLimit: tx.gasLimit,
-      gasPrice: tx.gasPrice,
-      maxFeePerGas: tx.maxFeePerGas,
-      maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
       data: tx.data,
-      value: tx.value,
-      chainId: tx.chainId,
+      to: tx.to,
+      gasPrice: tx.gasPrice,
       type: tx.type,
-      accessList: tx.accessList,
-      nonce: tx.nonce
-        ? BigNumber.from(tx.nonce).toNumber()
-        : await getNonceForTx(l2Provider, tx),
+      gasLimit: tx.gasLimit,
+      nonce: await getNonceForTx(l2Provider, tx),
     })
   )
 }
