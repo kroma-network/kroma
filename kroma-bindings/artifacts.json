@@ -29,6 +29,7 @@
   "SystemConfig",
   "TimeLock",
   "UpgradeGovernor",
+  "ValidatorManager",
   "ValidatorPool",
   "ValidatorRewardVault",
   "WETH9",
