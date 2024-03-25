@@ -14,17 +14,19 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	//"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	//"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
 var (
-	l1BlockCodeHash        = common.HexToHash("0xc88a313aa75dc4fbf0b6850d9f9ae41e04243b7008cf3eadb29256d4a71c1dfd")
-	gasPriceOracleCodeHash = common.HexToHash("0x8b71360ea773b4cfaf1ae6d2bd15464a4e1e2e360f786e475f63aeaed8da0ae5")
+	l1BlockCodeHash        = common.HexToHash("0x0989889dab2877d3782ce75989417b9b1613c56100e4ada077637e694fd17ce5")
+	gasPriceOracleCodeHash = common.HexToHash("0x7782df49fc01fd0cf7000d724e120d0f96b90d14a5991ff88a0ca9742d3dc65b")
 )
 
 // verifyCodeHashMatches checks that the has of the code at the given address matches the expected code-hash.

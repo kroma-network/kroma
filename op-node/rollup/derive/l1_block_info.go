@@ -168,7 +168,7 @@ func (info *L1BlockInfo) unmarshalBinaryBedrock(data []byte) error {
 // | 32      | BlobBaseFee              |
 // | 32      | BlockHash                |
 // | 32      | BatcherHash              |
-// | 32      | ValidatorRewardScalar    |
+// | 32      | ValidatorRewardScalar    | TODO : not used, need update
 // +---------+--------------------------+
 
 func (info *L1BlockInfo) marshalBinaryEcotone() ([]byte, error) {
@@ -208,9 +208,9 @@ func (info *L1BlockInfo) marshalBinaryEcotone() ([]byte, error) {
 	if err := solabi.WriteAddress(w, info.BatcherAddr); err != nil {
 		return nil, err
 	}
-	if err := solabi.WriteEthBytes32(w, info.ValidatorRewardScalar); err != nil {
-		return nil, err
-	}
+	//if err := solabi.WriteEthBytes32(w, info.ValidatorRewardScalar); err != nil {
+	//	return nil, err
+	//}
 	return w.Bytes(), nil
 }
 
@@ -252,9 +252,9 @@ func (info *L1BlockInfo) unmarshalBinaryEcotone(data []byte) error {
 	if info.BatcherAddr, err = solabi.ReadAddress(r); err != nil {
 		return err
 	}
-	if info.ValidatorRewardScalar, err = solabi.ReadEthBytes32(r); err != nil {
-		return err
-	}
+	//if info.ValidatorRewardScalar, err = solabi.ReadEthBytes32(r); err != nil {
+	//	return err
+	//}
 	if !solabi.EmptyReader(r) {
 		return errors.New("too many bytes")
 	}
