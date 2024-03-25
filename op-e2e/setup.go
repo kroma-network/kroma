@@ -43,7 +43,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/fakebeacon"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
@@ -54,6 +56,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
+	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
@@ -65,9 +68,6 @@ import (
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 	validator "github.com/kroma-network/kroma/kroma-validator"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
-	"github.com/kroma-network/kroma/op-e2e/e2eutils/fakebeacon"
-	"github.com/kroma-network/kroma/op-e2e/testdata"
-	"github.com/kroma-network/kroma/op-service/client"
 )
 
 var (
