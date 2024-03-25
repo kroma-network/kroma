@@ -121,12 +121,12 @@ abstract contract AssetManager is IERC721Receiver {
     }
 
     /**
-     * @notice Represents the amounts of KRO and KGH shares that requested for undelegation when undelegating KGH.
+     * @notice Represents the amounts of KRO and KGH shares for KGH delegator.
      *
-     * @custom:field kroShares Amount of KRO shares to undelegate.
-     * @custom:field kghShares Amount of KGH shares to undelegate.
+     * @custom:field kroShares Amount of KRO shares.
+     * @custom:field kghShares Amount of KGH shares.
      */
-    struct UndelegateShares {
+    struct KghDelegatorShares {
         uint128 kroShares;
         uint128 kghShares;
     }
@@ -134,8 +134,8 @@ abstract contract AssetManager is IERC721Receiver {
     /**
      * @notice Constructs the delegator of KGH in the vault of a validator.
      *
-     * @custom:field kroShares              Amount of shares for KRO in KGH with a corresponding tokenId.
-     * @custom:field kghShares              Amount of shares for delegation of KGH with a corresponding tokenId.
+     * @custom:field shares                 Amount of shares for KRO in KGH and KGH itself to the
+     *                                      corresponding tokenId.
      * @custom:field undelegateRequestTimes Timestamps of undelegation requests.
      * @custom:field pendingKghIds          A mapping of timestamp undelegations are requested to
      *                                      token ids of KGHs for undelegation.
@@ -143,11 +143,10 @@ abstract contract AssetManager is IERC721Receiver {
      *                                      pending KRO and KGH shares for undelegation.
      */
     struct KghDelegator {
-        mapping(uint256 => uint128) kroShares;
-        mapping(uint256 => uint128) kghShares;
+        mapping(uint256 => KghDelegatorShares) shares;
         uint256[] undelegateRequestTimes;
         mapping(uint256 => uint256[]) pendingKghIds;
-        mapping(uint256 => UndelegateShares) pendingShares;
+        mapping(uint256 => KghDelegatorShares) pendingShares;
     }
 
     /**
@@ -537,13 +536,16 @@ abstract contract AssetManager is IERC721Receiver {
         address delegator,
         uint256 tokenId
     ) external view returns (uint128) {
-        KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[delegator];
-        uint128 kghShares = kghDelegator.kghShares[tokenId];
-        uint128 kroShares = kghDelegator.kroShares[tokenId];
         uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenId);
 
-        uint128 kghAssets = previewKghUndelegate(validator, kghShares) - VKRO_PER_KGH;
-        uint128 kroAssets = previewUndelegate(validator, kroShares) - kroInKgh;
+        uint128 kghAssets = previewKghUndelegate(
+            validator,
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kghShares
+        ) - VKRO_PER_KGH;
+        uint128 kroAssets = previewUndelegate(
+            validator,
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kroShares
+        ) - kroInKgh;
         return kghAssets + kroAssets;
     }
 
@@ -578,8 +580,8 @@ abstract contract AssetManager is IERC721Receiver {
         uint256 tokenId
     ) external view returns (uint128, uint128) {
         return (
-            _vaults[validator].kghDelegators[delegator].kroShares[tokenId],
-            _vaults[validator].kghDelegators[delegator].kghShares[tokenId]
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kroShares,
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kghShares
         );
     }
 
@@ -642,7 +644,7 @@ abstract contract AssetManager is IERC721Receiver {
         return
             _convertToKghAssets(
                 validator,
-                _vaults[validator].kghDelegators[msg.sender].kghShares[tokenId]
+                _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kghShares
             );
     }
 
@@ -772,14 +774,14 @@ abstract contract AssetManager is IERC721Receiver {
             uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenIds[i]);
             uint128 kroSharesForTokenId = previewDelegate(validator, kroInKgh);
 
+            _vaults[validator].kghDelegators[msg.sender].shares[tokenIds[i]] = KghDelegatorShares({
+                kroShares: kroSharesForTokenId,
+                kghShares: kghShares
+            });
+
             unchecked {
                 kroInKghs += kroInKgh;
                 kroShares += kroSharesForTokenId;
-
-                _vaults[validator].kghDelegators[msg.sender].kroShares[
-                    tokenIds[i]
-                ] = kroSharesForTokenId;
-                _vaults[validator].kghDelegators[msg.sender].kghShares[tokenIds[i]] = kghShares;
 
                 ++i;
             }
@@ -818,8 +820,8 @@ abstract contract AssetManager is IERC721Receiver {
      * @param tokenId   Token id of KGH to undelegate.
      */
     function initUndelegateKgh(address validator, uint256 tokenId) external {
-        uint128 kroShares = _vaults[validator].kghDelegators[msg.sender].kroShares[tokenId];
-        uint128 kghShares = _vaults[validator].kghDelegators[msg.sender].kghShares[tokenId];
+        uint128 kroShares = _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kroShares;
+        uint128 kghShares = _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kghShares;
 
         require(kghShares != 0, "AssetManager: No shares for the given tokenId");
         _initUndelegateKgh(validator, msg.sender, tokenId, kroShares, kghShares);
@@ -836,25 +838,26 @@ abstract contract AssetManager is IERC721Receiver {
     function initUndelegateKghBatch(address validator, uint256[] calldata tokenIds) external {
         require(tokenIds.length > 0, "AssetManager: cannot undelegate 0 KGH");
 
-        KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
+        mapping(uint256 => KghDelegatorShares) storage shares = _vaults[validator]
+            .kghDelegators[msg.sender]
+            .shares;
         uint128 kroShares;
         uint128 kghShares;
         uint128 kroInKghs;
         uint128 kghAssetsToWithdraw;
         for (uint256 i = 0; i < tokenIds.length; ) {
-            uint128 kroSharesForTokenId = kghDelegator.kroShares[tokenIds[i]];
-            uint128 kghShareForTokenId = kghDelegator.kghShares[tokenIds[i]];
+            uint128 kroSharesForTokenId = shares[tokenIds[i]].kroShares;
+            uint128 kghSharesForTokenId = shares[tokenIds[i]].kghShares;
 
-            require(kghShareForTokenId != 0, "AssetManager: No shares for the given tokenId");
+            require(kghSharesForTokenId != 0, "AssetManager: No shares for the given tokenId");
 
             unchecked {
                 kroShares += kroSharesForTokenId;
-                kghShares += kghShareForTokenId;
+                kghShares += kghSharesForTokenId;
                 kroInKghs += KGH_MANAGER.totalKroInKgh(tokenIds[i]);
                 kghAssetsToWithdraw += previewKghUndelegate(validator, tokenIds[i]);
 
-                delete kghDelegator.kroShares[tokenIds[i]];
-                delete kghDelegator.kghShares[tokenIds[i]];
+                delete shares[tokenIds[i]];
 
                 ++i;
             }
@@ -977,7 +980,7 @@ abstract contract AssetManager is IERC721Receiver {
             if (requestTimes[i] + UNDELEGATION_PERIOD <= block.timestamp) {
                 // Calculate the shares only if reward exists.
                 if (rewardExists) {
-                    UndelegateShares memory pendingShares = kghDelegator.pendingShares[
+                    KghDelegatorShares memory pendingShares = kghDelegator.pendingShares[
                         requestTimes[i]
                     ];
                     unchecked {
@@ -1181,7 +1184,7 @@ abstract contract AssetManager is IERC721Receiver {
         uint256[] memory tokenIds,
         uint128 baseRewards,
         uint128 boostedRewards,
-        UndelegateShares memory shares
+        KghDelegatorShares memory shares
     ) internal {
         for (uint256 i = 0; i < tokenIds.length; i++) {
             vault.kghDelegators[msg.sender].pendingKghIds[block.timestamp].push(tokenIds[i]);
@@ -1331,8 +1334,10 @@ abstract contract AssetManager is IERC721Receiver {
 
             asset.totalKroShares += kroShares;
             asset.totalKghShares += kghShares;
-            vault.kghDelegators[msg.sender].kroShares[tokenId] = kroShares;
-            vault.kghDelegators[msg.sender].kghShares[tokenId] = kghShares;
+            vault.kghDelegators[msg.sender].shares[tokenId] = KghDelegatorShares(
+                kroShares,
+                kghShares
+            );
         }
 
         if (kroInKgh > 0) {
@@ -1429,8 +1434,7 @@ abstract contract AssetManager is IERC721Receiver {
         unchecked {
             vault.asset.totalKroShares -= kroShares;
             vault.asset.totalKghShares -= kghShares;
-            delete vault.kghDelegators[owner].kroShares[tokenId];
-            delete vault.kghDelegators[owner].kghShares[tokenId];
+            delete vault.kghDelegators[owner].shares[tokenId];
 
             uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenId);
             uint128 baseRewardsToReceive = kroAssetsToWithdraw - kroInKgh;
@@ -1441,7 +1445,7 @@ abstract contract AssetManager is IERC721Receiver {
             vault.asset.totalKgh -= 1;
             vault.reward.boostedReward -= boostedRewardsToReceive;
 
-            UndelegateShares memory pendingShares = UndelegateShares({
+            KghDelegatorShares memory pendingShares = KghDelegatorShares({
                 kroShares: kroShares.mulDiv(baseRewardsToReceive, kroAssetsToWithdraw),
                 kghShares: kghShares.mulDiv(boostedRewardsToReceive, kghAssetsToWithdraw)
             });
@@ -1494,7 +1498,7 @@ abstract contract AssetManager is IERC721Receiver {
             vault.asset.totalKgh -= uint128(tokenIds.length);
             vault.reward.boostedReward -= boostedRewardsToReceive;
 
-            UndelegateShares memory pendingShares = UndelegateShares({
+            KghDelegatorShares memory pendingShares = KghDelegatorShares({
                 kroShares: kroShares.mulDiv(baseRewardsToReceive, kroAssetsToWithdraw),
                 kghShares: kghShares.mulDiv(boostedRewardsToReceive, kghAssetsToWithdraw)
             });
