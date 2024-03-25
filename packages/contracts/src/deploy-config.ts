@@ -92,6 +92,11 @@ interface RequiredDeployConfig {
   validatorPoolRoundDuration: number
 
   /**
+   * L1 block number of validator system hardfork in hex value.
+   */
+  validatorPoolValidatorHardforkBlock: string
+
+  /**
    * Output Oracle submission interval in L2 blocks.
    */
   l2OutputOracleSubmissionInterval: number
@@ -309,6 +314,9 @@ export const deployConfigSpec: {
   },
   validatorPoolRoundDuration: {
     type: 'number',
+  },
+  validatorPoolValidatorHardforkBlock: {
+    type: 'string', // uint256
   },
   l2OutputOracleSubmissionInterval: {
     type: 'number',

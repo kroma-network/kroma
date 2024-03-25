@@ -19,11 +19,11 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
 
 var (
@@ -225,6 +225,8 @@ type DeployConfig struct {
 	ValidatorPoolRequiredBondAmount *hexutil.Big   `json:"validatorPoolRequiredBondAmount"`
 	ValidatorPoolMaxUnbond          uint64         `json:"validatorPoolMaxUnbond"`
 	ValidatorPoolRoundDuration      uint64         `json:"validatorPoolRoundDuration"`
+	// ValidatorPoolValidatorHardforkBlock is L1 block number of validator system hardfork in hex value.
+	ValidatorPoolValidatorHardforkBlock *hexutil.Big `json:"validatorPoolValidatorHardforkBlock,omitempty"`
 
 	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
 	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`

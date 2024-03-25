@@ -13,6 +13,12 @@ const deployFn: DeployFunction = async (hre) => {
     hre,
     'ValidatorPoolProxy'
   )
+  // TODO: change ValidatorManagerProxy address
+  // const validatorManagerProxyAddress = await getDeploymentAddress(
+  //   hre,
+  //   'ValidatorManagerProxy'
+  // )
+  const validatorManagerProxyAddress = validatorPoolProxyAddress
   const colosseumProxyAddress = await getDeploymentAddress(
     hre,
     'ColosseumProxy'
@@ -36,6 +42,7 @@ const deployFn: DeployFunction = async (hre) => {
   await deploy(hre, 'L2OutputOracle', {
     args: [
       validatorPoolProxyAddress,
+      validatorManagerProxyAddress,
       colosseumProxyAddress,
       hre.deployConfig.l2OutputOracleSubmissionInterval,
       hre.deployConfig.l2BlockTime,
@@ -59,15 +66,16 @@ const deployFn: DeployFunction = async (hre) => {
         'L2_BLOCK_TIME',
         hre.deployConfig.l2BlockTime
       )
-      await assertContractVariable(
-        contract,
-        'COLOSSEUM',
-        colosseumProxyAddress
-      )
+      await assertContractVariable(contract, 'COLOSSEUM', colosseumProxyAddress)
       await assertContractVariable(
         contract,
         'VALIDATOR_POOL',
         validatorPoolProxyAddress
+      )
+      await assertContractVariable(
+        contract,
+        'VALIDATOR_MANAGER',
+        validatorManagerProxyAddress
       )
       await assertContractVariable(
         contract,

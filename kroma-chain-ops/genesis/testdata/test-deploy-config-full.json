@@ -61,6 +61,7 @@
   "validatorPoolRequiredBondAmount": "0x1",
   "validatorPoolMaxUnbond": 10,
   "validatorPoolRoundDuration": 4,
+  "validatorPoolValidatorHardforkBlock": "0x0",
   "securityCouncilOwners": [
     "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
     "0x71be63f3384f5fb98995898a86b02fb2426c5788",
