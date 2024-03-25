@@ -84,6 +84,12 @@
         } catch {}
         
 
+        let IValidatorManager
+        try {
+          IValidatorManager = require('../artifacts/contracts/L1/IValidatorManager.sol/IValidatorManager.json')
+        } catch {}
+        
+
         let IZKMerkleTrie
         try {
           IZKMerkleTrie = require('../artifacts/contracts/L1/IZKMerkleTrie.sol/IZKMerkleTrie.json')
@@ -135,6 +141,12 @@
         let SystemConfig
         try {
           SystemConfig = require('../artifacts/contracts/L1/SystemConfig.sol/SystemConfig.json')
+        } catch {}
+        
+
+        let ValidatorManager
+        try {
+          ValidatorManager = require('../artifacts/contracts/L1/ValidatorManager.sol/ValidatorManager.json')
         } catch {}
         
 
@@ -447,6 +459,7 @@ TimeLock,
 UpgradeGovernor,
 AssetManager,
 Colosseum,
+IValidatorManager,
 IZKMerkleTrie,
 KromaPortal,
 L1CrossDomainMessenger,
@@ -456,6 +469,7 @@ L2OutputOracle,
 ResourceMetering,
 SecurityCouncil,
 SystemConfig,
+ValidatorManager,
 ValidatorPool,
 ZKMerkleTrie,
 IPoseidon2,
