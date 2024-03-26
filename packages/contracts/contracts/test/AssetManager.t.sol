@@ -124,6 +124,11 @@ contract MockAssetManager is ValidatorManager {
     function setCommissionRate(address validator, uint8 _commissionRate) external {
         _vaults[validator].reward.commissionRate = _commissionRate;
     }
+
+    function slash(address loser, uint256 outputIndex) external {
+        require(msg.sender == L2_ORACLE.COLOSSEUM(), "AssetManager: only colosseum can slash");
+        _slash(loser, outputIndex);
+    }
 }
 
 // Tests the implementations of the AssetManager
@@ -670,7 +675,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorHardfork_Initializer {
         uint256 latestOutputIndex = mockOracle.latestOutputIndex();
         vm.prank(address(colosseum));
         // Suppose that the challenge is successful, so the winner is challenger
-        assetManager.slash(asserter, challenger, latestOutputIndex);
+        assetManager.slash(asserter, latestOutputIndex);
         // This will be done by the l2 output oracle contract in the real environment.
         vm.prank(address(challenger));
         mockOracle.replaceOutput(latestOutputIndex);
@@ -693,7 +698,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorHardfork_Initializer {
         uint256 latestOutputIndex = mockOracle.latestOutputIndex();
         vm.prank(address(colosseum));
         // Suppose that the challenge is successful, so the winner is challenger
-        assetManager.slash(asserter, challenger, latestOutputIndex);
+        assetManager.slash(asserter, latestOutputIndex);
         // This will be done by the l2 output oracle contract in the real environment.
         vm.prank(address(challenger));
         mockOracle.replaceOutput(latestOutputIndex);
@@ -730,7 +735,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorHardfork_Initializer {
         uint256 latestOutputIndex = mockOracle.latestOutputIndex();
         vm.prank(address(colosseum));
         // Suppose that the challenge is successful, so the winner is challenger.
-        assetManager.slash(asserter, challenger, latestOutputIndex);
+        assetManager.slash(asserter, latestOutputIndex);
         // This will be done by the l2 output oracle contract in the real environment.
         vm.prank(address(challenger));
         mockOracle.replaceOutput(latestOutputIndex);
@@ -768,6 +773,6 @@ contract AssetManagerTest is L2OutputOracle_ValidatorHardfork_Initializer {
     function test_slash_notColosseum_reverts() external {
         vm.prank(address(1));
         vm.expectRevert("AssetManager: Only Colosseum can call this function");
-        assetManager.slash(asserter, challenger, 1);
+        assetManager.slash(asserter, 1);
     }
 }

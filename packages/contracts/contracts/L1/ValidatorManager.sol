@@ -92,7 +92,18 @@ contract ValidatorManager is ISemver, IValidatorManager, AssetManager {
     modifier onlyL2OutputOracle() {
         require(
             msg.sender == address(L2_ORACLE),
-            "ValidatorManager: Only L2OutputOracle can call this function"
+            "ValidatorManager: only L2OutputOracle can call this function"
+        );
+        _;
+    }
+
+    /**
+     * @notice A modifier that only allows Colosseum contract to call.
+     */
+    modifier onlyColosseum() {
+        require(
+            msg.sender == L2_ORACLE.COLOSSEUM(),
+            "ValidatorManager: only Colosseum can call this function"
         );
         _;
     }
@@ -274,6 +285,13 @@ contract ValidatorManager is ISemver, IValidatorManager, AssetManager {
         _resetNoSubmissionCount(msg.sender);
 
         emit ValidatorUnjailed(msg.sender);
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function slash(address loser, uint256 outputIndex) external onlyColosseum {
+        _slash(loser, outputIndex);
     }
 
     /**

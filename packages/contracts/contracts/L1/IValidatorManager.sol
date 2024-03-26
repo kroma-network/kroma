@@ -119,4 +119,12 @@ interface IValidatorManager {
      *         round.
      */
     function nextValidator() external view returns (address);
+
+    /**
+     * @notice Slash KRO at the vault of the challenge loser.
+     *
+     * @param loser       Address of the challenge loser.
+     * @param outputIndex The index of output challenged.
+     */
+    function slash(address loser, uint256 outputIndex) external;
 }

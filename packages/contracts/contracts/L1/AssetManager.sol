@@ -421,11 +421,10 @@ abstract contract AssetManager is IERC721Receiver {
     /**
      * @notice Emitted when the validator is slashed.
      *
-     * @param loser  Address of the loser at the challenge.
-     * @param winner Address of the winner at the challenge.
+     * @param loser  Address of the challenge loser.
      * @param amount The amount of KRO slashed.
      */
-    event Slashed(address indexed loser, address indexed winner, uint128 amount);
+    event Slashed(address indexed loser, uint128 amount);
 
     /**
      * @notice Emitted when validator reward claim is initiated.
@@ -457,17 +456,6 @@ abstract contract AssetManager is IERC721Receiver {
         uint128 baseReward,
         uint128 boostedReward
     );
-
-    /**
-     * @notice Modifier to check if the caller is the Colosseum contract.
-     */
-    modifier onlyColosseum() {
-        require(
-            msg.sender == L2_ORACLE.COLOSSEUM(),
-            "AssetManager: Only Colosseum can call this function"
-        );
-        _;
-    }
 
     /**
      * @notice Modifier to check if the vault is active.
@@ -1140,20 +1128,19 @@ abstract contract AssetManager is IERC721Receiver {
     }
 
     /**
-     * @notice Slash KRO at the vault of the validator.
+     * @notice Internal function to slash KRO at the vault of the challenge loser.
      *
-     * @param loser       Address of the loser at the challenge.
-     * @param winner      Address of the winner at the challenge.
+     * @param loser       Address of the challenge loser.
      * @param outputIndex The index of output challenged.
      */
-    function slash(address loser, address winner, uint256 outputIndex) external onlyColosseum {
-        Vault storage loserVault = _vaults[loser];
-        uint128 amountToSlash = _modifyBalanceWithSlashing(loserVault, 0, true);
+    function _slash(address loser, uint256 outputIndex) internal {
+        Vault storage vault = _vaults[loser];
+        uint128 amountToSlash = _modifyBalanceWithSlashing(vault, 0, true);
         _pendingChallengeReward[outputIndex] = amountToSlash;
 
-        _updateValidatorTree(loser, loserVault, true);
+        _updateValidatorTree(loser, vault, true);
 
-        emit Slashed(loser, winner, amountToSlash);
+        emit Slashed(loser, amountToSlash);
     }
 
     /**
