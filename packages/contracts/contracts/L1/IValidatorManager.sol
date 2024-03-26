@@ -55,23 +55,6 @@ interface IValidatorManager {
     }
 
     /**
-     * @notice Emitted when pending challenge reward for challenge winner is distributed.
-     *
-     * @param recipient Address of the reward recipient.
-     * @param amount    The amount of challenge reward.
-     */
-    event ChallengeRewardDistributed(address indexed recipient, uint128 amount);
-
-    /**
-     * @notice Emitted when the validator is slashed.
-     *
-     * @param loser  Address of the loser at the challenge.
-     * @param winner Address of the winner at the challenge.
-     * @param amount The amount of KRO slashed.
-     */
-    event Slashed(address indexed loser, address indexed winner, uint128 amount);
-
-    /**
      * @notice Emitted when registers as a validator.
      *
      * @param validator               Address of the validator.
@@ -125,6 +108,38 @@ interface IValidatorManager {
     event ValidatorUnjailed(address validator);
 
     /**
+     * @notice Emitted when the output reward is distributed.
+     *
+     * @param validator       Address of the validator whose vault is rewarded.
+     * @param validatorReward The amount of validator reward.
+     * @param baseReward      The amount of base reward for KRO delegators.
+     * @param boostedReward   The amount of boosted reward for KGH delegators.
+     */
+    event RewardDistributed(
+        address indexed validator,
+        uint128 validatorReward,
+        uint128 baseReward,
+        uint128 boostedReward
+    );
+
+    /**
+     * @notice Emitted when pending challenge reward for challenge winner is distributed.
+     *
+     * @param recipient Address of the reward recipient.
+     * @param amount    The amount of challenge reward.
+     */
+    event ChallengeRewardDistributed(address indexed recipient, uint128 amount);
+
+    /**
+     * @notice Emitted when the validator is slashed.
+     *
+     * @param loser  Address of the loser at the challenge.
+     * @param winner Address of the winner at the challenge.
+     * @param amount The amount of KRO slashed.
+     */
+    event Slashed(address indexed loser, address indexed winner, uint128 amount);
+
+    /**
      * @notice Registers as a validator with assets at least MIN_REGISTER_AMOUNT. The validator with
      *         assets more than MIN_START_AMOUNT can be started at the same time.
      *
@@ -169,6 +184,14 @@ interface IValidatorManager {
     function tryUnjail() external;
 
     /**
+     * @notice Updates the weight tree of the validator.
+     *
+     * @param validator Address of the validator.
+     * @param tryRemove Flag to try remove the validator from weight tree.
+     */
+    function updateValidatorTree(address validator, bool tryRemove) external;
+
+    /**
      * @notice Checks the eligibility to submit L2 checkpoint output during output submission.
      *         Note that only the validator whose status is CAN_SUBMIT_OUTPUT can submit output.
      *         This function can only be called by L2OutputOracle during output submission.
@@ -193,12 +216,4 @@ interface IValidatorManager {
      * @return The status of the validator corresponding to the given address.
      */
     function getStatus(address validator) external view returns (ValidatorStatus);
-
-    /**
-     * @notice Internal function to update the weight tree of the validator.
-     *
-     * @param validator Address of the validator.
-     * @param tryRemove Flag to try remove the validator from weight tree.
-     */
-    function updateValidatorTree(address validator, bool tryRemove) external;
 }

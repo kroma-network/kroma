@@ -50,7 +50,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
     L2OutputOracle public immutable L2_ORACLE;
 
     /**
-     * @notice The address of AssetManager contract.
+     * @notice The address of AssetManager contract. Can be updated via upgrade.
      */
     AssetManager public immutable ASSET_MANAGER;
 
@@ -58,6 +58,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @notice The address of the trusted validator.
      */
     address public immutable TRUSTED_VALIDATOR;
+
+    /**
+     * @notice Minimum amount to register as a validator.
+     */
+    uint128 public immutable MIN_REGISTER_AMOUNT;
+
+    /**
+     * @notice Minimum amount to start a validator and add it to the validator tree.
+     *         Note that only the started validators can submit outputs.
+     */
+    uint128 public immutable MIN_START_AMOUNT;
 
     /**
      * @notice The minimum duration to change the commission rate of the validator (in seconds).
@@ -103,15 +114,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
     uint128 public immutable MIN_SLASHING_AMOUNT;
 
     /**
-     * @notice Minimum amount to register as a validator.
+     * @notice Address of the next validator with priority for submitting output.
      */
-    uint128 public immutable MIN_REGISTER_AMOUNT;
-
-    /**
-     * @notice Minimum amount to start a validator and add it to the validator tree.
-     *         Note that only the started validators can submit outputs.
-     */
-    uint128 public immutable MIN_START_AMOUNT;
+    address internal _nextPriorityValidator;
 
     /**
      * @notice Weighted tree to store and calculate the probability to be selected as an output submitter.
@@ -119,19 +124,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
     BalancedWeightTree.Tree internal _validatorTree;
 
     /**
-     * @notice Address of the next validator with priority for submitting output.
+     * @notice A mapping of the validator to the validator information.
      */
-    address internal _nextPriorityValidator;
+    mapping(address => Validator) internal _validatorInfo;
 
     /**
      * @notice A mapping of the jailed validator to the jail expiration timestamp.
      */
     mapping(address => uint128) internal _jail;
-
-    /**
-     * @notice A mapping of the validator to the validator information.
-     */
-    mapping(address => Validator) internal _validatorInfo;
 
     /**
      * @notice A mapping of output index challenged successfully to pending challenge rewards.
@@ -200,28 +200,25 @@ contract ValidatorManager is ISemver, IValidatorManager {
         uint128 _minRegisterAmount,
         uint128 _minStartAmount
     ) {
-        L2_ORACLE = _l2Oracle;
-        ASSET_MANAGER = _assetManager;
-        TRUSTED_VALIDATOR = _trustedValidator;
-        COMMISSION_RATE_MIN_CHANGE_SECONDS = _commissionRateMinChangeSeconds;
-
-        // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
-        ROUND_DURATION_SECONDS = _roundDurationSeconds;
-
-        JAIL_PERIOD_SECONDS = _jailPeriodSeconds;
-        JAIL_THRESHOLD = _jailThreshold;
-        MAX_OUTPUT_FINALIZATIONS = _maxOutputFinalizations;
-        BASE_REWARD = _baseReward;
-        SLASHING_RATE_NUMERATOR = _slashingRateNumerator;
-
         require(
             _minRegisterAmount <= _minStartAmount,
             "ValidatorManager: min register amount should not exceed min start amount"
         );
 
-        MIN_SLASHING_AMOUNT = _minSlashingAmount;
+        L2_ORACLE = _l2Oracle;
+        ASSET_MANAGER = _assetManager;
+        TRUSTED_VALIDATOR = _trustedValidator;
         MIN_REGISTER_AMOUNT = _minRegisterAmount;
         MIN_START_AMOUNT = _minStartAmount;
+        COMMISSION_RATE_MIN_CHANGE_SECONDS = _commissionRateMinChangeSeconds;
+        // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
+        ROUND_DURATION_SECONDS = _roundDurationSeconds;
+        JAIL_PERIOD_SECONDS = _jailPeriodSeconds;
+        JAIL_THRESHOLD = _jailThreshold;
+        MAX_OUTPUT_FINALIZATIONS = _maxOutputFinalizations;
+        BASE_REWARD = _baseReward;
+        SLASHING_RATE_NUMERATOR = _slashingRateNumerator;
+        MIN_SLASHING_AMOUNT = _minSlashingAmount;
     }
 
     /**
@@ -448,6 +445,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
+    function updateValidatorTree(address validator, bool tryRemove) public {
+        if (tryRemove && getStatus(validator) == ValidatorStatus.STARTED) {
+            _validatorTree.remove(validator);
+        } else {
+            _validatorTree.update(validator, uint120(ASSET_MANAGER.reflectiveWeight(validator)));
+        }
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
     function nextValidator() public view returns (address) {
         if (_nextPriorityValidator != address(0)) {
             uint256 l2Timestamp = L2_ORACLE.nextOutputMinL2Timestamp();
@@ -478,7 +486,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
             return ValidatorStatus.IN_JAIL;
         }
 
-        if (ASSET_MANAGER.getTotalValidatorKro(validator) < MIN_REGISTER_AMOUNT) {
+        if (ASSET_MANAGER.totalValidatorKro(validator) < MIN_REGISTER_AMOUNT) {
             return ValidatorStatus.INACTIVE;
         }
 
@@ -487,7 +495,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         // To prevent all MIN_START_AMOUNT is fulfilled with KRO in KGH which is not subject to slash,
         // enable to start the validator when real asset satisfies the threshold.
         if (
-            ASSET_MANAGER.reflectiveWeight(validator) - ASSET_MANAGER.getTotalKroInKgh(validator) <
+            ASSET_MANAGER.reflectiveWeight(validator) - ASSET_MANAGER.totalKroInKgh(validator) <
             MIN_START_AMOUNT
         ) {
             if (!started) {
@@ -536,53 +544,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Internal function to get the boosted reward with the number of KGH.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The boosted reward with the number of KGH.
-     */
-    function _getBoostedReward(address validator) internal view returns (uint128) {
-        uint128 numKgh = ASSET_MANAGER.totalKghNum(validator);
-        uint128 coefficient = BASE_REWARD.mulDiv(BOOSTED_REWARD_NUMERATOR, BOOSTED_REWARD_DENOM);
-        return uint128(Atan2.atan2(numKgh, 100).mulDiv(coefficient, 1 << 40));
-    }
-
-    /**
-     * @notice Internal function to calculate the reward of the validator.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The amount of base reward.
-     * @return The amount of boosted reward.
-     * @return The amount of validator reward.
-     */
-    function _calculateReward(address validator) internal view returns (uint128, uint128, uint128) {
-        uint128 commissionRate = _validatorInfo[validator].commissionRate;
-        uint128 boostedReward = _getBoostedReward(validator);
-        uint128 baseReward;
-        uint128 validatorReward;
-
-        unchecked {
-            baseReward = BASE_REWARD.mulDiv(
-                COMMISSION_RATE_DENOM - commissionRate,
-                COMMISSION_RATE_DENOM
-            );
-            boostedReward = boostedReward.mulDiv(
-                COMMISSION_RATE_DENOM - commissionRate,
-                COMMISSION_RATE_DENOM
-            );
-            validatorReward = (BASE_REWARD + boostedReward).mulDiv(
-                commissionRate,
-                COMMISSION_RATE_DENOM
-            );
-        }
-
-        return (baseReward, boostedReward, validatorReward);
-    }
-
-    /**
-     * @notice Internal function to add base and boosted reward to the vaults of finalized output submitters.
+     * @notice Internal function to add output submission rewards to the vaults of finalized output
+     *         submitters.
      *
      * @return Whether the reward distribution is done at least once or not.
      */
@@ -602,8 +565,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
             finalizedOutputNum < MAX_OUTPUT_FINALIZATIONS && outputIndex <= latestOutputIndex;
 
         ) {
-            uint256 finalizedAt = L2_ORACLE.finalizedAt(outputIndex);
-            if (block.timestamp >= finalizedAt && finalizedAt != 0) {
+            if (L2_ORACLE.isFinalized(outputIndex)) {
                 output = L2_ORACLE.getL2Output(outputIndex);
                 (
                     uint128 baseReward,
@@ -616,6 +578,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
                     baseReward,
                     boostedReward,
                     validatorReward
+                );
+
+                emit RewardDistributed(
+                    output.submitter,
+                    validatorReward,
+                    baseReward,
+                    boostedReward
                 );
 
                 uint128 challengeReward = _pendingChallengeReward[outputIndex];
@@ -655,15 +624,49 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @inheritdoc IValidatorManager
+     * @notice Internal function to get the boosted reward with the number of KGH.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The boosted reward with the number of KGH.
      */
-    function updateValidatorTree(address validator, bool tryRemove) public {
-        uint128 newWeight = ASSET_MANAGER.reflectiveWeight(validator);
-        if (tryRemove && newWeight - ASSET_MANAGER.getTotalKroInKgh(validator) < MIN_START_AMOUNT) {
-            _validatorTree.remove(validator);
-        } else {
-            _validatorTree.update(validator, uint120(newWeight));
+    function _getBoostedReward(address validator) internal view returns (uint128) {
+        uint128 numKgh = ASSET_MANAGER.totalKghNum(validator);
+        uint128 coefficient = BASE_REWARD.mulDiv(BOOSTED_REWARD_NUMERATOR, BOOSTED_REWARD_DENOM);
+        return uint128(Atan2.atan2(numKgh, 100).mulDiv(coefficient, 1 << 40));
+    }
+
+    /**
+     * @notice Internal function to calculate the reward of the validator when distributing reward.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The amount of base reward.
+     * @return The amount of boosted reward.
+     * @return The amount of validator reward.
+     */
+    function _calculateReward(address validator) internal view returns (uint128, uint128, uint128) {
+        uint128 commissionRate = _validatorInfo[validator].commissionRate;
+        uint128 boostedReward = _getBoostedReward(validator);
+        uint128 baseReward;
+        uint128 validatorReward;
+
+        unchecked {
+            baseReward = BASE_REWARD.mulDiv(
+                COMMISSION_RATE_DENOM - commissionRate,
+                COMMISSION_RATE_DENOM
+            );
+            boostedReward = boostedReward.mulDiv(
+                COMMISSION_RATE_DENOM - commissionRate,
+                COMMISSION_RATE_DENOM
+            );
+            validatorReward = (BASE_REWARD + boostedReward).mulDiv(
+                commissionRate,
+                COMMISSION_RATE_DENOM
+            );
         }
+
+        return (baseReward, boostedReward, validatorReward);
     }
 
     /**
