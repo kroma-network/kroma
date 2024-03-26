@@ -2,17 +2,18 @@
 pragma solidity 0.8.15;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import { BalancedWeightTree } from "../libraries/BalancedWeightTree.sol";
 import { Constants } from "../libraries/Constants.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
 import { Uint128Math } from "../libraries/Uint128Math.sol";
+import { AssetManager } from "../L1/AssetManager.sol";
+import { IValidatorManager } from "../L1/IValidatorManager.sol";
 import { IKGHManager } from "../universal/IKGHManager.sol";
 import { Proxy } from "../universal/Proxy.sol";
-import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { L2OutputOracle_ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
-import { TestERC721 } from "./L1ERC721Bridge.t.sol";
 import { MockL2OutputOracle } from "./ValidatorManager.t.sol";
 
 contract MockKro is ERC20 {
@@ -21,40 +22,29 @@ contract MockKro is ERC20 {
     }
 }
 
-contract MockKgh is TestERC721 {}
-
-contract MockKghManager is IKGHManager {
-    ERC20 public kro;
-
-    constructor(ERC20 _kro) {
-        kro = _kro;
-    }
-
-    function totalKroInKgh(uint256 /* tokenId */) external pure override returns (uint128) {
-        return 100e18;
-    }
-}
-
-contract MockAssetManager is ValidatorManager {
+contract MockAssetManager is AssetManager {
     using Uint128Math for uint128;
-    using BalancedWeightTree for BalancedWeightTree.Tree;
 
     constructor(
-        ConstructorParams memory _constructorParams,
-        address _trustedValidator,
-        uint128 _commissionRateMinChangeSeconds,
-        uint128 _roundDurationSeconds,
-        uint128 _jailPeriodSeconds,
-        uint128 _jailThreshold
+        IERC20 _assetToken,
+        IERC721 _kgh,
+        IKGHManager _kghManager,
+        address _securityCouncil,
+        IValidatorManager _validatorManager,
+        uint128 _undelegationPeriod,
+        uint128 _slashingRate,
+        uint128 _minSlashingAmount
     )
-    ValidatorManager(
-    _constructorParams,
-    _trustedValidator,
-    _commissionRateMinChangeSeconds,
-    _roundDurationSeconds,
-    _jailPeriodSeconds,
-    _jailThreshold
-    )
+        AssetManager(
+            _assetToken,
+            _kgh,
+            _kghManager,
+            _securityCouncil,
+            _validatorManager,
+            _undelegationPeriod,
+            _slashingRate,
+            _minSlashingAmount
+        )
     {}
 
     function modifyKghNum(address validator, uint128 amount) external {
@@ -64,14 +54,6 @@ contract MockAssetManager is ValidatorManager {
         _vaults[validator].asset.totalKgh += amount;
     }
 
-    function distributeReward() external {
-        require(
-            msg.sender == address(L2_ORACLE),
-            "AssetManager: only oracle can distribute reward"
-        );
-        _distributeReward();
-    }
-
     function getPendingKroReward(
         uint256 timestamp,
         address validator,
@@ -79,8 +61,8 @@ contract MockAssetManager is ValidatorManager {
     ) external view returns (uint128) {
         uint128 pendingShare = _vaults[validator].kroDelegators[owner].pendingKroShares[timestamp];
         uint128 pendingAsset = pendingShare.mulDiv(
-            _vaults[validator].asset.totalPendingAssets,
-            _vaults[validator].asset.totalPendingKroShares
+            _vaults[validator].pending.totalPendingAssets,
+            _vaults[validator].pending.totalPendingKroShares
         );
         return pendingAsset;
     }
@@ -99,30 +81,18 @@ contract MockAssetManager is ValidatorManager {
             .pendingShares[timestamp]
             .kghShares;
         uint128 pendingKroAsset = pendingKroShare.mulDiv(
-            _vaults[validator].asset.totalPendingAssets,
-            _vaults[validator].asset.totalPendingKroShares
+            _vaults[validator].pending.totalPendingAssets,
+            _vaults[validator].pending.totalPendingKroShares
         );
         uint128 pendingKghAsset = pendinKghShare.mulDiv(
-            _vaults[validator].asset.totalPendingBoostedRewards,
-            _vaults[validator].asset.totalPendingKghShares
+            _vaults[validator].pending.totalPendingBoostedRewards,
+            _vaults[validator].pending.totalPendingKghShares
         );
         return (pendingKroAsset, pendingKghAsset);
     }
 
     function totalKghAssets(address validator) public view virtual returns (uint128) {
         return _totalKghAssets(validator);
-    }
-
-    function insertToTree(address validator, uint128 kroAmount) external {
-        _validatorTree.insert(validator, uint120(kroAmount));
-    }
-
-    function isValidatorRemoved() external view returns (bool) {
-        return _validatorTree.removed == 1;
-    }
-
-    function setCommissionRate(address validator, uint8 _commissionRate) external {
-        _vaults[validator].reward.commissionRate = _commissionRate;
     }
 }
 
@@ -135,19 +105,10 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
     MockAssetManager public assetManager;
     MockAssetManager public assetManagerImpl;
     MockKro public kro;
-    MockKgh public kgh;
-    MockKghManager public kghManager;
     MockL2OutputOracle public mockOracle;
     address public validator = 0x000000000000000000000000000000000000AaaD;
     address public delegator = 0x000000000000000000000000000000000000AAAF;
     uint128 public VKRO_PER_KGH;
-
-    event RewardDistributed(
-        address indexed validator,
-        uint128 validatorReward,
-        uint128 baseReward,
-        uint128 boostedReward
-    );
 
     function setUp() public override {
         super.setUp();
@@ -157,7 +118,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
 
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
             pool,
-            assetManager,
+            valMan,
             address(colosseum),
             submissionInterval,
             l2BlockTime,
@@ -170,23 +131,22 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         mockOracle = MockL2OutputOracle(address(oracle));
 
         kro = new MockKro();
-        kgh = new MockKgh();
-        kghManager = new MockKghManager(kro);
-        constructorParams._l2OutputOracle = mockOracle;
-        constructorParams._assetToken = kro;
-        constructorParams._kgh = kgh;
-        constructorParams._kghManager = kghManager;
         assetManagerImpl = new MockAssetManager(
-            constructorParams,
-            trusted,
-            commissionRateMinChangeSeconds,
-            uint128(roundDuration),
-            jailPeriodSeconds,
-            jailThreshold
+            kro,
+            kgh,
+            kghManager,
+            address(guardian),
+            valMan,
+            uint128(undelegationPeriod),
+            slashingRate,
+            minSlashingAmount
         );
 
+        address assetManagerAddr = address(assetMan);
+
         vm.prank(multisig);
-        Proxy(payable(address(assetManager))).upgradeTo(address(assetManagerImpl));
+        Proxy(payable(assetManagerAddr)).upgradeTo(address(assetManagerImpl));
+        assetManager = MockAssetManager(assetManagerAddr);
 
         VKRO_PER_KGH = assetManager.VKRO_PER_KGH();
 
@@ -208,45 +168,14 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         mockOracle.addOutput(nextBlockNumber);
     }
 
-    function _fillTokensForSlashing(
-        uint128 kroAmount,
-        uint256 asserterId,
-        uint256 challengerId
-    ) internal {
-        kro.transfer(address(asserter), kroAmount);
-        kro.transfer(address(challenger), kroAmount);
-
-        vm.startPrank(asserter);
-        kro.approve(address(assetManager), kroAmount);
-        assetManager.delegate(asserter, kroAmount);
-        if (asserterId != 0) {
-            kgh.mint(asserter, asserterId);
-            kgh.approve(address(assetManager), asserterId);
-            assetManager.delegateKgh(asserter, asserterId);
-        }
-        vm.stopPrank();
-
-        vm.startPrank(challenger);
-        kro.approve(address(assetManager), kroAmount);
-        assetManager.delegate(challenger, kroAmount);
-        if (challengerId != 0) {
-            kgh.mint(challenger, challengerId);
-            kgh.approve(address(assetManager), challengerId);
-            assetManager.delegateKgh(challenger, challengerId);
-        }
-        vm.stopPrank();
-    }
-
     function _setUpKroDelegation(uint128 kroAmount) internal {
         kro.transfer(address(validator), kroAmount);
         kro.transfer(address(delegator), kroAmount);
         vm.startPrank(validator);
         kro.approve(address(assetManager), kroAmount);
         // self delegation
-        assetManager.delegate(validator, kroAmount);
+        valMan.registerValidator(kroAmount, 0, 10);
         vm.stopPrank();
-
-        assetManager.insertToTree(validator, kroAmount);
 
         vm.startPrank(delegator);
         kro.approve(address(assetManager), kroAmount);
@@ -260,10 +189,8 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         vm.startPrank(validator);
         kro.approve(address(assetManager), 100e18);
         // self delegation
-        assetManager.delegate(validator, 100e18);
+        valMan.registerValidator(100e18, 0, 0);
         vm.stopPrank();
-
-        assetManager.insertToTree(validator, 100e18);
 
         kgh.mint(delegator, tokenId);
         vm.startPrank(delegator);
@@ -277,7 +204,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         kro.transfer(address(validator), 100e18);
         vm.startPrank(validator);
         kro.approve(address(assetManager), 100e18);
-        assetManager.delegate(validator, 100e18);
+        valMan.registerValidator(100e18, 0, 10);
         vm.stopPrank();
 
         uint256[] memory tokenIds = new uint256[](kghCounts);
@@ -294,30 +221,14 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
     }
 
     function test_constructor_succeeds() external {
-        assertEq(address(assetManager.L2_ORACLE()), address(mockOracle));
         assertEq(address(assetManager.ASSET_TOKEN()), address(kro));
         assertEq(address(assetManager.KGH()), address(kgh));
+        assertEq(address(assetManager.KGH_MANAGER()), address(kghManager));
         assertEq(assetManager.SECURITY_COUNCIL(), address(guardian));
-        assertEq(assetManager.MAX_OUTPUT_FINALIZATIONS(), maxOutputFinalizations);
-        assertEq(assetManager.BASE_REWARD(), baseReward);
-        assertEq(assetManager.SLASHING_RATE_NUMERATOR(), slashingRateNumerator);
-        assertEq(assetManager.MIN_SLASHING_AMOUNT(), minSlashingAmount);
-        assertEq(assetManager.MIN_REGISTER_AMOUNT(), minRegisterAmount);
-        assertEq(assetManager.MIN_START_AMOUNT(), minStartAmount);
+        assertEq(address(assetManager.VALIDATOR_MANAGER()), address(valMan));
         assertEq(assetManager.UNDELEGATION_PERIOD(), undelegationPeriod);
-    }
-
-    function test_constructor_smallMinStartAmount_reverts() external {
-        constructorParams._minRegisterAmount = minStartAmount + 1;
-        vm.expectRevert("AssetManager: min register amount should not exceed min start amount");
-        new MockAssetManager(
-            constructorParams,
-            trusted,
-            commissionRateMinChangeSeconds,
-            uint128(roundDuration),
-            jailPeriodSeconds,
-            jailThreshold
-        );
+        assertEq(assetManager.SLASHING_RATE(), slashingRate);
+        assertEq(assetManager.MIN_SLASHING_AMOUNT(), minSlashingAmount);
     }
 
     function test_delegate_succeeds() external {
@@ -360,8 +271,9 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         _submitOutputRoot(validator);
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
+        vm.startPrank(address(mockOracle));
+        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
 
         // Fully undelegate
         uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator);
@@ -392,8 +304,9 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         _submitOutputRoot(validator);
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
+        vm.startPrank(address(mockOracle));
+        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
 
         uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator3);
         vm.prank(delegator3);
@@ -416,8 +329,9 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         _setUpKroDelegation(100e18);
         _submitOutputRoot(validator);
 
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
+        vm.startPrank(address(mockOracle));
+        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
 
         uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator);
         vm.startPrank(delegator);
@@ -437,7 +351,6 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         assetManager.initUndelegate(validator, minUndelegateShares);
 
         assertEq(assetManager.totalKroAssets(validator), minStartAmount - 1);
-        assertEq(assetManager.isValidatorRemoved(), true);
     }
 
     function test_initUndelegateKgh_succeeds() external {
@@ -446,8 +359,9 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         _submitOutputRoot(validator);
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
+        vm.startPrank(address(mockOracle));
+        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
 
         vm.startPrank(delegator);
         assetManager.initUndelegateKgh(validator, 100);
@@ -468,8 +382,9 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         _submitOutputRoot(validator);
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
+        vm.startPrank(address(mockOracle));
+        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
 
         uint256[] memory tokenIds = new uint256[](100);
         for (uint256 i = 0; i < 100; i++) {
@@ -495,8 +410,9 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         _submitOutputRoot(validator);
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
+        vm.startPrank(address(mockOracle));
+        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
 
         vm.startPrank(delegator);
         assetManager.initUndelegateKgh(validator, 100);
@@ -530,11 +446,14 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         _submitOutputRoot(validator);
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
+        vm.warp(block.timestamp + commissionRateMinChangeSeconds);
         // Set commission rate to 10%
-        assetManager.setCommissionRate(validator, 10);
+        vm.prank(validator);
+        valMan.changeCommissionRate(10);
 
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
+        vm.startPrank(address(mockOracle));
+        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
 
         vm.startPrank(validator);
         assetManager.initClaimValidatorReward(2e18);
@@ -597,8 +516,9 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         _submitOutputRoot(validator);
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
+        vm.startPrank(address(mockOracle));
+        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
 
         vm.startPrank(delegator);
         assetManager.initUndelegateKgh(validator, 1);
@@ -640,134 +560,5 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
     function test_finalizeUndelegate_WithNoPendingShares_reverts() external {
         vm.expectRevert("AssetManager: No pending shares to finalize");
         assetManager.finalizeUndelegate(validator);
-    }
-
-    function test_distributeReward_succeeds() external {
-        uint128 kghNum = 100;
-        assetManager.modifyKghNum(validator, kghNum);
-        // 8 * arctan(0.01 * kghNum) * 1e18 will be calculated as 6283173600000736769
-        uint128 boostedReward = 6283173600000736769;
-
-        _submitOutputRoot(validator);
-        uint256 latestOutputIndex = mockOracle.latestOutputIndex();
-        vm.warp(mockOracle.finalizedAt(latestOutputIndex));
-        assertTrue(pool.isTerminated(latestOutputIndex));
-
-        vm.expectEmit(true, false, false, true, address(assetManager));
-        emit RewardDistributed(validator, 0, baseReward, boostedReward);
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
-
-        assertEq(mockOracle.latestFinalizedOutputIndex(), latestOutputIndex);
-        assertEq(assetManager.totalKroAssets(validator), baseReward);
-        assertEq(assetManager.totalKghAssets(validator) - kghNum * VKRO_PER_KGH, boostedReward);
-    }
-
-    function test_slash_withSlashingRateNumerator_succeeds() external {
-        _fillTokensForSlashing(100e18, 0, 0);
-        _submitOutputRoot(asserter);
-
-        uint256 latestOutputIndex = mockOracle.latestOutputIndex();
-        vm.prank(address(colosseum));
-        // Suppose that the challenge is successful, so the winner is challenger
-        assetManager.slash(asserter, challenger, latestOutputIndex);
-        // This will be done by the l2 output oracle contract in the real environment.
-        vm.prank(address(challenger));
-        mockOracle.replaceOutput(latestOutputIndex);
-
-        vm.warp(mockOracle.finalizedAt(latestOutputIndex));
-
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
-
-        // slashing rate is 2%
-        assertEq(assetManager.totalKroAssets(asserter), 98000000000000000000);
-        assertEq(assetManager.totalKroAssets(challenger), 121600000000000000000);
-        assertEq(assetManager.ASSET_TOKEN().balanceOf(guardian), 400000000000000000);
-    }
-
-    function test_slash_withMinSlashAmount_succeeds() external {
-        _fillTokensForSlashing(20e18, 0, 0);
-        _submitOutputRoot(asserter);
-
-        uint256 latestOutputIndex = mockOracle.latestOutputIndex();
-        vm.prank(address(colosseum));
-        // Suppose that the challenge is successful, so the winner is challenger
-        assetManager.slash(asserter, challenger, latestOutputIndex);
-        // This will be done by the l2 output oracle contract in the real environment.
-        vm.prank(address(challenger));
-        mockOracle.replaceOutput(latestOutputIndex);
-
-        vm.warp(mockOracle.finalizedAt(latestOutputIndex));
-
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
-
-        assertEq(assetManager.totalKroAssets(asserter), 19000000000000000000);
-        assertEq(assetManager.totalKroAssets(challenger), 40800000000000000000);
-        assertEq(assetManager.ASSET_TOKEN().balanceOf(guardian), 200000000000000000);
-    }
-
-    function test_slash_rewardSlashing_succeeds() external {
-        _submitOutputRoot(asserter);
-        _submitOutputRoot(challenger);
-
-        assetManager.modifyKghNum(asserter, 100);
-        assetManager.modifyKghNum(challenger, 100);
-
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        vm.prank(address(oracle));
-        assetManager.distributeReward();
-
-        // Assert that the reward is 6283173600000736769 except for the virtual KROs
-        // generated by the KGHs.
-        assertEq(assetManager.totalKghAssets(asserter) - 100 * VKRO_PER_KGH, 6283173600000736769);
-        assertEq(assetManager.totalKghAssets(challenger) - 100 * VKRO_PER_KGH, 6283173600000736769);
-
-        _submitOutputRoot(asserter);
-
-        uint256 latestOutputIndex = mockOracle.latestOutputIndex();
-        vm.prank(address(colosseum));
-        // Suppose that the challenge is successful, so the winner is challenger.
-        assetManager.slash(asserter, challenger, latestOutputIndex);
-        // This will be done by the l2 output oracle contract in the real environment.
-        vm.prank(address(challenger));
-        mockOracle.replaceOutput(latestOutputIndex);
-
-        vm.warp(mockOracle.finalizedAt(latestOutputIndex));
-
-        vm.prank(address(oracle));
-        // Slashed amount + base & boosted reward will go to the challenger.
-        assetManager.distributeReward();
-
-        // Total slashingAmount is 1e18.
-        // KRO slashingAmount = slashingAmount * (baseReward / (baseReward + boostedReward))
-        // = 760943115332139318
-        // So asserter balance should be 19239056884667860682.
-        assertEq(assetManager.totalKroAssets(asserter), 19239056884667860682);
-        // Challenger balance should be 20608754492265711454 + 20000000000000000000 = 40608754492265711454,
-        // with tax taken by security council.
-        assertEq(assetManager.totalKroAssets(challenger), 40608754492265711454);
-
-        // Total slashingAmount is 1e18.
-        // KGH slashingAmount = slashingAmount * (boostedReward / (baseReward + boostedReward))
-        // = 239056884667860682
-        // And KGH reward amount is 6283173600000736769
-        // So asserter balance should be 6044116715332876088.
-        assertEq(assetManager.totalKghAssets(asserter) - 100 * VKRO_PER_KGH, 6044116715332876088);
-        // Challenger balance should be 6474419107735025314 + 6283173600000736769 = 12757592707735762083,
-        // with tax taken by security council.
-        assertEq(
-            assetManager.totalKghAssets(challenger) - 100 * VKRO_PER_KGH,
-            12757592707735762083
-        );
-        assertEq(assetManager.ASSET_TOKEN().balanceOf(guardian), 200000000000000000);
-    }
-
-    function test_slash_notColosseum_reverts() external {
-        vm.prank(address(1));
-        vm.expectRevert("AssetManager: Only Colosseum can call this function");
-        assetManager.slash(asserter, challenger, 1);
     }
 }
