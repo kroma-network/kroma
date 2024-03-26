@@ -7,6 +7,71 @@ pragma solidity 0.8.15;
  */
 interface IValidatorManager {
     /**
+     * @notice Enum of the status of a validator.
+     *
+     * Below is the possible conditions of each status. "initiated" means the validator has been
+     * initiated at least once, "started" means the validator has been started and added to the
+     * weight tree. "MIN_REGISTER_AMOUNT" means the total assets of the validator exceeds
+     * MIN_REGISTER_AMOUNT, "MIN_START_AMOUNT" means the same.
+     *
+     * +-------------------+-----------+---------+---------------------+------------------+
+     * | Status            | initiated | started | MIN_REGISTER_AMOUNT | MIN_START_AMOUNT |
+     * +-------------------+-----------+---------+---------------------+------------------+
+     * | NONE              | X         | X       | X                   | X                |
+     * | INACTIVE          | O         | X       | X                   | O/X              |
+     * | IN_JAIL           | O         | O/X     | O/X                 | O/X              |
+     * | ACTIVE            | O         | X       | O                   | X                |
+     * | CAN_START         | O         | X       | O                   | O                |
+     * | STARTED           | O         | O       | O                   | X                |
+     * | CAN_SUBMIT_OUTPUT | O         | O       | O                   | O                |
+     * +-------------------+-----------+---------+---------------------+------------------+
+     */
+    enum ValidatorStatus {
+        NONE,
+        INACTIVE,
+        IN_JAIL,
+        ACTIVE,
+        CAN_START,
+        STARTED,
+        CAN_SUBMIT_OUTPUT
+    }
+
+    /**
+     * @notice Constructs the information of a validator.
+     *
+     * @custom:field isInitiated             Whether the validator is initiated.
+     * @custom:field noSubmissionCount       Number of counts that the validator did not submit the
+     *                                       output in priority round.
+     * @custom:field commissionRate          Commission rate of validator.
+     * @custom:field commissionMaxChangeRate Maximum changeable commission rate at once.
+     * @custom:field commissionRateChangedAt Last timestamp when the commission rate was changed.
+     */
+    struct Validator {
+        bool isInitiated;
+        uint8 noSubmissionCount;
+        uint8 commissionRate;
+        uint8 commissionMaxChangeRate;
+        uint128 commissionRateChangedAt;
+    }
+
+    /**
+     * @notice Emitted when pending challenge reward for challenge winner is distributed.
+     *
+     * @param recipient Address of the reward recipient.
+     * @param amount    The amount of challenge reward.
+     */
+    event ChallengeRewardDistributed(address indexed recipient, uint128 amount);
+
+    /**
+     * @notice Emitted when the validator is slashed.
+     *
+     * @param loser  Address of the loser at the challenge.
+     * @param winner Address of the winner at the challenge.
+     * @param amount The amount of KRO slashed.
+     */
+    event Slashed(address indexed loser, address indexed winner, uint128 amount);
+
+    /**
      * @notice Emitted when registers as a validator.
      *
      * @param validator               Address of the validator.
@@ -119,4 +184,21 @@ interface IValidatorManager {
      *         round.
      */
     function nextValidator() external view returns (address);
+
+    /**
+     * @notice Returns the status of the validator corresponding to the given address.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The status of the validator corresponding to the given address.
+     */
+    function getStatus(address validator) external view returns (ValidatorStatus);
+
+    /**
+     * @notice Internal function to update the weight tree of the validator.
+     *
+     * @param validator Address of the validator.
+     * @param tryRemove Flag to try remove the validator from weight tree.
+     */
+    function updateValidatorTree(address validator, bool tryRemove) external;
 }
