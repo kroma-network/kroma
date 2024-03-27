@@ -28,6 +28,7 @@ log = logging.getLogger()
 
 # Global environment variables
 DEVNET_NO_BUILD = os.getenv('DEVNET_NO_BUILD') == "true"
+DEVNET_PLASMA = os.getenv('DEVNET_PLASMA') == "true"
 
 class Bunch:
     def __init__(self, **kwds):
@@ -167,6 +168,8 @@ def init_devnet_l1_deploy_config(paths, update_timestamp=False):
     deploy_config = read_json(paths.devnet_config_template_path)
     if update_timestamp:
         deploy_config['l1GenesisBlockTimestamp'] = '{:#x}'.format(int(time.time()))
+    if DEVNET_PLASMA:
+        deploy_config['usePlasma'] = True
     write_json(paths.devnet_config_path, deploy_config)
 
 def devnet_l1_genesis(paths):

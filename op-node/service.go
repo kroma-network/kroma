@@ -105,6 +105,7 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 			URL:     ctx.String(flags.HeartbeatURLFlag.Name),
 		},
 		ConfigPersistence: configPersistence,
+		SafeDBPath:        ctx.String(flags.SafeDBPath.Name),
 		Sync:              *syncConfig,
 		// [Kroma: START]
 		// RollupHalt:        haltOption,

@@ -119,6 +119,8 @@ type Config struct {
 	Store ds.Batching
 
 	EnableReqRespSync bool
+
+	EnablePingService bool
 }
 
 func DefaultConnManager(conf *Config) (connmgr.ConnManager, error) {

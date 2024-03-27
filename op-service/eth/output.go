@@ -37,6 +37,11 @@ type OutputResponse struct {
 	// [Kroma: END]
 }
 
+type SafeHeadResponse struct {
+	L1Block  BlockID `json:"l1Block"`
+	SafeHead BlockID `json:"safeHead"`
+}
+
 var (
 	ErrBlockIsEmpty         = errors.New("block is empty")
 	ErrInvalidOutput        = errors.New("invalid output")

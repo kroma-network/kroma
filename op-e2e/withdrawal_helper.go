@@ -10,6 +10,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
@@ -21,6 +22,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
+
+type ClientProvider interface {
+	NodeClient(name string) *ethclient.Client
+}
 
 func SendWithdrawal(t *testing.T, cfg SystemConfig, l2Client *ethclient.Client, privKey *ecdsa.PrivateKey, applyOpts WithdrawalTxOptsFn) (*types.Transaction, *types.Receipt) {
 	opts := defaultWithdrawalTxOpts()
@@ -174,7 +179,7 @@ func FinalizeWithdrawal(t *testing.T, cfg SystemConfig, l1Client *ethclient.Clie
 	require.Nil(t, err)
 
 	// Ensure that our withdrawal was finalized successfully
-	finalizeReceipt, err := geth.WaitForTransaction(tx.Hash(), l1Client, 3*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	finalizeReceipt, err := wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.Nil(t, err, "finalize withdrawal")
 	require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status)
 	return finalizeReceipt

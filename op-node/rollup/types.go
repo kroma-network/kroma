@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -105,15 +106,23 @@ type Config struct {
 	// L1 System Config Address
 	L1SystemConfigAddress common.Address `json:"l1_system_config_address"`
 
-	// L1 block timestamp to start reading blobs as batch data-source. Optional.
-	BlobsEnabledL1Timestamp *uint64 `json:"blobs_data,omitempty"`
-
 	// [Kroma: START]
+	// L1 address that declares the protocol versions, optional (Beta feature)
+	// ProtocolVersionsAddress common.Address `json:"protocol_versions_address,omitempty"`
+
 	// L1 DataAvailabilityChallenge contract proxy address
 	// DAChallengeAddress common.Address `json:"da_challenge_address,omitempty"`
 
-	// L1 address that declares the protocol versions, optional (Beta feature)
-	// ProtocolVersionsAddress common.Address `json:"protocol_versions_address,omitempty"`
+	// DA challenge window value set on the DAC contract. Used in plasma mode
+	// to compute when a commitment can no longer be challenged.
+	// DAChallengeWindow uint64 `json:"da_challenge_window"`
+
+	// DA resolve window value set on the DAC contract. Used in plasma mode
+	// to compute when a challenge expires and trigger a reorg if needed.
+	// DAResolveWindow uint64 `json:"da_resolve_window"`
+
+	// UsePlasma is activated when the chain is in plasma mode.
+	// UsePlasma bool `json:"use_plasma"`
 	// [Kroma: END]
 }
 
@@ -398,13 +407,40 @@ func (c *Config) GetPayloadVersion(timestamp uint64) eth.EngineAPIMethod {
 	}
 }
 
-// IsPlasmaEnabled returns true if a DA Challenge proxy Address is provided in the rollup config.
-func (c *Config) IsPlasmaEnabled() bool {
-	// [Kroma: START]
+// PlasmaConfig validates and returns the plasma config from the rollup config.
+func (c *Config) PlasmaConfig() (plasma.Config, error) {
 	// Kroma not supported
-	//return c.DAChallengeAddress != (common.Address{})
+	return plasma.Config{}, fmt.Errorf("Kroma not supported")
+
+	// [Kroma: START]
+	// if c.DAChallengeAddress == (common.Address{}) {
+	// 	return plasma.Config{}, fmt.Errorf("missing DAChallengeAddress")
+	// }
+	// if c.DAChallengeWindow == uint64(0) {
+	// 	return plasma.Config{}, fmt.Errorf("missing DAChallengeWindow")
+	// }
+	// if c.DAResolveWindow == uint64(0) {
+	// 	return plasma.Config{}, fmt.Errorf("missing DAResolveWindow")
+	// }
+	// return plasma.Config{
+	// 	DAChallengeContractAddress: c.DAChallengeAddress,
+	// 	ChallengeWindow:            c.DAChallengeWindow,
+	// 	ResolveWindow:              c.DAResolveWindow,
+	// }, nil
 	// [Kroma: END]
-	return false
+}
+
+// SyncLookback computes the number of blocks to walk back in order to find the correct L1 origin.
+// In plasma mode longest possible window is challenge + resolve windows.
+func (c *Config) SyncLookback() uint64 {
+	// [Kroma: START]
+	// if c.UsePlasma {
+	// 	if win := (c.DAChallengeWindow + c.DAResolveWindow); win > c.SeqWindowSize {
+	// 		return win
+	// 	}
+	// }
+	// [Kroma: END]
+	return c.SeqWindowSize
 }
 
 // Description outputs a banner describing the important parts of rollup configuration in a human-readable form.

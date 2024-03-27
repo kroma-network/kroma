@@ -48,6 +48,7 @@ type TestParams struct {
 	SequencerWindowSize uint64
 	ChannelTimeout      uint64
 	L1BlockTime         uint64
+	UsePlasma           bool
 }
 
 func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
@@ -61,6 +62,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	deployConfig.SequencerWindowSize = tp.SequencerWindowSize
 	deployConfig.ChannelTimeout = tp.ChannelTimeout
 	deployConfig.L1BlockTime = tp.L1BlockTime
+	deployConfig.UsePlasma = tp.UsePlasma
 	ApplyDeployConfigForks(deployConfig)
 	// [Kroma: START]
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
@@ -113,7 +115,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.NoError(t, deployConf.Check())
 
 	l1Deployments := config.L1Deployments.Copy()
-	require.NoError(t, l1Deployments.Check())
+	require.NoError(t, l1Deployments.Check(deployConf))
 
 	l1Genesis, err := genesis.BuildL1DeveloperGenesis(deployConf, config.L1Allocs, l1Deployments)
 	require.NoError(t, err, "failed to create l1 genesis")
@@ -175,8 +177,8 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		// DAChallengeAddress:     l1Deployments.DataAvailabilityChallengeProxy,
 		// DAChallengeWindow:      deployConf.DAChallengeWindow,
 		// DAResolveWindow:        deployConf.DAResolveWindow,
-		// UsePlasma:              deployConf.UsePlasma,
 		// [Kroma: END]
+		UsePlasma:              deployConf.UsePlasma,
 	}
 
 	require.NoError(t, rollupCfg.Check())

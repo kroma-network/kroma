@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p/store"
+	plasma "github.com/ethereum-optimism/optimism/op-plasma"
+
 	ophttp "github.com/ethereum-optimism/optimism/op-service/httputil"
 	"github.com/ethereum-optimism/optimism/op-service/metrics"
 
@@ -119,6 +121,8 @@ type Metrics struct {
 
 	TransactionsSequencedTotal prometheus.Counter
 
+	PlasmaMetrics plasma.Metricer
+
 	// Channel Bank Metrics
 	headChannelOpenedEvent *metrics.Event
 	channelTimedOutEvent   *metrics.Event
@@ -140,9 +144,9 @@ type Metrics struct {
 	// [Kroma: START]
 	// Protocol version reporting
 	// Delta = params.ProtocolVersionComparison
-	//ProtocolVersionDelta *prometheus.GaugeVec
+	// ProtocolVersionDelta *prometheus.GaugeVec
 	// ProtocolVersions is pseudo-metric to report the exact protocol version info
-	//ProtocolVersions *prometheus.GaugeVec
+	// ProtocolVersions *prometheus.GaugeVec
 	// [Kroma: END]
 
 	registry *prometheus.Registry

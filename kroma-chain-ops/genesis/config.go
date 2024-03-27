@@ -195,12 +195,12 @@ type DeployConfig struct {
 	// FaultGameGenesisOutputRoot common.Hash `json:"faultGameGenesisOutputRoot"`
 	// // FaultGameSplitDepth is the depth at which the fault dispute game splits from output roots to execution trace claims.
 	// FaultGameSplitDepth uint64 `json:"faultGameSplitDepth"`
+	// // FaultGameWithdrawalDelay is the number of seconds that users must wait before withdrawing ETH from a fault game.
+	// FaultGameWithdrawalDelay uint64 `json:"faultGameWithdrawalDelay"`
 	// // PreimageOracleMinProposalSize is the minimum number of bytes that a large preimage oracle proposal can be.
 	// PreimageOracleMinProposalSize uint64 `json:"preimageOracleMinProposalSize"`
 	// // PreimageOracleChallengePeriod is the number of seconds that challengers have to challenge a large preimage proposal.
 	// PreimageOracleChallengePeriod uint64 `json:"preimageOracleChallengePeriod"`
-	// // PreimageOracleCancunActivationTimestamp is the timestamp at which blob preimages are able to be loaded into the preimage oracle.
-	// PreimageOracleCancunActivationTimestamp uint64 `json:"preimageOracleCancunActivationTimestamp"`
 	// [Kroma: END]
 	// FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
 	// during devnet deployments.
@@ -223,7 +223,21 @@ type DeployConfig struct {
 	// RespectedGameType uint32 `json:"respectedGameType"`
 	// // UseFaultProofs is a flag that indicates if the system is using fault
 	// // proofs instead of the older output oracle mechanism.
-	// UseFaultProofs bool `json:"useFaultProofs"`
+	// // UseFaultProofs bool `json:"useFaultProofs"`
+	// // UsePlasma is a flag that indicates if the system is using op-plasma
+	// UsePlasma bool `json:"usePlasma"`
+	// // DAChallengeWindow represents the block interval during which the availability of a data commitment can be challenged.
+	// DAChallengeWindow uint64 `json:"daChallengeWindow"`
+	// // DAResolveWindow represents the block interval during which a data availability challenge can be resolved.
+	// DAResolveWindow uint64 `json:"daResolveWindow"`
+	// // DABondSize represents the required bond size to initiate a data availability challenge.
+	// DABondSize uint64 `json:"daBondSize"`
+	// // DAResolverRefundPercentage represents the percentage of the resolving cost to be refunded to the resolver
+	// // such as 100 means 100% refund.
+	// DAResolverRefundPercentage uint64 `json:"daResolverRefundPercentage"`
+	//
+	// // DAChallengeProxy represents the L1 address of the DataAvailabilityChallenge contract.
+	// DAChallengeProxy common.Address `json:"daChallengeProxy"`
 	// [Kroma: END]
 
 	// When Cancun activates. Relative to L1 genesis.
@@ -442,6 +456,34 @@ func (d *DeployConfig) Check() error {
 	}
 	// [Kroma: END]
 
+	// checkFork checks that fork A is before or at the same time as fork B
+	checkFork := func(a, b *hexutil.Uint64, aName, bName string) error {
+		if a == nil && b == nil {
+			return nil
+		}
+		if a == nil && b != nil {
+			return fmt.Errorf("fork %s set (to %d), but prior fork %s missing", bName, *b, aName)
+		}
+		if a != nil && b == nil {
+			return nil
+		}
+		if *a > *b {
+			return fmt.Errorf("fork %s set to %d, but prior fork %s has higher offset %d", bName, *b, aName, *a)
+		}
+		return nil
+	}
+	if err := checkFork(d.L2GenesisRegolithTimeOffset, d.L2GenesisCanyonTimeOffset, "regolith", "canyon"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisCanyonTimeOffset, d.L2GenesisDeltaTimeOffset, "canyon", "delta"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisDeltaTimeOffset, d.L2GenesisEcotoneTimeOffset, "delta", "ecotone"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisEcotoneTimeOffset, d.L2GenesisFjordTimeOffset, "ecotone", "fjord"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -648,6 +690,12 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		EcotoneTime:            d.EcotoneTime(l1StartBlock.Time()),
 		FjordTime:              d.FjordTime(l1StartBlock.Time()),
 		InteropTime:            d.InteropTime(l1StartBlock.Time()),
+		// [Kroma: START]
+		// UsePlasma:              d.UsePlasma,
+		// DAChallengeAddress:     d.DAChallengeProxy,
+		// DAChallengeWindow:      d.DAChallengeWindow,
+		// DAResolveWindow:        d.DAResolveWindow,
+		// [Kroma: END]
 	}, nil
 }
 
@@ -703,6 +751,8 @@ type L1Deployments struct {
 	// [Kroma: START]
 	// ProtocolVersions                  common.Address `json:"ProtocolVersions"`
 	// ProtocolVersionsProxy             common.Address `json:"ProtocolVersionsProxy"`
+	// DataAvailabilityChallenge         common.Address `json:"DataAvailabilityChallenge"`
+	// DataAvailabilityChallengeProxy    common.Address `json:"DataAvailabilityChallengeProxy"`
 	// [Kroma: END]
 
 	// [Kroma: START]
@@ -740,7 +790,7 @@ func (d *L1Deployments) GetName(addr common.Address) string {
 }
 
 // Check will ensure that the L1Deployments are sane
-func (d *L1Deployments) Check() error {
+func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 	val := reflect.ValueOf(d)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
@@ -748,9 +798,18 @@ func (d *L1Deployments) Check() error {
 	for i := 0; i < val.NumField(); i++ {
 		name := val.Type().Field(i).Name
 		// Skip the non production ready contracts
-		if name == "DisputeGameFactory" || name == "DisputeGameFactoryProxy" || name == "BlockOracle" {
-			continue
-		}
+		// [Kroma: START]
+		// if name == "DisputeGameFactory" ||
+		// 	name == "DisputeGameFactoryProxy" ||
+		// 	name == "BlockOracle" {
+		// 	continue
+		// }
+		// if !deployConfig.UsePlasma &&
+		// 	(name == "DataAvailabilityChallenge" ||
+		// 		name == "DataAvailabilityChallengeProxy") {
+		// 	continue
+		// }
+		// [Kroma: END]
 		if val.Field(i).Interface().(common.Address) == (common.Address{}) {
 			return fmt.Errorf("%s is not set", name)
 		}
@@ -821,7 +880,8 @@ type ForgeDump gstate.Dump
 func (d *ForgeDump) UnmarshalJSON(b []byte) error {
 	type forgeDumpAccount struct {
 		Balance     string                 `json:"balance"`
-		Nonce       uint64                 `json:"nonce"`
+		// TODO : need check
+		Nonce       hexutil.Uint64         `json:"nonce"`
 		Root        hexutil.Bytes          `json:"root"`
 		CodeHash    hexutil.Bytes          `json:"codeHash"`
 		Code        hexutil.Bytes          `json:"code,omitempty"`

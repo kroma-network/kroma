@@ -28,6 +28,10 @@ type ReceiptClient interface {
 	TransactionReceipt(context.Context, common.Hash) (*types.Receipt, error)
 }
 
+type BlockClient interface {
+	BlockByNumber(context.Context, *big.Int) (*types.Block, error)
+}
+
 // ProvenWithdrawalParameters is the set of parameters to pass to the ProveWithdrawalTransaction
 // and FinalizeWithdrawalTransaction functions
 type ProvenWithdrawalParameters struct {
@@ -42,18 +46,36 @@ type ProvenWithdrawalParameters struct {
 	WithdrawalProof [][]byte // List of trie nodes to prove L2 storage
 }
 
-// ProveWithdrawalParameters queries L1 & L2 to generate all withdrawal parameters and proof necessary to prove a withdrawal on L1.
+// ProveWithdrawalParameters calls ProveWithdrawalParametersForBlock with the most recent L2 output after the given header.
+func ProveWithdrawalParameters(
+	ctx context.Context,
+	proofCl ProofClient,
+	l2ReceiptCl ReceiptClient,
+	l2BlockCl BlockClient,
+	txHash common.Hash,
+	header *types.Header,
+	l2OutputOracleContract *bindings.L2OutputOracleCaller,
+) (ProvenWithdrawalParameters, error) {
+	l2OutputIndex, err := l2OutputOracleContract.GetL2OutputIndexAfter(&bind.CallOpts{}, header.Number)
+	if err != nil {
+		return ProvenWithdrawalParameters{}, fmt.Errorf("failed to get l2OutputIndex: %w", err)
+	}
+	l2BlockNumber := header.Number
+	return ProveWithdrawalParametersForBlock(ctx, proofCl, l2ReceiptCl, l2BlockCl, txHash, l2BlockNumber, l2OutputIndex)
+}
+
+// ProveWithdrawalParametersForBlock queries L1 & L2 to generate all withdrawal parameters and proof necessary to prove a withdrawal on L1.
 // The header provided is very important. It should be a block (timestamp) for which there is a submitted output in the L2 Output Oracle
 // contract. If not, the withdrawal will fail as it the storage proof cannot be verified if there is no submitted state root.
-func ProveWithdrawalParameters(
+func ProveWithdrawalParametersForBlock(
 	ctx context.Context,
 	version [32]byte,
 	proofCl ProofClient,
 	l2ReceiptCl ReceiptClient,
+	l2BlockCl BlockClient,
 	txHash common.Hash,
-	header *types.Header,
-	nextHeader *types.Header,
-	l2OutputOracleContract *bindings.L2OutputOracleCaller,
+	l2BlockNumber *big.Int,
+	l2OutputIndex *big.Int,
 ) (ProvenWithdrawalParameters, error) {
 	// Transaction receipt
 	receipt, err := l2ReceiptCl.TransactionReceipt(ctx, txHash)
@@ -79,13 +101,19 @@ func ProveWithdrawalParameters(
 		return ProvenWithdrawalParameters{}, err
 	}
 
-	// Fetch the L2OutputIndex from the L2 Output Oracle caller (on L1)
-	l2OutputIndex, err := l2OutputOracleContract.GetL2OutputIndexAfter(&bind.CallOpts{}, header.Number)
+	// Fetch the block from the L2 node
+	l2Block, err := l2BlockCl.BlockByNumber(ctx, l2BlockNumber)
 	if err != nil {
-		return ProvenWithdrawalParameters{}, fmt.Errorf("failed to get l2OutputIndex: %w", err)
+		return ProvenWithdrawalParameters{}, fmt.Errorf("failed to get l2Block: %w", err)
 	}
-	// TODO: Could skip this step, but it's nice to double check it
-	err = VerifyProof(header.Root, p)
+
+	// Fetch the next block from the L2 node
+	nextL2Block, err := l2BlockCl.BlockByNumber(ctx, l2BlockNumber + 1)
+	if err != nil {
+		return ProvenWithdrawalParameters{}, fmt.Errorf("failed to get next l2Block: %w", err)
+	}
+
+	err = VerifyProof(l2Block.Root(), p)
 	if err != nil {
 		return ProvenWithdrawalParameters{}, err
 	}
@@ -99,10 +127,6 @@ func ProveWithdrawalParameters(
 		trieNodes[i] = common.FromHex(s)
 	}
 
-	var nextBlockHash common.Hash
-	if nextHeader != nil {
-		nextBlockHash = nextHeader.Hash()
-	}
 	return ProvenWithdrawalParameters{
 		Nonce:         ev.Nonce,
 		Sender:        ev.Sender,
@@ -112,11 +136,11 @@ func ProveWithdrawalParameters(
 		L2OutputIndex: l2OutputIndex,
 		Data:          ev.Data,
 		OutputRootProof: bindings.TypesOutputRootProof{
-			Version:                  version,
-			StateRoot:                header.Root,
+			Version:                  [32]byte{}, // Empty for version 1
+			StateRoot:                l2Block.Root(),
 			MessagePasserStorageRoot: p.StorageHash,
 			BlockHash:                header.Hash(),
-			NextBlockHash:            nextBlockHash,
+			NextBlockHash:            nextL2Block.Hash(),
 		},
 		WithdrawalProof: trieNodes,
 	}, nil

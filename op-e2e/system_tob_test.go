@@ -403,8 +403,9 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 
 			// Create our system configuration, funding all accounts we created for L1/L2, and start it
 			cfg := DefaultSystemConfig(t)
+			cfg.Nodes["sequencer"].SafeDBPath = t.TempDir()
 			cfg.DeployConfig.L2BlockTime = 2
-			require.LessOrEqual(t, cfg.DeployConfig.FinalizationPeriodSeconds, uint64(600))
+			require.LessOrEqual(t, cfg.DeployConfig.FinalizationPeriodSeconds, uint64(6))
 			require.Equal(t, cfg.DeployConfig.FundDevAccounts, true)
 			sys, err := cfg.Start(t)
 			require.NoError(t, err, "error starting up system")
@@ -446,6 +447,17 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			finalizationPeriod, err := l2OutputOracle.FINALIZATIONPERIODSECONDS(nil)
 			require.NoError(t, err)
 			require.Equal(t, cfg.DeployConfig.FinalizationPeriodSeconds, finalizationPeriod.Uint64())
+
+			// [Kroma: START]
+			// disputeGameFactory, err := bindings.NewDisputeGameFactoryCaller(cfg.L1Deployments.DisputeGameFactoryProxy, l1Client)
+			// require.NoError(t, err)
+			//
+			// optimismPortal, err := bindings.NewOptimismPortalCaller(cfg.L1Deployments.OptimismPortalProxy, l1Client)
+			// require.NoError(t, err)
+			//
+			// optimismPortal2, err := bindingspreview.NewOptimismPortal2Caller(cfg.L1Deployments.OptimismPortalProxy, l1Client)
+			// require.NoError(t, err)
+			// [Kroma: END]
 
 			// Create a struct used to track our transactors and their transactions sent.
 			type TestAccountState struct {
@@ -560,10 +572,12 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			require.Nil(t, err)
 			proofCl := gethclient.New(rpcClient)
 			receiptCl := ethclient.NewClient(rpcClient)
+			blockCl := ethclient.NewClient(rpcClient)
 
 			// Now create the withdrawal
+			// FIXME : need update
 			version := eth.OutputVersionV0
-			params, err := withdrawals.ProveWithdrawalParameters(context.Background(), version, proofCl, receiptCl, tx.Hash(), header, nextHeader, l2OutputOracle)
+			params, err := ProveWithdrawalParameters(context.Background(), proofCl, receiptCl, blockCl, tx.Hash(), header, l2OutputOracle, disputeGameFactory, optimismPortal2)
 			require.Nil(t, err)
 
 			// Obtain our withdrawal parameters
