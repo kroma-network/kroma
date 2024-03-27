@@ -138,6 +138,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     mapping(uint256 => uint128) internal _pendingChallengeReward;
 
+    event A(address a);
     /**
      * @notice A modifier that only allows L2OutputOracle contract to call.
      */
@@ -155,7 +156,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
     modifier onlyColosseum() {
         require(
             msg.sender == L2_ORACLE.COLOSSEUM(),
-            "AssetManager: Only Colosseum can call this function"
+            "ValidatorManager: Only Colosseum can call this function"
         );
         _;
     }
@@ -169,56 +170,28 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @notice Constructs the ValidatorManager contract.
      *
-     * @param _l2Oracle                       Address of the L2OutputOracle contract.
-     * @param _assetManager                   Address of the AssetManager contract.
-     * @param _trustedValidator               Address of the trusted validator.
-     * @param _commissionRateMinChangeSeconds The minimum duration to change the commission rate in
-     *                                        seconds.
-     * @param _roundDurationSeconds           The duration of one submission round in seconds.
-     * @param _jailPeriodSeconds              The minimum duration to get out of jail in seconds.
-     * @param _jailThreshold                  The maximum allowed number of output non-submissions
-     *                                        before jailed.
-     * @param _maxOutputFinalizations         Max number of finalized outputs.
-     * @param _baseReward                     Base reward for the validator.
-     * @param _slashingRateNumerator          Numerator of the slashing rate.
-     * @param _minSlashingAmount              Minimum amount to slash.
-     * @param _minRegisterAmount              Minimum amount to register as a validator.
-     * @param _minStartAmount                 Minimum amount to start submitting outputs.
+     *
      */
-    constructor(
-        L2OutputOracle _l2Oracle,
-        AssetManager _assetManager,
-        address _trustedValidator,
-        uint128 _commissionRateMinChangeSeconds,
-        uint128 _roundDurationSeconds,
-        uint128 _jailPeriodSeconds,
-        uint128 _jailThreshold,
-        uint128 _maxOutputFinalizations,
-        uint128 _baseReward,
-        uint128 _slashingRateNumerator,
-        uint128 _minSlashingAmount,
-        uint128 _minRegisterAmount,
-        uint128 _minStartAmount
-    ) {
+    constructor(ConstructorParams memory _constructorParams) {
         require(
-            _minRegisterAmount <= _minStartAmount,
+            _constructorParams._minRegisterAmount <= _constructorParams._minStartAmount,
             "ValidatorManager: min register amount should not exceed min start amount"
         );
 
-        L2_ORACLE = _l2Oracle;
-        ASSET_MANAGER = _assetManager;
-        TRUSTED_VALIDATOR = _trustedValidator;
-        MIN_REGISTER_AMOUNT = _minRegisterAmount;
-        MIN_START_AMOUNT = _minStartAmount;
-        COMMISSION_RATE_MIN_CHANGE_SECONDS = _commissionRateMinChangeSeconds;
+        L2_ORACLE = _constructorParams._l2Oracle;
+        ASSET_MANAGER = _constructorParams._assetManager;
+        TRUSTED_VALIDATOR = _constructorParams._trustedValidator;
+        MIN_REGISTER_AMOUNT = _constructorParams._minRegisterAmount;
+        MIN_START_AMOUNT = _constructorParams._minStartAmount;
+        COMMISSION_RATE_MIN_CHANGE_SECONDS = _constructorParams._commissionRateMinChangeSeconds;
         // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
-        ROUND_DURATION_SECONDS = _roundDurationSeconds;
-        JAIL_PERIOD_SECONDS = _jailPeriodSeconds;
-        JAIL_THRESHOLD = _jailThreshold;
-        MAX_OUTPUT_FINALIZATIONS = _maxOutputFinalizations;
-        BASE_REWARD = _baseReward;
-        SLASHING_RATE_NUMERATOR = _slashingRateNumerator;
-        MIN_SLASHING_AMOUNT = _minSlashingAmount;
+        ROUND_DURATION_SECONDS = _constructorParams._roundDurationSeconds;
+        JAIL_PERIOD_SECONDS = _constructorParams._jailPeriodSeconds;
+        JAIL_THRESHOLD = _constructorParams._jailThreshold;
+        MAX_OUTPUT_FINALIZATIONS = _constructorParams._maxOutputFinalizations;
+        BASE_REWARD = _constructorParams._baseReward;
+        SLASHING_RATE_NUMERATOR = _constructorParams._slashingRateNumerator;
+        MIN_SLASHING_AMOUNT = _constructorParams._minSlashingAmount;
     }
 
     /**
@@ -541,6 +514,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function getWeight(address validator) public view returns (uint120) {
         return _validatorTree.nodes[_validatorTree.nodeMap[validator]].weight;
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function calculateSlashingAmount(uint128 totalAmount) external view returns (uint128) {
+        uint128 amount = totalAmount.mulDiv(SLASHING_RATE_NUMERATOR, SLASHING_RATE_DENOM);
+        return amount > MIN_SLASHING_AMOUNT ? amount : MIN_SLASHING_AMOUNT;
     }
 
     /**

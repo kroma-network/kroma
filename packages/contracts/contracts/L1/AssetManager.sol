@@ -1068,6 +1068,7 @@ contract AssetManager is ISemver, IERC721Receiver {
         ];
 
         if (isLoser) {
+            amountToSlashOrAdd = VALIDATOR_MANAGER.calculateSlashingAmount(totalAmount);
             unchecked {
                 vault.asset.totalKro -= arr[0].mulDiv(amountToSlashOrAdd, totalAmount);
                 vault.asset.boostedReward -= arr[1].mulDiv(amountToSlashOrAdd, totalAmount);
