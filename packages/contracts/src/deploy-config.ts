@@ -92,6 +92,11 @@ interface RequiredDeployConfig {
   validatorPoolRoundDuration: number
 
   /**
+   * L1 block number of validator system is upgraded in hex value.
+   */
+  validatorPoolSystemUpgradeBlock: string
+
+  /**
    * Output Oracle submission interval in L2 blocks.
    */
   l2OutputOracleSubmissionInterval: number
@@ -309,6 +314,9 @@ export const deployConfigSpec: {
   },
   validatorPoolRoundDuration: {
     type: 'number',
+  },
+  validatorPoolSystemUpgradeBlock: {
+    type: 'string', // uint256
   },
   l2OutputOracleSubmissionInterval: {
     type: 'number',

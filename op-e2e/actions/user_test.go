@@ -4,13 +4,12 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
 type hardforkScheduledTest struct {
@@ -207,7 +206,6 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 		validator.ActSubmitL2Output(t)
 		// include output on L1
 		miner.includeL1Block(t, dp.Addresses.TrustedValidator, 12)
-		miner.ActEmptyBlock(t)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 		require.NoError(t, err)
