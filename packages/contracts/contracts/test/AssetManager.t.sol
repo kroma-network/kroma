@@ -5,7 +5,6 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import { BalancedWeightTree } from "../libraries/BalancedWeightTree.sol";
 import { Constants } from "../libraries/Constants.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
@@ -15,7 +14,6 @@ import { IValidatorManager } from "../L1/IValidatorManager.sol";
 import { IKGHManager } from "../universal/IKGHManager.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { L2OutputOracle_ValidatorHardfork_Initializer } from "./CommonTest.t.sol";
-import { TestERC721 } from "./L1ERC721Bridge.t.sol";
 import { MockL2OutputOracle } from "./ValidatorManager.t.sol";
 
 contract MockKro is ERC20 {
@@ -26,7 +24,6 @@ contract MockKro is ERC20 {
 
 contract MockAssetManager is AssetManager {
     using Uint128Math for uint128;
-    using BalancedWeightTree for BalancedWeightTree.Tree;
 
     constructor(
         IERC20 _assetToken,
@@ -34,7 +31,9 @@ contract MockAssetManager is AssetManager {
         IKGHManager _kghManager,
         address _securityCouncil,
         IValidatorManager _validatorManager,
-        uint128 _undelegationPeriod
+        uint128 _undelegationPeriod,
+        uint128 _slashingRate,
+        uint128 _minSlashingAmount
     )
         AssetManager(
             _assetToken,
@@ -42,7 +41,9 @@ contract MockAssetManager is AssetManager {
             _kghManager,
             _securityCouncil,
             _validatorManager,
-            _undelegationPeriod
+            _undelegationPeriod,
+            _slashingRate,
+            _minSlashingAmount
         )
     {}
 
@@ -93,10 +94,6 @@ contract MockAssetManager is AssetManager {
     function totalKghAssets(address validator) public view virtual returns (uint128) {
         return _totalKghAssets(validator);
     }
-
-    // function isValidatorRemoved() external view returns (bool) {
-    //     return _validatorTree.removed == 1;
-    // }
 }
 
 // Tests the implementations of the AssetManager
@@ -140,7 +137,9 @@ contract AssetManagerTest is L2OutputOracle_ValidatorHardfork_Initializer {
             kghManager,
             address(guardian),
             valMan,
-            uint128(undelegationPeriod)
+            uint128(undelegationPeriod),
+            slashingRate,
+            minSlashingAmount
         );
 
         address assetManagerAddr = address(assetMan);
@@ -167,35 +166,6 @@ contract AssetManagerTest is L2OutputOracle_ValidatorHardfork_Initializer {
         warpToSubmitTime();
         vm.prank(_validator);
         mockOracle.addOutput(nextBlockNumber);
-    }
-
-    function _fillTokensForSlashing(
-        uint128 kroAmount,
-        uint256 asserterId,
-        uint256 challengerId
-    ) internal {
-        kro.transfer(address(asserter), kroAmount);
-        kro.transfer(address(challenger), kroAmount);
-
-        vm.startPrank(asserter);
-        kro.approve(address(assetManager), kroAmount);
-        assetManager.delegate(asserter, kroAmount);
-        if (asserterId != 0) {
-            kgh.mint(asserter, asserterId);
-            kgh.approve(address(assetManager), asserterId);
-            assetManager.delegateKgh(asserter, asserterId);
-        }
-        vm.stopPrank();
-
-        vm.startPrank(challenger);
-        kro.approve(address(assetManager), kroAmount);
-        assetManager.delegate(challenger, kroAmount);
-        if (challengerId != 0) {
-            kgh.mint(challenger, challengerId);
-            kgh.approve(address(assetManager), challengerId);
-            assetManager.delegateKgh(challenger, challengerId);
-        }
-        vm.stopPrank();
     }
 
     function _setUpKroDelegation(uint128 kroAmount) internal {
@@ -257,6 +227,8 @@ contract AssetManagerTest is L2OutputOracle_ValidatorHardfork_Initializer {
         assertEq(assetManager.SECURITY_COUNCIL(), address(guardian));
         assertEq(address(assetManager.VALIDATOR_MANAGER()), address(valMan));
         assertEq(assetManager.UNDELEGATION_PERIOD(), undelegationPeriod);
+        assertEq(assetManager.SLASHING_RATE(), slashingRate);
+        assertEq(assetManager.MIN_SLASHING_AMOUNT(), minSlashingAmount);
     }
 
     function test_delegate_succeeds() external {
@@ -379,7 +351,6 @@ contract AssetManagerTest is L2OutputOracle_ValidatorHardfork_Initializer {
         assetManager.initUndelegate(validator, minUndelegateShares);
 
         assertEq(assetManager.totalKroAssets(validator), minStartAmount - 1);
-        // assertEq(assetManager.isValidatorRemoved(), true);
     }
 
     function test_initUndelegateKgh_succeeds() external {
@@ -589,30 +560,5 @@ contract AssetManagerTest is L2OutputOracle_ValidatorHardfork_Initializer {
     function test_finalizeUndelegate_WithNoPendingShares_reverts() external {
         vm.expectRevert("AssetManager: No pending shares to finalize");
         assetManager.finalizeUndelegate(validator);
-    }
-
-    function test_slash_withSlashingRateNumerator_succeeds() external {
-        _fillTokensForSlashing(100e18, 0, 0);
-        _submitOutputRoot(asserter);
-
-        uint256 latestOutputIndex = mockOracle.latestOutputIndex();
-        vm.prank(address(colosseum));
-        // Suppose that the challenge is successful, so the winner is challenger
-        valMan.slash(asserter, challenger, latestOutputIndex);
-        // This will be done by the l2 output oracle contract in the real environment.
-        vm.prank(address(challenger));
-        mockOracle.replaceOutput(latestOutputIndex);
-
-        _submitOutputRoot(challenger);
-        vm.warp(mockOracle.finalizedAt(latestOutputIndex));
-
-        vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        // slashing rate is 2%
-        assertEq(assetManager.totalKroAssets(asserter), 98000000000000000000);
-        assertEq(assetManager.totalKroAssets(challenger), 121600000000000000000);
-        assertEq(assetManager.ASSET_TOKEN().balanceOf(guardian), 400000000000000000);
     }
 }

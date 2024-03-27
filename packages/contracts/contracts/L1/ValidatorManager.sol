@@ -40,11 +40,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
     uint128 public constant BOOSTED_REWARD_DENOM = 100;
 
     /**
-     * @notice The denominator for the slashing rate.
-     */
-    uint128 public constant SLASHING_RATE_DENOM = 1000;
-
-    /**
      * @notice Address of the L2OutputOracle contract. Can be updated via upgrade.
      */
     L2OutputOracle public immutable L2_ORACLE;
@@ -104,16 +99,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
     uint128 public immutable BASE_REWARD;
 
     /**
-     * @notice The numerator of the slashing rate.
-     */
-    uint128 public immutable SLASHING_RATE_NUMERATOR;
-
-    /**
-     * @notice Minimum amount to slash.
-     */
-    uint128 public immutable MIN_SLASHING_AMOUNT;
-
-    /**
      * @notice Address of the next validator with priority for submitting output.
      */
     address internal _nextPriorityValidator;
@@ -138,7 +123,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     mapping(uint256 => uint128) internal _pendingChallengeReward;
 
-    event A(address a);
     /**
      * @notice A modifier that only allows L2OutputOracle contract to call.
      */
@@ -170,7 +154,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @notice Constructs the ValidatorManager contract.
      *
-     *
+     * @param _constructorParams The constructor parameters.
      */
     constructor(ConstructorParams memory _constructorParams) {
         require(
@@ -190,8 +174,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
         JAIL_THRESHOLD = _constructorParams._jailThreshold;
         MAX_OUTPUT_FINALIZATIONS = _constructorParams._maxOutputFinalizations;
         BASE_REWARD = _constructorParams._baseReward;
-        SLASHING_RATE_NUMERATOR = _constructorParams._slashingRateNumerator;
-        MIN_SLASHING_AMOUNT = _constructorParams._minSlashingAmount;
     }
 
     /**
@@ -517,14 +499,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @inheritdoc IValidatorManager
-     */
-    function calculateSlashingAmount(uint128 totalAmount) external view returns (uint128) {
-        uint128 amount = totalAmount.mulDiv(SLASHING_RATE_NUMERATOR, SLASHING_RATE_DENOM);
-        return amount > MIN_SLASHING_AMOUNT ? amount : MIN_SLASHING_AMOUNT;
-    }
-
-    /**
      * @notice Internal function to add output submission rewards to the vaults of finalized output
      *         submitters.
      *
@@ -571,9 +545,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
                 uint128 challengeReward = _pendingChallengeReward[outputIndex];
 
                 if (challengeReward > 0) {
-                    challengeReward = challengeReward > MIN_SLASHING_AMOUNT
-                        ? challengeReward
-                        : MIN_SLASHING_AMOUNT;
                     ASSET_MANAGER.modifyBalanceWithSlashing(
                         output.submitter,
                         challengeReward,

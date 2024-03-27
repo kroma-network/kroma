@@ -40,21 +40,21 @@ interface IValidatorManager {
     }
 
     /**
-     * @notice Constructs the ValidatorManager contract.
+     * @notice Constructs the constructor parameters of ValidatorManager contract.
      *
      * @custom:field _l2Oracle                       Address of the L2OutputOracle contract.
      * @custom:field _assetManager                   Address of the AssetManager contract.
      * @custom:field _trustedValidator               Address of the trusted validator.
-     * @custom:field _commissionRateMinChangeSeconds The minimum duration to change the commission rate in
+     * @custom:field _commissionRateMinChangeSeconds The minimum duration to change the commission
+     *                                               rate in seconds.
+     * @custom:field _roundDurationSeconds           The duration of one submission round in
      *                                               seconds.
-     * @custom:field _roundDurationSeconds           The duration of one submission round in seconds.
-     * @custom:field _jailPeriodSeconds              The minimum duration to get out of jail in seconds.
-     * @custom:field _jailThreshold                  The maximum allowed number of output non-submissions
-     *                                               before jailed.
+     * @custom:field _jailPeriodSeconds              The minimum duration to get out of jail in
+     *                                               seconds.
+     * @custom:field _jailThreshold                  The maximum allowed number of output
+     *                                               non-submissions before jailed.
      * @custom:field _maxOutputFinalizations         Max number of finalized outputs.
      * @custom:field _baseReward                     Base reward for the validator.
-     * @custom:field _slashingRateNumerator          Numerator of the slashing rate.
-     * @custom:field _minSlashingAmount              Minimum amount to slash.
      * @custom:field _minRegisterAmount              Minimum amount to register as a validator.
      * @custom:field _minStartAmount                 Minimum amount to start submitting outputs.
      */
@@ -68,8 +68,6 @@ interface IValidatorManager {
         uint128 _jailThreshold;
         uint128 _maxOutputFinalizations;
         uint128 _baseReward;
-        uint128 _slashingRateNumerator;
-        uint128 _minSlashingAmount;
         uint128 _minRegisterAmount;
         uint128 _minStartAmount;
     }
@@ -254,13 +252,4 @@ interface IValidatorManager {
      * @return The status of the validator corresponding to the given address.
      */
     function getStatus(address validator) external view returns (ValidatorStatus);
-
-    /**
-     * @notice Returns the amount to slash from the challenge loser.
-     *
-     * @param totalAmount Total amount of KROs that are subjected to slashing.
-     *
-     * @return The amount to slash from the challenge loser.
-     */
-    function calculateSlashingAmount(uint128 totalAmount) external view returns (uint128);
 }

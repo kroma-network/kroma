@@ -4,8 +4,8 @@ pragma solidity 0.8.15;
 /* Testing utilities */
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { Test } from "forge-std/Test.sol";
@@ -182,26 +182,20 @@ contract UpgradeGovernor_Initializer is CommonTest {
 contract MockKro is ERC20 {
     constructor() ERC20("Kroma", "KRO") {}
 
-    function mint(address _to, uint256 _amount) external {
-        _mint(_to, _amount);
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
     }
 }
 
 contract MockKgh is ERC721 {
     constructor() ERC721("Test", "TST") {}
 
-    function mint(address to, uint256 tokenId) public {
+    function mint(address to, uint256 tokenId) external {
         _mint(to, tokenId);
     }
 }
 
 contract MockKghManager is IKGHManager {
-    ERC20 public kro;
-
-    constructor(ERC20 _kro) {
-        kro = _kro;
-    }
-
     function totalKroInKgh(uint256 /* tokenId */) external pure override returns (uint128) {
         return 100e18;
     }
@@ -239,28 +233,28 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint256 internal roundDuration = (submissionInterval * l2BlockTime) / 2;
     uint256 internal validatorHardforkBlock = 400_000;
 
-    // ValidatorManager constructor arguments
-    uint128 internal maxOutputFinalizations = 10;
-    uint128 internal baseReward = 20e18;
-    uint128 internal slashingRateNumerator = 20;
-    uint128 internal minSlashingAmount = 1e18;
-    uint128 internal minRegisterAmount = 10e18;
-    uint128 internal minStartAmount = 100e18;
+    // AssetManager constructor arguments
+    MockKro assetToken;
+    MockKgh kgh;
+    MockKghManager kghManager;
     uint256 internal undelegationPeriod = 7 days;
+    uint128 internal slashingRate = 20;
+    uint128 internal minSlashingAmount = 1e18;
+
+    // ValidatorManager constructor arguments
     uint128 internal commissionRateMinChangeSeconds = 7 days;
     uint128 internal jailPeriodSeconds = 7 days;
     uint128 internal jailThreshold = 2;
+    uint128 internal maxOutputFinalizations = 10;
+    uint128 internal baseReward = 20e18;
+    uint128 internal minRegisterAmount = 10e18;
+    uint128 internal minStartAmount = 100e18;
     IValidatorManager.ConstructorParams constructorParams;
 
     // Test data
     address internal asserter = 0x000000000000000000000000000000000000aAaB;
     address internal challenger = 0x000000000000000000000000000000000000AAaC;
     uint256 initL1Time;
-
-    // Token used in validator manager
-    MockKro assetToken;
-    MockKgh kgh;
-    MockKghManager kghManager;
 
     event OutputSubmitted(
         bytes32 indexed outputRoot,
@@ -294,7 +288,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
 
         // Set up KGH and KGHManager
         kgh = new MockKgh();
-        kghManager = new MockKghManager(assetToken);
+        kghManager = new MockKghManager();
 
         // Give actors some ETH
         vm.deal(trusted, requiredBondAmount * 10);
@@ -352,7 +346,9 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _kghManager: IKGHManager(kghManager),
             _securityCouncil: guardian,
             _validatorManager: valMan,
-            _undelegationPeriod: uint128(undelegationPeriod)
+            _undelegationPeriod: uint128(undelegationPeriod),
+            _slashingRate: slashingRate,
+            _minSlashingAmount: minSlashingAmount
         });
 
         // Deploy the ValidatorManager
@@ -366,8 +362,6 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _jailThreshold: jailThreshold,
             _maxOutputFinalizations: maxOutputFinalizations,
             _baseReward: baseReward,
-            _slashingRateNumerator: slashingRateNumerator,
-            _minSlashingAmount: minSlashingAmount,
             _minRegisterAmount: minRegisterAmount,
             _minStartAmount: minStartAmount
         });

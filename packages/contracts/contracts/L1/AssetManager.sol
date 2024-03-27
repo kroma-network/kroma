@@ -143,6 +143,11 @@ contract AssetManager is ISemver, IERC721Receiver {
     uint128 public constant DECIMAL_OFFSET = 10 ** 6;
 
     /**
+     * @notice The denominator for the slashing rate.
+     */
+    uint128 public constant SLASHING_RATE_DENOM = 1000;
+
+    /**
      * @notice Address of the KRO token contract.
      */
     IERC20 public immutable ASSET_TOKEN;
@@ -171,6 +176,16 @@ contract AssetManager is ISemver, IERC721Receiver {
      * @notice Delay for the finalization of undelegation.
      */
     uint256 public immutable UNDELEGATION_PERIOD;
+
+    /**
+     * @notice The numerator of the slashing rate.
+     */
+    uint128 public immutable SLASHING_RATE;
+
+    /**
+     * @notice Minimum amount to slash.
+     */
+    uint128 public immutable MIN_SLASHING_AMOUNT;
 
     /**
      * @notice A mapping of validator address to the vault.
@@ -357,6 +372,8 @@ contract AssetManager is ISemver, IERC721Receiver {
      * @param _securityCouncil    Address of the SecurityCouncil contract.
      * @param _validatorManager   Address of the ValidatorManager contract.
      * @param _undelegationPeriod Period that should wait to finalize the undelegation.
+     * @param _slashingRate       Numerator of the slashing rate.
+     * @param _minSlashingAmount  Minimum amount to slash.
      */
     constructor(
         IERC20 _assetToken,
@@ -364,7 +381,9 @@ contract AssetManager is ISemver, IERC721Receiver {
         IKGHManager _kghManager,
         address _securityCouncil,
         IValidatorManager _validatorManager,
-        uint128 _undelegationPeriod
+        uint128 _undelegationPeriod,
+        uint128 _slashingRate,
+        uint128 _minSlashingAmount
     ) {
         ASSET_TOKEN = _assetToken;
         KGH = _kgh;
@@ -372,6 +391,8 @@ contract AssetManager is ISemver, IERC721Receiver {
         SECURITY_COUNCIL = _securityCouncil;
         VALIDATOR_MANAGER = _validatorManager;
         UNDELEGATION_PERIOD = _undelegationPeriod;
+        SLASHING_RATE = _slashingRate;
+        MIN_SLASHING_AMOUNT = _minSlashingAmount;
     }
 
     /**
@@ -1068,7 +1089,11 @@ contract AssetManager is ISemver, IERC721Receiver {
         ];
 
         if (isLoser) {
-            amountToSlashOrAdd = VALIDATOR_MANAGER.calculateSlashingAmount(totalAmount);
+            amountToSlashOrAdd = totalAmount.mulDiv(SLASHING_RATE, SLASHING_RATE_DENOM);
+            amountToSlashOrAdd = amountToSlashOrAdd > MIN_SLASHING_AMOUNT
+                ? amountToSlashOrAdd
+                : MIN_SLASHING_AMOUNT;
+
             unchecked {
                 vault.asset.totalKro -= arr[0].mulDiv(amountToSlashOrAdd, totalAmount);
                 vault.asset.boostedReward -= arr[1].mulDiv(amountToSlashOrAdd, totalAmount);
