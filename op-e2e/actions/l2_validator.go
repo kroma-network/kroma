@@ -6,6 +6,11 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	kcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -15,11 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	kcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-validator"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
@@ -179,8 +179,9 @@ func (v *L2Validator) ActSubmitL2Output(t Testing) {
 	require.NoError(t, err)
 
 	// Note: Use L1 instead of the output submitter's transaction manager because
-	// this is non-blocking while the txmgr is blocking & deadlocks the tests
-	v.sendTx(t, &v.l2ooContractAddr, common.Big0, txData, 1.5)
+	// this is non-blocking while the txmgr is blocking & deadlocks the tests.
+	// Also set gasLimitMultiplier above 1 because finalization process sets state variables from 0 to value.
+	v.sendTx(t, &v.l2ooContractAddr, common.Big0, txData, 2)
 }
 
 func (v *L2Validator) LastSubmitL2OutputTx() common.Hash {

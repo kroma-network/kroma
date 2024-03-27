@@ -128,6 +128,7 @@ func init() {
 	DeployConfig.L2BlockTime = 1
 	// [Kroma: START]
 	DeployConfig.ValidatorPoolRoundDuration = DeployConfig.L2OutputOracleSubmissionInterval * DeployConfig.L2BlockTime / 2
+	DeployConfig.ValidatorManagerRoundDurationSeconds = DeployConfig.L2OutputOracleSubmissionInterval * DeployConfig.L2BlockTime / 2
 	// [Kroma: END]
 
 	if L1Deployments != nil {
