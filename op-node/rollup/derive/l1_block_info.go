@@ -329,16 +329,16 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 		Mint:       nil,
 		Value:      big.NewInt(0),
 		Gas:        150_000_000,
-		// [Kroma: START]
-		// IsSystemTransaction: true,
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: true,
+		[Kroma: END] */
 		Data: data,
 	}
 	// With the regolith fork we disable the IsSystemTx functionality, and allocate real gas
 	if rollupCfg.IsRegolith(l2BlockTime) {
-		// [Kroma: START]
-		// out.IsSystemTransaction = false
-		// [Kroma: END]
+		/* [Kroma: START]
+		out.IsSystemTransaction = false
+		[Kroma: END] */
 		out.Gas = RegolithSystemTxGas
 	}
 	return out, nil

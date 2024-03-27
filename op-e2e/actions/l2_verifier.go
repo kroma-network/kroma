@@ -104,7 +104,7 @@ func NewL2Verifier(t Testing, log log.Logger, l1 derive.L1Fetcher, blobsSrc deri
 		},
 		{
 			Namespace:     "kroma",
-			Service:       node.NewNodeAPI(cfg, eng, backend, log, m),
+			Service:       node.NewNodeAPI(cfg, eng, backend, safeHeadListener, log, m),
 			Public:        true,
 			Authenticated: false,
 		},

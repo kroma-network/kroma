@@ -132,6 +132,7 @@ func (dp *DerivationPipeline) Finalize(l1Origin eth.L1BlockRef) {
 	} else {
 		dp.eng.Finalize(l1Origin)
 	}
+	dp.eng.Finalize(l1Origin)
 }
 
 // FinalizedL1 is the L1 finalization of the inner-most stage of the derivation pipeline,

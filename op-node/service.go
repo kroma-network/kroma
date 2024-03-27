@@ -38,12 +38,12 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		return nil, err
 	}
 
-	// [Kroma: START]
-	// if !ctx.Bool(flags.RollupLoadProtocolVersions.Name) {
-	// 	log.Info("Not opted in to ProtocolVersions signal loading, disabling ProtocolVersions contract now.")
-	// 	rollupConfig.ProtocolVersionsAddress = common.Address{}
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	if !ctx.Bool(flags.RollupLoadProtocolVersions.Name) {
+		log.Info("Not opted in to ProtocolVersions signal loading, disabling ProtocolVersions contract now.")
+		rollupConfig.ProtocolVersionsAddress = common.Address{}
+	}
+	[Kroma: END] */
 
 	configPersistence := NewConfigPersistence(ctx)
 
@@ -71,12 +71,12 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		return nil, fmt.Errorf("failed to create the sync config: %w", err)
 	}
 
-	// [Kroma: START]
-	// haltOption := ctx.String(flags.RollupHalt.Name)
-	// if haltOption == "none" {
-	// 	haltOption = ""
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	haltOption := ctx.String(flags.RollupHalt.Name)
+	if haltOption == "none" {
+		haltOption = ""
+	}
+	[Kroma: END] */
 
 	cfg := &node.Config{
 		L1:     l1Endpoint,
@@ -107,10 +107,10 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		ConfigPersistence: configPersistence,
 		SafeDBPath:        ctx.String(flags.SafeDBPath.Name),
 		Sync:              *syncConfig,
-		// [Kroma: START]
-		// RollupHalt:        haltOption,
-		// [Kroma: END]
-		RethDBPath:        ctx.String(flags.L1RethDBPath.Name),
+		/* [Kroma: START]
+		RollupHalt:        haltOption,
+		[Kroma: END] */
+		RethDBPath: ctx.String(flags.L1RethDBPath.Name),
 
 		ConductorEnabled:    ctx.Bool(flags.ConductorEnabledFlag.Name),
 		ConductorRpc:        ctx.String(flags.ConductorRpcFlag.Name),

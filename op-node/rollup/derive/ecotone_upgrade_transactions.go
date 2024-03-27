@@ -52,9 +52,9 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		Mint:       big.NewInt(0),
 		Value:      big.NewInt(0),
 		Gas:        500_000,
-		// [Kroma: START]
-		// IsSystemTransaction: false,
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: false,
+		[Kroma: END] */
 		Data: l1BlockDeploymentBytecode,
 	}).MarshalBinary()
 
@@ -71,9 +71,9 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		Mint:       big.NewInt(0),
 		Value:      big.NewInt(0),
 		Gas:        1_000_000,
-		// [Kroma: START]
-		// IsSystemTransaction: false,
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: false,
+		[Kroma: END] */
 		Data: gasPriceOracleDeploymentBytecode,
 	}).MarshalBinary()
 
@@ -90,9 +90,9 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		Mint:       big.NewInt(0),
 		Value:      big.NewInt(0),
 		Gas:        50_000,
-		// [Kroma: START]
-		// IsSystemTransaction: false,
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: false,
+		[Kroma: END] */
 		Data: upgradeToCalldata(newL1BlockAddress),
 	}).MarshalBinary()
 
@@ -109,9 +109,9 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		Mint:       big.NewInt(0),
 		Value:      big.NewInt(0),
 		Gas:        50_000,
-		// [Kroma: START]
-		// IsSystemTransaction: false,
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: false,
+		[Kroma: END] */
 		Data: upgradeToCalldata(newGasPriceOracleAddress),
 	}).MarshalBinary()
 
@@ -128,9 +128,9 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		Mint:       big.NewInt(0),
 		Value:      big.NewInt(0),
 		Gas:        80_000,
-		// [Kroma: START]
-		// IsSystemTransaction: false,
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: false,
+		[Kroma: END] */
 		Data: enableEcotoneInput,
 	}).MarshalBinary()
 	if err != nil {
@@ -145,9 +145,9 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		Value: big.NewInt(0),
 		Gas:   0x3d090, // hex constant, as defined in EIP-4788
 		Data:  eip4788CreationData,
-		// [Kroma: START]
-		// IsSystemTransaction: false,
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: false,
+		[Kroma: END] */
 		SourceHash: beaconRootsSource.SourceHash(),
 	}).MarshalBinary()
 

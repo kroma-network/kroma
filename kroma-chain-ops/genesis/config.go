@@ -70,16 +70,17 @@ type DeployConfig struct {
 	// L2OutputOracleStartingTimestamp is the starting timestamp for the L2OutputOracle.
 	// MUST be the same as the timestamp of the L2OO start block.
 	L2OutputOracleStartingTimestamp int `json:"l2OutputOracleStartingTimestamp"`
-	// [Kroma: START]
-	// // L2OutputOracleStartingBlockNumber is the starting block number for the L2OutputOracle.
-	// // Must be greater than or equal to the first Bedrock block. The first L2 output will correspond
-	// // to this value plus the submission interval.
-	// L2OutputOracleStartingBlockNumber uint64 `json:"l2OutputOracleStartingBlockNumber"`
-	// // L2OutputOracleProposer is the address of the account that proposes L2 outputs.
-	// L2OutputOracleProposer common.Address `json:"l2OutputOracleProposer"`
-	// // L2OutputOracleChallenger is the address of the account that challenges L2 outputs.
-	// L2OutputOracleChallenger common.Address `json:"l2OutputOracleChallenger"`
-	// [Kroma: END]
+
+	/* [Kroma: START]
+	// L2OutputOracleStartingBlockNumber is the starting block number for the L2OutputOracle.
+	// Must be greater than or equal to the first Bedrock block. The first L2 output will correspond
+	// to this value plus the submission interval.
+	L2OutputOracleStartingBlockNumber uint64 `json:"l2OutputOracleStartingBlockNumber"`
+	// L2OutputOracleProposer is the address of the account that proposes L2 outputs.
+	L2OutputOracleProposer common.Address `json:"l2OutputOracleProposer"`
+	// L2OutputOracleChallenger is the address of the account that challenges L2 outputs.
+	L2OutputOracleChallenger common.Address `json:"l2OutputOracleChallenger"`
+	[Kroma: END] */
 
 	// CliqueSignerAddress represents the signer address for the clique consensus engine.
 	// It is used in the multi-process devnet to sign blocks.
@@ -175,71 +176,73 @@ type DeployConfig struct {
 	// from. It is an override to set this value on legacy networks where it is not set by
 	// default. It can be removed once all networks have this value set in their storage.
 	SystemConfigStartBlock uint64 `json:"systemConfigStartBlock"`
-	// [Kroma: START]
-	// // FaultGameAbsolutePrestate is the absolute prestate of Cannon. This is computed
-	// // by generating a proof from the 0th -> 1st instruction and grabbing the prestate from
-	// // the output JSON. All honest challengers should agree on the setup state of the program.
-	// FaultGameAbsolutePrestate common.Hash `json:"faultGameAbsolutePrestate"`
-	// // FaultGameMaxDepth is the maximum depth of the position tree within the fault dispute game.
-	// // `2^{FaultGameMaxDepth}` is how many instructions the execution trace bisection game
-	// // supports. Ideally, this should be conservatively set so that there is always enough
-	// // room for a full Cannon trace.
-	// FaultGameMaxDepth uint64 `json:"faultGameMaxDepth"`
-	// // FaultGameMaxDuration is the maximum amount of time (in seconds) that the fault dispute
-	// // game can run for before it is ready to be resolved. Each side receives half of this value
-	// // on their chess clock at the inception of the dispute.
-	// FaultGameMaxDuration uint64 `json:"faultGameMaxDuration"`
-	// // FaultGameGenesisBlock is the block number for genesis.
-	// FaultGameGenesisBlock uint64 `json:"faultGameGenesisBlock"`
-	// // FaultGameGenesisOutputRoot is the output root for the genesis block.
-	// FaultGameGenesisOutputRoot common.Hash `json:"faultGameGenesisOutputRoot"`
-	// // FaultGameSplitDepth is the depth at which the fault dispute game splits from output roots to execution trace claims.
-	// FaultGameSplitDepth uint64 `json:"faultGameSplitDepth"`
-	// // FaultGameWithdrawalDelay is the number of seconds that users must wait before withdrawing ETH from a fault game.
-	// FaultGameWithdrawalDelay uint64 `json:"faultGameWithdrawalDelay"`
-	// // PreimageOracleMinProposalSize is the minimum number of bytes that a large preimage oracle proposal can be.
-	// PreimageOracleMinProposalSize uint64 `json:"preimageOracleMinProposalSize"`
-	// // PreimageOracleChallengePeriod is the number of seconds that challengers have to challenge a large preimage proposal.
-	// PreimageOracleChallengePeriod uint64 `json:"preimageOracleChallengePeriod"`
-	// [Kroma: END]
+
+	/* [Kroma: START]
+	// FaultGameAbsolutePrestate is the absolute prestate of Cannon. This is computed
+	// by generating a proof from the 0th -> 1st instruction and grabbing the prestate from
+	// the output JSON. All honest challengers should agree on the setup state of the program.
+	FaultGameAbsolutePrestate common.Hash `json:"faultGameAbsolutePrestate"`
+	// FaultGameMaxDepth is the maximum depth of the position tree within the fault dispute game.
+	// `2^{FaultGameMaxDepth}` is how many instructions the execution trace bisection game
+	// supports. Ideally, this should be conservatively set so that there is always enough
+	// room for a full Cannon trace.
+	FaultGameMaxDepth uint64 `json:"faultGameMaxDepth"`
+	// FaultGameMaxDuration is the maximum amount of time (in seconds) that the fault dispute
+	// game can run for before it is ready to be resolved. Each side receives half of this value
+	// on their chess clock at the inception of the dispute.
+	FaultGameMaxDuration uint64 `json:"faultGameMaxDuration"`
+	// FaultGameGenesisBlock is the block number for genesis.
+	FaultGameGenesisBlock uint64 `json:"faultGameGenesisBlock"`
+	// FaultGameGenesisOutputRoot is the output root for the genesis block.
+	FaultGameGenesisOutputRoot common.Hash `json:"faultGameGenesisOutputRoot"`
+	// FaultGameSplitDepth is the depth at which the fault dispute game splits from output roots to execution trace claims.
+	FaultGameSplitDepth uint64 `json:"faultGameSplitDepth"`
+	// FaultGameWithdrawalDelay is the number of seconds that users must wait before withdrawing ETH from a fault game.
+	FaultGameWithdrawalDelay uint64 `json:"faultGameWithdrawalDelay"`
+	// PreimageOracleMinProposalSize is the minimum number of bytes that a large preimage oracle proposal can be.
+	PreimageOracleMinProposalSize uint64 `json:"preimageOracleMinProposalSize"`
+	// PreimageOracleChallengePeriod is the number of seconds that challengers have to challenge a large preimage proposal.
+	PreimageOracleChallengePeriod uint64 `json:"preimageOracleChallengePeriod"`
+	[Kroma: END] */
+
 	// FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
 	// during devnet deployments.
 	FundDevAccounts bool `json:"fundDevAccounts"`
-	// [Kroma: START]
-	// // RequiredProtocolVersion indicates the protocol version that
-	// // nodes are required to adopt, to stay in sync with the network.
-	// RequiredProtocolVersion params.ProtocolVersion `json:"requiredProtocolVersion"`
-	// // RequiredProtocolVersion indicates the protocol version that
-	// // nodes are recommended to adopt, to stay in sync with the network.
-	// RecommendedProtocolVersion params.ProtocolVersion `json:"recommendedProtocolVersion"`
-	// // ProofMaturityDelaySeconds is the number of seconds that a proof must be
-	// // mature before it can be used to finalize a withdrawal.
-	// ProofMaturityDelaySeconds uint64 `json:"proofMaturityDelaySeconds"`
-	// // DisputeGameFinalityDelaySeconds is an additional number of seconds a
-	// // dispute game must wait before it can be used to finalize a withdrawal.
-	// DisputeGameFinalityDelaySeconds uint64 `json:"disputeGameFinalityDelaySeconds"`
-	// // RespectedGameType is the dispute game type that the OptimismPortal
-	// // contract will respect for finalizing withdrawals.
-	// RespectedGameType uint32 `json:"respectedGameType"`
-	// // UseFaultProofs is a flag that indicates if the system is using fault
-	// // proofs instead of the older output oracle mechanism.
-	// // UseFaultProofs bool `json:"useFaultProofs"`
-	// // UsePlasma is a flag that indicates if the system is using op-plasma
-	// UsePlasma bool `json:"usePlasma"`
-	// // DAChallengeWindow represents the block interval during which the availability of a data commitment can be challenged.
-	// DAChallengeWindow uint64 `json:"daChallengeWindow"`
-	// // DAResolveWindow represents the block interval during which a data availability challenge can be resolved.
-	// DAResolveWindow uint64 `json:"daResolveWindow"`
-	// // DABondSize represents the required bond size to initiate a data availability challenge.
-	// DABondSize uint64 `json:"daBondSize"`
-	// // DAResolverRefundPercentage represents the percentage of the resolving cost to be refunded to the resolver
-	// // such as 100 means 100% refund.
-	// DAResolverRefundPercentage uint64 `json:"daResolverRefundPercentage"`
-	//
-	// // DAChallengeProxy represents the L1 address of the DataAvailabilityChallenge contract.
-	// DAChallengeProxy common.Address `json:"daChallengeProxy"`
-	// [Kroma: END]
 
+	/* [Kroma: START]
+	// RequiredProtocolVersion indicates the protocol version that
+	// nodes are required to adopt, to stay in sync with the network.
+	RequiredProtocolVersion params.ProtocolVersion `json:"requiredProtocolVersion"`
+	// RequiredProtocolVersion indicates the protocol version that
+	// nodes are recommended to adopt, to stay in sync with the network.
+	RecommendedProtocolVersion params.ProtocolVersion `json:"recommendedProtocolVersion"`
+	// ProofMaturityDelaySeconds is the number of seconds that a proof must be
+	// mature before it can be used to finalize a withdrawal.
+	ProofMaturityDelaySeconds uint64 `json:"proofMaturityDelaySeconds"`
+	// DisputeGameFinalityDelaySeconds is an additional number of seconds a
+	// dispute game must wait before it can be used to finalize a withdrawal.
+	DisputeGameFinalityDelaySeconds uint64 `json:"disputeGameFinalityDelaySeconds"`
+	// RespectedGameType is the dispute game type that the OptimismPortal
+	// contract will respect for finalizing withdrawals.
+	RespectedGameType uint32 `json:"respectedGameType"`
+	// UseFaultProofs is a flag that indicates if the system is using fault
+	// proofs instead of the older output oracle mechanism.
+	UseFaultProofs bool `json:"useFaultProofs"`
+	[Kroma: END] */
+
+	// UsePlasma is a flag that indicates if the system is using op-plasma
+	UsePlasma bool `json:"usePlasma"`
+	// DAChallengeWindow represents the block interval during which the availability of a data commitment can be challenged.
+	DAChallengeWindow uint64 `json:"daChallengeWindow,omitempty"`
+	// DAResolveWindow represents the block interval during which a data availability challenge can be resolved.
+	DAResolveWindow uint64 `json:"daResolveWindow,omitempty"`
+	// DABondSize represents the required bond size to initiate a data availability challenge.
+	DABondSize uint64 `json:"daBondSize,omitempty"`
+	// DAResolverRefundPercentage represents the percentage of the resolving cost to be refunded to the resolver
+	// such as 100 means 100% refund.
+	DAResolverRefundPercentage uint64 `json:"daResolverRefundPercentage,omitempty"`
+	// DAChallengeProxy represents the L1 address of the DataAvailabilityChallenge contract.
+	DAChallengeProxy common.Address `json:"daChallengeProxy"`
 	// When Cancun activates. Relative to L1 genesis.
 	L1CancunTimeOffset *hexutil.Uint64 `json:"l1CancunTimeOffset,omitempty"`
 
@@ -690,12 +693,10 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		EcotoneTime:            d.EcotoneTime(l1StartBlock.Time()),
 		FjordTime:              d.FjordTime(l1StartBlock.Time()),
 		InteropTime:            d.InteropTime(l1StartBlock.Time()),
-		// [Kroma: START]
-		// UsePlasma:              d.UsePlasma,
-		// DAChallengeAddress:     d.DAChallengeProxy,
-		// DAChallengeWindow:      d.DAChallengeWindow,
-		// DAResolveWindow:        d.DAResolveWindow,
-		// [Kroma: END]
+		UsePlasma:              d.UsePlasma,
+		DAChallengeAddress:     d.DAChallengeProxy,
+		DAChallengeWindow:      d.DAChallengeWindow,
+		DAResolveWindow:        d.DAResolveWindow,
 	}, nil
 }
 
@@ -751,9 +752,9 @@ type L1Deployments struct {
 	// [Kroma: START]
 	// ProtocolVersions                  common.Address `json:"ProtocolVersions"`
 	// ProtocolVersionsProxy             common.Address `json:"ProtocolVersionsProxy"`
-	// DataAvailabilityChallenge         common.Address `json:"DataAvailabilityChallenge"`
-	// DataAvailabilityChallengeProxy    common.Address `json:"DataAvailabilityChallengeProxy"`
 	// [Kroma: END]
+	DataAvailabilityChallenge      common.Address `json:"DataAvailabilityChallenge"`
+	DataAvailabilityChallengeProxy common.Address `json:"DataAvailabilityChallengeProxy"`
 
 	// [Kroma: START]
 	Colosseum                 common.Address `json:"Colosseum"`
@@ -798,18 +799,16 @@ func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 	for i := 0; i < val.NumField(); i++ {
 		name := val.Type().Field(i).Name
 		// Skip the non production ready contracts
-		// [Kroma: START]
-		// if name == "DisputeGameFactory" ||
-		// 	name == "DisputeGameFactoryProxy" ||
-		// 	name == "BlockOracle" {
-		// 	continue
-		// }
-		// if !deployConfig.UsePlasma &&
-		// 	(name == "DataAvailabilityChallenge" ||
-		// 		name == "DataAvailabilityChallengeProxy") {
-		// 	continue
-		// }
-		// [Kroma: END]
+		if name == "DisputeGameFactory" ||
+			name == "DisputeGameFactoryProxy" ||
+			name == "BlockOracle" {
+			continue
+		}
+		if !deployConfig.UsePlasma &&
+			(name == "DataAvailabilityChallenge" ||
+				name == "DataAvailabilityChallengeProxy") {
+			continue
+		}
 		if val.Field(i).Interface().(common.Address) == (common.Address{}) {
 			return fmt.Errorf("%s is not set", name)
 		}
@@ -880,8 +879,7 @@ type ForgeDump gstate.Dump
 func (d *ForgeDump) UnmarshalJSON(b []byte) error {
 	type forgeDumpAccount struct {
 		Balance     string                 `json:"balance"`
-		// TODO : need check
-		Nonce       hexutil.Uint64         `json:"nonce"`
+		Nonce       uint64                 `json:"nonce"`
 		Root        hexutil.Bytes          `json:"root"`
 		CodeHash    hexutil.Bytes          `json:"codeHash"`
 		Code        hexutil.Bytes          `json:"code,omitempty"`

@@ -107,9 +107,9 @@ func LoadOPStackRollupConfig(chainID uint64) (*Config, error) {
 		L1SystemConfigAddress:  common.Address(addrs.SystemConfigProxy),
 	}
 	if superChain.Config.ProtocolVersionsAddr != nil { // Set optional protocol versions address
-		// [Kroma: START]
-		// cfg.ProtocolVersionsAddress = common.Address(*superChain.Config.ProtocolVersionsAddr)
-		// [Kroma: END]
+		/* [Kroma: START]
+		cfg.ProtocolVersionsAddress = common.Address(*superChain.Config.ProtocolVersionsAddr)
+		[Kroma: END] */
 	}
 	if chainID == labsGoerliDevnet || chainID == labsGoerliChaosnet {
 		cfg.ChannelTimeout = 120

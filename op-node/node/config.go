@@ -59,11 +59,11 @@ type Config struct {
 
 	Sync sync.Config
 
-	// [Kroma: START]
-	// To halt when detecting the node does not support a signaled protocol version
-	// change of the given severity (major/minor/patch). Disabled if empty.
-	// RollupHalt string
-	// [Kroma: END]
+	/* [Kroma: START]
+	To halt when detecting the node does not support a signaled protocol version
+	change of the given severity (major/minor/patch). Disabled if empty.
+	RollupHalt string
+	[Kroma: END] */
 
 	// Cancel to request a premature shutdown of the node itself, e.g. when halting. This may be nil.
 	Cancel context.CancelCauseFunc
@@ -71,12 +71,10 @@ type Config struct {
 	// [OPTIONAL] The reth DB path to read receipts from
 	RethDBPath string
 
-	// [Kroma: START] TODO : not used, disabled by config
 	// Conductor is used to determine this node is the leader sequencer.
 	ConductorEnabled    bool
 	ConductorRpc        string
 	ConductorRpcTimeout time.Duration
-	// [Kroma: END]
 
 	// Plasma DA config
 	Plasma plasma.CLIConfig

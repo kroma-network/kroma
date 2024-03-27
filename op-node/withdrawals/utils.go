@@ -47,15 +47,7 @@ type ProvenWithdrawalParameters struct {
 }
 
 // ProveWithdrawalParameters calls ProveWithdrawalParametersForBlock with the most recent L2 output after the given header.
-func ProveWithdrawalParameters(
-	ctx context.Context,
-	proofCl ProofClient,
-	l2ReceiptCl ReceiptClient,
-	l2BlockCl BlockClient,
-	txHash common.Hash,
-	header *types.Header,
-	l2OutputOracleContract *bindings.L2OutputOracleCaller,
-) (ProvenWithdrawalParameters, error) {
+func ProveWithdrawalParameters(ctx context.Context, proofCl ProofClient, l2ReceiptCl ReceiptClient, l2BlockCl BlockClient, txHash common.Hash, header *types.Header, l2OutputOracleContract *bindings.L2OutputOracleCaller) (ProvenWithdrawalParameters, error) {
 	l2OutputIndex, err := l2OutputOracleContract.GetL2OutputIndexAfter(&bind.CallOpts{}, header.Number)
 	if err != nil {
 		return ProvenWithdrawalParameters{}, fmt.Errorf("failed to get l2OutputIndex: %w", err)
@@ -69,7 +61,6 @@ func ProveWithdrawalParameters(
 // contract. If not, the withdrawal will fail as it the storage proof cannot be verified if there is no submitted state root.
 func ProveWithdrawalParametersForBlock(
 	ctx context.Context,
-	version [32]byte,
 	proofCl ProofClient,
 	l2ReceiptCl ReceiptClient,
 	l2BlockCl BlockClient,
@@ -96,7 +87,7 @@ func ProveWithdrawalParametersForBlock(
 		return ProvenWithdrawalParameters{}, err
 	}
 	slot := StorageSlotOfWithdrawalHash(withdrawalHash)
-	p, err := proofCl.GetProof(ctx, predeploys.L2ToL1MessagePasserAddr, []string{slot.String()}, header.Number)
+	p, err := proofCl.GetProof(ctx, predeploys.L2ToL1MessagePasserAddr, []string{slot.String()}, l2BlockNumber)
 	if err != nil {
 		return ProvenWithdrawalParameters{}, err
 	}
@@ -108,7 +99,7 @@ func ProveWithdrawalParametersForBlock(
 	}
 
 	// Fetch the next block from the L2 node
-	nextL2Block, err := l2BlockCl.BlockByNumber(ctx, l2BlockNumber + 1)
+	nextL2Block, err := l2BlockCl.BlockByNumber(ctx, new(big.Int).Add(l2BlockNumber, big.NewInt(1)))
 	if err != nil {
 		return ProvenWithdrawalParameters{}, fmt.Errorf("failed to get next l2Block: %w", err)
 	}
@@ -139,7 +130,7 @@ func ProveWithdrawalParametersForBlock(
 			Version:                  [32]byte{}, // Empty for version 1
 			StateRoot:                l2Block.Root(),
 			MessagePasserStorageRoot: p.StorageHash,
-			BlockHash:                header.Hash(),
+			BlockHash:                l2Block.Hash(),
 			NextBlockHash:            nextL2Block.Hash(),
 		},
 		WithdrawalProof: trieNodes,

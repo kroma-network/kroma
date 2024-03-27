@@ -187,9 +187,9 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 	require.NoError(t, err)
 	require.True(t, infoTx.IsDepositTx())
 	// Should only be a system tx if regolith is not enabled
-	// [Kroma: START]
-	// require.Equal(t, !seq.rollupCfg.IsRegolith(seq.L2Unsafe().Time), infoTx.IsSystemTx())
-	// [Kroma: END]
+	/* [Kroma: START]
+	require.Equal(t, !seq.rollupCfg.IsRegolith(seq.L2Unsafe().Time), infoTx.IsSystemTx())
+	[Kroma: END] */
 
 	// regular L2 tx, in new L2 block
 	alice.L2.ActResetTxOpts(t)

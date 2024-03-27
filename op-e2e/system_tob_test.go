@@ -14,8 +14,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -448,16 +446,16 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, cfg.DeployConfig.FinalizationPeriodSeconds, finalizationPeriod.Uint64())
 
-			// [Kroma: START]
-			// disputeGameFactory, err := bindings.NewDisputeGameFactoryCaller(cfg.L1Deployments.DisputeGameFactoryProxy, l1Client)
-			// require.NoError(t, err)
-			//
-			// optimismPortal, err := bindings.NewOptimismPortalCaller(cfg.L1Deployments.OptimismPortalProxy, l1Client)
-			// require.NoError(t, err)
-			//
-			// optimismPortal2, err := bindingspreview.NewOptimismPortal2Caller(cfg.L1Deployments.OptimismPortalProxy, l1Client)
-			// require.NoError(t, err)
-			// [Kroma: END]
+			/* [Kroma: START]
+			disputeGameFactory, err := bindings.NewDisputeGameFactoryCaller(cfg.L1Deployments.DisputeGameFactoryProxy, l1Client)
+			require.NoError(t, err)
+
+			optimismPortal, err := bindings.NewOptimismPortalCaller(cfg.L1Deployments.OptimismPortalProxy, l1Client)
+			require.NoError(t, err)
+
+			optimismPortal2, err := bindingspreview.NewOptimismPortal2Caller(cfg.L1Deployments.OptimismPortalProxy, l1Client)
+			require.NoError(t, err)
+			[Kroma: END] */
 
 			// Create a struct used to track our transactors and their transactions sent.
 			type TestAccountState struct {
@@ -550,22 +548,17 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			// Wait for the finalization period, then we can finalize this withdrawal.
 			require.NotEqual(t, cfg.L1Deployments.L2OutputOracleProxy, common.Address{})
 			var blockNumber uint64
-			// [Kroma: START]
-			//if e2eutils.UseFPAC() {
-			//	blockNumber, err = wait.ForGamePublished(ctx, l1Client, cfg.L1Deployments.OptimismPortalProxy, cfg.L1Deployments.DisputeGameFactoryProxy, receipt.BlockNumber)
-			//} else {
-			//	blockNumber, err = wait.ForOutputRootPublished(ctx, l1Client, cfg.L1Deployments.L2OutputOracleProxy, receipt.BlockNumber)
-			//}
+			/* [Kroma: START]
+			if e2eutils.UseFPAC() {
+				blockNumber, err = wait.ForGamePublished(ctx, l1Client, cfg.L1Deployments.OptimismPortalProxy, cfg.L1Deployments.DisputeGameFactoryProxy, receipt.BlockNumber)
+			} else {
+				blockNumber, err = wait.ForOutputRootPublished(ctx, l1Client, cfg.L1Deployments.L2OutputOracleProxy, receipt.BlockNumber)
+			}
+			[Kroma: END] */
 			blockNumber, err = wait.ForOutputRootPublished(ctx, l1Client, cfg.L1Deployments.L2OutputOracleProxy, receipt.BlockNumber)
-			// [Kroma: END]
 			require.Nil(t, err)
 
 			header, err = l2Verif.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
-			require.Nil(t, err)
-
-			txCtx, txCancel = context.WithTimeout(context.Background(), txTimeoutDuration)
-			nextHeader, err := l2Verif.HeaderByNumber(txCtx, new(big.Int).SetUint64(blockNumber+1))
-			txCancel()
 			require.Nil(t, err)
 
 			rpcClient, err := rpc.Dial(sys.EthInstances["verifier"].WSEndpoint())
@@ -575,9 +568,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			blockCl := ethclient.NewClient(rpcClient)
 
 			// Now create the withdrawal
-			// FIXME : need update
-			version := eth.OutputVersionV0
-			params, err := ProveWithdrawalParameters(context.Background(), proofCl, receiptCl, blockCl, tx.Hash(), header, l2OutputOracle, disputeGameFactory, optimismPortal2)
+			params, err := ProveWithdrawalParameters(context.Background(), proofCl, receiptCl, blockCl, tx.Hash(), header, l2OutputOracle)
 			require.Nil(t, err)
 
 			// Obtain our withdrawal parameters

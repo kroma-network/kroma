@@ -62,9 +62,9 @@ type OpNode struct {
 
 	safeDB closableSafeDB
 
-	// [Kroma: START]
-	// rollupHalt string // when to halt the rollup, disabled if empty
-	// [Kroma: END]
+	/* [Kroma: START]
+	rollupHalt string // when to halt the rollup, disabled if empty
+	[Kroma: END] */
 
 	pprofService *oppprof.Service
 	metricsSrv   *httputil.HTTPServer
@@ -81,11 +81,11 @@ type OpNode struct {
 
 	closed atomic.Bool
 
-	// [Kroma: START]
-	// cancels execution prematurely, e.g. to halt. This may be nil.
-	// cancel context.CancelCauseFunc
-	// halted atomic.Bool
-	// [Kroma: END]
+	/* [Kroma: START]
+	cancels execution prematurely, e.g. to halt. This may be nil.
+	cancel context.CancelCauseFunc
+	halted atomic.Bool
+	[Kroma: END] */
 }
 
 // The OpNode handles incoming gossip
@@ -103,10 +103,10 @@ func New(ctx context.Context, cfg *Config, log log.Logger, snapshotLog log.Logge
 		log:        log,
 		appVersion: appVersion,
 		metrics:    m,
-		// [Kroma: START]
-		// rollupHalt: cfg.RollupHalt,
-		// cancel:     cfg.Cancel,
-		// [Kroma: END]
+		/* [Kroma: START]
+		rollupHalt: cfg.RollupHalt,
+		cancel:     cfg.Cancel,
+		[Kroma: END] */
 	}
 	// not a context leak, gossipsub is closed with a context.
 	n.resourcesCtx, n.resourcesClose = context.WithCancel(context.Background())
@@ -249,20 +249,20 @@ func (n *OpNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 			return l1Head, err
 		}
 
-		// [Kroma: START]
-		// err = n.handleProtocolVersionsUpdate(ctx)
-		// [Kroma: END]
+		/* [Kroma: START]
+		err = n.handleProtocolVersionsUpdate(ctx)
+		[Kroma: END] */
 		return l1Head, err
 	}
 
 	// initialize the runtime config before unblocking
 	if _, err := retry.Do(ctx, 5, retry.Fixed(time.Second*10), func() (eth.L1BlockRef, error) {
 		ref, err := reload(ctx)
-		// [Kroma: START]
-		// if errors.Is(err, errNodeHalt) { // don't retry on halt error
-		// 	err = nil
-		// }
-		// [Kroma: END]
+		/* [Kroma: START]
+		if errors.Is(err, errNodeHalt) { // don't retry on halt error
+			err = nil
+		}
+		[Kroma: END] */
 		return ref, err
 	}); err != nil {
 		return fmt.Errorf("failed to load runtime configuration repeatedly, last error: %w", err)
@@ -283,19 +283,19 @@ func (n *OpNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 				// Missing a runtime-config update is not critical, and we do not want to overwhelm the L1 RPC.
 				l1Head, err := reload(ctx)
 				if err != nil {
-					// [Kroma: START]
-					// if errors.Is(err, errNodeHalt) {
-					// 	n.halted.Store(true)
-					// 	if n.cancel != nil { // node cancellation is always available when started as CLI app
-					// 		n.cancel(errNodeHalt)
-					// 		return
-					// 	} else {
-					// 		n.log.Debug("opted to halt, but cannot halt node", "l1_head", l1Head)
-					// 	}
-					// } else {
-					// 	n.log.Warn("failed to reload runtime config", "err", err)
-					// }
-					// [Kroma: END]
+					/* [Kroma: START]
+					if errors.Is(err, errNodeHalt) {
+						n.halted.Store(true)
+						if n.cancel != nil { // node cancellation is always available when started as CLI app
+							n.cancel(errNodeHalt)
+							return
+						} else {
+							n.log.Debug("opted to halt, but cannot halt node", "l1_head", l1Head)
+						}
+					} else {
+						n.log.Warn("failed to reload runtime config", "err", err)
+					}
+					[Kroma: END] */
 					n.log.Warn("failed to reload runtime config", "err", err)
 				} else {
 					n.log.Debug("reloaded runtime config", "l1_head", l1Head)
@@ -395,11 +395,9 @@ func (n *OpNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger
 	}
 
 	var sequencerConductor conductor.SequencerConductor = &conductor.NoOpConductor{}
-	// [Kroma: START]
-	// if cfg.ConductorEnabled {
-	//	sequencerConductor = NewConductorClient(cfg, n.log, n.metrics)
-	// }
-	// [Kroma: END]
+	if cfg.ConductorEnabled {
+		sequencerConductor = NewConductorClient(cfg, n.log, n.metrics)
+	}
 
 	// if plasma is not explicitly activated in the node CLI, the config + any error will be ignored.
 	rpCfg, err := cfg.Rollup.PlasmaConfig()
@@ -710,18 +708,18 @@ func (n *OpNode) Stop(ctx context.Context) error {
 		n.closed.Store(true)
 	}
 
-	// [Kroma: START]
-	// if n.halted.Load() {
-	// 	// if we had a halt upon initialization, idle for a while, with open metrics, to prevent a rapid restart-loop
-	// 	tim := time.NewTimer(time.Minute * 5)
-	// 	n.log.Warn("halted, idling to avoid immediate shutdown repeats")
-	// 	defer tim.Stop()
-	// 	select {
-	// 	case <-tim.C:
-	// 	case <-ctx.Done():
-	// 	}
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	if n.halted.Load() {
+		// if we had a halt upon initialization, idle for a while, with open metrics, to prevent a rapid restart-loop
+		tim := time.NewTimer(time.Minute * 5)
+		n.log.Warn("halted, idling to avoid immediate shutdown repeats")
+		defer tim.Stop()
+		select {
+		case <-tim.C:
+		case <-ctx.Done():
+		}
+	}
+	[Kroma: END] */
 
 	// Close metrics and pprof only after we are done idling
 	if n.pprofService != nil {

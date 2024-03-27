@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/kroma-network/kroma/op-e2e/e2eutils/batcher"
 	"math/big"
 	"net"
@@ -42,10 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
-	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/fakebeacon"
@@ -169,7 +165,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		},
 		GethOptions:            map[string][]geth.GethOption{},
 		P2PTopology:            nil, // no P2P connectivity by default
-		NonFinalizedProposals:  false,
+		NonFinalizedOutputs:    false,
 		ExternalL2Shim:         config.ExternalL2Shim,
 		DataAvailabilityType:   batcherFlags.CalldataType,
 		MaxPendingTransactions: 1,
@@ -563,9 +559,9 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			EcotoneTime:            cfg.DeployConfig.EcotoneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			FjordTime:              cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			InteropTime:            cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			// [Kroma: START]
-			// ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
-			// [Kroma: END]
+			/* [Kroma: START]
+			ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
+			[Kroma: END] */
 		}
 	}
 	defaultConfig := makeRollupConfig()

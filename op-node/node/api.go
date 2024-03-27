@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-
 	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/version"
@@ -127,11 +126,6 @@ func NewNodeAPI(config *rollup.Config, l2Client l2EthClient, dr driverClient, sa
 func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
 	recordDur := n.m.RecordRPCServerRequest("optimism_outputAtBlock")
 	defer recordDur()
-
-	ref, status, err := n.dr.BlockRefWithStatus(ctx, uint64(number))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get L2 block ref with sync status: %w", err)
-	}
 
 	output, err := n.fetchOutputAtBlock(ctx, number)
 	if err != nil {
