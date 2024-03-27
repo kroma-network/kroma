@@ -4,10 +4,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"math/big"
-	"math/rand"
-	"time"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,13 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
+	"math/big"
+	"math/rand"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	e2e "github.com/ethereum-optimism/optimism/op-e2e"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
@@ -33,10 +28,10 @@ type L1Bindings struct {
 	KromaPortal    *bindings.KromaPortal
 	L2OutputOracle *bindings.L2OutputOracle
 
-	// [Kroma: START]
-	// OptimismPortal2    *bindingspreview.OptimismPortal2
-	// DisputeGameFactory *bindings.DisputeGameFactory
-	// [Kroma: END]
+	/* [Kroma: START]
+	OptimismPortal2    *bindingspreview.OptimismPortal2
+	DisputeGameFactory *bindings.DisputeGameFactory
+	[Kroma: END] */
 }
 
 func NewL1Bindings(t Testing, l1Cl *ethclient.Client) *L1Bindings {
@@ -46,21 +41,21 @@ func NewL1Bindings(t Testing, l1Cl *ethclient.Client) *L1Bindings {
 	l2OutputOracle, err := bindings.NewL2OutputOracle(config.L1Deployments.L2OutputOracleProxy, l1Cl)
 	require.NoError(t, err)
 
-	// [Kroma: START]
-	// optimismPortal2, err := bindingspreview.NewOptimismPortal2(config.L1Deployments.OptimismPortalProxy, l1Cl)
-	// require.NoError(t, err)
-	//
-	// disputeGameFactory, err := bindings.NewDisputeGameFactory(config.L1Deployments.DisputeGameFactoryProxy, l1Cl)
-	// require.NoError(t, err)
-	// [Kroma: END]
+	/* [Kroma: START]
+	optimismPortal2, err := bindingspreview.NewOptimismPortal2(config.L1Deployments.OptimismPortalProxy, l1Cl)
+	require.NoError(t, err)
+
+	disputeGameFactory, err := bindings.NewDisputeGameFactory(config.L1Deployments.DisputeGameFactoryProxy, l1Cl)
+	require.NoError(t, err)
+	[Kroma: END] */
 
 	return &L1Bindings{
 		KromaPortal:    kromaPortal,
 		L2OutputOracle: l2OutputOracle,
-		// [Kroma: START]
-		// OptimismPortal2:    optimismPortal2,
-		// DisputeGameFactory: disputeGameFactory,
-		// [Kroma: END]
+		/* [Kroma: START]
+		OptimismPortal2:    optimismPortal2,
+		DisputeGameFactory: disputeGameFactory,
+		[Kroma: END] */
 	}
 }
 
@@ -420,12 +415,9 @@ func (s *CrossLayerUser) getLatestWithdrawalParams(t Testing) (*withdrawals.Prov
 	// Figure out what the Output oracle on L1 has seen so far
 	var l2OutputBlockNr *big.Int
 	var l2OutputBlock *types.Block
-	var l2OutputIndex *big.Int
 	l2OutputBlockNr, err = s.L1.env.Bindings.L2OutputOracle.LatestBlockNumber(&bind.CallOpts{})
 	require.NoError(t, err)
 	l2OutputBlock, err = s.L2.env.EthCl.BlockByNumber(t.Ctx(), l2OutputBlockNr)
-	require.NoError(t, err)
-	l2OutputIndex, err = s.L1.env.Bindings.L2OutputOracle.GetL2OutputIndexAfter(&bind.CallOpts{}, l2OutputBlockNr)
 	require.NoError(t, err)
 
 	// Check if the L2 output is even old enough to include the withdrawal
@@ -445,11 +437,25 @@ func (s *CrossLayerUser) getLatestWithdrawalParams(t Testing) (*withdrawals.Prov
 	// We generate a proof for the latest L2 output, which shouldn't require archive-node data if it's recent enough.
 	header, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), l2OutputBlockNr)
 	require.NoError(t, err)
-	nextHeader, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), new(big.Int).Add(l2OutputBlockNr, common.Big1))
+	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
 	require.NoError(t, err)
-	version := eth.OutputVersionV0
-	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, nextHeader, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
-	require.NoError(t, err)
+
+	return &params, nil
+}
+
+// ActCompleteWithdrawal creates a L1 proveWithdrawal tx for latest withdrawal.
+// The tx hash is remembered as the last L1 tx, to check as L1 actor.
+func (s *CrossLayerUser) ActProveWithdrawal(t Testing) {
+	s.L1.lastTxHash = s.ProveWithdrawal(t, s.lastL2WithdrawalTxHash)
+}
+
+// ProveWithdrawal creates a L1 proveWithdrawal tx for the given L2 withdrawal tx, returning the tx hash.
+func (s *CrossLayerUser) ProveWithdrawal(t Testing, l2TxHash common.Hash) common.Hash {
+	params, err := s.getLatestWithdrawalParams(t)
+	if err != nil {
+		t.InvalidAction("cannot prove withdrawal: %v", err)
+		return common.Hash{}
+	}
 
 	// Create the prove tx
 	tx, err := s.L1.env.Bindings.KromaPortal.ProveWithdrawalTransaction(
@@ -462,7 +468,7 @@ func (s *CrossLayerUser) getLatestWithdrawalParams(t Testing) (*withdrawals.Prov
 			GasLimit: params.GasLimit,
 			Data:     params.Data,
 		},
-		l2OutputIndex,
+		params.L2OutputIndex,
 		params.OutputRootProof,
 		params.WithdrawalProof,
 	)

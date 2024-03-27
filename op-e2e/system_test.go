@@ -1167,19 +1167,17 @@ func (sga *stateGetterAdapter) GetState(addr common.Address, key common.Hash) co
 
 // TestFees checks that L1/L2 fees are handled.
 func TestFees(t *testing.T) {
-	// [Kroma: START]
-	// t.Run("pre-regolith", func(t *testing.T) {
-	//	InitParallel(t)
-	//	cfg := DefaultSystemConfig(t)
-	//	cfg.DeployConfig.L1GenesisBlockBaseFeePerGas = (*hexutil.Big)(big.NewInt(7))
-	//
-	//	cfg.DeployConfig.L2GenesisRegolithTimeOffset = nil
-	//	cfg.DeployConfig.L2GenesisCanyonTimeOffset = nil
-	//	cfg.DeployConfig.L2GenesisDeltaTimeOffset = nil
-	//	cfg.DeployConfig.L2GenesisEcotoneTimeOffset = nil
-	//	testFees(t, cfg)
-	//})
-	// [Kroma: END]
+	t.Run("pre-regolith", func(t *testing.T) {
+		InitParallel(t)
+		cfg := DefaultSystemConfig(t)
+		cfg.DeployConfig.L1GenesisBlockBaseFeePerGas = (*hexutil.Big)(big.NewInt(7))
+
+		cfg.DeployConfig.L2GenesisRegolithTimeOffset = nil
+		cfg.DeployConfig.L2GenesisCanyonTimeOffset = nil
+		cfg.DeployConfig.L2GenesisDeltaTimeOffset = nil
+		cfg.DeployConfig.L2GenesisEcotoneTimeOffset = nil
+		testFees(t, cfg)
+	})
 	t.Run("regolith", func(t *testing.T) {
 		InitParallel(t)
 		cfg := DefaultSystemConfig(t)

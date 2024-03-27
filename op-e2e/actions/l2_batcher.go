@@ -59,10 +59,11 @@ type BatcherCfg struct {
 
 	ForceSubmitSingularBatch bool
 	ForceSubmitSpanBatch     bool
-	UsePlasma                bool
 
 	DataAvailabilityType batcherFlags.DataAvailabilityType
-	PlasmaDA             PlasmaInputSetter
+
+	UsePlasma bool
+	PlasmaDA  PlasmaInputSetter
 }
 
 func DefaultBatcherCfg(dp *e2eutils.DeployParams) *BatcherCfg {

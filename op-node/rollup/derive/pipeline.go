@@ -125,6 +125,7 @@ func (dp *DerivationPipeline) Origin() eth.L1BlockRef {
 }
 
 func (dp *DerivationPipeline) Finalize(l1Origin eth.L1BlockRef) {
+	/* [Kroma: START]
 	// In plasma mode, the finalization signal is proxied through the plasma manager.
 	// Finality signal will come from the DA contract or L1 finality whichever is last.
 	if dp.rollupCfg.UsePlasma {
@@ -132,6 +133,8 @@ func (dp *DerivationPipeline) Finalize(l1Origin eth.L1BlockRef) {
 	} else {
 		dp.eng.Finalize(l1Origin)
 	}
+	[Kroma: END] */
+	dp.eng.Finalize(l1Origin)
 }
 
 // FinalizedL1 is the L1 finalization of the inner-most stage of the derivation pipeline,

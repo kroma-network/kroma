@@ -3,16 +3,13 @@ package op_e2e
 import (
 	"context"
 	"crypto/ecdsa"
+	"github.com/kroma-network/kroma/op-e2e/e2eutils/wait"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/stretchr/testify/require"
 )
 
@@ -117,7 +116,7 @@ func ProveWithdrawal(t *testing.T, version [32]byte, cfg SystemConfig, l1Client 
 	oracle, err := bindings.NewL2OutputOracleCaller(config.L1Deployments.L2OutputOracleProxy, l1Client)
 	require.Nil(t, err)
 
-	params, err := withdrawals.ProveWithdrawalParameters(context.Background(), version, proofCl, receiptCl, l2WithdrawalReceipt.TxHash, header, nextHeader, oracle)
+	params, err := withdrawals.ProveWithdrawalParameters(context.Background(), proofCl, receiptCl, l2WithdrawalReceipt.TxHash, header, nextHeader, oracle)
 	require.Nil(t, err)
 
 	portal, err := bindings.NewKromaPortal(cfg.L1Deployments.KromaPortalProxy, l1Client)
