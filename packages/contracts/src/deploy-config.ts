@@ -92,6 +92,81 @@ interface RequiredDeployConfig {
   validatorPoolRoundDuration: number
 
   /**
+   * The output index where ValidatorPool is terminated after in hex value.
+   */
+  validatorPoolTerminateOutputIndex: string
+
+  /**
+   * Address of the trusted validator.
+   */
+  validatorManagerTrustedValidator: string
+
+  /**
+   * Amount of the minimum register amount in hex value.
+   */
+  validatorManagerMinRegisterAmount: string
+
+  /**
+   * Amount of the minimum start amount in hex value.
+   */
+  validatorManagerMinStartAmount: string
+
+  /**
+   * The minimum duration of commission change in seconds.
+   */
+  validatorManagerCommissionMinChangeSeconds: number
+
+  /**
+   * The duration of one submission round in seconds.
+   */
+  validatorManagerRoundDurationSeconds: number
+
+  /**
+   * The duration of jail period in seconds.
+   */
+  validatorManagerJailPeriodSeconds: number
+
+  /**
+   * The threshold of output non-submission to be jailed.
+   */
+  validatorManagerJailThreshold: number
+
+  /**
+   * Max number of output finalizations when distributing reward.
+   */
+  validatorManagerMaxFinalizations: number
+
+  /**
+   * Amount of the base reward in hex value.
+   */
+  validatorManagerBaseReward: string
+
+  /**
+   * Address of the KGH NFT contract.
+   */
+  assetManagerKgh: string
+
+  /**
+   * Address of the KGH manager contract.
+   */
+  assetManagerKghManager: string
+
+  /**
+   * The duration of undelegation period in seconds.
+   */
+  assetManagerUndelegationPeriod: number
+
+  /**
+   * The slashing rate of challenge loser's total asset.
+   */
+  assetManagerSlashingRate: number
+
+  /**
+   * Amount of the minimum slashing amount in hex value.
+   */
+  assetManagerMinSlashingAmount: string
+
+  /**
    * Output Oracle submission interval in L2 blocks.
    */
   l2OutputOracleSubmissionInterval: number
@@ -313,6 +388,51 @@ export const deployConfigSpec: {
   },
   validatorPoolRoundDuration: {
     type: 'number',
+  },
+  validatorPoolTerminateOutputIndex: {
+    type: 'string', // uint256
+  },
+  validatorManagerTrustedValidator: {
+    type: 'address',
+  },
+  validatorManagerMinRegisterAmount: {
+    type: 'string', // uint128
+  },
+  validatorManagerMinStartAmount: {
+    type: 'string', // uint128
+  },
+  validatorManagerCommissionMinChangeSeconds: {
+    type: 'number',
+  },
+  validatorManagerRoundDurationSeconds: {
+    type: 'number',
+  },
+  validatorManagerJailPeriodSeconds: {
+    type: 'number',
+  },
+  validatorManagerJailThreshold: {
+    type: 'number',
+  },
+  validatorManagerMaxFinalizations: {
+    type: 'number',
+  },
+  validatorManagerBaseReward: {
+    type: 'string', // uint128
+  },
+  assetManagerKgh: {
+    type: 'address',
+  },
+  assetManagerKghManager: {
+    type: 'address',
+  },
+  assetManagerUndelegationPeriod: {
+    type: 'number',
+  },
+  assetManagerSlashingRate: {
+    type: 'number',
+  },
+  assetManagerMinSlashingAmount: {
+    type: 'string', // uint128
   },
   l2OutputOracleSubmissionInterval: {
     type: 'number',

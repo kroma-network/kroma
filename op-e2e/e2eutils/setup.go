@@ -24,7 +24,7 @@ var testingJWTSecret = [32]byte{123}
 func WriteDefaultJWT(t TestingBase) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -68,6 +68,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	deployConfig.L2GenesisDeltaTimeOffset = nil
 	deployConfig.L2GenesisEcotoneTimeOffset = nil
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
+	deployConfig.ValidatorManagerRoundDurationSeconds = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
 	ApplyDeployConfigForks(deployConfig)
 
@@ -75,6 +76,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	require.Equal(t, addresses.Batcher, deployConfig.BatchSenderAddress)
 	require.Equal(t, addresses.SequencerP2P, deployConfig.P2PSequencerAddress)
 	require.Equal(t, addresses.TrustedValidator, deployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, addresses.TrustedValidator, deployConfig.ValidatorManagerTrustedValidator)
 
 	return &DeployParams{
 		DeployConfig:   deployConfig,
@@ -114,6 +116,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	deployConf.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	// [Kroma: START]
 	deployConf.ValidatorPoolRoundDuration = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
+	deployConf.ValidatorManagerRoundDurationSeconds = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
 	// [Kroma: END]
 	require.NoError(t, deployConf.Check())
 
@@ -188,6 +191,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.Equal(t, deployParams.Secrets.Addresses().Batcher, deployParams.DeployConfig.BatchSenderAddress)
 	require.Equal(t, deployParams.Secrets.Addresses().SequencerP2P, deployParams.DeployConfig.P2PSequencerAddress)
 	require.Equal(t, deployParams.Secrets.Addresses().TrustedValidator, deployParams.DeployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, deployParams.Secrets.Addresses().TrustedValidator, deployParams.DeployConfig.ValidatorManagerTrustedValidator)
 
 	return &SetupData{
 		L1Cfg:         l1Genesis,
