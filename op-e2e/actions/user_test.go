@@ -68,6 +68,7 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 
 	require.Equal(t, dp.Secrets.Addresses().Batcher, dp.DeployConfig.BatchSenderAddress)
 	require.Equal(t, dp.Secrets.Addresses().TrustedValidator, dp.DeployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, dp.Secrets.Addresses().TrustedValidator, dp.DeployConfig.ValidatorManagerTrustedValidator)
 
 	miner, seqEngine, seq := setupSequencerTest(t, sd, log)
 	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{

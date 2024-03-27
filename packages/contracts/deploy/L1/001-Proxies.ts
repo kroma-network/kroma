@@ -6,6 +6,8 @@ const PROXY_NAMES = [
   'SystemConfigProxy',
   'KromaPortalProxy',
   'ValidatorPoolProxy',
+  'AssetManagerProxy',
+  'ValidatorManagerProxy',
   'L2OutputOracleProxy',
   'L1CrossDomainMessengerProxy',
   'L1StandardBridgeProxy',

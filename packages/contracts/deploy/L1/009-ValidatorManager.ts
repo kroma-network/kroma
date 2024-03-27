@@ -1,0 +1,102 @@
+import '@kroma/hardhat-deploy-config'
+import '@nomiclabs/hardhat-ethers'
+import { DeployFunction } from 'hardhat-deploy/dist/types'
+
+import {
+  assertContractVariable,
+  deploy,
+  getDeploymentAddress,
+} from '../../src/deploy-utils'
+
+const deployFn: DeployFunction = async (hre) => {
+  const l2OutputOracleProxyAddress = await getDeploymentAddress(
+    hre,
+    'L2OutputOracleProxy'
+  )
+  const assetManagerProxyAddress = await getDeploymentAddress(
+    hre,
+    'AssetManagerProxy'
+  )
+
+  await deploy(hre, 'ValidatorManager', {
+    args: [
+      {
+        _l2Oracle: l2OutputOracleProxyAddress,
+        _assetManager: assetManagerProxyAddress,
+        _trustedValidator: hre.deployConfig.validatorManagerTrustedValidator,
+        _commissionRateMinChangeSeconds:
+          hre.deployConfig.validatorManagerCommissionMinChangeSeconds,
+        _roundDurationSeconds: hre.deployConfig.validatorManagerRoundDuration,
+        _jailPeriodSeconds: hre.deployConfig.validatorManagerJailPeriodSeconds,
+        _jailThreshold: hre.deployConfig.validatorManagerJailThreshold,
+        _maxOutputFinalizations:
+          hre.deployConfig.validatorManagerMaxFinalizations,
+        _baseReward: hre.deployConfig.validatorManagerBaseReward,
+        _minRegisterAmount: hre.deployConfig.validatorManagerMinRegisterAmount,
+        _minStartAmount: hre.deployConfig.validatorManagerMinStartAmount,
+      },
+    ],
+    isProxyImpl: true,
+    postDeployAction: async (contract) => {
+      await assertContractVariable(
+        contract,
+        'L2_ORACLE',
+        l2OutputOracleProxyAddress
+      )
+      await assertContractVariable(
+        contract,
+        'ASSET_MANAGER',
+        assetManagerProxyAddress
+      )
+      await assertContractVariable(
+        contract,
+        'TRUSTED_VALIDATOR',
+        hre.deployConfig.validatorManagerTrustedValidator
+      )
+      await assertContractVariable(
+        contract,
+        'MIN_REGISTER_AMOUNT',
+        hre.deployConfig.validatorManagerMinRegisterAmount
+      )
+      await assertContractVariable(
+        contract,
+        'MIN_START_AMOUNT',
+        hre.deployConfig.validatorManagerMinStartAmount
+      )
+      await assertContractVariable(
+        contract,
+        'COMMISSION_RATE_MIN_CHANGE_SECONDS',
+        hre.deployConfig.validatorManagerCommissionMinChangeSeconds
+      )
+      await assertContractVariable(
+        contract,
+        'ROUND_DURATION_SECONDS',
+        hre.deployConfig.validatorManagerRoundDuration
+      )
+      await assertContractVariable(
+        contract,
+        'JAIL_PERIOD_SECONDS',
+        hre.deployConfig.validatorManagerJailPeriodSeconds
+      )
+      await assertContractVariable(
+        contract,
+        'JAIL_THRESHOLD',
+        hre.deployConfig.validatorManagerJailThreshold
+      )
+      await assertContractVariable(
+        contract,
+        'MAX_OUTPUT_FINALIZATIONS',
+        hre.deployConfig.validatorManagerMaxFinalizations
+      )
+      await assertContractVariable(
+        contract,
+        'BASE_REWARD',
+        hre.deployConfig.validatorManagerBaseReward
+      )
+    },
+  })
+}
+
+deployFn.tags = ['ValidatorManager', 'setup', 'l1']
+
+export default deployFn

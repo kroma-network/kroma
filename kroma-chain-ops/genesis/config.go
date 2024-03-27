@@ -11,6 +11,11 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gstate "github.com/ethereum/go-ethereum/core/state"
@@ -18,10 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
@@ -228,6 +229,36 @@ type DeployConfig struct {
 	// ValidatorPoolSystemUpgradeBlock is L1 block number where the validator system is upgraded in hex value.
 	ValidatorPoolSystemUpgradeBlock *hexutil.Big `json:"validatorPoolSystemUpgradeBlock"`
 
+	// ValidatorManagerTrustedValidator represents the address of the trusted validator.
+	ValidatorManagerTrustedValidator common.Address `json:"validatorManagerTrustedValidator"`
+	// ValidatorManagerMinRegisterAmount is the amount of the minimum register amount.
+	ValidatorManagerMinRegisterAmount *hexutil.Big `json:"validatorManagerMinRegisterAmount"`
+	// ValidatorManagerMinStartAmount is the amount of the minimum start amount.
+	ValidatorManagerMinStartAmount *hexutil.Big `json:"validatorManagerMinStartAmount"`
+	// ValidatorManagerCommissionMinChangeSeconds is the minimum duration of commission change in seconds.
+	ValidatorManagerCommissionMinChangeSeconds uint64 `json:"validatorManagerCommissionMinChangeSeconds"`
+	// ValidatorManagerRoundDuration is the duration of one submission round in seconds.
+	ValidatorManagerRoundDuration uint64 `json:"validatorManagerRoundDuration"`
+	// ValidatorManagerJailPeriodSeconds is the duration of jail period in seconds.
+	ValidatorManagerJailPeriodSeconds uint64 `json:"validatorManagerJailPeriodSeconds"`
+	// ValidatorManagerJailThreshold is the threshold of output non-submission to be jailed.
+	ValidatorManagerJailThreshold uint64 `json:"validatorManagerJailThreshold"`
+	// ValidatorManagerMaxFinalizations is the max number of output finalizations when distributing reward.
+	ValidatorManagerMaxFinalizations uint64 `json:"validatorManagerMaxFinalizations"`
+	// ValidatorManagerBaseReward is the amount of the base reward in hex value.
+	ValidatorManagerBaseReward *hexutil.Big `json:"validatorManagerBaseReward"`
+
+	// AssetManagerKgh represents the address of the KGH NFT contract.
+	AssetManagerKgh common.Address `json:"assetManagerKgh"`
+	// AssetManagerKghManager represents the address of the KGH manager contract.
+	AssetManagerKghManager common.Address `json:"assetManagerKghManager"`
+	// AssetManagerUndelegationPeriod is the duration of undelegation period in seconds.
+	AssetManagerUndelegationPeriod uint64 `json:"assetManagerUndelegationPeriod"`
+	// AssetManagerSlashingRate is the slashing rate of challenge loser's total asset.
+	AssetManagerSlashingRate uint64 `json:"assetManagerSlashingRate"`
+	// AssetManagerMinSlashingAmount is the amount of the minimum slashing amount.
+	AssetManagerMinSlashingAmount *hexutil.Big `json:"assetManagerMinSlashingAmount"`
+
 	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
 	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`
 	ColosseumProvingTimeout        uint64      `json:"colosseumProvingTimeout"`
@@ -388,6 +419,51 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.ValidatorPoolRoundDuration == 0 {
 		return fmt.Errorf("%w: ValidatorPoolRoundDuration cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerTrustedValidator == (common.Address{}) {
+		return fmt.Errorf("%w: ValidatorManagerTrustedValidator cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMinRegisterAmount == nil {
+		return fmt.Errorf("%w: ValidatorManagerMinRegisterAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMinStartAmount == nil {
+		return fmt.Errorf("%w: ValidatorManagerMinStartAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerCommissionMinChangeSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerCommissionMinChangeSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerRoundDuration == 0 {
+		return fmt.Errorf("%w: ValidatorManagerRoundDuration cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerJailPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerJailPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerJailThreshold == 0 {
+		return fmt.Errorf("%w: ValidatorManagerJailThreshold cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMaxFinalizations == 0 {
+		return fmt.Errorf("%w: ValidatorManagerMaxFinalizations cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerBaseReward == nil {
+		return fmt.Errorf("%w: ValidatorManagerBaseReward cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerKgh == (common.Address{}) {
+		return fmt.Errorf("%w: AssetManagerKgh cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerKghManager == (common.Address{}) {
+		return fmt.Errorf("%w: AssetManagerKghManager cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerUndelegationPeriod == 0 {
+		return fmt.Errorf("%w: AssetManagerUndelegationPeriod cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerSlashingRate == 0 {
+		return fmt.Errorf("%w: AssetManagerSlashingRate cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerMinSlashingAmount == nil {
+		return fmt.Errorf("%w: AssetManagerMinSlashingAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorManagerRoundDuration*2 {
+		return fmt.Errorf("%w: double of ValidatorManagerRoundDuration must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorPoolRoundDuration*2 {
 		return fmt.Errorf("%w: double of ValidatorPoolRoundDuration must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
@@ -707,6 +783,10 @@ type L1Deployments struct {
 	UpgradeGovernorProxy      common.Address `json:"UpgradeGovernorProxy"`
 	ValidatorPool             common.Address `json:"ValidatorPool"`
 	ValidatorPoolProxy        common.Address `json:"ValidatorPoolProxy"`
+	AssetManager              common.Address `json:"AssetManager"`
+	AssetManagerProxy         common.Address `json:"AssetManagerProxy"`
+	ValidatorManager          common.Address `json:"ValidatorManager"`
+	ValidatorManagerProxy     common.Address `json:"ValidatorManagerProxy"`
 	ZKMerkleTrie              common.Address `json:"ZKMerkleTrie"`
 	ZKVerifier                common.Address `json:"ZKVerifier"`
 	ZKVerifierProxy           common.Address `json:"ZKVerifierProxy"`

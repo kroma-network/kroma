@@ -13,12 +13,10 @@ const deployFn: DeployFunction = async (hre) => {
     hre,
     'ValidatorPoolProxy'
   )
-  // TODO: change ValidatorManagerProxy address
-  // const validatorManagerProxyAddress = await getDeploymentAddress(
-  //   hre,
-  //   'ValidatorManagerProxy'
-  // )
-  const validatorManagerProxyAddress = validatorPoolProxyAddress
+  const validatorManagerProxyAddress = await getDeploymentAddress(
+    hre,
+    'ValidatorManagerProxy'
+  )
   const colosseumProxyAddress = await getDeploymentAddress(
     hre,
     'ColosseumProxy'
