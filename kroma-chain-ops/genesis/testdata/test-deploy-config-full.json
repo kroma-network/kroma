@@ -61,7 +61,7 @@
   "validatorPoolRequiredBondAmount": "0x1",
   "validatorPoolMaxUnbond": 10,
   "validatorPoolRoundDuration": 4,
-  "validatorPoolSystemUpgradeBlock": "0x0",
+  "validatorPoolTerminateOutputIndex": "0x0",
   "validatorManagerTrustedValidator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
   "validatorManagerMinRegisterAmount": "0x1",
   "validatorManagerMinStartAmount": "0x2",

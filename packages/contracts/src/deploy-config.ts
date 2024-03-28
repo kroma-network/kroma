@@ -92,9 +92,9 @@ interface RequiredDeployConfig {
   validatorPoolRoundDuration: number
 
   /**
-   * L1 block number of validator system is upgraded in hex value.
+   * The output index where ValidatorPool is terminated after in hex value.
    */
-  validatorPoolSystemUpgradeBlock: string
+  validatorPoolTerminateOutputIndex: string
 
   /**
    * Address of the trusted validator.
@@ -385,7 +385,7 @@ export const deployConfigSpec: {
   validatorPoolRoundDuration: {
     type: 'number',
   },
-  validatorPoolSystemUpgradeBlock: {
+  validatorPoolTerminateOutputIndex: {
     type: 'string', // uint256
   },
   validatorManagerTrustedValidator: {

@@ -24,7 +24,7 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.validatorPoolRequiredBondAmount,
       hre.deployConfig.validatorPoolMaxUnbond,
       hre.deployConfig.validatorPoolRoundDuration,
-      hre.deployConfig.validatorPoolSystemUpgradeBlock,
+      hre.deployConfig.validatorPoolTerminateOutputIndex,
     ],
     isProxyImpl: true,
     initArgs: [],
@@ -58,8 +58,8 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'VALIDATOR_SYSTEM_UPGRADE_BLOCK',
-        hre.deployConfig.validatorPoolSystemUpgradeBlock
+        'TERMINATE_OUTPUT_INDEX',
+        hre.deployConfig.validatorPoolTerminateOutputIndex
       )
     },
   })

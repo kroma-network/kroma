@@ -68,7 +68,7 @@ contract MockValidatorPool is ValidatorPool {
         uint256 _requiredBondAmount,
         uint256 _maxUnbond,
         uint256 _roundDuration,
-        uint256 _validatorSystemUpgradeBlock
+        uint256 _terminateOutputIndex
     )
         ValidatorPool(
             _l2OutputOracle,
@@ -78,7 +78,7 @@ contract MockValidatorPool is ValidatorPool {
             _requiredBondAmount,
             _maxUnbond,
             _roundDuration,
-            _validatorSystemUpgradeBlock
+            _terminateOutputIndex
         )
     {}
 
@@ -132,7 +132,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         assertEq(pool.TRUSTED_VALIDATOR(), trusted);
         assertEq(pool.REQUIRED_BOND_AMOUNT(), requiredBondAmount);
         assertEq(pool.MAX_UNBOND(), maxUnbond);
-        assertEq(pool.VALIDATOR_SYSTEM_UPGRADE_BLOCK(), validatorSystemUpgradeBlock);
+        assertEq(pool.TERMINATE_OUTPUT_INDEX(), terminateOutputIndex);
         assertEq(pool.ROUND_DURATION(), roundDuration);
     }
 
@@ -791,7 +791,7 @@ contract ValidatorPool_SystemUpgrade_Test is L2OutputOracle_ValidatorSystemUpgra
             requiredBondAmount,
             maxUnbond,
             roundDuration,
-            validatorSystemUpgradeBlock
+            terminateOutputIndex
         );
         vm.prank(multisig);
         Proxy(payable(poolAddress)).upgradeTo(address(mockPoolImpl));
@@ -799,53 +799,37 @@ contract ValidatorPool_SystemUpgrade_Test is L2OutputOracle_ValidatorSystemUpgra
     }
 
     function test_deposit_afterSystemUpgrade_reverts() external {
-        vm.warp(oracle.computeL2Timestamp(pool.VALIDATOR_SYSTEM_UPGRADE_BLOCK()));
-        vm.prank(trusted);
-        vm.expectRevert(
-            "ValidatorPool: only can deposit to ValidatorPool before validator system upgrade"
+        vm.warp(
+            oracle.computeL2Timestamp(
+                oracle.startingBlockNumber() +
+                    (pool.TERMINATE_OUTPUT_INDEX() + 1) *
+                    oracle.SUBMISSION_INTERVAL()
+            )
         );
+        vm.prank(trusted);
+        vm.expectRevert("ValidatorPool: only can deposit to ValidatorPool before terminated");
         pool.deposit{ value: requiredBondAmount }();
     }
 
-    function test_createBond_prepareSystemUpgrade_succeeds() external {
+    function test_isTerminated_succeeds() external {
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
-        vm.prank(asserter);
-        pool.deposit{ value: asserter.balance }();
 
-        for (uint256 i; i <= poolLastOutputIndex; i++) {
-            warpToSubmitTime();
+        bool poolTerminated;
+        for (uint256 i; i <= terminateOutputIndex + 1; i++) {
             uint256 nextOutputIndex = oracle.nextOutputIndex();
+            poolTerminated = pool.isTerminated(nextOutputIndex);
+            if (nextOutputIndex <= terminateOutputIndex) {
+                assertFalse(poolTerminated);
+            } else {
+                assertTrue(poolTerminated);
+            }
+
+            warpToSubmitTime();
             uint256 nextBlockNumber = oracle.nextBlockNumber();
             bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
             vm.prank(pool.nextValidator());
             mockOracle.addOutput(outputRoot, nextBlockNumber);
-
-            uint128 expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
-            vm.prank(address(oracle));
-            pool.createBond(nextOutputIndex, expiresAt);
-
-            if (i < firstUnbondOutputIndex || i >= beforeUpgradeLastOutputIndex) {
-                // check if next priority validator is zero address before first unbond or after upgrade
-                assertTrue(mockPool.getNextPriorityValidator() == address(0));
-            } else {
-                // check if next priority validator is set after first unbond and before upgrade
-                assertTrue(mockPool.getNextPriorityValidator() != address(0));
-            }
         }
-    }
-
-    function test_isTerminated_succeeds() external {
-        bool poolTerminated = pool.isTerminated(0);
-        assertFalse(poolTerminated);
-
-        poolTerminated = pool.isTerminated(beforeUpgradeLastOutputIndex);
-        assertFalse(poolTerminated);
-
-        poolTerminated = pool.isTerminated(poolLastOutputIndex);
-        assertFalse(poolTerminated);
-
-        poolTerminated = pool.isTerminated(poolLastOutputIndex + 1);
-        assertTrue(poolTerminated);
     }
 }

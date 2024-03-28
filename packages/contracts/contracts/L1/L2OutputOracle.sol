@@ -212,7 +212,7 @@ contract L2OutputOracle is Initializable, ISemver {
     ) external payable {
         uint256 outputIndex = nextOutputIndex();
 
-        // Switch validator system after validator pool contract terminated.
+        // Upgrade validator system after validator pool contract is terminated.
         bool isValidatorPoolTerminated = VALIDATOR_POOL.isTerminated(outputIndex);
         address nextValidator;
         if (isValidatorPoolTerminated) {

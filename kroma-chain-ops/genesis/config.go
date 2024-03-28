@@ -226,8 +226,9 @@ type DeployConfig struct {
 	ValidatorPoolRequiredBondAmount *hexutil.Big   `json:"validatorPoolRequiredBondAmount"`
 	ValidatorPoolMaxUnbond          uint64         `json:"validatorPoolMaxUnbond"`
 	ValidatorPoolRoundDuration      uint64         `json:"validatorPoolRoundDuration"`
-	// ValidatorPoolSystemUpgradeBlock is L1 block number where the validator system is upgraded in hex value.
-	ValidatorPoolSystemUpgradeBlock *hexutil.Big `json:"validatorPoolSystemUpgradeBlock"`
+	// ValidatorPoolTerminateOutputIndex is the output index where ValidatorPool is terminated after
+	// in hex value.
+	ValidatorPoolTerminateOutputIndex *hexutil.Big `json:"validatorPoolTerminateOutputIndex"`
 
 	// ValidatorManagerTrustedValidator represents the address of the trusted validator.
 	ValidatorManagerTrustedValidator common.Address `json:"validatorManagerTrustedValidator"`
@@ -235,7 +236,8 @@ type DeployConfig struct {
 	ValidatorManagerMinRegisterAmount *hexutil.Big `json:"validatorManagerMinRegisterAmount"`
 	// ValidatorManagerMinStartAmount is the amount of the minimum start amount.
 	ValidatorManagerMinStartAmount *hexutil.Big `json:"validatorManagerMinStartAmount"`
-	// ValidatorManagerCommissionMinChangeSeconds is the minimum duration of commission change in seconds.
+	// ValidatorManagerCommissionMinChangeSeconds is the minimum duration of commission change in
+	// seconds.
 	ValidatorManagerCommissionMinChangeSeconds uint64 `json:"validatorManagerCommissionMinChangeSeconds"`
 	// ValidatorManagerRoundDuration is the duration of one submission round in seconds.
 	ValidatorManagerRoundDuration uint64 `json:"validatorManagerRoundDuration"`
@@ -243,7 +245,8 @@ type DeployConfig struct {
 	ValidatorManagerJailPeriodSeconds uint64 `json:"validatorManagerJailPeriodSeconds"`
 	// ValidatorManagerJailThreshold is the threshold of output non-submission to be jailed.
 	ValidatorManagerJailThreshold uint64 `json:"validatorManagerJailThreshold"`
-	// ValidatorManagerMaxFinalizations is the max number of output finalizations when distributing reward.
+	// ValidatorManagerMaxFinalizations is the max number of output finalizations when distributing
+	// reward.
 	ValidatorManagerMaxFinalizations uint64 `json:"validatorManagerMaxFinalizations"`
 	// ValidatorManagerBaseReward is the amount of the base reward in hex value.
 	ValidatorManagerBaseReward *hexutil.Big `json:"validatorManagerBaseReward"`

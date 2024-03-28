@@ -322,13 +322,13 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         _registerValidator(trusted, minStartAmount);
 
         // submit all outputs which interact with ValidatorPool
-        for (uint256 i; i <= poolLastOutputIndex; i++) {
+        for (uint256 i; i <= terminateOutputIndex; i++) {
             vm.prank(trusted);
             mockOracle.addOutput(i * oracle.SUBMISSION_INTERVAL());
         }
 
-        vm.warp(oracle.finalizedAt(poolLastOutputIndex));
-        mockOracle.mockSetLatestFinalizedOutputIndex(poolLastOutputIndex);
+        vm.warp(oracle.finalizedAt(terminateOutputIndex));
+        mockOracle.mockSetLatestFinalizedOutputIndex(terminateOutputIndex);
 
         // delegate 100 KGHs
         _setUpHundredKghDelegation(trusted, 1);
@@ -345,7 +345,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         _submitL2Output(oracle.nextBlockNumber(), false);
 
         // jump to the finalization time of the first output of ValidatorManager
-        vm.warp(oracle.finalizedAt(poolLastOutputIndex + 1));
+        vm.warp(oracle.finalizedAt(terminateOutputIndex + 1));
 
         // submit one more output and distribute reward
         uint256 outputIndex = oracle.nextOutputIndex();
@@ -382,13 +382,13 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         _registerValidator(trusted, minStartAmount);
 
         // submit all outputs which interact with ValidatorPool
-        for (uint256 i; i <= poolLastOutputIndex; i++) {
+        for (uint256 i; i <= terminateOutputIndex; i++) {
             vm.prank(trusted);
             mockOracle.addOutput(i * oracle.SUBMISSION_INTERVAL());
         }
 
-        vm.warp(oracle.finalizedAt(poolLastOutputIndex));
-        mockOracle.mockSetLatestFinalizedOutputIndex(poolLastOutputIndex);
+        vm.warp(oracle.finalizedAt(terminateOutputIndex));
+        mockOracle.mockSetLatestFinalizedOutputIndex(terminateOutputIndex);
 
         // check if next priority validator is not set in ValidatorManager
         assertTrue(mockValMan.nextPriorityValidator() == address(0));
@@ -398,23 +398,22 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         _submitL2Output(oracle.nextBlockNumber(), false);
 
         // check if lastest finalized output is not updated
-        assertEq(oracle.latestFinalizedOutputIndex(), poolLastOutputIndex);
+        assertEq(oracle.latestFinalizedOutputIndex(), terminateOutputIndex);
         // check if next priority validator is set in ValidatorManager
         address nextValidator = mockValMan.nextPriorityValidator();
         assertTrue(nextValidator != address(0));
         assertTrue(valMan.nextValidator() == nextValidator);
 
         // jump to the finalization time of the first output of ValidatorManager
-        vm.warp(oracle.finalizedAt(poolLastOutputIndex + 1));
+        vm.warp(oracle.finalizedAt(terminateOutputIndex + 1));
         _submitL2Output(oracle.nextBlockNumber(), false);
 
         // check if lastest finalized output is updated
-        assertEq(oracle.latestFinalizedOutputIndex(), poolLastOutputIndex + 1);
+        assertEq(oracle.latestFinalizedOutputIndex(), terminateOutputIndex + 1);
 
         // submit 10 outputs
         uint256 tries = 10;
         bool changed = false;
-
         nextValidator = valMan.nextValidator();
 
         for (uint256 i; i < tries; i++) {
@@ -632,13 +631,13 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         assertEq(valMan.startedValidatorCount(), count + 2);
 
         // submit all outputs which interact with ValidatorPool
-        for (uint256 i; i <= poolLastOutputIndex; i++) {
+        for (uint256 i; i <= terminateOutputIndex; i++) {
             vm.prank(trusted);
             mockOracle.addOutput(i * oracle.SUBMISSION_INTERVAL());
         }
 
-        vm.warp(oracle.finalizedAt(poolLastOutputIndex));
-        mockOracle.mockSetLatestFinalizedOutputIndex(poolLastOutputIndex);
+        vm.warp(oracle.finalizedAt(terminateOutputIndex));
+        mockOracle.mockSetLatestFinalizedOutputIndex(terminateOutputIndex);
 
         // delegate KGHs
         _setUpHundredKghDelegation(asserter, 1);

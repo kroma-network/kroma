@@ -231,7 +231,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint256 internal requiredBondAmount = 0.1 ether;
     uint256 internal maxUnbond = 2;
     uint256 internal roundDuration = (submissionInterval * l2BlockTime) / 2;
-    uint256 internal validatorSystemUpgradeBlock = 400_000;
+    uint256 internal terminateOutputIndex = 300; // just large enough value, set again in upgrade test
 
     // AssetManager constructor arguments
     MockKro assetToken;
@@ -336,7 +336,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _requiredBondAmount: requiredBondAmount,
             _maxUnbond: maxUnbond,
             _roundDuration: roundDuration,
-            _validatorSystemUpgradeBlock: validatorSystemUpgradeBlock
+            _terminateOutputIndex: terminateOutputIndex
         });
 
         // Deploy the AssetManager
@@ -410,16 +410,13 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
 }
 
 contract L2OutputOracle_ValidatorSystemUpgrade_Initializer is L2OutputOracle_Initializer {
-    uint256 firstUnbondOutputIndex;
-    uint256 beforeUpgradeLastOutputIndex;
-    uint256 poolLastOutputIndex;
+    uint256 finalizationPeriodOutputNum;
 
     function setUp() public virtual override {
         super.setUp();
 
-        // output index right after validator system upgrade is 4
-        validatorSystemUpgradeBlock = 7000;
-        // first output index of ValidatorManager is 7
+        // last output index of ValidatorPool is 3, first output index of ValidatorManager is 4
+        terminateOutputIndex = 3;
         finalizationPeriodSeconds = 2 hours;
 
         oracleImpl = new L2OutputOracle({
@@ -443,18 +440,14 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Initializer is L2OutputOracle_Ini
             _requiredBondAmount: requiredBondAmount,
             _maxUnbond: maxUnbond,
             _roundDuration: roundDuration,
-            _validatorSystemUpgradeBlock: validatorSystemUpgradeBlock
+            _terminateOutputIndex: terminateOutputIndex
         });
         vm.prank(multisig);
         Proxy(payable(address(pool))).upgradeTo(address(poolImpl));
 
-        firstUnbondOutputIndex =
+        finalizationPeriodOutputNum =
             oracle.FINALIZATION_PERIOD_SECONDS() /
             (oracle.SUBMISSION_INTERVAL() * oracle.L2_BLOCK_TIME());
-        beforeUpgradeLastOutputIndex =
-            (pool.VALIDATOR_SYSTEM_UPGRADE_BLOCK() - oracle.startingBlockNumber()) /
-            oracle.SUBMISSION_INTERVAL();
-        poolLastOutputIndex = beforeUpgradeLastOutputIndex + firstUnbondOutputIndex + 1;
     }
 }
 
