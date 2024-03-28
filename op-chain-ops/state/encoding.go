@@ -69,6 +69,27 @@ func EncodeStorageKeyValue(value any, entry solc.StorageLayoutEntry, storageType
 			}
 		}
 	case "dynamic_array":
+		switch label {
+		case "address[]":
+			values := value.([]common.Address)
+			val, err := EncodeUintValue(len(values), 0)
+			if err != nil {
+				return nil, err
+			}
+			encoded = append(encoded, &EncodedStorage{key, val})
+
+			for i, addr := range value.([]common.Address) {
+				hash := new(big.Int).SetBytes(crypto.Keccak256(key[:]))
+				hash.Add(hash, new(big.Int).SetUint64(uint64(i)))
+				key := common.BytesToHash(hash.Bytes())
+
+				val, err := EncodeAddressValue(addr, entry.Offset)
+				if err != nil {
+					return nil, fmt.Errorf("cannot encode %s: %w", storageType.Encoding, errUnimplemented)
+				}
+				encoded = append(encoded, &EncodedStorage{key, val})
+			}
+		}
 	case "bytes":
 		switch label {
 		case "string":

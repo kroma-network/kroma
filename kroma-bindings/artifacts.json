@@ -20,6 +20,7 @@
   "L2OutputOracle",
   "L2StandardBridge",
   "L2ToL1MessagePasser",
+  "MintManager",
   "ProtocolVault",
   "Proxy",
   "ProxyAdmin",
