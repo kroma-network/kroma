@@ -119,7 +119,7 @@ interface RequiredDeployConfig {
   /**
    * The duration of one submission round in seconds.
    */
-  validatorManagerRoundDuration: number
+  validatorManagerRoundDurationSeconds: number
 
   /**
    * The duration of jail period in seconds.
@@ -400,7 +400,7 @@ export const deployConfigSpec: {
   validatorManagerCommissionMinChangeSeconds: {
     type: 'number',
   },
-  validatorManagerRoundDuration: {
+  validatorManagerRoundDurationSeconds: {
     type: 'number',
   },
   validatorManagerJailPeriodSeconds: {

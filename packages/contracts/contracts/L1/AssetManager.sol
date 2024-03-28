@@ -81,12 +81,12 @@ contract AssetManager is ISemver, IERC721Receiver {
     /**
      * @notice Represents the amounts of KRO and KGH shares for KGH delegator.
      *
-     * @custom:field kroShares Amount of KRO shares.
-     * @custom:field kghShares Amount of KGH shares.
+     * @custom:field kro Amount of KRO shares.
+     * @custom:field kgh Amount of KGH shares.
      */
     struct KghDelegatorShares {
-        uint128 kroShares;
-        uint128 kghShares;
+        uint128 kro;
+        uint128 kgh;
     }
 
     /**
@@ -429,11 +429,11 @@ contract AssetManager is ISemver, IERC721Receiver {
 
         uint128 kghAssets = previewKghUndelegate(
             validator,
-            _vaults[validator].kghDelegators[delegator].shares[tokenId].kghShares
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kgh
         ) - VKRO_PER_KGH;
         uint128 kroAssets = previewUndelegate(
             validator,
-            _vaults[validator].kghDelegators[delegator].shares[tokenId].kroShares
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kro
         ) - kroInKgh;
         return kghAssets + kroAssets;
     }
@@ -469,8 +469,8 @@ contract AssetManager is ISemver, IERC721Receiver {
         uint256 tokenId
     ) external view returns (uint128, uint128) {
         return (
-            _vaults[validator].kghDelegators[delegator].shares[tokenId].kroShares,
-            _vaults[validator].kghDelegators[delegator].shares[tokenId].kghShares
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kro,
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kgh
         );
     }
 
@@ -527,7 +527,7 @@ contract AssetManager is ISemver, IERC721Receiver {
         return
             _convertToKghAssets(
                 validator,
-                _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kghShares
+                _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kgh
             );
     }
 
@@ -713,8 +713,8 @@ contract AssetManager is ISemver, IERC721Receiver {
             uint128 kroSharesForTokenId = previewDelegate(validator, kroInKgh);
 
             _vaults[validator].kghDelegators[msg.sender].shares[tokenIds[i]] = KghDelegatorShares({
-                kroShares: kroSharesForTokenId,
-                kghShares: kghShares
+                kro: kroSharesForTokenId,
+                kgh: kghShares
             });
 
             unchecked {
@@ -758,8 +758,8 @@ contract AssetManager is ISemver, IERC721Receiver {
      * @param tokenId   Token id of KGH to undelegate.
      */
     function initUndelegateKgh(address validator, uint256 tokenId) external {
-        uint128 kroShares = _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kroShares;
-        uint128 kghShares = _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kghShares;
+        uint128 kroShares = _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kro;
+        uint128 kghShares = _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kgh;
 
         require(kghShares != 0, "AssetManager: No shares for the given tokenId");
         _initUndelegateKgh(validator, msg.sender, tokenId, kroShares, kghShares);
@@ -784,8 +784,8 @@ contract AssetManager is ISemver, IERC721Receiver {
         uint128 kroInKghs;
         uint128 kghAssetsToWithdraw;
         for (uint256 i = 0; i < tokenIds.length; ) {
-            uint128 kroSharesForTokenId = shares[tokenIds[i]].kroShares;
-            uint128 kghSharesForTokenId = shares[tokenIds[i]].kghShares;
+            uint128 kroSharesForTokenId = shares[tokenIds[i]].kro;
+            uint128 kghSharesForTokenId = shares[tokenIds[i]].kgh;
 
             require(kghSharesForTokenId != 0, "AssetManager: No shares for the given tokenId");
 
@@ -926,8 +926,8 @@ contract AssetManager is ISemver, IERC721Receiver {
                         requestTimes[i]
                     ];
                     unchecked {
-                        kroSharesToUndelegate += pendingShares.kroShares;
-                        kghSharesToUndelegate += pendingShares.kghShares;
+                        kroSharesToUndelegate += pendingShares.kro;
+                        kghSharesToUndelegate += pendingShares.kgh;
                     }
                 }
 
@@ -1172,14 +1172,12 @@ contract AssetManager is ISemver, IERC721Receiver {
         }
 
         vault.pending.totalPendingAssets += baseRewards;
-        vault.pending.totalPendingKroShares += shares.kroShares;
+        vault.pending.totalPendingKroShares += shares.kro;
         vault.pending.totalPendingBoostedRewards += boostedRewards;
-        vault.pending.totalPendingKghShares += shares.kghShares;
+        vault.pending.totalPendingKghShares += shares.kgh;
 
-        vault.kghDelegators[msg.sender].pendingShares[block.timestamp].kroShares += shares
-            .kroShares;
-        vault.kghDelegators[msg.sender].pendingShares[block.timestamp].kghShares += shares
-            .kghShares;
+        vault.kghDelegators[msg.sender].pendingShares[block.timestamp].kro += shares.kro;
+        vault.kghDelegators[msg.sender].pendingShares[block.timestamp].kgh += shares.kgh;
         vault.kghDelegators[msg.sender].undelegateRequestTimes.push(block.timestamp);
     }
 
@@ -1258,6 +1256,8 @@ contract AssetManager is ISemver, IERC721Receiver {
      * @param owner      Address of the delegator.
      * @param assets     The amount of KRO to delegate.
      * @param updateTree Flag to update the validator tree.
+     *
+     * @return The amount of shares that the Vault would exchange for the amount of assets provided.
      */
     function _delegate(
         address validator,
@@ -1427,8 +1427,8 @@ contract AssetManager is ISemver, IERC721Receiver {
             vault.asset.boostedReward -= boostedRewardsToReceive;
 
             KghDelegatorShares memory pendingShares = KghDelegatorShares({
-                kroShares: kroShares.mulDiv(baseRewardsToReceive, kroAssetsToWithdraw),
-                kghShares: kghShares.mulDiv(boostedRewardsToReceive, kghAssetsToWithdraw)
+                kro: kroShares.mulDiv(baseRewardsToReceive, kroAssetsToWithdraw),
+                kgh: kghShares.mulDiv(boostedRewardsToReceive, kghAssetsToWithdraw)
             });
 
             _addPendingKghShares(
@@ -1480,8 +1480,8 @@ contract AssetManager is ISemver, IERC721Receiver {
             vault.asset.boostedReward -= boostedRewardsToReceive;
 
             KghDelegatorShares memory pendingShares = KghDelegatorShares({
-                kroShares: kroShares.mulDiv(baseRewardsToReceive, kroAssetsToWithdraw),
-                kghShares: kghShares.mulDiv(boostedRewardsToReceive, kghAssetsToWithdraw)
+                kro: kroShares.mulDiv(baseRewardsToReceive, kroAssetsToWithdraw),
+                kgh: kghShares.mulDiv(boostedRewardsToReceive, kghAssetsToWithdraw)
             });
 
             _addPendingKghShares(

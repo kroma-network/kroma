@@ -1,5 +1,7 @@
 import '@kroma/hardhat-deploy-config'
 import '@nomiclabs/hardhat-ethers'
+import assert from 'assert'
+
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
 import {
@@ -18,6 +20,13 @@ const deployFn: DeployFunction = async (hre) => {
     'AssetManagerProxy'
   )
 
+  assert(
+    (hre.deployConfig.l2OutputOracleSubmissionInterval *
+      hre.deployConfig.l2BlockTime) /
+      2 ===
+      hre.deployConfig.validatorManagerRoundDurationSeconds
+  )
+
   await deploy(hre, 'ValidatorManager', {
     args: [
       {
@@ -26,7 +35,8 @@ const deployFn: DeployFunction = async (hre) => {
         _trustedValidator: hre.deployConfig.validatorManagerTrustedValidator,
         _commissionRateMinChangeSeconds:
           hre.deployConfig.validatorManagerCommissionMinChangeSeconds,
-        _roundDurationSeconds: hre.deployConfig.validatorManagerRoundDuration,
+        _roundDurationSeconds:
+          hre.deployConfig.validatorManagerRoundDurationSeconds,
         _jailPeriodSeconds: hre.deployConfig.validatorManagerJailPeriodSeconds,
         _jailThreshold: hre.deployConfig.validatorManagerJailThreshold,
         _maxOutputFinalizations:
@@ -71,7 +81,7 @@ const deployFn: DeployFunction = async (hre) => {
       await assertContractVariable(
         contract,
         'ROUND_DURATION_SECONDS',
-        hre.deployConfig.validatorManagerRoundDuration
+        hre.deployConfig.validatorManagerRoundDurationSeconds
       )
       await assertContractVariable(
         contract,

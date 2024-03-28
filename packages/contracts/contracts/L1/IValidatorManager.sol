@@ -96,12 +96,12 @@ interface IValidatorManager {
      * @param validator               Address of the validator.
      * @param started                 If the validator is started or not.
      * @param commissionRate          The commission rate the validator sets.
-     * @param commissionMaxChangeRate The max change rate of the commission the validator sets.
+     * @param commissionMaxChangeRate Maximum changeable commission rate at once.
      * @param assets                  The number of assets the validator self-delegates.
      */
     event ValidatorRegistered(
         address indexed validator,
-        bool indexed started,
+        bool started,
         uint8 commissionRate,
         uint8 commissionMaxChangeRate,
         uint128 assets
@@ -123,7 +123,7 @@ interface IValidatorManager {
      * @param newCommissionRate The new commission rate.
      */
     event ValidatorCommissionRateChanged(
-        address validator,
+        address indexed validator,
         uint8 oldCommissionRate,
         uint8 newCommissionRate
     );
@@ -141,7 +141,7 @@ interface IValidatorManager {
      *
      * @param validator Address of the validator.
      */
-    event ValidatorUnjailed(address validator);
+    event ValidatorUnjailed(address indexed validator);
 
     /**
      * @notice Emitted when the output reward is distributed.
@@ -181,7 +181,7 @@ interface IValidatorManager {
      *
      * @param assets                  The amount of assets to self-delegate.
      * @param commissionRate          The commission rate the validator sets.
-     * @param commissionMaxChangeRate The max change rate of commission the validator sets.
+     * @param commissionMaxChangeRate Maximum changeable commission rate at once.
      */
     function registerValidator(
         uint128 assets,
@@ -190,7 +190,7 @@ interface IValidatorManager {
     ) external;
 
     /**
-     * @notice Starts a validator and adds the validator to weight tree. To submit outputs, the
+     * @notice Starts a validator and adds the validator to validator tree. To submit outputs, the
      *         validator should start.
      */
     function startValidator() external;

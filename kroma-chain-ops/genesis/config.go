@@ -239,8 +239,8 @@ type DeployConfig struct {
 	// ValidatorManagerCommissionMinChangeSeconds is the minimum duration of commission change in
 	// seconds.
 	ValidatorManagerCommissionMinChangeSeconds uint64 `json:"validatorManagerCommissionMinChangeSeconds"`
-	// ValidatorManagerRoundDuration is the duration of one submission round in seconds.
-	ValidatorManagerRoundDuration uint64 `json:"validatorManagerRoundDuration"`
+	// ValidatorManagerRoundDurationSeconds is the duration of one submission round in seconds.
+	ValidatorManagerRoundDurationSeconds uint64 `json:"validatorManagerRoundDurationSeconds"`
 	// ValidatorManagerJailPeriodSeconds is the duration of jail period in seconds.
 	ValidatorManagerJailPeriodSeconds uint64 `json:"validatorManagerJailPeriodSeconds"`
 	// ValidatorManagerJailThreshold is the threshold of output non-submission to be jailed.
@@ -432,11 +432,14 @@ func (d *DeployConfig) Check() error {
 	if d.ValidatorManagerMinStartAmount == nil {
 		return fmt.Errorf("%w: ValidatorManagerMinStartAmount cannot be nil", ErrInvalidDeployConfig)
 	}
+	if d.ValidatorManagerMinStartAmount.ToInt().Cmp(d.ValidatorManagerMinRegisterAmount.ToInt()) >= 0 {
+		return fmt.Errorf("%w: ValidatorManagerMinStartAmount must equal or more than ValidatorManagerMinRegisterAmount", ErrInvalidDeployConfig)
+	}
 	if d.ValidatorManagerCommissionMinChangeSeconds == 0 {
 		return fmt.Errorf("%w: ValidatorManagerCommissionMinChangeSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorManagerRoundDuration == 0 {
-		return fmt.Errorf("%w: ValidatorManagerRoundDuration cannot be 0", ErrInvalidDeployConfig)
+	if d.ValidatorManagerRoundDurationSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerRoundDurationSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.ValidatorManagerJailPeriodSeconds == 0 {
 		return fmt.Errorf("%w: ValidatorManagerJailPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
@@ -465,8 +468,8 @@ func (d *DeployConfig) Check() error {
 	if d.AssetManagerMinSlashingAmount == nil {
 		return fmt.Errorf("%w: AssetManagerMinSlashingAmount cannot be nil", ErrInvalidDeployConfig)
 	}
-	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorManagerRoundDuration*2 {
-		return fmt.Errorf("%w: double of ValidatorManagerRoundDuration must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
+	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorManagerRoundDurationSeconds*2 {
+		return fmt.Errorf("%w: double of ValidatorManagerRoundDurationSeconds must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorPoolRoundDuration*2 {
 		return fmt.Errorf("%w: double of ValidatorPoolRoundDuration must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)

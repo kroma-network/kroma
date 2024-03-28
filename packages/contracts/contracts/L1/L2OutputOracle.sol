@@ -310,7 +310,7 @@ contract L2OutputOracle is Initializable, ISemver {
      */
     function getL2Output(
         uint256 _l2OutputIndex
-    ) public view returns (Types.CheckpointOutput memory) {
+    ) external view returns (Types.CheckpointOutput memory) {
         return l2Outputs[_l2OutputIndex];
     }
 

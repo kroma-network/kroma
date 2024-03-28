@@ -77,7 +77,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
 
     event ValidatorRegistered(
         address indexed validator,
-        bool indexed started,
+        bool started,
         uint8 commissionRate,
         uint8 commissionMaxChangeRate,
         uint128 assets
@@ -86,14 +86,14 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
     event ValidatorStarted(address indexed validator, uint256 startsAt);
 
     event ValidatorCommissionRateChanged(
-        address validator,
+        address indexed validator,
         uint8 oldCommissionRate,
         uint8 newCommissionRate
     );
 
     event ValidatorJailed(address indexed validator, uint128 expiresAt);
 
-    event ValidatorUnjailed(address validator);
+    event ValidatorUnjailed(address indexed validator);
 
     event RewardDistributed(
         address indexed validator,
@@ -365,7 +365,13 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
     }
 
     function test_afterSubmitL2Output_notUpdatePriorityValidator_succeeds() external {
-        _registerValidator(trusted, minStartAmount);
+        // submit all outputs which interact with ValidatorPool
+        for (uint256 i; i <= terminateOutputIndex; i++) {
+            vm.prank(trusted);
+            mockOracle.addOutput(i * oracle.SUBMISSION_INTERVAL());
+        }
+
+        _registerValidator(trusted, minStartAmount - 1);
 
         assertEq(mockValMan.nextPriorityValidator(), address(0));
 

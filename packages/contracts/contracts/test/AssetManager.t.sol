@@ -75,11 +75,11 @@ contract MockAssetManager is AssetManager {
         uint128 pendingKroShare = _vaults[validator]
             .kghDelegators[owner]
             .pendingShares[timestamp]
-            .kroShares;
+            .kro;
         uint128 pendinKghShare = _vaults[validator]
             .kghDelegators[owner]
             .pendingShares[timestamp]
-            .kghShares;
+            .kgh;
         uint128 pendingKroAsset = pendingKroShare.mulDiv(
             _vaults[validator].pending.totalPendingAssets,
             _vaults[validator].pending.totalPendingKroShares

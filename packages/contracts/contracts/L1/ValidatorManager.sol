@@ -285,12 +285,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
             "ValidatorManager: cannot change to the same value"
         );
 
-        uint8 changeRange;
-        if (newCommissionRate > oldCommissionRate) {
-            changeRange = newCommissionRate - oldCommissionRate;
-        } else {
-            changeRange = oldCommissionRate - newCommissionRate;
-        }
+        uint8 changeRange = newCommissionRate > oldCommissionRate
+            ? newCommissionRate - oldCommissionRate
+            : oldCommissionRate - newCommissionRate;
         require(
             changeRange <= validatorInfo.commissionMaxChangeRate,
             "ValidatorManager: max change rate of commission rate has been exceeded"
@@ -341,7 +338,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function checkSubmissionEligibility(address validator) external view onlyL2OutputOracle {
         address _nextValidator = nextValidator();
-
         if (_nextValidator != Constants.VALIDATOR_PUBLIC_ROUND_ADDRESS) {
             require(
                 validator == _nextValidator,
@@ -384,6 +380,19 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function startedValidatorCount() external view returns (uint32) {
         return _validatorTree.counter - _validatorTree.removed;
+    }
+
+    /**
+     * @notice Returns the weight of given validator. It not started, returns 0.
+     *         Note that `weight / startedValidatorTotalWeight()` is the probability that the
+     *         validator is selected as a priority validator.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The weight of given validator.
+     */
+    function getWeight(address validator) external view returns (uint120) {
+        return _validatorTree.nodes[_validatorTree.nodeMap[validator]].weight;
     }
 
     /**
@@ -486,19 +495,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Returns the weight of given validator. It not started, returns 0.
-     *         Note that `weight / startedValidatorTotalWeight()` is the probability that the
-     *         validator is selected as a priority validator.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The weight of given validator.
-     */
-    function getWeight(address validator) public view returns (uint120) {
-        return _validatorTree.nodes[_validatorTree.nodeMap[validator]].weight;
-    }
-
-    /**
      * @notice Internal function to add output submission rewards to the vaults of finalized output
      *         submitters.
      *
@@ -515,11 +511,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         uint128 finalizedOutputNum = 0;
         Types.CheckpointOutput memory output;
 
-        for (
-            ;
-            finalizedOutputNum < MAX_OUTPUT_FINALIZATIONS && outputIndex <= latestOutputIndex;
-
-        ) {
+        while (finalizedOutputNum < MAX_OUTPUT_FINALIZATIONS && outputIndex <= latestOutputIndex) {
             if (L2_ORACLE.isFinalized(outputIndex)) {
                 output = L2_ORACLE.getL2Output(outputIndex);
                 (
@@ -630,7 +622,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         uint120 weightSum = startedValidatorTotalWeight();
         uint256 latestFinalizedOutputIndex = L2_ORACLE.latestFinalizedOutputIndex();
 
-        if (weightSum > 0 && latestFinalizedOutputIndex > 0) {
+        if (weightSum > 0) {
             Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(
                 latestFinalizedOutputIndex
             );

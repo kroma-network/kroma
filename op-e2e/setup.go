@@ -99,7 +99,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	deployConfig.L2GenesisCanyonTimeOffset = e2eutils.CanyonTimeOffset()
 	// [Kroma: START]
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
-	deployConfig.ValidatorManagerRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
+	deployConfig.ValidatorManagerRoundDurationSeconds = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
 	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")
 	l1Deployments := config.L1Deployments.Copy()
@@ -383,7 +383,7 @@ func (s *SystemConfigOptions) Get(key, role string) (systemConfigHook, bool) {
 func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*System, error) {
 	// [Kroma: START]
 	cfg.DeployConfig.ValidatorPoolRoundDuration = cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime / 2
-	cfg.DeployConfig.ValidatorManagerRoundDuration = cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime / 2
+	cfg.DeployConfig.ValidatorManagerRoundDurationSeconds = cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime / 2
 	// [Kroma: END]
 	opts, err := NewSystemConfigOptions(_opts)
 	if err != nil {

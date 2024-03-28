@@ -66,7 +66,7 @@
   "validatorManagerMinRegisterAmount": "0x1",
   "validatorManagerMinStartAmount": "0x2",
   "validatorManagerCommissionMinChangeSeconds": 2,
-  "validatorManagerRoundDuration": 4,
+  "validatorManagerRoundDurationSeconds": 4,
   "validatorManagerJailPeriodSeconds": 2,
   "validatorManagerJailThreshold": 2,
   "validatorManagerMaxFinalizations": 10,

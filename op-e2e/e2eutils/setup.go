@@ -24,7 +24,7 @@ var testingJWTSecret = [32]byte{123}
 func WriteDefaultJWT(t TestingBase) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -67,7 +67,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	deployConfig.L2GenesisCanyonTimeOffset = CanyonTimeOffset()
 	// [Kroma: START]
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
-	deployConfig.ValidatorManagerRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
+	deployConfig.ValidatorManagerRoundDurationSeconds = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
 
 	require.NoError(t, deployConfig.Check())
@@ -114,7 +114,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	deployConf.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	// [Kroma: START]
 	deployConf.ValidatorPoolRoundDuration = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
-	deployConf.ValidatorManagerRoundDuration = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
+	deployConf.ValidatorManagerRoundDurationSeconds = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
 	// [Kroma: END]
 	require.NoError(t, deployConf.Check())
 

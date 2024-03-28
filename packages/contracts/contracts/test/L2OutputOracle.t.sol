@@ -494,7 +494,7 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is
 
     function test_setLatestFinalizedOutputIndex_succeeds() external {
         // only ValidatorPool can set finalized output before upgrade
-        uint256 outputIndex = 0;
+        uint256 outputIndex = oracle.latestOutputIndex();
         vm.prank(address(pool));
         oracle.setLatestFinalizedOutputIndex(outputIndex);
 
@@ -516,7 +516,7 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is
 
     function test_setLatestFinalizedOutputIndex_wrongCaller_reverts() external {
         // only ValidatorPool can set finalized output before upgrade
-        uint256 outputIndex = 0;
+        uint256 outputIndex = oracle.latestOutputIndex();
         vm.prank(address(valMan));
         vm.expectRevert(
             "L2OutputOracle: only the validator pool contract can set latest finalized output index"
