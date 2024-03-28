@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -115,6 +114,10 @@ func TestL1Deployments(t *testing.T) {
 	require.NotEqual(t, deployments.UpgradeGovernorProxy, common.Address{})
 	require.NotEqual(t, deployments.ValidatorPool, common.Address{})
 	require.NotEqual(t, deployments.ValidatorPoolProxy, common.Address{})
+	require.NotEqual(t, deployments.AssetManager, common.Address{})
+	require.NotEqual(t, deployments.AssetManagerProxy, common.Address{})
+	require.NotEqual(t, deployments.ValidatorManager, common.Address{})
+	require.NotEqual(t, deployments.ValidatorManagerProxy, common.Address{})
 	require.NotEqual(t, deployments.ZKMerkleTrie, common.Address{})
 	require.NotEqual(t, deployments.ZKVerifier, common.Address{})
 	require.NotEqual(t, deployments.ZKVerifierProxy, common.Address{})

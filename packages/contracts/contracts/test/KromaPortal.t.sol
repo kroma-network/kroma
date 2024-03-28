@@ -96,7 +96,7 @@ contract KromaPortal_Test is Portal_Initializer {
         emitTransactionDeposited(alice, alice, 100, 100, 100_000, false, hex"");
 
         // give alice money and send as an eoa
-        vm.deal(alice, 2**64);
+        vm.deal(alice, 2 ** 64);
         vm.prank(alice, alice);
         (bool s, ) = address(portal).call{ value: 100 }(hex"");
 
@@ -332,7 +332,7 @@ contract KromaPortal_Test is Portal_Initializer {
         uint256 checkpoint = oracle.nextBlockNumber();
         uint256 nextOutputIndex = oracle.nextOutputIndex();
         vm.roll(checkpoint);
-        vm.warp(oracle.computeL2Timestamp(checkpoint) + 1);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0);
 
@@ -398,7 +398,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
     // Get the system into a nice ready-to-use state.
     function setUp() public override {
         // Configure the oracle to return the output root we've prepared.
-        vm.warp(oracle.computeL2Timestamp(_submittedBlockNumber + 1));
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
 

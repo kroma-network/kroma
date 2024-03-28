@@ -67,12 +67,14 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	deployConfig.L2GenesisCanyonTimeOffset = CanyonTimeOffset()
 	// [Kroma: START]
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
+	deployConfig.ValidatorManagerRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
 
 	require.NoError(t, deployConfig.Check())
 	require.Equal(t, addresses.Batcher, deployConfig.BatchSenderAddress)
 	require.Equal(t, addresses.SequencerP2P, deployConfig.P2PSequencerAddress)
 	require.Equal(t, addresses.TrustedValidator, deployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, addresses.TrustedValidator, deployConfig.ValidatorManagerTrustedValidator)
 
 	return &DeployParams{
 		DeployConfig:   deployConfig,
@@ -112,6 +114,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	deployConf.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	// [Kroma: START]
 	deployConf.ValidatorPoolRoundDuration = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
+	deployConf.ValidatorManagerRoundDuration = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
 	// [Kroma: END]
 	require.NoError(t, deployConf.Check())
 
@@ -182,6 +185,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.Equal(t, deployParams.Secrets.Addresses().Batcher, deployParams.DeployConfig.BatchSenderAddress)
 	require.Equal(t, deployParams.Secrets.Addresses().SequencerP2P, deployParams.DeployConfig.P2PSequencerAddress)
 	require.Equal(t, deployParams.Secrets.Addresses().TrustedValidator, deployParams.DeployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, deployParams.Secrets.Addresses().TrustedValidator, deployParams.DeployConfig.ValidatorManagerTrustedValidator)
 
 	return &SetupData{
 		L1Cfg:         l1Genesis,

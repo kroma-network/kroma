@@ -16,6 +16,8 @@ const L1_ORDERED_NAMES = [
   'L1ERC721Bridge',
   'KromaMintableERC20Factory',
   'ValidatorPool',
+  'AssetManager',
+  'ValidatorManager',
   'L2OutputOracle',
   'ZKVerifier',
   'Colosseum',
