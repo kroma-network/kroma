@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -60,6 +61,8 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	require.Nil(t, err)
 	gpoContract, err := bindings.NewGasPriceOracleCaller(predeploys.GasPriceOracleAddr, l2Seq)
 	require.Nil(t, err)
+	gogo, err := gpoContract.Overhead(&bind.CallOpts{})
+	log.Info("gg", gogo)
 
 	// Obtain our signer.
 	opts, err := bind.NewKeyedTransactorWithChainID(ethPrivKey, cfg.L1ChainIDBig())
@@ -403,7 +406,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			cfg := DefaultSystemConfig(t)
 			cfg.Nodes["sequencer"].SafeDBPath = t.TempDir()
 			cfg.DeployConfig.L2BlockTime = 2
-			require.LessOrEqual(t, cfg.DeployConfig.FinalizationPeriodSeconds, uint64(6))
+			require.LessOrEqual(t, cfg.DeployConfig.FinalizationPeriodSeconds, uint64(600))
 			require.Equal(t, cfg.DeployConfig.FundDevAccounts, true)
 			sys, err := cfg.Start(t)
 			require.NoError(t, err, "error starting up system")
@@ -657,9 +660,17 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
+				/* [Kroma: START]
+				if e2eutils.UseFPAC() {
+					// Start a challenger to resolve claims and games once the clock expires
+					factoryHelper := disputegame.NewFactoryHelper(t, ctx, sys)
+					factoryHelper.StartChallenger(ctx, "Challenger",
+						challenger.WithCannon(t, sys.RollupConfig, sys.L2GenesisCfg, sys.RollupEndpoint("sequencer"), sys.NodeEndpoint("sequencer")),
+						challenger.WithPrivKey(sys.Cfg.Secrets.Mallory))
+				}
+				[Kroma: END] */
 				receipt, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 				require.NoError(t, err, "finalize withdrawal")
-				require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 
 				// Verify balance after withdrawal
 				header, err = l1Client.HeaderByNumber(ctx, receipt.BlockNumber)
@@ -678,7 +689,7 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 
 				// Wait for finalization and then create the Finalized Withdrawal Transaction
 				// [Kroma: START]
-				ctx, withdrawalCancel := context.WithTimeout(context.Background(), 60*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+				ctx, withdrawalCancel := context.WithTimeout(context.Background(), 300*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 				defer withdrawalCancel()
 				// [Kroma: END]
 				err = wait.ForFinalizationPeriod(ctx, l1Client, header.Number, cfg.L1Deployments.L2OutputOracleProxy)

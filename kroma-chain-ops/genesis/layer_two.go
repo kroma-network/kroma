@@ -12,7 +12,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/deployer"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/squash"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
@@ -65,7 +65,7 @@ func BuildL2Genesis(config *DeployConfig, l1StartBlock *types.Block) (*core.Gene
 		codeAddr := predeploy.Address
 		switch name {
 		case "Permit2":
-			deployerAddressBytes, err := bindings.GetDeployerAddress(name)
+			deployerAddressBytes, err := opbindings.GetDeployerAddress(name)
 			if err != nil {
 				return nil, err
 			}

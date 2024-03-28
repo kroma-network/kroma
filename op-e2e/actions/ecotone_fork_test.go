@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	l1BlockCodeHash        = common.HexToHash("0x0989889dab2877d3782ce75989417b9b1613c56100e4ada077637e694fd17ce5")
+	l1BlockCodeHash        = common.HexToHash("0xc06ab959b30807740e094ee9835c880543fc71be7edafb03500cd65bcb6ecc77")
 	gasPriceOracleCodeHash = common.HexToHash("0x7782df49fc01fd0cf7000d724e120d0f96b90d14a5991ff88a0ca9742d3dc65b")
 )
 
@@ -41,6 +41,7 @@ func verifyCodeHashMatches(t Testing, client *ethclient.Client, address common.A
 	return code
 }
 
+// TODO
 func TestEcotoneNetworkUpgradeTransactions(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)

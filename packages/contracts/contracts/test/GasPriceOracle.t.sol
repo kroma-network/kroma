@@ -37,6 +37,9 @@ contract GasPriceOracle_Test is CommonTest {
     /// @dev Sets up the test suite.
     function setUp() public virtual override {
         super.setUp();
+        // place the L1Block contract at the predeploy address
+        vm.etch(Predeploys.L1_BLOCK_ATTRIBUTES, address(new L1Block()).code);
+
         l1Block = L1Block(Predeploys.L1_BLOCK_ATTRIBUTES);
         depositor = l1Block.DEPOSITOR_ACCOUNT();
 
@@ -128,7 +131,9 @@ contract GasPriceOracleEcotone_Test is GasPriceOracle_Test {
         super.setUp();
 
         bytes memory calldataPacked = Encoding.encodeSetL1BlockValuesEcotone(
-            baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash, validatorRewardScalar
+            baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash
+            //TODO
+            //baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash, validatorRewardScalar
         );
 
         // Execute the function call

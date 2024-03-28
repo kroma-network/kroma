@@ -88,6 +88,13 @@ func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployme
 				memDB.SetState(address, key, common.HexToHash(value))
 			}
 		}
+
+		// [Kroma: START]
+		// This should only be used if we are expecting Optimism specific state to be set
+		if err := PostProcessL1DeveloperGenesis(memDB, l1Deployments); err != nil {
+			return nil, fmt.Errorf("failed to post process L1 developer genesis: %w", err)
+		}
+		// [Kroma: END]
 	}
 
 	return memDB.Genesis(), nil

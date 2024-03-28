@@ -415,11 +415,8 @@ func TestValidatorRewardScalarChange(gt *testing.T) {
 	log := testlog.Logger(t, log.LvlDebug)
 	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
 
-	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
-		MinL1TxSize: 0,
-		MaxL1TxSize: 128_000,
-		BatcherKey:  dp.Secrets.Batcher,
-	}, sequencer.RollupClient(), miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
+	batcher := NewL2Batcher(log, sd.RollupCfg, DefaultBatcherCfg(dp),
+		sequencer.RollupClient(), miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
 
 	engCl := seqEngine.EngineClient(t, sd.RollupCfg)
 

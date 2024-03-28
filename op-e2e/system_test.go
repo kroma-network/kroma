@@ -1170,8 +1170,9 @@ func TestFees(t *testing.T) {
 		InitParallel(t)
 		cfg := DefaultSystemConfig(t)
 		cfg.DeployConfig.L1GenesisBlockBaseFeePerGas = (*hexutil.Big)(big.NewInt(7))
-
+		/* [Kroma: START]
 		cfg.DeployConfig.L2GenesisRegolithTimeOffset = nil
+		[Kroma: END] */
 		cfg.DeployConfig.L2GenesisCanyonTimeOffset = nil
 		cfg.DeployConfig.L2GenesisDeltaTimeOffset = nil
 		cfg.DeployConfig.L2GenesisEcotoneTimeOffset = nil

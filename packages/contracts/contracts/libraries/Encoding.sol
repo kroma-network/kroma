@@ -122,7 +122,6 @@ library Encoding {
     /// @param blobBaseFee           L1 blob base fee.
     /// @param hash                  L1 blockhash.
     /// @param batcherHash           Versioned hash to authenticate batcher by.
-    /// @param validatorRewardScalar Validator reward scalar.
     function encodeSetL1BlockValuesEcotone(
         uint32 baseFeeScalar,
         uint32 blobBaseFeeScalar,
@@ -132,8 +131,9 @@ library Encoding {
         uint256 baseFee,
         uint256 blobBaseFee,
         bytes32 hash,
-        bytes32 batcherHash,
-        uint256 validatorRewardScalar
+        bytes32 batcherHash
+        //TODO
+        //uint256 validatorRewardScalar
     )
         internal
         pure
@@ -150,8 +150,9 @@ library Encoding {
             baseFee,
             blobBaseFee,
             hash,
-            batcherHash,
-            validatorRewardScalar
+            batcherHash
+            //TODO
+            //validatorRewardScalar
         );
     }
 }

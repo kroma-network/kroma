@@ -11,8 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/deployer"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -20,6 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,7 +43,7 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	deployments, err := NewL1Deployments("testdata/deploy.json")
 	require.NoError(t, err)
 
-	genesis, err := BuildL1DeveloperGenesis(config, dump, nil)
+	genesis, err := BuildL1DeveloperGenesis(config, dump, &L1Deployments{})
 	require.NoError(t, err)
 
 	sim := backends.NewSimulatedBackend(

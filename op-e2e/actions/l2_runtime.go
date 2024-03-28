@@ -75,18 +75,15 @@ func defaultRuntime(gt *testing.T, setupSequencerTest SetupSequencerTestFunc) Ru
 	}
 
 	rt.miner, rt.seqEngine, rt.sequencer = setupSequencerTest(rt.t, rt.sd, rt.l)
-	rt.setupBatcher()
+	rt.setupBatcher(dp)
 
 	return rt
 }
 
-func (rt *Runtime) setupBatcher() {
+func (rt *Runtime) setupBatcher(dp *e2eutils.DeployParams) {
 	rollupSeqCl := rt.sequencer.RollupClient()
-	batcher := NewL2Batcher(rt.l, rt.sd.RollupCfg, &BatcherCfg{
-		MinL1TxSize: 0,
-		MaxL1TxSize: 128_000,
-		BatcherKey:  rt.dp.Secrets.Batcher,
-	}, rollupSeqCl, rt.miner.EthClient(), rt.seqEngine.EthClient(), rt.seqEngine.EngineClient(rt.t, rt.sd.RollupCfg))
+	batcher := NewL2Batcher(rt.l, rt.sd.RollupCfg, DefaultBatcherCfg(dp),
+		rollupSeqCl, rt.miner.EthClient(), rt.seqEngine.EthClient(), rt.seqEngine.EngineClient(rt.t, rt.sd.RollupCfg))
 	rt.batcher = batcher
 }
 

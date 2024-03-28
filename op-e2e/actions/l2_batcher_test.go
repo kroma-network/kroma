@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
@@ -455,12 +454,8 @@ func BigL2Txs(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 
 	_, verifier := setupVerifier(t, sd, log, miner.L1Client(t, sd.RollupCfg), miner.BlobStore(), &sync.Config{})
 
-	batcher := NewL2Batcher(log, sd.RollupCfg, &BatcherCfg{
-		MinL1TxSize:          0,
-		MaxL1TxSize:          40_000, // try a small batch size, to force the data to be split between more frames
-		BatcherKey:           dp.Secrets.Batcher,
-		DataAvailabilityType: batcherFlags.CalldataType,
-	}, sequencer.RollupClient(), miner.EthClient(), engine.EthClient(), engine.EngineClient(t, sd.RollupCfg))
+	batcher := NewL2Batcher(log, sd.RollupCfg, DefaultBatcherCfg(dp),
+		sequencer.RollupClient(), miner.EthClient(), engine.EthClient(), engine.EngineClient(t, sd.RollupCfg))
 
 	sequencer.ActL2PipelineFull(t)
 
