@@ -4,7 +4,7 @@ pragma solidity 0.8.15;
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { IKromaMintableERC20 } from "./IKromaMintableERC20.sol";
 
 /**
@@ -15,7 +15,7 @@ import { IKromaMintableERC20 } from "./IKromaMintableERC20.sol";
  *         Designed to be backwards compatible with the older StandardL2ERC20 token which was only
  *         meant for use on L2.
  */
-contract KromaMintableERC20 is IKromaMintableERC20, ERC20, Semver {
+contract KromaMintableERC20 is IKromaMintableERC20, ERC20, ISemver {
     /**
      * @notice Address of the corresponding version of this token on the remote chain.
      */
@@ -51,7 +51,13 @@ contract KromaMintableERC20 is IKromaMintableERC20, ERC20, Semver {
     }
 
     /**
-    * @custom:semver 1.0.0
+     * @notice Semantic version.
+     * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the KromaMintableERC20 contract.
      *
      * @param _bridge      Address of the L2 standard bridge.
      * @param _remoteToken Address of the corresponding L1 token.
@@ -63,7 +69,7 @@ contract KromaMintableERC20 is IKromaMintableERC20, ERC20, Semver {
         address _remoteToken,
         string memory _name,
         string memory _symbol
-    ) ERC20(_name, _symbol) Semver(1, 0, 0) {
+    ) ERC20(_name, _symbol) {
         REMOTE_TOKEN = _remoteToken;
         BRIDGE = _bridge;
     }

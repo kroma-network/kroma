@@ -3,7 +3,7 @@ pragma solidity 0.8.15;
 
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 import { L2ToL1MessagePasser } from "./L2ToL1MessagePasser.sol";
 
@@ -15,16 +15,19 @@ import { L2ToL1MessagePasser } from "./L2ToL1MessagePasser.sol";
  *         L2 on the L2 side. Users are generally encouraged to use this contract instead of lower
  *         level message passing contracts.
  */
-contract L2CrossDomainMessenger is CrossDomainMessenger, Semver {
+contract L2CrossDomainMessenger is CrossDomainMessenger, ISemver {
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the L2CrossDomainMessenger contract.
      *
      * @param _l1CrossDomainMessenger Address of the L1CrossDomainMessenger contract.
      */
-    constructor(address _l1CrossDomainMessenger)
-        Semver(1, 0, 0)
-        CrossDomainMessenger(_l1CrossDomainMessenger)
-    {
+    constructor(address _l1CrossDomainMessenger) CrossDomainMessenger(_l1CrossDomainMessenger) {
         initialize();
     }
 

@@ -10,7 +10,7 @@ import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelo
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @custom:proxied
@@ -25,12 +25,18 @@ contract UpgradeGovernor is
     GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
     GovernorTimelockControlUpgradeable,
-    Semver
+    ISemver
 {
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
      */
-    constructor() Semver(1, 0, 0) {
+    string private constant _version = "1.0.0";
+
+    /**
+     * @notice Constructs the UpgradeGovernor contract.
+     */
+    constructor() {
         _disableInitializers();
     }
 
@@ -127,11 +133,11 @@ contract UpgradeGovernor is
      */
     function version()
         public
-        view
-        override(IGovernorUpgradeable, GovernorUpgradeable, Semver)
+        pure
+        override(IGovernorUpgradeable, GovernorUpgradeable, ISemver)
         returns (string memory)
     {
-        return Semver.version();
+        return _version;
     }
 
     function _execute(

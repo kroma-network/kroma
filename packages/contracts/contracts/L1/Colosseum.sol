@@ -7,13 +7,13 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { IZKMerkleTrie } from "./IZKMerkleTrie.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
 import { SecurityCouncil } from "./SecurityCouncil.sol";
 import { ZKVerifier } from "./ZKVerifier.sol";
 
-contract Colosseum is Initializable, Semver {
+contract Colosseum is Initializable, ISemver {
     /**
      * @notice The constant value for the first turn.
      */
@@ -242,7 +242,13 @@ contract Colosseum is Initializable, Semver {
     }
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the Colosseum contract.
      *
      * @param _l2Oracle              Address of the L2OutputOracle contract.
      * @param _zkVerifier            Address of the ZKVerifier contract.
@@ -268,7 +274,7 @@ contract Colosseum is Initializable, Semver {
         uint256[] memory _segmentsLengths,
         address _securityCouncil,
         address _zkMerkleTrie
-    ) Semver(1, 0, 0) {
+    ) {
         L2_ORACLE = _l2Oracle;
         ZK_VERIFIER = _zkVerifier;
         CREATION_PERIOD_SECONDS = _creationPeriodSeconds;
@@ -786,10 +792,10 @@ contract Colosseum is Initializable, Semver {
             "Colosseum: the state root must be matched"
         );
 
-        bytes32 blockHash = Hashing.hashBlockHeader(_publicInput, _rlps);
+        bytes32 blockHash = Hashing.hashBlockHeaderShanghai(_publicInput, _rlps);
         require(
             _srcOutputRootProof.nextBlockHash == blockHash,
-            "Colosseum: the block hash must be matched"
+            "Colosseum: the block hash from public input must be matched"
         );
     }
 

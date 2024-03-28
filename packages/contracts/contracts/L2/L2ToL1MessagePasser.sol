@@ -5,7 +5,7 @@ import { Burn } from "../libraries/Burn.sol";
 import { Encoding } from "../libraries/Encoding.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { Types } from "../libraries/Types.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @custom:proxied
@@ -15,7 +15,7 @@ import { Semver } from "../universal/Semver.sol";
  *         L2 to L1 can be stored. The storage root of this contract is pulled up to the top level
  *         of the L2 output to reduce the cost of proving the existence of sent messages.
  */
-contract L2ToL1MessagePasser is Semver {
+contract L2ToL1MessagePasser is ISemver {
     /**
      * @notice The L1 gas limit set when eth is withdrawn using the receive() function.
      */
@@ -65,9 +65,10 @@ contract L2ToL1MessagePasser is Semver {
     event WithdrawerBalanceBurnt(uint256 indexed amount);
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
      */
-    constructor() Semver(1, 0, 0) {}
+    string public constant version = "1.0.0";
 
     /**
      * @notice Allows users to withdraw ETH by sending directly to this contract.

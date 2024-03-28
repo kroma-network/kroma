@@ -328,11 +328,13 @@ interaction:
 			outputDeleted := val.IsOutputDeleted(remoteOutput.OutputRoot)
 			require.True(rt.t, outputDeleted, "output is not deleted")
 
-			// guardian validates deleted output by challenger is invalid after challenge is proven
+			// guardian validates deleted output by challenger is valid, so confirm the transaction to roll back the challenge
+			needConfirm := rt.guardian.ActCheckConfirmCondition(rt.t, rt.outputIndex, transactionId)
+			require.True(rt.t, needConfirm, "confirmation condition is not met")
 			outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
 			isEqual := rt.guardian.ActValidateL2Output(rt.t, rt.outputOnL1.OutputRoot, outputBlockNum)
 			require.True(rt.t, isEqual, "deleted output is expected equal but actually not equal")
-			rt.txHash = rt.guardian.ActConfirmTransaction(rt.t, rt.outputIndex, transactionId)
+			rt.txHash = rt.guardian.ActConfirmTransaction(rt.t, transactionId)
 			rt.IncludeL1Block(rt.guardian.address)
 			break interaction
 		default:

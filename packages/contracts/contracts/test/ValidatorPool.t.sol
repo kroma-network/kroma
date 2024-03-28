@@ -161,6 +161,33 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         assertEq(pool.validatorCount(), count - 1);
     }
 
+    function test_withdraw_to_succeeds() external {
+        test_deposit_succeeds();
+
+        address nextValidator = pool.nextValidator();
+        uint256 deposits = pool.balanceOf(nextValidator);
+
+        uint256 prevNextValidatorBalance = nextValidator.balance;
+        uint256 prevChallengerBalance = challenger.balance;
+
+        vm.prank(nextValidator);
+        pool.withdrawTo(challenger, deposits);
+        assertEq(pool.balanceOf(nextValidator), 0);
+        assertEq(nextValidator.balance, prevNextValidatorBalance);
+        assertEq(challenger.balance, prevChallengerBalance + deposits);
+    }
+
+    function test_withdraw_to_zero_address_reverts() external {
+        test_deposit_succeeds();
+
+        address nextValidator = pool.nextValidator();
+        uint256 deposits = pool.balanceOf(nextValidator);
+
+        vm.prank(nextValidator);
+        vm.expectRevert("ValidatorPool: cannot withdraw to the zero address");
+        pool.withdrawTo(address(0), deposits);
+    }
+
     function test_withdraw_maintainValidatorEligibility_succeeds() external {
         uint256 trustedBalance = trusted.balance;
         uint256 depositAmount = requiredBondAmount * 2;

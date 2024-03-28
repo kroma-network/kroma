@@ -8,7 +8,7 @@ import {
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { IKromaMintableERC721 } from "./IKromaMintableERC721.sol";
 
 /**
@@ -17,7 +17,7 @@ import { IKromaMintableERC721 } from "./IKromaMintableERC721.sol";
  *         typically a Kroma representation of an Ethereum-based token. Standard reference
  *         implementation that can be extended or modified according to your needs.
  */
-contract KromaMintableERC721 is ERC721Enumerable, IKromaMintableERC721, Semver {
+contract KromaMintableERC721 is ERC721Enumerable, IKromaMintableERC721, ISemver {
     /**
      * @inheritdoc IKromaMintableERC721
      */
@@ -47,7 +47,13 @@ contract KromaMintableERC721 is ERC721Enumerable, IKromaMintableERC721, Semver {
     }
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the KromaMintableERC721 contract.
      *
      * @param _bridge        Address of the bridge on this network.
      * @param _remoteChainId Chain ID where the remote token is deployed.
@@ -61,7 +67,7 @@ contract KromaMintableERC721 is ERC721Enumerable, IKromaMintableERC721, Semver {
         address _remoteToken,
         string memory _name,
         string memory _symbol
-    ) ERC721(_name, _symbol) Semver(1, 0, 0) {
+    ) ERC721(_name, _symbol) {
         require(_bridge != address(0), "KromaMintableERC721: bridge cannot be address(0)");
         require(_remoteChainId != 0, "KromaMintableERC721: remote chain id cannot be zero");
         require(

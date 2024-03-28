@@ -19,11 +19,9 @@ library Hashing {
      *
      * @return Hash of the RLP encoded L2 deposit transaction.
      */
-    function hashDepositTransaction(Types.UserDepositTransaction memory _tx)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashDepositTransaction(
+        Types.UserDepositTransaction memory _tx
+    ) internal pure returns (bytes32) {
         return keccak256(Encoding.encodeDepositTransaction(_tx));
     }
 
@@ -37,11 +35,10 @@ library Hashing {
      *
      * @return Hash of the deposit transaction's "source hash".
      */
-    function hashDepositSource(bytes32 _l1BlockHash, uint64 _logIndex)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashDepositSource(
+        bytes32 _l1BlockHash,
+        uint64 _logIndex
+    ) internal pure returns (bytes32) {
         bytes32 depositId = keccak256(abi.encode(_l1BlockHash, _logIndex));
         return keccak256(abi.encode(bytes32(0), depositId));
     }
@@ -115,11 +112,9 @@ library Hashing {
      *
      * @return Hashed withdrawal transaction.
      */
-    function hashWithdrawal(Types.WithdrawalTransaction memory _tx)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashWithdrawal(
+        Types.WithdrawalTransaction memory _tx
+    ) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(_tx.nonce, _tx.sender, _tx.target, _tx.value, _tx.gasLimit, _tx.data)
@@ -134,11 +129,9 @@ library Hashing {
      *
      * @return Hashed output root proof.
      */
-    function hashOutputRootProof(Types.OutputRootProof memory _outputRootProof)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashOutputRootProof(
+        Types.OutputRootProof memory _outputRootProof
+    ) internal pure returns (bytes32) {
         if (_outputRootProof.version == bytes32(uint256(0))) {
             return hashOutputRootProofV0(_outputRootProof);
         } else {
@@ -154,11 +147,9 @@ library Hashing {
      *
      * @return Hashed output root proof.
      */
-    function hashOutputRootProofV0(Types.OutputRootProof memory _outputRootProof)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashOutputRootProofV0(
+        Types.OutputRootProof memory _outputRootProof
+    ) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
@@ -255,7 +246,8 @@ library Hashing {
                 abi.encodePacked(
                     _prevStateRoot,
                     _publicInput.stateRoot,
-                    _publicInput.withdrawalsRoot,
+                    // NOTE(0xHansLee): the withdrawalsRoot is not used in Scroll's zkEVM circuit, so it is filled by zero
+                    bytes32(0),
                     _publicInput.blockHash,
                     _publicInput.parentHash,
                     _publicInput.number,
@@ -277,11 +269,10 @@ library Hashing {
      *
      * @return Bytes32 array filled with dummy hash.
      */
-    function generateDummyHashes(bytes32 _dummyHashes, uint256 _length)
-        internal
-        pure
-        returns (bytes32[] memory)
-    {
+    function generateDummyHashes(
+        bytes32 _dummyHashes,
+        uint256 _length
+    ) internal pure returns (bytes32[] memory) {
         bytes32[] memory hashes = new bytes32[](_length);
         for (uint256 i = 0; i < _length; i++) {
             hashes[i] = _dummyHashes;

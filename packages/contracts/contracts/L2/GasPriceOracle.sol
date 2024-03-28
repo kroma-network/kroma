@@ -3,7 +3,7 @@ pragma solidity 0.8.15;
 
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { L1Block } from "../L2/L1Block.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @custom:proxied
@@ -13,16 +13,17 @@ import { Semver } from "../universal/Semver.sol";
  *         total fee charged on L2. It also exposes an API that is useful for knowing how large
  *         the L1 portion of the transaction fee will be.
  */
-contract GasPriceOracle is Semver {
+contract GasPriceOracle is ISemver {
     /**
      * @notice Number of decimals used in the scalar.
      */
     uint256 public constant DECIMALS = 6;
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
      */
-    constructor() Semver(1, 0, 0) {}
+    string public constant version = "1.0.0";
 
     /**
      * @notice Computes the L1 portion of the fee based on the size of the rlp encoded input

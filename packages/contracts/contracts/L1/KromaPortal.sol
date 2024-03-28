@@ -7,7 +7,7 @@ import { Constants } from "../libraries/Constants.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { SafeCall } from "../libraries/SafeCall.sol";
 import { Types } from "../libraries/Types.sol";
-import { Semver } from "../universal/Semver.sol";
+import { ISemver } from "../universal/ISemver.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
 import { ResourceMetering } from "./ResourceMetering.sol";
@@ -21,7 +21,7 @@ import { ZKMerkleTrie } from "./ZKMerkleTrie.sol";
  *         and L2. Messages sent directly to the KromaPortal have no form of replayability.
  *         Users are encouraged to use the L1CrossDomainMessenger for a higher-level interface.
  */
-contract KromaPortal is Initializable, ResourceMetering, Semver {
+contract KromaPortal is Initializable, ResourceMetering, ISemver {
     /**
      * @notice Represents a proven withdrawal.
      *
@@ -152,7 +152,13 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
     }
 
     /**
+     * @notice Semantic version.
      * @custom:semver 1.0.0
+     */
+    string public constant version = "1.0.0";
+
+    /**
+     * @notice Constructs the KromaPortal contract.
      *
      * @param _l2Oracle                  Address of the L2OutputOracle contract.
      * @param _validatorPool             Address of the ValidatorPool contract.
@@ -168,7 +174,7 @@ contract KromaPortal is Initializable, ResourceMetering, Semver {
         bool _paused,
         SystemConfig _config,
         ZKMerkleTrie _zkMerkleTrie
-    ) Semver(1, 0, 0) {
+    ) {
         L2_ORACLE = _l2Oracle;
         VALIDATOR_POOL = _validatorPool;
         GUARDIAN = _guardian;
