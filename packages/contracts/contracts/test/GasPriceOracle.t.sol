@@ -131,9 +131,7 @@ contract GasPriceOracleEcotone_Test is GasPriceOracle_Test {
         super.setUp();
 
         bytes memory calldataPacked = Encoding.encodeSetL1BlockValuesEcotone(
-            baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash
-            //TODO
-            //baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash, validatorRewardScalar
+            baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash, validatorRewardScalar
         );
 
         // Execute the function call

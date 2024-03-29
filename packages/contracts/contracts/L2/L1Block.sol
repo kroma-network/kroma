@@ -112,6 +112,7 @@ contract L1Block is ISemver {
     ///   7.  _blobBaseFee           L1 blob base fee.
     ///   8.  _hash                  L1 blockhash.
     ///   9.  _batcherHash           Versioned hash to authenticate batcher by.
+    ///   10. _validatorRewardScalar Validator reward scalar.
     function setL1BlockValuesEcotone() external {
         assembly {
             // Revert if the caller is not the depositor account.
@@ -128,6 +129,7 @@ contract L1Block is ISemver {
             sstore(blobBaseFee.slot, calldataload(68)) // uint256
             sstore(hash.slot, calldataload(100)) // bytes32
             sstore(batcherHash.slot, calldataload(132)) // bytes32
+            sstore(validatorRewardScalar.slot, calldataload(164)) // uint256
         }
     }
 }

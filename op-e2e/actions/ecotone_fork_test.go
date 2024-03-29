@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	l1BlockCodeHash        = common.HexToHash("0xc06ab959b30807740e094ee9835c880543fc71be7edafb03500cd65bcb6ecc77")
+	l1BlockCodeHash        = common.HexToHash("0x18fc22e60c9fc3d6a26e9b5c3e4c4e333f7646157e0d59cc18f4da0d43b84227")
 	gasPriceOracleCodeHash = common.HexToHash("0x7782df49fc01fd0cf7000d724e120d0f96b90d14a5991ff88a0ca9742d3dc65b")
 )
 

@@ -93,16 +93,13 @@ contract L1BlockEcotone_Test is L1BlockTest {
         uint256 baseFee,
         uint256 blobBaseFee,
         bytes32 hash,
-        bytes32 batcherHash
-        //TODO
-        //uint256 validatorRewardScalar
+        bytes32 batcherHash,
+        uint256 validatorRewardScalar
     )
         external
     {
         bytes memory functionCallDataPacked = Encoding.encodeSetL1BlockValuesEcotone(
-            baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash
-            //TODO
-            //baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash, validatorRewardScalar
+            baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash, validatorRewardScalar
         );
 
         vm.prank(depositor);
@@ -118,8 +115,7 @@ contract L1BlockEcotone_Test is L1BlockTest {
         assertEq(l1Block.blobBaseFee(), blobBaseFee);
         assertEq(l1Block.hash(), hash);
         assertEq(l1Block.batcherHash(), batcherHash);
-        //TODO
-        //assertEq(l1Block.validatorRewardScalar(), validatorRewardScalar);
+        assertEq(l1Block.validatorRewardScalar(), validatorRewardScalar);
 
         // ensure we didn't accidentally pollute the 128 bits of the sequencenum+scalars slot that
         // should be empty
@@ -145,9 +141,8 @@ contract L1BlockEcotone_Test is L1BlockTest {
             type(uint256).max,
             type(uint256).max,
             bytes32(type(uint256).max),
-            bytes32(type(uint256).max)
-            //TODO
-            //type(uint256).max
+            bytes32(type(uint256).max),
+            type(uint256).max
         );
 
         vm.prank(depositor);
@@ -166,9 +161,8 @@ contract L1BlockEcotone_Test is L1BlockTest {
             type(uint256).max,
             type(uint256).max,
             bytes32(type(uint256).max),
-            bytes32(type(uint256).max)
-            //TODO
-            //type(uint256).max
+            bytes32(type(uint256).max),
+            type(uint256).max
         );
 
         (bool success, bytes memory data) = address(l1Block).call(functionCallDataPacked);

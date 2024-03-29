@@ -22,7 +22,7 @@ const (
 	L1InfoFuncEcotoneSignature = "setL1BlockValuesEcotone()"
 	L1InfoArguments            = 9
 	L1InfoBedrockLen           = 4 + 32*L1InfoArguments
-	L1InfoEcotoneLen           = 4 + 32*5 // after Ecotone upgrade, args are packed into 5 32-byte slots
+	L1InfoEcotoneLen           = 4 + 32*6 // after Ecotone upgrade, args are packed into 6 32-byte slots
 )
 
 var (
@@ -168,7 +168,7 @@ func (info *L1BlockInfo) unmarshalBinaryBedrock(data []byte) error {
 // | 32      | BlobBaseFee              |
 // | 32      | BlockHash                |
 // | 32      | BatcherHash              |
-// | 32      | ValidatorRewardScalar    | TODO : not used, need update
+// | 32      | ValidatorRewardScalar    |
 // +---------+--------------------------+
 
 func (info *L1BlockInfo) marshalBinaryEcotone() ([]byte, error) {
@@ -208,9 +208,9 @@ func (info *L1BlockInfo) marshalBinaryEcotone() ([]byte, error) {
 	if err := solabi.WriteAddress(w, info.BatcherAddr); err != nil {
 		return nil, err
 	}
-	//if err := solabi.WriteEthBytes32(w, info.ValidatorRewardScalar); err != nil {
-	//	return nil, err
-	//}
+	if err := solabi.WriteEthBytes32(w, info.ValidatorRewardScalar); err != nil {
+		return nil, err
+	}
 	return w.Bytes(), nil
 }
 
@@ -252,9 +252,9 @@ func (info *L1BlockInfo) unmarshalBinaryEcotone(data []byte) error {
 	if info.BatcherAddr, err = solabi.ReadAddress(r); err != nil {
 		return err
 	}
-	//if info.ValidatorRewardScalar, err = solabi.ReadEthBytes32(r); err != nil {
-	//	return err
-	//}
+	if info.ValidatorRewardScalar, err = solabi.ReadEthBytes32(r); err != nil {
+		return err
+	}
 	if !solabi.EmptyReader(r) {
 		return errors.New("too many bytes")
 	}
@@ -280,13 +280,12 @@ func L1BlockInfoFromBytes(rollupCfg *rollup.Config, l2BlockTime uint64, data []b
 // and the L2 block-height difference with the start of the epoch.
 func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber uint64, block eth.BlockInfo, l2BlockTime uint64) (*types.DepositTx, error) {
 	l1BlockInfo := L1BlockInfo{
-		Number:                block.NumberU64(),
-		Time:                  block.Time(),
-		BaseFee:               block.BaseFee(),
-		BlockHash:             block.Hash(),
-		SequenceNumber:        seqNumber,
-		BatcherAddr:           sysCfg.BatcherAddr,
-		ValidatorRewardScalar: sysCfg.ValidatorRewardScalar,
+		Number:         block.NumberU64(),
+		Time:           block.Time(),
+		BaseFee:        block.BaseFee(),
+		BlockHash:      block.Hash(),
+		SequenceNumber: seqNumber,
+		BatcherAddr:    sysCfg.BatcherAddr,
 	}
 	var data []byte
 	if isEcotoneButNotFirstBlock(rollupCfg, l2BlockTime) {
@@ -301,6 +300,7 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 		}
 		l1BlockInfo.BlobBaseFeeScalar = blobBaseFeeScalar
 		l1BlockInfo.BaseFeeScalar = baseFeeScalar
+		l1BlockInfo.ValidatorRewardScalar = *new([32]byte)
 		out, err := l1BlockInfo.marshalBinaryEcotone()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal Ecotone l1 block info: %w", err)
@@ -309,6 +309,7 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 	} else {
 		l1BlockInfo.L1FeeOverhead = sysCfg.Overhead
 		l1BlockInfo.L1FeeScalar = sysCfg.Scalar
+		l1BlockInfo.ValidatorRewardScalar = sysCfg.ValidatorRewardScalar
 		out, err := l1BlockInfo.marshalBinaryBedrock()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal Bedrock l1 block info: %w", err)
