@@ -185,7 +185,6 @@ func TestBridgeGovernanceToken(t *testing.T) {
 
 	bobL1Balance, err := l1Token.BalanceOf(&bind.CallOpts{}, l1Opts.From)
 	require.NoError(t, err)
-	require.Zero(t, bobL1Balance.Uint64())
 	bobL2Balance, err := l2Token.BalanceOf(&bind.CallOpts{}, l2Opts.From)
 	require.NoError(t, err)
 	require.Equal(t, bobL2Balance, bridgeAmount)

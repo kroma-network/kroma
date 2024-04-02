@@ -26,26 +26,30 @@ import (
 )
 
 type ValidatorCfg struct {
-	OutputOracleAddr    common.Address
-	ColosseumAddr       common.Address
-	SecurityCouncilAddr common.Address
-	ValidatorPoolAddr   common.Address
-	ValidatorKey        *ecdsa.PrivateKey
-	AllowNonFinalized   bool
+	OutputOracleAddr     common.Address
+	ColosseumAddr        common.Address
+	SecurityCouncilAddr  common.Address
+	ValidatorPoolAddr    common.Address
+	ValidatorManagerAddr common.Address
+	AssetManagerAddr     common.Address
+	ValidatorKey         *ecdsa.PrivateKey
+	AllowNonFinalized    bool
 }
 
 type L2Validator struct {
-	log                 log.Logger
-	l1                  *ethclient.Client
-	l2os                *validator.L2OutputSubmitter
-	challenger          *validator.Challenger
-	guardian            *validator.Guardian
-	address             common.Address
-	privKey             *ecdsa.PrivateKey
-	l2ooContractAddr    common.Address
-	valPoolContractAddr common.Address
-	lastTx              common.Hash
-	cfg                 *validator.Config
+	log                      log.Logger
+	l1                       *ethclient.Client
+	l2os                     *validator.L2OutputSubmitter
+	challenger               *validator.Challenger
+	guardian                 *validator.Guardian
+	address                  common.Address
+	privKey                  *ecdsa.PrivateKey
+	l2ooContractAddr         common.Address
+	valPoolContractAddr      common.Address
+	valManagerContractAddr   common.Address
+	assetManagerContractAddr common.Address
+	lastTx                   common.Hash
+	cfg                      *validator.Config
 }
 
 func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.Client, l2 *ethclient.Client, rollupCl *sources.RollupClient) *L2Validator {
@@ -66,6 +70,8 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	validatorCfg := validator.Config{
 		L2OutputOracleAddr:              cfg.OutputOracleAddr,
 		ValidatorPoolAddr:               cfg.ValidatorPoolAddr,
+		ValidatorManagerAddr:            cfg.ValidatorManagerAddr,
+		AssetManagerAddr:                cfg.AssetManagerAddr,
 		ColosseumAddr:                   cfg.ColosseumAddr,
 		SecurityCouncilAddr:             cfg.SecurityCouncilAddr,
 		ChallengerPollInterval:          time.Second,
@@ -106,16 +112,18 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	require.NoError(t, err)
 
 	return &L2Validator{
-		log:                 log,
-		l1:                  l1,
-		l2os:                l2os,
-		challenger:          challenger,
-		guardian:            guardian,
-		address:             from,
-		privKey:             cfg.ValidatorKey,
-		l2ooContractAddr:    cfg.OutputOracleAddr,
-		valPoolContractAddr: cfg.ValidatorPoolAddr,
-		cfg:                 &validatorCfg,
+		log:                      log,
+		l1:                       l1,
+		l2os:                     l2os,
+		challenger:               challenger,
+		guardian:                 guardian,
+		address:                  from,
+		privKey:                  cfg.ValidatorKey,
+		l2ooContractAddr:         cfg.OutputOracleAddr,
+		valPoolContractAddr:      cfg.ValidatorPoolAddr,
+		valManagerContractAddr:   cfg.ValidatorManagerAddr,
+		assetManagerContractAddr: cfg.AssetManagerAddr,
+		cfg:                      &validatorCfg,
 	}
 }
 
@@ -198,9 +206,52 @@ func (v *L2Validator) ActDeposit(t Testing, depositAmount uint64) {
 	v.sendTx(t, &v.valPoolContractAddr, new(big.Int).SetUint64(depositAmount), txData, 1)
 }
 
+func (v *L2Validator) ActRegisterValidator(t Testing, assets *big.Int) {
+	valManagerABI, err := bindings.ValidatorManagerMetaData.GetAbi()
+	require.NoError(t, err)
+
+	txData, err := valManagerABI.Pack(
+		"registerValidator",
+		assets,
+		uint8(10),
+		uint8(2),
+	)
+	require.NoError(t, err)
+
+	v.sendTx(t, &v.valManagerContractAddr, common.Big0, txData, 2)
+}
+
+func (v *L2Validator) ActApprove(t Testing, amount uint64) {
+	tokenAddr := v.getGovTokenAddr(t)
+	governanceTokenABI, err := bindings.GovernanceTokenMetaData.GetAbi()
+	require.NoError(t, err)
+
+	txData, err := governanceTokenABI.Pack("approve", &v.assetManagerContractAddr, new(big.Int).SetUint64(amount))
+	require.NoError(t, err)
+
+	v.sendTx(t, &tokenAddr, common.Big0, txData, 1)
+}
+
 func (v *L2Validator) fetchOutput(t Testing, blockNumber *big.Int) *eth.OutputResponse {
 	output, err := v.l2os.FetchOutput(t.Ctx(), blockNumber)
 	require.NoError(t, err)
 
 	return output
+}
+
+func (v *L2Validator) getGovTokenAddr(t Testing) common.Address {
+	assetManagerABI, err := bindings.AssetManagerMetaData.GetAbi()
+	require.NoError(t, err)
+
+	callData, err := assetManagerABI.Pack("ASSET_TOKEN")
+	require.NoError(t, err)
+
+	returnData, err := v.l1.CallContract(t.Ctx(), ethereum.CallMsg{
+		To:   &v.assetManagerContractAddr,
+		Data: callData,
+	}, nil)
+	require.NoError(t, err)
+
+	tokenAddr := common.BytesToAddress(returnData)
+	return tokenAddr
 }
