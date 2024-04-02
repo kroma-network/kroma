@@ -25,6 +25,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
+	val "github.com/kroma-network/kroma/kroma-validator/validator"
 )
 
 var deletedOutputRoot = [32]byte{}
@@ -43,17 +44,19 @@ type Challenger struct {
 	l1Client *ethclient.Client
 	l2Client *ethclient.Client
 
-	l2ooContract      *bindings.L2OutputOracle
-	l2ooABI           *abi.ABI
-	colosseumContract *bindings.Colosseum
-	colosseumABI      *abi.ABI
-	valpoolContract   *bindings.ValidatorPoolCaller
+	l2ooContract       *bindings.L2OutputOracle
+	l2ooABI            *abi.ABI
+	colosseumContract  *bindings.Colosseum
+	colosseumABI       *abi.ABI
+	valpoolContract    *bindings.ValidatorPoolCaller
+	valManagerContract *bindings.ValidatorManagerCaller
 
 	submissionInterval        *big.Int
 	finalizationPeriodSeconds *big.Int
 	l2BlockTime               *big.Int
 	checkpoint                *big.Int
 	requiredBondAmount        *big.Int
+	isValManagerEnabled       bool
 
 	l2OutputSubmittedSub ethereum.Subscription
 	challengeCreatedSub  ethereum.Subscription
@@ -90,6 +93,11 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		return nil, err
 	}
 
+	valManagerContract, err := bindings.NewValidatorManagerCaller(cfg.ValidatorManagerAddr, cfg.L1Client)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Challenger{
 		log:  l.New("service", "challenge"),
 		cfg:  cfg,
@@ -98,11 +106,12 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		l1Client: cfg.L1Client,
 		l2Client: cfg.L2Client,
 
-		l2ooContract:      l2ooContract,
-		l2ooABI:           l2ooABI,
-		colosseumContract: colosseumContract,
-		colosseumABI:      colosseumABI,
-		valpoolContract:   valpoolContract,
+		l2ooContract:       l2ooContract,
+		l2ooABI:            l2ooABI,
+		colosseumContract:  colosseumContract,
+		colosseumABI:       colosseumABI,
+		valpoolContract:    valpoolContract,
+		valManagerContract: valManagerContract,
 	}, nil
 }
 
@@ -148,6 +157,24 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
 		c.requiredBondAmount = requiredBondAmount
+
+		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		nextOutputIndex, err := c.l2ooContract.NextOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get latest output index: %w", err)
+		}
+
+		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		isTerminated, err := c.valpoolContract.IsTerminated(
+			optsutils.NewSimpleCallOpts(cCtx),
+			nextOutputIndex,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to whether valpool is terminated or not: %w", err)
+		}
+		c.isValManagerEnabled = isTerminated
 
 		return nil
 	})
@@ -438,12 +465,12 @@ func (c *Challenger) handleOutput(outputIndex *big.Int) {
 				return
 			}
 
-			hasEnoughDeposit, err := c.HasEnoughDeposit(c.ctx)
+			canCreateChallenge, err := c.CanCreateChallenge(c.ctx)
 			if err != nil {
 				c.log.Error(err.Error())
 				continue
 			}
-			if !hasEnoughDeposit {
+			if !canCreateChallenge {
 				continue
 			}
 
@@ -598,21 +625,41 @@ func (c *Challenger) submitChallengeTx(tx *types.Transaction) error {
 	return c.cfg.TxManager.SendTransaction(c.ctx, tx).Err
 }
 
-// HasEnoughDeposit checks if challenger has enough deposit to bond when creating challenge.
-func (c *Challenger) HasEnoughDeposit(ctx context.Context) (bool, error) {
+// CanCreateChallenge checks if challenger is in the status that can make challenge.
+func (c *Challenger) CanCreateChallenge(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	balance, err := c.valpoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), c.cfg.TxManager.From())
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
-	}
-	c.metr.RecordDepositAmount(balance)
+	from := c.cfg.TxManager.From()
+	if c.isValManagerEnabled {
+		vaultStatus, err := c.valManagerContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch the vault status: %w", err)
+		}
 
-	if balance.Cmp(c.requiredBondAmount) == -1 {
-		c.log.Warn("deposit is less than bond amount", "required", c.requiredBondAmount, "deposit", balance)
-		return false, nil
+		if vaultStatus != val.StatusCanSubmitOutput {
+			c.log.Warn("vault is not in the status to make a challenge", "status", vaultStatus)
+			return false, nil
+		}
+
+		c.log.Info("vault status", "status", vaultStatus)
+	} else {
+		balance, err := c.valpoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
+		}
+		c.metr.RecordDepositAmount(balance)
+
+		if balance.Cmp(c.requiredBondAmount) == -1 {
+			c.log.Warn(
+				"deposit is less than bond attempt amount",
+				"requiredBondAmount", c.requiredBondAmount,
+				"deposit", balance,
+			)
+			return false, nil
+		}
+
+		c.log.Info("deposit amount", "deposit", balance)
 	}
-	c.log.Info("deposit amount and bond amount", "deposit", balance, "bond", c.requiredBondAmount)
 
 	return true, nil
 }
