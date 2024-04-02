@@ -31,6 +31,9 @@ type Config struct {
 	ColosseumAddr                   common.Address
 	SecurityCouncilAddr             common.Address
 	ValidatorPoolAddr               common.Address
+	ValidatorManagerAddr            common.Address
+	AssetManagerAddr                common.Address
+	GovTokenAddr                    common.Address
 	ChallengerPollInterval          time.Duration
 	NetworkTimeout                  time.Duration
 	TxManager                       *txmgr.BufferedTxManager
@@ -80,6 +83,12 @@ type CLIConfig struct {
 
 	// ValPoolAddress is the ValidatorPool contract address.
 	ValPoolAddress string
+
+	// ValManagerAddress is the ValidatorManager contract address.
+	ValManagerAddress string
+
+	// AssetManagerAddress is the AssetManager contract address.
+	AssetManagerAddress string
 
 	// ChallengerPollInterval is how frequently to poll L2 for new finalized outputs.
 	ChallengerPollInterval time.Duration
@@ -146,6 +155,8 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		L2OOAddress:            ctx.String(flags.L2OOAddressFlag.Name),
 		ColosseumAddress:       ctx.String(flags.ColosseumAddressFlag.Name),
 		ValPoolAddress:         ctx.String(flags.ValPoolAddressFlag.Name),
+		ValManagerAddress:      ctx.String(flags.ValManagerAddressFlag.Name),
+		AssetManagerAddress:    ctx.String(flags.AssetManagerAddressFlag.Name),
 		OutputSubmitterEnabled: ctx.Bool(flags.OutputSubmitterEnabledFlag.Name),
 		ChallengerEnabled:      ctx.Bool(flags.ChallengerEnabledFlag.Name),
 		ChallengerPollInterval: ctx.Duration(flags.ChallengerPollIntervalFlag.Name),
@@ -188,6 +199,16 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	valPoolAddress, err := opservice.ParseAddress(cfg.ValPoolAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	valManagerAddress, err := opservice.ParseAddress(cfg.ValManagerAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	assetManagerAddress, err := opservice.ParseAddress(cfg.AssetManagerAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -236,6 +257,8 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		ColosseumAddr:                   colosseumAddress,
 		SecurityCouncilAddr:             securityCouncilAddress,
 		ValidatorPoolAddr:               valPoolAddress,
+		ValidatorManagerAddr:            valManagerAddress,
+		AssetManagerAddr:                assetManagerAddress,
 		ChallengerPollInterval:          cfg.ChallengerPollInterval,
 		NetworkTimeout:                  cfg.TxMgrConfig.NetworkTimeout,
 		TxManager:                       txManager,
