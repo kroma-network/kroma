@@ -15,7 +15,7 @@ library Encoding {
     /// @return RLP encoded L2 deposit transaction.
     function encodeDepositTransaction(Types.UserDepositTransaction memory _tx) internal pure returns (bytes memory) {
         bytes32 source = Hashing.hashDepositSource(_tx.l1BlockHash, _tx.logIndex);
-        bytes[] memory raw = new bytes[](8);
+        bytes[] memory raw = new bytes[](7);
         raw[0] = RLPWriter.writeBytes(abi.encodePacked(source));
         raw[1] = RLPWriter.writeAddress(_tx.from);
         raw[2] = _tx.isCreation ? RLPWriter.writeBytes("") : RLPWriter.writeAddress(_tx.to);
@@ -55,7 +55,7 @@ library Encoding {
         }
     }
 
-    /// @notice Encodes a cross domain message based on the V1 (current) encoding.
+    /// @notice Encodes a cross domain message based on the V0 (current) encoding.
     /// @param _nonce    Message nonce.
     /// @param _sender   Address of the sender of the message.
     /// @param _target   Address of the target of the message.

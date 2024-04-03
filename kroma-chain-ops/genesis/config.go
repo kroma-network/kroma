@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -231,7 +230,7 @@ type DeployConfig struct {
 	[Kroma: END] */
 
 	// UsePlasma is a flag that indicates if the system is using op-plasma
-	UsePlasma bool `json:"usePlasma"`
+	UsePlasma bool `json:"usePlasma,omitempty"`
 	// DAChallengeWindow represents the block interval during which the availability of a data commitment can be challenged.
 	DAChallengeWindow uint64 `json:"daChallengeWindow,omitempty"`
 	// DAResolveWindow represents the block interval during which a data availability challenge can be resolved.
@@ -242,7 +241,7 @@ type DeployConfig struct {
 	// such as 100 means 100% refund.
 	DAResolverRefundPercentage uint64 `json:"daResolverRefundPercentage,omitempty"`
 	// DAChallengeProxy represents the L1 address of the DataAvailabilityChallenge contract.
-	DAChallengeProxy common.Address `json:"daChallengeProxy"`
+	DAChallengeProxy common.Address `json:"daChallengeProxy,omitempty"`
 	// When Cancun activates. Relative to L1 genesis.
 	L1CancunTimeOffset *hexutil.Uint64 `json:"l1CancunTimeOffset,omitempty"`
 
@@ -393,14 +392,60 @@ func (d *DeployConfig) Check() error {
 	if d.L1BlockTime < d.L2BlockTime {
 		return fmt.Errorf("L2 block time (%d) is larger than L1 block time (%d)", d.L2BlockTime, d.L1BlockTime)
 	}
-	// [Kroma: START]
-	// if d.RequiredProtocolVersion == (params.ProtocolVersion{}) {
-	// 	log.Warn("RequiredProtocolVersion is empty")
-	// }
-	// if d.RecommendedProtocolVersion == (params.ProtocolVersion{}) {
-	// 	log.Warn("RecommendedProtocolVersion is empty")
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	if d.RequiredProtocolVersion == (params.ProtocolVersion{}) {
+		log.Warn("RequiredProtocolVersion is empty")
+	}
+	if d.RecommendedProtocolVersion == (params.ProtocolVersion{}) {
+		log.Warn("RecommendedProtocolVersion is empty")
+	}
+	if d.ProofMaturityDelaySeconds == 0 {
+		log.Warn("ProofMaturityDelaySeconds is 0")
+	}
+	if d.DisputeGameFinalityDelaySeconds == 0 {
+		log.Warn("DisputeGameFinalityDelaySeconds is 0")
+	}
+	[Kroma: END] */
+
+	if d.UsePlasma {
+		if d.DAChallengeWindow == 0 {
+			return fmt.Errorf("%w: DAChallengeWindow cannot be 0 when using plasma mode", ErrInvalidDeployConfig)
+		}
+		if d.DAResolveWindow == 0 {
+			return fmt.Errorf("%w: DAResolveWindow cannot be 0 when using plasma mode", ErrInvalidDeployConfig)
+		}
+		if d.DAChallengeProxy == (common.Address{}) {
+			return fmt.Errorf("%w: DAChallengeContract cannot be empty when using plasma mode", ErrInvalidDeployConfig)
+		}
+	}
+	// checkFork checks that fork A is before or at the same time as fork B
+	checkFork := func(a, b *hexutil.Uint64, aName, bName string) error {
+		if a == nil && b == nil {
+			return nil
+		}
+		if a == nil && b != nil {
+			return fmt.Errorf("fork %s set (to %d), but prior fork %s missing", bName, *b, aName)
+		}
+		if a != nil && b == nil {
+			return nil
+		}
+		if *a > *b {
+			return fmt.Errorf("fork %s set to %d, but prior fork %s has higher offset %d", bName, *b, aName, *a)
+		}
+		return nil
+	}
+	if err := checkFork(d.L2GenesisRegolithTimeOffset, d.L2GenesisCanyonTimeOffset, "regolith", "canyon"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisCanyonTimeOffset, d.L2GenesisDeltaTimeOffset, "canyon", "delta"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisDeltaTimeOffset, d.L2GenesisEcotoneTimeOffset, "delta", "ecotone"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisEcotoneTimeOffset, d.L2GenesisFjordTimeOffset, "ecotone", "fjord"); err != nil {
+		return err
+	}
 
 	// [Kroma: START]
 	if d.ValidatorRewardScalar == 0 {
@@ -459,34 +504,6 @@ func (d *DeployConfig) Check() error {
 	}
 	// [Kroma: END]
 
-	// checkFork checks that fork A is before or at the same time as fork B
-	checkFork := func(a, b *hexutil.Uint64, aName, bName string) error {
-		if a == nil && b == nil {
-			return nil
-		}
-		if a == nil && b != nil {
-			return fmt.Errorf("fork %s set (to %d), but prior fork %s missing", bName, *b, aName)
-		}
-		if a != nil && b == nil {
-			return nil
-		}
-		if *a > *b {
-			return fmt.Errorf("fork %s set to %d, but prior fork %s has higher offset %d", bName, *b, aName, *a)
-		}
-		return nil
-	}
-	if err := checkFork(d.L2GenesisRegolithTimeOffset, d.L2GenesisCanyonTimeOffset, "regolith", "canyon"); err != nil {
-		return err
-	}
-	if err := checkFork(d.L2GenesisCanyonTimeOffset, d.L2GenesisDeltaTimeOffset, "canyon", "delta"); err != nil {
-		return err
-	}
-	if err := checkFork(d.L2GenesisDeltaTimeOffset, d.L2GenesisEcotoneTimeOffset, "delta", "ecotone"); err != nil {
-		return err
-	}
-	if err := checkFork(d.L2GenesisEcotoneTimeOffset, d.L2GenesisFjordTimeOffset, "ecotone", "fjord"); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -524,60 +541,6 @@ func (d *DeployConfig) SetDeployments(deployments *L1Deployments) {
 	// [Kroma: START]
 	d.ValidatorPoolProxy = deployments.ValidatorPoolProxy
 	// [Kroma: END]
-}
-
-// GetDeployedAddresses will get the deployed addresses of deployed L1 contracts
-// required for the L2 genesis creation.
-func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
-	if d.L1StandardBridgeProxy == (common.Address{}) {
-		l1StandardBridgeProxyDeployment, err := hh.GetDeployment("L1StandardBridgeProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find L1StandardBridgeProxy artifact: %w", err)
-		}
-		d.L1StandardBridgeProxy = l1StandardBridgeProxyDeployment.Address
-	}
-
-	if d.L1CrossDomainMessengerProxy == (common.Address{}) {
-		l1CrossDomainMessengerProxyDeployment, err := hh.GetDeployment("L1CrossDomainMessengerProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find L1CrossDomainMessengerProxy artifact: %w", err)
-		}
-		d.L1CrossDomainMessengerProxy = l1CrossDomainMessengerProxyDeployment.Address
-	}
-
-	if d.L1ERC721BridgeProxy == (common.Address{}) {
-		l1ERC721BridgeProxyDeployment, err := hh.GetDeployment("L1ERC721BridgeProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find L1ERC721BridgeProxy artifact: %w", err)
-		}
-		d.L1ERC721BridgeProxy = l1ERC721BridgeProxyDeployment.Address
-	}
-
-	if d.SystemConfigProxy == (common.Address{}) {
-		systemConfigProxyDeployment, err := hh.GetDeployment("SystemConfigProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find SystemConfigProxy artifact: %w", err)
-		}
-		d.SystemConfigProxy = systemConfigProxyDeployment.Address
-	}
-
-	if d.KromaPortalProxy == (common.Address{}) {
-		kromaPortalProxyDeployment, err := hh.GetDeployment("KromaPortalProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find KromaPortalProxy artifact: %w", err)
-		}
-		d.KromaPortalProxy = kromaPortalProxyDeployment.Address
-	}
-
-	if d.ValidatorPoolProxy == (common.Address{}) {
-		validatorPoolProxyDeployment, err := hh.GetDeployment("ValidatorPoolProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find ValidatorPoolProxy artifact: %w", err)
-		}
-		d.ValidatorPoolProxy = validatorPoolProxyDeployment.Address
-	}
-
-	return nil
 }
 
 func (d *DeployConfig) GovernanceEnabled() bool {
@@ -728,12 +691,12 @@ func NewDeployConfigWithNetwork(network, path string) (*DeployConfig, error) {
 
 // L1Deployments represents a set of L1 contracts that are deployed.
 type L1Deployments struct {
-	// [Kroma: START]
-	// AddressManager common.Address `json:"AddressManager"`
-	// BlockOracle                       common.Address `json:"BlockOracle"`
-	// DisputeGameFactory                common.Address `json:"DisputeGameFactory"`
-	// DisputeGameFactoryProxy           common.Address `json:"DisputeGameFactoryProxy"`
-	// [Kroma: END]
+	/* [Kroma: START]
+	AddressManager common.Address `json:"AddressManager"`
+	BlockOracle                       common.Address `json:"BlockOracle"`
+	DisputeGameFactory                common.Address `json:"DisputeGameFactory"`
+	DisputeGameFactoryProxy           common.Address `json:"DisputeGameFactoryProxy"`
+	[Kroma: END] */
 	L1CrossDomainMessenger         common.Address `json:"L1CrossDomainMessenger"`
 	L1CrossDomainMessengerProxy    common.Address `json:"L1CrossDomainMessengerProxy"`
 	L1ERC721Bridge                 common.Address `json:"L1ERC721Bridge"`
@@ -749,10 +712,10 @@ type L1Deployments struct {
 	ProxyAdmin                     common.Address `json:"ProxyAdmin"`
 	SystemConfig                   common.Address `json:"SystemConfig"`
 	SystemConfigProxy              common.Address `json:"SystemConfigProxy"`
-	// [Kroma: START]
-	// ProtocolVersions                  common.Address `json:"ProtocolVersions"`
-	// ProtocolVersionsProxy             common.Address `json:"ProtocolVersionsProxy"`
-	// [Kroma: END]
+	/* [Kroma: START]
+	ProtocolVersions                  common.Address `json:"ProtocolVersions"`
+	ProtocolVersionsProxy             common.Address `json:"ProtocolVersionsProxy"`
+	[Kroma: END] */
 	DataAvailabilityChallenge      common.Address `json:"DataAvailabilityChallenge"`
 	DataAvailabilityChallengeProxy common.Address `json:"DataAvailabilityChallengeProxy"`
 
@@ -936,31 +899,39 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 
 	cfg := immutables.PredeploysImmutableConfig{
 		L2ToL1MessagePasser: struct{}{},
-		// [Kroma: START]
-		// DeployerWhitelist:   struct{}{},
-		// [Kroma: END]
+		/* [Kroma: START]
+		DeployerWhitelist:   struct{}{},
+		[Kroma: END] */
 		WETH9: struct{}{},
+		// [Kroma: START]
 		L2CrossDomainMessenger: struct{ OtherMessenger common.Address }{
 			OtherMessenger: config.L1CrossDomainMessengerProxy,
 		},
 		L2StandardBridge: struct {
 			OtherBridge common.Address
-			// [Kroma: START]
-			// Messenger   common.Address
-			// [Kroma: END]
 		}{
 			OtherBridge: config.L1StandardBridgeProxy,
-			// [Kroma: START]
-			// Messenger:   predeploys.L2CrossDomainMessengerAddr,
-			// [Kroma: END]
 		},
+		// [Kroma: END]
+		/* [Kroma: START]
+		SequencerFeeVault: struct {
+			Recipient           common.Address
+			MinWithdrawalAmount *big.Int
+			WithdrawalNetwork   uint8
+		}{
+			Recipient:           config.SequencerFeeVaultRecipient,
+			MinWithdrawalAmount: (*big.Int)(config.SequencerFeeVaultMinimumWithdrawalAmount),
+			WithdrawalNetwork:   config.SequencerFeeVaultWithdrawalNetwork.ToUint8(),
+		},
+		[Kroma: END] */
 		L1BlockNumber:   struct{}{},
 		GasPriceOracle:  struct{}{},
 		L1Block:         struct{}{},
 		GovernanceToken: struct{}{},
+		/* [Kroma: START]
+		LegacyMessagePasser: struct{}{},
+		[Kroma: END] */
 		// [Kroma: START]
-		// LegacyMessagePasser: struct{}{},
-		// [Kroma: END]
 		L2ERC721Bridge: struct {
 			OtherBridge common.Address
 			Messenger   common.Address
@@ -980,7 +951,9 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		}{
 			Bridge: predeploys.L2StandardBridgeAddr,
 		},
+		// [Kroma: END]
 		ProxyAdmin: struct{}{},
+		// [Kroma: START]
 		ProtocolVault: struct {
 			Recipient common.Address
 		}{
@@ -991,16 +964,16 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		}{
 			Recipient: config.L1FeeVaultRecipient,
 		},
-		// [Kroma: START]
-		// SchemaRegistry: struct{}{},
-		// EAS: struct {
-		// 	Name string
-		// }{
-		// 	Name: "EAS",
-		// },
 		// [Kroma: END]
+		/* [Kroma: START]
+		SchemaRegistry: struct{}{},
+		EAS: struct {
+			Name string
+		}{
+			Name: "EAS",
+		},
+		[Kroma: END] */
 		Create2Deployer: struct{}{},
-
 		// [Kroma: START]
 		ValidatorRewardVault: struct {
 			ValidatorPoolAddress common.Address
@@ -1038,16 +1011,16 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"xDomainMsgSender": "0x000000000000000000000000000000000000dEaD",
 		"msgNonce":         0,
 	}
-	// [Kroma: START]
-	// storage["L2StandardBridge"] = state.StorageValues{
-	// 	"_initialized":  1,
-	// 	"_initializing": false,
-	// }
-	// storage["L2ERC721Bridge"] = state.StorageValues{
-	// 	"_initialized":  1,
-	// 	"_initializing": false,
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	storage["L2StandardBridge"] = state.StorageValues{
+		"_initialized":  1,
+		"_initializing": false,
+	}
+	storage["L2ERC721Bridge"] = state.StorageValues{
+		"_initialized":  1,
+		"_initializing": false,
+	}
+	[Kroma: END] */
 	storage["L1Block"] = state.StorageValues{
 		"number":                block.Number(),
 		"timestamp":             block.Time(),
@@ -1059,12 +1032,12 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"l1FeeScalar":           config.GasPriceOracleScalar,
 		"validatorRewardScalar": config.ValidatorRewardScalar,
 	}
-	// [Kroma: START]
-	// storage["LegacyERC20ETH"] = state.StorageValues{
-	// 	"_name":   "Ether",
-	// 	"_symbol": "ETH",
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	storage["LegacyERC20ETH"] = state.StorageValues{
+		"_name":   "Ether",
+		"_symbol": "ETH",
+	}
+	[Kroma: END] */
 	storage["WETH9"] = state.StorageValues{
 		"name":     "Wrapped Ether",
 		"symbol":   "WETH",

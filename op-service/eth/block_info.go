@@ -93,14 +93,6 @@ var _ BlockInfo = (*blockInfo)(nil)
 // BlockInfo.
 type headerBlockInfo struct{ header *types.Header }
 
-func (h headerBlockInfo) Hash() common.Hash {
-	return h.header.Hash()
-}
-
-func (h headerBlockInfo) Header() *types.Header {
-	return h.header
-}
-
 func (h headerBlockInfo) ParentHash() common.Hash {
 	return h.header.ParentHash
 }
@@ -157,6 +149,13 @@ func (h headerBlockInfo) HeaderRLP() ([]byte, error) {
 }
 
 // [Kroma: START]
+func (h headerBlockInfo) Hash() common.Hash {
+	return h.header.Hash()
+}
+
+func (h headerBlockInfo) Header() *types.Header {
+	return h.header
+}
 
 func (h headerBlockInfo) TxHash() common.Hash {
 	return h.header.TxHash

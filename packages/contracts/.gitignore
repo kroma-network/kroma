@@ -27,7 +27,6 @@ deployments/*/.deploy
 deployments/1337
 deployments/devnetL1
 
-
 # Devnet config which changes with each 'make devnet-up'
 deploy-config/devnetL1.json
 

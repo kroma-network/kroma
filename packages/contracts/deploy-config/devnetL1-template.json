@@ -34,8 +34,8 @@
   "l1GenesisBlockTimestamp": "0x64c811bf",
   "l2GenesisRegolithTimeOffset": "0x0",
   "l2GenesisCanyonTimeOffset": "0x0",
-  "l2GenesisDeltaTimeOffset": "0x0",
-  "l2GenesisEcotoneTimeOffset": "0x0",
+  "l2GenesisDeltaTimeOffset": null,
+  "l2GenesisEcotoneTimeOffset": null,
   "systemConfigStartBlock": 0,
 
   "validatorRewardScalar": 5000,

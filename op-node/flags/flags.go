@@ -11,7 +11,6 @@ import (
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
-
 	"github.com/urfave/cli/v2"
 )
 
@@ -349,17 +348,23 @@ var (
 		Category: SequencerCategory,
 	}
 	ConductorRpcFlag = &cli.StringFlag{
-		Name:     "conductor.rpc",
-		Usage:    "Conductor service rpc endpoint",
-		EnvVars:  prefixEnvVars("CONDUCTOR_RPC"),
-		Value:    "http://127.0.0.1:8547",
+		Name:    "conductor.rpc",
+		Usage:   "Conductor service rpc endpoint",
+		EnvVars: prefixEnvVars("CONDUCTOR_RPC"),
+		Value:   "http://127.0.0.1:8547",
+		// [Kroma: START]
+		Hidden: true,
+		// [Kroma: END]
 		Category: SequencerCategory,
 	}
 	ConductorRpcTimeoutFlag = &cli.DurationFlag{
-		Name:     "conductor.rpc-timeout",
-		Usage:    "Conductor service rpc timeout",
-		EnvVars:  prefixEnvVars("CONDUCTOR_RPC_TIMEOUT"),
-		Value:    time.Second * 1,
+		Name:    "conductor.rpc-timeout",
+		Usage:   "Conductor service rpc timeout",
+		EnvVars: prefixEnvVars("CONDUCTOR_RPC_TIMEOUT"),
+		Value:   time.Second * 1,
+		// [Kroma: START]
+		Hidden: true,
+		// [Kroma: END]
 		Category: SequencerCategory,
 	}
 )

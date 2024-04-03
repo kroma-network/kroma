@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	plasma "github.com/ethereum-optimism/optimism/op-plasma"
-	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 

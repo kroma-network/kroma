@@ -7,7 +7,6 @@ import { CommonTest } from "./CommonTest.t.sol";
 // Libraries
 import { Encoding } from "../libraries/Encoding.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
-
 import { GasPriceOracle } from "../L2/GasPriceOracle.sol";
 import { L1Block } from "../L2/L1Block.sol";
 
@@ -104,25 +103,25 @@ contract GasPriceOracleBedrock_Test is GasPriceOracle_Test {
         assertEq(gasPriceOracle.DECIMALS(), 6);
     }
 
-    // [Kroma: START]
-    //    /// @dev Tests that `setGasPrice` reverts since it was removed in bedrock.
-    //    function test_setGasPrice_doesNotExist_reverts() external {
-    //        (bool success, bytes memory returndata) =
-    //            address(gasPriceOracle).call(abi.encodeWithSignature("setGasPrice(uint256)", 1));
-    //
-    //        assertEq(success, false);
-    //        assertEq(returndata, hex"");
-    //    }
-    //
-    //    /// @dev Tests that `setL1BaseFee` reverts since it was removed in bedrock.
-    //    function test_setL1BaseFee_doesNotExist_reverts() external {
-    //        (bool success, bytes memory returndata) =
-    //            address(gasPriceOracle).call(abi.encodeWithSignature("setL1BaseFee(uint256)", 1));
-    //
-    //        assertEq(success, false);
-    //        assertEq(returndata, hex"");
-    //    }
-    // [Kroma: END]
+    /* [Kroma: START]
+    /// @dev Tests that `setGasPrice` reverts since it was removed in bedrock.
+    function test_setGasPrice_doesNotExist_reverts() external {
+        (bool success, bytes memory returndata) =
+            address(gasPriceOracle).call(abi.encodeWithSignature("setGasPrice(uint256)", 1));
+
+        assertEq(success, false);
+        assertEq(returndata, hex"");
+    }
+
+    /// @dev Tests that `setL1BaseFee` reverts since it was removed in bedrock.
+    function test_setL1BaseFee_doesNotExist_reverts() external {
+        (bool success, bytes memory returndata) =
+            address(gasPriceOracle).call(abi.encodeWithSignature("setL1BaseFee(uint256)", 1));
+
+        assertEq(success, false);
+        assertEq(returndata, hex"");
+    }
+    [Kroma: END] */
 }
 
 contract GasPriceOracleEcotone_Test is GasPriceOracle_Test {

@@ -74,6 +74,7 @@ func setupPredeploy(db vm.StateDB, deployResults immutables.DeploymentResults, s
 		log.Info("Setting deployed bytecode with immutables", "name", name, "address", implAddr)
 		db.SetCode(implAddr, bytecode)
 	} else {
+		// [Kroma: START]
 		// Search Kroma bindings first, and if not exist, search OP bindings additionally.
 		depBytecode, err := kromabindings.GetDeployedBytecode(name)
 		if err != nil {
@@ -82,6 +83,7 @@ func setupPredeploy(db vm.StateDB, deployResults immutables.DeploymentResults, s
 				return err
 			}
 		}
+		// [Kroma: END]
 		log.Info("Setting deployed bytecode from solc compiler output", "name", name, "address", implAddr)
 		db.SetCode(implAddr, depBytecode)
 	}

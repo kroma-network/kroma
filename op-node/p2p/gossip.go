@@ -75,7 +75,7 @@ func blocksTopicV2(cfg *rollup.Config) string {
 }
 
 func blocksTopicV3(cfg *rollup.Config) string {
-	return fmt.Sprintf("/optimism/%s/2/blocks", cfg.L2ChainID.String())
+	return fmt.Sprintf("/kroma/%s/2/blocks", cfg.L2ChainID.String())
 }
 
 // BuildSubscriptionFilter builds a simple subscription filter,

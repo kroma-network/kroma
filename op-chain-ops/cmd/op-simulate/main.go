@@ -169,22 +169,22 @@ func fetchPrestate(ctx context.Context, cl *rpc.Client, dir string, txHash commo
 }
 
 func fetchChainConfig(ctx context.Context, cl *rpc.Client) (*params.ChainConfig, error) {
-	// [Kroma: START]
-	//// first try the chain-ID RPC, this is widely available on any RPC provider.
-	//var idResult hexutil.Big
-	//if err := cl.CallContext(ctx, &idResult, "eth_chainId"); err != nil {
-	//	return nil, fmt.Errorf("failed to retrieve chain ID: %w", err)
-	//}
-	//// if we recognize the chain ID, we can get the chain config
-	//id := (*big.Int)(&idResult)
-	//if id.IsUint64() {
-	//	cfg, err := params.LoadOPStackChainConfig(id.Uint64())
-	//	if err == nil {
-	//		return cfg, nil
-	//	}
-	//	// ignore error, try to fetch chain config in full
-	//}
-	// [Kroma: END]
+	/* [Kroma: START]
+	// first try the chain-ID RPC, this is widely available on any RPC provider.
+	var idResult hexutil.Big
+	if err := cl.CallContext(ctx, &idResult, "eth_chainId"); err != nil {
+		return nil, fmt.Errorf("failed to retrieve chain ID: %w", err)
+	}
+	// if we recognize the chain ID, we can get the chain config
+	id := (*big.Int)(&idResult)
+	if id.IsUint64() {
+		cfg, err := params.LoadOPStackChainConfig(id.Uint64())
+		if err == nil {
+			return cfg, nil
+		}
+		// ignore error, try to fetch chain config in full
+	}
+	[Kroma: END] */
 
 	// if not already recognized, then fetch the chain config manually
 	var config params.ChainConfig

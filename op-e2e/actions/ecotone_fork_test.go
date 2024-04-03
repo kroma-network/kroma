@@ -14,8 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
-	//"github.com/ethereum-optimism/optimism/op-bindings/bindings"
-	//"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -25,7 +23,7 @@ import (
 )
 
 var (
-	l1BlockCodeHash        = common.HexToHash("0x18fc22e60c9fc3d6a26e9b5c3e4c4e333f7646157e0d59cc18f4da0d43b84227")
+	l1BlockCodeHash        = common.HexToHash("0x05851a002bafc13ab11b912409078d705bdb21b765066ee5e3f91a443de31e21")
 	gasPriceOracleCodeHash = common.HexToHash("0x7782df49fc01fd0cf7000d724e120d0f96b90d14a5991ff88a0ca9742d3dc65b")
 )
 
@@ -41,7 +39,6 @@ func verifyCodeHashMatches(t Testing, client *ethclient.Client, address common.A
 	return code
 }
 
-// TODO
 func TestEcotoneNetworkUpgradeTransactions(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)

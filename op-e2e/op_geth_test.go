@@ -7,9 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -20,6 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 // TestMissingGasLimit tests that op-geth cannot build a block without gas limit while optimism is active in the chain config.
@@ -90,9 +91,9 @@ func TestInvalidDepositInFCU(t *testing.T) {
 		To:    &fromAddr, // send it to ourselves
 		Value: big.NewInt(params.Ether),
 		Gas:   25000,
-		// [Kroma: START]
-		// IsSystemTransaction: false,
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: false,
+		[Kroma: END] */
 	})
 
 	// We are inserting a block with an invalid deposit.
@@ -262,9 +263,9 @@ func TestPreregolith(t *testing.T) {
 				To:    &fromAddr, // send it to ourselves
 				Value: big.NewInt(params.Ether),
 				Gas:   25000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			envelope, err := opGeth.AddL2Block(ctx, depositTx)
@@ -309,9 +310,9 @@ func TestPreregolith(t *testing.T) {
 				To:    &fromAddr,
 				Value: big.NewInt(0),
 				Gas:   21_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Contract creation deposit tx
@@ -320,9 +321,9 @@ func TestPreregolith(t *testing.T) {
 				Value: big.NewInt(params.Ether),
 				Gas:   1000001,
 				Data:  []byte{},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, incrementNonceTx, contractCreateTx)
@@ -372,9 +373,9 @@ func TestPreregolith(t *testing.T) {
 				Value: big.NewInt(params.Ether),
 				// SystemTx is assigned 1M gas limit
 				Gas: uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			signer := types.LatestSigner(opGeth.L2ChainConfig)
@@ -409,9 +410,9 @@ func TestPreregolith(t *testing.T) {
 
 			rollupCfg := rollup.Config{}
 			systemTx, err := derive.L1InfoDeposit(&rollupCfg, opGeth.SystemConfig, 1, opGeth.L1Head, 0)
-			// [Kroma: START]
-			// systemTx.IsSystemTransaction = true
-			// [Kroma: END]
+			/* [Kroma: START]
+			systemTx.IsSystemTransaction = true
+			[Kroma: END] */
 			require.NoError(t, err)
 
 			_, err = opGeth.AddL2Block(ctx, types.NewTx(systemTx))
@@ -461,9 +462,9 @@ func TestRegolith(t *testing.T) {
 				To:    &fromAddr, // send it to ourselves
 				Value: big.NewInt(params.Ether),
 				Gas:   25000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			envelope, err := opGeth.AddL2Block(ctx, depositTx)
@@ -511,9 +512,9 @@ func TestRegolith(t *testing.T) {
 				To:    &fromAddr,
 				Value: big.NewInt(0),
 				Gas:   21_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Contract creation deposit tx
@@ -522,9 +523,9 @@ func TestRegolith(t *testing.T) {
 				Value: big.NewInt(params.Ether),
 				Gas:   1000001,
 				Data:  []byte{},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, incrementNonceTx, contractCreateTx)
@@ -581,9 +582,9 @@ func TestRegolith(t *testing.T) {
 				Value: big.NewInt(params.Ether),
 				// SystemTx is assigned 1M gas limit
 				Gas: uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			signer := types.LatestSigner(opGeth.L2ChainConfig)
@@ -621,9 +622,9 @@ func TestRegolith(t *testing.T) {
 
 			rollupCfg := rollup.Config{}
 			systemTx, err := derive.L1InfoDeposit(&rollupCfg, opGeth.SystemConfig, 1, opGeth.L1Head, 0)
-			// [Kroma: START]
-			// systemTx.IsSystemTransaction = true
-			// [Kroma: END]
+			/* [Kroma: START]
+			systemTx.IsSystemTransaction = true
+			[Kroma: END] */
 			require.NoError(t, err)
 
 			_, err = opGeth.AddL2Block(ctx, types.NewTx(systemTx))
@@ -689,9 +690,9 @@ func TestRegolith(t *testing.T) {
 				Value: common.Big0,
 				Data:  deployData,
 				Gas:   1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Store a non-zero value
@@ -701,9 +702,9 @@ func TestRegolith(t *testing.T) {
 				Value: common.Big0,
 				Data:  []byte{0x06},
 				Gas:   1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Store a non-zero value
@@ -713,9 +714,9 @@ func TestRegolith(t *testing.T) {
 				Value: common.Big0,
 				Data:  []byte{0x00},
 				Gas:   1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Store a non-zero value again
@@ -726,9 +727,9 @@ func TestRegolith(t *testing.T) {
 				Value: common.Big0,
 				Data:  []byte{0x00},
 				Gas:   1_000_001,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, deployTx, storeTx, zeroTx, rezeroTx)
@@ -814,9 +815,9 @@ func TestPreCanyon(t *testing.T) {
 				Data: []byte{
 					byte(vm.PUSH0),
 				},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
@@ -890,9 +891,9 @@ func TestCanyon(t *testing.T) {
 				Data: []byte{
 					byte(vm.PUSH0),
 				},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
@@ -960,9 +961,9 @@ func TestPreEcotone(t *testing.T) {
 					byte(vm.PUSH2),
 					byte(vm.TSTORE),
 				},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, tstoreTxn)
@@ -1043,9 +1044,9 @@ func TestEcotone(t *testing.T) {
 					byte(vm.TSTORE),
 					byte(vm.PUSH0),
 				},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, tstoreTxn)

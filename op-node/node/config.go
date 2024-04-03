@@ -60,8 +60,8 @@ type Config struct {
 	Sync sync.Config
 
 	/* [Kroma: START]
-	To halt when detecting the node does not support a signaled protocol version
-	change of the given severity (major/minor/patch). Disabled if empty.
+	// To halt when detecting the node does not support a signaled protocol version
+	// change of the given severity (major/minor/patch). Disabled if empty.
 	RollupHalt string
 	[Kroma: END] */
 
@@ -162,22 +162,22 @@ func (cfg *Config) Check() error {
 			return fmt.Errorf("p2p config error: %w", err)
 		}
 	}
-	// [Kroma: START]
-	// if !(cfg.RollupHalt == "" || cfg.RollupHalt == "major" || cfg.RollupHalt == "minor" || cfg.RollupHalt == "patch") {
-	//	return fmt.Errorf("invalid rollup halting option: %q", cfg.RollupHalt)
-	// }
-	//
-	// if cfg.ConductorEnabled {
-	//	if state, _ := cfg.ConfigPersistence.SequencerState(); state != StateUnset {
-	//		return fmt.Errorf("config persistence must be disabled when conductor is enabled")
-	//	}
-	//	if !cfg.Driver.SequencerEnabled {
-	//		return fmt.Errorf("sequencer must be enabled when conductor is enabled")
-	//	}
-	//}
-	// [Kroma: END]
+	/* [Kroma: START]
+	if !(cfg.RollupHalt == "" || cfg.RollupHalt == "major" || cfg.RollupHalt == "minor" || cfg.RollupHalt == "patch") {
+		return fmt.Errorf("invalid rollup halting option: %q", cfg.RollupHalt)
+	}
+
+	if cfg.ConductorEnabled {
+		if state, _ := cfg.ConfigPersistence.SequencerState(); state != StateUnset {
+			return fmt.Errorf("config persistence must be disabled when conductor is enabled")
+		}
+		if !cfg.Driver.SequencerEnabled {
+			return fmt.Errorf("sequencer must be enabled when conductor is enabled")
+		}
+	}
 	if err := cfg.Plasma.Check(); err != nil {
 		return fmt.Errorf("plasma config error: %w", err)
 	}
+	[Kroma: END] */
 	return nil
 }

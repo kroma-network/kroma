@@ -63,10 +63,13 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	deployConfig.ChannelTimeout = tp.ChannelTimeout
 	deployConfig.L1BlockTime = tp.L1BlockTime
 	deployConfig.UsePlasma = tp.UsePlasma
-	ApplyDeployConfigForks(deployConfig)
 	// [Kroma: START]
+	//genesisTimeOffset := hexutil.Uint64(0)
+	//deployConfig.L2GenesisDeltaTimeOffset = &genesisTimeOffset
+	//deployConfig.L2GenesisEcotoneTimeOffset = &genesisTimeOffset
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
+	ApplyDeployConfigForks(deployConfig)
 
 	require.NoError(t, deployConfig.Check())
 	require.Equal(t, addresses.Batcher, deployConfig.BatchSenderAddress)

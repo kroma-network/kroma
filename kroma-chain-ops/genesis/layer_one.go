@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
@@ -14,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
@@ -91,7 +91,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployme
 		}
 
 		// [Kroma: START]
-		// This should only be used if we are expecting Optimism specific state to be set
+		// This should only be used if we are expecting Kroma specific state to be set
 		if err := PostProcessL1DeveloperGenesis(memDB, l1Deployments); err != nil {
 			return nil, fmt.Errorf("failed to post process L1 developer genesis: %w", err)
 		}

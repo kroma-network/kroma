@@ -29,6 +29,7 @@ type MockBlockInfo struct {
 	InfoGasUsed     uint64
 	InfoGasLimit    uint64
 	InfoHeaderRLP   []byte
+
 	InfoParentBeaconRoot *common.Hash
 	// [Kroma: START]
 	InfoTransactionsRoot common.Hash

@@ -4,20 +4,18 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 )
 
-// [Kroma: START]
-// func TestGethAddresses(t *testing.T) {
-// 	// We test if the addresses in geth match those in op-bindings, to avoid an import-cycle:
-// 	// we import geth in the monorepo, and do not want to import op-bindings into geth.
-// 	require.Equal(t, L1BlockAddr, types.L1BlockAddr)
-// }
-// [Kroma: END]
+func TestGethAddresses(t *testing.T) {
+	t.Skip("tested in kroma-bindings")
+	// We test if the addresses in geth match those in op-bindings, to avoid an import-cycle:
+	// we import geth in the monorepo, and do not want to import op-bindings into geth.
+	require.Equal(t, L1BlockAddr, types.L1BlockAddr)
+}
 
 func uintToHash(v uint) common.Hash {
 	return common.BigToHash(new(big.Int).SetUint64(uint64(v)))
@@ -26,6 +24,7 @@ func uintToHash(v uint) common.Hash {
 // TestL1BlockSlots ensures that the storage layout of the L1Block
 // contract matches the hardcoded values in `op-geth`.
 func TestL1BlockSlots(t *testing.T) {
+	t.Skip("tested in kroma-bindings")
 	layout, err := bindings.GetStorageLayout("L1Block")
 	require.NoError(t, err)
 

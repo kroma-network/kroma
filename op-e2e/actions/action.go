@@ -4,7 +4,6 @@ import (
 	"context"
 
 	op_e2e "github.com/ethereum-optimism/optimism/op-e2e"
-
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 )
 

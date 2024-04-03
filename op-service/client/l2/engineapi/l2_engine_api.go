@@ -226,7 +226,7 @@ func (ea *L2EngineAPI) ForkchoiceUpdatedV2(ctx context.Context, state *eth.Forkc
 	return ea.forkchoiceUpdated(ctx, state, attr)
 }
 
-// Ported from: https://github.com/ethereum-optimism/op-geth/blob/c50337a60a1309a0f1dca3bf33ed1bb38c46cdd7/eth/catalyst/api.go#L197C1-L205C1
+// Ported from: https://github.com/kroma-network/go-ethereum/blob/c50337a60a1309a0f1dca3bf33ed1bb38c46cdd7/eth/catalyst/api.go#L197C1-L205C1
 func (ea *L2EngineAPI) ForkchoiceUpdatedV3(ctx context.Context, state *eth.ForkchoiceState, attr *eth.PayloadAttributes) (*eth.ForkchoiceUpdatedResult, error) {
 	if attr != nil {
 		if err := ea.verifyPayloadAttributes(attr); err != nil {
@@ -236,7 +236,7 @@ func (ea *L2EngineAPI) ForkchoiceUpdatedV3(ctx context.Context, state *eth.Forkc
 	return ea.forkchoiceUpdated(ctx, state, attr)
 }
 
-// Ported from: https://github.com/ethereum-optimism/op-geth/blob/c50337a60a1309a0f1dca3bf33ed1bb38c46cdd7/eth/catalyst/api.go#L206-L218
+// Ported from: https://github.com/kroma-network/go-ethereum/blob/c50337a60a1309a0f1dca3bf33ed1bb38c46cdd7/eth/catalyst/api.go#L206-L218
 func (ea *L2EngineAPI) verifyPayloadAttributes(attr *eth.PayloadAttributes) error {
 	c := ea.config()
 
@@ -282,7 +282,7 @@ func (ea *L2EngineAPI) NewPayloadV2(ctx context.Context, payload *eth.ExecutionP
 	return ea.newPayload(ctx, payload, nil, nil)
 }
 
-// Ported from: https://github.com/ethereum-optimism/op-geth/blob/c50337a60a1309a0f1dca3bf33ed1bb38c46cdd7/eth/catalyst/api.go#L486C1-L507
+// Ported from: https://github.com/kroma-network/go-ethereum/blob/c50337a60a1309a0f1dca3bf33ed1bb38c46cdd7/eth/catalyst/api.go#L486C1-L507
 func (ea *L2EngineAPI) NewPayloadV3(ctx context.Context, params *eth.ExecutionPayload, versionedHashes []common.Hash, beaconRoot *common.Hash) (*eth.PayloadStatusV1, error) {
 	if params.ExcessBlobGas == nil {
 		return &eth.PayloadStatusV1{Status: eth.ExecutionInvalid}, engine.InvalidParams.With(errors.New("nil excessBlobGas post-cancun"))

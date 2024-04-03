@@ -1,8 +1,8 @@
 {
-  "$schema": "https://unpkg.com/@changesets/config@1.6.0/schema.json",
-  "changelog": "@changesets/cli/changelog",
+  "$schema": "https://unpkg.com/@changesets/config@2.3.0/schema.json",
+  "changelog": ["@changesets/changelog-github", { "repo": "kroma-network/kroma" }],
   "commit": false,
-  "linked": [],
+  "fixed": [],
   "access": "public",
   "baseBranch": "dev",
   "updateInternalDependencies": "patch",

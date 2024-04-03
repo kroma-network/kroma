@@ -18,9 +18,6 @@ artifacts
 cache
 bin
 
-packages/contracts-bedrock/deployments/devnetL1
-packages/contracts-bedrock/deployments/anvil
-
 # vim
 *.sw*
 

@@ -63,6 +63,25 @@ services:
       - "${PWD}/prysm-config.yml:/config.yml"
       - "${PWD}/test-jwt-secret.txt:/test-jwt-secret.txt"
 
+  validator:
+    image: "gcr.io/prysmaticlabs/prysm/validator:latest"
+    command:
+      - --beacon-rpc-provider=beacon-chain:4000
+      - --datadir=/db/validatordata
+      - --accept-terms-of-use
+      - --interop-num-validators=1
+      - --interop-start-index=0
+      - --chain-config-file=/config.yml
+      - --config-file=/config.yml
+      - --force-clear-db
+      - --verbosity=trace
+    depends_on:
+      beacon-chain:
+        condition: service_started
+    volumes:
+      - "l1_data:/db"
+      - "${PWD}/prysm-config.yml:/config.yml"
+
   l1:
     image: "ethereum/client-go:latest"
     entrypoint: "/bin/sh /entrypoint.sh"
@@ -85,25 +104,6 @@ services:
         condition: service_completed_successfully
       beacon-chain:
         condition: service_started
-
-  validator:
-    image: "gcr.io/prysmaticlabs/prysm/validator:latest"
-    command:
-      - --beacon-rpc-provider=beacon-chain:4000
-      - --datadir=/db/validatordata
-      - --accept-terms-of-use
-      - --interop-num-validators=1
-      - --interop-start-index=0
-      - --chain-config-file=/config.yml
-      - --config-file=/config.yml
-      - --force-clear-db
-      - --verbosity=trace
-    depends_on:
-      beacon-chain:
-        condition: service_started
-    volumes:
-      - "l1_data:/db"
-      - "${PWD}/prysm-config.yml:/config.yml"
 
   l2:
     pid: host # allow debugging
@@ -256,7 +256,6 @@ services:
       BATCHER_ROLLUP_RPC: http://kroma-node:8545
       BATCHER_MAX_L1_TX_SIZE_BYTES: 120000
       BATCHER_BATCH_TYPE: 1 # 0 for SingularBatch and 1 for SpanBatch
-      #BATCHER_TARGET_L1_TX_SIZE_BYTES: 624
       BATCHER_TARGET_NUM_FRAMES: 1
       BATCHER_APPROX_COMPR_RATIO: 1.0
       BATCHER_SUB_SAFETY_MARGIN: 6 # PWS is 15, ChannelTimeout is 40

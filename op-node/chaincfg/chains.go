@@ -44,9 +44,9 @@ var Mainnet = &rollup.Config{
 	EcotoneTime:            nil,
 	FjordTime:              nil,
 	InteropTime:            nil,
-	// [Kroma: START]
-	// ProtocolVersionsAddress: common.HexToAddress("0x8062AbC286f5e7D9428a0Ccb9AbD71e50d93b935"),
-	// [Kroma: END]
+	/* [Kroma: START]
+	ProtocolVersionsAddress: common.HexToAddress("0x8062AbC286f5e7D9428a0Ccb9AbD71e50d93b935"),
+	[Kroma: END] */
 }
 
 var Sepolia = &rollup.Config{
@@ -83,9 +83,9 @@ var Sepolia = &rollup.Config{
 	EcotoneTime:            nil,
 	FjordTime:              nil,
 	InteropTime:            nil,
-	// [Kroma: START]
-	// ProtocolVersionsAddress: common.HexToAddress("0x79ADD5713B383DAa0a138d3C4780C7A1804a8090"),
-	// [Kroma: END]
+	/* [Kroma: START]
+	ProtocolVersionsAddress: common.HexToAddress("0x79ADD5713B383DAa0a138d3C4780C7A1804a8090"),
+	[Kroma: END] */
 }
 
 var NetworksByName = map[string]*rollup.Config{

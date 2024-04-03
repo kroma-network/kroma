@@ -82,7 +82,7 @@ type OpNode struct {
 	closed atomic.Bool
 
 	/* [Kroma: START]
-	cancels execution prematurely, e.g. to halt. This may be nil.
+	// cancels execution prematurely, e.g. to halt. This may be nil.
 	cancel context.CancelCauseFunc
 	halted atomic.Bool
 	[Kroma: END] */

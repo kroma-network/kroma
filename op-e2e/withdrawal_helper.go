@@ -3,22 +3,23 @@ package op_e2e
 import (
 	"context"
 	"crypto/ecdsa"
-	"github.com/kroma-network/kroma/op-e2e/e2eutils/wait"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/stretchr/testify/require"
+	"github.com/kroma-network/kroma/op-e2e/e2eutils/wait"
 )
 
 type ClientProvider interface {

@@ -350,6 +350,7 @@ func (db *MemoryStateDB) Prepare(rules params.Rules, sender, coinbase common.Add
 	// no-op, no transient state to prepare, nor any access-list to set/prepare
 }
 
+// [Kroma: START]
 func (db *MemoryStateDB) GetRootHash() common.Hash {
 	panic("not implemented")
 }
@@ -369,3 +370,5 @@ func (db *MemoryStateDB) GetProofByHash(addrHash common.Hash) ([][]byte, error) 
 func (db *MemoryStateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, error) {
 	panic("not implemented")
 }
+
+// [Kroma: END]

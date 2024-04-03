@@ -51,13 +51,13 @@ type L1BlockInfo struct {
 	L1FeeOverhead eth.Bytes32 // ignored after Ecotone upgrade
 	L1FeeScalar   eth.Bytes32 // ignored after Ecotone upgrade
 
-	// [Kroma: START]
-	ValidatorRewardScalar eth.Bytes32
-	// [Kroma: END]
-
 	BlobBaseFee       *big.Int // added by Ecotone upgrade
 	BaseFeeScalar     uint32   // added by Ecotone upgrade
 	BlobBaseFeeScalar uint32   // added by Ecotone upgrade
+
+	// [Kroma: START]
+	ValidatorRewardScalar eth.Bytes32
+	// [Kroma: END]
 }
 
 // Bedrock Binary Format
@@ -300,7 +300,7 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 		}
 		l1BlockInfo.BlobBaseFeeScalar = blobBaseFeeScalar
 		l1BlockInfo.BaseFeeScalar = baseFeeScalar
-		l1BlockInfo.ValidatorRewardScalar = *new([32]byte)
+		l1BlockInfo.ValidatorRewardScalar = sysCfg.ValidatorRewardScalar
 		out, err := l1BlockInfo.marshalBinaryEcotone()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal Ecotone l1 block info: %w", err)

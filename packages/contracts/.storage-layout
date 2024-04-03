@@ -130,10 +130,13 @@
 | basefee               | uint256 | 1    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 | hash                  | bytes32 | 2    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 | sequenceNumber        | uint64  | 3    | 0      | 8     | contracts/L2/L1Block.sol:L1Block |
+| blobBaseFeeScalar     | uint32  | 3    | 8      | 4     | contracts/L2/L1Block.sol:L1Block |
+| baseFeeScalar         | uint32  | 3    | 12     | 4     | contracts/L2/L1Block.sol:L1Block |
 | batcherHash           | bytes32 | 4    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 | l1FeeOverhead         | uint256 | 5    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 | l1FeeScalar           | uint256 | 6    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 | validatorRewardScalar | uint256 | 7    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
+| blobBaseFee           | uint256 | 8    | 0      | 32    | contracts/L2/L1Block.sol:L1Block |
 
 =======================
 ➡ contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger

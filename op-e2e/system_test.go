@@ -10,22 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	gethutils "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-node/metrics"
-	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
-	"github.com/ethereum-optimism/optimism/op-node/p2p"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
-	"github.com/ethereum-optimism/optimism/op-service/client"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/oppprof"
-	"github.com/ethereum-optimism/optimism/op-service/retry"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,6 +27,22 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	gethutils "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-node/metrics"
+	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
+	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/oppprof"
+	"github.com/ethereum-optimism/optimism/op-service/retry"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	val "github.com/kroma-network/kroma/kroma-validator"
@@ -1225,7 +1225,6 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	ethPrivKey := cfg.Secrets.Alice
 	fromAddr := crypto.PubkeyToAddress(ethPrivKey.PublicKey)
 
-	// TODO : check history(commented)
 	// require.NotEqual(t, cfg.DeployConfig.L2OutputOracleProposer, fromAddr)
 	require.NotEqual(t, cfg.DeployConfig.BatchSenderAddress, fromAddr)
 
@@ -1248,7 +1247,7 @@ func testFees(t *testing.T, cfg SystemConfig) {
 		require.ErrorContains(t, err, "deprecated")
 	}
 
-	decimals, err := gpoContract.DECIMALS(&bind.CallOpts{})
+	decimals, err := gpoContract.Decimals(&bind.CallOpts{})
 	require.Nil(t, err, "reading gpo decimals")
 
 	require.Equal(t, decimals.Uint64(), uint64(6), "wrong gpo decimals")

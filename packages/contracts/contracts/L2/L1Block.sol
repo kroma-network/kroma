@@ -103,15 +103,15 @@ contract L1Block is ISemver {
     /// @notice Updates the L1 block values for an Ecotone upgraded chain.
     /// Params are packed and passed in as raw msg.data instead of ABI to reduce calldata size.
     /// Params are expected to be in the following order:
-    ///   1.  _baseFeeScalar         L1 base fee scalar
-    ///   2.  _blobBaseFeeScalar     L1 blob base fee scalar
-    ///   3.  _sequenceNumber        Number of L2 blocks since epoch start.
-    ///   4.  _timestamp             L1 timestamp.
-    ///   5.  _number                L1 blocknumber.
-    ///   6.  _basefee               L1 base fee.
-    ///   7.  _blobBaseFee           L1 blob base fee.
-    ///   8.  _hash                  L1 blockhash.
-    ///   9.  _batcherHash           Versioned hash to authenticate batcher by.
+    ///   1. _baseFeeScalar         L1 base fee scalar
+    ///   2. _blobBaseFeeScalar     L1 blob base fee scalar
+    ///   3. _sequenceNumber        Number of L2 blocks since epoch start.
+    ///   4. _timestamp             L1 timestamp.
+    ///   5. _number                L1 blocknumber.
+    ///   6. _basefee               L1 base fee.
+    ///   7. _blobBaseFee           L1 blob base fee.
+    ///   8. _hash                  L1 blockhash.
+    ///   9. _batcherHash           Versioned hash to authenticate batcher by.
     ///   10. _validatorRewardScalar Validator reward scalar.
     function setL1BlockValuesEcotone() external {
         assembly {
@@ -122,6 +122,10 @@ contract L1Block is ISemver {
             }
             let data := calldataload(4)
             // sequencenum (uint64), blobBaseFeeScalar (uint32), baseFeeScalar (uint32)
+            // [Kroma: START]
+            sstore(l1FeeOverhead.slot, 0)
+            sstore(l1FeeScalar.slot, 0)
+            // [Kroma: END]
             sstore(sequenceNumber.slot, shr(128, calldataload(4)))
             // number (uint64) and timestamp (uint64)
             sstore(number.slot, shr(128, calldataload(20)))

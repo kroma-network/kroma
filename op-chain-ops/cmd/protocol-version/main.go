@@ -86,61 +86,61 @@ func main() {
 	}
 }
 
-// [Kroma: START]
-// func encodeProtocolVersion(ctx *cli.Context) error {
-// 	u32Flag := func(name string) (uint32, error) {
-// 		v := ctx.Uint64(name)
-// 		if v >= uint64(1<<32) {
-// 			return 0, fmt.Errorf("value of flag %q must be valid uint32, %d (0x%x)", name, v, v)
-// 		}
-// 		return uint32(v), nil
-// 	}
-// 	major, err := u32Flag(MajorFlag.Name)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	minor, err := u32Flag(MinorFlag.Name)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	patch, err := u32Flag(PatchFlag.Name)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	prerelease, err := u32Flag(PrereleaseFlag.Name)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	buildVal := ctx.String(BuildFlag.Name)
-// 	if len(buildVal) != 16 {
-// 		return fmt.Errorf("build flag value must be 16 characters")
-// 	}
-// 	var build [8]byte
-// 	if _, err := hex.Decode(build[:], []byte(buildVal)); err != nil {
-// 		return fmt.Errorf("failed to decode build flag: %q", buildVal)
-// 	}
-//
-// 	version := params.ProtocolVersionV0{
-// 		Build:      build,
-// 		Major:      major,
-// 		Minor:      minor,
-// 		Patch:      patch,
-// 		PreRelease: prerelease,
-// 	}.Encode()
-// 	_, err = fmt.Fprintln(ctx.App.Writer, common.Hash(version).String())
-// 	return err
-// }
-//
-// func decodeProtocolVersion(ctx *cli.Context) error {
-// 	if ctx.NArg() != 1 {
-// 		return fmt.Errorf("expected 1 argument: protocol version")
-// 	}
-// 	hexVersion := ctx.Args().Get(0)
-// 	var v params.ProtocolVersion
-// 	if err := v.UnmarshalText([]byte(hexVersion)); err != nil {
-// 		return fmt.Errorf("failed to decode protocol version: %w", err)
-// 	}
-// 	_, err := fmt.Fprintln(ctx.App.Writer, v.String())
-// 	return err
-// }
-// [Kroma: START]
+/* [Kroma: START]
+func encodeProtocolVersion(ctx *cli.Context) error {
+	u32Flag := func(name string) (uint32, error) {
+		v := ctx.Uint64(name)
+		if v >= uint64(1<<32) {
+			return 0, fmt.Errorf("value of flag %q must be valid uint32, %d (0x%x)", name, v, v)
+		}
+		return uint32(v), nil
+	}
+	major, err := u32Flag(MajorFlag.Name)
+	if err != nil {
+		return err
+	}
+	minor, err := u32Flag(MinorFlag.Name)
+	if err != nil {
+		return err
+	}
+	patch, err := u32Flag(PatchFlag.Name)
+	if err != nil {
+		return err
+	}
+	prerelease, err := u32Flag(PrereleaseFlag.Name)
+	if err != nil {
+		return err
+	}
+	buildVal := ctx.String(BuildFlag.Name)
+	if len(buildVal) != 16 {
+		return fmt.Errorf("build flag value must be 16 characters")
+	}
+	var build [8]byte
+	if _, err := hex.Decode(build[:], []byte(buildVal)); err != nil {
+		return fmt.Errorf("failed to decode build flag: %q", buildVal)
+	}
+
+	version := params.ProtocolVersionV0{
+		Build:      build,
+		Major:      major,
+		Minor:      minor,
+		Patch:      patch,
+		PreRelease: prerelease,
+	}.Encode()
+	_, err = fmt.Fprintln(ctx.App.Writer, common.Hash(version).String())
+	return err
+}
+
+func decodeProtocolVersion(ctx *cli.Context) error {
+	if ctx.NArg() != 1 {
+		return fmt.Errorf("expected 1 argument: protocol version")
+	}
+	hexVersion := ctx.Args().Get(0)
+	var v params.ProtocolVersion
+	if err := v.UnmarshalText([]byte(hexVersion)); err != nil {
+		return fmt.Errorf("failed to decode protocol version: %w", err)
+	}
+	_, err := fmt.Fprintln(ctx.App.Writer, v.String())
+	return err
+}
+[Kroma: START] */

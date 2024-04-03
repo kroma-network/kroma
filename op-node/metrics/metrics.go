@@ -141,13 +141,13 @@ type Metrics struct {
 
 	ChannelInputBytes prometheus.Counter
 
-	// [Kroma: START]
+	/* [Kroma: START]
 	// Protocol version reporting
 	// Delta = params.ProtocolVersionComparison
-	// ProtocolVersionDelta *prometheus.GaugeVec
+	ProtocolVersionDelta *prometheus.GaugeVec
 	// ProtocolVersions is pseudo-metric to report the exact protocol version info
-	// ProtocolVersions *prometheus.GaugeVec
-	// [Kroma: END]
+	ProtocolVersions *prometheus.GaugeVec
+	[Kroma: END] */
 
 	registry *prometheus.Registry
 	factory  metrics.Factory

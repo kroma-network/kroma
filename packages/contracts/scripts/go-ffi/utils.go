@@ -108,9 +108,9 @@ func makeDepositTx(
 		From:       from,
 		Value:      value,
 		Gas:        gasLimit.Uint64(),
-		// [Kroma: START]
-		// IsSystemTransaction: false, // This will never be a system transaction in the tests.
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: false, // This will never be a system transaction in the tests.
+		[Kroma: END] */
 		Data: data,
 	}
 

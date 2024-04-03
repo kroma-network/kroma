@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/kroma-network/kroma/op-e2e/e2eutils/batcher"
 	"math/big"
 	"net"
 	"os"
@@ -68,6 +67,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 	validator "github.com/kroma-network/kroma/kroma-validator"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
+	"github.com/kroma-network/kroma/op-e2e/e2eutils/batcher"
 	"github.com/kroma-network/kroma/op-e2e/testdata"
 	"github.com/kroma-network/kroma/op-service/client"
 )
@@ -239,15 +239,15 @@ type SystemConfig struct {
 	// SupportL1TimeTravel determines if the L1 node supports quickly skipping forward in time
 	SupportL1TimeTravel bool
 
+	// MaxPendingTransactions determines how many transactions the batcher will try to send
+	// concurrently. 0 means unlimited.
+	MaxPendingTransactions uint64
+
 	// [Kroma: START]
 	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
 	EnableMaliciousValidator bool
 	EnableGuardian           bool
 	// [Kroma: END]
-
-	// MaxPendingTransactions determines how many transactions the batcher will try to send
-	// concurrently. 0 means unlimited.
-	MaxPendingTransactions uint64
 }
 
 type GethInstance struct {
@@ -1110,12 +1110,6 @@ func (cfg SystemConfig) SendTransferTx(l2Seq *ethclient.Client, l2Sync *ethclien
 	}
 
 	return receipt, nil
-}
-
-func uint642big(in uint64) *hexutil.Big {
-	b := new(big.Int).SetUint64(in)
-	hu := hexutil.Big(*b)
-	return &hu
 }
 
 func hexPriv(in *ecdsa.PrivateKey) string {

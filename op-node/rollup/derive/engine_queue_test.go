@@ -952,14 +952,14 @@ func TestBlockBuildingRace(t *testing.T) {
 
 	// Now allow the building to complete
 	a1InfoTx, err := L1InfoDepositBytes(cfg, cfg.Genesis.SystemConfig, refA1.SequenceNumber, &testutils.MockBlockInfo{
-		InfoHash:        refA.Hash,
-		InfoParentHash:  refA.ParentHash,
-		InfoCoinbase:    common.Address{},
-		InfoRoot:        common.Hash{},
-		InfoNum:         refA.Number,
-		InfoTime:        refA.Time,
-		InfoMixDigest:   [32]byte{},
-		InfoBaseFee:     big.NewInt(7),
+		InfoHash:             refA.Hash,
+		InfoParentHash:       refA.ParentHash,
+		InfoCoinbase:         common.Address{},
+		InfoRoot:             common.Hash{},
+		InfoNum:              refA.Number,
+		InfoTime:             refA.Time,
+		InfoMixDigest:        [32]byte{},
+		InfoBaseFee:          big.NewInt(7),
 		InfoTransactionsRoot: common.Hash{},
 		InfoReceiptRoot:      common.Hash{},
 		InfoWithdrawalsRoot:  nil,
@@ -1226,6 +1226,7 @@ func TestEngineQueue_StepPopOlderUnsafe(t *testing.T) {
 }
 
 func TestPlasmaFinalityData(t *testing.T) {
+	t.Skip("kroma does not support")
 	logger := testlog.Logger(t, log.LevelInfo)
 	eng := &testutils.MockEngine{}
 	l1F := &testutils.MockL1Source{}

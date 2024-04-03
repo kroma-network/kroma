@@ -36,6 +36,8 @@ else
 	echo "$GETH_CHAINDATA_DIR exists."
 fi
 
+# Warning: Archive mode is required, otherwise old trie nodes will be
+# pruned within minutes of starting the devnet.
 
 exec geth \
 	--datadir="$GETH_DATA_DIR" \

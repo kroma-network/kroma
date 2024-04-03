@@ -5,17 +5,11 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/kroma-chain-ops/crossdomain"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -27,9 +21,15 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	fuzz "github.com/google/gofuzz"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/kroma-chain-ops/crossdomain"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-service/testutils/fuzzerutils"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/stretchr/testify/require"
 )
 
 // TestGasPriceOracleFeeUpdates checks that the gas price oracle cannot be locked by mis-configuring parameters.
@@ -61,8 +61,6 @@ func TestGasPriceOracleFeeUpdates(t *testing.T) {
 	require.Nil(t, err)
 	gpoContract, err := bindings.NewGasPriceOracleCaller(predeploys.GasPriceOracleAddr, l2Seq)
 	require.Nil(t, err)
-	gogo, err := gpoContract.Overhead(&bind.CallOpts{})
-	log.Info("gg", gogo)
 
 	// Obtain our signer.
 	opts, err := bind.NewKeyedTransactorWithChainID(ethPrivKey, cfg.L1ChainIDBig())
@@ -688,12 +686,12 @@ func TestMixedWithdrawalValidity(t *testing.T) {
 				require.NoError(t, err, "prove withdrawal")
 
 				// Wait for finalization and then create the Finalized Withdrawal Transaction
-				// [Kroma: START]
 				ctx, withdrawalCancel := context.WithTimeout(context.Background(), 300*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 				defer withdrawalCancel()
-				// [Kroma: END]
+				// [Kroma: START]
 				err = wait.ForFinalizationPeriod(ctx, l1Client, header.Number, cfg.L1Deployments.L2OutputOracleProxy)
 				require.NoError(t, err)
+				// [Kroma: END]
 
 				// Finalize withdrawal
 				_, err = depositContract.FinalizeWithdrawalTransaction(

@@ -55,7 +55,6 @@
   "eip1559Elasticity": 2,
   "systemConfigStartBlock": 0,
   "fundDevAccounts": true,
-  "usePlasma": false,
   "daChallengeProxy": "0x0000000000000000000000000000000000000000",
 
   "validatorRewardScalar": 5000,

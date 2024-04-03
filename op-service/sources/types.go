@@ -87,9 +87,7 @@ func (h headerInfo) GasUsed() uint64 {
 }
 
 func (h headerInfo) GasLimit() uint64 {
-	// [Kroma: START]
 	return h.header.GasLimit
-	// [Kroma: END]
 }
 
 func (h headerInfo) ParentBeaconRoot() *common.Hash {
@@ -100,6 +98,7 @@ func (h headerInfo) HeaderRLP() ([]byte, error) {
 	return rlp.EncodeToBytes(h.header)
 }
 
+// [Kroma: START]
 func (h headerInfo) ID() eth.BlockID {
 	return eth.BlockID{Hash: h.header.Hash(), Number: h.header.Number.Uint64()}
 }
@@ -111,8 +110,6 @@ func (h headerInfo) TxHash() common.Hash {
 func (h headerInfo) WithdrawalsHash() *common.Hash {
 	return h.header.WithdrawalsHash
 }
-
-// [Kroma: START]
 
 func (h headerInfo) Bloom() types.Bloom {
 	return h.header.Bloom

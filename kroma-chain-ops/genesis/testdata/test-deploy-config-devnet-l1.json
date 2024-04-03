@@ -26,8 +26,6 @@
 
   "deploymentWaitConfirmations": 1,
   "fundDevAccounts": true,
-  "UsePlasma": false,
-  "daChallengeProxy": "0x0000000000000000000000000000000000000000",
 
   "enableGovernance": true,
   "governanceTokenSymbol": "KRO",

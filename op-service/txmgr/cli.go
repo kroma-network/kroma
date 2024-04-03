@@ -86,18 +86,18 @@ var (
 		ReceiptQueryInterval:      12 * time.Second,
 		TxBufferSize:              uint64(10),
 	}
-	// [Kroma: START]
-	// DefaultChallengerFlagValues = DefaultFlagValues{
-	// NumConfirmations:          uint64(3),
-	// SafeAbortNonceTooLowCount: uint64(3),
-	// FeeLimitMultiplier:        uint64(5),
-	// ResubmissionTimeout:       24 * time.Second,
-	// NetworkTimeout:            10 * time.Second,
-	// TxSendTimeout:             2 * time.Minute,
-	// TxNotInMempoolTimeout:     1 * time.Minute,
-	// ReceiptQueryInterval:      12 * time.Second,
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	DefaultChallengerFlagValues = DefaultFlagValues{
+		NumConfirmations:          uint64(3),
+		SafeAbortNonceTooLowCount: uint64(3),
+		FeeLimitMultiplier:        uint64(5),
+		ResubmissionTimeout:       24 * time.Second,
+		NetworkTimeout:            10 * time.Second,
+		TxSendTimeout:             2 * time.Minute,
+		TxNotInMempoolTimeout:     1 * time.Minute,
+		ReceiptQueryInterval:      12 * time.Second,
+	}
+	[Kroma: END] */
 )
 
 func CLIFlags(envPrefix string) []cli.Flag {

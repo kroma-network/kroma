@@ -3,7 +3,6 @@ package derive
 import (
 	"bytes"
 	"fmt"
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/ethereum-optimism/optimism/op-service/solabi"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
@@ -51,11 +51,11 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		To:         nil,
 		Mint:       big.NewInt(0),
 		Value:      big.NewInt(0),
-		Gas:        500_000,
-		/* [Kroma: START]
-		IsSystemTransaction: false,
-		[Kroma: END] */
-		Data: l1BlockDeploymentBytecode,
+		Data:       l1BlockDeploymentBytecode,
+		// [Kroma: START]
+		Gas: 500_000,
+		//IsSystemTransaction: false,
+		// [Kroma: END]
 	}).MarshalBinary()
 
 	if err != nil {

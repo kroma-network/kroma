@@ -86,11 +86,6 @@ func ProveWithdrawalParametersForBlock(
 	if err != nil {
 		return ProvenWithdrawalParameters{}, err
 	}
-	slot := StorageSlotOfWithdrawalHash(withdrawalHash)
-	p, err := proofCl.GetProof(ctx, predeploys.L2ToL1MessagePasserAddr, []string{slot.String()}, l2BlockNumber)
-	if err != nil {
-		return ProvenWithdrawalParameters{}, err
-	}
 
 	// Fetch the block from the L2 node
 	l2Block, err := l2BlockCl.BlockByNumber(ctx, l2BlockNumber)
@@ -104,12 +99,18 @@ func ProveWithdrawalParametersForBlock(
 		return ProvenWithdrawalParameters{}, fmt.Errorf("failed to get next l2Block: %w", err)
 	}
 
-	err = VerifyProof(l2Block.Root(), p)
+	slot := StorageSlotOfWithdrawalHash(withdrawalHash)
+	p, err := proofCl.GetProof(ctx, predeploys.L2ToL1MessagePasserAddr, []string{slot.String()}, l2BlockNumber)
 	if err != nil {
 		return ProvenWithdrawalParameters{}, err
 	}
 	if len(p.StorageProof) != 1 {
 		return ProvenWithdrawalParameters{}, errors.New("invalid amount of storage proofs")
+	}
+
+	err = VerifyProof(l2Block.Root(), p)
+	if err != nil {
+		return ProvenWithdrawalParameters{}, err
 	}
 
 	// Encode it as expected by the contract

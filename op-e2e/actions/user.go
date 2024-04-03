@@ -4,6 +4,9 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math/big"
+	"math/rand"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,21 +16,19 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"math/rand"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	e2e "github.com/kroma-network/kroma/op-e2e"
 )
 
 type L1Bindings struct {
 	// contract bindings
 	KromaPortal    *bindings.KromaPortal
 	L2OutputOracle *bindings.L2OutputOracle
-
 	/* [Kroma: START]
 	OptimismPortal2    *bindingspreview.OptimismPortal2
 	DisputeGameFactory *bindings.DisputeGameFactory
@@ -437,7 +438,7 @@ func (s *CrossLayerUser) getLatestWithdrawalParams(t Testing) (*withdrawals.Prov
 	// We generate a proof for the latest L2 output, which shouldn't require archive-node data if it's recent enough.
 	header, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), l2OutputBlockNr)
 	require.NoError(t, err)
-	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
+	params, err := e2e.ProveWithdrawalParameters(t.Ctx(), s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
 	require.NoError(t, err)
 
 	return &params, nil

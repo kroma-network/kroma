@@ -316,18 +316,20 @@ func (m *SimpleTxManager) craftTx(ctx context.Context, candidate TxCandidate) (*
 		}
 		txMessage = message
 	} else {
-		// TODO: If we apply the accessList manually, it's hard to predict and react to other issues,
-		// such as gas prices, due to subsequent code modifications.
-		// To avoid this, we need to add logic to calculate the accessList automatically using `eth_createAccessList`.
 		txMessage = &types.DynamicFeeTx{
-			ChainID:    m.chainID,
-			To:         candidate.To,
-			GasTipCap:  gasTipCap,
-			GasFeeCap:  gasFeeCap,
-			Value:      candidate.Value,
-			Data:       candidate.TxData,
+			ChainID:   m.chainID,
+			To:        candidate.To,
+			GasTipCap: gasTipCap,
+			GasFeeCap: gasFeeCap,
+			Value:     candidate.Value,
+			Data:      candidate.TxData,
+			Gas:       gasLimit,
+			// [Kroma: START]
+			// TODO: If we apply the accessList manually, it's hard to predict and react to other issues,
+			// such as gas prices, due to subsequent code modifications.
+			// To avoid this, we need to add logic to calculate the accessList automatically using `eth_createAccessList`.
 			AccessList: candidate.AccessList,
-			Gas:        gasLimit,
+			// [Kroma: END]
 		}
 	}
 	return m.signWithNextNonce(ctx, txMessage) // signer sets the nonce field of the tx
@@ -721,6 +723,9 @@ func (m *SimpleTxManager) increaseGasPrice(ctx context.Context, tx *types.Transa
 			Value:     tx.Value(),
 			Data:      tx.Data(),
 			Gas:       gas,
+			// [Kroma: START]
+			AccessList: tx.AccessList(),
+			// [Kroma: END]
 		})
 	}
 

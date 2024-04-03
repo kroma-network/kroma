@@ -22,9 +22,9 @@ import (
 // the superchain-registry is no longer deemed experimental.
 func TestGetRollupConfig(t *testing.T) {
 	configsByName := map[string]rollup.Config{
-		// [Kroma: START]
-		// "goerli":  goerliCfg,
-		// [Kroma: END]
+		/* [Kroma: START]
+		"goerli":  goerliCfg,
+		[Kroma: END] */
 		"mainnet": mainnetCfg,
 		"sepolia": sepoliaCfg,
 	}
@@ -71,9 +71,9 @@ var mainnetCfg = rollup.Config{
 	EcotoneTime:            nil,
 	FjordTime:              nil,
 	InteropTime:            nil,
-	// [Kroma: START]
-	// ProtocolVersionsAddress: common.HexToAddress("0x8062AbC286f5e7D9428a0Ccb9AbD71e50d93b935"),
-	// [Kroma: END]
+	/* [Kroma: START]
+	ProtocolVersionsAddress: common.HexToAddress("0x8062AbC286f5e7D9428a0Ccb9AbD71e50d93b935"),
+	[Kroma: END] */
 }
 
 var sepoliaCfg = rollup.Config{
@@ -110,7 +110,7 @@ var sepoliaCfg = rollup.Config{
 	EcotoneTime:            nil,
 	FjordTime:              nil,
 	InteropTime:            nil,
-	// [Kroma: START]
-	// ProtocolVersionsAddress: common.HexToAddress("0x79ADD5713B383DAa0a138d3C4780C7A1804a8090"),
-	// [Kroma: END]
+	/* [Kroma: START]
+	ProtocolVersionsAddress: common.HexToAddress("0x79ADD5713B383DAa0a138d3C4780C7A1804a8090"),
+	[Kroma: END] */
 }
