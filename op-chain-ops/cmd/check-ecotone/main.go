@@ -135,7 +135,7 @@ var (
 		Name:    "rollup",
 		Usage:   "L2 rollup-node RPC endpoint",
 		EnvVars: op_service.PrefixEnvVar(prefix, "ROLLUP"),
-		Value:   "http://localhost:5545",
+		Value:   "http://localhost:7545",
 	}
 	AccountKey = &cli.StringFlag{
 		Name:    "account",
@@ -212,7 +212,9 @@ func conditionalCode(data []byte) []byte {
 		// success case
 		byte(vm.JUMPDEST),
 		byte(vm.CALLER),
+		/* [Kroma: START]
 		byte(vm.SELFDESTRUCT),
+		[Kroma: END] */
 		byte(vm.STOP),
 	}
 	binary.BigEndian.PutUint32(suffix[1:5], uint32(len(data))+9)

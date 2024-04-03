@@ -230,7 +230,7 @@ def devnet_deploy(paths):
         ], cwd=paths.op_node_dir)
 
     log.info('Starting L1.')
-    run_command(['docker', 'compose', 'up', '-d', 'l1'], cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', 'up', '-d', 'l1', 'validator'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir
     })
     wait_up(8545)

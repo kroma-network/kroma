@@ -30,13 +30,12 @@ if [ ! -d "$GETH_CHAINDATA_DIR" ]; then
 	echo "Initializing genesis."
 	geth --verbosity="$VERBOSITY" init \
 		--datadir="$GETH_DATA_DIR" \
+		--state.scheme=hash \
 		"$GENESIS_FILE_PATH"
 else
 	echo "$GETH_CHAINDATA_DIR exists."
 fi
 
-# Warning: Archive mode is required, otherwise old trie nodes will be
-# pruned within minutes of starting the devnet.
 
 exec geth \
 	--datadir="$GETH_DATA_DIR" \
@@ -57,8 +56,6 @@ exec geth \
 	--maxpeers=1 \
 	--networkid="$CHAIN_ID" \
 	--unlock="$BLOCK_SIGNER_ADDRESS" \
-	--mine \
-	--miner.etherbase="$BLOCK_SIGNER_ADDRESS" \
 	--password="$GETH_DATA_DIR"/password \
 	--allow-insecure-unlock \
 	--authrpc.addr="0.0.0.0" \
@@ -66,4 +63,5 @@ exec geth \
 	--authrpc.vhosts="*" \
 	--authrpc.jwtsecret=/config/jwt-secret.txt \
 	--gcmode=archive \
+	--state.scheme=hash \
 	"$@"

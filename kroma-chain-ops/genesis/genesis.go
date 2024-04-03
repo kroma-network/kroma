@@ -160,6 +160,9 @@ func NewL1Genesis(config *DeployConfig) (*core.Genesis, error) {
 		chainConfig.TerminalTotalDifficultyPassed = true
 		chainConfig.ShanghaiTime = u64ptr(0)
 		chainConfig.CancunTime = u64ptr(0)
+		// put empty extraData for prysm
+		// https://github.com/prysmaticlabs/prysm/blob/develop/runtime/interop/premine-state.go#L543
+		extraData = make([]byte, 32)
 	}
 
 	gasLimit := config.L1GenesisBlockGasLimit

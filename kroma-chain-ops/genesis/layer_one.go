@@ -3,11 +3,11 @@ package genesis
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/math"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
 	gstate "github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 var (
@@ -187,6 +188,10 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 		stateDB.SetState(deployments.SecurityCouncilTokenProxy, slot, val)
 		log.Info("Post process update", "name", "SecurityCouncilToken", "address", deployments.SecurityCouncilTokenProxy, "slot", slot.Hex(), "beforeVal", beforeVal.Hex(), "afterVal", val.Hex())
 	}
+
+	//setup beacon deposit contract
+	log.Info("Set BeaconDepositContractCode")
+	stateDB.SetCode(predeploys.BeaconDepositContractAddr, predeploys.BeaconDepositContractCode)
 	return nil
 }
 
