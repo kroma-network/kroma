@@ -1,6 +1,6 @@
 # 2024-03-12 Chain Halt due to ZKTrie Upgrade Post-Mortem
 
-# Incident Summary
+# Incident summary
 
 On March 12, 2024, at 15:16:25 UTC, a fork occurred at block number [8171899](https://kromascan.com/block/8171899).
 
