@@ -122,10 +122,6 @@ contract L1Block is ISemver {
             }
             let data := calldataload(4)
             // sequencenum (uint64), blobBaseFeeScalar (uint32), baseFeeScalar (uint32)
-            // [Kroma: START]
-            sstore(l1FeeOverhead.slot, 0)
-            sstore(l1FeeScalar.slot, 0)
-            // [Kroma: END]
             sstore(sequenceNumber.slot, shr(128, calldataload(4)))
             // number (uint64) and timestamp (uint64)
             sstore(number.slot, shr(128, calldataload(20)))
