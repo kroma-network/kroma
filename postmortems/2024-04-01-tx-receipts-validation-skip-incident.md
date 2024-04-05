@@ -2,7 +2,7 @@
 
 # Incident Summary
 
-On April 1, 2024, at 02:51:15 UTC, a fork occurred at block number [9029744](https://kromascan.com/block/9029744).
+On April 1, 2024, at 02:51:15 UTC, a wrong block was generated at block number [9029744](https://kromascan.com/block/9029744).
 
 Some nodes ignored the batch due to a hash discrepancy in that block compared to the block hash of the sequencer. This 
 discrepancy was caused due to that the sequencer omitted a deposited transaction from L1.
@@ -25,7 +25,8 @@ RPC node that fell behind it had not yet synced, resulting in empty transaction 
 Actually, the block in question did contain [deposited transaction](https://kromascan.com/tx/0xf76e4f34645bc3e172909fb03311cd1770f9c574ce46bd1da3644f9cea82c0e3)
 on L1, yet the sequencer proceeded to generate the block without processing this transaction, having received empty 
 transaction receipts from the trusted L1 RPC. As a consequence, starting from block 9029744, a different block was 
-generated, leading to a fork. This is the transaction not included in the block sequencer generated.
+generated, leading to a generation of wrong block. This is the transaction not included in the block sequencer 
+generated.
 
 # Recovery
 
@@ -34,10 +35,10 @@ transactions from block 9029744 to generate the block correctly.
 
 ## Timeline (UTC)
 
-- 2024-04-01 0251: fork occurred at 9029744
+- 2024-04-01 0251: wrong block generated at 9029744
 - 2024-04-01 0258: notified that block generation was halted by Wemade
 - 2024-04-01 0357: stop sequencer and RPC nodes
-- 2024-04-01 0358: announced fork occurrence on discord, twitter, and other partners
+- 2024-04-01 0358: announced incident occurrence on discord, twitter, and other partners
 - 2024-04-01 0453: restarted a sequencer with backup snapshot
 - 2024-04-01 0611: recovery of Kroma mainnet (RPC, P2P, validator) completed
 - 2024-04-01 0618: announced the recovery of Kroma mainnet on partners
@@ -57,4 +58,4 @@ trusted source. It will be turned off to allow all Kroma nodes to validate trans
 ## Enhancement of monitoring system
 
 We are going to strengthen the monitoring system by establishing a system to monitor blocks from trust partners, 
-enabling swift detection of forks and improving our ability to respond to incidents.
+enabling swift detection of incidents and improving our ability to respond to incidents.
