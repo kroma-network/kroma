@@ -66,6 +66,9 @@ library Types {
         bytes32 stateRoot;
         bytes32 withdrawalsRoot;
         bytes32[] txHashes;
+        uint64 blobGasUsed;
+        uint64 excessBlobGas;
+        bytes32 parentBeaconRoot;
     }
 
     /**

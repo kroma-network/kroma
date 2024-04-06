@@ -228,6 +228,27 @@ library Hashing {
     }
 
     /**
+     * @notice Hashes the various elements of a block header into a block hash(after Cancun).
+     *
+     * @param _publicInput Public input which should be hashed to a block hash.
+     * @param _rlps        Pre-RLP encoded data which should be hashed to a block hash.
+     *
+     * @return Hashed block header.
+     */
+    function hashBlockHeaderCancun(
+        Types.PublicInput memory _publicInput,
+        Types.BlockHeaderRLP memory _rlps
+    ) internal pure returns (bytes32) {
+        bytes[] memory raw = new bytes[](20);
+        _fillBlockHashFieldsToBytes(_publicInput, _rlps, raw);
+        raw[16] = RLPWriter.writeBytes(abi.encodePacked(_publicInput.withdrawalsRoot));
+        raw[17] = RLPWriter.writeUint(_publicInput.blobGasUsed);
+        raw[18] = RLPWriter.writeUint(_publicInput.excessBlobGas);
+        raw[19] = RLPWriter.writeBytes(abi.encodePacked(_publicInput.parentBeaconRoot));
+        return keccak256(RLPWriter.writeList(raw));
+    }
+
+    /**
      * @notice Hashes the various elements of a public input into a public input hash.
      *
      * @param _prevStateRoot Previous state root.
