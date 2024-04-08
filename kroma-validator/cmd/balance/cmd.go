@@ -2,6 +2,7 @@ package balance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -16,7 +17,7 @@ import (
 )
 
 func Deposit(ctx *cli.Context) error {
-	depositAmount := ctx.Uint64("amount")
+	amount := ctx.String("amount")
 
 	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
 	if err != nil {
@@ -28,7 +29,7 @@ func Deposit(ctx *cli.Context) error {
 		return fmt.Errorf("failed to create deposit transaction data: %w", err)
 	}
 
-	if err = sendTransaction(ctx, txData, depositAmount); err != nil {
+	if err = sendTransaction(ctx, txData, amount); err != nil {
 		return err
 	}
 
@@ -36,19 +37,24 @@ func Deposit(ctx *cli.Context) error {
 }
 
 func Withdraw(ctx *cli.Context) error {
-	withdrawAmount := ctx.Uint64("amount")
+	amount := ctx.String("amount")
+
+	withdrawAmount, success := new(big.Int).SetString(amount, 10)
+	if !success {
+		return errors.New("failed to parse withdraw amount")
+	}
 
 	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
 	if err != nil {
 		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
 	}
 
-	txData, err := valpoolABI.Pack("withdraw", new(big.Int).SetUint64(withdrawAmount))
+	txData, err := valpoolABI.Pack("withdraw", withdrawAmount)
 	if err != nil {
 		return fmt.Errorf("failed to create withdraw transaction data: %w", err)
 	}
 
-	if err = sendTransaction(ctx, txData, 0); err != nil {
+	if err = sendTransaction(ctx, txData, "0"); err != nil {
 		return err
 	}
 
@@ -66,14 +72,14 @@ func Unbond(ctx *cli.Context) error {
 		return fmt.Errorf("failed to create unbond transaction data: %w", err)
 	}
 
-	if err = sendTransaction(ctx, txData, 0); err != nil {
+	if err = sendTransaction(ctx, txData, "0"); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func sendTransaction(ctx *cli.Context, txData []byte, txValue uint64) error {
+func sendTransaction(ctx *cli.Context, txData []byte, txValue string) error {
 	txMgrConfig := txmgr.ReadCLIConfig(ctx)
 	txManager, err := txmgr.NewSimpleTxManager("validator-balance", log.New(), &metrics.NoopTxMetrics{}, txMgrConfig)
 	if err != nil {
@@ -85,11 +91,16 @@ func sendTransaction(ctx *cli.Context, txData []byte, txValue uint64) error {
 		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
 	}
 
+	value, success := new(big.Int).SetString(txValue, 10)
+	if !success {
+		return errors.New("failed to parse tx value")
+	}
+
 	txCandidate := txmgr.TxCandidate{
 		TxData:   txData,
 		To:       &valpoolAddr,
 		GasLimit: 0,
-		Value:    new(big.Int).SetUint64(txValue),
+		Value:    value,
 	}
 
 	_, err = txManager.Send(context.Background(), txCandidate)

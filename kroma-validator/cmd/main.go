@@ -34,7 +34,7 @@ func main() {
 			Name:  "deposit",
 			Usage: "Deposit ETH into ValidatorPool to be used as bond",
 			Flags: []cli.Flag{
-				&cli.Uint64Flag{
+				&cli.StringFlag{
 					Name:     "amount",
 					Usage:    "Amount to deposit into ValidatorPool (in wei)",
 					Required: true,
@@ -46,7 +46,7 @@ func main() {
 			Name:  "withdraw",
 			Usage: "Withdraw ETH from ValidatorPool",
 			Flags: []cli.Flag{
-				&cli.Uint64Flag{
+				&cli.StringFlag{
 					Name:     "amount",
 					Usage:    "Amount to withdraw from ValidatorPool (in wei)",
 					Required: true,
