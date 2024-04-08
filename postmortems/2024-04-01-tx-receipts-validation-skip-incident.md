@@ -1,4 +1,4 @@
-# 2024-04-03 Chain Halt due to tx receipts validation skip
+# 2024-04-01 Chain Halt due to Transaction Receipts Validation Skip Post-Mortem
 
 # Incident Summary
 
@@ -25,8 +25,9 @@ RPC node that fell behind it had not yet synced, resulting in empty transaction 
 Actually, the block in question did contain [deposited transaction](https://kromascan.com/tx/0xf76e4f34645bc3e172909fb03311cd1770f9c574ce46bd1da3644f9cea82c0e3)
 on L1, yet the sequencer proceeded to generate the block without processing this transaction, having received empty 
 transaction receipts from the trusted L1 RPC. As a consequence, starting from block 9029744, a different block was 
-generated, leading to a generation of wrong block. This is the transaction not included in the block sequencer 
-generated.
+generated, leading to a generation of wrong block. 
+[This](https://kromascan.com/tx/0xf76e4f34645bc3e172909fb03311cd1770f9c574ce46bd1da3644f9cea82c0e3) is the transaction 
+not included in the block sequencer generated.
 
 # Recovery
 
