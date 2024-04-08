@@ -1,8 +1,8 @@
 # 2024-03-12 Chain Halt due to ZKTrie Upgrade Post-Mortem
 
-# Incident Summary
+# Incident summary
 
-On March 12, 2024, at 15:16:25 UTC, a fork occurred at block number [8171899](https://kromascan.com/block/8171899).
+On March 12, 2024, at 15:16:25 UTC, a wrong block was generated at block number [8171899](https://kromascan.com/block/8171899).
 
 Some nodes encountered a `BAD BLOCK` error due to a hash discrepancy in that block compared to the block hash of the 
 sequencer. This discrepancy was caused by a bug introduced in `KromaZKTrie` in kroma-geth 
@@ -33,7 +33,7 @@ mistakenly set as the root node, altering the state tree and resulting in a diff
 
 This issue is first discovered when executing a specific transaction. As a result of execution of the 
 [transaction](https://kromascan.com/tx/0x50580775422fee57c8ec78dce4a3598e2246c12d7a73756f874dd117bed0ad72), the 
-structure of the tree changed, leading to the calculation of different state roots and thus causing a fork with 
+structure of the tree changed, leading to the calculation of different state roots and thus causing wrong block with 
 different block hashes.
 
 # Recovery
@@ -44,10 +44,10 @@ continue generating correct blocks.
 
 ## Timeline (UTC)
 
-- 2024-03-12 0616: fork occurred at 8171899
+- 2024-03-12 0616: wrong block generated at 8171899
 - 2024-03-12 0619: received alerts from some RPC nodes about discrepancies of latest block
-- 2024-03-12 0620: started investigating the fork
-- 2024-03-12 0649: announced fork occurrence on discord
+- 2024-03-12 0620: started investigating the incident
+- 2024-03-12 0649: announced incident occurrence on discord
 - 2024-03-12 0814: requested canonical chain snapshot data from Wemade
 - 2024-03-12 0907: announced rollback of Kroma mainnet on discord
 - 2024-03-12 0942: set up a new sequencer using the snapshot data provided by Wemade
