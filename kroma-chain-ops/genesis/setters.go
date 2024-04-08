@@ -8,10 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
+	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	opstate "github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	kromabindings "github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 
 	"github.com/kroma-network/kroma/kroma-chain-ops/state"
 )
@@ -32,7 +33,7 @@ func FundDevAccounts(db vm.StateDB) {
 }
 
 func setProxies(db vm.StateDB, proxyAdminAddr common.Address, namespace *big.Int, count uint64) error {
-	depBytecode, err := bindings.GetDeployedBytecode("Proxy")
+	depBytecode, err := kromabindings.GetDeployedBytecode("Proxy")
 	if err != nil {
 		return err
 	}
@@ -73,10 +74,16 @@ func setupPredeploy(db vm.StateDB, deployResults immutables.DeploymentResults, s
 		log.Info("Setting deployed bytecode with immutables", "name", name, "address", implAddr)
 		db.SetCode(implAddr, bytecode)
 	} else {
-		depBytecode, err := bindings.GetDeployedBytecode(name)
+		// [Kroma: START]
+		// Search Kroma bindings first, and if not exist, search OP bindings additionally.
+		depBytecode, err := kromabindings.GetDeployedBytecode(name)
 		if err != nil {
-			return err
+			depBytecode, err = opbindings.GetDeployedBytecode(name)
+			if err != nil {
+				return err
+			}
 		}
+		// [Kroma: END]
 		log.Info("Setting deployed bytecode from solc compiler output", "name", name, "address", implAddr)
 		db.SetCode(implAddr, depBytecode)
 	}

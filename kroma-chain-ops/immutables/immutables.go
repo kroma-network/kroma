@@ -11,9 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/deployer"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/deployer"
 )
 
 // PredeploysImmutableConfig represents the set of L2 predeploys. It includes all
@@ -22,26 +22,27 @@ import (
 // fields are in the same order as the constructor arguments in the solidity code.
 type PredeploysImmutableConfig struct {
 	L2ToL1MessagePasser struct{}
-	// [Kroma: START]
-	// DeployerWhitelist      struct{}
-	// [Kroma: END]
+	/* [Kroma: START]
+	DeployerWhitelist      struct{}
+	[Kroma: END] */
 	WETH9                  struct{}
 	L2CrossDomainMessenger struct {
-		OtherMessenger common.Address
-	}
-	L2StandardBridge struct {
-		OtherBridge common.Address
 		// [Kroma: START]
-		// Messenger   common.Address
+		OtherMessenger common.Address
 		// [Kroma: END]
 	}
-	// [Kroma: START]
-	// SequencerFeeVault struct {
-	// 	Recipient           common.Address
-	// 	MinWithdrawalAmount *big.Int
-	// 	WithdrawalNetwork   uint8
-	// }
-	// [Kroma: END]
+	L2StandardBridge struct {
+		// [Kroma: START]
+		OtherBridge common.Address
+		// [Kroma: END]
+	}
+	/* [Kroma: START]
+	SequencerFeeVault struct {
+		Recipient           common.Address
+		MinWithdrawalAmount *big.Int
+		WithdrawalNetwork   uint8
+	}
+	[Kroma: END] */
 	KromaMintableERC20Factory struct {
 		Bridge common.Address
 	}
@@ -49,9 +50,9 @@ type PredeploysImmutableConfig struct {
 	GasPriceOracle  struct{}
 	L1Block         struct{}
 	GovernanceToken struct{}
-	// [Kroma: START]
-	// LegacyMessagePasser struct{}
-	// [Kroma: END]
+	/* [Kroma: START]
+	LegacyMessagePasser struct{}
+	[Kroma: END] */
 	L2ERC721Bridge struct {
 		OtherBridge common.Address
 		Messenger   common.Address
@@ -60,28 +61,32 @@ type PredeploysImmutableConfig struct {
 		Bridge        common.Address
 		RemoteChainId *big.Int
 	}
-	ProxyAdmin    struct{}
+	ProxyAdmin struct{}
+	// [Kroma: START]
 	ProtocolVault struct {
 		Recipient common.Address
-		// [Kroma: START]
-		// MinWithdrawalAmount *big.Int
-		// WithdrawalNetwork   uint8
-		// [Kroma: END]
 	}
 	L1FeeVault struct {
 		Recipient common.Address
-		// [Kroma: START]
-		// MinWithdrawalAmount *big.Int
-		// WithdrawalNetwork   uint8
-		// [Kroma: END]
 	}
-	// [Kroma: START]
-	// SchemaRegistry struct{}
-	// EAS            struct {
-	// 	Name string
-	// }
 	// [Kroma: END]
-	Create2Deployer struct{}
+	/* [Kroma: START]
+	SchemaRegistry struct{}
+	EAS            struct {
+		Name string
+	}
+	[Kroma: END] */
+	Create2Deployer              struct{}
+	MultiCall3                   struct{}
+	Safe_v130                    struct{}
+	SafeL2_v130                  struct{}
+	MultiSendCallOnly_v130       struct{}
+	SafeSingletonFactory         struct{}
+	DeterministicDeploymentProxy struct{}
+	MultiSend_v130               struct{}
+	Permit2                      struct{}
+	SenderCreator                struct{}
+	EntryPoint                   struct{}
 
 	// [Kroma: START]
 	ValidatorRewardVault struct {
@@ -184,7 +189,11 @@ func Deploy(config *PredeploysImmutableConfig) (DeploymentResults, error) {
 // can be properly set. The bytecode returned in the results is suitable to be
 // inserted into the state via state surgery.
 func deployContractsWithImmutables(constructors []deployer.Constructor) (DeploymentResults, error) {
-	deployments, err := deployer.Deploy(deployer.NewL2Backend(), constructors, l2ImmutableDeployer)
+	backend, err := deployer.NewL2Backend()
+	if err != nil {
+		return nil, err
+	}
+	deployments, err := deployer.Deploy(backend, constructors, l2ImmutableDeployer)
 	if err != nil {
 		return nil, err
 	}
@@ -201,10 +210,10 @@ func deployContractsWithImmutables(constructors []deployer.Constructor) (Deploym
 func l2ImmutableDeployer(backend *backends.SimulatedBackend, opts *bind.TransactOpts, deployment deployer.Constructor) (*types.Transaction, error) {
 	var tx *types.Transaction
 	var recipient common.Address
-	// [Kroma: START]
-	// var minimumWithdrawalAmount *big.Int
-	// var withdrawalNetwork uint8
-	// [Kroma: END]
+	/* [Kroma: START]
+	var minimumWithdrawalAmount *big.Int
+	var withdrawalNetwork uint8
+	[Kroma: END] */
 	var err error
 
 	if has, err := bindings.HasImmutableReferences(deployment.Name); err != nil || !has {
@@ -224,9 +233,6 @@ func l2ImmutableDeployer(backend *backends.SimulatedBackend, opts *bind.Transact
 			return nil, fmt.Errorf("invalid type for otherBridge")
 		}
 		_, tx, _, err = bindings.DeployL2StandardBridge(opts, backend, otherBridge)
-	case "L2ToL1MessagePasser":
-		// No arguments required for L2ToL1MessagePasser
-		_, tx, _, err = bindings.DeployL2ToL1MessagePasser(opts, backend)
 	case "ValidatorRewardVault":
 		validatorPoolAddress, ok := deployment.Args[0].(common.Address)
 		if !ok {
@@ -250,14 +256,22 @@ func l2ImmutableDeployer(backend *backends.SimulatedBackend, opts *bind.Transact
 		}
 		_, tx, _, err = bindings.DeployL1FeeVault(opts, backend, recipient)
 	case "KromaMintableERC20Factory":
-		_, tx, _, err = bindings.DeployKromaMintableERC20Factory(opts, backend, predeploys.L2StandardBridgeAddr)
+		bridge, ok := deployment.Args[0].(common.Address)
+		if !ok {
+			return nil, fmt.Errorf("invalid type for bridge")
+		}
+		// Sanity check that the argument is correct
+		if bridge != predeploys.L2StandardBridgeAddr {
+			return nil, fmt.Errorf("invalid bridge address")
+		}
+		_, tx, _, err = bindings.DeployKromaMintableERC20Factory(opts, backend, bridge)
 	case "L2ERC721Bridge":
 		// TODO(tynes): messenger should be hardcoded in the contract
 		messenger, ok := deployment.Args[0].(common.Address)
 		if !ok {
 			return nil, fmt.Errorf("invalid type for messenger")
 		}
-		otherBridge, ok := deployment.Args[0].(common.Address)
+		otherBridge, ok := deployment.Args[1].(common.Address)
 		if !ok {
 			return nil, fmt.Errorf("invalid type for otherBridge")
 		}
@@ -272,10 +286,10 @@ func l2ImmutableDeployer(backend *backends.SimulatedBackend, opts *bind.Transact
 			return nil, fmt.Errorf("invalid type for remoteChainId")
 		}
 		_, tx, _, err = bindings.DeployKromaMintableERC721Factory(opts, backend, bridge, remoteChainId)
-	// [Kroma: START]
-	// case "EAS":
-	// 	_, tx, _, err = bindings.DeployEAS(opts, backend)
-	// [Kroma: END]
+	/* [Kroma: START]
+	case "EAS":
+		_, tx, _, err = bindings.DeployEAS(opts, backend)
+	[Kroma: END] */
 	default:
 		return tx, fmt.Errorf("unknown contract: %s", deployment.Name)
 	}
@@ -289,16 +303,16 @@ func prepareFeeVaultArguments(deployment deployer.Constructor) (common.Address, 
 	if !ok {
 		return common.Address{}, nil, 0, fmt.Errorf("invalid type for recipient")
 	}
-	// [Kroma: START]
-	// minimumWithdrawalAmountHex, ok := deployment.Args[1].(*big.Int)
-	// if !ok {
-	// 	return common.Address{}, nil, 0, fmt.Errorf("invalid type for minimumWithdrawalAmount")
-	// }
-	// withdrawalNetwork, ok := deployment.Args[2].(uint8)
-	// if !ok {
-	// 	return common.Address{}, nil, 0, fmt.Errorf("invalid type for withdrawalNetwork")
-	// }
-	// return recipient, minimumWithdrawalAmountHex, withdrawalNetwork, nil
+	/* [Kroma: START]
+	minimumWithdrawalAmountHex, ok := deployment.Args[1].(*big.Int)
+	if !ok {
+		return common.Address{}, nil, 0, fmt.Errorf("invalid type for minimumWithdrawalAmount")
+	}
+	withdrawalNetwork, ok := deployment.Args[2].(uint8)
+	if !ok {
+		return common.Address{}, nil, 0, fmt.Errorf("invalid type for withdrawalNetwork")
+	}
+	return recipient, minimumWithdrawalAmountHex, withdrawalNetwork, nil
+	[Kroma: END] */
 	return recipient, nil, 0, nil
-	// [Kroma: END]
 }

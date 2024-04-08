@@ -25,10 +25,10 @@ type RuntimeCfgL1Source interface {
 
 type ReadonlyRuntimeConfig interface {
 	P2PSequencerAddress() common.Address
-	// [Kroma: START]
-	//RequiredProtocolVersion() params.ProtocolVersion
-	//RecommendedProtocolVersion() params.ProtocolVersion
-	// [Kroma: END]
+	/* [Kroma: START]
+	RequiredProtocolVersion() params.ProtocolVersion
+	RecommendedProtocolVersion() params.ProtocolVersion
+	[Kroma: END] */
 }
 
 // RuntimeConfig maintains runtime-configurable options.
@@ -54,11 +54,11 @@ type RuntimeConfig struct {
 type runtimeConfigData struct {
 	p2pBlockSignerAddr common.Address
 
-	// [Kroma: START]
+	/* [Kroma: START]
 	// superchain protocol version signals
-	//recommended params.ProtocolVersion
-	//required    params.ProtocolVersion
-	// [Kroma: END]
+	recommended params.ProtocolVersion
+	required    params.ProtocolVersion
+	[Kroma: END] */
 }
 
 var _ p2p.GossipRuntimeConfig = (*RuntimeConfig)(nil)

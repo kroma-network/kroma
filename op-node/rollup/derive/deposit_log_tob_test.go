@@ -68,9 +68,9 @@ func fuzzReceipts(typeProvider *fuzz.Fuzzer, blockHash common.Hash, depositContr
 					Gas:        fuzzedDepositInfo.Gas,
 					Data:       fuzzedDepositInfo.Data,
 					Mint:       fuzzedDepositInfo.Mint,
-					// [Kroma: START]
-					// IsSystemTransaction: false,
-					// [Kroma: END]
+					/* [Kroma: START]
+					IsSystemTransaction: false,
+					[Kroma: END] */
 				}
 
 				// Marshal our actual log event

@@ -31,8 +31,8 @@ var (
 
 // GasPriceOracleMetaData contains all meta data concerning the GasPriceOracle contract.
 var GasPriceOracleMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"DECIMALS\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"baseFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"gasPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"getL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"getL1GasUsed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"l1BaseFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"overhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"scalar\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b5061078d806100206000396000f3fe608060405234801561001057600080fd5b50600436106100a35760003560e01c806354fd4d5011610076578063de26c4a11161005b578063de26c4a114610135578063f45e65d814610148578063fe173b971461012f57600080fd5b806354fd4d50146100e65780636ef25c3a1461012f57600080fd5b80630c18c162146100a85780632e0f2625146100c357806349948e0e146100cb578063519b4bd3146100de575b600080fd5b6100b0610150565b6040519081526020015b60405180910390f35b6100b0600681565b6100b06100d93660046103ca565b6101da565b6100b061023b565b6101226040518060400160405280600581526020017f312e302e3000000000000000000000000000000000000000000000000000000081525081565b6040516100ba9190610499565b486100b0565b6100b06101433660046103ca565b61029c565b6100b061033a565b600073420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff16638b239f736040518163ffffffff1660e01b8152600401602060405180830381865afa1580156101b1573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101d5919061050c565b905090565b6000806101e68361029c565b905060006101f261023b565b6101fc9083610554565b9050600061020c6006600a6106b3565b9050600061021861033a565b6102229084610554565b9050600061023083836106c6565b979650505050505050565b600073420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff16635cf249696040518163ffffffff1660e01b8152600401602060405180830381865afa1580156101b1573d6000803e3d6000fd5b80516000908190815b8181101561031f578481815181106102bf576102bf610701565b01602001517fff00000000000000000000000000000000000000000000000000000000000000166000036102ff576102f8600484610730565b925061030d565b61030a601084610730565b92505b8061031781610748565b9150506102a5565b50610328610150565b6103329083610730565b949350505050565b600073420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff16639e8c49666040518163ffffffff1660e01b8152600401602060405180830381865afa1580156101b1573d6000803e3d6000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6000602082840312156103dc57600080fd5b813567ffffffffffffffff808211156103f457600080fd5b818401915084601f83011261040857600080fd5b81358181111561041a5761041a61039b565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f011681019083821181831017156104605761046061039b565b8160405282815287602084870101111561047957600080fd5b826020860160208301376000928101602001929092525095945050505050565b600060208083528351808285015260005b818110156104c6578581018301518582016040015282016104aa565b818111156104d8576000604083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016929092016040019392505050565b60006020828403121561051e57600080fd5b5051919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b6000817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff048311821515161561058c5761058c610525565b500290565b600181815b808511156105ea57817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff048211156105d0576105d0610525565b808516156105dd57918102915b93841c9390800290610596565b509250929050565b600082610601575060016106ad565b8161060e575060006106ad565b8160018114610624576002811461062e5761064a565b60019150506106ad565b60ff84111561063f5761063f610525565b50506001821b6106ad565b5060208310610133831016604e8410600b841016171561066d575081810a6106ad565b6106778383610591565b807fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff048211156106a9576106a9610525565b0290505b92915050565b60006106bf83836105f2565b9392505050565b6000826106fc577f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b500490565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b6000821982111561074357610743610525565b500190565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff820361077957610779610525565b506001019056fea164736f6c634300080f000a",
+	ABI: "[{\"inputs\":[],\"name\":\"DECIMALS\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"baseFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"baseFeeScalar\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blobBaseFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blobBaseFeeScalar\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"gasPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"getL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"getL1GasUsed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isEcotone\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"l1BaseFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"overhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"scalar\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"setEcotone\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b50610fb5806100206000396000f3fe608060405234801561001057600080fd5b50600436106100f55760003560e01c806354fd4d5011610097578063de26c4a111610066578063de26c4a1146101da578063f45e65d8146101ed578063f8206140146101f5578063fe173b97146101cc57600080fd5b806354fd4d501461016657806368d5dca6146101af5780636ef25c3a146101cc578063c5985918146101d257600080fd5b8063313ce567116100d3578063313ce5671461012757806349948e0e1461012e5780634ef6e22414610141578063519b4bd31461015e57600080fd5b80630c18c162146100fa57806322b90ab3146101155780632e0f26251461011f575b600080fd5b6101026101fd565b6040519081526020015b60405180910390f35b61011d61031e565b005b610102600681565b6006610102565b61010261013c366004610b73565b610541565b60005461014e9060ff1681565b604051901515815260200161010c565b610102610565565b6101a26040518060400160405280600581526020017f312e312e3000000000000000000000000000000000000000000000000000000081525081565b60405161010c9190610c42565b6101b76105c6565b60405163ffffffff909116815260200161010c565b48610102565b6101b761064b565b6101026101e8366004610b73565b6106ac565b610102610760565b610102610853565b6000805460ff1615610296576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602860248201527f47617350726963654f7261636c653a206f76657268656164282920697320646560448201527f707265636174656400000000000000000000000000000000000000000000000060648201526084015b60405180910390fd5b73420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff16638b239f736040518163ffffffff1660e01b8152600401602060405180830381865afa1580156102f5573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103199190610cb5565b905090565b73420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff1663e591b2826040518163ffffffff1660e01b8152600401602060405180830381865afa15801561037d573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103a19190610cce565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610481576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152604160248201527f47617350726963654f7261636c653a206f6e6c7920746865206465706f73697460448201527f6f72206163636f756e742063616e2073657420697345636f746f6e6520666c6160648201527f6700000000000000000000000000000000000000000000000000000000000000608482015260a40161028d565b60005460ff1615610514576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602660248201527f47617350726963654f7261636c653a2045636f746f6e6520616c72656164792060448201527f6163746976650000000000000000000000000000000000000000000000000000606482015260840161028d565b600080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00166001179055565b6000805460ff161561055c57610556826108b4565b92915050565b61055682610958565b600073420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff16635cf249696040518163ffffffff1660e01b8152600401602060405180830381865afa1580156102f5573d6000803e3d6000fd5b600073420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff166368d5dca66040518163ffffffff1660e01b8152600401602060405180830381865afa158015610627573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103199190610d04565b600073420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff1663c59859186040518163ffffffff1660e01b8152600401602060405180830381865afa158015610627573d6000803e3d6000fd5b6000806106b883610ab4565b60005490915060ff16156106cc5792915050565b73420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff16638b239f736040518163ffffffff1660e01b8152600401602060405180830381865afa15801561072b573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061074f9190610cb5565b6107599082610d59565b9392505050565b6000805460ff16156107f4576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602660248201527f47617350726963654f7261636c653a207363616c61722829206973206465707260448201527f6563617465640000000000000000000000000000000000000000000000000000606482015260840161028d565b73420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff16639e8c49666040518163ffffffff1660e01b8152600401602060405180830381865afa1580156102f5573d6000803e3d6000fd5b600073420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff1663f82061406040518163ffffffff1660e01b8152600401602060405180830381865afa1580156102f5573d6000803e3d6000fd5b6000806108c083610ab4565b905060006108cc610565565b6108d461064b565b6108df906010610d71565b63ffffffff166108ef9190610d9d565b905060006108fb610853565b6109036105c6565b63ffffffff166109139190610d9d565b905060006109218284610d59565b61092b9085610d9d565b90506109396006600a610efa565b610944906010610d9d565b61094e9082610f06565b9695505050505050565b60008061096483610ab4565b9050600073420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff16639e8c49666040518163ffffffff1660e01b8152600401602060405180830381865afa1580156109c7573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906109eb9190610cb5565b6109f3610565565b73420000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff16638b239f736040518163ffffffff1660e01b8152600401602060405180830381865afa158015610a52573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610a769190610cb5565b610a809085610d59565b610a8a9190610d9d565b610a949190610d9d565b9050610aa26006600a610efa565b610aac9082610f06565b949350505050565b80516000908190815b81811015610b3757848181518110610ad757610ad7610f41565b01602001517fff0000000000000000000000000000000000000000000000000000000000000016600003610b1757610b10600484610d59565b9250610b25565b610b22601084610d59565b92505b80610b2f81610f70565b915050610abd565b50610aac82610440610d59565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b600060208284031215610b8557600080fd5b813567ffffffffffffffff80821115610b9d57600080fd5b818401915084601f830112610bb157600080fd5b813581811115610bc357610bc3610b44565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f01168101908382118183101715610c0957610c09610b44565b81604052828152876020848701011115610c2257600080fd5b826020860160208301376000928101602001929092525095945050505050565b600060208083528351808285015260005b81811015610c6f57858101830151858201604001528201610c53565b81811115610c81576000604083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016929092016040019392505050565b600060208284031215610cc757600080fd5b5051919050565b600060208284031215610ce057600080fd5b815173ffffffffffffffffffffffffffffffffffffffff8116811461075957600080fd5b600060208284031215610d1657600080fd5b815163ffffffff8116811461075957600080fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60008219821115610d6c57610d6c610d2a565b500190565b600063ffffffff80831681851681830481118215151615610d9457610d94610d2a565b02949350505050565b6000817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0483118215151615610dd557610dd5610d2a565b500290565b600181815b80851115610e3357817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04821115610e1957610e19610d2a565b80851615610e2657918102915b93841c9390800290610ddf565b509250929050565b600082610e4a57506001610556565b81610e5757506000610556565b8160018114610e6d5760028114610e7757610e93565b6001915050610556565b60ff841115610e8857610e88610d2a565b50506001821b610556565b5060208310610133831016604e8410600b8410161715610eb6575081810a610556565b610ec08383610dda565b807fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04821115610ef257610ef2610d2a565b029392505050565b60006107598383610e3b565b600082610f3c577f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b500490565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610fa157610fa1610d2a565b506001019056fea164736f6c634300080f000a",
 }
 
 // GasPriceOracleABI is the input ABI used to generate the binding from.
@@ -264,6 +264,130 @@ func (_GasPriceOracle *GasPriceOracleCallerSession) BaseFee() (*big.Int, error) 
 	return _GasPriceOracle.Contract.BaseFee(&_GasPriceOracle.CallOpts)
 }
 
+// BaseFeeScalar is a free data retrieval call binding the contract method 0xc5985918.
+//
+// Solidity: function baseFeeScalar() view returns(uint32)
+func (_GasPriceOracle *GasPriceOracleCaller) BaseFeeScalar(opts *bind.CallOpts) (uint32, error) {
+	var out []interface{}
+	err := _GasPriceOracle.contract.Call(opts, &out, "baseFeeScalar")
+
+	if err != nil {
+		return *new(uint32), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
+
+	return out0, err
+
+}
+
+// BaseFeeScalar is a free data retrieval call binding the contract method 0xc5985918.
+//
+// Solidity: function baseFeeScalar() view returns(uint32)
+func (_GasPriceOracle *GasPriceOracleSession) BaseFeeScalar() (uint32, error) {
+	return _GasPriceOracle.Contract.BaseFeeScalar(&_GasPriceOracle.CallOpts)
+}
+
+// BaseFeeScalar is a free data retrieval call binding the contract method 0xc5985918.
+//
+// Solidity: function baseFeeScalar() view returns(uint32)
+func (_GasPriceOracle *GasPriceOracleCallerSession) BaseFeeScalar() (uint32, error) {
+	return _GasPriceOracle.Contract.BaseFeeScalar(&_GasPriceOracle.CallOpts)
+}
+
+// BlobBaseFee is a free data retrieval call binding the contract method 0xf8206140.
+//
+// Solidity: function blobBaseFee() view returns(uint256)
+func (_GasPriceOracle *GasPriceOracleCaller) BlobBaseFee(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _GasPriceOracle.contract.Call(opts, &out, "blobBaseFee")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// BlobBaseFee is a free data retrieval call binding the contract method 0xf8206140.
+//
+// Solidity: function blobBaseFee() view returns(uint256)
+func (_GasPriceOracle *GasPriceOracleSession) BlobBaseFee() (*big.Int, error) {
+	return _GasPriceOracle.Contract.BlobBaseFee(&_GasPriceOracle.CallOpts)
+}
+
+// BlobBaseFee is a free data retrieval call binding the contract method 0xf8206140.
+//
+// Solidity: function blobBaseFee() view returns(uint256)
+func (_GasPriceOracle *GasPriceOracleCallerSession) BlobBaseFee() (*big.Int, error) {
+	return _GasPriceOracle.Contract.BlobBaseFee(&_GasPriceOracle.CallOpts)
+}
+
+// BlobBaseFeeScalar is a free data retrieval call binding the contract method 0x68d5dca6.
+//
+// Solidity: function blobBaseFeeScalar() view returns(uint32)
+func (_GasPriceOracle *GasPriceOracleCaller) BlobBaseFeeScalar(opts *bind.CallOpts) (uint32, error) {
+	var out []interface{}
+	err := _GasPriceOracle.contract.Call(opts, &out, "blobBaseFeeScalar")
+
+	if err != nil {
+		return *new(uint32), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
+
+	return out0, err
+
+}
+
+// BlobBaseFeeScalar is a free data retrieval call binding the contract method 0x68d5dca6.
+//
+// Solidity: function blobBaseFeeScalar() view returns(uint32)
+func (_GasPriceOracle *GasPriceOracleSession) BlobBaseFeeScalar() (uint32, error) {
+	return _GasPriceOracle.Contract.BlobBaseFeeScalar(&_GasPriceOracle.CallOpts)
+}
+
+// BlobBaseFeeScalar is a free data retrieval call binding the contract method 0x68d5dca6.
+//
+// Solidity: function blobBaseFeeScalar() view returns(uint32)
+func (_GasPriceOracle *GasPriceOracleCallerSession) BlobBaseFeeScalar() (uint32, error) {
+	return _GasPriceOracle.Contract.BlobBaseFeeScalar(&_GasPriceOracle.CallOpts)
+}
+
+// Decimals is a free data retrieval call binding the contract method 0x313ce567.
+//
+// Solidity: function decimals() pure returns(uint256)
+func (_GasPriceOracle *GasPriceOracleCaller) Decimals(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _GasPriceOracle.contract.Call(opts, &out, "decimals")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// Decimals is a free data retrieval call binding the contract method 0x313ce567.
+//
+// Solidity: function decimals() pure returns(uint256)
+func (_GasPriceOracle *GasPriceOracleSession) Decimals() (*big.Int, error) {
+	return _GasPriceOracle.Contract.Decimals(&_GasPriceOracle.CallOpts)
+}
+
+// Decimals is a free data retrieval call binding the contract method 0x313ce567.
+//
+// Solidity: function decimals() pure returns(uint256)
+func (_GasPriceOracle *GasPriceOracleCallerSession) Decimals() (*big.Int, error) {
+	return _GasPriceOracle.Contract.Decimals(&_GasPriceOracle.CallOpts)
+}
+
 // GasPrice is a free data retrieval call binding the contract method 0xfe173b97.
 //
 // Solidity: function gasPrice() view returns(uint256)
@@ -355,6 +479,37 @@ func (_GasPriceOracle *GasPriceOracleSession) GetL1GasUsed(_data []byte) (*big.I
 // Solidity: function getL1GasUsed(bytes _data) view returns(uint256)
 func (_GasPriceOracle *GasPriceOracleCallerSession) GetL1GasUsed(_data []byte) (*big.Int, error) {
 	return _GasPriceOracle.Contract.GetL1GasUsed(&_GasPriceOracle.CallOpts, _data)
+}
+
+// IsEcotone is a free data retrieval call binding the contract method 0x4ef6e224.
+//
+// Solidity: function isEcotone() view returns(bool)
+func (_GasPriceOracle *GasPriceOracleCaller) IsEcotone(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _GasPriceOracle.contract.Call(opts, &out, "isEcotone")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsEcotone is a free data retrieval call binding the contract method 0x4ef6e224.
+//
+// Solidity: function isEcotone() view returns(bool)
+func (_GasPriceOracle *GasPriceOracleSession) IsEcotone() (bool, error) {
+	return _GasPriceOracle.Contract.IsEcotone(&_GasPriceOracle.CallOpts)
+}
+
+// IsEcotone is a free data retrieval call binding the contract method 0x4ef6e224.
+//
+// Solidity: function isEcotone() view returns(bool)
+func (_GasPriceOracle *GasPriceOracleCallerSession) IsEcotone() (bool, error) {
+	return _GasPriceOracle.Contract.IsEcotone(&_GasPriceOracle.CallOpts)
 }
 
 // L1BaseFee is a free data retrieval call binding the contract method 0x519b4bd3.
@@ -479,4 +634,25 @@ func (_GasPriceOracle *GasPriceOracleSession) Version() (string, error) {
 // Solidity: function version() view returns(string)
 func (_GasPriceOracle *GasPriceOracleCallerSession) Version() (string, error) {
 	return _GasPriceOracle.Contract.Version(&_GasPriceOracle.CallOpts)
+}
+
+// SetEcotone is a paid mutator transaction binding the contract method 0x22b90ab3.
+//
+// Solidity: function setEcotone() returns()
+func (_GasPriceOracle *GasPriceOracleTransactor) SetEcotone(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _GasPriceOracle.contract.Transact(opts, "setEcotone")
+}
+
+// SetEcotone is a paid mutator transaction binding the contract method 0x22b90ab3.
+//
+// Solidity: function setEcotone() returns()
+func (_GasPriceOracle *GasPriceOracleSession) SetEcotone() (*types.Transaction, error) {
+	return _GasPriceOracle.Contract.SetEcotone(&_GasPriceOracle.TransactOpts)
+}
+
+// SetEcotone is a paid mutator transaction binding the contract method 0x22b90ab3.
+//
+// Solidity: function setEcotone() returns()
+func (_GasPriceOracle *GasPriceOracleTransactorSession) SetEcotone() (*types.Transaction, error) {
+	return _GasPriceOracle.Contract.SetEcotone(&_GasPriceOracle.TransactOpts)
 }

@@ -135,24 +135,24 @@ func main() {
 					BatchInboxAddress common.Address = common.HexToAddress(cliCtx.String("inbox"))
 				)
 				L2ChainID := new(big.Int).SetUint64(cliCtx.Uint64("l2-chain-id"))
-				// [Kroma: START]
-				// rollupCfg, err := rollup.LoadOPStackRollupConfig(L2ChainID.Uint64())
-				// if err == nil {
-				// 	// prioritize superchain config
-				// 	if L2GenesisTime != rollupCfg.Genesis.L2Time {
-				// 		L2GenesisTime = rollupCfg.Genesis.L2Time
-				// 		fmt.Printf("L2GenesisTime overridden: %v\n", L2GenesisTime)
-				// 	}
-				// 	if L2BlockTime != rollupCfg.BlockTime {
-				// 		L2BlockTime = rollupCfg.BlockTime
-				// 		fmt.Printf("L2BlockTime overridden: %v\n", L2BlockTime)
-				// 	}
-				// 	if BatchInboxAddress != rollupCfg.BatchInboxAddress {
-				// 		BatchInboxAddress = rollupCfg.BatchInboxAddress
-				// 		fmt.Printf("BatchInboxAddress overridden: %v\n", BatchInboxAddress)
-				// 	}
-				// }
-				// [Kroma: END]
+				/* [Kroma: START]
+				rollupCfg, err := rollup.LoadOPStackRollupConfig(L2ChainID.Uint64())
+				if err == nil {
+					// prioritize superchain config
+					if L2GenesisTime != rollupCfg.Genesis.L2Time {
+						L2GenesisTime = rollupCfg.Genesis.L2Time
+						fmt.Printf("L2GenesisTime overridden: %v\n", L2GenesisTime)
+					}
+					if L2BlockTime != rollupCfg.BlockTime {
+						L2BlockTime = rollupCfg.BlockTime
+						fmt.Printf("L2BlockTime overridden: %v\n", L2BlockTime)
+					}
+					if BatchInboxAddress != rollupCfg.BatchInboxAddress {
+						BatchInboxAddress = rollupCfg.BatchInboxAddress
+						fmt.Printf("BatchInboxAddress overridden: %v\n", BatchInboxAddress)
+					}
+				}
+				[Kroma: END] */
 				config := reassemble.Config{
 					BatchInbox:    BatchInboxAddress,
 					InDirectory:   cliCtx.String("in"),

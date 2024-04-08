@@ -4,13 +4,14 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
 // TestBlockTimeBatchType run each blocktime-related test case in singular batch mode and span batch mode.
@@ -46,12 +47,12 @@ func TestBlockTimeBatchType(t *testing.T) {
 func BatchInLastPossibleBlocks(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
-	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
+	applyDeltaTimeOffset(dp, deltaTimeOffset)
 	dp.DeployConfig.SequencerWindowSize = 4
 	dp.DeployConfig.L2BlockTime = 2
 
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
-	log := testlog.Logger(t, log.LvlDebug)
+	log := testlog.Logger(t, log.LevelDebug)
 
 	sd, _, miner, sequencer, sequencerEngine, _, _, batcher := setupReorgTestActors(t, dp, sd, log)
 
@@ -161,9 +162,9 @@ func LargeL1Gaps(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	dp.DeployConfig.L2BlockTime = 2
 	dp.DeployConfig.SequencerWindowSize = 4
 	dp.DeployConfig.MaxSequencerDrift = 32
-	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
+	applyDeltaTimeOffset(dp, deltaTimeOffset)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
-	log := testlog.Logger(t, log.LvlDebug)
+	log := testlog.Logger(t, log.LevelDebug)
 
 	sd, _, miner, sequencer, sequencerEngine, verifier, _, batcher := setupReorgTestActors(t, dp, sd, log)
 

@@ -7,20 +7,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/kroma-network/kroma/op-e2e/e2eutils/wait"
 )
+
+type ClientProvider interface {
+	NodeClient(name string) *ethclient.Client
+}
 
 func SendWithdrawal(t *testing.T, cfg SystemConfig, l2Client *ethclient.Client, privKey *ecdsa.PrivateKey, applyOpts WithdrawalTxOptsFn) (*types.Transaction, *types.Receipt) {
 	opts := defaultWithdrawalTxOpts()
@@ -79,24 +83,35 @@ func defaultWithdrawalTxOpts() *WithdrawalTxOpts {
 	}
 }
 
-func ProveAndFinalizeWithdrawal(t *testing.T, version [32]byte, cfg SystemConfig, l1Client *ethclient.Client, l2Node EthInstance, ethPrivKey *ecdsa.PrivateKey, l2WithdrawalReceipt *types.Receipt) (*types.Receipt, *types.Receipt) {
-	params, proveReceipt := ProveWithdrawal(t, version, cfg, l1Client, l2Node, ethPrivKey, l2WithdrawalReceipt)
-	finalizeReceipt := FinalizeWithdrawal(t, cfg, l1Client, ethPrivKey, proveReceipt, params)
+func ProveAndFinalizeWithdrawal(t *testing.T, cfg SystemConfig, clients ClientProvider, l2NodeName string, ethPrivKey *ecdsa.PrivateKey, l2WithdrawalReceipt *types.Receipt) (*types.Receipt, *types.Receipt) {
+	params, proveReceipt := ProveWithdrawal(t, cfg, clients, l2NodeName, ethPrivKey, l2WithdrawalReceipt)
+	finalizeReceipt := FinalizeWithdrawal(t, cfg, clients.NodeClient("l1"), ethPrivKey, proveReceipt, params)
 	return proveReceipt, finalizeReceipt
 }
 
-func ProveWithdrawal(t *testing.T, version [32]byte, cfg SystemConfig, l1Client *ethclient.Client, l2Node EthInstance, ethPrivKey *ecdsa.PrivateKey, l2WithdrawalReceipt *types.Receipt) (withdrawals.ProvenWithdrawalParameters, *types.Receipt) {
+func ProveWithdrawal(t *testing.T, cfg SystemConfig, clients ClientProvider, l2NodeName string, ethPrivKey *ecdsa.PrivateKey, l2WithdrawalReceipt *types.Receipt) (withdrawals.ProvenWithdrawalParameters, *types.Receipt) {
 	// Get l2BlockNumber for proof generation
 	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	defer cancel()
 
-	blockNumber, err := wait.ForOutputRootPublished(ctx, l1Client, config.L1Deployments.L2OutputOracleProxy, l2WithdrawalReceipt.BlockNumber)
+	l1Client := clients.NodeClient("l1")
+	var blockNumber uint64
+	var err error
+	/* [Kroma: START]
+	if e2eutils.UseFPAC() {
+		blockNumber, err = wait.ForGamePublished(ctx, l1Client, config.L1Deployments.OptimismPortalProxy, config.L1Deployments.DisputeGameFactoryProxy, l2WithdrawalReceipt.BlockNumber)
+		require.Nil(t, err)
+	} else {
+		blockNumber, err = wait.ForOutputRootPublished(ctx, l1Client, config.L1Deployments.L2OutputOracleProxy, l2WithdrawalReceipt.BlockNumber)
+		require.Nil(t, err)
+	}
+	[Kroma: END] */
+	blockNumber, err = wait.ForOutputRootPublished(ctx, l1Client, config.L1Deployments.L2OutputOracleProxy, l2WithdrawalReceipt.BlockNumber)
 	require.Nil(t, err)
 
-	rpcClient, err := rpc.Dial(l2Node.WSEndpoint())
-	require.Nil(t, err)
-	proofCl := gethclient.New(rpcClient)
-	receiptCl := ethclient.NewClient(rpcClient)
+	receiptCl := clients.NodeClient(l2NodeName)
+	blockCl := clients.NodeClient(l2NodeName)
+	proofCl := gethclient.New(receiptCl.Client())
 
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -104,15 +119,11 @@ func ProveWithdrawal(t *testing.T, version [32]byte, cfg SystemConfig, l1Client 
 	header, err := receiptCl.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 	require.Nil(t, err)
 
-	// Get the next header
-	nextHeader, err := receiptCl.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber+1))
-	require.Nil(t, err)
-
 	// Now create withdrawal
 	oracle, err := bindings.NewL2OutputOracleCaller(config.L1Deployments.L2OutputOracleProxy, l1Client)
 	require.Nil(t, err)
 
-	params, err := withdrawals.ProveWithdrawalParameters(context.Background(), version, proofCl, receiptCl, l2WithdrawalReceipt.TxHash, header, nextHeader, oracle)
+	params, err := ProveWithdrawalParameters(context.Background(), proofCl, receiptCl, blockCl, l2WithdrawalReceipt.TxHash, header, oracle)
 	require.Nil(t, err)
 
 	portal, err := bindings.NewKromaPortal(cfg.L1Deployments.KromaPortalProxy, l1Client)
@@ -145,6 +156,17 @@ func ProveWithdrawal(t *testing.T, version [32]byte, cfg SystemConfig, l1Client 
 	return params, proveReceipt
 }
 
+func ProveWithdrawalParameters(ctx context.Context, proofCl withdrawals.ProofClient, l2ReceiptCl withdrawals.ReceiptClient, l2BlockCl withdrawals.BlockClient, txHash common.Hash, header *types.Header, l2OutputOracleContract *bindings.L2OutputOracleCaller) (withdrawals.ProvenWithdrawalParameters, error) {
+	/* [Kroma: START]
+	if e2eutils.UseFPAC() {
+		return withdrawals.ProveWithdrawalParametersFPAC(ctx, proofCl, l2ReceiptCl, l2BlockCl, txHash, disputeGameFactoryContract, optimismPortal2Contract)
+	} else {
+		return withdrawals.ProveWithdrawalParameters(ctx, proofCl, l2ReceiptCl, l2BlockCl, txHash, header, l2OutputOracleContract)
+	}
+	[Kroma: END] */
+	return withdrawals.ProveWithdrawalParameters(ctx, proofCl, l2ReceiptCl, l2BlockCl, txHash, header, l2OutputOracleContract)
+}
+
 func FinalizeWithdrawal(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, privKey *ecdsa.PrivateKey, withdrawalProofReceipt *types.Receipt, params withdrawals.ProvenWithdrawalParameters) *types.Receipt {
 	// Wait for finalization and then create the Finalized Withdrawal Transaction
 	// [Kroma: START]
@@ -174,7 +196,7 @@ func FinalizeWithdrawal(t *testing.T, cfg SystemConfig, l1Client *ethclient.Clie
 	require.Nil(t, err)
 
 	// Ensure that our withdrawal was finalized successfully
-	finalizeReceipt, err := geth.WaitForTransaction(tx.Hash(), l1Client, 3*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	finalizeReceipt, err := wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.Nil(t, err, "finalize withdrawal")
 	require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status)
 	return finalizeReceipt

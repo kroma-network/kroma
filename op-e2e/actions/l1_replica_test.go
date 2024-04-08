@@ -20,24 +20,24 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
-// [Kroma: START]
+/* [Kroma: START]
 // These definitions are moved to l2_runtime.go file
-// var defaultRollupTestParams = &e2eutils.TestParams{
-// 	MaxSequencerDrift:   40,
-// 	SequencerWindowSize: 120,
-// 	ChannelTimeout:      120,
-// 	L1BlockTime:         15,
-// }
-//
-// var defaultAlloc = &e2eutils.AllocParams{PrefundTestUsers: true}
-// [Kroma: END]
+var defaultRollupTestParams = &e2eutils.TestParams{
+	MaxSequencerDrift:   40,
+	SequencerWindowSize: 120,
+	ChannelTimeout:      120,
+	L1BlockTime:         15,
+}
+
+var defaultAlloc = &e2eutils.AllocParams{PrefundTestUsers: true}
+[Kroma: END] */
 
 // Test if we can mock an RPC failure
 func TestL1Replica_ActL1RPCFail(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
-	log := testlog.Logger(t, log.LvlDebug)
+	log := testlog.Logger(t, log.LevelDebug)
 	replica := NewL1Replica(t, log, sd.L1Cfg)
 	t.Cleanup(func() {
 		_ = replica.Close()
@@ -59,7 +59,7 @@ func TestL1Replica_ActL1Sync(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
-	log := testlog.Logger(t, log.LvlDebug)
+	log := testlog.Logger(t, log.LevelDebug)
 	genesisBlock := sd.L1Cfg.ToBlock()
 	consensus := beacon.New(ethash.NewFaker())
 	db := rawdb.NewMemoryDatabase()

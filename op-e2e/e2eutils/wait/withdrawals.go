@@ -17,6 +17,8 @@ import (
 // This function polls and can block for a very long time if used on mainnet.
 // This returns the block number to use for proof generation.
 func ForOutputRootPublished(ctx context.Context, client *ethclient.Client, l2OutputOracleAddr common.Address, l2BlockNumber *big.Int) (uint64, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
 	l2BlockNumber = new(big.Int).Set(l2BlockNumber) // Don't clobber caller owned l2BlockNumber
 	opts := &bind.CallOpts{Context: ctx}
 

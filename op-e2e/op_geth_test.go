@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -19,6 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 // TestMissingGasLimit tests that op-geth cannot build a block without gas limit while optimism is active in the chain config.
@@ -89,9 +91,9 @@ func TestInvalidDepositInFCU(t *testing.T) {
 		To:    &fromAddr, // send it to ourselves
 		Value: big.NewInt(params.Ether),
 		Gas:   25000,
-		// [Kroma: START]
-		// IsSystemTransaction: false,
-		// [Kroma: END]
+		/* [Kroma: START]
+		IsSystemTransaction: false,
+		[Kroma: END] */
 	})
 
 	// We are inserting a block with an invalid deposit.
@@ -197,14 +199,16 @@ func TestGethOnlyPendingBlockIsLatest(t *testing.T) {
 	time.Sleep(time.Second * 4) // conservatively wait 4 seconds, CI might lag during block building.
 
 	// retrieve the block
-	payload, err := opGeth.l2Engine.GetPayload(ctx, *res.PayloadID)
+	envelope, err := opGeth.l2Engine.GetPayload(ctx, eth.PayloadInfo{ID: *res.PayloadID, Timestamp: uint64(attrs.Timestamp)})
 	require.NoError(t, err)
+
+	payload := envelope.ExecutionPayload
 	checkPending("retrieved", 0)
 	require.Len(t, payload.Transactions, 2, "must include L1 info tx and tx from alice")
 	checkPendingBalance()
 
 	// process the block
-	status, err := opGeth.l2Engine.NewPayload(ctx, payload)
+	status, err := opGeth.l2Engine.NewPayload(ctx, payload, envelope.ParentBeaconBlockRoot)
 	require.NoError(t, err)
 	require.Equal(t, eth.ExecutionValid, status.Status)
 	checkPending("processed", 0)
@@ -259,16 +263,16 @@ func TestPreregolith(t *testing.T) {
 				To:    &fromAddr, // send it to ourselves
 				Value: big.NewInt(params.Ether),
 				Gas:   25000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
-			block, err := opGeth.AddL2Block(ctx, depositTx)
+			envelope, err := opGeth.AddL2Block(ctx, depositTx)
 			require.NoError(t, err)
 
 			// L1Info tx should report 0 gas used
-			infoTx, err := opGeth.L2Client.TransactionInBlock(ctx, block.BlockHash, 0)
+			infoTx, err := opGeth.L2Client.TransactionInBlock(ctx, envelope.ExecutionPayload.BlockHash, 0)
 			require.NoError(t, err)
 			infoRcpt, err := opGeth.L2Client.TransactionReceipt(ctx, infoTx.Hash())
 			require.NoError(t, err)
@@ -306,9 +310,9 @@ func TestPreregolith(t *testing.T) {
 				To:    &fromAddr,
 				Value: big.NewInt(0),
 				Gas:   21_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Contract creation deposit tx
@@ -317,9 +321,9 @@ func TestPreregolith(t *testing.T) {
 				Value: big.NewInt(params.Ether),
 				Gas:   1000001,
 				Data:  []byte{},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, incrementNonceTx, contractCreateTx)
@@ -369,9 +373,9 @@ func TestPreregolith(t *testing.T) {
 				Value: big.NewInt(params.Ether),
 				// SystemTx is assigned 1M gas limit
 				Gas: uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			signer := types.LatestSigner(opGeth.L2ChainConfig)
@@ -404,10 +408,11 @@ func TestPreregolith(t *testing.T) {
 			require.NoError(t, err)
 			defer opGeth.Close()
 
-			systemTx, err := derive.L1InfoDeposit(1, opGeth.L1Head, opGeth.SystemConfig, false)
-			// [Kroma: START]
-			// systemTx.IsSystemTransaction = true
-			// [Kroma: END]
+			rollupCfg := rollup.Config{}
+			systemTx, err := derive.L1InfoDeposit(&rollupCfg, opGeth.SystemConfig, 1, opGeth.L1Head, 0)
+			/* [Kroma: START]
+			systemTx.IsSystemTransaction = true
+			[Kroma: END] */
 			require.NoError(t, err)
 
 			_, err = opGeth.AddL2Block(ctx, types.NewTx(systemTx))
@@ -417,7 +422,6 @@ func TestPreregolith(t *testing.T) {
 }
 
 func TestRegolith(t *testing.T) {
-	InitParallel(t)
 	tests := []struct {
 		name             string
 		regolithTime     hexutil.Uint64
@@ -458,16 +462,16 @@ func TestRegolith(t *testing.T) {
 				To:    &fromAddr, // send it to ourselves
 				Value: big.NewInt(params.Ether),
 				Gas:   25000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
-			block, err := opGeth.AddL2Block(ctx, depositTx)
+			envelope, err := opGeth.AddL2Block(ctx, depositTx)
 			require.NoError(t, err)
 
 			// L1Info tx should report actual gas used, not 0 or the tx gas limit
-			infoTx, err := opGeth.L2Client.TransactionInBlock(ctx, block.BlockHash, 0)
+			infoTx, err := opGeth.L2Client.TransactionInBlock(ctx, envelope.ExecutionPayload.BlockHash, 0)
 			require.NoError(t, err)
 			infoRcpt, err := opGeth.L2Client.TransactionReceipt(ctx, infoTx.Hash())
 			require.NoError(t, err)
@@ -508,9 +512,9 @@ func TestRegolith(t *testing.T) {
 				To:    &fromAddr,
 				Value: big.NewInt(0),
 				Gas:   21_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Contract creation deposit tx
@@ -519,9 +523,9 @@ func TestRegolith(t *testing.T) {
 				Value: big.NewInt(params.Ether),
 				Gas:   1000001,
 				Data:  []byte{},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, incrementNonceTx, contractCreateTx)
@@ -578,9 +582,9 @@ func TestRegolith(t *testing.T) {
 				Value: big.NewInt(params.Ether),
 				// SystemTx is assigned 1M gas limit
 				Gas: uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			signer := types.LatestSigner(opGeth.L2ChainConfig)
@@ -616,10 +620,11 @@ func TestRegolith(t *testing.T) {
 
 			test.activateRegolith(ctx, opGeth)
 
-			systemTx, err := derive.L1InfoDeposit(1, opGeth.L1Head, opGeth.SystemConfig, true)
-			// [Kroma: START]
-			// systemTx.IsSystemTransaction = true
-			// [Kroma: END]
+			rollupCfg := rollup.Config{}
+			systemTx, err := derive.L1InfoDeposit(&rollupCfg, opGeth.SystemConfig, 1, opGeth.L1Head, 0)
+			/* [Kroma: START]
+			systemTx.IsSystemTransaction = true
+			[Kroma: END] */
 			require.NoError(t, err)
 
 			_, err = opGeth.AddL2Block(ctx, types.NewTx(systemTx))
@@ -685,9 +690,9 @@ func TestRegolith(t *testing.T) {
 				Value: common.Big0,
 				Data:  deployData,
 				Gas:   1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Store a non-zero value
@@ -697,9 +702,9 @@ func TestRegolith(t *testing.T) {
 				Value: common.Big0,
 				Data:  []byte{0x06},
 				Gas:   1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Store a non-zero value
@@ -709,9 +714,9 @@ func TestRegolith(t *testing.T) {
 				Value: common.Big0,
 				Data:  []byte{0x00},
 				Gas:   1_000_000,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			// Store a non-zero value again
@@ -722,9 +727,9 @@ func TestRegolith(t *testing.T) {
 				Value: common.Big0,
 				Data:  []byte{0x00},
 				Gas:   1_000_001,
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, deployTx, storeTx, zeroTx, rezeroTx)
@@ -758,7 +763,6 @@ func TestRegolith(t *testing.T) {
 }
 
 func TestPreCanyon(t *testing.T) {
-	InitParallel(t)
 	futureTimestamp := hexutil.Uint64(4)
 
 	tests := []struct {
@@ -785,7 +789,7 @@ func TestPreCanyon(t *testing.T) {
 
 			b, err := opGeth.AddL2Block(ctx)
 			require.NoError(t, err)
-			assert.Nil(t, b.Withdrawals, "should not have withdrawals")
+			assert.Nil(t, b.ExecutionPayload.Withdrawals, "should not have withdrawals")
 
 			l1Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
 			require.Nil(t, err)
@@ -811,9 +815,9 @@ func TestPreCanyon(t *testing.T) {
 				Data: []byte{
 					byte(vm.PUSH0),
 				},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
@@ -824,19 +828,16 @@ func TestPreCanyon(t *testing.T) {
 			assert.Equal(t, types.ReceiptStatusFailed, receipt.Status)
 		})
 	}
-
 }
 
 func TestCanyon(t *testing.T) {
-	InitParallel(t)
-
 	tests := []struct {
-		name         string
-		canyonTime   hexutil.Uint64
-		activeCanyon func(ctx context.Context, opGeth *OpGeth)
+		name           string
+		canyonTime     hexutil.Uint64
+		activateCanyon func(ctx context.Context, opGeth *OpGeth)
 	}{
-		{name: "ActivateAtGenesis", canyonTime: 0, activeCanyon: func(ctx context.Context, opGeth *OpGeth) {}},
-		{name: "ActivateAfterGenesis", canyonTime: 2, activeCanyon: func(ctx context.Context, opGeth *OpGeth) {
+		{name: "ActivateAtGenesis", canyonTime: 0, activateCanyon: func(ctx context.Context, opGeth *OpGeth) {}},
+		{name: "ActivateAfterGenesis", canyonTime: 2, activateCanyon: func(ctx context.Context, opGeth *OpGeth) {
 			// Adding this block advances us to the fork time.
 			_, err := opGeth.AddL2Block(ctx)
 			require.NoError(t, err)
@@ -850,6 +851,7 @@ func TestCanyon(t *testing.T) {
 			s := hexutil.Uint64(0)
 			cfg.DeployConfig.L2GenesisRegolithTimeOffset = &s
 			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &test.canyonTime
+			cfg.DeployConfig.L2GenesisEcotoneTimeOffset = nil
 
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
@@ -858,11 +860,11 @@ func TestCanyon(t *testing.T) {
 			require.NoError(t, err)
 			defer opGeth.Close()
 
-			test.activeCanyon(ctx, opGeth)
+			test.activateCanyon(ctx, opGeth)
 
 			b, err := opGeth.AddL2Block(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, *b.Withdrawals, types.Withdrawals{})
+			assert.Equal(t, *b.ExecutionPayload.Withdrawals, types.Withdrawals{})
 
 			l1Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
 			require.Nil(t, err)
@@ -873,6 +875,7 @@ func TestCanyon(t *testing.T) {
 			InitParallel(t)
 			cfg := DefaultSystemConfig(t)
 			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &test.canyonTime
+			cfg.DeployConfig.L2GenesisEcotoneTimeOffset = nil
 
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
@@ -888,15 +891,171 @@ func TestCanyon(t *testing.T) {
 				Data: []byte{
 					byte(vm.PUSH0),
 				},
-				// [Kroma: START]
-				// IsSystemTransaction: false,
-				// [Kroma: END]
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
 			require.NoError(t, err)
 
 			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, pushZeroContractCreateTxn.Hash())
+			require.NoError(t, err)
+			assert.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+		})
+	}
+}
+
+func TestPreEcotone(t *testing.T) {
+	futureTimestamp := hexutil.Uint64(4)
+
+	tests := []struct {
+		name        string
+		ecotoneTime *hexutil.Uint64
+	}{
+		{name: "EcotoneNotScheduled"},
+		{name: "EcotoneNotYetActive", ecotoneTime: &futureTimestamp},
+	}
+	for _, test := range tests {
+		test := test
+
+		t.Run(fmt.Sprintf("NilParentBeaconRoot_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = test.ecotoneTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			b, err := opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+			assert.Nil(t, b.ParentBeaconBlockRoot)
+
+			l2Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+			require.NoError(t, err)
+			assert.Nil(t, l2Block.Header().ParentBeaconRoot)
+		})
+
+		t.Run(fmt.Sprintf("RejectTstoreTxn%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = test.ecotoneTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			tstoreTxn := types.NewTx(&types.DepositTx{
+				From:  cfg.Secrets.Addresses().Alice,
+				Value: big.NewInt(params.Ether),
+				Gas:   1000001,
+				Data: []byte{
+					byte(vm.PUSH1),
+					byte(vm.PUSH2),
+					byte(vm.TSTORE),
+				},
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
+			})
+
+			_, err = opGeth.AddL2Block(ctx, tstoreTxn)
+			require.NoError(t, err)
+
+			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, tstoreTxn.Hash())
+			require.NoError(t, err)
+			assert.Equal(t, types.ReceiptStatusFailed, receipt.Status)
+		})
+	}
+}
+
+func TestEcotone(t *testing.T) {
+	tests := []struct {
+		name            string
+		ecotoneTime     hexutil.Uint64
+		activateEcotone func(ctx context.Context, opGeth *OpGeth)
+	}{
+		{name: "ActivateAtGenesis", ecotoneTime: 0, activateEcotone: func(ctx context.Context, opGeth *OpGeth) {}},
+		{name: "ActivateAfterGenesis", ecotoneTime: 2, activateEcotone: func(ctx context.Context, opGeth *OpGeth) {
+			//	Adding this block advances us to the fork time.
+			_, err := opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+		}},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(fmt.Sprintf("HashParentBeaconBlockRoot_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			s := hexutil.Uint64(0)
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &s
+			cfg.DeployConfig.L2GenesisDeltaTimeOffset = &s
+			cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &test.ecotoneTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			test.activateEcotone(ctx, opGeth)
+
+			b, err := opGeth.AddL2Block(ctx)
+			require.NoError(t, err)
+			require.NotNil(t, b.ParentBeaconBlockRoot)
+			assert.Equal(t, b.ParentBeaconBlockRoot, opGeth.L1Head.ParentBeaconRoot())
+
+			l2Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+			require.NoError(t, err)
+			assert.NotNil(t, l2Block.Header().ParentBeaconRoot)
+			assert.Equal(t, l2Block.Header().ParentBeaconRoot, opGeth.L1Head.ParentBeaconRoot())
+		})
+
+		t.Run(fmt.Sprintf("TstoreTxn%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			s := hexutil.Uint64(0)
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &s
+			cfg.DeployConfig.L2GenesisDeltaTimeOffset = &s
+			cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &test.ecotoneTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			tstoreTxn := types.NewTx(&types.DepositTx{
+				From:  cfg.Secrets.Addresses().Alice,
+				Value: big.NewInt(params.Ether),
+				Gas:   1000001,
+				Data: []byte{
+					byte(vm.PUSH1), 0x01,
+					byte(vm.PUSH1), 0x01,
+					byte(vm.TSTORE),
+					byte(vm.PUSH0),
+				},
+				/* [Kroma: START]
+				IsSystemTransaction: false,
+				[Kroma: END] */
+			})
+
+			_, err = opGeth.AddL2Block(ctx, tstoreTxn)
+			require.NoError(t, err)
+
+			_, err = opGeth.AddL2Block(ctx, tstoreTxn)
+			require.NoError(t, err)
+
+			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, tstoreTxn.Hash())
 			require.NoError(t, err)
 			assert.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 		})

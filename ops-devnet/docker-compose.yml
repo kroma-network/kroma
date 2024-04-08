@@ -11,27 +11,103 @@ volumes:
 
 
 services:
-  l1:
-    pid: host # allow debugging
-    image: ethereum/client-go:v1.13.4
+  create-beacon-chain-genesis:
+    image: "gcr.io/prysmaticlabs/prysm/cmd/prysmctl:latest"
+    command:
+      - testnet
+      - generate-genesis
+      - --fork=deneb
+      - --num-validators=1
+      - --genesis-time-delay=15
+      - --output-ssz=/gen/genesis-l1.ssz
+      - --chain-config-file=/config.yml
+      - --geth-genesis-json-in=/genesis.json
+      - --geth-genesis-json-out=/genesis.json
+    volumes:
+      - "${PWD}/../.devnet/genesis-l1.json:/genesis.json"
+      - "${PWD}/../.devnet:/gen"
+      - "${PWD}/prysm-config.yml:/config.yml"
+
+  beacon-chain:
+    image: "gcr.io/prysmaticlabs/prysm/beacon-chain:latest"
+    command:
+      - --datadir=/db/beacondata
+      - --min-sync-peers=0
+      - --genesis-state=/genesis-l1.ssz
+      - --interop-eth1data-votes
+      - --bootstrap-node=
+      - --chain-config-file=/config.yml
+      - --rpc-host=0.0.0.0
+      - --grpc-gateway-host=0.0.0.0
+      - --execution-endpoint=http://l1:8551
+      - --chain-id=900
+      - --accept-terms-of-use
+      - --jwt-secret=/test-jwt-secret.txt # consensus <> ex
+      - --suggested-fee-recipient="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+      - --p2p-max-peers=0
+      - --minimum-peers-per-subnet=0
+      - --disable-monitoring
+      - --pprof
+      - --force-clear-db
+      - --contract-deployment-block=0
+    depends_on:
+      create-beacon-chain-genesis:
+        condition: service_completed_successfully
     ports:
-      - "8545:8545"
-      - "8546:8546"
+      - "4000:4000"
+      - "3500:3500"
+      - "8080:8080"
+    volumes:
+      - "l1_data:/db"
+      - "${PWD}/../.devnet/genesis-l1.ssz:/genesis-l1.ssz"
+      - "${PWD}/prysm-config.yml:/config.yml"
+      - "${PWD}/test-jwt-secret.txt:/test-jwt-secret.txt"
+
+  validator:
+    image: "gcr.io/prysmaticlabs/prysm/validator:latest"
+    command:
+      - --beacon-rpc-provider=beacon-chain:4000
+      - --datadir=/db/validatordata
+      - --accept-terms-of-use
+      - --interop-num-validators=1
+      - --interop-start-index=0
+      - --chain-config-file=/config.yml
+      - --config-file=/config.yml
+      - --force-clear-db
+      - --verbosity=trace
+    depends_on:
+      beacon-chain:
+        condition: service_started
+    volumes:
+      - "l1_data:/db"
+      - "${PWD}/prysm-config.yml:/config.yml"
+
+  l1:
+    image: "ethereum/client-go:latest"
+    entrypoint: "/bin/sh /entrypoint.sh"
+    ports:
+      - "8551:8551"
+      - "8545:8545" # rpc
+      - "8546:8546" # wc
+      - "6063:6060" # metric
+      - "30303:30303" # p2p
     environment:
       CHAIN_ID: 900
       GETH_MINER_RECOMMIT: 100ms
     volumes:
       - "l1_data:/db"
-      - "${PWD}/entrypoint-l1.sh:/entrypoint.sh"
+      - "${PWD}/test-jwt-secret.txt:/config/jwt-secret.txt"
       - "${PWD}/../.devnet/genesis-l1.json:/genesis.json"
-      - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
-    entrypoint:
-      - "/bin/sh"
-      - "/entrypoint.sh"
+      - "${PWD}/entrypoint-l1.sh:/entrypoint.sh"
+    depends_on:
+      create-beacon-chain-genesis:
+        condition: service_completed_successfully
+      beacon-chain:
+        condition: service_started
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:v0.4.6
+    image: kromanetwork/geth:upstream
     ports:
       - "9545:8545"
       - "9546:8546"
@@ -65,6 +141,7 @@ services:
       NODE_RPC_ADDR: 0.0.0.0
       NODE_RPC_PORT: 8545
       NODE_RPC_ENABLE_ADMIN: true
+      NODE_L1_BEACON: http://beacon-chain:3500
       NODE_SNAPSHOT_LOG: /kroma_log/snapshot.log
       NODE_SEQUENCER_ENABLED: true
       NODE_SEQUENCER_L1_CONFS: 0
@@ -178,7 +255,7 @@ services:
       BATCHER_L2_ETH_RPC: http://l2:8545
       BATCHER_ROLLUP_RPC: http://kroma-node:8545
       BATCHER_MAX_L1_TX_SIZE_BYTES: 120000
-      BATCHER_TARGET_L1_TX_SIZE_BYTES: 624
+      BATCHER_BATCH_TYPE: 1 # 0 for SingularBatch and 1 for SpanBatch
       BATCHER_TARGET_NUM_FRAMES: 1
       BATCHER_APPROX_COMPR_RATIO: 1.0
       BATCHER_SUB_SAFETY_MARGIN: 6 # PWS is 15, ChannelTimeout is 40
@@ -213,7 +290,7 @@ services:
       - l1
     image: nginx:1.25-alpine
     ports:
-      - "8080:80"
+      - "8081:80"
     volumes:
       - "${PWD}/../.devnet/:/usr/share/nginx/html/:ro"
     security_opt:

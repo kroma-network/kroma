@@ -8,6 +8,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	oplog "github.com/kroma-network/kroma/op-service/log"
+	"github.com/mattn/go-isatty"
+	"golang.org/x/exp/slog"
 	"io"
 	"io/fs"
 	"net"
@@ -94,9 +97,12 @@ var embeddedAssets embed.FS
 func main() {
 	flag.Parse()
 
-	log.Root().SetHandler(
-		log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stdout, log.TerminalFormat(true))),
-	)
+	color := isatty.IsTerminal(os.Stderr.Fd())
+	oplog.SetGlobalLogHandler(log.NewTerminalHandlerWithLevel(os.Stdout, slog.LevelDebug, color))
+
+	//log.Root().SetHandler(
+	//	log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stdout, log.TerminalFormat(true))),
+	//)
 
 	if *snapshot == "" {
 		log.Crit("missing required -snapshot flag")

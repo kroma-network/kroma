@@ -6,17 +6,19 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/receipts"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 // TestERC20BridgeDeposits tests the the L1StandardBridge bridge ERC20
@@ -30,7 +32,7 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
 
-	log := testlog.Logger(t, log.LvlInfo)
+	log := testlog.Logger(t, log.LevelInfo)
 	log.Info("genesis", "l2", sys.RollupConfig.Genesis.L2, "l1", sys.RollupConfig.Genesis.L1, "l2_time", sys.RollupConfig.Genesis.L2Time)
 
 	l1Client := sys.Clients["l1"]
@@ -63,17 +65,11 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	require.NoError(t, err)
 	tx, err = kromaMintableTokenFactory.CreateKromaMintableERC20(l2Opts, weth9Address, "L2-WETH", "L2-WETH")
 	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(context.Background(), l2Client, tx.Hash())
+	rcpt, err := wait.ForReceiptOK(context.Background(), l2Client, tx.Hash())
 	require.NoError(t, err)
 
-	// Get the deployment event to have access to the L2 WETH9 address
-	it, err := kromaMintableTokenFactory.FilterKromaMintableERC20Created(&bind.FilterOpts{Start: 0}, nil, nil)
-	require.NoError(t, err)
-	var event *bindings.KromaMintableERC20FactoryKromaMintableERC20Created
-	for it.Next() {
-		event = it.Event
-	}
-	require.NotNil(t, event)
+	event, err := receipts.FindLog(rcpt.Logs, kromaMintableTokenFactory.ParseKromaMintableERC20Created)
+	require.NoError(t, err, "Should emit ERC20Created event")
 
 	// Approve WETH9 with the bridge
 	tx, err = WETH9.Approve(opts, cfg.L1Deployments.L1StandardBridgeProxy, new(big.Int).SetUint64(math.MaxUint64))
@@ -97,13 +93,8 @@ func TestERC20BridgeDeposits(t *testing.T) {
 	portal, err := bindings.NewKromaPortal(cfg.L1Deployments.KromaPortalProxy, l1Client)
 	require.NoError(t, err)
 
-	depIt, err := portal.FilterTransactionDeposited(&bind.FilterOpts{Start: 0}, nil, nil, nil)
-	require.NoError(t, err)
-	var depositEvent *bindings.KromaPortalTransactionDeposited
-	for depIt.Next() {
-		depositEvent = depIt.Event
-	}
-	require.NotNil(t, depositEvent)
+	depositEvent, err := receipts.FindLog(depositReceipt.Logs, portal.ParseTransactionDeposited)
+	require.NoError(t, err, "Should emit deposit event")
 
 	depositTx, err := derive.UnmarshalDepositLogEvent(&depositEvent.Raw)
 	require.NoError(t, err)

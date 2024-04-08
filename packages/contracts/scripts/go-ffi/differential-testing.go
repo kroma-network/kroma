@@ -340,41 +340,41 @@ func DiffTestUtils() {
 
 		// Print the output
 		fmt.Print(hexutil.Encode(packed[32:]))
-	// [Kroma: START]
-	// case "cannonMemoryProof":
-	// 	// <pc, insn, [memAddr, memValue]>
-	// 	mem := mipsevm.NewMemory()
-	// 	if len(args) != 3 && len(args) != 5 {
-	// 		panic("Error: cannonMemoryProofWithProof requires 2 or 4 arguments")
-	// 	}
-	// 	pc, err := strconv.ParseUint(args[1], 10, 32)
-	// 	checkErr(err, "Error decocding addr")
-	// 	insn, err := strconv.ParseUint(args[2], 10, 32)
-	// 	checkErr(err, "Error decocding insn")
-	// 	mem.SetMemory(uint32(pc), uint32(insn))
-	//
-	// 	var insnProof, memProof [896]byte
-	// 	if len(args) == 5 {
-	// 		memAddr, err := strconv.ParseUint(args[3], 10, 32)
-	// 		checkErr(err, "Error decocding memAddr")
-	// 		memValue, err := strconv.ParseUint(args[4], 10, 32)
-	// 		checkErr(err, "Error decocding memValue")
-	// 		mem.SetMemory(uint32(memAddr), uint32(memValue))
-	// 		memProof = mem.MerkleProof(uint32(memAddr))
-	// 	}
-	// 	insnProof = mem.MerkleProof(uint32(pc))
-	//
-	// 	output := struct {
-	// 		MemRoot common.Hash
-	// 		Proof   []byte
-	// 	}{
-	// 		MemRoot: mem.MerkleRoot(),
-	// 		Proof:   append(insnProof[:], memProof[:]...),
-	// 	}
-	// 	packed, err := cannonMemoryProofArgs.Pack(&output)
-	// 	checkErr(err, "Error encoding output")
-	// 	fmt.Print(hexutil.Encode(packed[32:]))
-	// [Kroma: END]
+	/* [Kroma: START]
+	case "cannonMemoryProof":
+		// <pc, insn, [memAddr, memValue]>
+		mem := mipsevm.NewMemory()
+		if len(args) != 3 && len(args) != 5 {
+			panic("Error: cannonMemoryProofWithProof requires 2 or 4 arguments")
+		}
+		pc, err := strconv.ParseUint(args[1], 10, 32)
+		checkErr(err, "Error decocding addr")
+		insn, err := strconv.ParseUint(args[2], 10, 32)
+		checkErr(err, "Error decocding insn")
+		mem.SetMemory(uint32(pc), uint32(insn))
+
+		var insnProof, memProof [896]byte
+		if len(args) == 5 {
+			memAddr, err := strconv.ParseUint(args[3], 10, 32)
+			checkErr(err, "Error decocding memAddr")
+			memValue, err := strconv.ParseUint(args[4], 10, 32)
+			checkErr(err, "Error decocding memValue")
+			mem.SetMemory(uint32(memAddr), uint32(memValue))
+			memProof = mem.MerkleProof(uint32(memAddr))
+		}
+		insnProof = mem.MerkleProof(uint32(pc))
+
+		output := struct {
+			MemRoot common.Hash
+			Proof   []byte
+		}{
+			MemRoot: mem.MerkleRoot(),
+			Proof:   append(insnProof[:], memProof[:]...),
+		}
+		packed, err := cannonMemoryProofArgs.Pack(&output)
+		checkErr(err, "Error encoding output")
+		fmt.Print(hexutil.Encode(packed[32:]))
+	[Kroma: END] */
 	default:
 		panic(fmt.Errorf("Unknown command: %s", args[0]))
 	}
