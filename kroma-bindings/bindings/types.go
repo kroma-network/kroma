@@ -54,6 +54,9 @@ type TypesPublicInput struct {
 	StateRoot        [32]byte
 	WithdrawalsRoot  [32]byte
 	TxHashes         [][32]byte
+	BlobGasUsed      uint64
+	ExcessBlobGas    uint64
+	ParentBeaconRoot [32]byte
 }
 
 // TypesPublicInputProof is an auto generated low-level Go binding around an user-defined struct.

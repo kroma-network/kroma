@@ -138,6 +138,17 @@ func (o *OutputResponse) ToPublicInput() (bindings.TypesPublicInput, error) {
 	for i, tx := range p.NextTransactions {
 		txHashes[i] = tx.Hash()
 	}
+	var blobGasUsed, excessBlobGas uint64
+	if p.NextBlock.BlobGasUsed != nil {
+		blobGasUsed = *p.NextBlock.BlobGasUsed
+	}
+	if p.NextBlock.ExcessBlobGas != nil {
+		excessBlobGas = *p.NextBlock.ExcessBlobGas
+	}
+	var parentBeaconRoot common.Hash
+	if o.PublicInputProof.NextBlock.ParentBeaconRoot != nil {
+		parentBeaconRoot = *o.PublicInputProof.NextBlock.ParentBeaconRoot
+	}
 	return bindings.TypesPublicInput{
 		BlockHash:        o.NextBlockRef.Hash,
 		ParentHash:       o.BlockRef.Hash,
@@ -149,6 +160,9 @@ func (o *OutputResponse) ToPublicInput() (bindings.TypesPublicInput, error) {
 		StateRoot:        p.NextBlock.Root,
 		WithdrawalsRoot:  withdrawalsRoot,
 		TxHashes:         txHashes,
+		BlobGasUsed:      blobGasUsed,
+		ExcessBlobGas:    excessBlobGas,
+		ParentBeaconRoot: parentBeaconRoot,
 	}, nil
 }
 

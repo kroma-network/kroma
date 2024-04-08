@@ -600,11 +600,9 @@ contract Colosseum is Initializable, ISemver {
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      */
-    function forceDeleteOutput(uint256 _outputIndex)
-        external
-        onlySecurityCouncil
-        outputNotFinalized(_outputIndex)
-    {
+    function forceDeleteOutput(
+        uint256 _outputIndex
+    ) external onlySecurityCouncil outputNotFinalized(_outputIndex) {
         // Check if the output is deleted.
         Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(_outputIndex);
         require(
@@ -792,7 +790,7 @@ contract Colosseum is Initializable, ISemver {
             "Colosseum: the state root must be matched"
         );
 
-        bytes32 blockHash = Hashing.hashBlockHeaderShanghai(_publicInput, _rlps);
+        bytes32 blockHash = Hashing.hashBlockHeaderCancun(_publicInput, _rlps);
         require(
             _srcOutputRootProof.nextBlockHash == blockHash,
             "Colosseum: the block hash from public input must be matched"
@@ -869,11 +867,10 @@ contract Colosseum is Initializable, ISemver {
      *
      * @return Hash of public input.
      */
-    function _hashPublicInput(bytes32 _prevStateRoot, Types.PublicInput calldata _publicInput)
-        private
-        view
-        returns (bytes32)
-    {
+    function _hashPublicInput(
+        bytes32 _prevStateRoot,
+        Types.PublicInput calldata _publicInput
+    ) private view returns (bytes32) {
         bytes32[] memory dummyHashes;
         if (_publicInput.txHashes.length < MAX_TXS) {
             dummyHashes = Hashing.generateDummyHashes(
@@ -946,11 +943,9 @@ contract Colosseum is Initializable, ISemver {
      *
      * @return The status of the challenge.
      */
-    function _challengeStatus(Types.Challenge storage _challenge)
-        private
-        view
-        returns (ChallengeStatus)
-    {
+    function _challengeStatus(
+        Types.Challenge storage _challenge
+    ) private view returns (ChallengeStatus) {
         if (_challenge.turn < TURN_INIT) {
             return ChallengeStatus.NONE;
         }
@@ -990,11 +985,10 @@ contract Colosseum is Initializable, ISemver {
      *
      * @return The challenge data.
      */
-    function getChallenge(uint256 _outputIndex, address _challenger)
-        external
-        view
-        returns (Types.Challenge memory)
-    {
+    function getChallenge(
+        uint256 _outputIndex,
+        address _challenger
+    ) external view returns (Types.Challenge memory) {
         return challenges[_outputIndex][_challenger];
     }
 
@@ -1006,11 +1000,10 @@ contract Colosseum is Initializable, ISemver {
      *
      * @return The status of the challenge.
      */
-    function getStatus(uint256 _outputIndex, address _challenger)
-        external
-        view
-        returns (ChallengeStatus)
-    {
+    function getStatus(
+        uint256 _outputIndex,
+        address _challenger
+    ) external view returns (ChallengeStatus) {
         Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
         return _challengeStatus(challenge);
     }

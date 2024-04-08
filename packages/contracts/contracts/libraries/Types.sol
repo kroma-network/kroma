@@ -54,6 +54,9 @@ library Types {
      * @custom:field stateRoot        Root hash of the state trie.
      * @custom:field withdrawalsRoot  Root hash of the withdrawals.
      * @custom:field txHashes         Array of hash of the transaction.
+     * @custom:field blobGasUsed      The total amount of blob gas consumed by the transactions within the block.
+     * @custom:field excessBlobGas    A total of blob gas consumed in excess of the target, prior to the block.
+     * @custom:field parentBeaconRoot Root hash of the parent beacon block.
      */
     struct PublicInput {
         bytes32 blockHash;
@@ -66,6 +69,9 @@ library Types {
         bytes32 stateRoot;
         bytes32 withdrawalsRoot;
         bytes32[] txHashes;
+        uint64 blobGasUsed;
+        uint64 excessBlobGas;
+        bytes32 parentBeaconRoot;
     }
 
     /**

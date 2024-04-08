@@ -83,11 +83,10 @@ contract ColosseumTest is Colosseum_Initializer {
         return arr;
     }
 
-    function _detectFault(Types.Challenge memory _challenge, address _sender)
-        private
-        view
-        returns (uint256)
-    {
+    function _detectFault(
+        Types.Challenge memory _challenge,
+        address _sender
+    ) private view returns (uint256) {
         if (_sender == _challenge.challenger && _sender != nextSender(_challenge)) {
             return 0;
         }
@@ -147,11 +146,7 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(challenge.turn, 1);
     }
 
-    function _bisect(
-        uint256 _outputIndex,
-        address _challenger,
-        address _sender
-    ) private {
+    function _bisect(uint256 _outputIndex, address _challenger, address _sender) private {
         Types.Challenge memory challenge = colosseum.getChallenge(_outputIndex, _challenger);
 
         uint256 position = _detectFault(challenge, _sender);
@@ -197,11 +192,7 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(prevOutput.l2BlockNumber, newOutput.l2BlockNumber);
     }
 
-    function _doProveFault(
-        address _challenger,
-        uint256 _outputIndex,
-        uint256 _position
-    ) private {
+    function _doProveFault(address _challenger, uint256 _outputIndex, uint256 _position) private {
         (
             Types.OutputRootProof memory srcOutputRootProof,
             Types.OutputRootProof memory dstOutputRootProof
