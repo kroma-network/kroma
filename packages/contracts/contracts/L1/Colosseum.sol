@@ -243,9 +243,9 @@ contract Colosseum is Initializable, ISemver {
 
     /**
      * @notice Semantic version.
-     * @custom:semver 1.0.0
+     * @custom:semver 1.1.0
      */
-    string public constant version = "1.0.0";
+    string public constant version = "1.1.0";
 
     /**
      * @notice Constructs the Colosseum contract.
@@ -790,7 +790,11 @@ contract Colosseum is Initializable, ISemver {
             "Colosseum: the state root must be matched"
         );
 
-        bytes32 blockHash = Hashing.hashBlockHeaderCancun(_publicInput, _rlps);
+        // parentBeaconRoot is non-zero for Cancun block
+        bytes32 blockHash = _publicInput.parentBeaconRoot != bytes32(0)
+            ? Hashing.hashBlockHeaderCancun(_publicInput, _rlps)
+            : Hashing.hashBlockHeaderShanghai(_publicInput, _rlps);
+
         require(
             _srcOutputRootProof.nextBlockHash == blockHash,
             "Colosseum: the block hash from public input must be matched"
