@@ -107,7 +107,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:upstream
+    image: kromanetwork/geth:v0.5.0-rc.4
     ports:
       - "9545:8545"
       - "9546:8546"
@@ -255,6 +255,8 @@ services:
       BATCHER_L2_ETH_RPC: http://l2:8545
       BATCHER_ROLLUP_RPC: http://kroma-node:8545
       BATCHER_MAX_L1_TX_SIZE_BYTES: 120000
+      BATCHER_MAX_CHANNEL_DURATION: 20
+      BATCHER_DATA_AVAILABILITY_TYPE: blobs
       BATCHER_BATCH_TYPE: 1 # 0 for SingularBatch and 1 for SpanBatch
       BATCHER_TARGET_NUM_FRAMES: 1
       BATCHER_APPROX_COMPR_RATIO: 1.0
