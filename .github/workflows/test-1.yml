@@ -1,0 +1,63 @@
+name: Tests
+
+on: pull_request
+
+jobs:
+  test:
+    name: Run tests
+    runs-on:
+      group: kroma-runners
+      labels: kroma-ubuntu-22-04-16core
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go 1.21
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      - run: go mod download
+
+      - name: Setup Node.js using .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Foundry
+        run: pnpm install:foundry
+
+      - name: Build
+        run: pnpm build
+
+      - name: Generate L1 allocs
+        run: make devnet-allocs
+
+      - name: Run tests
+        env:
+          OP_E2E_DISABLE_PARALLEL: true
+          OP_E2E_USE_CANYON: true
+        run: make test
