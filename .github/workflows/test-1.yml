@@ -47,11 +47,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Install Foundryup
+        run: curl -L https://foundry.paradigm.xyz | bash
+
       - name: Install Foundry
-        run: |
-          curl -L https://foundry.paradigm.xyz | bash
-          source /home/runner/.bashrc
-          pnpm update:foundry
+        run: pnpm update:foundry
 
       - name: Build
         run: pnpm build
