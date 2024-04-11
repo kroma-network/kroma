@@ -48,7 +48,10 @@ jobs:
         run: pnpm install
 
       - name: Install Foundry
-        run: pnpm install:foundry
+        run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          source /home/runner/.bashrc
+          pnpm update:foundry
 
       - name: Build
         run: pnpm build
