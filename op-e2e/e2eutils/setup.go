@@ -65,8 +65,8 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	deployConfig.UsePlasma = tp.UsePlasma
 	// [Kroma: START]
 	//genesisTimeOffset := hexutil.Uint64(0)
-	//deployConfig.L2GenesisDeltaTimeOffset = &genesisTimeOffset
-	//deployConfig.L2GenesisEcotoneTimeOffset = &genesisTimeOffset
+	deployConfig.L2GenesisDeltaTimeOffset = nil
+	deployConfig.L2GenesisEcotoneTimeOffset = nil
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
 	ApplyDeployConfigForks(deployConfig)
