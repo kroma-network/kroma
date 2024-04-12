@@ -387,7 +387,7 @@ func checkMulticall3Contract(ctx context.Context, env *actionEnv) error {
 	}
 	codeHash := crypto.Keccak256Hash(multicall3Contract)
 	if codeHash != multicall3CodeHash {
-		return fmt.Errorf("unexpected multiucall3 contract code: %w", err)
+		return fmt.Errorf("unexpected multiucall3 contract code: %v", err)
 	}
 	env.log.Info("multicall3 contract test: success")
 	return nil
