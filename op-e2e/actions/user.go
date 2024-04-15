@@ -20,16 +20,19 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	e2e "github.com/kroma-network/kroma/op-e2e"
 )
 
 type L1Bindings struct {
 	// contract bindings
-	KromaPortal *bindings.KromaPortal
-
+	KromaPortal    *bindings.KromaPortal
 	L2OutputOracle *bindings.L2OutputOracle
+	/* [Kroma: START]
+	OptimismPortal2    *bindingspreview.OptimismPortal2
+	DisputeGameFactory *bindings.DisputeGameFactory
+	[Kroma: END] */
 }
 
 func NewL1Bindings(t Testing, l1Cl *ethclient.Client) *L1Bindings {
@@ -39,9 +42,21 @@ func NewL1Bindings(t Testing, l1Cl *ethclient.Client) *L1Bindings {
 	l2OutputOracle, err := bindings.NewL2OutputOracle(config.L1Deployments.L2OutputOracleProxy, l1Cl)
 	require.NoError(t, err)
 
+	/* [Kroma: START]
+	optimismPortal2, err := bindingspreview.NewOptimismPortal2(config.L1Deployments.OptimismPortalProxy, l1Cl)
+	require.NoError(t, err)
+
+	disputeGameFactory, err := bindings.NewDisputeGameFactory(config.L1Deployments.DisputeGameFactoryProxy, l1Cl)
+	require.NoError(t, err)
+	[Kroma: END] */
+
 	return &L1Bindings{
 		KromaPortal:    kromaPortal,
 		L2OutputOracle: l2OutputOracle,
+		/* [Kroma: START]
+		OptimismPortal2:    optimismPortal2,
+		DisputeGameFactory: disputeGameFactory,
+		[Kroma: END] */
 	}
 }
 
@@ -393,6 +408,42 @@ func (s *CrossLayerUser) Address() common.Address {
 	return s.L1.address
 }
 
+func (s *CrossLayerUser) getLatestWithdrawalParams(t Testing) (*withdrawals.ProvenWithdrawalParameters, error) {
+	receipt := s.L2.CheckReceipt(t, true, s.lastL2WithdrawalTxHash)
+	l2WithdrawalBlock, err := s.L2.env.EthCl.BlockByNumber(t.Ctx(), receipt.BlockNumber)
+	require.NoError(t, err)
+
+	// Figure out what the Output oracle on L1 has seen so far
+	var l2OutputBlockNr *big.Int
+	var l2OutputBlock *types.Block
+	l2OutputBlockNr, err = s.L1.env.Bindings.L2OutputOracle.LatestBlockNumber(&bind.CallOpts{})
+	require.NoError(t, err)
+	l2OutputBlock, err = s.L2.env.EthCl.BlockByNumber(t.Ctx(), l2OutputBlockNr)
+	require.NoError(t, err)
+
+	// Check if the L2 output is even old enough to include the withdrawal
+	if l2OutputBlock.NumberU64() < l2WithdrawalBlock.NumberU64() {
+		return nil, fmt.Errorf("the latest L2 output is %d and is not past L2 block %d that includes the withdrawal yet, no withdrawal can be proved yet", l2OutputBlock.NumberU64(), l2WithdrawalBlock.NumberU64())
+	}
+
+	finalizationPeriod, err := s.L1.env.Bindings.L2OutputOracle.FINALIZATIONPERIODSECONDS(&bind.CallOpts{})
+	require.NoError(t, err)
+	l1Head, err := s.L1.env.EthCl.HeaderByNumber(t.Ctx(), nil)
+	require.NoError(t, err)
+
+	if l2OutputBlock.Time()+finalizationPeriod.Uint64() >= l1Head.Time {
+		return nil, fmt.Errorf("L2 output block %d (time %d) is not past finalization period %d from L2 block %d (time %d) at head %d (time %d)", l2OutputBlock.NumberU64(), l2OutputBlock.Time(), finalizationPeriod.Uint64(), l2WithdrawalBlock.NumberU64(), l2WithdrawalBlock.Time(), l1Head.Number.Uint64(), l1Head.Time)
+	}
+
+	// We generate a proof for the latest L2 output, which shouldn't require archive-node data if it's recent enough.
+	header, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), l2OutputBlockNr)
+	require.NoError(t, err)
+	params, err := e2e.ProveWithdrawalParameters(t.Ctx(), s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
+	require.NoError(t, err)
+
+	return &params, nil
+}
+
 // ActCompleteWithdrawal creates a L1 proveWithdrawal tx for latest withdrawal.
 // The tx hash is remembered as the last L1 tx, to check as L1 actor.
 func (s *CrossLayerUser) ActProveWithdrawal(t Testing) {
@@ -401,33 +452,11 @@ func (s *CrossLayerUser) ActProveWithdrawal(t Testing) {
 
 // ProveWithdrawal creates a L1 proveWithdrawal tx for the given L2 withdrawal tx, returning the tx hash.
 func (s *CrossLayerUser) ProveWithdrawal(t Testing, l2TxHash common.Hash) common.Hash {
-	// Figure out when our withdrawal was included
-	receipt := s.L2.CheckReceipt(t, true, l2TxHash)
-	l2WithdrawalBlock, err := s.L2.env.EthCl.BlockByNumber(t.Ctx(), receipt.BlockNumber)
-	require.NoError(t, err)
-
-	// Figure out what the Output oracle on L1 has seen so far
-	l2OutputBlockNr, err := s.L1.env.Bindings.L2OutputOracle.LatestBlockNumber(&bind.CallOpts{})
-	require.NoError(t, err)
-	l2OutputBlock, err := s.L2.env.EthCl.BlockByNumber(t.Ctx(), l2OutputBlockNr)
-	require.NoError(t, err)
-	l2OutputIndex, err := s.L1.env.Bindings.L2OutputOracle.GetL2OutputIndexAfter(&bind.CallOpts{}, l2OutputBlockNr)
-	require.NoError(t, err)
-
-	// Check if the L2 output is even old enough to include the withdrawal
-	if l2OutputBlock.NumberU64() < l2WithdrawalBlock.NumberU64() {
-		t.InvalidAction("the latest L2 output is %d and is not past L2 block %d that includes the withdrawal yet, no withdrawal can be proved yet", l2OutputBlock.NumberU64(), l2WithdrawalBlock.NumberU64())
+	params, err := s.getLatestWithdrawalParams(t)
+	if err != nil {
+		t.InvalidAction("cannot prove withdrawal: %v", err)
 		return common.Hash{}
 	}
-
-	// We generate a proof for the latest L2 output, which shouldn't require archive-node data if it's recent enough.
-	header, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), l2OutputBlockNr)
-	require.NoError(t, err)
-	nextHeader, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), new(big.Int).Add(l2OutputBlockNr, common.Big1))
-	require.NoError(t, err)
-	version := eth.OutputVersionV0
-	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, nextHeader, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
-	require.NoError(t, err)
 
 	// Create the prove tx
 	tx, err := s.L1.env.Bindings.KromaPortal.ProveWithdrawalTransaction(
@@ -440,7 +469,7 @@ func (s *CrossLayerUser) ProveWithdrawal(t Testing, l2TxHash common.Hash) common
 			GasLimit: params.GasLimit,
 			Data:     params.Data,
 		},
-		l2OutputIndex,
+		params.L2OutputIndex,
 		params.OutputRootProof,
 		params.WithdrawalProof,
 	)
@@ -462,46 +491,11 @@ func (s *CrossLayerUser) ActCompleteWithdrawal(t Testing) {
 // CompleteWithdrawal creates a L1 withdrawal finalization tx for the given L2 withdrawal tx, returning the tx hash.
 // It's an invalid action to attempt to complete a withdrawal that has not passed the L1 finalization period yet
 func (s *CrossLayerUser) CompleteWithdrawal(t Testing, l2TxHash common.Hash) common.Hash {
-	finalizationPeriod, err := s.L1.env.Bindings.L2OutputOracle.FINALIZATIONPERIODSECONDS(&bind.CallOpts{})
-	require.NoError(t, err)
-
-	// Figure out when our withdrawal was included
-	receipt := s.L2.CheckReceipt(t, true, l2TxHash)
-	l2WithdrawalBlock, err := s.L2.env.EthCl.BlockByNumber(t.Ctx(), receipt.BlockNumber)
-	require.NoError(t, err)
-
-	// Figure out what the Output oracle on L1 has seen so far
-	l2OutputBlockNr, err := s.L1.env.Bindings.L2OutputOracle.LatestBlockNumber(&bind.CallOpts{})
-	require.NoError(t, err)
-	l2OutputBlock, err := s.L2.env.EthCl.BlockByNumber(t.Ctx(), l2OutputBlockNr)
-	require.NoError(t, err)
-
-	// Check if the L2 output is even old enough to include the withdrawal
-	if l2OutputBlock.NumberU64() < l2WithdrawalBlock.NumberU64() {
-		t.InvalidAction("the latest L2 output is %d and is not past L2 block %d that includes the withdrawal yet, no withdrawal can be completed yet", l2OutputBlock.NumberU64(), l2WithdrawalBlock.NumberU64())
+	params, err := s.getLatestWithdrawalParams(t)
+	if err != nil {
+		t.InvalidAction("cannot complete withdrawal: %v", err)
 		return common.Hash{}
 	}
-
-	l1Head, err := s.L1.env.EthCl.HeaderByNumber(t.Ctx(), nil)
-	require.NoError(t, err)
-
-	// Check if the withdrawal may be completed yet
-	if l2OutputBlock.Time()+finalizationPeriod.Uint64() >= l1Head.Time {
-		t.InvalidAction("withdrawal tx %s was included in L2 block %d (time %d) but L1 only knows of L2 proposal %d (time %d) at head %d (time %d) which has not reached output confirmation yet (period is %d)",
-			l2TxHash, l2WithdrawalBlock.NumberU64(), l2WithdrawalBlock.Time(), l2OutputBlock.NumberU64(), l2OutputBlock.Time(), l1Head.Number.Uint64(), l1Head.Time, finalizationPeriod.Uint64())
-		return common.Hash{}
-	}
-
-	// We generate a proof for the latest L2 output, which shouldn't require archive-node data if it's recent enough.
-	// Note that for the `FinalizeWithdrawalTransaction` function, this proof isn't needed. We simply use some of the
-	// params for the `WithdrawalTransaction` type generated in the bindings.
-	header, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), l2OutputBlockNr)
-	require.NoError(t, err)
-	nextHeader, err := s.L2.env.EthCl.HeaderByNumber(t.Ctx(), new(big.Int).Add(l2OutputBlockNr, common.Big1))
-	require.NoError(t, err)
-	version := eth.OutputVersionV0
-	params, err := withdrawals.ProveWithdrawalParameters(t.Ctx(), version, s.L2.env.Bindings.ProofClient, s.L2.env.EthCl, s.lastL2WithdrawalTxHash, header, nextHeader, &s.L1.env.Bindings.L2OutputOracle.L2OutputOracleCaller)
-	require.NoError(t, err)
 
 	// Create the withdrawal tx
 	tx, err := s.L1.env.Bindings.KromaPortal.FinalizeWithdrawalTransaction(

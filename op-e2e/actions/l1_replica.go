@@ -51,9 +51,9 @@ func NewL1Replica(t Testing, log log.Logger, genesis *core.Genesis) *L1Replica {
 	ethCfg := &ethconfig.Config{
 		NetworkId: genesis.Config.ChainID.Uint64(),
 		Genesis:   genesis,
-		// [Kroma: START]
+		/* [Kroma: START]
 		// RollupDisableTxPoolGossip: true,
-		// [Kroma: END]
+		[Kroma: END] */
 		BlobPool: blobpool.Config{
 			Datadir:   t.TempDir(),
 			Datacap:   blobpool.DefaultConfig.Datacap,

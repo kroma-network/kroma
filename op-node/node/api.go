@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum"
@@ -10,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/version"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -38,10 +40,15 @@ type driverClient interface {
 	StartSequencer(ctx context.Context, blockHash common.Hash) error
 	StopSequencer(context.Context) (common.Hash, error)
 	SequencerActive(context.Context) (bool, error)
+	OnUnsafeL2Payload(ctx context.Context, payload *eth.ExecutionPayloadEnvelope) error
 
 	// [Kroma: START]
 	BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error)
 	// [Kroma: END]
+}
+
+type SafeDBReader interface {
+	SafeHeadAtL1(ctx context.Context, l1BlockNum uint64) (l1 eth.BlockID, l2 eth.BlockID, err error)
 }
 
 type adminAPI struct {
@@ -80,19 +87,37 @@ func (n *adminAPI) SequencerActive(ctx context.Context) (bool, error) {
 	return n.dr.SequencerActive(ctx)
 }
 
+// PostUnsafePayload is a special API that allow posting an unsafe payload to the L2 derivation pipeline.
+// It should only be used by op-conductor for sequencer failover scenarios.
+// TODO(ethereum-optimism/optimism#9064): op-conductor Dencun changes.
+func (n *adminAPI) PostUnsafePayload(ctx context.Context, envelope *eth.ExecutionPayloadEnvelope) error {
+	recordDur := n.M.RecordRPCServerRequest("admin_postUnsafePayload")
+	defer recordDur()
+
+	payload := envelope.ExecutionPayload
+	if actual, ok := envelope.CheckBlockHash(); !ok {
+		log.Error("payload has bad block hash", "bad_hash", payload.BlockHash.String(), "actual", actual.String())
+		return fmt.Errorf("payload has bad block hash: %s, actual block hash is: %s", payload.BlockHash.String(), actual.String())
+	}
+
+	return n.dr.OnUnsafeL2Payload(ctx, envelope)
+}
+
 type nodeAPI struct {
 	config *rollup.Config
 	client l2EthClient
 	dr     driverClient
+	safeDB SafeDBReader
 	log    log.Logger
 	m      metrics.RPCMetricer
 }
 
-func NewNodeAPI(config *rollup.Config, l2Client l2EthClient, dr driverClient, log log.Logger, m metrics.RPCMetricer) *nodeAPI {
+func NewNodeAPI(config *rollup.Config, l2Client l2EthClient, dr driverClient, safeDB SafeDBReader, log log.Logger, m metrics.RPCMetricer) *nodeAPI {
 	return &nodeAPI{
 		config: config,
 		client: l2Client,
 		dr:     dr,
+		safeDB: safeDB,
 		log:    log,
 		m:      m,
 	}
@@ -108,6 +133,21 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 	}
 
 	return output, nil
+}
+
+func (n *nodeAPI) SafeHeadAtL1Block(ctx context.Context, number hexutil.Uint64) (*eth.SafeHeadResponse, error) {
+	recordDur := n.m.RecordRPCServerRequest("optimism_safeHeadAtL1Block")
+	defer recordDur()
+	l1Block, safeHead, err := n.safeDB.SafeHeadAtL1(ctx, uint64(number))
+	if errors.Is(err, safedb.ErrNotFound) {
+		return nil, err
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get safe head at l1 block %s: %w", number, err)
+	}
+	return &eth.SafeHeadResponse{
+		L1Block:  l1Block,
+		SafeHead: safeHead,
+	}, nil
 }
 
 func (n *nodeAPI) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {

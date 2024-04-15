@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
-	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
+	pprof "github.com/ethereum-optimism/optimism/op-service/pprof"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -111,7 +111,7 @@ type CLIConfig struct {
 	RPCConfig     oprpc.CLIConfig
 	LogConfig     oplog.CLIConfig
 	MetricsConfig opmetrics.CLIConfig
-	PprofConfig   oppprof.CLIConfig
+	PprofConfig   pprof.CLIConfig
 }
 
 func (c CLIConfig) Check() error {
@@ -163,7 +163,7 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		RPCConfig:                       oprpc.ReadCLIConfig(ctx),
 		LogConfig:                       oplog.ReadCLIConfig(ctx),
 		MetricsConfig:                   opmetrics.ReadCLIConfig(ctx),
-		PprofConfig:                     oppprof.ReadCLIConfig(ctx),
+		PprofConfig:                     pprof.ReadCLIConfig(ctx),
 	}
 }
 

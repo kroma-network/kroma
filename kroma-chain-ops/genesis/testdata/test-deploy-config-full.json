@@ -55,6 +55,7 @@
   "eip1559Elasticity": 2,
   "systemConfigStartBlock": 0,
   "fundDevAccounts": true,
+  "daChallengeProxy": "0x0000000000000000000000000000000000000000",
 
   "validatorRewardScalar": 5000,
   "validatorPoolTrustedValidator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",

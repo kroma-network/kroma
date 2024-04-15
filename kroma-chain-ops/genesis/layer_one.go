@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
 	gstate "github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 var (
@@ -44,7 +46,7 @@ func init() {
 // all of the state required for an Optimism network to function.
 // It is expected that the dump contains all of the required state to bootstrap
 // the L1 chain.
-func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployments *L1Deployments, postProcess bool) (*core.Genesis, error) {
+func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployments *L1Deployments) (*core.Genesis, error) {
 	log.Info("Building developer L1 genesis block")
 	genesis, err := NewL1Genesis(config)
 	if err != nil {
@@ -56,7 +58,16 @@ func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployme
 	SetPrecompileBalances(memDB)
 
 	if dump != nil {
-		for address, account := range dump.Accounts {
+		for addrstr, account := range dump.Accounts {
+			if !common.IsHexAddress(addrstr) {
+				// Changes in https://github.com/ethereum/go-ethereum/pull/28504
+				// add accounts to the Dump with "pre(<AddressHash>)" as key
+				// if the address itself is nil.
+				// So depending on how `dump` was created, this might be a
+				// pre-image key, which we skip.
+				continue
+			}
+			address := common.HexToAddress(addrstr)
 			name := "<unknown>"
 			if l1Deployments != nil {
 				if n := l1Deployments.GetName(address); n != "" {
@@ -67,7 +78,7 @@ func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployme
 			memDB.CreateAccount(address)
 			memDB.SetNonce(address, account.Nonce)
 
-			balance, ok := new(big.Int).SetString(account.Balance, 10)
+			balance, ok := math.ParseBig256(account.Balance)
 			if !ok {
 				return nil, fmt.Errorf("failed to parse balance for %s", address)
 			}
@@ -79,12 +90,12 @@ func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployme
 			}
 		}
 
-		// This should only be used if we are expecting Optimism specific state to be set
-		if postProcess {
-			if err := PostProcessL1DeveloperGenesis(memDB, l1Deployments); err != nil {
-				return nil, fmt.Errorf("failed to post process L1 developer genesis: %w", err)
-			}
+		// [Kroma: START]
+		// This should only be used if we are expecting Kroma specific state to be set
+		if err := PostProcessL1DeveloperGenesis(memDB, l1Deployments); err != nil {
+			return nil, fmt.Errorf("failed to post process L1 developer genesis: %w", err)
 		}
+		// [Kroma: END]
 	}
 
 	return memDB.Genesis(), nil
@@ -177,6 +188,10 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 		stateDB.SetState(deployments.SecurityCouncilTokenProxy, slot, val)
 		log.Info("Post process update", "name", "SecurityCouncilToken", "address", deployments.SecurityCouncilTokenProxy, "slot", slot.Hex(), "beforeVal", beforeVal.Hex(), "afterVal", val.Hex())
 	}
+
+	//setup beacon deposit contract
+	log.Info("Set BeaconDepositContractCode")
+	stateDB.SetCode(predeploys.BeaconDepositContractAddr, predeploys.BeaconDepositContractCode)
 	return nil
 }
 

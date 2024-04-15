@@ -651,16 +651,9 @@ contract SecurityCouncil_Initializer is UpgradeGovernor_Initializer {
 }
 
 contract FFIInterface is Test {
-    function getProveWithdrawalTransactionInputs(Types.WithdrawalTransaction memory _tx)
-        external
-        returns (
-            bytes32,
-            bytes32,
-            bytes32,
-            bytes32,
-            bytes[] memory
-        )
-    {
+    function getProveWithdrawalTransactionInputs(
+        Types.WithdrawalTransaction memory _tx
+    ) external returns (bytes32, bytes32, bytes32, bytes32, bytes[] memory) {
         string[] memory cmds = new string[](9);
         cmds[0] = "scripts/go-ffi/go-ffi";
         cmds[1] = "diff";
@@ -777,10 +770,9 @@ contract FFIInterface is Test {
         return abi.decode(result, (bytes32));
     }
 
-    function encodeDepositTransaction(Types.UserDepositTransaction calldata txn)
-        external
-        returns (bytes memory)
-    {
+    function encodeDepositTransaction(
+        Types.UserDepositTransaction calldata txn
+    ) external returns (bytes memory) {
         string[] memory cmds = new string[](12);
         cmds[0] = "scripts/go-ffi/go-ffi";
         cmds[1] = "diff";
@@ -833,15 +825,9 @@ contract FFIInterface is Test {
         return abi.decode(result, (uint256, uint256));
     }
 
-    function getMerkleTrieFuzzCase(string memory variant)
-        external
-        returns (
-            bytes32,
-            bytes memory,
-            bytes memory,
-            bytes[] memory
-        )
-    {
+    function getMerkleTrieFuzzCase(
+        string memory variant
+    ) external returns (bytes32, bytes memory, bytes memory, bytes[] memory) {
         string[] memory cmds = new string[](3);
         cmds[0] = "./scripts/go-ffi/go-ffi";
         cmds[1] = "trie";

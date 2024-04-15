@@ -74,36 +74,38 @@ and how you should use it to maintain a clean commit history.
 
 You'll need the following:
 
-- [Git](https://git-scm.com/downloads)
-- [NodeJS](https://nodejs.org/en/download/)
-- [Node Version Manager](https://github.com/nvm-sh/nvm)
-- [pnpm](https://pnpm.io/installation)
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
-- [Go](https://go.dev/dl/)
-- [Foundry](https://getfoundry.sh)
+* [Git](https://git-scm.com/downloads)
+* [NodeJS](https://nodejs.org/en/download/)
+* [Node Version Manager](https://github.com/nvm-sh/nvm)
+* [pnpm](https://pnpm.io/installation)
+* [Docker](https://docs.docker.com/get-docker/)
+* [Docker Compose](https://docs.docker.com/compose/install/)
+* [Go](https://go.dev/dl/)
+* [Foundry](https://getfoundry.sh)
+* [jq](https://jqlang.github.io/jq/)
+* [go-ethereum](https://github.com/ethereum/go-ethereum)
 
 ### Setup
 
 Clone the repository and open it:
 
-```shell
-> git clone git@github.com:kroma-network/kroma.git
-> cd kroma
+```bash
+git clone git@github.com:kroma-network/kroma.git
+cd kroma
 ```
 
 ### Install the Correct Version of NodeJS
 
 Install the correct node version with [nvm](https://github.com/nvm-sh/nvm)
 
-```shell
-> nvm use
+```bash
+nvm use
 ```
 
 ### Install node modules with pnpm
 
-```shell
-> pnpm i
+```bash
+pnpm i
 ```
 
 ### Building the TypeScript packages
@@ -114,9 +116,10 @@ and compile the smart contracts. Install foundry [here](https://getfoundry.sh/).
 
 To build all of the [TypeScript packages](./packages), run:
 
-```shell
-> pnpm clean
-> pnpm build
+```bash
+pnpm clean
+pnpm install
+pnpm build
 ```
 
 Packages compiled when on one branch may not be compatible with packages on a different branch.
@@ -127,17 +130,27 @@ Use the above commands to recompile the packages.
 
 Before running tests: **follow the above instructions to get everything built.**
 
-#### Running unit tests
+#### Running unit tests (typescript)
 
 Run unit tests for all packages in parallel via:
 
-```shell
-> pnpm test
+```bash
+pnpm test
 ```
 
 To run unit tests for a specific package:
 
-```shell
-> cd packages/package-to-test
-> pnpm test
+```bash
+cd packages/package-to-test
+pnpm test
 ```
+
+#### Running unit tests (Go)
+
+Change directory to the package you want to run tests for. Then:
+```shell
+go test ./...
+```
+
+#### Running e2e tests (Go)
+See [this document](./op-e2e/README.md)

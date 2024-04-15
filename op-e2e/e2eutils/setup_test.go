@@ -23,6 +23,7 @@ func TestSetup(t *testing.T) {
 		SequencerWindowSize: 120,
 		ChannelTimeout:      120,
 		L1BlockTime:         15,
+		UsePlasma:           false,
 	}
 	dp := MakeDeployParams(t, tp)
 	alloc := &AllocParams{PrefundTestUsers: true}

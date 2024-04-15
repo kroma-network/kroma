@@ -33,7 +33,7 @@ func Main(version string, cliCtx *cli.Context) error {
 	}
 
 	l := oplog.NewLogger(oplog.AppOut(cliCtx), cfg.LogConfig)
-	oplog.SetGlobalLogHandler(l.GetHandler())
+	oplog.SetGlobalLogHandler(l.Handler())
 	opservice.ValidateEnvVars(flags.EnvVarPrefix, flags.Flags, l)
 	m := metrics.NewMetrics("default")
 	l.Info("initializing Validator")

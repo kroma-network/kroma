@@ -18,12 +18,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/hardhat"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
 
 var (
@@ -70,16 +69,17 @@ type DeployConfig struct {
 	// L2OutputOracleStartingTimestamp is the starting timestamp for the L2OutputOracle.
 	// MUST be the same as the timestamp of the L2OO start block.
 	L2OutputOracleStartingTimestamp int `json:"l2OutputOracleStartingTimestamp"`
-	// [Kroma: START]
-	// // L2OutputOracleStartingBlockNumber is the starting block number for the L2OutputOracle.
-	// // Must be greater than or equal to the first Bedrock block. The first L2 output will correspond
-	// // to this value plus the submission interval.
-	// L2OutputOracleStartingBlockNumber uint64 `json:"l2OutputOracleStartingBlockNumber"`
-	// // L2OutputOracleProposer is the address of the account that proposes L2 outputs.
-	// L2OutputOracleProposer common.Address `json:"l2OutputOracleProposer"`
-	// // L2OutputOracleChallenger is the address of the account that challenges L2 outputs.
-	// L2OutputOracleChallenger common.Address `json:"l2OutputOracleChallenger"`
-	// [Kroma: END]
+
+	/* [Kroma: START]
+	// L2OutputOracleStartingBlockNumber is the starting block number for the L2OutputOracle.
+	// Must be greater than or equal to the first Bedrock block. The first L2 output will correspond
+	// to this value plus the submission interval.
+	L2OutputOracleStartingBlockNumber uint64 `json:"l2OutputOracleStartingBlockNumber"`
+	// L2OutputOracleProposer is the address of the account that proposes L2 outputs.
+	L2OutputOracleProposer common.Address `json:"l2OutputOracleProposer"`
+	// L2OutputOracleChallenger is the address of the account that challenges L2 outputs.
+	L2OutputOracleChallenger common.Address `json:"l2OutputOracleChallenger"`
+	[Kroma: END] */
 
 	// CliqueSignerAddress represents the signer address for the clique consensus engine.
 	// It is used in the multi-process devnet to sign blocks.
@@ -117,9 +117,9 @@ type DeployConfig struct {
 	// L2GenesisDeltaTimeOffset is the number of seconds after genesis block that Delta hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Delta.
 	L2GenesisDeltaTimeOffset *hexutil.Uint64 `json:"l2GenesisDeltaTimeOffset,omitempty"`
-	// L2GenesisEclipseTimeOffset is the number of seconds after genesis block that Eclipse hard fork activates.
-	// Set it to 0 to activate at genesis. Nil to disable Eclipse.
-	L2GenesisEclipseTimeOffset *hexutil.Uint64 `json:"l2GenesisEclipseTimeOffset,omitempty"`
+	// L2GenesisEcotoneTimeOffset is the number of seconds after genesis block that Ecotone hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable Ecotone.
+	L2GenesisEcotoneTimeOffset *hexutil.Uint64 `json:"l2GenesisEcotoneTimeOffset,omitempty"`
 	// L2GenesisFjordTimeOffset is the number of seconds after genesis block that Fjord hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Fjord.
 	L2GenesisFjordTimeOffset *hexutil.Uint64 `json:"l2GenesisFjordTimeOffset,omitempty"`
@@ -175,45 +175,75 @@ type DeployConfig struct {
 	// from. It is an override to set this value on legacy networks where it is not set by
 	// default. It can be removed once all networks have this value set in their storage.
 	SystemConfigStartBlock uint64 `json:"systemConfigStartBlock"`
-	// [Kroma: START]
-	// // FaultGameAbsolutePrestate is the absolute prestate of Cannon. This is computed
-	// // by generating a proof from the 0th -> 1st instruction and grabbing the prestate from
-	// // the output JSON. All honest challengers should agree on the setup state of the program.
-	// // TODO(clabby): Right now, the build of the `op-program` is nondeterministic, meaning that
-	// // the binary must be distributed in order for honest actors to agree. In the future, we'll
-	// // look to make the build deterministic so that users may build Cannon / the `op-program`
-	// // from source.
-	// FaultGameAbsolutePrestate common.Hash `json:"faultGameAbsolutePrestate"`
-	// // FaultGameMaxDepth is the maximum depth of the position tree within the fault dispute game.
-	// // `2^{FaultGameMaxDepth}` is how many instructions the execution trace bisection game
-	// // supports. Ideally, this should be conservatively set so that there is always enough
-	// // room for a full Cannon trace.
-	// FaultGameMaxDepth uint64 `json:"faultGameMaxDepth"`
-	// // FaultGameMaxDuration is the maximum amount of time (in seconds) that the fault dispute
-	// // game can run for before it is ready to be resolved. Each side receives half of this value
-	// // on their chess clock at the inception of the dispute.
-	// FaultGameMaxDuration uint64 `json:"faultGameMaxDuration"`
-	// // OutputBisectionGameGenesisBlock is the block number for genesis.
-	// OutputBisectionGameGenesisBlock uint64 `json:"outputBisectionGameGenesisBlock"`
-	// // OutputBisectionGameGenesisOutputRoot is the output root for the genesis block.
-	// OutputBisectionGameGenesisOutputRoot common.Hash `json:"outputBisectionGameGenesisOutputRoot"`
-	// // OutputBisectionGameSplitDepth is the depth at which the output bisection game splits.
-	// OutputBisectionGameSplitDepth uint64 `json:"outputBisectionGameSplitDepth"`
-	// [Kroma: END]
+
+	/* [Kroma: START]
+	// FaultGameAbsolutePrestate is the absolute prestate of Cannon. This is computed
+	// by generating a proof from the 0th -> 1st instruction and grabbing the prestate from
+	// the output JSON. All honest challengers should agree on the setup state of the program.
+	FaultGameAbsolutePrestate common.Hash `json:"faultGameAbsolutePrestate"`
+	// FaultGameMaxDepth is the maximum depth of the position tree within the fault dispute game.
+	// `2^{FaultGameMaxDepth}` is how many instructions the execution trace bisection game
+	// supports. Ideally, this should be conservatively set so that there is always enough
+	// room for a full Cannon trace.
+	FaultGameMaxDepth uint64 `json:"faultGameMaxDepth"`
+	// FaultGameMaxDuration is the maximum amount of time (in seconds) that the fault dispute
+	// game can run for before it is ready to be resolved. Each side receives half of this value
+	// on their chess clock at the inception of the dispute.
+	FaultGameMaxDuration uint64 `json:"faultGameMaxDuration"`
+	// FaultGameGenesisBlock is the block number for genesis.
+	FaultGameGenesisBlock uint64 `json:"faultGameGenesisBlock"`
+	// FaultGameGenesisOutputRoot is the output root for the genesis block.
+	FaultGameGenesisOutputRoot common.Hash `json:"faultGameGenesisOutputRoot"`
+	// FaultGameSplitDepth is the depth at which the fault dispute game splits from output roots to execution trace claims.
+	FaultGameSplitDepth uint64 `json:"faultGameSplitDepth"`
+	// FaultGameWithdrawalDelay is the number of seconds that users must wait before withdrawing ETH from a fault game.
+	FaultGameWithdrawalDelay uint64 `json:"faultGameWithdrawalDelay"`
+	// PreimageOracleMinProposalSize is the minimum number of bytes that a large preimage oracle proposal can be.
+	PreimageOracleMinProposalSize uint64 `json:"preimageOracleMinProposalSize"`
+	// PreimageOracleChallengePeriod is the number of seconds that challengers have to challenge a large preimage proposal.
+	PreimageOracleChallengePeriod uint64 `json:"preimageOracleChallengePeriod"`
+	[Kroma: END] */
+
 	// FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
 	// during devnet deployments.
 	FundDevAccounts bool `json:"fundDevAccounts"`
-	// [Kroma: START]
-	// // RequiredProtocolVersion indicates the protocol version that
-	// // nodes are required to adopt, to stay in sync with the network.
-	// RequiredProtocolVersion params.ProtocolVersion `json:"requiredProtocolVersion"`
-	// // RequiredProtocolVersion indicates the protocol version that
-	// // nodes are recommended to adopt, to stay in sync with the network.
-	// RecommendedProtocolVersion params.ProtocolVersion `json:"recommendedProtocolVersion"`
-	// [Kroma: END]
 
+	/* [Kroma: START]
+	// RequiredProtocolVersion indicates the protocol version that
+	// nodes are required to adopt, to stay in sync with the network.
+	RequiredProtocolVersion params.ProtocolVersion `json:"requiredProtocolVersion"`
+	// RequiredProtocolVersion indicates the protocol version that
+	// nodes are recommended to adopt, to stay in sync with the network.
+	RecommendedProtocolVersion params.ProtocolVersion `json:"recommendedProtocolVersion"`
+	// ProofMaturityDelaySeconds is the number of seconds that a proof must be
+	// mature before it can be used to finalize a withdrawal.
+	ProofMaturityDelaySeconds uint64 `json:"proofMaturityDelaySeconds"`
+	// DisputeGameFinalityDelaySeconds is an additional number of seconds a
+	// dispute game must wait before it can be used to finalize a withdrawal.
+	DisputeGameFinalityDelaySeconds uint64 `json:"disputeGameFinalityDelaySeconds"`
+	// RespectedGameType is the dispute game type that the OptimismPortal
+	// contract will respect for finalizing withdrawals.
+	RespectedGameType uint32 `json:"respectedGameType"`
+	// UseFaultProofs is a flag that indicates if the system is using fault
+	// proofs instead of the older output oracle mechanism.
+	UseFaultProofs bool `json:"useFaultProofs"`
+	[Kroma: END] */
+
+	// UsePlasma is a flag that indicates if the system is using op-plasma
+	UsePlasma bool `json:"usePlasma,omitempty"`
+	// DAChallengeWindow represents the block interval during which the availability of a data commitment can be challenged.
+	DAChallengeWindow uint64 `json:"daChallengeWindow,omitempty"`
+	// DAResolveWindow represents the block interval during which a data availability challenge can be resolved.
+	DAResolveWindow uint64 `json:"daResolveWindow,omitempty"`
+	// DABondSize represents the required bond size to initiate a data availability challenge.
+	DABondSize uint64 `json:"daBondSize,omitempty"`
+	// DAResolverRefundPercentage represents the percentage of the resolving cost to be refunded to the resolver
+	// such as 100 means 100% refund.
+	DAResolverRefundPercentage uint64 `json:"daResolverRefundPercentage,omitempty"`
+	// DAChallengeProxy represents the L1 address of the DataAvailabilityChallenge contract.
+	DAChallengeProxy common.Address `json:"daChallengeProxy,omitempty"`
 	// When Cancun activates. Relative to L1 genesis.
-	L1CancunTimeOffset *uint64 `json:"l1CancunTimeOffset,omitempty"`
+	L1CancunTimeOffset *hexutil.Uint64 `json:"l1CancunTimeOffset,omitempty"`
 
 	// [Kroma: START]
 	// ValidatorPool proxy address on L1
@@ -362,14 +392,60 @@ func (d *DeployConfig) Check() error {
 	if d.L1BlockTime < d.L2BlockTime {
 		return fmt.Errorf("L2 block time (%d) is larger than L1 block time (%d)", d.L2BlockTime, d.L1BlockTime)
 	}
-	// [Kroma: START]
-	// if d.RequiredProtocolVersion == (params.ProtocolVersion{}) {
-	// 	log.Warn("RequiredProtocolVersion is empty")
-	// }
-	// if d.RecommendedProtocolVersion == (params.ProtocolVersion{}) {
-	// 	log.Warn("RecommendedProtocolVersion is empty")
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	if d.RequiredProtocolVersion == (params.ProtocolVersion{}) {
+		log.Warn("RequiredProtocolVersion is empty")
+	}
+	if d.RecommendedProtocolVersion == (params.ProtocolVersion{}) {
+		log.Warn("RecommendedProtocolVersion is empty")
+	}
+	if d.ProofMaturityDelaySeconds == 0 {
+		log.Warn("ProofMaturityDelaySeconds is 0")
+	}
+	if d.DisputeGameFinalityDelaySeconds == 0 {
+		log.Warn("DisputeGameFinalityDelaySeconds is 0")
+	}
+	[Kroma: END] */
+
+	if d.UsePlasma {
+		if d.DAChallengeWindow == 0 {
+			return fmt.Errorf("%w: DAChallengeWindow cannot be 0 when using plasma mode", ErrInvalidDeployConfig)
+		}
+		if d.DAResolveWindow == 0 {
+			return fmt.Errorf("%w: DAResolveWindow cannot be 0 when using plasma mode", ErrInvalidDeployConfig)
+		}
+		if d.DAChallengeProxy == (common.Address{}) {
+			return fmt.Errorf("%w: DAChallengeContract cannot be empty when using plasma mode", ErrInvalidDeployConfig)
+		}
+	}
+	// checkFork checks that fork A is before or at the same time as fork B
+	checkFork := func(a, b *hexutil.Uint64, aName, bName string) error {
+		if a == nil && b == nil {
+			return nil
+		}
+		if a == nil && b != nil {
+			return fmt.Errorf("fork %s set (to %d), but prior fork %s missing", bName, *b, aName)
+		}
+		if a != nil && b == nil {
+			return nil
+		}
+		if *a > *b {
+			return fmt.Errorf("fork %s set to %d, but prior fork %s has higher offset %d", bName, *b, aName, *a)
+		}
+		return nil
+	}
+	if err := checkFork(d.L2GenesisRegolithTimeOffset, d.L2GenesisCanyonTimeOffset, "regolith", "canyon"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisCanyonTimeOffset, d.L2GenesisDeltaTimeOffset, "canyon", "delta"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisDeltaTimeOffset, d.L2GenesisEcotoneTimeOffset, "delta", "ecotone"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisEcotoneTimeOffset, d.L2GenesisFjordTimeOffset, "ecotone", "fjord"); err != nil {
+		return err
+	}
 
 	// [Kroma: START]
 	if d.ValidatorRewardScalar == 0 {
@@ -467,60 +543,6 @@ func (d *DeployConfig) SetDeployments(deployments *L1Deployments) {
 	// [Kroma: END]
 }
 
-// GetDeployedAddresses will get the deployed addresses of deployed L1 contracts
-// required for the L2 genesis creation.
-func (d *DeployConfig) GetDeployedAddresses(hh *hardhat.Hardhat) error {
-	if d.L1StandardBridgeProxy == (common.Address{}) {
-		l1StandardBridgeProxyDeployment, err := hh.GetDeployment("L1StandardBridgeProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find L1StandardBridgeProxy artifact: %w", err)
-		}
-		d.L1StandardBridgeProxy = l1StandardBridgeProxyDeployment.Address
-	}
-
-	if d.L1CrossDomainMessengerProxy == (common.Address{}) {
-		l1CrossDomainMessengerProxyDeployment, err := hh.GetDeployment("L1CrossDomainMessengerProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find L1CrossDomainMessengerProxy artifact: %w", err)
-		}
-		d.L1CrossDomainMessengerProxy = l1CrossDomainMessengerProxyDeployment.Address
-	}
-
-	if d.L1ERC721BridgeProxy == (common.Address{}) {
-		l1ERC721BridgeProxyDeployment, err := hh.GetDeployment("L1ERC721BridgeProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find L1ERC721BridgeProxy artifact: %w", err)
-		}
-		d.L1ERC721BridgeProxy = l1ERC721BridgeProxyDeployment.Address
-	}
-
-	if d.SystemConfigProxy == (common.Address{}) {
-		systemConfigProxyDeployment, err := hh.GetDeployment("SystemConfigProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find SystemConfigProxy artifact: %w", err)
-		}
-		d.SystemConfigProxy = systemConfigProxyDeployment.Address
-	}
-
-	if d.KromaPortalProxy == (common.Address{}) {
-		kromaPortalProxyDeployment, err := hh.GetDeployment("KromaPortalProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find KromaPortalProxy artifact: %w", err)
-		}
-		d.KromaPortalProxy = kromaPortalProxyDeployment.Address
-	}
-
-	if d.ValidatorPoolProxy == (common.Address{}) {
-		validatorPoolProxyDeployment, err := hh.GetDeployment("ValidatorPoolProxy")
-		if err != nil {
-			return fmt.Errorf("cannot find ValidatorPoolProxy artifact: %w", err)
-		}
-		d.ValidatorPoolProxy = validatorPoolProxyDeployment.Address
-	}
-
-	return nil
-}
-
 func (d *DeployConfig) GovernanceEnabled() bool {
 	return d.EnableGovernance
 }
@@ -558,12 +580,12 @@ func (d *DeployConfig) DeltaTime(genesisTime uint64) *uint64 {
 	return &v
 }
 
-func (d *DeployConfig) EclipseTime(genesisTime uint64) *uint64 {
-	if d.L2GenesisEclipseTimeOffset == nil {
+func (d *DeployConfig) EcotoneTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisEcotoneTimeOffset == nil {
 		return nil
 	}
 	v := uint64(0)
-	if offset := *d.L2GenesisEclipseTimeOffset; offset > 0 {
+	if offset := *d.L2GenesisEcotoneTimeOffset; offset > 0 {
 		v = genesisTime + uint64(offset)
 	}
 	return &v
@@ -631,9 +653,13 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		RegolithTime:           d.RegolithTime(l1StartBlock.Time()),
 		CanyonTime:             d.CanyonTime(l1StartBlock.Time()),
 		DeltaTime:              d.DeltaTime(l1StartBlock.Time()),
-		EclipseTime:            d.EclipseTime(l1StartBlock.Time()),
+		EcotoneTime:            d.EcotoneTime(l1StartBlock.Time()),
 		FjordTime:              d.FjordTime(l1StartBlock.Time()),
 		InteropTime:            d.InteropTime(l1StartBlock.Time()),
+		UsePlasma:              d.UsePlasma,
+		DAChallengeAddress:     d.DAChallengeProxy,
+		DAChallengeWindow:      d.DAChallengeWindow,
+		DAResolveWindow:        d.DAResolveWindow,
 	}, nil
 }
 
@@ -665,12 +691,12 @@ func NewDeployConfigWithNetwork(network, path string) (*DeployConfig, error) {
 
 // L1Deployments represents a set of L1 contracts that are deployed.
 type L1Deployments struct {
-	// [Kroma: START]
-	// AddressManager common.Address `json:"AddressManager"`
-	// BlockOracle                       common.Address `json:"BlockOracle"`
-	// DisputeGameFactory                common.Address `json:"DisputeGameFactory"`
-	// DisputeGameFactoryProxy           common.Address `json:"DisputeGameFactoryProxy"`
-	// [Kroma: END]
+	/* [Kroma: START]
+	AddressManager common.Address `json:"AddressManager"`
+	BlockOracle                       common.Address `json:"BlockOracle"`
+	DisputeGameFactory                common.Address `json:"DisputeGameFactory"`
+	DisputeGameFactoryProxy           common.Address `json:"DisputeGameFactoryProxy"`
+	[Kroma: END] */
 	L1CrossDomainMessenger         common.Address `json:"L1CrossDomainMessenger"`
 	L1CrossDomainMessengerProxy    common.Address `json:"L1CrossDomainMessengerProxy"`
 	L1ERC721Bridge                 common.Address `json:"L1ERC721Bridge"`
@@ -686,10 +712,12 @@ type L1Deployments struct {
 	ProxyAdmin                     common.Address `json:"ProxyAdmin"`
 	SystemConfig                   common.Address `json:"SystemConfig"`
 	SystemConfigProxy              common.Address `json:"SystemConfigProxy"`
-	// [Kroma: START]
-	// ProtocolVersions                  common.Address `json:"ProtocolVersions"`
-	// ProtocolVersionsProxy             common.Address `json:"ProtocolVersionsProxy"`
-	// [Kroma: END]
+	/* [Kroma: START]
+	ProtocolVersions                  common.Address `json:"ProtocolVersions"`
+	ProtocolVersionsProxy             common.Address `json:"ProtocolVersionsProxy"`
+	[Kroma: END] */
+	DataAvailabilityChallenge      common.Address `json:"DataAvailabilityChallenge"`
+	DataAvailabilityChallengeProxy common.Address `json:"DataAvailabilityChallengeProxy"`
 
 	// [Kroma: START]
 	Colosseum                 common.Address `json:"Colosseum"`
@@ -726,7 +754,7 @@ func (d *L1Deployments) GetName(addr common.Address) string {
 }
 
 // Check will ensure that the L1Deployments are sane
-func (d *L1Deployments) Check() error {
+func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 	val := reflect.ValueOf(d)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
@@ -734,7 +762,14 @@ func (d *L1Deployments) Check() error {
 	for i := 0; i < val.NumField(); i++ {
 		name := val.Type().Field(i).Name
 		// Skip the non production ready contracts
-		if name == "DisputeGameFactory" || name == "DisputeGameFactoryProxy" || name == "BlockOracle" {
+		if name == "DisputeGameFactory" ||
+			name == "DisputeGameFactoryProxy" ||
+			name == "BlockOracle" {
+			continue
+		}
+		if !deployConfig.UsePlasma &&
+			(name == "DataAvailabilityChallenge" ||
+				name == "DataAvailabilityChallengeProxy") {
 			continue
 		}
 		if val.Field(i).Interface().(common.Address) == (common.Address{}) {
@@ -779,7 +814,7 @@ func NewL1Deployments(path string) (*L1Deployments, error) {
 
 	var deployments L1Deployments
 	if err := json.Unmarshal(file, &deployments); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal L1 deployements: %w", err)
+		return nil, fmt.Errorf("cannot unmarshal L1 deployments: %w", err)
 	}
 
 	return &deployments, nil
@@ -792,11 +827,53 @@ func NewStateDump(path string) (*gstate.Dump, error) {
 		return nil, fmt.Errorf("dump at %s not found: %w", path, err)
 	}
 
-	var dump gstate.Dump
-	if err := json.Unmarshal(file, &dump); err != nil {
+	var fdump ForgeDump
+	if err := json.Unmarshal(file, &fdump); err != nil {
 		return nil, fmt.Errorf("cannot unmarshal dump: %w", err)
 	}
+	dump := (gstate.Dump)(fdump)
 	return &dump, nil
+}
+
+// ForgeDump is a simple alias for state.Dump that can read "nonce" as a hex string.
+// It appears as if updates to foundry have changed the serialization of the state dump.
+type ForgeDump gstate.Dump
+
+func (d *ForgeDump) UnmarshalJSON(b []byte) error {
+	type forgeDumpAccount struct {
+		Balance     string                 `json:"balance"`
+		Nonce       uint64                 `json:"nonce"`
+		Root        hexutil.Bytes          `json:"root"`
+		CodeHash    hexutil.Bytes          `json:"codeHash"`
+		Code        hexutil.Bytes          `json:"code,omitempty"`
+		Storage     map[common.Hash]string `json:"storage,omitempty"`
+		Address     *common.Address        `json:"address,omitempty"`
+		AddressHash hexutil.Bytes          `json:"key,omitempty"`
+	}
+	type forgeDump struct {
+		Root     string                              `json:"root"`
+		Accounts map[common.Address]forgeDumpAccount `json:"accounts"`
+	}
+	var dump forgeDump
+	if err := json.Unmarshal(b, &dump); err != nil {
+		return err
+	}
+
+	d.Root = dump.Root
+	d.Accounts = make(map[string]gstate.DumpAccount)
+	for addr, acc := range dump.Accounts {
+		d.Accounts[addr.String()] = gstate.DumpAccount{
+			Balance:     acc.Balance,
+			Nonce:       (uint64)(acc.Nonce),
+			Root:        acc.Root,
+			CodeHash:    acc.CodeHash,
+			Code:        acc.Code,
+			Storage:     acc.Storage,
+			Address:     acc.Address,
+			AddressHash: acc.AddressHash,
+		}
+	}
+	return nil
 }
 
 // NewL2ImmutableConfig will create an ImmutableConfig given an instance of a
@@ -822,31 +899,39 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 
 	cfg := immutables.PredeploysImmutableConfig{
 		L2ToL1MessagePasser: struct{}{},
-		// [Kroma: START]
-		// DeployerWhitelist:   struct{}{},
-		// [Kroma: END]
+		/* [Kroma: START]
+		DeployerWhitelist:   struct{}{},
+		[Kroma: END] */
 		WETH9: struct{}{},
+		// [Kroma: START]
 		L2CrossDomainMessenger: struct{ OtherMessenger common.Address }{
 			OtherMessenger: config.L1CrossDomainMessengerProxy,
 		},
 		L2StandardBridge: struct {
 			OtherBridge common.Address
-			// [Kroma: START]
-			// Messenger   common.Address
-			// [Kroma: END]
 		}{
 			OtherBridge: config.L1StandardBridgeProxy,
-			// [Kroma: START]
-			// Messenger:   predeploys.L2CrossDomainMessengerAddr,
-			// [Kroma: END]
 		},
+		// [Kroma: END]
+		/* [Kroma: START]
+		SequencerFeeVault: struct {
+			Recipient           common.Address
+			MinWithdrawalAmount *big.Int
+			WithdrawalNetwork   uint8
+		}{
+			Recipient:           config.SequencerFeeVaultRecipient,
+			MinWithdrawalAmount: (*big.Int)(config.SequencerFeeVaultMinimumWithdrawalAmount),
+			WithdrawalNetwork:   config.SequencerFeeVaultWithdrawalNetwork.ToUint8(),
+		},
+		[Kroma: END] */
 		L1BlockNumber:   struct{}{},
 		GasPriceOracle:  struct{}{},
 		L1Block:         struct{}{},
 		GovernanceToken: struct{}{},
+		/* [Kroma: START]
+		LegacyMessagePasser: struct{}{},
+		[Kroma: END] */
 		// [Kroma: START]
-		// LegacyMessagePasser: struct{}{},
-		// [Kroma: END]
 		L2ERC721Bridge: struct {
 			OtherBridge common.Address
 			Messenger   common.Address
@@ -866,7 +951,9 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		}{
 			Bridge: predeploys.L2StandardBridgeAddr,
 		},
+		// [Kroma: END]
 		ProxyAdmin: struct{}{},
+		// [Kroma: START]
 		ProtocolVault: struct {
 			Recipient common.Address
 		}{
@@ -877,16 +964,16 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		}{
 			Recipient: config.L1FeeVaultRecipient,
 		},
-		// [Kroma: START]
-		// SchemaRegistry: struct{}{},
-		// EAS: struct {
-		// 	Name string
-		// }{
-		// 	Name: "EAS",
-		// },
 		// [Kroma: END]
+		/* [Kroma: START]
+		SchemaRegistry: struct{}{},
+		EAS: struct {
+			Name string
+		}{
+			Name: "EAS",
+		},
+		[Kroma: END] */
 		Create2Deployer: struct{}{},
-
 		// [Kroma: START]
 		ValidatorRewardVault: struct {
 			ValidatorPoolAddress common.Address
@@ -904,8 +991,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 	return &cfg, nil
 }
 
-// NewL2StorageConfig will create a StorageConfig given an instance of a
-// Hardhat and a DeployConfig.
+// NewL2StorageConfig will create a StorageConfig given an instance of a DeployConfig and genesis block.
 func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.StorageConfig, error) {
 	storage := make(state.StorageConfig)
 
@@ -925,16 +1011,16 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"xDomainMsgSender": "0x000000000000000000000000000000000000dEaD",
 		"msgNonce":         0,
 	}
-	// [Kroma: START]
-	// storage["L2StandardBridge"] = state.StorageValues{
-	// 	"_initialized":  1,
-	// 	"_initializing": false,
-	// }
-	// storage["L2ERC721Bridge"] = state.StorageValues{
-	// 	"_initialized":  1,
-	// 	"_initializing": false,
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	storage["L2StandardBridge"] = state.StorageValues{
+		"_initialized":  1,
+		"_initializing": false,
+	}
+	storage["L2ERC721Bridge"] = state.StorageValues{
+		"_initialized":  1,
+		"_initializing": false,
+	}
+	[Kroma: END] */
 	storage["L1Block"] = state.StorageValues{
 		"number":                block.Number(),
 		"timestamp":             block.Time(),
@@ -946,12 +1032,12 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"l1FeeScalar":           config.GasPriceOracleScalar,
 		"validatorRewardScalar": config.ValidatorRewardScalar,
 	}
-	// [Kroma: START]
-	// storage["LegacyERC20ETH"] = state.StorageValues{
-	// 	"_name":   "Ether",
-	// 	"_symbol": "ETH",
-	// }
-	// [Kroma: END]
+	/* [Kroma: START]
+	storage["LegacyERC20ETH"] = state.StorageValues{
+		"_name":   "Ether",
+		"_symbol": "ETH",
+	}
+	[Kroma: END] */
 	storage["WETH9"] = state.StorageValues{
 		"name":     "Wrapped Ether",
 		"symbol":   "WETH",

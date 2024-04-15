@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 )
 
 func TestMintOnRevertedDeposit(t *testing.T) {
@@ -51,14 +53,15 @@ func TestMintOnRevertedDeposit(t *testing.T) {
 	})
 
 	// Confirm balance
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	endBalance, err := l2Verif.BalanceAt(ctx, fromAddr, nil)
+	ctx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
+	endBalance, err := wait.ForBalanceChange(ctx, l2Verif, fromAddr, startBalance)
 	cancel()
 	require.Nil(t, err)
+
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	toAddrBalance, err := l2Verif.BalanceAt(ctx, toAddr, nil)
-	require.NoError(t, err)
 	cancel()
+	require.NoError(t, err)
 
 	diff := new(big.Int)
 	diff = diff.Sub(endBalance, startBalance)
@@ -73,7 +76,6 @@ func TestMintOnRevertedDeposit(t *testing.T) {
 }
 
 func TestDepositTxCreateContract(t *testing.T) {
-	t.Skip() // NOTE: temporary skip
 	InitParallel(t)
 	cfg := DefaultSystemConfig(t)
 	delete(cfg.Nodes, "verifier")

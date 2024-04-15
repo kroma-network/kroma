@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -18,9 +19,13 @@ type BlockInfo interface {
 	// MixDigest field, reused for randomness after The Merge (Bellatrix hardfork)
 	MixDigest() common.Hash
 	BaseFee() *big.Int
+	// BlobBaseFee returns the result of computing the blob fee from excessDataGas, or nil if the
+	// block isn't a Dencun (4844 capable) block
+	BlobBaseFee() *big.Int
 	ReceiptHash() common.Hash
 	GasUsed() uint64
 	GasLimit() uint64
+	ParentBeaconRoot() *common.Hash // Dencun extension
 
 	// HeaderRLP returns the RLP of the block header as per consensus rules
 	// Returns an error if the header RLP could not be written
@@ -62,8 +67,20 @@ func ToBlockID(b NumberAndHash) BlockID {
 // blockInfo is a conversion type of types.Block turning it into a BlockInfo
 type blockInfo struct{ *types.Block }
 
+func (b blockInfo) BlobBaseFee() *big.Int {
+	ebg := b.ExcessBlobGas()
+	if ebg == nil {
+		return nil
+	}
+	return eip4844.CalcBlobFee(*ebg)
+}
+
 func (b blockInfo) HeaderRLP() ([]byte, error) {
 	return rlp.EncodeToBytes(b.Header())
+}
+
+func (b blockInfo) ParentBeaconRoot() *common.Hash {
+	return b.Block.BeaconRoot()
 }
 
 func BlockToInfo(b *types.Block) BlockInfo {
@@ -75,14 +92,6 @@ var _ BlockInfo = (*blockInfo)(nil)
 // headerBlockInfo is a conversion type of types.Header turning it into a
 // BlockInfo.
 type headerBlockInfo struct{ header *types.Header }
-
-func (h headerBlockInfo) Hash() common.Hash {
-	return h.header.Hash()
-}
-
-func (h headerBlockInfo) Header() *types.Header {
-	return h.header
-}
 
 func (h headerBlockInfo) ParentHash() common.Hash {
 	return h.header.ParentHash
@@ -112,6 +121,13 @@ func (h headerBlockInfo) BaseFee() *big.Int {
 	return h.header.BaseFee
 }
 
+func (h headerBlockInfo) BlobBaseFee() *big.Int {
+	if h.header.ExcessBlobGas == nil {
+		return nil
+	}
+	return eip4844.CalcBlobFee(*h.header.ExcessBlobGas)
+}
+
 func (h headerBlockInfo) ReceiptHash() common.Hash {
 	return h.header.ReceiptHash
 }
@@ -124,11 +140,22 @@ func (h headerBlockInfo) GasLimit() uint64 {
 	return h.header.GasLimit
 }
 
+func (h headerBlockInfo) ParentBeaconRoot() *common.Hash {
+	return h.header.ParentBeaconRoot
+}
+
 func (h headerBlockInfo) HeaderRLP() ([]byte, error) {
 	return rlp.EncodeToBytes(h.header)
 }
 
 // [Kroma: START]
+func (h headerBlockInfo) Hash() common.Hash {
+	return h.header.Hash()
+}
+
+func (h headerBlockInfo) Header() *types.Header {
+	return h.header
+}
 
 func (h headerBlockInfo) TxHash() common.Hash {
 	return h.header.TxHash
