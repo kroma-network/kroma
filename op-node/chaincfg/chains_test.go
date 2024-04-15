@@ -107,7 +107,7 @@ var sepoliaCfg = rollup.Config{
 	RegolithTime:           u64Ptr(0),
 	CanyonTime:             u64Ptr(1707897600),
 	DeltaTime:              u64Ptr(1708416000),
-	EcotoneTime:            nil,
+	EcotoneTime:            u64Ptr(1713340800),
 	FjordTime:              nil,
 	InteropTime:            nil,
 	/* [Kroma: START]
