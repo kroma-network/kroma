@@ -275,20 +275,6 @@ contract ColosseumTest is Colosseum_Initializer {
         colosseum.createChallenge(0, bytes32(0), 0, new bytes32[](segLen));
     }
 
-    function test_createChallenge_finalizedOutput_reverts() external {
-        uint256 outputIndex = targetOutputIndex;
-        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
-        uint256 segLen = colosseum.getSegmentsLength(1);
-
-        vm.warp(targetOutput.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
-
-        vm.prank(challenger);
-        vm.expectRevert(
-            "Colosseum: cannot progress challenge process about already finalized output"
-        );
-        colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen));
-    }
-
     function test_createChallenge_asAsserter_reverts() external {
         uint256 outputIndex = targetOutputIndex;
         Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);

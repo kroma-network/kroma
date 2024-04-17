@@ -183,7 +183,8 @@ contract AssetManager is ISemver, IERC721Receiver {
     uint128 public immutable SLASHING_RATE;
 
     /**
-     * @notice Minimum amount to slash.
+     * @notice Minimum amount to slash. It should be equal or less than
+     *         ValidatorManager.MIN_START_AMOUNT.
      */
     uint128 public immutable MIN_SLASHING_AMOUNT;
 
@@ -398,7 +399,8 @@ contract AssetManager is ISemver, IERC721Receiver {
     modifier checkIsActive(address validator) {
         if (
             msg.sender != validator &&
-            VALIDATOR_MANAGER.getStatus(validator) < IValidatorManager.ValidatorStatus.ACTIVE
+            (VALIDATOR_MANAGER.getStatus(validator) < IValidatorManager.ValidatorStatus.ACTIVE ||
+                VALIDATOR_MANAGER.inJail(validator))
         ) revert ImproperValidatorStatus();
         _;
     }
@@ -1082,12 +1084,19 @@ contract AssetManager is ISemver, IERC721Receiver {
         uint128 boostedReward,
         uint128 validatorReward
     ) external onlyValidatorManager {
-        Vault storage vault = _vaults[validator];
-
-        unchecked {
-            vault.asset.totalKro += baseReward;
-            vault.asset.boostedReward += boostedReward;
-            vault.asset.validatorRewardKro += validatorReward;
+        // If reward is distributed to SECURITY_COUNCIL, transfer it directly.
+        if (validator == SECURITY_COUNCIL) {
+            ASSET_TOKEN.safeTransfer(
+                SECURITY_COUNCIL,
+                baseReward + boostedReward + validatorReward
+            );
+        } else {
+            Vault storage vault = _vaults[validator];
+            unchecked {
+                vault.asset.totalKro += baseReward;
+                vault.asset.boostedReward += boostedReward;
+                vault.asset.validatorRewardKro += validatorReward;
+            }
         }
 
         // TODO - Distribute the reward from a designated vault to the AssetManager contract.
@@ -1157,6 +1166,12 @@ contract AssetManager is ISemver, IERC721Receiver {
 
             return amountToSlashOrAdd;
         } else {
+            // If slashing amount is distributed to SECURITY_COUNCIL, transfer it directly.
+            if (validator == SECURITY_COUNCIL) {
+                ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, amountToSlashOrAdd);
+                return amountToSlashOrAdd;
+            }
+
             unchecked {
                 vault.asset.totalKro += arr[0].mulDiv(amountToSlashOrAdd, totalAmount);
                 vault.asset.boostedReward += arr[1].mulDiv(amountToSlashOrAdd, totalAmount);

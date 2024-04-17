@@ -2,7 +2,6 @@
 pragma solidity 0.8.15;
 
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { Hashing } from "../libraries/Hashing.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
@@ -308,7 +307,7 @@ contract Colosseum is Initializable, ISemver {
         bytes32 _l1BlockHash,
         uint256 _l1BlockNumber,
         bytes32[] calldata _segments
-    ) external outputNotFinalized(_outputIndex) {
+    ) external {
         require(_outputIndex > 0, "Colosseum: challenge for genesis output is not allowed");
 
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
@@ -357,7 +356,13 @@ contract Colosseum is Initializable, ISemver {
             _validateSegments(TURN_INIT, prevOutput.outputRoot, targetOutput.outputRoot, _segments);
         }
 
-        L2_ORACLE.VALIDATOR_POOL().addPendingBond(_outputIndex, msg.sender);
+        // Switch validator system after validator pool contract terminated.
+        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            // Only the validators who satisfy output submission condition can create challenge.
+            L2_ORACLE.VALIDATOR_MANAGER().assertCanSubmitOutput(msg.sender);
+        } else {
+            L2_ORACLE.VALIDATOR_POOL().addPendingBond(_outputIndex, msg.sender);
+        }
 
         _updateSegments(
             challenge,
@@ -515,13 +520,20 @@ contract Colosseum is Initializable, ISemver {
             );
         }
 
+        // Switch validator system after validator pool contract terminated.
+        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            // Slash the asseter's asset and move it to pending challenge reward for the output.
+            L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, msg.sender, challenge.asserter);
+        } else {
+            // The challenger's bond is also included in the bond for that output.
+            L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, msg.sender);
+        }
+
         verifiedPublicInputs[publicInputHash] = true;
         delete challenges[_outputIndex][msg.sender];
 
         // Delete output root.
         L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, msg.sender);
-        // The challenger's bond is also included in the bond for that output.
-        L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, msg.sender);
     }
 
     /**
@@ -577,7 +589,7 @@ contract Colosseum is Initializable, ISemver {
         address _asserter,
         bytes32 _outputRoot,
         bytes32 _publicInputHash
-    ) external onlySecurityCouncil {
+    ) external onlySecurityCouncil outputNotFinalized(_outputIndex) {
         require(
             _outputRoot != DELETED_OUTPUT_ROOT,
             "Colosseum: cannot rollback output to zero hash"
@@ -612,6 +624,11 @@ contract Colosseum is Initializable, ISemver {
 
         // Delete output root.
         L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, SECURITY_COUNCIL);
+
+        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            // Slash the asseter's asset and move it to pending challenge reward for the output.
+            L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, SECURITY_COUNCIL, output.submitter);
+        }
     }
 
     /**
@@ -803,7 +820,8 @@ contract Colosseum is Initializable, ISemver {
 
     /**
      * @notice Cancels the challenge if the output root to be challenged has already been deleted.
-     *         If the output root has been deleted, delete the challenge and refund the challenger's pending bond.
+     *         If the output root has been deleted, delete the challenge. Note that before validator
+     *         system upgrade, also refund the challenger's pending bond in validator pool.
      *         Reverts when challenger is timed out or called by non-challenger.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
@@ -833,14 +851,17 @@ contract Colosseum is Initializable, ISemver {
         delete challenges[_outputIndex][msg.sender];
         emit ChallengeCanceled(_outputIndex, msg.sender, block.timestamp);
 
-        L2_ORACLE.VALIDATOR_POOL().releasePendingBond(_outputIndex, msg.sender, msg.sender);
+        // Switch validator system after validator pool contract terminated.
+        if (!L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            L2_ORACLE.VALIDATOR_POOL().releasePendingBond(_outputIndex, msg.sender, msg.sender);
+        }
 
         return true;
     }
 
     /**
      * @notice Deletes the challenge because the challenger timed out.
-     *         The winner is the asserter, and challenger loses the bond.
+     *         The winner is the asserter, and challenger loses his asset.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      * @param _challenger  Address of the challenger.
@@ -849,14 +870,17 @@ contract Colosseum is Initializable, ISemver {
         delete challenges[_outputIndex][_challenger];
         emit ChallengerTimedOut(_outputIndex, _challenger, block.timestamp);
 
+        // Switch validator system after validator pool contract terminated.
+        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            address submitter = L2_ORACLE.getSubmitter(_outputIndex);
+            L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, submitter, _challenger);
+            return;
+        }
+
         // After output is finalized, the challenger's bond is included in the balance of output submitter.
         if (L2_ORACLE.isFinalized(_outputIndex)) {
-            Types.CheckpointOutput memory targetOutput = L2_ORACLE.getL2Output(_outputIndex);
-            L2_ORACLE.VALIDATOR_POOL().releasePendingBond(
-                _outputIndex,
-                _challenger,
-                targetOutput.submitter
-            );
+            address submitter = L2_ORACLE.getSubmitter(_outputIndex);
+            L2_ORACLE.VALIDATOR_POOL().releasePendingBond(_outputIndex, _challenger, submitter);
         } else {
             // Because the challenger lost, the challenger's bond is included in the bond for that output.
             L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, _challenger);

@@ -22,7 +22,6 @@ interface IValidatorManager {
      * +-------------------+-----------+---------+---------------------+------------------+
      * | NONE              | X         | X       | X                   | X                |
      * | INACTIVE          | O         | X       | X                   | O/X              |
-     * | IN_JAIL           | O         | O/X     | O/X                 | O/X              |
      * | ACTIVE            | O         | X       | O                   | X                |
      * | CAN_START         | O         | X       | O                   | O                |
      * | STARTED           | O         | O       | O                   | X                |
@@ -32,7 +31,6 @@ interface IValidatorManager {
     enum ValidatorStatus {
         NONE,
         INACTIVE,
-        IN_JAIL,
         ACTIVE,
         CAN_START,
         STARTED,
@@ -108,12 +106,20 @@ interface IValidatorManager {
     );
 
     /**
-     * @notice Emitted when a validator starts.
+     * @notice Emitted when a validator starts, which means added to the validator tree.
      *
      * @param validator Address of the validator.
      * @param startsAt  The timestamp when the validator starts.
      */
     event ValidatorStarted(address indexed validator, uint256 startsAt);
+
+    /**
+     * @notice Emitted when a validator stops, which means removed from the validator tree.
+     *
+     * @param validator Address of the validator.
+     * @param stopsAt   The timestamp when the validator stops.
+     */
+    event ValidatorStopped(address indexed validator, uint256 stopsAt);
 
     /**
      * @notice Emitted when a validator changed commission rate.
@@ -159,21 +165,26 @@ interface IValidatorManager {
     );
 
     /**
-     * @notice Emitted when pending challenge reward for challenge winner is distributed.
+     * @notice Emitted when challenge reward for challenge winner is distributed.
      *
-     * @param recipient Address of the reward recipient.
-     * @param amount    The amount of challenge reward.
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param recipient   Address of the reward recipient.
+     * @param amount      The amount of challenge reward.
      */
-    event ChallengeRewardDistributed(address indexed recipient, uint128 amount);
+    event ChallengeRewardDistributed(
+        uint256 indexed outputIndex,
+        address indexed recipient,
+        uint128 amount
+    );
 
     /**
      * @notice Emitted when the validator is slashed.
      *
-     * @param loser  Address of the loser at the challenge.
-     * @param winner Address of the winner at the challenge.
-     * @param amount The amount of KRO slashed.
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param loser       Address of the challenge loser.
+     * @param amount      The amount of KRO slashed.
      */
-    event Slashed(address indexed loser, address indexed winner, uint128 amount);
+    event Slashed(uint256 indexed outputIndex, address indexed loser, uint128 amount);
 
     /**
      * @notice Reverts when caller is not allowed.
@@ -275,6 +286,16 @@ interface IValidatorManager {
     function tryUnjail() external;
 
     /**
+     * @notice Slash KRO from the vault of the challenge loser and move the slashing asset to
+     *         pending challenge reward before output rewarded, after directly to winner's asset.
+     *
+     * @param outputIndex The index of output challenged.
+     * @param winner      Address of the challenge winner.
+     * @param loser       Address of the challenge loser.
+     */
+    function slash(uint256 outputIndex, address winner, address loser) external;
+
+    /**
      * @notice Updates the validator tree.
      *
      * @param validator Address of the validator.
@@ -307,4 +328,20 @@ interface IValidatorManager {
      * @return The status of the validator corresponding to the given address.
      */
     function getStatus(address validator) external view returns (ValidatorStatus);
+
+    /**
+     * @notice Returns if the given validator is in jail or not.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return If the given validator is in jail or not.
+     */
+    function inJail(address validator) external view returns (bool);
+
+    /**
+     * @notice Asserts that the given validator satisfies output submission condition.
+     *
+     * @param validator Address of the validator.
+     */
+    function assertCanSubmitOutput(address validator) external view;
 }

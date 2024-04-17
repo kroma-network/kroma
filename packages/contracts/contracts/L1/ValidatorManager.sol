@@ -211,7 +211,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function startValidator() external {
-        if (getStatus(msg.sender) != ValidatorStatus.CAN_START) revert ImproperValidatorStatus();
+        if (getStatus(msg.sender) != ValidatorStatus.CAN_START || inJail(msg.sender))
+            revert ImproperValidatorStatus();
 
         _validatorTree.insert(msg.sender, uint120(ASSET_MANAGER.reflectiveWeight(msg.sender)));
 
@@ -239,7 +240,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function changeCommissionRate(uint8 newCommissionRate) external {
-        if (getStatus(msg.sender) < ValidatorStatus.ACTIVE) revert ImproperValidatorStatus();
+        if (getStatus(msg.sender) < ValidatorStatus.ACTIVE || inJail(msg.sender))
+            revert ImproperValidatorStatus();
 
         Validator storage validatorInfo = _validatorInfo[msg.sender];
 
@@ -269,7 +271,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function tryUnjail() external {
-        if (getStatus(msg.sender) != ValidatorStatus.IN_JAIL) revert ImproperValidatorStatus();
+        if (!inJail(msg.sender)) revert ImproperValidatorStatus();
 
         if (_jail[msg.sender] > block.timestamp) revert NotElapsedJailPeriod();
 
@@ -281,19 +283,26 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Slash KRO at the vault of the validator.
-     *
-     * @param loser       Address of the loser at the challenge.
-     * @param winner      Address of the winner at the challenge.
-     * @param outputIndex The index of output challenged.
+     * @inheritdoc IValidatorManager
      */
-    function slash(address loser, address winner, uint256 outputIndex) external onlyColosseum {
+    function slash(uint256 outputIndex, address winner, address loser) external onlyColosseum {
         uint128 amountToSlash = ASSET_MANAGER.modifyBalanceWithSlashing(loser, 0, true);
-        _pendingChallengeReward[outputIndex] = amountToSlash;
-
         updateValidatorTree(loser, true);
 
-        emit Slashed(loser, winner, amountToSlash);
+        emit Slashed(outputIndex, loser, amountToSlash);
+
+        if (L2_ORACLE.latestFinalizedOutputIndex() < outputIndex) {
+            // If output is not rewarded yet, add slashing asset to the pending challenge reward.
+            unchecked {
+                _pendingChallengeReward[outputIndex] += amountToSlash;
+            }
+        } else {
+            // If output is already rewarded, add slashing asset to the winner's asset directly.
+            ASSET_MANAGER.modifyBalanceWithSlashing(winner, amountToSlash, false);
+            updateValidatorTree(winner, false);
+
+            emit ChallengeRewardDistributed(outputIndex, winner, amountToSlash);
+        }
     }
 
     /**
@@ -306,8 +315,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
             validator != _nextValidator
         ) revert NotSelectedPriorityValidator();
 
-        if (getStatus(validator) != ValidatorStatus.CAN_SUBMIT_OUTPUT)
-            revert ImproperValidatorStatus();
+        _assertCanSubmitOutput(validator);
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function assertCanSubmitOutput(address validator) external view {
+        _assertCanSubmitOutput(validator);
     }
 
     /**
@@ -369,9 +384,11 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function updateValidatorTree(address validator, bool tryRemove) public {
-        if (tryRemove && getStatus(validator) == ValidatorStatus.STARTED) {
+        ValidatorStatus status = getStatus(validator);
+        if (tryRemove && status == ValidatorStatus.STARTED) {
             _validatorTree.remove(validator);
-        } else {
+            emit ValidatorStopped(validator, block.timestamp);
+        } else if (status >= ValidatorStatus.STARTED) {
             _validatorTree.update(validator, uint120(ASSET_MANAGER.reflectiveWeight(validator)));
         }
     }
@@ -404,10 +421,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
             return ValidatorStatus.NONE;
         }
 
-        if (_jail[validator] != 0) {
-            return ValidatorStatus.IN_JAIL;
-        }
-
         if (ASSET_MANAGER.totalValidatorKro(validator) < MIN_REGISTER_AMOUNT) {
             return ValidatorStatus.INACTIVE;
         }
@@ -430,6 +443,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
             return ValidatorStatus.CAN_START;
         }
         return ValidatorStatus.CAN_SUBMIT_OUTPUT;
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function inJail(address validator) public view returns (bool) {
+        return _jail[validator] != 0;
     }
 
     /**
@@ -467,45 +487,36 @@ contract ValidatorManager is ISemver, IValidatorManager {
         }
 
         uint128 finalizedOutputNum = 0;
-        Types.CheckpointOutput memory output;
+        address submitter;
 
         while (finalizedOutputNum < MAX_OUTPUT_FINALIZATIONS && outputIndex <= latestOutputIndex) {
             if (L2_ORACLE.isFinalized(outputIndex)) {
-                output = L2_ORACLE.getL2Output(outputIndex);
+                submitter = L2_ORACLE.getSubmitter(outputIndex);
+
                 (
                     uint128 baseReward,
                     uint128 boostedReward,
                     uint128 validatorReward
-                ) = _calculateReward(output.submitter);
+                ) = _calculateReward(submitter);
 
                 ASSET_MANAGER.increaseBalanceWithReward(
-                    output.submitter,
+                    submitter,
                     baseReward,
                     boostedReward,
                     validatorReward
                 );
 
-                emit RewardDistributed(
-                    output.submitter,
-                    validatorReward,
-                    baseReward,
-                    boostedReward
-                );
+                emit RewardDistributed(submitter, validatorReward, baseReward, boostedReward);
 
                 uint128 challengeReward = _pendingChallengeReward[outputIndex];
-
                 if (challengeReward > 0) {
-                    ASSET_MANAGER.modifyBalanceWithSlashing(
-                        output.submitter,
-                        challengeReward,
-                        false
-                    );
+                    ASSET_MANAGER.modifyBalanceWithSlashing(submitter, challengeReward, false);
                     delete _pendingChallengeReward[outputIndex];
 
-                    emit ChallengeRewardDistributed(output.submitter, challengeReward);
+                    emit ChallengeRewardDistributed(outputIndex, submitter, challengeReward);
                 }
 
-                updateValidatorTree(output.submitter, false);
+                updateValidatorTree(submitter, false);
 
                 unchecked {
                     ++outputIndex;
@@ -569,6 +580,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
         }
 
         return (baseReward, boostedReward, validatorReward);
+    }
+
+    /**
+     * @notice Internal function to assert that the given validator satisfies output submission
+     *         condition.
+     *
+     * @param validator Address of the validator.
+     */
+    function _assertCanSubmitOutput(address validator) internal view {
+        if (getStatus(validator) != ValidatorStatus.CAN_SUBMIT_OUTPUT || inJail(validator))
+            revert ImproperValidatorStatus();
     }
 
     /**

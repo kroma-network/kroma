@@ -106,7 +106,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
     MockAssetManager public assetManagerImpl;
     MockKro public kro;
     MockL2OutputOracle public mockOracle;
-    address public validator = 0x000000000000000000000000000000000000AaaD;
+    address public validator = trusted;
     address public delegator = 0x000000000000000000000000000000000000AAAF;
     uint128 public VKRO_PER_KGH;
 
@@ -251,7 +251,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         assertEq(assetManager.totalKroAssets(validator), 200e18);
     }
 
-    function test_delegate_WithoutValidatorDelegation_reverts() external {
+    function test_delegate_withoutValidatorDelegation_reverts() external {
         vm.expectRevert(AssetManager.ImproperValidatorStatus.selector);
         assetManager.delegate(validator, 100e18);
     }
@@ -272,7 +272,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         assertEq(assetManager.totalKghAssets(validator), VKRO_PER_KGH * 10);
     }
 
-    function test_delegateKgh_WithoutValidatorDelegation_reverts() external {
+    function test_delegateKgh_withoutValidatorDelegation_reverts() external {
         kgh.mint(delegator, 1);
         vm.expectRevert(AssetManager.ImproperValidatorStatus.selector);
         vm.prank(delegator);
@@ -417,7 +417,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         assertEq(pendingAssets, 6283173600000736700);
     }
 
-    function test_initUndelegateKgh_ExactAmounts_succeeds() external {
+    function test_initUndelegateKgh_exactAmounts_succeeds() external {
         assetManager.modifyKghNum(validator, 99);
         _setUpKghDelegation(100);
 
@@ -443,12 +443,12 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         assertEq(pendingKghAssets, 62831736000007367);
     }
 
-    function test_initUndelegateKgh_NoShares_reverts() external {
+    function test_initUndelegateKgh_noShares_reverts() external {
         vm.expectRevert(AssetManager.ShareNotExists.selector);
         assetManager.initUndelegateKgh(validator, 1);
     }
 
-    function test_initUndelegateKghBatch_NoShares_reverts() external {
+    function test_initUndelegateKghBatch_noShares_reverts() external {
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
         vm.expectRevert(AssetManager.ShareNotExists.selector);
@@ -571,7 +571,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         assertEq(assetManager.ASSET_TOKEN().balanceOf(validator), 2e18);
     }
 
-    function test_finalizeUndelegate_WithNoPendingShares_reverts() external {
+    function test_finalizeUndelegate_withNoPendingShares_reverts() external {
         vm.expectRevert(AssetManager.PendingNotExists.selector);
         assetManager.finalizeUndelegate(validator);
     }
