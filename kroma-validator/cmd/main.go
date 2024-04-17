@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
-	"github.com/kroma-network/kroma/kroma-validator"
+	val "github.com/kroma-network/kroma/kroma-validator"
 	"github.com/kroma-network/kroma/kroma-validator/cmd/balance"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
 )
@@ -31,33 +31,91 @@ func main() {
 	app.Action = curryMain(Version)
 	app.Commands = cli.Commands{
 		{
-			Name:  "deposit",
-			Usage: "Deposit ETH into ValidatorPool to be used as bond",
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:     "amount",
-					Usage:    "Amount to deposit into ValidatorPool (in wei)",
-					Required: true,
-				},
-			},
-			Action: balance.Deposit,
+			Name:   "approve",
+			Usage:  "Approve the AssetManager to spend governance tokens",
+			Flags:  []cli.Flag{TokenAmountFlag},
+			Action: validator.Approve,
 		},
 		{
-			Name:  "withdraw",
-			Usage: "Withdraw ETH from ValidatorPool",
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:     "amount",
-					Usage:    "Amount to withdraw from ValidatorPool (in wei)",
-					Required: true,
-				},
-			},
-			Action: balance.Withdraw,
+			Name:   "delegate",
+			Usage:  "Attempt to self-delegate governance tokens",
+			Flags:  []cli.Flag{TokenAmountFlag},
+			Action: validator.Delegate,
 		},
 		{
-			Name:   "unbond",
-			Usage:  "Attempt to unbond in ValidatorPool",
-			Action: balance.Unbond,
+			Name:  "undelegate",
+			Usage: "Undelegate governance tokens",
+			Subcommands: []*cli.Command{
+				{
+					Name:   "init",
+					Usage:  "Initiate an undelegation of governance tokens",
+					Flags:  []cli.Flag{TokenAmountFlag},
+					Action: validator.InitUndelegate,
+				},
+				{
+					Name:   "finalize",
+					Usage:  "Finalize an undelegation of governance tokens",
+					Action: validator.FinalizeUndelegate,
+				},
+			},
+		},
+		{
+			Name:  "claim",
+			Usage: "Claim validator rewards",
+			Subcommands: []*cli.Command{
+				{
+					Name:   "init",
+					Usage:  "Initiate a claim of validator rewards",
+					Flags:  []cli.Flag{TokenAmountFlag},
+					Action: validator.InitClaimValidatorReward,
+				},
+				{
+					Name:   "finalize",
+					Usage:  "Finalize a claim of validator rewards",
+					Action: validator.FinalizeClaimValidatorReward,
+				},
+			},
+		},
+		{
+			Name:  "register",
+			Usage: "Register the validator to ValidatorManager",
+			Flags: []cli.Flag{
+				TokenAmountFlag,
+				CommissionRateFlag,
+				CommissionMaxChangeRateFlag,
+			},
+			Action: validator.RegisterValidator,
+		},
+		{
+			Name:   "unjail",
+			Usage:  "Attempt to unjail the validator",
+			Action: validator.Unjail,
+		},
+		{
+			Name:   "changeCommissionRate",
+			Usage:  "Change the commission rate of the validator",
+			Flags:  []cli.Flag{CommissionRateFlag},
+			Action: validator.ChangeCommissionRate,
+		},
+		{
+			Name:        "deposit",
+			Usage:       "(DEPRECATED) Deposit ETH into ValidatorPool to be used as bond",
+			Description: "This command will be deprecated in a future release of validator system V2. Please use the 'register' command to register as a validator.",
+			Flags:       []cli.Flag{EthAmountFlag},
+			Action:      validator.Deposit,
+		},
+		{
+			Name:        "withdraw",
+			Usage:       "(DEPRECATED) Withdraw ETH from ValidatorPool",
+			Description: "This command will be deprecated in a future release of validator system V2. You can still use this command to withdraw your asset from the ValidatorPool.",
+			Flags:       []cli.Flag{EthAmountFlag},
+			Action:      validator.Withdraw,
+		},
+		{
+			Name:        "unbond",
+			Usage:       "(DEPRECATED) Attempt to unbond in ValidatorPool",
+			Description: "This command will be deprecated in a future release of validator system V2. You can still use this command to unbond your asset from the ValidatorPool.",
+			Action:      validator.Unbond,
 		},
 	}
 
@@ -71,6 +129,6 @@ func main() {
 // This is done to capture the Version of the validator.
 func curryMain(version string) func(ctx *cli.Context) error {
 	return func(ctx *cli.Context) error {
-		return validator.Main(version, ctx)
+		return val.Main(version, ctx)
 	}
 }
