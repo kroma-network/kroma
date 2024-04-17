@@ -271,7 +271,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 segLen = colosseum.getSegmentsLength(1);
 
         vm.prank(challenger);
-        vm.expectRevert("Colosseum: challenge for genesis output is not allowed");
+        vm.expectRevert(Colosseum.NotAllowedGenesisOutput.selector);
         colosseum.createChallenge(0, bytes32(0), 0, new bytes32[](segLen));
     }
 
@@ -281,7 +281,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 segLen = colosseum.getSegmentsLength(1);
 
         vm.prank(targetOutput.submitter);
-        vm.expectRevert("Colosseum: the asserter and challenger must be different");
+        vm.expectRevert(Colosseum.NotAllowedCaller.selector);
         colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen));
     }
 
@@ -296,7 +296,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         uint256 segLen = colosseum.getSegmentsLength(1);
         vm.prank(challenger);
-        vm.expectRevert("Colosseum: the challenge for given output index is already in progress");
+        vm.expectRevert(Colosseum.ImproperChallengeStatus.selector);
         colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen));
     }
 
@@ -308,7 +308,7 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.startPrank(challenger);
 
         // invalid segments length
-        vm.expectRevert("Colosseum: invalid segments length");
+        vm.expectRevert(Colosseum.InvalidSegmentsLength.selector);
         colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen + 1));
 
         bytes32[] memory segments = new bytes32[](segLen);
@@ -318,7 +318,7 @@ contract ColosseumTest is Colosseum_Initializer {
             segments[i] = keccak256(abi.encodePacked("wrong hash", i));
         }
         segments[segLen - 1] = oracle.getL2Output(outputIndex).outputRoot;
-        vm.expectRevert("Colosseum: the first segment must be matched");
+        vm.expectRevert(Colosseum.FirstSegmentMismatched.selector);
         colosseum.createChallenge(outputIndex, bytes32(0), 0, segments);
 
         // invalid output root of the last segment
@@ -327,7 +327,7 @@ contract ColosseumTest is Colosseum_Initializer {
         }
         segments[0] = oracle.getL2Output(outputIndex - 1).outputRoot;
         segments[segLen - 1] = oracle.getL2Output(outputIndex).outputRoot;
-        vm.expectRevert("Colosseum: the last segment must not be matched");
+        vm.expectRevert(Colosseum.LastSegmentMatched.selector);
         colosseum.createChallenge(outputIndex, bytes32(0), 0, segments);
 
         vm.stopPrank();
@@ -354,7 +354,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 segLen = colosseum.getSegmentsLength(1);
 
         vm.prank(challenger);
-        vm.expectRevert("Colosseum: challenge for deleted output is not allowed");
+        vm.expectRevert(Colosseum.OutputAlreadyDeleted.selector);
         colosseum.createChallenge(outputIndex, bytes32(0), 0, new bytes32[](segLen));
     }
 
@@ -401,7 +401,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         bytes32[] memory segments = new bytes32[](0);
         vm.prank(challenger);
-        vm.expectRevert("Colosseum: cannot create a challenge after the creation period");
+        vm.expectRevert(Colosseum.CreationPeriodPassed.selector);
         colosseum.createChallenge(outputIndex, bytes32(0), 0, segments);
     }
 
@@ -410,7 +410,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 segLen = colosseum.getSegmentsLength(1);
 
         vm.prank(challenger);
-        vm.expectRevert("Colosseum: block hash does not match the hash at the expected height");
+        vm.expectRevert(Colosseum.L1Reorged.selector);
         colosseum.createChallenge(
             outputIndex,
             bytes32(uint256(0x01)),
@@ -445,9 +445,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 segLen = colosseum.getSegmentsLength(challenge.turn + 1);
 
         vm.prank(challenge.asserter);
-        vm.expectRevert(
-            "Colosseum: cannot progress challenge process about already finalized output"
-        );
+        vm.expectRevert(Colosseum.OutputAlreadyFinalized.selector);
         colosseum.bisect(outputIndex, challenge.challenger, 0, new bytes32[](segLen));
     }
 
@@ -474,13 +472,13 @@ contract ColosseumTest is Colosseum_Initializer {
         // invalid output of the first segment
         bytes32 firstSegment = segments[0];
         segments[0] = keccak256(abi.encodePacked("wrong hash", uint256(0)));
-        vm.expectRevert("Colosseum: the first segment must be matched");
+        vm.expectRevert(Colosseum.FirstSegmentMismatched.selector);
         colosseum.bisect(outputIndex, challenge.challenger, position, segments);
 
         // invalid output of the last segment
         segments[0] = firstSegment;
         segments[segments.length - 1] = challenge.segments[position + 1];
-        vm.expectRevert("Colosseum: the last segment must not be matched");
+        vm.expectRevert(Colosseum.LastSegmentMatched.selector);
         colosseum.bisect(outputIndex, challenge.challenger, position, segments);
 
         vm.stopPrank();
@@ -496,7 +494,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 segLen = colosseum.getSegmentsLength(challenge.turn + 1);
 
         vm.prank(challenge.challenger);
-        vm.expectRevert("Colosseum: not your turn");
+        vm.expectRevert(Colosseum.NotAllowedCaller.selector);
         colosseum.bisect(outputIndex, challenge.challenger, 0, new bytes32[](segLen));
     }
 
@@ -511,7 +509,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(challenge.timeoutAt + 1);
         vm.prank(challenge.asserter);
-        vm.expectRevert("Colosseum: not your turn");
+        vm.expectRevert(Colosseum.NotAllowedCaller.selector);
         colosseum.bisect(outputIndex, challenge.challenger, 0, new bytes32[](segLen));
 
         assertEq(
@@ -536,7 +534,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(challenge.timeoutAt + 1);
         vm.prank(challenge.challenger);
-        vm.expectRevert("Colosseum: not your turn");
+        vm.expectRevert(Colosseum.NotAllowedCaller.selector);
         colosseum.bisect(outputIndex, challenge.challenger, 0, new bytes32[](segLen));
 
         assertEq(
@@ -610,9 +608,7 @@ contract ColosseumTest is Colosseum_Initializer {
         Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
         vm.warp(targetOutput.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
 
-        vm.expectRevert(
-            "Colosseum: cannot progress challenge process about already finalized output"
-        );
+        vm.expectRevert(Colosseum.OutputAlreadyFinalized.selector);
         _doProveFault(challenger, outputIndex, 0);
     }
 
@@ -689,13 +685,13 @@ contract ColosseumTest is Colosseum_Initializer {
         test_proveFault_succeeds();
 
         vm.prank(makeAddr("not_security_council"));
-        vm.expectRevert("Colosseum: sender is not the security council");
+        vm.expectRevert(Colosseum.NotAllowedCaller.selector);
         colosseum.dismissChallenge(0, address(0), address(0), bytes32(0), bytes32(0));
     }
 
     function test_dismissChallenge_outputNotDeleted_reverts() external {
         vm.prank(address(securityCouncil));
-        vm.expectRevert("Colosseum: cannot rollback output to zero hash");
+        vm.expectRevert(Colosseum.CannotRollbackOutputToZero.selector);
         colosseum.dismissChallenge(0, address(0), address(0), bytes32(0), bytes32(0));
     }
 
@@ -776,7 +772,7 @@ contract ColosseumTest is Colosseum_Initializer {
     }
 
     function test_cancelChallenge_noChallenge_reverts() external {
-        vm.expectRevert("Colosseum: the challenge does not exist");
+        vm.expectRevert(Colosseum.ImproperChallengeStatus.selector);
         colosseum.cancelChallenge(0);
     }
 
@@ -786,7 +782,7 @@ contract ColosseumTest is Colosseum_Initializer {
         _createChallenge(outputIndex, challenger);
 
         vm.prank(challenger);
-        vm.expectRevert("Colosseum: challenge cannot be cancelled");
+        vm.expectRevert(Colosseum.CannotCancelChallenge.selector);
         colosseum.cancelChallenge(outputIndex);
     }
 
@@ -800,7 +796,7 @@ contract ColosseumTest is Colosseum_Initializer {
         test_proveFault_succeeds();
 
         vm.prank(challenger);
-        vm.expectRevert("Colosseum: the challenge does not exist");
+        vm.expectRevert(Colosseum.ImproperChallengeStatus.selector);
         colosseum.cancelChallenge(outputIndex);
     }
 
@@ -817,7 +813,7 @@ contract ColosseumTest is Colosseum_Initializer {
         test_proveFault_succeeds();
 
         vm.prank(otherChallenger);
-        vm.expectRevert("Colosseum: challenge cannot be cancelled if challenger timed out");
+        vm.expectRevert(Colosseum.ImproperChallengeStatus.selector);
         colosseum.cancelChallenge(outputIndex);
     }
 
@@ -841,7 +837,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 outputIndex = targetOutputIndex;
 
         vm.prank(address(1));
-        vm.expectRevert("Colosseum: sender is not the security council");
+        vm.expectRevert(Colosseum.NotAllowedCaller.selector);
         colosseum.forceDeleteOutput(outputIndex);
     }
 
@@ -860,9 +856,7 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.warp(oracle.finalizedAt(outputIndex) + 1);
 
         vm.prank(address(securityCouncil));
-        vm.expectRevert(
-            "Colosseum: cannot progress challenge process about already finalized output"
-        );
+        vm.expectRevert(Colosseum.OutputAlreadyFinalized.selector);
         colosseum.forceDeleteOutput(outputIndex);
     }
 
@@ -882,7 +876,7 @@ contract ColosseumTest is Colosseum_Initializer {
         colosseum.forceDeleteOutput(outputIndex);
 
         vm.prank(address(securityCouncil));
-        vm.expectRevert("Colosseum: the output has already been deleted");
+        vm.expectRevert(Colosseum.OutputAlreadyDeleted.selector);
         colosseum.forceDeleteOutput(outputIndex);
     }
 

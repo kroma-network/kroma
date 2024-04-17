@@ -220,10 +220,105 @@ contract Colosseum is Initializable, ISemver {
     );
 
     /**
+     * @notice Reverts when caller is not allowed.
+     */
+    error NotAllowedCaller();
+
+    /**
+     * @notice Reverts when output is already finalized.
+     */
+    error OutputAlreadyFinalized();
+
+    /**
+     * @notice Reverts when output is already deleted.
+     */
+    error OutputAlreadyDeleted();
+
+    /**
+     * @notice Reverts when output is not deleted.
+     */
+    error OutputNotDeleted();
+
+    /**
+     * @notice Reverts when output is genesis output.
+     */
+    error NotAllowedGenesisOutput();
+
+    /**
+     * @notice Reverts when the status of challenge is improper.
+     */
+    error ImproperChallengeStatus();
+
+    /**
+     * @notice Reverts when the creation period is already passed.
+     */
+    error CreationPeriodPassed();
+
+    /**
+     * @notice Reverts when L1 is reorged.
+     */
+    error L1Reorged();
+
+    /**
+     * @notice Reverts when the public input has already been used to prove fault.
+     */
+    error AlreadyUsedPublicInput();
+
+    /**
+     * @notice Reverts when the ZK proof is invalid.
+     */
+    error InvalidZKProof();
+
+    /**
+     * @notice Reverts when the inclusion proof is invalid.
+     */
+    error InvalidInclusionProof();
+
+    /**
+     * @notice Reverts when segments length is invalid.
+     */
+    error InvalidSegmentsLength();
+
+    /**
+     * @notice Reverts when the first segment is mismatched.
+     */
+    error FirstSegmentMismatched();
+
+    /**
+     * @notice Reverts when the last segment is matched.
+     */
+    error LastSegmentMatched();
+
+    /**
+     * @notice Reverts when the block hash is mismatched.
+     */
+    error BlockHashMismatched();
+
+    /**
+     * @notice Reverts when the state root is mismatched.
+     */
+    error StateRootMismatched();
+
+    /**
+     * @notice Reverts when turn is invalid.
+     */
+    error InvalidTurn();
+
+    /**
+     * @notice Reverts when challenge cannot be cancelled.
+     */
+    error CannotCancelChallenge();
+
+    /**
+     * @notice Reverts when try to rollback output to zero hash.
+     */
+    error CannotRollbackOutputToZero();
+
+    /**
      * @notice A modifier that only allows the security council to call
      */
     modifier onlySecurityCouncil() {
-        require(msg.sender == SECURITY_COUNCIL, "Colosseum: sender is not the security council");
+        if (msg.sender != SECURITY_COUNCIL) revert NotAllowedCaller();
         _;
     }
 
@@ -233,10 +328,7 @@ contract Colosseum is Initializable, ISemver {
      * @param _outputIndex Index of the L2 checkpoint output.
      */
     modifier outputNotFinalized(uint256 _outputIndex) {
-        require(
-            !L2_ORACLE.isFinalized(_outputIndex),
-            "Colosseum: cannot progress challenge process about already finalized output"
-        );
+        if (L2_ORACLE.isFinalized(_outputIndex)) revert OutputAlreadyFinalized();
         _;
     }
 
@@ -308,43 +400,29 @@ contract Colosseum is Initializable, ISemver {
         uint256 _l1BlockNumber,
         bytes32[] calldata _segments
     ) external {
-        require(_outputIndex > 0, "Colosseum: challenge for genesis output is not allowed");
+        if (_outputIndex == 0) revert NotAllowedGenesisOutput();
 
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
 
         if (challenge.turn >= TURN_INIT) {
             ChallengeStatus status = _challengeStatus(challenge);
-            require(
-                status == ChallengeStatus.CHALLENGER_TIMEOUT,
-                "Colosseum: the challenge for given output index is already in progress"
-            );
+            if (status != ChallengeStatus.CHALLENGER_TIMEOUT) revert ImproperChallengeStatus();
 
             _challengerTimeout(_outputIndex, msg.sender);
         }
 
         Types.CheckpointOutput memory targetOutput = L2_ORACLE.getL2Output(_outputIndex);
 
-        require(
-            targetOutput.timestamp + CREATION_PERIOD_SECONDS >= block.timestamp,
-            "Colosseum: cannot create a challenge after the creation period"
-        );
+        if (targetOutput.timestamp + CREATION_PERIOD_SECONDS < block.timestamp)
+            revert CreationPeriodPassed();
 
-        require(
-            targetOutput.outputRoot != DELETED_OUTPUT_ROOT,
-            "Colosseum: challenge for deleted output is not allowed"
-        );
+        if (targetOutput.outputRoot == DELETED_OUTPUT_ROOT) revert OutputAlreadyDeleted();
 
-        require(
-            msg.sender != targetOutput.submitter,
-            "Colosseum: the asserter and challenger must be different"
-        );
+        if (msg.sender == targetOutput.submitter) revert NotAllowedCaller();
 
         if (_l1BlockHash != bytes32(0) && blockhash(_l1BlockNumber) != bytes32(0)) {
             // Like L2OutputOracle, it reverts transactions when L1 reorged.
-            require(
-                blockhash(_l1BlockNumber) == _l1BlockHash,
-                "Colosseum: block hash does not match the hash at the expected height"
-            );
+            if (blockhash(_l1BlockNumber) != _l1BlockHash) revert L1Reorged();
         }
 
         Types.CheckpointOutput memory prevOutput = L2_ORACLE.getL2Output(_outputIndex - 1);
@@ -405,7 +483,7 @@ contract Colosseum is Initializable, ISemver {
         } else if (status == ChallengeStatus.ASSERTER_TURN) {
             expectedSender = challenge.asserter;
         }
-        require(msg.sender == expectedSender, "Colosseum: not your turn");
+        if (msg.sender != expectedSender) revert NotAllowedCaller();
 
         uint8 newTurn = challenge.turn + 1;
 
@@ -456,10 +534,8 @@ contract Colosseum is Initializable, ISemver {
             return;
         }
 
-        require(
-            status == ChallengeStatus.READY_TO_PROVE || status == ChallengeStatus.ASSERTER_TIMEOUT,
-            "Colosseum: impossible to prove the fault in current status"
-        );
+        if (status != ChallengeStatus.READY_TO_PROVE && status != ChallengeStatus.ASSERTER_TIMEOUT)
+            revert ImproperChallengeStatus();
 
         bytes32 srcOutputRoot = Hashing.hashOutputRootProof(_proof.srcOutputRootProof);
         bytes32 dstOutputRoot = Hashing.hashOutputRootProof(_proof.dstOutputRootProof);
@@ -491,12 +567,9 @@ contract Colosseum is Initializable, ISemver {
             _proof.publicInput
         );
 
-        require(
-            !verifiedPublicInputs[publicInputHash],
-            "Colosseum: public input that has already been validated cannot be used again"
-        );
+        if (verifiedPublicInputs[publicInputHash]) revert AlreadyUsedPublicInput();
 
-        require(ZK_VERIFIER.verify(_zkproof, _pair, publicInputHash), "Colosseum: invalid proof");
+        if (!ZK_VERIFIER.verify(_zkproof, _pair, publicInputHash)) revert InvalidZKProof();
         emit Proven(_outputIndex, msg.sender, block.timestamp);
 
         // Scope to call the security council, to avoid stack too deep.
@@ -547,10 +620,7 @@ contract Colosseum is Initializable, ISemver {
         Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
         ChallengeStatus status = _challengeStatus(challenge);
 
-        require(
-            status == ChallengeStatus.CHALLENGER_TIMEOUT,
-            "Colosseum: can only be called if the challenger is in timout"
-        );
+        if (status != ChallengeStatus.CHALLENGER_TIMEOUT) revert ImproperChallengeStatus();
 
         _challengerTimeout(_outputIndex, _challenger);
     }
@@ -565,12 +635,10 @@ contract Colosseum is Initializable, ISemver {
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
         ChallengeStatus status = _challengeStatus(challenge);
 
-        require(status != ChallengeStatus.NONE, "Colosseum: the challenge does not exist");
+        if (status == ChallengeStatus.NONE) revert ImproperChallengeStatus();
 
-        require(
-            _cancelIfOutputDeleted(_outputIndex, challenge.challenger, status),
-            "Colosseum: challenge cannot be cancelled"
-        );
+        if (!_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status))
+            revert CannotCancelChallenge();
     }
 
     /**
@@ -590,14 +658,9 @@ contract Colosseum is Initializable, ISemver {
         bytes32 _outputRoot,
         bytes32 _publicInputHash
     ) external onlySecurityCouncil outputNotFinalized(_outputIndex) {
-        require(
-            _outputRoot != DELETED_OUTPUT_ROOT,
-            "Colosseum: cannot rollback output to zero hash"
-        );
-        require(
-            L2_ORACLE.getL2Output(_outputIndex).outputRoot == DELETED_OUTPUT_ROOT,
-            "Colosseum: only can rollback if the output has been deleted"
-        );
+        if (_outputRoot == DELETED_OUTPUT_ROOT) revert CannotRollbackOutputToZero();
+        if (L2_ORACLE.getL2Output(_outputIndex).outputRoot != DELETED_OUTPUT_ROOT)
+            revert OutputNotDeleted();
         verifiedPublicInputs[_publicInputHash] = false;
 
         // Rollback output root.
@@ -617,10 +680,7 @@ contract Colosseum is Initializable, ISemver {
     ) external onlySecurityCouncil outputNotFinalized(_outputIndex) {
         // Check if the output is deleted.
         Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(_outputIndex);
-        require(
-            output.outputRoot != DELETED_OUTPUT_ROOT,
-            "Colosseum: the output has already been deleted"
-        );
+        if (output.outputRoot == DELETED_OUTPUT_ROOT) revert OutputAlreadyDeleted();
 
         // Delete output root.
         L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, SECURITY_COUNCIL);
@@ -647,12 +707,9 @@ contract Colosseum is Initializable, ISemver {
     ) private view {
         uint256 segLen = _segments.length;
 
-        require(getSegmentsLength(_turn) == segLen, "Colosseum: invalid segments length");
-        require(_prevFirst == _segments[0], "Colosseum: the first segment must be matched");
-        require(
-            _prevLast != _segments[segLen - 1],
-            "Colosseum: the last segment must not be matched"
-        );
+        if (getSegmentsLength(_turn) != segLen) revert InvalidSegmentsLength();
+        if (_prevFirst != _segments[0]) revert FirstSegmentMismatched();
+        if (_prevLast == _segments[segLen - 1]) revert LastSegmentMatched();
     }
 
     /**
@@ -695,10 +752,7 @@ contract Colosseum is Initializable, ISemver {
     function _setSegmentsLengths(uint256[] memory _segmentsLengths) private {
         // _segmentsLengths length should be an even number in order to let challenger submit
         // invalidity proof at the last turn.
-        require(
-            _segmentsLengths.length % 2 == 0,
-            "Colosseum: length of segments lengths cannot be odd number"
-        );
+        if (_segmentsLengths.length % 2 != 0) revert InvalidSegmentsLength();
 
         uint256 sum = 1;
         for (uint256 i = 0; i < _segmentsLengths.length; ) {
@@ -710,7 +764,7 @@ contract Colosseum is Initializable, ISemver {
             }
         }
 
-        require(sum == L2_ORACLE_SUBMISSION_INTERVAL, "Colosseum: invalid segments lengths");
+        if (sum != L2_ORACLE_SUBMISSION_INTERVAL) revert InvalidSegmentsLength();
     }
 
     /**
@@ -737,15 +791,14 @@ contract Colosseum is Initializable, ISemver {
             _messagePasserStorageRoot // storage root
         );
 
-        require(
-            IZKMerkleTrie(ZK_MERKLE_TRIE).verifyInclusionProof(
+        if (
+            !IZKMerkleTrie(ZK_MERKLE_TRIE).verifyInclusionProof(
                 bytes32(bytes20(Predeploys.L2_TO_L1_MESSAGE_PASSER)),
                 l2ToL1MessagePasserAccount,
                 _merkleProof,
                 _stateRoot
-            ),
-            "Colosseum: invalid L2ToL1MessagePasser inclusion proof"
-        );
+            )
+        ) revert InvalidInclusionProof();
     }
 
     /**
@@ -766,24 +819,16 @@ contract Colosseum is Initializable, ISemver {
         Types.OutputRootProof calldata _srcOutputRootProof,
         Types.OutputRootProof calldata _dstOutputRootProof
     ) private view {
-        require(
-            _challenge.segments[_pos] == _srcOutputRoot,
-            "Colosseum: the source segment must be matched"
-        );
+        if (_challenge.segments[_pos] != _srcOutputRoot) revert FirstSegmentMismatched();
 
         // If asserter timeout, the bisection of segments may not have ended.
         // Therefore, segment validation only proceeds when bisection is not possible.
         if (!_isAbleToBisect(_challenge)) {
-            require(
-                _challenge.segments[_pos + 1] != _dstOutputRoot,
-                "Colosseum: the destination segment must not be matched"
-            );
+            if (_challenge.segments[_pos + 1] == _dstOutputRoot) revert LastSegmentMatched();
         }
 
-        require(
-            _srcOutputRootProof.nextBlockHash == _dstOutputRootProof.blockHash,
-            "Colosseum: the block hash must be matched"
-        );
+        if (_srcOutputRootProof.nextBlockHash != _dstOutputRootProof.blockHash)
+            revert BlockHashMismatched();
     }
 
     /**
@@ -802,20 +847,14 @@ contract Colosseum is Initializable, ISemver {
         Types.BlockHeaderRLP calldata _rlps
     ) private pure {
         // TODO(chokobole): check withdrawal storage root of _dstOutputRootProof against state root of _dstOutputRootProof.
-        require(
-            _publicInput.stateRoot == _dstOutputRootProof.stateRoot,
-            "Colosseum: the state root must be matched"
-        );
+        if (_publicInput.stateRoot != _dstOutputRootProof.stateRoot) revert StateRootMismatched();
 
         // parentBeaconRoot is non-zero for Cancun block
         bytes32 blockHash = _publicInput.parentBeaconRoot != bytes32(0)
             ? Hashing.hashBlockHeaderCancun(_publicInput, _rlps)
             : Hashing.hashBlockHeaderShanghai(_publicInput, _rlps);
 
-        require(
-            _srcOutputRootProof.nextBlockHash == blockHash,
-            "Colosseum: the block hash from public input must be matched"
-        );
+        if (_srcOutputRootProof.nextBlockHash != blockHash) revert BlockHashMismatched();
     }
 
     /**
@@ -841,12 +880,9 @@ contract Colosseum is Initializable, ISemver {
         }
 
         // If the output is deleted, the asserter does not need to do anything further.
-        require(msg.sender == _challenger, "Colosseum: sender is not a challenger");
+        if (msg.sender != _challenger) revert NotAllowedCaller();
 
-        require(
-            _status != ChallengeStatus.CHALLENGER_TIMEOUT,
-            "Colosseum: challenge cannot be cancelled if challenger timed out"
-        );
+        if (_status == ChallengeStatus.CHALLENGER_TIMEOUT) revert ImproperChallengeStatus();
 
         delete challenges[_outputIndex][msg.sender];
         emit ChallengeCanceled(_outputIndex, msg.sender, block.timestamp);
@@ -1044,7 +1080,7 @@ contract Colosseum is Initializable, ISemver {
      * @return The segments length.
      */
     function getSegmentsLength(uint8 _turn) public view returns (uint256) {
-        require(_turn >= TURN_INIT, "Colosseum: invalid turn");
+        if (_turn < TURN_INIT) revert InvalidTurn();
         return segmentsLengths[_turn - 1];
     }
 
