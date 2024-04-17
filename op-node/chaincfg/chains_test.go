@@ -68,7 +68,7 @@ var mainnetCfg = rollup.Config{
 	RegolithTime:           u64Ptr(0),
 	CanyonTime:             u64Ptr(1708502400),
 	DeltaTime:              u64Ptr(1709107200),
-	EcotoneTime:            nil,
+	EcotoneTime:            u64Ptr(1713772800),
 	FjordTime:              nil,
 	InteropTime:            nil,
 	/* [Kroma: START]
