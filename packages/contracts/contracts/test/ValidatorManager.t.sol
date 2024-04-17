@@ -450,7 +450,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
             _submitL2Output(oracle.nextBlockNumber(), true);
 
             assertEq(valMan.noSubmissionCount(asserter), i + 1);
-            assertFalse(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.IN_JAIL);
+            assertFalse(valMan.inJail(asserter));
         }
 
         mockValMan.updatePriorityValidator(asserter);
@@ -467,7 +467,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         valMan.afterSubmitL2Output(outputIndex);
 
         assertEq(valMan.noSubmissionCount(asserter), jailThreshold);
-        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.IN_JAIL);
+        assertTrue(valMan.inJail(asserter));
     }
 
     function test_afterSubmitL2Output_resetNoSubmissionCount_succeeds() external {
@@ -484,7 +484,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         _submitL2Output(oracle.nextBlockNumber(), true);
 
         assertEq(valMan.noSubmissionCount(asserter), 1);
-        assertFalse(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.IN_JAIL);
+        assertFalse(valMan.inJail(asserter));
 
         mockValMan.updatePriorityValidator(asserter);
 
@@ -610,7 +610,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         valMan.tryUnjail();
 
         assertEq(valMan.noSubmissionCount(asserter), 0);
-        assertFalse(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.IN_JAIL);
+        assertFalse(valMan.inJail(asserter));
     }
 
     function test_tryUnjail_notInJail_reverts() external {
@@ -655,7 +655,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
 
         vm.startPrank(address(colosseum));
         // suppose that the challenge is successful, so the winner is challenger
-        valMan.slash(asserter, challenger, oracle.latestOutputIndex());
+        valMan.slash(oracle.latestOutputIndex(), challenger, asserter);
         vm.stopPrank();
         // this will be done by the l2 output oracle contract in the real environment
         vm.startPrank(challenger);
@@ -704,7 +704,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
     function test_slash_notColosseum_reverts() external {
         vm.prank(address(1));
         vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
-        valMan.slash(asserter, challenger, 1);
+        valMan.slash(1, challenger, asserter);
     }
 
     function test_checkSubmissionEligibility_priorityRound_succeeds() external {
