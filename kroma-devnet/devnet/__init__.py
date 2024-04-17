@@ -272,6 +272,10 @@ def devnet_deploy(paths):
     log.info(f'Using Colosseum {colosseum}')
     validator_pool = addresses['ValidatorPoolProxy']
     log.info(f'Using ValidatorPool {validator_pool}')
+    validator_manager = addresses['ValidatorManagerProxy']
+    log.info(f'Using ValidatorManager {validator_manager}')
+    asset_manager = addresses['AssetManagerProxy']
+    log.info(f'Using AssetManager {asset_manager}')
 
     log.info('Bringing up `kroma-node`, `kroma-batcher` and `kroma-validator`.')
     run_command(['docker', 'compose', 'up', '-d', 'kroma-node', 'kroma-batcher', 'kroma-validator'], cwd=paths.ops_bedrock_dir, env={
@@ -279,6 +283,8 @@ def devnet_deploy(paths):
         'L2OO_ADDRESS': l2_output_oracle,
         'COLOSSEUM_ADDRESS': colosseum,
         'VALPOOL_ADDRESS': validator_pool,
+        'VALMANAGER_ADDRESS': validator_manager,
+        'ASSETMANAGER_ADDRESS': asset_manager,
         'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address
     })
 
