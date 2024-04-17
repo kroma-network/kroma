@@ -53,10 +53,9 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		Data:       l1BlockDeploymentBytecode,
 		// [Kroma: START]
 		Gas: 500_000,
-		//IsSystemTransaction: false,
+		// IsSystemTransaction: false,
 		// [Kroma: END]
 	}).MarshalBinary()
-
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +74,6 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		[Kroma: END] */
 		Data: gasPriceOracleDeploymentBytecode,
 	}).MarshalBinary()
-
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +92,6 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		[Kroma: END] */
 		Data: upgradeToCalldata(newL1BlockAddress),
 	}).MarshalBinary()
-
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +110,6 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		[Kroma: END] */
 		Data: upgradeToCalldata(newGasPriceOracleAddress),
 	}).MarshalBinary()
-
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +145,6 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		[Kroma: END] */
 		SourceHash: beaconRootsSource.SourceHash(),
 	}).MarshalBinary()
-
 	if err != nil {
 		return nil, err
 	}

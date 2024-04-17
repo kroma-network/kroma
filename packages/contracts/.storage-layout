@@ -339,3 +339,34 @@
 | _timelock               | contract TimelockControllerUpgradeable                                    | 504  | 0      | 20    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
 | _timelockIds            | mapping(uint256 => bytes32)                                               | 505  | 0      | 32    | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
 | __gap                   | uint256[48]                                                               | 506  | 0      | 1536  | contracts/governance/UpgradeGovernor.sol:UpgradeGovernor |
+
+=======================
+➡ contracts/governance/GovernanceToken.sol:GovernanceToken
+=======================
+
+| Name                             | Type                                               | Slot | Offset | Bytes | Contract                                                 |
+|----------------------------------|----------------------------------------------------|------|--------|-------|----------------------------------------------------------|
+| _balances                        | mapping(address => uint256)                        | 0    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _allowances                      | mapping(address => mapping(address => uint256))    | 1    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _totalSupply                     | uint256                                            | 2    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _name                            | string                                             | 3    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _symbol                          | string                                             | 4    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _nameFallback                    | string                                             | 5    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _versionFallback                 | string                                             | 6    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _nonces                          | mapping(address => struct Counters.Counter)        | 7    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _PERMIT_TYPEHASH_DEPRECATED_SLOT | bytes32                                            | 8    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _delegates                       | mapping(address => address)                        | 9    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _checkpoints                     | mapping(address => struct ERC20Votes.Checkpoint[]) | 10   | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _totalSupplyCheckpoints          | struct ERC20Votes.Checkpoint[]                     | 11   | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+
+=======================
+➡ contracts/governance/MintManager.sol:MintManager
+=======================
+
+| Name            | Type                        | Slot | Offset | Bytes | Contract                                         |
+|-----------------|-----------------------------|------|--------|-------|--------------------------------------------------|
+| _initialized    | uint8                       | 0    | 0      | 1     | contracts/governance/MintManager.sol:MintManager |
+| _initializing   | bool                        | 0    | 1      | 1     | contracts/governance/MintManager.sol:MintManager |
+| recipients      | address[]                   | 1    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |
+| shareOf         | mapping(address => uint256) | 2    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |
+| lastMintedBlock | uint256                     | 3    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |

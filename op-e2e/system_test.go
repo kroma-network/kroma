@@ -32,6 +32,7 @@ import (
 	gethutils "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
@@ -47,7 +48,6 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
-	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 // TestSystemBatchType run each system e2e test case in singular batch mode and span batch mode.
@@ -931,6 +931,9 @@ func TestL1InfoContract(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
+	// [Kroma: START]
+	cfg.DeployConfig.MintManagerMintActivatedBlock = (*hexutil.Big)(big.NewInt(2))
+	// [Kroma: END]
 
 	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
@@ -1032,6 +1035,24 @@ func TestL1InfoContract(t *testing.T) {
 	checkInfoList("On sequencer with state", l1InfosFromSequencerState)
 	checkInfoList("On verifier with tx", l1InfosFromVerifierTransactions)
 	checkInfoList("On verifier with state", l1InfosFromVerifierState)
+
+	// [Kroma: START]
+	// Ensure that the L1Info contract successfully calls MintManager and the governance token is minted.
+	for i := uint64(1); i < endVerifBlock.NumberU64(); i++ {
+		block, err := l2Verif.BlockByNumber(ctx, new(big.Int).SetUint64(i))
+		require.NoError(t, err)
+		require.NotZero(t, len(block.Transactions()))
+		l1InfoReceipt, err := l2Verif.TransactionReceipt(ctx, block.Transactions()[0].Hash())
+
+		// L1Info contracts don't emit any events.
+		// All events that emitted in this transaction are assumed to be `Transfer` events of the governance token.
+		if i >= cfg.DeployConfig.MintManagerMintActivatedBlock.ToInt().Uint64() {
+			require.Equal(t, len(l1InfoReceipt.Logs), len(cfg.DeployConfig.MintManagerRecipients))
+		} else {
+			require.Zero(t, len(l1InfoReceipt.Logs))
+		}
+	}
+	// [Kroma: END]
 }
 
 // calcGasFees determines the actual cost of the transaction given a specific base fee

@@ -39,6 +39,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/kroma-network/kroma/op-e2e/e2eutils/batcher"
+
 	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
@@ -67,7 +69,6 @@ import (
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 	validator "github.com/kroma-network/kroma/kroma-validator"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
-	"github.com/kroma-network/kroma/op-e2e/e2eutils/batcher"
 	"github.com/kroma-network/kroma/op-e2e/testdata"
 	"github.com/kroma-network/kroma/op-service/client"
 )
@@ -104,6 +105,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	deployConfig.L2GenesisDeltaTimeOffset = nil
 	deployConfig.L2GenesisEcotoneTimeOffset = nil
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
+	deployConfig.MintManagerMintActivatedBlock = nil
 	// [Kroma: END]
 	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")
 	l1Deployments := config.L1Deployments.Copy()
