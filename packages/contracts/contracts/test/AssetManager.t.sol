@@ -10,7 +10,7 @@ import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
 import { Uint128Math } from "../libraries/Uint128Math.sol";
 import { AssetManager } from "../L1/AssetManager.sol";
-import { IValidatorManager } from "../L1/IValidatorManager.sol";
+import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { IKGHManager } from "../universal/IKGHManager.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { L2OutputOracle_ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";

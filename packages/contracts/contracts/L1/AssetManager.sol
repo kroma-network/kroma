@@ -9,7 +9,7 @@ import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Rec
 import { Uint128Math } from "../libraries/Uint128Math.sol";
 import { IKGHManager } from "../universal/IKGHManager.sol";
 import { ISemver } from "../universal/ISemver.sol";
-import { IValidatorManager } from "./IValidatorManager.sol";
+import { IValidatorManager } from "./interfaces/IValidatorManager.sol";
 
 /**
  * @title AssetManager

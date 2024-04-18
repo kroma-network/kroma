@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import { AssetManager } from "./AssetManager.sol";
-import { L2OutputOracle } from "./L2OutputOracle.sol";
+import { AssetManager } from "../AssetManager.sol";
+import { L2OutputOracle } from "../L2OutputOracle.sol";
 
 /**
  * @title IValidatorManager

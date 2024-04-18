@@ -3,7 +3,7 @@ pragma solidity 0.8.15;
 
 import { Bytes } from "../libraries/Bytes.sol";
 import { NodeReader } from "../libraries/NodeReader.sol";
-import { IZKMerkleTrie } from "./IZKMerkleTrie.sol";
+import { IZKMerkleTrie } from "./interfaces/IZKMerkleTrie.sol";
 import { ZKTrieHasher } from "./ZKTrieHasher.sol";
 
 /**
@@ -93,10 +93,7 @@ contract ZKMerkleTrie is IZKMerkleTrie, ZKTrieHasher {
                 } else {
                     require(computedKey == currentNode.childR, "ZKMerkleTrie: invalid key R");
                 }
-                computedKey = _hashFixed2Elems(
-                    currentNode.childL,
-                    currentNode.childR
-                );
+                computedKey = _hashFixed2Elems(currentNode.childL, currentNode.childR);
             } else if (currentNode.nodeType == NodeReader.NodeType.LEAF) {
                 require(!exists && !empty, "ZKMerkleTrie: duplicated terminal node");
                 exists = currentNode.nodeKey == key;
