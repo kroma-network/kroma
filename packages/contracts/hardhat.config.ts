@@ -46,6 +46,27 @@ const config: HardhatUserConfig = {
       },
       deploy: ['./deploy/L2'],
     },
+    holesky: {
+      chainId: 17000,
+      url: process.env.L1_RPC_HOLESKY || '',
+      accounts: [
+        process.env.PRIVATE_KEY_DEPLOYER_HOLESKY || ethers.constants.HashZero,
+      ],
+      companionNetworks: {
+        l1: 'kromaHolesky',
+      },
+      deploy: ['./deploy/L1'],
+    },
+    kromaHolesky: {
+      url: process.env.L2_RPC_KROMA_HOLESKY || '',
+      accounts: [
+        process.env.PRIVATE_KEY_DEPLOYER_HOLESKY || ethers.constants.HashZero,
+      ],
+      companionNetworks: {
+        l1: 'holesky',
+      },
+      deploy: ['./deploy/L2'],
+    },
     sepolia: {
       chainId: 11155111,
       url: process.env.L1_RPC_SEPOLIA || '',
@@ -105,6 +126,7 @@ const config: HardhatUserConfig = {
     deployments: {
       mainnet: ['../contracts/deployments/mainnet'],
       sepolia: ['../contracts/deployments/sepolia'],
+      holesky: ['../contracts/deployments/holesky'],
     },
   },
   solidity: {
