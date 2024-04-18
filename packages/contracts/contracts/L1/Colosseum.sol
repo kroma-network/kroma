@@ -666,6 +666,12 @@ contract Colosseum is Initializable, ISemver {
         // Rollback output root.
         L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, _asserter);
 
+        // Switch validator system after validator pool contract terminated.
+        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            // Unjail asserter.
+            L2_ORACLE.VALIDATOR_MANAGER().tryUnjail(_asserter, true);
+        }
+
         emit ChallengeDismissed(_outputIndex, _challenger, block.timestamp);
     }
 
@@ -685,6 +691,7 @@ contract Colosseum is Initializable, ISemver {
         // Delete output root.
         L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, SECURITY_COUNCIL);
 
+        // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
             // Slash the asseter's asset and move it to pending challenge reward for the output.
             L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, SECURITY_COUNCIL, output.submitter);

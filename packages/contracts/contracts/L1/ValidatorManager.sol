@@ -270,16 +270,21 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function tryUnjail() external {
-        if (!inJail(msg.sender)) revert ImproperValidatorStatus();
+    function tryUnjail(address validator, bool force) external {
+        if (!inJail(validator)) revert ImproperValidatorStatus();
 
-        if (_jail[msg.sender] > block.timestamp) revert NotElapsedJailPeriod();
+        if (force) {
+            if (msg.sender != L2_ORACLE.COLOSSEUM()) revert NotAllowedCaller();
+        } else {
+            if (msg.sender != validator) revert NotAllowedCaller();
+            if (_jail[validator] > block.timestamp) revert NotElapsedJailPeriod();
 
-        delete _jail[msg.sender];
+            _resetNoSubmissionCount(validator);
+        }
 
-        _resetNoSubmissionCount(msg.sender);
+        delete _jail[validator];
 
-        emit ValidatorUnjailed(msg.sender);
+        emit ValidatorUnjailed(validator);
     }
 
     /**
@@ -290,6 +295,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
         updateValidatorTree(loser, true);
 
         emit Slashed(outputIndex, loser, amountToSlash);
+
+        _sendToJail(loser);
 
         if (L2_ORACLE.latestFinalizedOutputIndex() < outputIndex) {
             // If output is not rewarded yet, add slashing asset to the pending challenge reward.
@@ -634,16 +641,26 @@ contract ValidatorManager is ISemver, IValidatorManager {
     function _tryJail() private {
         if (_nextPriorityValidator != address(0)) {
             if (_validatorInfo[_nextPriorityValidator].noSubmissionCount >= JAIL_THRESHOLD) {
-                uint128 expiresAt = uint128(block.timestamp + JAIL_PERIOD_SECONDS);
-                _jail[_nextPriorityValidator] = expiresAt;
-
-                emit ValidatorJailed(_nextPriorityValidator, expiresAt);
+                _sendToJail(_nextPriorityValidator);
             } else {
                 unchecked {
                     _validatorInfo[_nextPriorityValidator].noSubmissionCount++;
                 }
             }
         }
+    }
+
+    /**
+     * @notice Send the given validator to the jail. If the validator is already in jail, the
+     *         expiration timestamp is updated.
+     *
+     * @param validator Address of the validator.
+     */
+    function _sendToJail(address validator) private {
+        uint128 expiresAt = uint128(block.timestamp + JAIL_PERIOD_SECONDS);
+        _jail[validator] = expiresAt;
+
+        emit ValidatorJailed(validator, expiresAt);
     }
 
     /**

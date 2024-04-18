@@ -281,13 +281,19 @@ interface IValidatorManager {
     function changeCommissionRate(uint8 newCommissionRate) external;
 
     /**
-     * @notice Attempts to unjail a validator. Only the validator who wants to unjail can call.
+     * @notice Attempts to unjail a validator. Only Colosseum can set force to true, otherwise only
+     *         the validator who wants to unjail can call it.
+     *
+     * @param validator Address of the validator.
+     * @param force     To unjail forcefully or not.
      */
-    function tryUnjail() external;
+    function tryUnjail(address validator, bool force) external;
 
     /**
      * @notice Slash KRO from the vault of the challenge loser and move the slashing asset to
      *         pending challenge reward before output rewarded, after directly to winner's asset.
+     *         Since the behavior could threaten the security of the chain, the loser is sent to
+     *         jail.
      *
      * @param outputIndex The index of output challenged.
      * @param winner      Address of the challenge winner.
