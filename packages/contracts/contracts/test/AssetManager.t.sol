@@ -10,6 +10,7 @@ import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
 import { Uint128Math } from "../libraries/Uint128Math.sol";
 import { AssetManager } from "../L1/AssetManager.sol";
+import { IAssetManager } from "../L1/interfaces/IAssetManager.sol";
 import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { IKGHManager } from "../universal/IKGHManager.sol";
 import { Proxy } from "../universal/Proxy.sol";
@@ -232,7 +233,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
     }
 
     function test_constructor_largeSlashingRate_reverts() external {
-        vm.expectRevert(AssetManager.InvalidConstructorParams.selector);
+        vm.expectRevert(IAssetManager.InvalidConstructorParams.selector);
         new MockAssetManager(
             kro,
             kgh,
@@ -252,7 +253,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
     }
 
     function test_delegate_withoutValidatorDelegation_reverts() external {
-        vm.expectRevert(AssetManager.ImproperValidatorStatus.selector);
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
         assetManager.delegate(validator, 100e18);
     }
 
@@ -274,7 +275,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
 
     function test_delegateKgh_withoutValidatorDelegation_reverts() external {
         kgh.mint(delegator, 1);
-        vm.expectRevert(AssetManager.ImproperValidatorStatus.selector);
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
         vm.prank(delegator);
         assetManager.delegateKgh(validator, 1);
     }
@@ -349,7 +350,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
 
         uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator);
         vm.startPrank(delegator);
-        vm.expectRevert(AssetManager.InsufficientShare.selector);
+        vm.expectRevert(IAssetManager.InsufficientShare.selector);
         assetManager.initUndelegate(validator, sharesToUndelegate + 1);
     }
 
@@ -444,14 +445,14 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
     }
 
     function test_initUndelegateKgh_noShares_reverts() external {
-        vm.expectRevert(AssetManager.ShareNotExists.selector);
+        vm.expectRevert(IAssetManager.ShareNotExists.selector);
         assetManager.initUndelegateKgh(validator, 1);
     }
 
     function test_initUndelegateKghBatch_noShares_reverts() external {
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
-        vm.expectRevert(AssetManager.ShareNotExists.selector);
+        vm.expectRevert(IAssetManager.ShareNotExists.selector);
         assetManager.initUndelegateKghBatch(validator, tokenIds);
     }
 
@@ -494,7 +495,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         vm.warp(block.timestamp + undelegationPeriod);
 
         vm.prank(validator);
-        vm.expectRevert(AssetManager.RequestNotExists.selector);
+        vm.expectRevert(IAssetManager.RequestNotExists.selector);
         assetManager.finalizeUndelegate(validator);
     }
 
@@ -502,7 +503,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         test_initUndelegate_succeeds();
 
         vm.prank(delegator);
-        vm.expectRevert(AssetManager.FinalizedPendingNotExists.selector);
+        vm.expectRevert(IAssetManager.FinalizedPendingNotExists.selector);
         assetManager.finalizeUndelegate(validator);
     }
 
@@ -554,7 +555,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         vm.startPrank(delegator);
         assetManager.initUndelegateKgh(validator, 1);
 
-        vm.expectRevert(AssetManager.FinalizedPendingNotExists.selector);
+        vm.expectRevert(IAssetManager.FinalizedPendingNotExists.selector);
         assetManager.finalizeUndelegateKgh(validator);
     }
 
@@ -572,7 +573,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
     }
 
     function test_finalizeUndelegate_withNoPendingShares_reverts() external {
-        vm.expectRevert(AssetManager.PendingNotExists.selector);
+        vm.expectRevert(IAssetManager.PendingNotExists.selector);
         assetManager.finalizeUndelegate(validator);
     }
 }
