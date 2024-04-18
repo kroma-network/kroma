@@ -1,6 +1,7 @@
 import '@kroma/hardhat-deploy-config'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
+import { predeploys } from '../../src'
 import { assertContractVariable, deploy } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
@@ -15,6 +16,11 @@ const deployFn: DeployFunction = async (hre) => {
     ],
     isProxyImpl: true,
     postDeployAction: async (contract) => {
+      await assertContractVariable(
+        contract,
+        'GOVERNANCE_TOKEN',
+        predeploys.GovernanceToken
+      )
       await assertContractVariable(
         contract,
         'MINT_ACTIVATED_BLOCK',

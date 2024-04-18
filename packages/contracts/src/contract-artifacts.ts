@@ -78,21 +78,9 @@
         } catch {}
 
 
-        let AssetManager
-        try {
-          AssetManager = require('../artifacts/contracts/L1/AssetManager.sol/AssetManager.json')
-        } catch {}
-
-
         let Colosseum
         try {
           Colosseum = require('../artifacts/contracts/L1/Colosseum.sol/Colosseum.json')
-        } catch {}
-
-
-        let IValidatorManager
-        try {
-          IValidatorManager = require('../artifacts/contracts/L1/IValidatorManager.sol/IValidatorManager.json')
         } catch {}
 
 
@@ -147,12 +135,6 @@
         let SystemConfig
         try {
           SystemConfig = require('../artifacts/contracts/L1/SystemConfig.sol/SystemConfig.json')
-        } catch {}
-
-
-        let ValidatorManager
-        try {
-          ValidatorManager = require('../artifacts/contracts/L1/ValidatorManager.sol/ValidatorManager.json')
         } catch {}
 
 
@@ -246,18 +228,6 @@
         } catch {}
 
 
-        let Atan2
-        try {
-          Atan2 = require('../artifacts/contracts/libraries/Atan2.sol/Atan2.json')
-        } catch {}
-
-
-        let BalancedWeightTree
-        try {
-          BalancedWeightTree = require('../artifacts/contracts/libraries/BalancedWeightTree.sol/BalancedWeightTree.json')
-        } catch {}
-
-
         let Burn
         try {
           Burn = require('../artifacts/contracts/libraries/Burn.sol/Burn.json')
@@ -330,12 +300,6 @@
         } catch {}
 
 
-        let Uint128Math
-        try {
-          Uint128Math = require('../artifacts/contracts/libraries/Uint128Math.sol/Uint128Math.json')
-        } catch {}
-
-
         let ColosseumTestData
         try {
           ColosseumTestData = require('../artifacts/contracts/test/testdata/ColosseumTestData.sol/ColosseumTestData.json')
@@ -351,12 +315,6 @@
         let ERC721Bridge
         try {
           ERC721Bridge = require('../artifacts/contracts/universal/ERC721Bridge.sol/ERC721Bridge.json')
-        } catch {}
-
-
-        let IKGHManager
-        try {
-          IKGHManager = require('../artifacts/contracts/universal/IKGHManager.sol/IKGHManager.json')
         } catch {}
 
 
@@ -464,9 +422,7 @@ MintManager,
 SecurityCouncilToken,
 TimeLock,
 UpgradeGovernor,
-AssetManager,
 Colosseum,
-IValidatorManager,
 IZKMerkleTrie,
 KromaPortal,
 L1CrossDomainMessenger,
@@ -476,7 +432,6 @@ L2OutputOracle,
 ResourceMetering,
 SecurityCouncil,
 SystemConfig,
-ValidatorManager,
 ValidatorPool,
 ZKMerkleTrie,
 IPoseidon2,
@@ -492,8 +447,6 @@ L2ERC721Bridge,
 L2StandardBridge,
 L2ToL1MessagePasser,
 Arithmetic,
-Atan2,
-BalancedWeightTree,
 Burn,
 Bytes,
 Bytes32,
@@ -506,11 +459,9 @@ Predeploys,
 RLPWriter,
 SafeCall,
 Types,
-Uint128Math,
 ColosseumTestData,
 CrossDomainMessenger,
 ERC721Bridge,
-IKGHManager,
 IKromaMintableERC20,
 IKromaMintableERC721,
 ISemver,
