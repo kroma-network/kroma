@@ -607,7 +607,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         vm.prank(asserter);
         vm.expectEmit(false, false, false, true, address(valMan));
         emit ValidatorUnjailed(asserter);
-        valMan.tryUnjail();
+        valMan.tryUnjail(asserter, false);
 
         assertEq(valMan.noSubmissionCount(asserter), 0);
         assertFalse(valMan.inJail(asserter));
@@ -616,7 +616,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
     function test_tryUnjail_notInJail_reverts() external {
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMan.tryUnjail();
+        valMan.tryUnjail(asserter, false);
     }
 
     function test_tryUnjail_periodNotElapsed_reverts() external {
@@ -624,7 +624,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
 
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.NotElapsedJailPeriod.selector);
-        valMan.tryUnjail();
+        valMan.tryUnjail(asserter, false);
     }
 
     function test_slash_succeeds() external {
