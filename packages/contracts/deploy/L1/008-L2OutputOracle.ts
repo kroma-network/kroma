@@ -84,6 +84,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['L2OutputOracle', 'setup', 'l1']
+deployFn.tags = ['L2OutputOracle', 'setup', 'l1', 'validatorSystemUpgrade']
 
 export default deployFn

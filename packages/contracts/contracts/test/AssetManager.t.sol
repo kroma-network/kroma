@@ -231,6 +231,20 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         assertEq(assetManager.MIN_SLASHING_AMOUNT(), minSlashingAmount);
     }
 
+    function test_constructor_largeSlashingRate_reverts() external {
+        vm.expectRevert(AssetManager.InvalidConstructorParams.selector);
+        new MockAssetManager(
+            kro,
+            kgh,
+            kghManager,
+            address(guardian),
+            valMan,
+            uint128(undelegationPeriod),
+            1001,
+            minSlashingAmount
+        );
+    }
+
     function test_delegate_succeeds() external {
         _setUpKroDelegation(100e18);
 
