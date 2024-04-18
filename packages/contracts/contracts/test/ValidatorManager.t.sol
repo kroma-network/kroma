@@ -4,7 +4,7 @@ pragma solidity 0.8.15;
 import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
 import { Proxy } from "../universal/Proxy.sol";
-import { IValidatorManager } from "../L1/IValidatorManager.sol";
+import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";

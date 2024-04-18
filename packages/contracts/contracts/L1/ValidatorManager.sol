@@ -10,7 +10,7 @@ import { Types } from "../libraries/Types.sol";
 import { Uint128Math } from "../libraries/Uint128Math.sol";
 import { ISemver } from "../universal/ISemver.sol";
 import { AssetManager } from "./AssetManager.sol";
-import { IValidatorManager } from "./IValidatorManager.sol";
+import { IValidatorManager } from "./interfaces/IValidatorManager.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
 
 /**

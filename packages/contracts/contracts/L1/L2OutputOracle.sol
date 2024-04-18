@@ -6,7 +6,7 @@ import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable
 import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
 import { ISemver } from "../universal/ISemver.sol";
-import { IValidatorManager } from "./IValidatorManager.sol";
+import { IValidatorManager } from "./interfaces/IValidatorManager.sol";
 import { ValidatorPool } from "./ValidatorPool.sol";
 
 /**

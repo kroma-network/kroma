@@ -5,7 +5,7 @@ import { stdError } from "forge-std/Test.sol";
 
 import { Types } from "../libraries/Types.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
-import { IValidatorManager } from "../L1/IValidatorManager.sol";
+import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import {

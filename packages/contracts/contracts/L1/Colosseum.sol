@@ -7,7 +7,7 @@ import { Hashing } from "../libraries/Hashing.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
 import { ISemver } from "../universal/ISemver.sol";
-import { IZKMerkleTrie } from "./IZKMerkleTrie.sol";
+import { IZKMerkleTrie } from "./interfaces/IZKMerkleTrie.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
 import { SecurityCouncil } from "./SecurityCouncil.sol";
 import { ZKVerifier } from "./ZKVerifier.sol";

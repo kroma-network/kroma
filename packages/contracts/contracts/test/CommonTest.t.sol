@@ -15,7 +15,7 @@ import { TimeLock } from "../governance/TimeLock.sol";
 import { UpgradeGovernor } from "../governance/UpgradeGovernor.sol";
 import { AssetManager } from "../L1/AssetManager.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
-import { IValidatorManager } from "../L1/IValidatorManager.sol";
+import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
