@@ -65,6 +65,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['ValidatorPool', 'setup', 'l1']
+deployFn.tags = ['ValidatorPool', 'setup', 'l1', 'validatorSystemUpgrade']
 
 export default deployFn

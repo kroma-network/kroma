@@ -340,6 +340,11 @@ contract AssetManager is ISemver, IERC721Receiver {
     error NotAllowedCaller();
 
     /**
+     * @notice Reverts when constructor parameters are invalid.
+     */
+    error InvalidConstructorParams();
+
+    /**
      * @notice Reverts when the status of validator is improper.
      */
     error ImproperValidatorStatus();
@@ -426,6 +431,8 @@ contract AssetManager is ISemver, IERC721Receiver {
         uint128 _slashingRate,
         uint128 _minSlashingAmount
     ) {
+        if (_slashingRate > SLASHING_RATE_DENOM) revert InvalidConstructorParams();
+
         ASSET_TOKEN = _assetToken;
         KGH = _kgh;
         KGH_MANAGER = _kghManager;
@@ -774,7 +781,7 @@ contract AssetManager is ISemver, IERC721Receiver {
     }
 
     /**
-     * @notice Initiate KRO undelegation of given shares for given validator.
+     * @notice Initiate the KRO undelegation of given shares for the given validator.
      *
      * @param validator Address of the validator.
      * @param shares    The amount of shares to undelegate.

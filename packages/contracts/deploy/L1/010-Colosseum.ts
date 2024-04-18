@@ -8,7 +8,10 @@ import {
 } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const zkVerifierProxyAddress = await getDeploymentAddress(hre, 'ZKVerifierProxy')
+  const zkVerifierProxyAddress = await getDeploymentAddress(
+    hre,
+    'ZKVerifierProxy'
+  )
   const l2OutputOracleProxyAddress = await getDeploymentAddress(
     hre,
     'L2OutputOracleProxy'
@@ -90,6 +93,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['Colosseum', 'setup', 'l1']
+deployFn.tags = ['Colosseum', 'setup', 'l1', 'validatorSystemUpgrade']
 
 export default deployFn

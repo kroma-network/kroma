@@ -239,7 +239,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function changeCommissionRate(uint8 newCommissionRate) external {
-        if (getStatus(msg.sender) <= ValidatorStatus.INACTIVE) revert ImproperValidatorStatus();
+        if (getStatus(msg.sender) < ValidatorStatus.ACTIVE) revert ImproperValidatorStatus();
 
         Validator storage validatorInfo = _validatorInfo[msg.sender];
 
@@ -453,12 +453,12 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Internal function to add output submission rewards to the vaults of finalized output
+     * @notice Private function to add output submission rewards to the vaults of finalized output
      *         submitters.
      *
      * @return Whether the reward distribution is done at least once or not.
      */
-    function _distributeReward() internal returns (bool) {
+    function _distributeReward() private returns (bool) {
         uint256 outputIndex = L2_ORACLE.latestFinalizedOutputIndex() + 1;
         uint256 latestOutputIndex = L2_ORACLE.latestOutputIndex();
 
@@ -578,9 +578,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function _updatePriorityValidator() private {
         uint120 weightSum = startedValidatorTotalWeight();
-        uint256 latestFinalizedOutputIndex = L2_ORACLE.latestFinalizedOutputIndex();
 
         if (weightSum > 0) {
+            uint256 latestFinalizedOutputIndex = L2_ORACLE.latestFinalizedOutputIndex();
             Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(
                 latestFinalizedOutputIndex
             );

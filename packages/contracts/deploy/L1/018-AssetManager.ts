@@ -72,6 +72,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['AssetManager', 'setup', 'l1']
+deployFn.tags = ['AssetManager', 'setup', 'l1', 'validatorSystemUpgrade']
 
 export default deployFn
