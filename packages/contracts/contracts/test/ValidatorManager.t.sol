@@ -85,6 +85,8 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
 
     event ValidatorStarted(address indexed validator, uint256 startsAt);
 
+    event ValidatorStopped(address indexed validator, uint256 stopsAt);
+
     event ValidatorCommissionRateChanged(
         address indexed validator,
         uint8 oldCommissionRate,
@@ -101,6 +103,8 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         uint128 baseReward,
         uint128 boostedReward
     );
+
+    event Slashed(uint256 indexed outputIndex, address indexed loser, uint128 amount);
 
     function _submitL2Output(uint256 l2BlockNumber, bool isPublicRound) private {
         uint256 outputIndex = oracle.nextOutputIndex();
@@ -307,6 +311,29 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         valMan.startValidator();
     }
 
+    function test_startValidator_inJail_reverts() external {
+        test_afterSubmitL2Output_tryJail_succeeds();
+
+        // undelegate all assets of jailed validator
+        uint128 kroShares = assetMan.getKroTotalShareBalance(asserter, asserter);
+        vm.prank(asserter);
+        vm.expectEmit(true, false, false, true, address(valMan));
+        emit ValidatorStopped(asserter, block.timestamp);
+        assetMan.initUndelegate(asserter, kroShares);
+        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.INACTIVE);
+
+        // delegate to re-start validator
+        vm.startPrank(asserter);
+        assetToken.approve(address(assetMan), minStartAmount);
+        assetMan.delegate(asserter, minStartAmount);
+        vm.stopPrank();
+        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.CAN_START);
+
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
+        valMan.startValidator();
+    }
+
     function test_startValidator_alreadyStarted_reverts() external {
         _registerValidator(trusted, minStartAmount);
 
@@ -329,21 +356,21 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         mockOracle.mockSetLatestFinalizedOutputIndex(terminateOutputIndex);
 
         // delegate 100 KGHs
+        uint128 kghCounts = 100;
         _setUpHundredKghDelegation(trusted, 1);
-
-        assertEq(assetMan.totalKghNum(trusted), 100);
-        // 20e18 * 0.9 will be calculated as 18000000000000000000
-        baseReward = 18000000000000000000;
-        // 8 * arctan(0.01 * kghNum) * 1e18 * 0.9 will be calculated as 5654856240000663092
-        uint128 boostedReward = 5654856240000663092;
-        // 20e18 * 0.1 + 8 * arctan(0.01 * kghNum) * 1e18 * 0.1 will be calculated as 2565485624000066309
-        uint128 validatorReward = 2565485624000066309;
+        assertEq(assetMan.totalKghNum(trusted), kghCounts);
 
         // submit the first output which interacts with ValidatorManager
         _submitL2Output(oracle.nextBlockNumber(), false);
 
         // jump to the finalization time of the first output of ValidatorManager
         vm.warp(oracle.finalizedAt(terminateOutputIndex + 1));
+
+        // boosted reward with 100 kgh delegation
+        uint128 boostedReward = 6283173600000736769;
+        uint128 validatorReward = (baseReward * 10) / 100 + (boostedReward * 10) / 100;
+        baseReward = (baseReward * 90) / 100;
+        boostedReward = (boostedReward * 90) / 100;
 
         // submit one more output and distribute reward
         uint256 outputIndex = oracle.nextOutputIndex();
@@ -354,12 +381,28 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         emit RewardDistributed(trusted, validatorReward, baseReward, boostedReward);
         valMan.afterSubmitL2Output(outputIndex);
 
-        uint128 kroReward = assetMan.totalKroAssets(trusted) - minStartAmount - 100 * VKRO_PER_KGH;
+        uint128 kroReward = assetMan.totalKroAssets(trusted) -
+            minStartAmount -
+            kghCounts *
+            VKRO_PER_KGH;
         vm.prank(trusted);
         uint128 oneKghReward = assetMan.previewKghUndelegate(trusted, 1) - VKRO_PER_KGH;
 
         assertEq(kroReward, baseReward);
-        assertEq(oneKghReward, boostedReward / 100);
+        assertEq(oneKghReward, boostedReward / kghCounts);
+
+        // check validator tree updated with rewards
+        assertEq(
+            valMan.getWeight(trusted),
+            minStartAmount +
+                kghManager.totalKroInKgh(1) *
+                kghCounts +
+                baseReward +
+                boostedReward +
+                validatorReward
+        );
+
+        assertEq(oracle.latestFinalizedOutputIndex(), terminateOutputIndex + 1);
     }
 
     function test_afterSubmitL2Output_notUpdatePriorityValidator_succeeds() external {
@@ -381,7 +424,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
     }
 
     function test_afterSubmitL2Output_updatePriorityValidator_succeeds() external {
-        // deposit funds
+        // register as a validator
         _registerValidator(asserter, minStartAmount);
         _registerValidator(trusted, minStartAmount);
 
@@ -437,7 +480,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
     }
 
     function test_afterSubmitL2Output_tryJail_succeeds() public {
-        // deposit funds
+        // register as a validator
         _registerValidator(asserter, minStartAmount);
         _registerValidator(trusted, minStartAmount);
 
@@ -471,7 +514,7 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
     }
 
     function test_afterSubmitL2Output_resetNoSubmissionCount_succeeds() external {
-        // deposit funds
+        // register as a validator
         _registerValidator(asserter, minStartAmount);
         _registerValidator(trusted, minStartAmount);
 
@@ -550,6 +593,14 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         valMan.changeCommissionRate(15);
     }
 
+    function test_changeCommissionRate_inJail_reverts() external {
+        test_afterSubmitL2Output_tryJail_succeeds();
+
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
+        valMan.changeCommissionRate(15);
+    }
+
     function test_changeCommissionRate_minChangeSecNotElapsed_reverts() external {
         _registerValidator(asserter, minStartAmount);
 
@@ -619,6 +670,22 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         valMan.tryUnjail(asserter, false);
     }
 
+    function test_tryUnjail_senderNotSelf_reverts() external {
+        test_afterSubmitL2Output_tryJail_succeeds();
+
+        vm.prank(trusted);
+        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
+        valMan.tryUnjail(asserter, false);
+    }
+
+    function test_tryUnjail_force_senderNotColosseum_reverts() external {
+        test_afterSubmitL2Output_tryJail_succeeds();
+
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
+        valMan.tryUnjail(asserter, true);
+    }
+
     function test_tryUnjail_periodNotElapsed_reverts() external {
         test_afterSubmitL2Output_tryJail_succeeds();
 
@@ -629,76 +696,85 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
 
     function test_slash_succeeds() external {
         uint32 count = valMan.startedValidatorCount();
-        // deposit funds
+        // register as a validator
         _registerValidator(asserter, minStartAmount);
         _registerValidator(challenger, minStartAmount);
         assertEq(valMan.startedValidatorCount(), count + 2);
 
         // submit all outputs which interact with ValidatorPool
+        vm.startPrank(trusted);
         for (uint256 i; i <= terminateOutputIndex; i++) {
-            vm.prank(trusted);
             mockOracle.addOutput(i * oracle.SUBMISSION_INTERVAL());
         }
+        vm.stopPrank();
 
         vm.warp(oracle.finalizedAt(terminateOutputIndex));
         mockOracle.mockSetLatestFinalizedOutputIndex(terminateOutputIndex);
 
         // delegate KGHs
+        uint128 kghCounts = 100;
         _setUpHundredKghDelegation(asserter, 1);
-        _setUpHundredKghDelegation(challenger, 101);
-        assertEq(assetMan.totalKghNum(asserter), 100);
-        assertEq(assetMan.totalKghNum(challenger), 100);
+        _setUpHundredKghDelegation(challenger, 1 + kghCounts);
+        assertEq(assetMan.totalKghNum(asserter), kghCounts);
+        assertEq(assetMan.totalKghNum(challenger), kghCounts);
 
         // submit the first output which interacts with ValidatorManager
         mockValMan.updatePriorityValidator(asserter);
         _submitL2Output(oracle.nextBlockNumber(), false);
+        uint256 challengedOutputIndex = oracle.latestOutputIndex();
 
-        vm.startPrank(address(colosseum));
         // suppose that the challenge is successful, so the winner is challenger
-        valMan.slash(oracle.latestOutputIndex(), challenger, asserter);
-        vm.stopPrank();
+        uint128 slashingAmount = (minStartAmount * slashingRate) / assetMan.SLASHING_RATE_DENOM();
+        vm.prank(address(colosseum));
+        vm.expectEmit(true, true, false, true, address(valMan));
+        emit Slashed(challengedOutputIndex, asserter, slashingAmount);
+        valMan.slash(challengedOutputIndex, challenger, asserter);
+
+        // asserter in jail after slashed
+        assertTrue(valMan.inJail(asserter));
+
         // this will be done by the l2 output oracle contract in the real environment
-        vm.startPrank(challenger);
-        mockOracle.replaceOutput(oracle.latestOutputIndex());
-        vm.stopPrank();
+        vm.prank(challenger);
+        mockOracle.replaceOutput(challengedOutputIndex);
 
         // jump to the finalization time of the challenged output
-        vm.warp(oracle.finalizedAt(oracle.latestOutputIndex()));
+        vm.warp(oracle.finalizedAt(challengedOutputIndex));
         // submit one more output to distribute reward
         _submitL2Output(oracle.nextBlockNumber(), false);
 
-        // Total slashingAmount is 2e18.
-        uint128 asserterSlashedAmount = minStartAmount +
-            100 *
-            VKRO_PER_KGH -
-            assetMan.totalKroAssets(asserter);
-        assertEq(asserterSlashedAmount, 2e18);
+        // asserter asset decreased by slashingAmount
+        uint128 asserterTotalKro = assetMan.totalKroAssets(asserter) -
+            kghCounts *
+            kghManager.totalKroInKgh(1);
+        assertEq(asserterTotalKro, minStartAmount - slashingAmount);
+        // asserter has 0 rewards
+        assertEq(assetMan.reflectiveWeight(asserter), assetMan.totalKroAssets(asserter));
 
-        // KRO reward by slashing for challenger is calculated as
-        // 16e17 * ((totalKro - totalKroInKgh) / (totalKro - totalKroInKgh + boostedReward)),
-        // which is 1495796931079677248, with tax taken by security council.
-        // Adding this to the original reward 18e18 is 19495796931079677248.
-        uint128 challengerKroAmount = assetMan.totalKroAssets(challenger) -
-            minStartAmount -
-            100 *
-            VKRO_PER_KGH;
-        assertEq(challengerKroAmount, 19495796931079677248);
-
-        // Asserter KGH reward should be 0.
-        vm.prank(asserter);
-        uint128 oneKghRewardForAsserter = assetMan.previewKghUndelegate(asserter, 1) - VKRO_PER_KGH;
-        assertEq(oneKghRewardForAsserter, 0);
-
-        // Challenger KGH reward should be 16e17 * (boostedReward / (totalKro - totalKroInKgh + boostedReward)),
-        // which is 716823441482183, with tax taken by security council and validator commission.
-        // Adding this to the original reward 5654856240000663092 is 57265385841488813.
-        vm.prank(challenger);
-        uint128 oneKghRewardForChallenger = assetMan.previewKghUndelegate(challenger, 101) -
-            VKRO_PER_KGH;
-        assertEq(oneKghRewardForChallenger, 57265385841488813);
-
-        assertEq(assetMan.ASSET_TOKEN().balanceOf(guardian), 4e17);
+        // asserter removed from validator tree
         assertEq(valMan.startedValidatorCount(), count + 1);
+        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.ACTIVE);
+
+        // security council balance of asset token increased by tax
+        uint128 taxAmount = (slashingAmount * assetMan.TAX_NUMERATOR()) /
+            assetMan.TAX_DENOMINATOR();
+        assertEq(assetToken.balanceOf(assetMan.SECURITY_COUNCIL()), taxAmount);
+
+        // challenger asset increased by output reward and challenge reward
+        // boosted reward with 100 kgh delegation
+        uint128 boostedReward = 6283173600000736769;
+        uint128 challengeReward = slashingAmount - taxAmount;
+        uint128 challengerAsset = assetMan.reflectiveWeight(challenger);
+        assertEq(
+            challengerAsset,
+            minStartAmount +
+                kghCounts *
+                kghManager.totalKroInKgh(1) +
+                baseReward +
+                boostedReward -
+                1 + // boosted reward is reduced by 1 when distributed to validator and delegators
+                challengeReward -
+                1 // challenge reward is reduced by 1 when distributed to each assets in validator vault
+        );
     }
 
     function test_slash_notColosseum_reverts() external {
@@ -755,6 +831,28 @@ contract ValidatorManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializ
         vm.prank(address(oracle));
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
         valMan.checkSubmissionEligibility(trusted);
+    }
+
+    function test_checkSubmissionEligibility_inJail_reverts() external {
+        test_afterSubmitL2Output_tryJail_succeeds();
+
+        mockValMan.updatePriorityValidator(asserter);
+
+        vm.prank(address(oracle));
+        vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
+        valMan.checkSubmissionEligibility(asserter);
+    }
+
+    function test_checkSubmissionEligibility_publicRound_inJail_reverts() external {
+        test_afterSubmitL2Output_tryJail_succeeds();
+
+        mockValMan.updatePriorityValidator(trusted);
+
+        // warp to public round
+        vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
+        vm.prank(address(oracle));
+        vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
+        valMan.checkSubmissionEligibility(asserter);
     }
 
     function test_getStatus_active_succeeds() external {

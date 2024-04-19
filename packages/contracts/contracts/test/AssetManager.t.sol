@@ -250,6 +250,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         _setUpKroDelegation(100e18);
 
         assertEq(assetManager.totalKroAssets(validator), 200e18);
+        assertEq(valMan.getWeight(validator), 200e18);
     }
 
     function test_delegate_withoutValidatorDelegation_reverts() external {
@@ -263,14 +264,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         assertEq(kroShares, 1e26);
         assertEq(kghShares, 1e26);
         assertEq(assetManager.totalKghAssets(validator), VKRO_PER_KGH);
-    }
-
-    function test_delegateKghBatch_succeeds() external {
-        (uint128 kroShares, uint128 kghShares) = _setUpKghBatchDelegation(10);
-
-        assertEq(kroShares, 1e27);
-        assertEq(kghShares, 1e27);
-        assertEq(assetManager.totalKghAssets(validator), VKRO_PER_KGH * 10);
+        assertEq(valMan.getWeight(validator), 100e18 + kghManager.totalKroInKgh(1));
     }
 
     function test_delegateKgh_withoutValidatorDelegation_reverts() external {
@@ -278,6 +272,16 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
         vm.prank(delegator);
         assetManager.delegateKgh(validator, 1);
+    }
+
+    function test_delegateKghBatch_succeeds() external {
+        uint256 kghCounts = 10;
+        (uint128 kroShares, uint128 kghShares) = _setUpKghBatchDelegation(kghCounts);
+
+        assertEq(kroShares, 1e27);
+        assertEq(kghShares, 1e27);
+        assertEq(assetManager.totalKghAssets(validator), VKRO_PER_KGH * kghCounts);
+        assertEq(valMan.getWeight(validator), 100e18 + kghManager.totalKroInKgh(1) * kghCounts);
     }
 
     function test_initUndelegate_succeeds() public {
@@ -290,6 +294,11 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
+        // after reward distributed, updated validator weight is including base reward and boosted reward.
+        // boosted reward with 100 kgh delegation
+        uint128 boostedReward = 6283173600000736769;
+        assertEq(valMan.getWeight(validator), 200e18 + baseReward + boostedReward);
+
         // Fully undelegate
         uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator);
         vm.prank(delegator);
@@ -301,8 +310,12 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
             delegator
         );
 
-        assertEq(assetManager.totalKroAssets(validator), 110000000000000000001);
-        assertEq(pendingAssets, 109999999999999999999);
+        assertEq(assetManager.totalKroAssets(validator), 100e18 + baseReward / 2 + 1);
+        assertEq(pendingAssets, 100e18 + baseReward / 2 - 1);
+        assertEq(
+            valMan.getWeight(validator),
+            assetManager.totalKroAssets(validator) + boostedReward
+        );
     }
 
     function test_initUndelegate_exactAmount_succeeds() external {
@@ -369,84 +382,86 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
     }
 
     function test_initUndelegateKgh_succeeds() external {
-        assetManager.modifyKghNum(validator, 99);
-        _setUpKghDelegation(100);
+        uint128 kghCounts = 100;
+        uint256 tokenId = 100;
+        assetManager.modifyKghNum(validator, kghCounts - 1);
+        _setUpKghDelegation(tokenId);
+
         _submitOutputRoot(validator);
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
         vm.startPrank(address(mockOracle));
         valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
+
+        // after reward distributed, updated validator weight is including base reward and boosted reward.
+        // boosted reward with 100 kgh delegation
+        uint128 boostedReward = 6283173600000736769;
+        assertEq(
+            valMan.getWeight(validator),
+            100e18 + kghManager.totalKroInKgh(tokenId) + baseReward + boostedReward
+        );
 
         vm.startPrank(delegator);
-        assetManager.initUndelegateKgh(validator, 100);
+        assetManager.initUndelegateKgh(validator, tokenId);
         vm.stopPrank();
 
-        (, uint128 pendingAssets) = assetManager.getPendingKghReward(
+        (uint128 pendingKroAsset, uint128 pendingKghAsset) = assetManager.getPendingKghReward(
             block.timestamp,
             validator,
             delegator
         );
 
-        // Total boosted reward is 6283173600000736769.
-        assertEq(pendingAssets, 62831736000007367);
-    }
-
-    function test_initUndelegateKghBatch_succeeds() external {
-        _setUpKghBatchDelegation(100);
-        _submitOutputRoot(validator);
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        uint256[] memory tokenIds = new uint256[](100);
-        for (uint256 i = 0; i < 100; i++) {
-            tokenIds[i] = i + 1;
-        }
-        vm.prank(delegator);
-        assetManager.initUndelegateKghBatch(validator, tokenIds);
-
-        (, uint128 pendingAssets) = assetManager.getPendingKghReward(
-            block.timestamp,
-            validator,
-            delegator
+        assertEq(assetManager.totalKroAssets(validator), 100e18 + baseReward / 2 + 1);
+        assertEq(pendingKroAsset, baseReward / 2 - 1);
+        assertEq(pendingKghAsset, boostedReward / kghCounts);
+        assertEq(
+            valMan.getWeight(validator),
+            assetManager.totalKroAssets(validator) + (boostedReward - boostedReward / kghCounts)
         );
-
-        // Total boosted reward is 6283173600000736769.
-        assertEq(pendingAssets, 6283173600000736700);
-    }
-
-    function test_initUndelegateKgh_exactAmounts_succeeds() external {
-        assetManager.modifyKghNum(validator, 99);
-        _setUpKghDelegation(100);
-
-        _submitOutputRoot(validator);
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        vm.startPrank(delegator);
-        assetManager.initUndelegateKgh(validator, 100);
-        vm.stopPrank();
-
-        (uint128 pendingKroAssets, uint128 pendingKghAssets) = assetManager.getPendingKghReward(
-            block.timestamp,
-            validator,
-            delegator
-        );
-
-        assertEq(pendingKroAssets, 9999999999999999999);
-        // Total boosted reward is 6283173600000736769.
-        assertEq(pendingKghAssets, 62831736000007367);
     }
 
     function test_initUndelegateKgh_noShares_reverts() external {
         vm.expectRevert(IAssetManager.ShareNotExists.selector);
         assetManager.initUndelegateKgh(validator, 1);
+    }
+
+    function test_initUndelegateKghBatch_succeeds() external {
+        uint128 kghCounts = 100;
+        _setUpKghBatchDelegation(kghCounts);
+        _submitOutputRoot(validator);
+        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
+
+        vm.startPrank(address(mockOracle));
+        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
+
+        // after reward distributed, updated validator weight is including base reward and boosted reward.
+        // boosted reward with 100 kgh delegation
+        uint128 boostedReward = 6283173600000736769;
+        assertEq(
+            valMan.getWeight(validator),
+            100e18 + kghManager.totalKroInKgh(1) * kghCounts + baseReward + boostedReward
+        );
+
+        uint256[] memory tokenIds = new uint256[](kghCounts);
+        for (uint256 i = 0; i < kghCounts; i++) {
+            tokenIds[i] = i + 1;
+        }
+        vm.prank(delegator);
+        assetManager.initUndelegateKghBatch(validator, tokenIds);
+
+        (uint128 pendingKroAsset, uint128 pendingKghAsset) = assetManager.getPendingKghReward(
+            block.timestamp,
+            validator,
+            delegator
+        );
+
+        assertEq(assetManager.totalKroAssets(validator), 100e18 + baseReward / (kghCounts + 1) + 1);
+        assertEq(pendingKroAsset, baseReward - (baseReward / (kghCounts + 1) + 1));
+        // after undelegating all the kghs, 69 of boosted reward is remaining because of the offset
+        assertEq(pendingKghAsset, 6283173600000736700);
+        assertEq(valMan.getWeight(validator), assetManager.totalKroAssets(validator) + 69);
     }
 
     function test_initUndelegateKghBatch_noShares_reverts() external {
@@ -475,6 +490,9 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         vm.stopPrank();
 
         assertEq(assetManager.totalKroAssets(validator), 218e18);
+
+        // check validator tree updated except for claimed rewards
+        assertEq(valMan.getWeight(validator), assetManager.reflectiveWeight(validator));
     }
 
     function test_finalizeUndelegate_succeeds() external {
@@ -504,6 +522,11 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
 
         vm.prank(delegator);
         vm.expectRevert(IAssetManager.FinalizedPendingNotExists.selector);
+        assetManager.finalizeUndelegate(validator);
+    }
+
+    function test_finalizeUndelegate_withNoPendingShares_reverts() external {
+        vm.expectRevert(IAssetManager.PendingNotExists.selector);
         assetManager.finalizeUndelegate(validator);
     }
 
@@ -570,10 +593,5 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
 
         assertEq(assetManager.totalKroAssets(validator), 218e18);
         assertEq(assetManager.ASSET_TOKEN().balanceOf(validator), 2e18);
-    }
-
-    function test_finalizeUndelegate_withNoPendingShares_reverts() external {
-        vm.expectRevert(IAssetManager.PendingNotExists.selector);
-        assetManager.finalizeUndelegate(validator);
     }
 }
