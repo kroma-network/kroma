@@ -21,7 +21,7 @@ interface IValidatorManager {
      * | Status            | initiated | started | MIN_REGISTER_AMOUNT | MIN_START_AMOUNT |
      * +-------------------+-----------+---------+---------------------+------------------+
      * | NONE              | X         | X       | X                   | X                |
-     * | INACTIVE          | O         | X       | X                   | O/X              |
+     * | INACTIVE          | O         | O/X     | X                   | O/X              |
      * | ACTIVE            | O         | X       | O                   | X                |
      * | CAN_START         | O         | X       | O                   | O                |
      * | STARTED           | O         | O       | O                   | X                |

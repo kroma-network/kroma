@@ -702,20 +702,23 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @notice Modify the balance of the vault with slashing. This function is only called by the
+     * @notice Modify the balance of the vault during challenge. This function is only called by the
      *         ValidatorManager contract.
      *
-     * @param validator          Address of the validator.
-     * @param amountToSlashOrAdd The amount to slash or add.
-     * @param isLoser            True if the validator is the loser at the challenge.
+     * @param validator       Address of the validator.
+     * @param challengeReward The challenge reward to be added to the winner's asset. If 0, the
+     *                        challenge reward which will be slashed from loser's asset is
+     *                        determined in this function.
+     * @param isLoser         True if the given validator is the loser at the challenge.
      *
-     * @return The amount to slash or add.
+     * @return The tax amount.
+     * @return The challenge reward to be added to the winner's asset.
      */
-    function modifyBalanceWithSlashing(
+    function modifyBalanceWithChallenge(
         address validator,
-        uint128 amountToSlashOrAdd,
+        uint128 challengeReward,
         bool isLoser
-    ) external onlyValidatorManager returns (uint128) {
+    ) external onlyValidatorManager returns (uint128, uint128) {
         Vault storage vault = _vaults[validator];
 
         uint128 totalAmount = vault.asset.totalKro +
@@ -736,57 +739,57 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         ];
 
         if (isLoser) {
-            amountToSlashOrAdd = totalAmount.mulDiv(SLASHING_RATE, SLASHING_RATE_DENOM);
-            amountToSlashOrAdd = amountToSlashOrAdd > MIN_SLASHING_AMOUNT
-                ? amountToSlashOrAdd
+            challengeReward = totalAmount.mulDiv(SLASHING_RATE, SLASHING_RATE_DENOM);
+            challengeReward = challengeReward > MIN_SLASHING_AMOUNT
+                ? challengeReward
                 : MIN_SLASHING_AMOUNT;
 
             unchecked {
-                vault.asset.totalKro -= arr[0].mulDiv(amountToSlashOrAdd, totalAmount);
-                vault.asset.boostedReward -= arr[1].mulDiv(amountToSlashOrAdd, totalAmount);
-                vault.pending.totalPendingAssets -= arr[2].mulDiv(amountToSlashOrAdd, totalAmount);
+                vault.asset.totalKro -= arr[0].mulDiv(challengeReward, totalAmount);
+                vault.asset.boostedReward -= arr[1].mulDiv(challengeReward, totalAmount);
+                vault.pending.totalPendingAssets -= arr[2].mulDiv(challengeReward, totalAmount);
                 vault.pending.totalPendingBoostedRewards -= arr[3].mulDiv(
-                    amountToSlashOrAdd,
+                    challengeReward,
                     totalAmount
                 );
-                vault.asset.validatorRewardKro -= arr[4].mulDiv(amountToSlashOrAdd, totalAmount);
+                vault.asset.validatorRewardKro -= arr[4].mulDiv(challengeReward, totalAmount);
                 vault.pending.totalPendingValidatorRewards -= arr[5].mulDiv(
-                    amountToSlashOrAdd,
+                    challengeReward,
                     totalAmount
                 );
             }
 
-            uint128 tax = amountToSlashOrAdd.mulDiv(TAX_NUMERATOR, TAX_DENOMINATOR);
+            uint128 tax = challengeReward.mulDiv(TAX_NUMERATOR, TAX_DENOMINATOR);
             unchecked {
-                amountToSlashOrAdd -= tax;
+                challengeReward -= tax;
             }
 
             ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, tax);
 
-            return amountToSlashOrAdd;
+            return (tax, challengeReward);
         } else {
-            // If slashing amount is distributed to SECURITY_COUNCIL, transfer it directly.
+            // If challenge reward is distributed to SECURITY_COUNCIL, transfer it directly.
             if (validator == SECURITY_COUNCIL) {
-                ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, amountToSlashOrAdd);
-                return amountToSlashOrAdd;
+                ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, challengeReward);
+                return (0, challengeReward);
             }
 
             unchecked {
-                vault.asset.totalKro += arr[0].mulDiv(amountToSlashOrAdd, totalAmount);
-                vault.asset.boostedReward += arr[1].mulDiv(amountToSlashOrAdd, totalAmount);
-                vault.pending.totalPendingAssets += arr[2].mulDiv(amountToSlashOrAdd, totalAmount);
+                vault.asset.totalKro += arr[0].mulDiv(challengeReward, totalAmount);
+                vault.asset.boostedReward += arr[1].mulDiv(challengeReward, totalAmount);
+                vault.pending.totalPendingAssets += arr[2].mulDiv(challengeReward, totalAmount);
                 vault.pending.totalPendingBoostedRewards += arr[3].mulDiv(
-                    amountToSlashOrAdd,
+                    challengeReward,
                     totalAmount
                 );
-                vault.asset.validatorRewardKro += arr[4].mulDiv(amountToSlashOrAdd, totalAmount);
+                vault.asset.validatorRewardKro += arr[4].mulDiv(challengeReward, totalAmount);
                 vault.pending.totalPendingValidatorRewards += arr[5].mulDiv(
-                    amountToSlashOrAdd,
+                    challengeReward,
                     totalAmount
                 );
             }
 
-            return amountToSlashOrAdd;
+            return (0, challengeReward);
         }
     }
 

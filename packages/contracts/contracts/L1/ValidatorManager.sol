@@ -291,24 +291,28 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function slash(uint256 outputIndex, address winner, address loser) external onlyColosseum {
-        uint128 amountToSlash = ASSET_MANAGER.modifyBalanceWithSlashing(loser, 0, true);
+        (uint128 tax, uint128 challengeReward) = ASSET_MANAGER.modifyBalanceWithChallenge(
+            loser,
+            0,
+            true
+        );
         updateValidatorTree(loser, true);
 
-        emit Slashed(outputIndex, loser, amountToSlash);
+        emit Slashed(outputIndex, loser, tax + challengeReward);
 
         _sendToJail(loser);
 
         if (L2_ORACLE.latestFinalizedOutputIndex() < outputIndex) {
             // If output is not rewarded yet, add slashing asset to the pending challenge reward.
             unchecked {
-                _pendingChallengeReward[outputIndex] += amountToSlash;
+                _pendingChallengeReward[outputIndex] += challengeReward;
             }
         } else {
             // If output is already rewarded, add slashing asset to the winner's asset directly.
-            ASSET_MANAGER.modifyBalanceWithSlashing(winner, amountToSlash, false);
+            ASSET_MANAGER.modifyBalanceWithChallenge(winner, challengeReward, false);
             updateValidatorTree(winner, false);
 
-            emit ChallengeRewardDistributed(outputIndex, winner, amountToSlash);
+            emit ChallengeRewardDistributed(outputIndex, winner, challengeReward);
         }
     }
 
@@ -392,9 +396,11 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function updateValidatorTree(address validator, bool tryRemove) public {
         ValidatorStatus status = getStatus(validator);
-        if (tryRemove && status == ValidatorStatus.STARTED) {
-            _validatorTree.remove(validator);
-            emit ValidatorStopped(validator, block.timestamp);
+        if (
+            tryRemove && (status == ValidatorStatus.INACTIVE || status == ValidatorStatus.STARTED)
+        ) {
+            bool removed = _validatorTree.remove(validator);
+            if (removed) emit ValidatorStopped(validator, block.timestamp);
         } else if (status >= ValidatorStatus.STARTED) {
             _validatorTree.update(validator, uint120(ASSET_MANAGER.reflectiveWeight(validator)));
         }
@@ -517,7 +523,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
                 uint128 challengeReward = _pendingChallengeReward[outputIndex];
                 if (challengeReward > 0) {
-                    ASSET_MANAGER.modifyBalanceWithSlashing(submitter, challengeReward, false);
+                    ASSET_MANAGER.modifyBalanceWithChallenge(submitter, challengeReward, false);
                     delete _pendingChallengeReward[outputIndex];
 
                     emit ChallengeRewardDistributed(outputIndex, submitter, challengeReward);
@@ -572,16 +578,16 @@ contract ValidatorManager is ISemver, IValidatorManager {
         uint128 validatorReward;
 
         unchecked {
+            validatorReward = (BASE_REWARD + boostedReward).mulDiv(
+                commissionRate,
+                COMMISSION_RATE_DENOM
+            );
             baseReward = BASE_REWARD.mulDiv(
                 COMMISSION_RATE_DENOM - commissionRate,
                 COMMISSION_RATE_DENOM
             );
             boostedReward = boostedReward.mulDiv(
                 COMMISSION_RATE_DENOM - commissionRate,
-                COMMISSION_RATE_DENOM
-            );
-            validatorReward = (BASE_REWARD + boostedReward).mulDiv(
-                commissionRate,
                 COMMISSION_RATE_DENOM
             );
         }
