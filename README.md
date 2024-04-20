@@ -22,13 +22,6 @@ permissionless validator and challenge system.
 For more detailed information about Kroma, check [Kroma docs](https://docs.kroma.network) (or
 [spec docs](./specs)).
 
-## Links
-
-- Official Website: [Kroma](https://kroma.network)
-- Documentation: [Kroma Docs](https://docs.kroma.network)
-- Blog: [Kroma Medium](https://medium.com/@kroma-network)
-- Discord: [Kroma Discord](https://discord.gg/kroma)
-- X (Twitter): [Kroma X](https://twitter.com/kroma_network)
 
 ## Contributing
 
