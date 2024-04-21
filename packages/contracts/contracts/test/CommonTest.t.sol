@@ -270,13 +270,6 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         vm.warp(oracle.nextOutputMinL2Timestamp());
     }
 
-    function _registerValidator(address validator, uint128 assets) internal {
-        vm.startPrank(validator);
-        assetToken.approve(address(assetMan), uint256(assets));
-        valMan.registerValidator(assets, 10, 5);
-        vm.stopPrank();
-    }
-
     function setUp() public virtual override {
         super.setUp();
 
@@ -407,18 +400,41 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
 
         vm.label(Predeploys.L2_TO_L1_MESSAGE_PASSER, "L2ToL1MessagePasser");
     }
+
+    function _registerValidator(address validator, uint128 assets) internal {
+        vm.startPrank(validator);
+        assetToken.approve(address(assetMan), uint256(assets));
+        valMan.registerValidator(assets, 10, 5);
+        vm.stopPrank();
+    }
+
+    function _submitL2OutputV1() internal {
+        warpToSubmitTime();
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
+        vm.prank(pool.nextValidator());
+        oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
+    }
+
+    function _submitL2OutputV2(bool isPublicRound) internal {
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
+        if (!isPublicRound) {
+            vm.prank(valMan.nextValidator());
+        }
+        oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
+    }
 }
 
-contract L2OutputOracle_ValidatorSystemUpgrade_Initializer is L2OutputOracle_Initializer {
-    uint256 finalizationPeriodOutputNum;
-
+contract ValidatorSystemUpgrade_Initializer is L2OutputOracle_Initializer {
     function setUp() public virtual override {
         super.setUp();
 
-        // last output index of ValidatorPool is 3, first output index of ValidatorManager is 4
+        // The last output index of ValidatorPool is 3, first output index of ValidatorManager is 4
         terminateOutputIndex = 3;
         finalizationPeriodSeconds = 2 hours;
 
+        // Deploy L2OutputOracle with new arguments
         oracleImpl = new L2OutputOracle({
             _validatorPool: pool,
             _validatorManager: valMan,
@@ -432,6 +448,7 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Initializer is L2OutputOracle_Ini
         vm.prank(multisig);
         Proxy(payable(address(oracle))).upgradeTo(address(oracleImpl));
 
+        // Deploy ValidatorPool with new arguments
         poolImpl = new ValidatorPool({
             _l2OutputOracle: oracle,
             _portal: mockPortal,
@@ -444,10 +461,6 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Initializer is L2OutputOracle_Ini
         });
         vm.prank(multisig);
         Proxy(payable(address(pool))).upgradeTo(address(poolImpl));
-
-        finalizationPeriodOutputNum =
-            oracle.FINALIZATION_PERIOD_SECONDS() /
-            (oracle.SUBMISSION_INTERVAL() * oracle.L2_BLOCK_TIME());
     }
 }
 
@@ -732,6 +745,11 @@ contract Colosseum_Initializer is Portal_Initializer {
 
     uint256[] segmentsLengths;
 
+    // Constructor arguments
+    uint256 internal creationPeriodSeconds = finalizationPeriodSeconds - 1 days;
+    uint256 internal bisectionTimeout = 30 minutes;
+    uint256 internal provingTimeout = 1 hours;
+
     function setUp() public virtual override {
         // Deploy the ZKVerifier
         // Chain ID 901
@@ -770,9 +788,9 @@ contract Colosseum_Initializer is Portal_Initializer {
             _l2Oracle: oracle,
             _zkVerifier: zkVerifier,
             _submissionInterval: submissionInterval,
-            _creationPeriodSeconds: 6 days,
-            _bisectionTimeout: 30 minutes,
-            _provingTimeout: 1 hours,
+            _creationPeriodSeconds: creationPeriodSeconds,
+            _bisectionTimeout: bisectionTimeout,
+            _provingTimeout: provingTimeout,
             _dummyHash: DUMMY_HASH,
             _maxTxs: MAX_TXS,
             _segmentsLengths: segmentsLengths,

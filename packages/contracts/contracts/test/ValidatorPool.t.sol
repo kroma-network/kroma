@@ -10,10 +10,7 @@ import { ValidatorPool } from "../L1/ValidatorPool.sol";
 import { ValidatorRewardVault } from "../L2/ValidatorRewardVault.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { Proxy } from "../universal/Proxy.sol";
-import {
-    L2OutputOracle_Initializer,
-    L2OutputOracle_ValidatorSystemUpgrade_Initializer
-} from "./CommonTest.t.sol";
+import { L2OutputOracle_Initializer, ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
 
 contract MockL2OutputOracle is L2OutputOracle {
     constructor(
@@ -760,7 +757,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
     }
 }
 
-contract ValidatorPool_SystemUpgrade_Test is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
+contract ValidatorPool_SystemUpgrade_Test is ValidatorSystemUpgrade_Initializer {
     MockL2OutputOracle mockOracle;
     MockValidatorPool mockPool;
 

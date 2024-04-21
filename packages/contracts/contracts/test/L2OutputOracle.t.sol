@@ -5,12 +5,12 @@ import { stdError } from "forge-std/Test.sol";
 
 import { Types } from "../libraries/Types.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
-import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
+import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import {
     L2OutputOracle_Initializer,
-    L2OutputOracle_ValidatorSystemUpgrade_Initializer,
+    ValidatorSystemUpgrade_Initializer,
     NextImpl
 } from "./CommonTest.t.sol";
 
@@ -420,9 +420,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     }
 }
 
-contract L2OutputOracle_ValidatorSystemUpgrade_Test is
-    L2OutputOracle_ValidatorSystemUpgrade_Initializer
-{
+contract L2OutputOracle_ValidatorSystemUpgrade_Test is ValidatorSystemUpgrade_Initializer {
     function setUp() public override {
         super.setUp();
 
@@ -430,22 +428,14 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is
         pool.deposit{ value: trusted.balance }();
         _registerValidator(trusted, minStartAmount);
 
-        // submit outputs to leave 1 output before ValidatorPool is terminated
+        // Submit outputs to leave 1 output before ValidatorPool is terminated
         for (uint256 i; i <= terminateOutputIndex - 1; i++) {
-            _submitL2Output();
+            _submitL2OutputV1();
         }
     }
 
-    function _submitL2Output() private {
-        warpToSubmitTime();
-        uint256 nextBlockNumber = oracle.nextBlockNumber();
-        bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
-        vm.prank(pool.nextValidator());
-        oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
-    }
-
     function test_submitL2Output_upgradeValidatorSystem_succeeds() external {
-        // assert terminateOutputIndex still interacts with ValidatorPool
+        // Assert terminateOutputIndex still interacts with ValidatorPool
         warpToSubmitTime();
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
@@ -469,7 +459,7 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is
         vm.prank(trusted);
         oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
 
-        // assert terminateOutputIndex + 1 interacts with ValidatorManager
+        // Assert terminateOutputIndex + 1 interacts with ValidatorManager
         warpToSubmitTime();
         nextBlockNumber = oracle.nextBlockNumber();
         outputRoot = keccak256(abi.encode(nextBlockNumber));
@@ -493,19 +483,19 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is
     }
 
     function test_setLatestFinalizedOutputIndex_succeeds() external {
-        // only ValidatorPool can set finalized output before upgrade
+        // Only ValidatorPool can set finalized output before upgrade
         uint256 outputIndex = oracle.latestOutputIndex();
         vm.prank(address(pool));
         oracle.setLatestFinalizedOutputIndex(outputIndex);
 
         assertEq(oracle.latestFinalizedOutputIndex(), outputIndex);
 
-        // submit more outputs to progress after upgrade
+        // Submit more outputs to progress after upgrade
         for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex + 1; i++) {
-            _submitL2Output();
+            _submitL2OutputV1();
         }
 
-        // now only ValidatorManager can set finalized output after upgrade
+        // Now only ValidatorManager can set finalized output after upgrade
         vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
         outputIndex = oracle.latestOutputIndex();
         vm.prank(address(valMan));
@@ -515,7 +505,7 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is
     }
 
     function test_setLatestFinalizedOutputIndex_wrongCaller_reverts() external {
-        // only ValidatorPool can set finalized output before upgrade
+        // Only ValidatorPool can set finalized output before upgrade
         uint256 outputIndex = oracle.latestOutputIndex();
         vm.prank(address(valMan));
         vm.expectRevert(
@@ -523,12 +513,12 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is
         );
         oracle.setLatestFinalizedOutputIndex(outputIndex);
 
-        // submit more outputs to progress after upgrade
+        // Submit more outputs to progress after upgrade
         for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex + 1; i++) {
-            _submitL2Output();
+            _submitL2OutputV1();
         }
 
-        // now only ValidatorManager can set finalized output after upgrade
+        // Now only ValidatorManager can set finalized output after upgrade
         vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
         outputIndex = oracle.latestOutputIndex();
         vm.prank(address(pool));
