@@ -56,7 +56,9 @@ type Challenger struct {
 	l2BlockTime               *big.Int
 	checkpoint                *big.Int
 	requiredBondAmount        *big.Int
-	isValManagerEnabled       bool
+
+	isValManagerEnabled bool
+	terminationIndex    *big.Int
 
 	l2OutputSubmittedSub ethereum.Subscription
 	challengeCreatedSub  ethereum.Subscription
@@ -175,6 +177,14 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 			return fmt.Errorf("failed to whether valpool is terminated or not: %w", err)
 		}
 		c.isValManagerEnabled = isTerminated
+
+		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		terminationIndex, err := c.valpoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get termination index: %w", err)
+		}
+		c.terminationIndex = terminationIndex
 
 		return nil
 	})
@@ -370,6 +380,10 @@ func (c *Challenger) subscribeL2OutputSubmitted() {
 		select {
 		case ev := <-c.l2OutputSubmittedEventChan:
 			c.log.Info("watched output submitted event", "l2BlockNumber", ev.L2BlockNumber, "outputRoot", ev.OutputRoot, "outputIndex", ev.L2OutputIndex)
+			// if the emitted output index is greater than the termination output index, set the config to use the ValidatorManager
+			if ev.L2OutputIndex.Cmp(c.terminationIndex) > 0 {
+				c.isValManagerEnabled = true
+			}
 			// if the emitted output index is less than or equal to the checkpoint, it is considered reorg occurred.
 			if ev.L2OutputIndex.Cmp(c.checkpoint) <= 0 {
 				c.wg.Add(1)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/event"
 	"math/big"
 	_ "net/http/pprof"
 	"sync"
@@ -42,7 +43,7 @@ type L2OutputSubmitter struct {
 	log  log.Logger
 	metr metrics.Metricer
 
-	l2ooContract       *bindings.L2OutputOracleCaller
+	l2ooContract       *bindings.L2OutputOracle
 	l2ooABI            *abi.ABI
 	valpoolContract    *bindings.ValidatorPoolCaller
 	valManagerContract *bindings.ValidatorManagerCaller
@@ -53,15 +54,19 @@ type L2OutputSubmitter struct {
 	requiredBondAmount  *big.Int
 
 	isValManagerEnabled bool
+	terminationIndex    *big.Int
 
-	submitChan chan struct{}
+	outputSubmittedSub ethereum.Subscription
+
+	submitChan                 chan struct{}
+	l2OutputSubmittedEventChan chan *bindings.L2OutputOracleOutputSubmitted
 
 	wg sync.WaitGroup
 }
 
 // NewL2OutputSubmitter creates a new L2OutputSubmitter.
 func NewL2OutputSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*L2OutputSubmitter, error) {
-	l2ooContract, err := bindings.NewL2OutputOracleCaller(cfg.L2OutputOracleAddr, cfg.L1Client)
+	l2ooContract, err := bindings.NewL2OutputOracle(cfg.L2OutputOracleAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +157,14 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 		}
 		l.isValManagerEnabled = isTerminated
 
+		cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		terminationIndex, err := l.valpoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get termination index: %w", err)
+		}
+		l.terminationIndex = terminationIndex
+
 		return nil
 	})
 	if err != nil {
@@ -161,6 +174,18 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 	return nil
 }
 
+func (l *L2OutputSubmitter) initSub() {
+	opts := optsutils.NewSimpleWatchOpts(l.ctx)
+
+	l.l2OutputSubmittedEventChan = make(chan *bindings.L2OutputOracleOutputSubmitted)
+	l.outputSubmittedSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			l.log.Warn("resubscribing after failed OutputSubmitted event", "err", err)
+		}
+		return l.l2ooContract.WatchOutputSubmitted(opts, l.l2OutputSubmittedEventChan, nil, nil, nil)
+	})
+}
+
 func (l *L2OutputSubmitter) Start(ctx context.Context) error {
 	l.ctx, l.cancel = context.WithCancel(ctx)
 	l.submitChan = make(chan struct{}, 1)
@@ -168,22 +193,52 @@ func (l *L2OutputSubmitter) Start(ctx context.Context) error {
 	if err := l.InitConfig(l.ctx); err != nil {
 		return err
 	}
+	l.initSub()
 
 	l.wg.Add(1)
-	go l.loop()
+	go l.subscriptionLoop()
+
+	l.wg.Add(1)
+	go l.submissionLoop()
 
 	return nil
 }
 
 func (l *L2OutputSubmitter) Stop() error {
+	if l.outputSubmittedSub != nil {
+		l.outputSubmittedSub.Unsubscribe()
+	}
+
 	l.cancel()
 	l.wg.Wait()
+
+	if l.l2OutputSubmittedEventChan != nil {
+		close(l.l2OutputSubmittedEventChan)
+	}
 	close(l.submitChan)
 
 	return nil
 }
 
-func (l *L2OutputSubmitter) loop() {
+func (l *L2OutputSubmitter) subscriptionLoop() {
+	defer l.wg.Done()
+
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-l.ctx.Done():
+			return
+		default:
+			l.subscribeL2OutputSubmitted()
+
+			return
+		}
+	}
+}
+
+func (l *L2OutputSubmitter) submissionLoop() {
 	defer l.wg.Done()
 
 	for ; ; <-l.submitChan {
@@ -192,6 +247,21 @@ func (l *L2OutputSubmitter) loop() {
 			return
 		default:
 			l.repeatSubmitL2Output(l.ctx)
+		}
+	}
+}
+
+func (l *L2OutputSubmitter) subscribeL2OutputSubmitted() {
+	for {
+		select {
+		case ev := <-l.l2OutputSubmittedEventChan:
+			l.log.Info("watched output submitted event", "l2BlockNumber", ev.L2BlockNumber, "outputRoot", ev.OutputRoot, "outputIndex", ev.L2OutputIndex)
+			// if the emitted output index is greater than the termination output index, set the config to use the ValidatorManager
+			if ev.L2OutputIndex.Cmp(l.terminationIndex) > 0 {
+				l.isValManagerEnabled = true
+			}
+		case <-l.ctx.Done():
+			return
 		}
 	}
 }
