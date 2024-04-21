@@ -4,10 +4,13 @@ pragma solidity 0.8.15;
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { Types } from "../libraries/Types.sol";
+import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
-import { Colosseum_Initializer } from "./CommonTest.t.sol";
-import { ColosseumTestData } from "./testdata/ColosseumTestData.sol";
 import { SecurityCouncil } from "../L1/SecurityCouncil.sol";
+import { ValidatorPool } from "../L1/ValidatorPool.sol";
+import { Proxy } from "../universal/Proxy.sol";
+import { ColosseumTestData } from "./testdata/ColosseumTestData.sol";
+import { Colosseum_Initializer, ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
 
 // Test the implementations of the Colosseum
 contract ColosseumTest is Colosseum_Initializer {
@@ -695,6 +698,24 @@ contract ColosseumTest is Colosseum_Initializer {
         colosseum.dismissChallenge(0, address(0), address(0), bytes32(0), bytes32(0));
     }
 
+    function test_dismissChallenge_finalizedOutput_reverts() external {
+        uint256 outputIndex = targetOutputIndex;
+        _createChallenge(outputIndex, challenger);
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex, challenger);
+
+        while (colosseum.isAbleToBisect(outputIndex, challenge.challenger)) {
+            challenge = colosseum.getChallenge(outputIndex, challenge.challenger);
+            _bisect(outputIndex, challenge.challenger, nextSender(challenge));
+        }
+
+        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
+        vm.warp(targetOutput.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
+
+        vm.prank(address(securityCouncil));
+        vm.expectRevert(Colosseum.OutputAlreadyFinalized.selector);
+        colosseum.dismissChallenge(0, address(0), address(0), bytes32(0), bytes32(0));
+    }
+
     function test_challengerTimeout_succeeds() public {
         uint256 outputIndex = targetOutputIndex;
         _createChallenge(outputIndex, challenger);
@@ -889,5 +910,276 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.warp(output.timestamp + colosseum.CREATION_PERIOD_SECONDS() + 1);
 
         assertEq(colosseum.isInCreationPeriod(outputIndex), false);
+    }
+}
+
+contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
+    uint256 internal targetOutputIndex;
+
+    function setUp() public override {
+        super.setUp();
+
+        // Deploy ValidatorPool with new argument
+        terminateOutputIndex = 0;
+        poolImpl = new ValidatorPool({
+            _l2OutputOracle: oracle,
+            _portal: mockPortal,
+            _securityCouncil: guardian,
+            _trustedValidator: trusted,
+            _requiredBondAmount: requiredBondAmount,
+            _maxUnbond: maxUnbond,
+            _roundDuration: roundDuration,
+            _terminateOutputIndex: terminateOutputIndex
+        });
+        vm.prank(multisig);
+        Proxy(payable(address(pool))).upgradeTo(address(poolImpl));
+
+        // Submit outputs until ValidatorPool is terminated
+        vm.prank(trusted);
+        pool.deposit{ value: trusted.balance }();
+        for (uint256 i; i <= terminateOutputIndex; i++) {
+            _submitL2OutputV1();
+        }
+
+        // Only trusted validator can submit the first output with ValidatorManager
+        _registerValidator(trusted, minStartAmount);
+
+        // Submit invalid output as asserter
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        warpToSubmitTime();
+        vm.prank(valMan.nextValidator());
+        oracle.submitL2Output(keccak256(abi.encode()), nextBlockNumber, 0, 0);
+
+        // To create challenge, challenger also registers validator
+        _registerValidator(challenger, minStartAmount);
+
+        targetOutputIndex = oracle.latestOutputIndex();
+    }
+
+    function _nextSender(Types.Challenge memory challenge) private pure returns (address) {
+        return challenge.turn % 2 == 0 ? challenge.challenger : challenge.asserter;
+    }
+
+    function _getOutputRoot(address sender, uint256 blockNumber) private view returns (bytes32) {
+        uint256 targetBlockNumber = ColosseumTestData.INVALID_BLOCK_NUMBER;
+        if (blockNumber == targetBlockNumber - 1) {
+            return ColosseumTestData.PREV_OUTPUT_ROOT;
+        }
+
+        // If asserter, wrong output after targetBlockNumber
+        if (sender == trusted) {
+            if (blockNumber < targetBlockNumber - 1) {
+                return keccak256(abi.encode(blockNumber));
+            } else {
+                return keccak256(abi.encode());
+            }
+        }
+
+        // If challenger, correct output always
+        if (blockNumber == targetBlockNumber) {
+            return ColosseumTestData.TARGET_OUTPUT_ROOT;
+        } else {
+            return keccak256(abi.encode(blockNumber));
+        }
+    }
+
+    function _newSegments(
+        address sender,
+        uint8 turn,
+        uint256 segStart,
+        uint256 segSize
+    ) private view returns (bytes32[] memory) {
+        uint256 segLen = colosseum.getSegmentsLength(turn);
+
+        bytes32[] memory arr = new bytes32[](segLen);
+
+        for (uint256 i = 0; i < segLen; i++) {
+            uint256 n = segStart + i * (segSize / (segLen - 1));
+            arr[i] = _getOutputRoot(sender, n);
+        }
+
+        return arr;
+    }
+
+    function _bisect(uint256 outputIndex, address _challenger, address sender) private {
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex, _challenger);
+
+        uint256 position = _detectFault(challenge, sender);
+        uint256 segSize = challenge.segSize / (colosseum.getSegmentsLength(challenge.turn) - 1);
+        uint256 segStart = challenge.segStart + position * segSize;
+
+        bytes32[] memory segments = _newSegments(sender, challenge.turn + 1, segStart, segSize);
+
+        vm.prank(sender);
+        colosseum.bisect(outputIndex, challenge.challenger, position, segments);
+    }
+
+    function _detectFault(
+        Types.Challenge memory challenge,
+        address sender
+    ) private view returns (uint256) {
+        if (sender == challenge.challenger && sender != _nextSender(challenge)) {
+            return 0;
+        }
+
+        uint256 segLen = colosseum.getSegmentsLength(challenge.turn);
+        uint256 start = challenge.segStart;
+        uint256 degree = challenge.segSize / (segLen - 1);
+        uint256 current = start + degree;
+
+        for (uint256 i = 1; i < segLen; i++) {
+            bytes32 output = _getOutputRoot(sender, current);
+
+            if (challenge.segments[i] != output) {
+                return i - 1;
+            }
+
+            current += degree;
+        }
+
+        revert("failed to select faulty position");
+    }
+
+    function test_createChallenge_callValidatorManager_succeeds() public {
+        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(targetOutputIndex);
+        uint256 end = targetOutput.l2BlockNumber;
+        uint256 start = end - oracle.SUBMISSION_INTERVAL();
+
+        bytes32[] memory segments = _newSegments(challenger, 1, start, end - start);
+
+        vm.expectCall(
+            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(IValidatorManager.assertCanSubmitOutput.selector, challenger)
+        );
+        vm.prank(challenger);
+        colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
+    }
+
+    function test_createChallenge_notSatisfyCondition_reverts() external {
+        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(targetOutputIndex);
+        uint256 end = targetOutput.l2BlockNumber;
+        uint256 start = end - oracle.SUBMISSION_INTERVAL();
+
+        bytes32[] memory segments = _newSegments(challenger, 1, start, end - start);
+
+        vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
+        vm.prank(makeAddr("other challenger"));
+        colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
+    }
+
+    function test_proveFault_callValidatorManager_succeeds() public {
+        test_createChallenge_callValidatorManager_succeeds();
+
+        Types.Challenge memory challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+
+        while (colosseum.isAbleToBisect(targetOutputIndex, challenger)) {
+            _bisect(targetOutputIndex, challenger, _nextSender(challenge));
+            challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+        }
+
+        (
+            Types.OutputRootProof memory srcOutputRootProof,
+            Types.OutputRootProof memory dstOutputRootProof
+        ) = ColosseumTestData.outputRootProof();
+        Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
+        Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
+        ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
+        (ColosseumTestData.Account memory account, bytes[] memory merkleProof) = ColosseumTestData
+            .merkleProof();
+
+        Types.PublicInputProof memory proof = Types.PublicInputProof({
+            srcOutputRootProof: srcOutputRootProof,
+            dstOutputRootProof: dstOutputRootProof,
+            publicInput: publicInput,
+            rlps: rlps,
+            l2ToL1MessagePasserBalance: bytes32(account.balance),
+            l2ToL1MessagePasserCodeHash: account.codeHash,
+            merkleProof: merkleProof
+        });
+
+        uint256 position = _detectFault(challenge, challenge.challenger);
+
+        vm.expectCall(
+            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(
+                IValidatorManager.slash.selector,
+                targetOutputIndex,
+                challenger,
+                challenge.asserter
+            )
+        );
+        vm.prank(challenger);
+        colosseum.proveFault(targetOutputIndex, position, proof, pp.proof, pp.pair);
+    }
+
+    function test_dismissChallenge_callValidatorManager_succeeds() external {
+        Types.CheckpointOutput memory output = oracle.getL2Output(targetOutputIndex);
+
+        test_proveFault_callValidatorManager_succeeds();
+
+        vm.expectCall(
+            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(IValidatorManager.tryUnjail.selector, output.submitter, true)
+        );
+        vm.prank(colosseum.SECURITY_COUNCIL());
+        colosseum.dismissChallenge(
+            targetOutputIndex,
+            challenger,
+            output.submitter,
+            output.outputRoot,
+            bytes32(0)
+        );
+    }
+
+    function test_forceDeleteOutput_callValidatorManager_succeeds() external {
+        test_createChallenge_callValidatorManager_succeeds();
+
+        Types.Challenge memory challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+
+        while (colosseum.isAbleToBisect(targetOutputIndex, challenger)) {
+            _bisect(targetOutputIndex, challenger, _nextSender(challenge));
+            challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+        }
+
+        vm.expectCall(
+            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(
+                IValidatorManager.slash.selector,
+                targetOutputIndex,
+                colosseum.SECURITY_COUNCIL(),
+                challenge.asserter
+            )
+        );
+        vm.prank(colosseum.SECURITY_COUNCIL());
+        colosseum.forceDeleteOutput(targetOutputIndex);
+    }
+
+    function test_challengerTimeout_callValidatorManager_succeeds() external {
+        test_createChallenge_callValidatorManager_succeeds();
+
+        Types.Challenge memory challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+        _bisect(targetOutputIndex, challenger, challenge.asserter);
+
+        challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+        vm.warp(challenge.timeoutAt + 1);
+
+        // check the challenger timeout
+        assertEq(_nextSender(challenge), challenger);
+        assertTrue(
+            colosseum.getStatus(targetOutputIndex, challenger) ==
+                Colosseum.ChallengeStatus.CHALLENGER_TIMEOUT
+        );
+
+        vm.expectCall(
+            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(
+                IValidatorManager.slash.selector,
+                targetOutputIndex,
+                challenge.asserter,
+                challenger
+            )
+        );
+        vm.prank(challenge.asserter);
+        colosseum.challengerTimeout(targetOutputIndex, challenger);
     }
 }

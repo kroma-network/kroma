@@ -14,7 +14,7 @@ import { IAssetManager } from "../L1/interfaces/IAssetManager.sol";
 import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { IKGHManager } from "../universal/IKGHManager.sol";
 import { Proxy } from "../universal/Proxy.sol";
-import { L2OutputOracle_ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
+import { ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
 import { MockL2OutputOracle } from "./ValidatorManager.t.sol";
 
 contract MockKro is ERC20 {
@@ -98,7 +98,7 @@ contract MockAssetManager is AssetManager {
 }
 
 // Tests the implementations of the AssetManager
-contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
+contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
     using Types for *;
     using Constants for *;
     using Predeploys for *;
@@ -154,7 +154,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         // KRO bridged from L2 Validator Reward Vault
         kro.transfer(address(assetManager), 1e22);
 
-        // submit until terminateOutputIndex and set it latest finalized output
+        // Submit until terminateOutputIndex and set it latest finalized output
         for (uint256 i = mockOracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitOutputRoot(pool.nextValidator());
         }
@@ -174,7 +174,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         kro.transfer(address(delegator), kroAmount);
         vm.startPrank(validator);
         kro.approve(address(assetManager), kroAmount);
-        // self delegation
+        // Self delegation
         valMan.registerValidator(kroAmount, 0, 10);
         vm.stopPrank();
 
@@ -189,7 +189,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
 
         vm.startPrank(validator);
         kro.approve(address(assetManager), 100e18);
-        // self delegation
+        // Self delegation
         valMan.registerValidator(100e18, 0, 0);
         vm.stopPrank();
 
@@ -294,8 +294,8 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
-        // after reward distributed, updated validator weight is including base reward and boosted reward.
-        // boosted reward with 100 kgh delegation
+        // After reward distributed, updated validator weight is including base reward and boosted reward.
+        // Boosted reward with 100 kgh delegation
         uint128 boostedReward = 6283173600000736769;
         assertEq(valMan.getWeight(validator), 200e18 + baseReward + boostedReward);
 
@@ -394,8 +394,8 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
-        // after reward distributed, updated validator weight is including base reward and boosted reward.
-        // boosted reward with 100 kgh delegation
+        // After reward distributed, updated validator weight is including base reward and boosted reward.
+        // Boosted reward with 100 kgh delegation
         uint128 boostedReward = 6283173600000736769;
         assertEq(
             valMan.getWeight(validator),
@@ -436,8 +436,8 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
         valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
-        // after reward distributed, updated validator weight is including base reward and boosted reward.
-        // boosted reward with 100 kgh delegation
+        // After reward distributed, updated validator weight is including base reward and boosted reward.
+        // Boosted reward with 100 kgh delegation
         uint128 boostedReward = 6283173600000736769;
         assertEq(
             valMan.getWeight(validator),
@@ -459,7 +459,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
 
         assertEq(assetManager.totalKroAssets(validator), 100e18 + baseReward / (kghCounts + 1) + 1);
         assertEq(pendingKroAsset, baseReward - (baseReward / (kghCounts + 1) + 1));
-        // after undelegating all the kghs, 69 of boosted reward is remaining because of the offset
+        // After undelegating all the kghs, 69 of boosted reward is remaining because of the offset
         assertEq(pendingKghAsset, 6283173600000736700);
         assertEq(valMan.getWeight(validator), assetManager.totalKroAssets(validator) + 69);
     }
@@ -491,7 +491,7 @@ contract AssetManagerTest is L2OutputOracle_ValidatorSystemUpgrade_Initializer {
 
         assertEq(assetManager.totalKroAssets(validator), 218e18);
 
-        // check validator tree updated except for claimed rewards
+        // Check validator tree updated except for claimed rewards
         assertEq(valMan.getWeight(validator), assetManager.reflectiveWeight(validator));
     }
 
