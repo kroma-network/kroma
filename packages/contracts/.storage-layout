@@ -34,9 +34,9 @@
 ➡ contracts/L1/AssetManager.sol:AssetManager
 =======================
 
-| Name    | Type                                          | Slot | Offset | Bytes | Contract                                   |
-|---------|-----------------------------------------------|------|--------|-------|--------------------------------------------|
-| _vaults | mapping(address => struct AssetManager.Vault) | 0    | 0      | 32    | contracts/L1/AssetManager.sol:AssetManager |
+| Name    | Type                                           | Slot | Offset | Bytes | Contract                                   |
+|---------|------------------------------------------------|------|--------|-------|--------------------------------------------|
+| _vaults | mapping(address => struct IAssetManager.Vault) | 0    | 0      | 32    | contracts/L1/AssetManager.sol:AssetManager |
 
 =======================
 ➡ contracts/L1/ValidatorManager.sol:ValidatorManager

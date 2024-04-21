@@ -90,15 +90,21 @@
         } catch {}
         
 
+        let IAssetManager
+        try {
+          IAssetManager = require('../artifacts/contracts/L1/interfaces/IAssetManager.sol/IAssetManager.json')
+        } catch {}
+        
+
         let IValidatorManager
         try {
-          IValidatorManager = require('../artifacts/contracts/L1/IValidatorManager.sol/IValidatorManager.json')
+          IValidatorManager = require('../artifacts/contracts/L1/interfaces/IValidatorManager.sol/IValidatorManager.json')
         } catch {}
         
 
         let IZKMerkleTrie
         try {
-          IZKMerkleTrie = require('../artifacts/contracts/L1/IZKMerkleTrie.sol/IZKMerkleTrie.json')
+          IZKMerkleTrie = require('../artifacts/contracts/L1/interfaces/IZKMerkleTrie.sol/IZKMerkleTrie.json')
         } catch {}
         
 
@@ -466,6 +472,7 @@ TimeLock,
 UpgradeGovernor,
 AssetManager,
 Colosseum,
+IAssetManager,
 IValidatorManager,
 IZKMerkleTrie,
 KromaPortal,
