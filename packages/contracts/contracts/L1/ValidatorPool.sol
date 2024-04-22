@@ -231,12 +231,7 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
      */
     function deposit() external payable {
         require(
-            block.timestamp <
-                L2_ORACLE.computeL2Timestamp(
-                    L2_ORACLE.startingBlockNumber() +
-                        (TERMINATE_OUTPUT_INDEX + 1) *
-                        L2_ORACLE.SUBMISSION_INTERVAL()
-                ),
+            L2_ORACLE.nextOutputIndex() < TERMINATE_OUTPUT_INDEX + 1,
             "ValidatorPool: only can deposit to ValidatorPool before terminated"
         );
 
