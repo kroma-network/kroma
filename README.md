@@ -22,13 +22,7 @@ permissionless validator and challenge system.
 For more detailed information about Kroma, check [Kroma docs](https://docs.kroma.network) (or
 [spec docs](./specs)).
 
-## Links
 
-- Official Website: [Kroma](https://kroma.network)
-- Documentation: [Kroma Docs](https://docs.kroma.network)
-- Blog: [Kroma Medium](https://medium.com/@kroma-network)
-- Discord: [Kroma Discord](https://discord.gg/kroma)
-- X (Twitter): [Kroma X](https://twitter.com/kroma_network)
 
 ## Contributing
 
@@ -38,10 +32,6 @@ start working on the Kroma repository.
 Then check out our list of [Good First Issues](https://github.com/kroma-network/kroma/contribute) to find something fun
 to work on!
 
-## Security Policy
-
-Please refer to the canonical [Security Policy](https://github.com/kroma-network/.github/blob/main/SECURITY.md) document
-for detailed information about how to report vulnerabilities in this codebase.
 
 ## License
 
