@@ -325,21 +325,34 @@ func (l *L2OutputSubmitter) tryStartValidator(ctx context.Context) (bool, error)
 		return false, fmt.Errorf("failed to fetch the vault status: %w", err)
 	}
 
-	if vaultStatus == val.StatusNone || vaultStatus == val.StatusInactive || vaultStatus == val.StatusInJail || vaultStatus == val.StatusActive {
-		l.log.Info("vault has not started yet", "vaultStatus", vaultStatus)
+	if vaultStatus == val.StatusNone || vaultStatus == val.StatusInactive || vaultStatus == val.StatusActive {
+		l.log.Info("vault has not started yet", "currentStatus", vaultStatus)
 		return false, nil
-	} else if vaultStatus == val.StatusCanStart {
-		data, err := l.valManagerAbi.Pack("startValidator")
-		if err != nil {
-			return false, fmt.Errorf("failed to create start validator transaction data: %w", err)
-		}
-
-		if txResponse := l.startValidatorTx(data); txResponse.Err != nil {
-			return false, txResponse.Err
-		}
-
-		l.log.Info("startValidator successfully submitted")
 	}
+
+	if vaultStatus == val.StatusCanSubmitOutput {
+		l.log.Info("vault has started, no need to start again", "currentStatus", val.StatusStarted)
+		return false, nil
+	}
+
+	if isInJail, err := l.isInJail(ctx); err != nil {
+		return false, err
+	} else if isInJail {
+		l.log.Warn("validator is in jail")
+		return false, nil
+	}
+
+	data, err := l.valManagerAbi.Pack("startValidator")
+	if err != nil {
+		return false, fmt.Errorf("failed to create start validator transaction data: %w", err)
+	}
+
+	if txResponse := l.startValidatorTx(data); txResponse.Err != nil {
+		return false, txResponse.Err
+	}
+
+	l.log.Info("startValidator successfully submitted")
+
 	return true, nil
 }
 
@@ -424,7 +437,7 @@ func (l *L2OutputSubmitter) CanSubmitOutput(ctx context.Context) (bool, error) {
 		}
 
 		if vaultStatus != val.StatusCanSubmitOutput {
-			l.log.Warn("vault has started, but currently has not enough tokens", "vaultStatus", val.StatusStarted)
+			l.log.Warn("vault has started, but currently has not enough tokens", "currentStatus", val.StatusStarted)
 			return false, nil
 		}
 
@@ -497,6 +510,18 @@ func (l *L2OutputSubmitter) getLeftTimeForL2Blocks(currentBlockNumber *big.Int, 
 
 	l.log.Info("wait for L2 blocks proceeding", "waitDuration", waitDuration)
 	return waitDuration
+}
+
+func (l *L2OutputSubmitter) isInJail(ctx context.Context) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cCancel()
+	from := l.cfg.TxManager.From()
+	isInJail, err := l.valManagerContract.InJail(optsutils.NewSimpleCallOpts(cCtx), from)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch the jail status: %w", err)
+	}
+
+	return isInJail, nil
 }
 
 type roundInfo struct {
