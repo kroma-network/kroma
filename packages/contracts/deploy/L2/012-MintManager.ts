@@ -15,6 +15,10 @@ const deployFn: DeployFunction = async (hre) => {
       deployConfig.mintManagerDecayingFactor,
     ],
     isProxyImpl: true,
+    initArgs: [
+      deployConfig.mintManagerRecipients,
+      deployConfig.mintManagerShares,
+    ],
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,

@@ -53,7 +53,7 @@ const config: HardhatUserConfig = {
         process.env.PRIVATE_KEY_DEPLOYER_HOLESKY || ethers.constants.HashZero,
       ],
       companionNetworks: {
-        l1: 'kromaHolesky',
+        l2: 'kromaHolesky',
       },
       deploy: ['./deploy/L1'],
     },
