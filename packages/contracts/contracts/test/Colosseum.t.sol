@@ -575,6 +575,23 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(pool.balanceOf(otherChallenger), prevDeposit + pendingBond);
     }
 
+    function test_bisect_cancelChallenge_senderNotChallenger_reverts() external {
+        uint256 outputIndex = targetOutputIndex;
+        address otherChallenger = _newChallenger("other challenger");
+
+        _createChallenge(outputIndex, otherChallenger);
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex, otherChallenger);
+        // Make it the challenger turn
+        _bisect(outputIndex, otherChallenger, challenge.asserter);
+
+        // The output root of the target output index was replaced by another challenge.
+        test_proveFault_succeeds();
+
+        vm.prank(challenger);
+        vm.expectRevert(Colosseum.OnlyChallengerCanCancel.selector);
+        colosseum.bisect(outputIndex, otherChallenger, 0, new bytes32[](0));
+    }
+
     function test_proveFault_succeeds() public {
         uint256 outputIndex = targetOutputIndex;
         _createChallenge(outputIndex, challenger);
@@ -793,7 +810,7 @@ contract ColosseumTest is Colosseum_Initializer {
     }
 
     function test_cancelChallenge_noChallenge_reverts() external {
-        vm.expectRevert(Colosseum.ImproperChallengeStatus.selector);
+        vm.expectRevert(Colosseum.CannotCancelChallenge.selector);
         colosseum.cancelChallenge(0);
     }
 
@@ -817,7 +834,7 @@ contract ColosseumTest is Colosseum_Initializer {
         test_proveFault_succeeds();
 
         vm.prank(challenger);
-        vm.expectRevert(Colosseum.ImproperChallengeStatus.selector);
+        vm.expectRevert(Colosseum.OnlyChallengerCanCancel.selector);
         colosseum.cancelChallenge(outputIndex);
     }
 
@@ -834,7 +851,7 @@ contract ColosseumTest is Colosseum_Initializer {
         test_proveFault_succeeds();
 
         vm.prank(otherChallenger);
-        vm.expectRevert(Colosseum.ImproperChallengeStatus.selector);
+        vm.expectRevert(Colosseum.ImproperChallengeStatusToCancel.selector);
         colosseum.cancelChallenge(outputIndex);
     }
 
@@ -942,7 +959,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         }
 
         // Only trusted validator can submit the first output with ValidatorManager
-        _registerValidator(trusted, minStartAmount);
+        _registerValidator(trusted, minActivateAmount);
 
         // Submit invalid output as asserter
         uint256 nextBlockNumber = oracle.nextBlockNumber();
@@ -951,7 +968,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         oracle.submitL2Output(keccak256(abi.encode()), nextBlockNumber, 0, 0);
 
         // To create challenge, challenger also registers validator
-        _registerValidator(challenger, minStartAmount);
+        _registerValidator(challenger, minActivateAmount);
 
         targetOutputIndex = oracle.latestOutputIndex();
     }

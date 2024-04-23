@@ -83,7 +83,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
     /**
      * @notice Minimum amount to slash. It should be equal or less than
-     *         ValidatorManager.MIN_START_AMOUNT.
+     *         ValidatorManager.MIN_ACTIVATE_AMOUNT.
      */
     uint128 public immutable MIN_SLASHING_AMOUNT;
 
@@ -101,12 +101,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @notice Modifier to check if the vault is active.
+     * @notice Modifier to check if the validator is registered and not in jail.
      */
-    modifier checkIsActive(address validator) {
+    modifier isRegistered(address validator) {
         if (
             msg.sender != validator &&
-            (VALIDATOR_MANAGER.getStatus(validator) < IValidatorManager.ValidatorStatus.ACTIVE ||
+            (VALIDATOR_MANAGER.getStatus(validator) <
+                IValidatorManager.ValidatorStatus.REGISTERED ||
                 VALIDATOR_MANAGER.inJail(validator))
         ) revert ImproperValidatorStatus();
         _;
@@ -323,7 +324,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     function delegate(
         address validator,
         uint128 assets
-    ) external checkIsActive(validator) returns (uint128) {
+    ) external isRegistered(validator) returns (uint128) {
         if (assets == 0) revert NotAllowedZeroInput();
         uint128 shares = _delegate(validator, msg.sender, assets, true);
         emit KroDelegated(validator, msg.sender, assets, shares);
@@ -353,7 +354,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     function delegateKgh(
         address validator,
         uint256 tokenId
-    ) external checkIsActive(validator) returns (uint128, uint128) {
+    ) external isRegistered(validator) returns (uint128, uint128) {
         uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenId);
         uint128 kroShares = previewDelegate(validator, kroInKgh);
         uint128 kghShares = previewKghDelegate(validator);
@@ -369,7 +370,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     function delegateKghBatch(
         address validator,
         uint256[] calldata tokenIds
-    ) external checkIsActive(validator) returns (uint128, uint128) {
+    ) external isRegistered(validator) returns (uint128, uint128) {
         if (tokenIds.length == 0) revert NotAllowedZeroInput();
 
         uint128 kroShares;

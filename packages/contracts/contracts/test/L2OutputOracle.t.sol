@@ -426,7 +426,7 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is ValidatorSystemUpgrade_In
 
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
-        _registerValidator(trusted, minStartAmount);
+        _registerValidator(trusted, minActivateAmount);
 
         // Submit outputs to leave 1 output before ValidatorPool is terminated
         for (uint256 i; i <= terminateOutputIndex - 1; i++) {

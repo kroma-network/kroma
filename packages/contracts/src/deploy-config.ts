@@ -107,9 +107,9 @@ interface RequiredDeployConfig {
   validatorManagerMinRegisterAmount: string
 
   /**
-   * Amount of the minimum start amount in hex value.
+   * Amount of the minimum activation amount in hex value.
    */
-  validatorManagerMinStartAmount: string
+  validatorManagerMinActivateAmount: string
 
   /**
    * The minimum duration of commission change in seconds.
@@ -398,7 +398,7 @@ export const deployConfigSpec: {
   validatorManagerMinRegisterAmount: {
     type: 'string', // uint128
   },
-  validatorManagerMinStartAmount: {
+  validatorManagerMinActivateAmount: {
     type: 'string', // uint128
   },
   validatorManagerCommissionMinChangeSeconds: {

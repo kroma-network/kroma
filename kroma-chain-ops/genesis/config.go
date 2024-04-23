@@ -264,8 +264,8 @@ type DeployConfig struct {
 	ValidatorManagerTrustedValidator common.Address `json:"validatorManagerTrustedValidator"`
 	// ValidatorManagerMinRegisterAmount is the amount of the minimum register amount.
 	ValidatorManagerMinRegisterAmount *hexutil.Big `json:"validatorManagerMinRegisterAmount"`
-	// ValidatorManagerMinStartAmount is the amount of the minimum start amount.
-	ValidatorManagerMinStartAmount *hexutil.Big `json:"validatorManagerMinStartAmount"`
+	// ValidatorManagerMinActivateAmount is the amount of the minimum activation amount.
+	ValidatorManagerMinActivateAmount *hexutil.Big `json:"validatorManagerMinActivateAmount"`
 	// ValidatorManagerCommissionMinChangeSeconds is the minimum duration of commission change in
 	// seconds.
 	ValidatorManagerCommissionMinChangeSeconds uint64 `json:"validatorManagerCommissionMinChangeSeconds"`
@@ -537,11 +537,11 @@ func (d *DeployConfig) Check() error {
 	if d.ValidatorManagerMinRegisterAmount == nil {
 		return fmt.Errorf("%w: ValidatorManagerMinRegisterAmount cannot be nil", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorManagerMinStartAmount == nil {
-		return fmt.Errorf("%w: ValidatorManagerMinStartAmount cannot be nil", ErrInvalidDeployConfig)
+	if d.ValidatorManagerMinActivateAmount == nil {
+		return fmt.Errorf("%w: ValidatorManagerMinActivateAmount cannot be nil", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorManagerMinStartAmount.ToInt().Cmp(d.ValidatorManagerMinRegisterAmount.ToInt()) < 0 {
-		return fmt.Errorf("%w: ValidatorManagerMinStartAmount must equal or more than ValidatorManagerMinRegisterAmount", ErrInvalidDeployConfig)
+	if d.ValidatorManagerMinActivateAmount.ToInt().Cmp(d.ValidatorManagerMinRegisterAmount.ToInt()) < 0 {
+		return fmt.Errorf("%w: ValidatorManagerMinActivateAmount must equal or more than ValidatorManagerMinRegisterAmount", ErrInvalidDeployConfig)
 	}
 	if d.ValidatorManagerCommissionMinChangeSeconds == 0 {
 		return fmt.Errorf("%w: ValidatorManagerCommissionMinChangeSeconds cannot be 0", ErrInvalidDeployConfig)
