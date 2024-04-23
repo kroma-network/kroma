@@ -3,6 +3,7 @@ package validator
 import (
 	"context"
 	"errors"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,10 +16,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
 	pprof "github.com/ethereum-optimism/optimism/op-service/pprof"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
@@ -31,9 +34,9 @@ type Config struct {
 	ColosseumAddr                   common.Address
 	SecurityCouncilAddr             common.Address
 	ValidatorPoolAddr               common.Address
+	ValPoolTerminationIndex         *big.Int
 	ValidatorManagerAddr            common.Address
 	AssetManagerAddr                common.Address
-	GovTokenAddr                    common.Address
 	ChallengerPollInterval          time.Duration
 	NetworkTimeout                  time.Duration
 	TxManager                       *txmgr.BufferedTxManager
@@ -180,7 +183,7 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 
 // NewValidatorConfig creates a validator config with given the CLIConfig
 func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Config, error) {
-	l2ooAddress, err := opservice.ParseAddress(cfg.L2OOAddress)
+	l2OOAddress, err := opservice.ParseAddress(cfg.L2OOAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -252,11 +255,23 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
+	cCtx, cCancel := context.WithTimeout(ctx, time.Second*20)
+	defer cCancel()
+	valPoolContract, err := bindings.NewValidatorPoolCaller(valPoolAddress, l1Client)
+	if err != nil {
+		return nil, err
+	}
+	valPoolTerminationIndex, err := valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
-		L2OutputOracleAddr:              l2ooAddress,
+		L2OutputOracleAddr:              l2OOAddress,
 		ColosseumAddr:                   colosseumAddress,
 		SecurityCouncilAddr:             securityCouncilAddress,
 		ValidatorPoolAddr:               valPoolAddress,
+		ValPoolTerminationIndex:         valPoolTerminationIndex,
 		ValidatorManagerAddr:            valManagerAddress,
 		AssetManagerAddr:                assetManagerAddress,
 		ChallengerPollInterval:          cfg.ChallengerPollInterval,

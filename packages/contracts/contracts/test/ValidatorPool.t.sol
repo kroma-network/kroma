@@ -796,25 +796,7 @@ contract ValidatorPool_SystemUpgrade_Test is ValidatorSystemUpgrade_Initializer 
     }
 
     function test_deposit_afterSystemUpgrade_reverts() external {
-        vm.prank(trusted);
-        pool.deposit{ value: trusted.balance }();
-
-        bool poolTerminated;
-        for (uint256 i; i <= terminateOutputIndex + 1; i++) {
-            uint256 nextOutputIndex = oracle.nextOutputIndex();
-            poolTerminated = pool.isTerminated(nextOutputIndex);
-            if (nextOutputIndex <= terminateOutputIndex) {
-                assertFalse(poolTerminated);
-            } else {
-                assertTrue(poolTerminated);
-            }
-
-            warpToSubmitTime();
-            uint256 nextBlockNumber = oracle.nextBlockNumber();
-            bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
-            vm.prank(pool.nextValidator());
-            mockOracle.addOutput(outputRoot, nextBlockNumber);
-        }
+        test_isTerminated_succeeds();
 
         vm.deal(trusted, requiredBondAmount);
 
@@ -823,7 +805,7 @@ contract ValidatorPool_SystemUpgrade_Test is ValidatorSystemUpgrade_Initializer 
         pool.deposit{ value: requiredBondAmount }();
     }
 
-    function test_isTerminated_succeeds() external {
+    function test_isTerminated_succeeds() public {
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
 

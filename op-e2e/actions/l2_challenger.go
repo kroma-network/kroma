@@ -30,7 +30,7 @@ func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common
 		return status == chal.StatusNone || status == chal.StatusChallengerTimeout
 	}, "challenge is already in progress")
 
-	canCreateChallenge, err := v.challenger.CanCreateChallenge(t.Ctx())
+	canCreateChallenge, err := v.challenger.CanCreateChallenge(t.Ctx(), outputIndex)
 	require.NoError(t, err, "unable to check challenger balance")
 	require.True(t, canCreateChallenge, "challenger not enough balance to create challenge")
 
