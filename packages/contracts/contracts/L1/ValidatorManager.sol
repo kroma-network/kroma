@@ -60,10 +60,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
     uint128 public immutable MIN_REGISTER_AMOUNT;
 
     /**
-     * @notice Minimum amount to start a validator and add it to the validator tree.
-     *         Note that only the started validators can submit outputs.
+     * @notice Minimum amount to activate a validator and add it to the validator tree.
+     *         Note that only the active validators can submit outputs.
      */
-    uint128 public immutable MIN_START_AMOUNT;
+    uint128 public immutable MIN_ACTIVATE_AMOUNT;
 
     /**
      * @notice The minimum duration to change the commission rate of the validator (in seconds).
@@ -151,14 +151,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @param _constructorParams The constructor parameters.
      */
     constructor(ConstructorParams memory _constructorParams) {
-        if (_constructorParams._minRegisterAmount > _constructorParams._minStartAmount)
+        if (_constructorParams._minRegisterAmount > _constructorParams._minActivateAmount)
             revert InvalidConstructorParams();
 
         L2_ORACLE = _constructorParams._l2Oracle;
         ASSET_MANAGER = _constructorParams._assetManager;
         TRUSTED_VALIDATOR = _constructorParams._trustedValidator;
         MIN_REGISTER_AMOUNT = _constructorParams._minRegisterAmount;
-        MIN_START_AMOUNT = _constructorParams._minStartAmount;
+        MIN_ACTIVATE_AMOUNT = _constructorParams._minActivateAmount;
         COMMISSION_RATE_MIN_CHANGE_SECONDS = _constructorParams._commissionRateMinChangeSeconds;
         // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
         ROUND_DURATION_SECONDS = _constructorParams._roundDurationSeconds;
@@ -193,14 +193,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         ASSET_MANAGER.delegateToRegister(msg.sender, assets);
 
-        bool canStart = assets >= MIN_START_AMOUNT;
-        if (canStart) {
+        bool ready = assets >= MIN_ACTIVATE_AMOUNT;
+        if (ready) {
             _validatorTree.insert(msg.sender, uint120(ASSET_MANAGER.reflectiveWeight(msg.sender)));
         }
 
         emit ValidatorRegistered(
             msg.sender,
-            canStart,
+            ready,
             commissionRate,
             commissionMaxChangeRate,
             assets
@@ -210,13 +210,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function startValidator() external {
-        if (getStatus(msg.sender) != ValidatorStatus.CAN_START || inJail(msg.sender))
+    function activateValidator() external {
+        if (getStatus(msg.sender) != ValidatorStatus.READY || inJail(msg.sender))
             revert ImproperValidatorStatus();
 
         _validatorTree.insert(msg.sender, uint120(ASSET_MANAGER.reflectiveWeight(msg.sender)));
 
-        emit ValidatorStarted(msg.sender, block.timestamp);
+        emit ValidatorActivated(msg.sender, block.timestamp);
     }
 
     /**
@@ -240,7 +240,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function changeCommissionRate(uint8 newCommissionRate) external {
-        if (getStatus(msg.sender) < ValidatorStatus.ACTIVE || inJail(msg.sender))
+        if (getStatus(msg.sender) < ValidatorStatus.REGISTERED || inJail(msg.sender))
             revert ImproperValidatorStatus();
 
         Validator storage validatorInfo = _validatorInfo[msg.sender];
@@ -326,14 +326,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
             validator != _nextValidator
         ) revert NotSelectedPriorityValidator();
 
-        _assertCanSubmitOutput(validator);
-    }
-
-    /**
-     * @inheritdoc IValidatorManager
-     */
-    function assertCanSubmitOutput(address validator) external view {
-        _assertCanSubmitOutput(validator);
+        assertCanSubmitOutput(validator);
     }
 
     /**
@@ -359,17 +352,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Returns the number of started validators.
+     * @notice Returns the number of activated validators.
      *
-     * @return The number of started validators.
+     * @return The number of activated validators.
      */
-    function startedValidatorCount() external view returns (uint32) {
+    function activatedValidatorCount() external view returns (uint32) {
         return _validatorTree.counter - _validatorTree.removed;
     }
 
     /**
-     * @notice Returns the weight of given validator. It not started, returns 0.
-     *         Note that `weight / startedValidatorTotalWeight()` is the probability that the
+     * @notice Returns the weight of given validator. It not activated, returns 0.
+     *         Note that `weight / activatedValidatorTotalWeight()` is the probability that the
      *         validator is selected as a priority validator.
      *
      * @param validator Address of the validator.
@@ -396,12 +389,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function updateValidatorTree(address validator, bool tryRemove) public {
         ValidatorStatus status = getStatus(validator);
-        if (
-            tryRemove && (status == ValidatorStatus.INACTIVE || status == ValidatorStatus.STARTED)
-        ) {
-            bool removed = _validatorTree.remove(validator);
-            if (removed) emit ValidatorStopped(validator, block.timestamp);
-        } else if (status >= ValidatorStatus.STARTED) {
+        if (tryRemove && (status == ValidatorStatus.EXITED || status == ValidatorStatus.INACTIVE)) {
+            if (_validatorTree.remove(validator)) emit ValidatorStopped(validator, block.timestamp);
+        } else if (status >= ValidatorStatus.INACTIVE) {
             _validatorTree.update(validator, uint120(ASSET_MANAGER.reflectiveWeight(validator)));
         }
     }
@@ -435,27 +425,27 @@ contract ValidatorManager is ISemver, IValidatorManager {
         }
 
         if (ASSET_MANAGER.totalValidatorKro(validator) < MIN_REGISTER_AMOUNT) {
+            return ValidatorStatus.EXITED;
+        }
+
+        bool activated = _validatorTree.nodeMap[validator] > 0;
+
+        // To prevent all MIN_ACTIVATE_AMOUNT is fulfilled with KRO in KGH which is not subject to
+        // slash, enable to activate the validator when real asset satisfies the threshold.
+        if (
+            ASSET_MANAGER.reflectiveWeight(validator) - ASSET_MANAGER.totalKroInKgh(validator) <
+            MIN_ACTIVATE_AMOUNT
+        ) {
+            if (!activated) {
+                return ValidatorStatus.REGISTERED;
+            }
             return ValidatorStatus.INACTIVE;
         }
 
-        bool started = _validatorTree.nodeMap[validator] > 0;
-
-        // To prevent all MIN_START_AMOUNT is fulfilled with KRO in KGH which is not subject to slash,
-        // enable to start the validator when real asset satisfies the threshold.
-        if (
-            ASSET_MANAGER.reflectiveWeight(validator) - ASSET_MANAGER.totalKroInKgh(validator) <
-            MIN_START_AMOUNT
-        ) {
-            if (!started) {
-                return ValidatorStatus.ACTIVE;
-            }
-            return ValidatorStatus.STARTED;
+        if (!activated) {
+            return ValidatorStatus.READY;
         }
-
-        if (!started) {
-            return ValidatorStatus.CAN_START;
-        }
-        return ValidatorStatus.CAN_SUBMIT_OUTPUT;
+        return ValidatorStatus.ACTIVE;
     }
 
     /**
@@ -463,6 +453,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function inJail(address validator) public view returns (bool) {
         return _jail[validator] != 0;
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function assertCanSubmitOutput(address validator) public view {
+        if (getStatus(validator) != ValidatorStatus.ACTIVE || inJail(validator))
+            revert ImproperValidatorStatus();
     }
 
     /**
@@ -477,11 +475,11 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Returns the total weight of started validators.
+     * @notice Returns the total weight of activated validators.
      *
-     * @return The total weight of started validators.
+     * @return The total weight of activated validators.
      */
-    function startedValidatorTotalWeight() public view returns (uint120) {
+    function activatedValidatorTotalWeight() public view returns (uint120) {
         return _validatorTree.nodes[_validatorTree.root].weightSum;
     }
 
@@ -596,23 +594,12 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Internal function to assert that the given validator satisfies output submission
-     *         condition.
-     *
-     * @param validator Address of the validator.
-     */
-    function _assertCanSubmitOutput(address validator) internal view {
-        if (getStatus(validator) != ValidatorStatus.CAN_SUBMIT_OUTPUT || inJail(validator))
-            revert ImproperValidatorStatus();
-    }
-
-    /**
      * @notice Updates next priority validator address. Validators with more delegation tokens have
      *         a higher probability of being selected. The random weight selection is based on the
      *         last finalized output root.
      */
     function _updatePriorityValidator() private {
-        uint120 weightSum = startedValidatorTotalWeight();
+        uint120 weightSum = activatedValidatorTotalWeight();
 
         if (weightSum > 0) {
             uint256 latestFinalizedOutputIndex = L2_ORACLE.latestFinalizedOutputIndex();

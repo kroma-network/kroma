@@ -65,7 +65,7 @@
   "validatorPoolTerminateOutputIndex": "0x0",
   "validatorManagerTrustedValidator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
   "validatorManagerMinRegisterAmount": "0x1",
-  "validatorManagerMinStartAmount": "0x2",
+  "validatorManagerMinActivateAmount": "0x2",
   "validatorManagerCommissionMinChangeSeconds": 2,
   "validatorManagerRoundDurationSeconds": 4,
   "validatorManagerJailPeriodSeconds": 2,

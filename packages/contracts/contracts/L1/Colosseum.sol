@@ -26,7 +26,7 @@ contract Colosseum is Initializable, ISemver {
     /**
      * @notice Enum of the challenge status.
      *
-     * See the https://github.com/kroma-network/kroma/blob/dev/specs/challenge.md#state-diagram
+     * See the https://specs.kroma.network/fault-proof/challenge.html#state-diagram
      * for more details.
      *
      * Belows are possible state transitions at current implementation.
@@ -225,6 +225,11 @@ contract Colosseum is Initializable, ISemver {
     error NotAllowedCaller();
 
     /**
+     * @notice Reverts when a non-challenger calls cancel challenge.
+     */
+    error OnlyChallengerCanCancel();
+
+    /**
      * @notice Reverts when output is already finalized.
      */
     error OutputAlreadyFinalized();
@@ -248,6 +253,11 @@ contract Colosseum is Initializable, ISemver {
      * @notice Reverts when the status of challenge is improper.
      */
     error ImproperChallengeStatus();
+
+    /**
+     * @notice Reverts when the status of challenge is improper to cancel challenge.
+     */
+    error ImproperChallengeStatusToCancel();
 
     /**
      * @notice Reverts when the creation period is already passed.
@@ -288,6 +298,12 @@ contract Colosseum is Initializable, ISemver {
      * @notice Reverts when the last segment is matched.
      */
     error LastSegmentMatched();
+
+    /**
+     * @notice Reverts when the block hash is mismatched between source and destination output root
+     *         proof.
+     */
+    error BlockHashMismatchedBtwSrcAndDst();
 
     /**
      * @notice Reverts when the block hash is mismatched.
@@ -635,8 +651,6 @@ contract Colosseum is Initializable, ISemver {
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
         ChallengeStatus status = _challengeStatus(challenge);
 
-        if (status == ChallengeStatus.NONE) revert ImproperChallengeStatus();
-
         if (!_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status))
             revert CannotCancelChallenge();
     }
@@ -835,7 +849,7 @@ contract Colosseum is Initializable, ISemver {
         }
 
         if (_srcOutputRootProof.nextBlockHash != _dstOutputRootProof.blockHash)
-            revert BlockHashMismatched();
+            revert BlockHashMismatchedBtwSrcAndDst();
     }
 
     /**
@@ -887,9 +901,10 @@ contract Colosseum is Initializable, ISemver {
         }
 
         // If the output is deleted, the asserter does not need to do anything further.
-        if (msg.sender != _challenger) revert NotAllowedCaller();
+        if (msg.sender != _challenger) revert OnlyChallengerCanCancel();
 
-        if (_status == ChallengeStatus.CHALLENGER_TIMEOUT) revert ImproperChallengeStatus();
+        if (_status == ChallengeStatus.NONE || _status == ChallengeStatus.CHALLENGER_TIMEOUT)
+            revert ImproperChallengeStatusToCancel();
 
         delete challenges[_outputIndex][msg.sender];
         emit ChallengeCanceled(_outputIndex, msg.sender, block.timestamp);
@@ -904,7 +919,7 @@ contract Colosseum is Initializable, ISemver {
 
     /**
      * @notice Deletes the challenge because the challenger timed out.
-     *         The winner is the asserter, and challenger loses his asset.
+     *         The winner is the asserter, and challenger loses their asset.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      * @param _challenger  Address of the challenger.

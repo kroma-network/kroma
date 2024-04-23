@@ -77,13 +77,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
     event ValidatorRegistered(
         address indexed validator,
-        bool started,
+        bool activated,
         uint8 commissionRate,
         uint8 commissionMaxChangeRate,
         uint128 assets
     );
 
-    event ValidatorStarted(address indexed validator, uint256 startsAt);
+    event ValidatorActivated(address indexed validator, uint256 activatedAt);
 
     event ValidatorStopped(address indexed validator, uint256 stopsAt);
 
@@ -159,7 +159,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(address(valMan.ASSET_MANAGER()), address(assetMan));
         assertEq(valMan.TRUSTED_VALIDATOR(), trusted);
         assertEq(valMan.MIN_REGISTER_AMOUNT(), minRegisterAmount);
-        assertEq(valMan.MIN_START_AMOUNT(), minStartAmount);
+        assertEq(valMan.MIN_ACTIVATE_AMOUNT(), minActivateAmount);
         assertEq(valMan.COMMISSION_RATE_MIN_CHANGE_SECONDS(), commissionRateMinChangeSeconds);
         assertEq(valMan.ROUND_DURATION_SECONDS(), roundDuration);
         assertEq(valMan.JAIL_PERIOD_SECONDS(), jailPeriodSeconds);
@@ -168,17 +168,17 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMan.BASE_REWARD(), baseReward);
     }
 
-    function test_constructor_smallMinStartAmount_reverts() external {
-        constructorParams._minRegisterAmount = minStartAmount + 1;
+    function test_constructor_smallMinActivateAmount_reverts() external {
+        constructorParams._minRegisterAmount = minActivateAmount + 1;
         vm.expectRevert(IValidatorManager.InvalidConstructorParams.selector);
         new MockValidatorManager(constructorParams);
     }
 
-    function test_registerValidator_canSubmitOutput_succeeds() external {
+    function test_registerValidator_active_succeeds() external {
         uint256 trustedBalance = assetToken.balanceOf(trusted);
-        uint32 count = valMan.startedValidatorCount();
+        uint32 count = valMan.activatedValidatorCount();
 
-        uint128 assets = minStartAmount;
+        uint128 assets = minActivateAmount;
         uint8 commissionRate = 10;
         uint8 commissionMaxChangeRate = 5;
 
@@ -195,17 +195,15 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMan.getCommissionMaxChangeRate(trusted), commissionMaxChangeRate);
         assertEq(mockValMan.commissionRateChangedAt(trusted), block.timestamp);
 
-        assertTrue(
-            valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.CAN_SUBMIT_OUTPUT
-        );
-        assertEq(valMan.startedValidatorCount(), count + 1);
+        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
+        assertEq(valMan.activatedValidatorCount(), count + 1);
         assertEq(valMan.getWeight(trusted), assets);
     }
 
-    function test_registerValidator_active_succeeds() external {
-        uint32 count = valMan.startedValidatorCount();
+    function test_registerValidator_registered_succeeds() external {
+        uint32 count = valMan.activatedValidatorCount();
 
-        uint128 assets = minStartAmount - 1;
+        uint128 assets = minActivateAmount - 1;
         uint8 commissionRate = 10;
         uint8 commissionMaxChangeRate = 5;
 
@@ -216,13 +214,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         valMan.registerValidator(assets, commissionRate, commissionMaxChangeRate);
         vm.stopPrank();
 
-        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
-        assertEq(valMan.startedValidatorCount(), count);
+        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.REGISTERED);
+        assertEq(valMan.activatedValidatorCount(), count);
         assertEq(valMan.getWeight(trusted), 0);
     }
 
     function test_registerValidator_alreadyInitiated_reverts() external {
-        uint128 assets = minStartAmount;
+        uint128 assets = minActivateAmount;
 
         _registerValidator(trusted, assets);
 
@@ -259,58 +257,56 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         valMan.registerValidator(assets, 10, 101);
     }
 
-    function test_startValidator_succeeds() external {
-        uint32 count = valMan.startedValidatorCount();
+    function test_activateValidator_succeeds() external {
+        uint32 count = valMan.activatedValidatorCount();
 
-        _registerValidator(trusted, minStartAmount - 1);
+        _registerValidator(trusted, minActivateAmount - 1);
         vm.startPrank(asserter);
         assetToken.approve(address(assetMan), 1);
         assetMan.delegate(trusted, 1);
         vm.stopPrank();
-        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.CAN_START);
+        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.READY);
 
         vm.prank(trusted);
         vm.expectEmit(true, false, false, true, address(valMan));
-        emit ValidatorStarted(trusted, block.timestamp);
-        valMan.startValidator();
+        emit ValidatorActivated(trusted, block.timestamp);
+        valMan.activateValidator();
 
-        assertTrue(
-            valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.CAN_SUBMIT_OUTPUT
-        );
-        assertEq(valMan.startedValidatorCount(), count + 1);
-        assertEq(valMan.getWeight(trusted), minStartAmount);
+        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
+        assertEq(valMan.activatedValidatorCount(), count + 1);
+        assertEq(valMan.getWeight(trusted), minActivateAmount);
     }
 
-    function test_startValidator_notValidator_reverts() external {
+    function test_activateValidator_notValidator_reverts() external {
         assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.NONE);
 
         vm.prank(trusted);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMan.startValidator();
+        valMan.activateValidator();
     }
 
-    function test_startValidator_active_reverts() external {
-        _registerValidator(trusted, minStartAmount - 1);
+    function test_activateValidator_registered_reverts() external {
+        _registerValidator(trusted, minActivateAmount - 1);
 
         vm.prank(trusted);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMan.startValidator();
+        valMan.activateValidator();
     }
 
-    function test_startValidator_inactive_reverts() external {
-        _registerValidator(trusted, minStartAmount);
+    function test_activateValidator_exited_reverts() external {
+        _registerValidator(trusted, minActivateAmount);
         uint128 kroShares = assetMan.getKroTotalShareBalance(trusted, trusted);
         vm.prank(trusted);
         assetMan.initUndelegate(trusted, kroShares);
 
-        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.INACTIVE);
+        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.EXITED);
 
         vm.prank(trusted);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMan.startValidator();
+        valMan.activateValidator();
     }
 
-    function test_startValidator_inJail_reverts() external {
+    function test_activateValidator_inJail_reverts() external {
         test_afterSubmitL2Output_tryJail_succeeds();
 
         // Undelegate all assets of jailed validator
@@ -319,31 +315,31 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.expectEmit(true, false, false, true, address(valMan));
         emit ValidatorStopped(asserter, block.timestamp);
         assetMan.initUndelegate(asserter, kroShares);
-        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.INACTIVE);
+        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.EXITED);
 
-        // Delegate to re-start validator
+        // Delegate to re-activate validator
         vm.startPrank(asserter);
-        assetToken.approve(address(assetMan), minStartAmount);
-        assetMan.delegate(asserter, minStartAmount);
+        assetToken.approve(address(assetMan), minActivateAmount);
+        assetMan.delegate(asserter, minActivateAmount);
         vm.stopPrank();
-        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.CAN_START);
+        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.READY);
 
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMan.startValidator();
+        valMan.activateValidator();
     }
 
-    function test_startValidator_alreadyStarted_reverts() external {
-        _registerValidator(trusted, minStartAmount);
+    function test_activateValidator_alreadyActivated_reverts() external {
+        _registerValidator(trusted, minActivateAmount);
 
         vm.prank(trusted);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMan.startValidator();
+        valMan.activateValidator();
     }
 
     function test_afterSubmitL2Output_distributeReward_succeeds() external {
         // Register validator with commission rate 10%
-        _registerValidator(trusted, minStartAmount);
+        _registerValidator(trusted, minActivateAmount);
 
         // Delegate 100 KGHs
         uint128 kghCounts = 100;
@@ -372,7 +368,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         valMan.afterSubmitL2Output(outputIndex);
 
         uint128 kroReward = assetMan.totalKroAssets(trusted) -
-            minStartAmount -
+            minActivateAmount -
             kghCounts *
             VKRO_PER_KGH;
         vm.prank(trusted);
@@ -384,7 +380,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         // Check validator tree updated with rewards
         assertEq(
             valMan.getWeight(trusted),
-            minStartAmount +
+            minActivateAmount +
                 kghManager.totalKroInKgh(1) *
                 kghCounts +
                 baseReward +
@@ -397,8 +393,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
     function test_afterSubmitL2Output_updatePriorityValidator_succeeds() external {
         // Register as a validator
-        _registerValidator(asserter, minStartAmount);
-        _registerValidator(trusted, minStartAmount);
+        _registerValidator(asserter, minActivateAmount);
+        _registerValidator(trusted, minActivateAmount);
 
         // Check if next priority validator is not set in ValidatorManager
         assertTrue(mockValMan.nextPriorityValidator() == address(0));
@@ -446,8 +442,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
     function test_afterSubmitL2Output_tryJail_succeeds() public {
         // Register as a validator
-        _registerValidator(asserter, minStartAmount);
-        _registerValidator(trusted, minStartAmount);
+        _registerValidator(asserter, minActivateAmount);
+        _registerValidator(trusted, minActivateAmount);
 
         vm.startPrank(trusted);
         for (uint256 i; i < jailThreshold; i++) {
@@ -481,8 +477,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
     function test_afterSubmitL2Output_resetNoSubmissionCount_succeeds() external {
         // Register as a validator
-        _registerValidator(asserter, minStartAmount);
-        _registerValidator(trusted, minStartAmount);
+        _registerValidator(asserter, minActivateAmount);
+        _registerValidator(trusted, minActivateAmount);
 
         mockValMan.updatePriorityValidator(asserter);
 
@@ -512,7 +508,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     }
 
     function test_changeCommissionRate_succeeds() public {
-        _registerValidator(asserter, minStartAmount);
+        _registerValidator(asserter, minActivateAmount);
 
         uint8 commissionRate = valMan.getCommissionRate(asserter);
         uint8 commissionMaxChangeRate = valMan.getCommissionMaxChangeRate(asserter);
@@ -547,13 +543,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMan.getCommissionRate(asserter), newCommissionRate);
     }
 
-    function test_changeCommissionRate_inactive_reverts() external {
-        _registerValidator(trusted, minStartAmount);
+    function test_changeCommissionRate_exited_reverts() external {
+        _registerValidator(trusted, minActivateAmount);
         uint128 kroShares = assetMan.getKroTotalShareBalance(trusted, trusted);
         vm.prank(trusted);
         assetMan.initUndelegate(trusted, kroShares);
 
-        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.INACTIVE);
+        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.EXITED);
 
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
@@ -569,7 +565,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     }
 
     function test_changeCommissionRate_minChangeSecNotElapsed_reverts() external {
-        _registerValidator(asserter, minStartAmount);
+        _registerValidator(asserter, minActivateAmount);
 
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.NotElapsedCommissionChangePeriod.selector);
@@ -577,7 +573,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     }
 
     function test_changeCommissionRate_largeCommissionRate_reverts() external {
-        _registerValidator(asserter, minStartAmount);
+        _registerValidator(asserter, minActivateAmount);
 
         vm.warp(
             mockValMan.commissionRateChangedAt(asserter) +
@@ -589,7 +585,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     }
 
     function test_changeCommissionRate_sameCommissionRate_reverts() external {
-        _registerValidator(asserter, minStartAmount);
+        _registerValidator(asserter, minActivateAmount);
 
         uint8 commissionRate = valMan.getCommissionRate(asserter);
 
@@ -603,7 +599,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     }
 
     function test_changeCommissionRate_largeChangeRate_reverts() external {
-        _registerValidator(asserter, minStartAmount);
+        _registerValidator(asserter, minActivateAmount);
 
         uint8 commissionRate = valMan.getCommissionRate(asserter);
         uint8 commissionMaxChangeRate = valMan.getCommissionMaxChangeRate(asserter);
@@ -662,11 +658,11 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     }
 
     function test_slash_succeeds() external {
-        uint32 count = valMan.startedValidatorCount();
+        uint32 count = valMan.activatedValidatorCount();
         // Register as a validator
-        _registerValidator(asserter, minStartAmount);
-        _registerValidator(challenger, minStartAmount);
-        assertEq(valMan.startedValidatorCount(), count + 2);
+        _registerValidator(asserter, minActivateAmount);
+        _registerValidator(challenger, minActivateAmount);
+        assertEq(valMan.activatedValidatorCount(), count + 2);
 
         // Delegate KGHs
         uint128 kghCounts = 100;
@@ -682,7 +678,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint256 challengedOutputIndex = oracle.latestOutputIndex();
 
         // Suppose that the challenge is successful, so the winner is challenger
-        uint128 slashingAmount = (minStartAmount * slashingRate) / assetMan.SLASHING_RATE_DENOM();
+        uint128 slashingAmount = (minActivateAmount * slashingRate) /
+            assetMan.SLASHING_RATE_DENOM();
         vm.prank(address(colosseum));
         vm.expectEmit(true, true, false, true, address(valMan));
         emit Slashed(challengedOutputIndex, asserter, slashingAmount);
@@ -706,13 +703,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint128 asserterTotalKro = assetMan.totalKroAssets(asserter) -
             kghCounts *
             kghManager.totalKroInKgh(1);
-        assertEq(asserterTotalKro, minStartAmount - slashingAmount);
+        assertEq(asserterTotalKro, minActivateAmount - slashingAmount);
         // Asserter has 0 rewards
         assertEq(assetMan.reflectiveWeight(asserter), assetMan.totalKroAssets(asserter));
 
         // Asserter removed from validator tree
-        assertEq(valMan.startedValidatorCount(), count + 1);
-        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.ACTIVE);
+        assertEq(valMan.activatedValidatorCount(), count + 1);
+        assertTrue(valMan.getStatus(asserter) == IValidatorManager.ValidatorStatus.REGISTERED);
 
         // Security council balance of asset token increased by tax
         uint128 taxAmount = (slashingAmount * assetMan.TAX_NUMERATOR()) /
@@ -726,7 +723,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint128 challengerAsset = assetMan.reflectiveWeight(challenger);
         assertEq(
             challengerAsset,
-            minStartAmount +
+            minActivateAmount +
                 kghCounts *
                 kghManager.totalKroInKgh(1) +
                 baseReward +
@@ -745,7 +742,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
     function test_checkSubmissionEligibility_priorityRound_succeeds() external {
         address nextValidator = valMan.nextValidator();
-        _registerValidator(nextValidator, minStartAmount);
+        _registerValidator(nextValidator, minActivateAmount);
 
         vm.prank(address(oracle));
         valMan.checkSubmissionEligibility(nextValidator);
@@ -754,7 +751,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_checkSubmissionEligibility_publicRound_succeeds() external {
         mockValMan.updatePriorityValidator(asserter);
 
-        _registerValidator(trusted, minStartAmount);
+        _registerValidator(trusted, minActivateAmount);
 
         // Warp to public round
         vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
@@ -816,37 +813,37 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         valMan.checkSubmissionEligibility(asserter);
     }
 
-    function test_getStatus_active_succeeds() external {
-        _registerValidator(trusted, minStartAmount);
-        assertEq(valMan.getWeight(trusted), minStartAmount);
+    function test_getStatus_registered_succeeds() external {
+        _registerValidator(trusted, minActivateAmount);
+        assertEq(valMan.getWeight(trusted), minActivateAmount);
 
         uint128 minUndelegateShares = assetMan.previewDelegate(trusted, 1);
         vm.prank(trusted);
         assetMan.initUndelegate(trusted, minUndelegateShares);
-        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
+        assertTrue(valMan.getStatus(trusted) == IValidatorManager.ValidatorStatus.REGISTERED);
         assertEq(valMan.getWeight(trusted), 0);
     }
 
-    function test_startedValidatorTotalWeight_succeeds() external {
-        uint32 count = valMan.startedValidatorCount();
-        uint120 totalWeight = valMan.startedValidatorTotalWeight();
-        _registerValidator(trusted, minStartAmount);
-        assertEq(valMan.startedValidatorCount(), count + 1);
-        assertEq(valMan.startedValidatorTotalWeight(), totalWeight + minStartAmount);
+    function test_activatedValidatorTotalWeight_succeeds() external {
+        uint32 count = valMan.activatedValidatorCount();
+        uint120 totalWeight = valMan.activatedValidatorTotalWeight();
+        _registerValidator(trusted, minActivateAmount);
+        assertEq(valMan.activatedValidatorCount(), count + 1);
+        assertEq(valMan.activatedValidatorTotalWeight(), totalWeight + minActivateAmount);
 
-        count = valMan.startedValidatorCount();
-        totalWeight = valMan.startedValidatorTotalWeight();
-        _registerValidator(asserter, minStartAmount);
-        assertEq(valMan.startedValidatorCount(), count + 1);
-        assertEq(valMan.startedValidatorTotalWeight(), totalWeight + minStartAmount);
+        count = valMan.activatedValidatorCount();
+        totalWeight = valMan.activatedValidatorTotalWeight();
+        _registerValidator(asserter, minActivateAmount);
+        assertEq(valMan.activatedValidatorCount(), count + 1);
+        assertEq(valMan.activatedValidatorTotalWeight(), totalWeight + minActivateAmount);
 
-        count = valMan.startedValidatorCount();
-        totalWeight = valMan.startedValidatorTotalWeight();
+        count = valMan.activatedValidatorCount();
+        totalWeight = valMan.activatedValidatorTotalWeight();
         vm.startPrank(challenger);
         assetToken.approve(address(assetMan), 10);
         assetMan.delegate(asserter, 10);
         vm.stopPrank();
-        assertEq(valMan.startedValidatorCount(), count);
-        assertEq(valMan.startedValidatorTotalWeight(), totalWeight + 10);
+        assertEq(valMan.activatedValidatorCount(), count);
+        assertEq(valMan.activatedValidatorTotalWeight(), totalWeight + 10);
     }
 }

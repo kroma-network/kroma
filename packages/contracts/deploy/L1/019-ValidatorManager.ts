@@ -43,7 +43,7 @@ const deployFn: DeployFunction = async (hre) => {
           hre.deployConfig.validatorManagerMaxFinalizations,
         _baseReward: hre.deployConfig.validatorManagerBaseReward,
         _minRegisterAmount: hre.deployConfig.validatorManagerMinRegisterAmount,
-        _minStartAmount: hre.deployConfig.validatorManagerMinStartAmount,
+        _minActivateAmount: hre.deployConfig.validatorManagerMinActivateAmount,
       },
     ],
     isProxyImpl: true,
@@ -70,8 +70,8 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'MIN_START_AMOUNT',
-        hre.deployConfig.validatorManagerMinStartAmount
+        'MIN_ACTIVATE_AMOUNT',
+        hre.deployConfig.validatorManagerMinActivateAmount
       )
       await assertContractVariable(
         contract,

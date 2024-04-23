@@ -368,7 +368,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
     }
 
     function test_initUndelegate_removedFromValidatorTree_succeeds() external {
-        _setUpKroDelegation(minStartAmount);
+        _setUpKroDelegation(minActivateAmount);
 
         uint128 kroShares = assetManager.getKroTotalShareBalance(validator, delegator);
         vm.prank(delegator);
@@ -378,7 +378,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.prank(validator);
         assetManager.initUndelegate(validator, minUndelegateShares);
 
-        assertEq(assetManager.totalKroAssets(validator), minStartAmount - 1);
+        assertEq(assetManager.totalKroAssets(validator), minActivateAmount - 1);
     }
 
     function test_initUndelegateKgh_succeeds() external {

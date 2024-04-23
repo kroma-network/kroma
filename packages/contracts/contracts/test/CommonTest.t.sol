@@ -248,7 +248,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint128 internal maxOutputFinalizations = 10;
     uint128 internal baseReward = 20e18;
     uint128 internal minRegisterAmount = 10e18;
-    uint128 internal minStartAmount = 100e18;
+    uint128 internal minActivateAmount = 100e18;
     IValidatorManager.ConstructorParams constructorParams;
 
     // Test data
@@ -275,9 +275,9 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
 
         // Set up asset token and give actors some amount
         assetToken = new MockKro();
-        assetToken.mint(trusted, minStartAmount * 10);
-        assetToken.mint(asserter, minStartAmount * 10);
-        assetToken.mint(challenger, minStartAmount * 10);
+        assetToken.mint(trusted, minActivateAmount * 10);
+        assetToken.mint(asserter, minActivateAmount * 10);
+        assetToken.mint(challenger, minActivateAmount * 10);
 
         // Set up KGH and KGHManager
         kgh = new MockKgh();
@@ -356,7 +356,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _maxOutputFinalizations: maxOutputFinalizations,
             _baseReward: baseReward,
             _minRegisterAmount: minRegisterAmount,
-            _minStartAmount: minStartAmount
+            _minActivateAmount: minActivateAmount
         });
         valManImpl = new ValidatorManager({ _constructorParams: constructorParams });
 

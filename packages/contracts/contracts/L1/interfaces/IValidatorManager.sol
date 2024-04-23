@@ -13,28 +13,28 @@ interface IValidatorManager {
      * @notice Enum of the status of a validator.
      *
      * Below is the possible conditions of each status. "initiated" means the validator has been
-     * initiated at least once, "started" means the validator has been started and added to the
+     * initiated at least once, "activated" means the validator has been activated and added to the
      * validator tree. "MIN_REGISTER_AMOUNT" means the total assets of the validator exceeds
-     * MIN_REGISTER_AMOUNT, "MIN_START_AMOUNT" means the same.
+     * MIN_REGISTER_AMOUNT, "MIN_ACTIVATE_AMOUNT" means the same.
      *
-     * +-------------------+-----------+---------+---------------------+------------------+
-     * | Status            | initiated | started | MIN_REGISTER_AMOUNT | MIN_START_AMOUNT |
-     * +-------------------+-----------+---------+---------------------+------------------+
-     * | NONE              | X         | X       | X                   | X                |
-     * | INACTIVE          | O         | O/X     | X                   | O/X              |
-     * | ACTIVE            | O         | X       | O                   | X                |
-     * | CAN_START         | O         | X       | O                   | O                |
-     * | STARTED           | O         | O       | O                   | X                |
-     * | CAN_SUBMIT_OUTPUT | O         | O       | O                   | O                |
-     * +-------------------+-----------+---------+---------------------+------------------+
+     * +------------+-----------+-----------+---------------------+---------------------+
+     * | Status     | initiated | activated | MIN_REGISTER_AMOUNT | MIN_ACTIVATE_AMOUNT |
+     * +------------+-----------+-----------+---------------------+---------------------+
+     * | NONE       | X         | X         | X                   | X                   |
+     * | EXITED     | O         | O/X       | X                   | O/X                 |
+     * | REGISTERED | O         | X         | O                   | X                   |
+     * | READY      | O         | X         | O                   | O                   |
+     * | INACTIVE   | O         | O         | O                   | X                   |
+     * | ACTIVE     | O         | O         | O                   | O                   |
+     * +------------+-----------+-----------+---------------------+---------------------+
      */
     enum ValidatorStatus {
         NONE,
+        EXITED,
+        REGISTERED,
+        READY,
         INACTIVE,
-        ACTIVE,
-        CAN_START,
-        STARTED,
-        CAN_SUBMIT_OUTPUT
+        ACTIVE
     }
 
     /**
@@ -54,7 +54,7 @@ interface IValidatorManager {
      * @custom:field _maxOutputFinalizations         Max number of finalized outputs.
      * @custom:field _baseReward                     Base reward for the validator.
      * @custom:field _minRegisterAmount              Minimum amount to register as a validator.
-     * @custom:field _minStartAmount                 Minimum amount to start submitting outputs.
+     * @custom:field _minActivateAmount              Minimum amount to activate a validator.
      */
     struct ConstructorParams {
         L2OutputOracle _l2Oracle;
@@ -67,7 +67,7 @@ interface IValidatorManager {
         uint128 _maxOutputFinalizations;
         uint128 _baseReward;
         uint128 _minRegisterAmount;
-        uint128 _minStartAmount;
+        uint128 _minActivateAmount;
     }
 
     /**
@@ -92,26 +92,26 @@ interface IValidatorManager {
      * @notice Emitted when registers as a validator.
      *
      * @param validator               Address of the validator.
-     * @param started                 If the validator is started or not.
+     * @param activated               If the validator is activated or not.
      * @param commissionRate          The commission rate the validator sets.
      * @param commissionMaxChangeRate Maximum changeable commission rate at once.
      * @param assets                  The number of assets the validator self-delegates.
      */
     event ValidatorRegistered(
         address indexed validator,
-        bool started,
+        bool activated,
         uint8 commissionRate,
         uint8 commissionMaxChangeRate,
         uint128 assets
     );
 
     /**
-     * @notice Emitted when a validator starts, which means added to the validator tree.
+     * @notice Emitted when a validator activated, which means added to the validator tree.
      *
-     * @param validator Address of the validator.
-     * @param startsAt  The timestamp when the validator starts.
+     * @param validator   Address of the validator.
+     * @param activatedAt The timestamp when the validator activated.
      */
-    event ValidatorStarted(address indexed validator, uint256 startsAt);
+    event ValidatorActivated(address indexed validator, uint256 activatedAt);
 
     /**
      * @notice Emitted when a validator stops, which means removed from the validator tree.
@@ -243,7 +243,7 @@ interface IValidatorManager {
 
     /**
      * @notice Registers as a validator with assets at least MIN_REGISTER_AMOUNT. The validator with
-     *         assets more than MIN_START_AMOUNT can be started at the same time.
+     *         assets more than MIN_ACTIVATE_AMOUNT can be activated at the same time.
      *
      * @param assets                  The amount of assets to self-delegate.
      * @param commissionRate          The commission rate the validator sets.
@@ -256,10 +256,10 @@ interface IValidatorManager {
     ) external;
 
     /**
-     * @notice Starts a validator and adds the validator to validator tree. To submit outputs, the
-     *         validator should start.
+     * @notice Activates a validator and adds the validator to validator tree. To submit outputs,
+     *         the validator should be activated.
      */
-    function startValidator() external;
+    function activateValidator() external;
 
     /**
      * @notice Handles some essential actions such as reward distribution, jail handling, next
@@ -271,10 +271,10 @@ interface IValidatorManager {
     function afterSubmitL2Output(uint256 outputIndex) external;
 
     /**
-     * @notice Changes the commission rate of a validator. An inactive validator cannot change it,
-     *         and a validator can change it after COMMISION_RATE_MIN_CHANGE_SECONDS elapsed since
-     *         the last changed time. Also, the validator can only make changes within the
-     *         commissionMaxChangeRate that the validator set initially.
+     * @notice Changes the commission rate of a validator. An exited or jailed validator cannot
+     *         change it, and a validator can change it after COMMISION_RATE_MIN_CHANGE_SECONDS
+     *         elapsed since the last changed time. Also, the validator can only make changes within
+     *         the commissionMaxChangeRate that the validator set initially.
      *
      * @param newCommissionRate The new commission rate to apply.
      */
@@ -311,8 +311,8 @@ interface IValidatorManager {
 
     /**
      * @notice Checks the eligibility to submit L2 checkpoint output during output submission.
-     *         Note that only the validator whose status is CAN_SUBMIT_OUTPUT can submit output.
-     *         This function can only be called by L2OutputOracle during output submission.
+     *         Note that only the validator whose status is ACTIVE can submit output. This function
+     *         can only be called by L2OutputOracle during output submission.
      *
      * @param validator Address of the output submitter.
      */
