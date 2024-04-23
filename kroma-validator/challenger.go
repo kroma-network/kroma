@@ -25,7 +25,6 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
-	val "github.com/kroma-network/kroma/kroma-validator/validator"
 )
 
 var deletedOutputRoot = [32]byte{}
@@ -44,11 +43,11 @@ type Challenger struct {
 	l1Client *ethclient.Client
 	l2Client *ethclient.Client
 
-	l2ooContract       *bindings.L2OutputOracle
-	l2ooABI            *abi.ABI
+	l2OOContract       *bindings.L2OutputOracle
+	l2OOABI            *abi.ABI
 	colosseumContract  *bindings.Colosseum
 	colosseumABI       *abi.ABI
-	valpoolContract    *bindings.ValidatorPoolCaller
+	valPoolContract    *bindings.ValidatorPoolCaller
 	valManagerContract *bindings.ValidatorManagerCaller
 
 	submissionInterval        *big.Int
@@ -56,9 +55,6 @@ type Challenger struct {
 	l2BlockTime               *big.Int
 	checkpoint                *big.Int
 	requiredBondAmount        *big.Int
-
-	isValManagerEnabled bool
-	terminationIndex    *big.Int
 
 	l2OutputSubmittedSub ethereum.Subscription
 	challengeCreatedSub  ethereum.Subscription
@@ -80,17 +76,17 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		return nil, err
 	}
 
-	l2ooContract, err := bindings.NewL2OutputOracle(cfg.L2OutputOracleAddr, cfg.L1Client)
+	l2OOContract, err := bindings.NewL2OutputOracle(cfg.L2OutputOracleAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	l2ooABI, err := bindings.L2OutputOracleMetaData.GetAbi()
+	l2OOABI, err := bindings.L2OutputOracleMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
 
-	valpoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, cfg.L1Client)
+	valPoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
@@ -108,11 +104,11 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		l1Client: cfg.L1Client,
 		l2Client: cfg.L2Client,
 
-		l2ooContract:       l2ooContract,
-		l2ooABI:            l2ooABI,
+		l2OOContract:       l2OOContract,
+		l2OOABI:            l2OOABI,
 		colosseumContract:  colosseumContract,
 		colosseumABI:       colosseumABI,
-		valpoolContract:    valpoolContract,
+		valPoolContract:    valPoolContract,
 		valManagerContract: valManagerContract,
 	}, nil
 }
@@ -123,7 +119,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 	err := contractWatcher.WatchUpgraded(c.cfg.L2OutputOracleAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		submissionInterval, err := c.l2ooContract.SUBMISSIONINTERVAL(optsutils.NewSimpleCallOpts(cCtx))
+		submissionInterval, err := c.l2OOContract.SUBMISSIONINTERVAL(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
@@ -131,7 +127,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 
 		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		l2BlockTime, err := c.l2ooContract.L2BLOCKTIME(optsutils.NewSimpleCallOpts(cCtx))
+		l2BlockTime, err := c.l2OOContract.L2BLOCKTIME(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get l2 block time: %w", err)
 		}
@@ -139,7 +135,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 
 		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		finalizationPeriodSeconds, err := c.l2ooContract.FINALIZATIONPERIODSECONDS(optsutils.NewSimpleCallOpts(cCtx))
+		finalizationPeriodSeconds, err := c.l2OOContract.FINALIZATIONPERIODSECONDS(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get finalization period seconds: %w", err)
 		}
@@ -148,48 +144,22 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initiate l2oo config: %w", err)
+		return fmt.Errorf("failed to initiate l2OO config: %w", err)
 	}
 
 	err = contractWatcher.WatchUpgraded(c.cfg.ValidatorPoolAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		requiredBondAmount, err := c.valpoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+		requiredBondAmount, err := c.valPoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
 		c.requiredBondAmount = requiredBondAmount
 
-		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-		defer cCancel()
-		nextOutputIndex, err := c.l2ooContract.NextOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
-		if err != nil {
-			return fmt.Errorf("failed to get latest output index: %w", err)
-		}
-
-		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-		defer cCancel()
-		isTerminated, err := c.valpoolContract.IsTerminated(
-			optsutils.NewSimpleCallOpts(cCtx),
-			nextOutputIndex,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to whether valpool is terminated or not: %w", err)
-		}
-		c.isValManagerEnabled = isTerminated
-
-		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-		defer cCancel()
-		terminationIndex, err := c.valpoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
-		if err != nil {
-			return fmt.Errorf("failed to get termination index: %w", err)
-		}
-		c.terminationIndex = terminationIndex
-
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initiate valpool config: %w", err)
+		return fmt.Errorf("failed to initiate valPool config: %w", err)
 	}
 
 	return nil
@@ -205,7 +175,7 @@ func (c *Challenger) initSub() {
 			if err != nil {
 				c.log.Warn("resubscribing after failed OutputSubmitted event", "err", err)
 			}
-			return c.l2ooContract.WatchOutputSubmitted(opts, c.l2OutputSubmittedEventChan, nil, nil, nil)
+			return c.l2OOContract.WatchOutputSubmitted(opts, c.l2OutputSubmittedEventChan, nil, nil, nil)
 		})
 	}
 
@@ -292,7 +262,7 @@ func (c *Challenger) loop() {
 func (c *Challenger) updateCheckpoint() error {
 	cCtx, cCancel := context.WithTimeout(c.ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	nextOutputIndex, err := c.l2ooContract.NextOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
+	nextOutputIndex, err := c.l2OOContract.NextOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		return fmt.Errorf("failed to get the latest output index: %w", err)
 	}
@@ -322,7 +292,7 @@ func (c *Challenger) scanPrevOutputs() error {
 	// The fromBlock is the maximum value of either genesis block(1) or the first block of the finalization window
 	fromBlock := math.BigMax(common.Big1, finalizationStartL1Block)
 
-	outputSubmittedEvent := c.l2ooABI.Events[KeyEventOutputSubmitted]
+	outputSubmittedEvent := c.l2OOABI.Events[KeyEventOutputSubmitted]
 	challengeCreatedEvent := c.colosseumABI.Events[KeyEventChallengeCreated]
 
 	addresses := []common.Address{c.cfg.ColosseumAddr}
@@ -380,10 +350,6 @@ func (c *Challenger) subscribeL2OutputSubmitted() {
 		select {
 		case ev := <-c.l2OutputSubmittedEventChan:
 			c.log.Info("watched output submitted event", "l2BlockNumber", ev.L2BlockNumber, "outputRoot", ev.OutputRoot, "outputIndex", ev.L2OutputIndex)
-			// if the emitted output index is greater than the termination output index, set the config to use the ValidatorManager
-			if ev.L2OutputIndex.Cmp(c.terminationIndex) > 0 {
-				c.isValManagerEnabled = true
-			}
 			// if the emitted output index is less than or equal to the checkpoint, it is considered reorg occurred.
 			if ev.L2OutputIndex.Cmp(c.checkpoint) <= 0 {
 				c.wg.Add(1)
@@ -479,7 +445,7 @@ func (c *Challenger) handleOutput(outputIndex *big.Int) {
 				return
 			}
 
-			canCreateChallenge, err := c.CanCreateChallenge(c.ctx)
+			canCreateChallenge, err := c.CanCreateChallenge(c.ctx, outputIndex)
 			if err != nil {
 				c.log.Error(err.Error())
 				continue
@@ -586,17 +552,22 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 
 			// if challenger
 			if isChallenger && c.cfg.ChallengerEnabled {
-				// if output has been already deleted, cancel challenge to refund pending bond
-				if isOutputDeleted && status != chal.StatusChallengerTimeout {
-					tx, err := c.CancelChallenge(c.ctx, outputIndex)
-					if err != nil {
-						c.log.Error("failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
-						continue
+				if isOutputDeleted {
+					// if output has been already deleted, cancel challenge to refund pending bond in ValidatorPool
+					if !c.IsValPoolTerminated(outputIndex) && status != chal.StatusChallengerTimeout {
+						tx, err := c.CancelChallenge(c.ctx, outputIndex)
+						if err != nil {
+							c.log.Error("failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
+							continue
+						}
+						if err := c.submitChallengeTx(tx); err != nil {
+							c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
+							continue
+						}
 					}
-					if err := c.submitChallengeTx(tx); err != nil {
-						c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
-						continue
-					}
+					// if output has been already deleted, terminate handling
+					c.log.Info("output is already deleted when handling challenge", "outputIndex", outputIndex)
+					return
 				}
 
 				// if output is already finalized, terminate handling
@@ -640,24 +611,29 @@ func (c *Challenger) submitChallengeTx(tx *types.Transaction) error {
 }
 
 // CanCreateChallenge checks if challenger is in the status that can make challenge.
-func (c *Challenger) CanCreateChallenge(ctx context.Context) (bool, error) {
+func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
 	from := c.cfg.TxManager.From()
-	if c.isValManagerEnabled {
-		vaultStatus, err := c.valManagerContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), from)
+	if c.IsValPoolTerminated(outputIndex) {
+		validatorStatus, err := c.valManagerContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch the vault status: %w", err)
+			return false, fmt.Errorf("failed to fetch the validator status: %w", err)
 		}
 
-		if vaultStatus != val.StatusCanSubmitOutput {
-			c.log.Warn("vault is not in the status to make a challenge", "status", vaultStatus)
+		if isInJail, err := c.IsInJail(ctx); err != nil {
+			return false, err
+		} else if isInJail {
+			c.log.Warn("validator is in jail")
 			return false, nil
 		}
 
-		c.log.Info("vault status", "status", vaultStatus)
+		if validatorStatus != StatusActive {
+			c.log.Warn("validator is not in the status that can create a challenge", "status", validatorStatus)
+			return false, nil
+		}
 	} else {
-		balance, err := c.valpoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
+		balance, err := c.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 		}
@@ -672,10 +648,26 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context) (bool, error) {
 			return false, nil
 		}
 
-		c.log.Info("deposit amount", "deposit", balance)
+		c.log.Info("deposit amount and bond amount", "deposit", balance, "bond", c.requiredBondAmount)
 	}
 
 	return true, nil
+}
+
+func (c *Challenger) IsValPoolTerminated(outputIndex *big.Int) bool {
+	return c.cfg.ValPoolTerminationIndex.Cmp(outputIndex) < 0
+}
+
+func (c *Challenger) IsInJail(ctx context.Context) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	from := c.cfg.TxManager.From()
+	isInJail, err := c.valManagerContract.InJail(optsutils.NewSimpleCallOpts(cCtx), from)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch the jail status: %w", err)
+	}
+
+	return isInJail, nil
 }
 
 func (c *Challenger) IsInChallengeCreationPeriod(ctx context.Context, outputIndex *big.Int) (bool, error) {
@@ -687,7 +679,7 @@ func (c *Challenger) IsInChallengeCreationPeriod(ctx context.Context, outputInde
 func (c *Challenger) IsOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	return c.l2ooContract.IsFinalized(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
+	return c.l2OOContract.IsFinalized(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 }
 
 func (c *Challenger) GetChallenge(ctx context.Context, outputIndex *big.Int, challenger common.Address) (bindings.TypesChallenge, error) {
@@ -759,7 +751,7 @@ type Outputs struct {
 func (c *Challenger) OutputsAtIndex(ctx context.Context, outputIndex *big.Int) (*Outputs, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	RemoteOutput, err := c.l2ooContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
+	RemoteOutput, err := c.l2OOContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 	if err != nil {
 		return nil, err
 	}

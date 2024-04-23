@@ -194,7 +194,7 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 	stateDB.SetCode(predeploys.BeaconDepositContractAddr, predeploys.BeaconDepositContractCode)
 
 	//setup governance token balances on L1
-	log.Info("Set GovernanceContract balance on L1")
+	log.Info("Set GovernanceToken balance on L1")
 	if !stateDB.Exist(deployments.L1GovernanceTokenProxy) {
 		return fmt.Errorf("l1GovernanceToken proxy doesn't exist at %s", deployments.L1GovernanceTokenProxy)
 	}
@@ -211,7 +211,7 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 	val = common.BigToHash(bigVal)
 	for _, account := range DevAccounts {
 		addrToBytes := append(make([]byte, 12), account.Bytes()...)
-		addrSlot := crypto.Keccak256Hash(append(addrToBytes, slot.Bytes()[:]...))
+		addrSlot := crypto.Keccak256Hash(append(addrToBytes, slot.Bytes()...))
 		stateDB.SetState(deployments.L1GovernanceTokenProxy, addrSlot, val)
 
 		log.Info("Post process update", "name", "GovernanceToken", "address", deployments.L1GovernanceTokenProxy, "slot", addrSlot.Hex(), "afterVal", val.Hex())

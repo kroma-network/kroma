@@ -3,12 +3,14 @@ package actions
 import (
 	"context"
 	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"math/big"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	kcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
@@ -21,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-validator"
+	validator "github.com/kroma-network/kroma/kroma-validator"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
@@ -67,9 +69,16 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	rollupConfig, err := rollupCl.RollupConfig(t.Ctx())
 	require.NoError(t, err)
 
+	valPoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, l1)
+	require.NoError(t, err)
+
+	valPoolTerminationIndex, err := valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(t.Ctx()))
+	require.NoError(t, err)
+
 	validatorCfg := validator.Config{
 		L2OutputOracleAddr:              cfg.OutputOracleAddr,
 		ValidatorPoolAddr:               cfg.ValidatorPoolAddr,
+		ValPoolTerminationIndex:         valPoolTerminationIndex,
 		ValidatorManagerAddr:            cfg.ValidatorManagerAddr,
 		AssetManagerAddr:                cfg.AssetManagerAddr,
 		ColosseumAddr:                   cfg.ColosseumAddr,
@@ -172,7 +181,11 @@ func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int
 func (v *L2Validator) CalculateWaitTime(t Testing) time.Duration {
 	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
 	require.NoError(t, err)
-	calculatedWaitTime := v.l2os.CalculateWaitTime(t.Ctx(), nextBlockNumber)
+
+	outputIndex, err := v.l2os.FetchNextOutputIndex(t.Ctx())
+	require.NoError(t, err)
+
+	calculatedWaitTime := v.l2os.CalculateWaitTime(t.Ctx(), nextBlockNumber, outputIndex)
 	return calculatedWaitTime
 }
 
@@ -183,7 +196,7 @@ func (v *L2Validator) ActSubmitL2Output(t Testing) {
 	output, err := v.l2os.FetchOutput(t.Ctx(), nextBlockNumber)
 	require.NoError(t, err)
 
-	txData, err := validator.SubmitL2OutputTxData(v.l2os.L2ooAbi(), output)
+	txData, err := validator.SubmitL2OutputTxData(v.l2os.L2OOAbi(), output)
 	require.NoError(t, err)
 
 	// Note: Use L1 instead of the output submitter's transaction manager because
@@ -218,15 +231,18 @@ func (v *L2Validator) ActRegisterValidator(t Testing, assets *big.Int) {
 	)
 	require.NoError(t, err)
 
-	v.sendTx(t, &v.valManagerContractAddr, common.Big0, txData, 2)
+	v.sendTx(t, &v.valManagerContractAddr, common.Big0, txData, 1)
 }
 
-func (v *L2Validator) ActApprove(t Testing, amount uint64) {
-	tokenAddr := v.getGovTokenAddr(t)
+func (v *L2Validator) ActApprove(t Testing, assets *big.Int) {
+	assetManagerContract, err := bindings.NewAssetManagerCaller(v.assetManagerContractAddr, v.cfg.L1Client)
+	tokenAddr, err := assetManagerContract.ASSETTOKEN(&bind.CallOpts{})
+	require.NoError(t, err)
+
 	governanceTokenABI, err := bindings.GovernanceTokenMetaData.GetAbi()
 	require.NoError(t, err)
 
-	txData, err := governanceTokenABI.Pack("approve", &v.assetManagerContractAddr, new(big.Int).SetUint64(amount))
+	txData, err := governanceTokenABI.Pack("approve", &v.assetManagerContractAddr, assets)
 	require.NoError(t, err)
 
 	v.sendTx(t, &tokenAddr, common.Big0, txData, 1)
@@ -239,19 +255,9 @@ func (v *L2Validator) fetchOutput(t Testing, blockNumber *big.Int) *eth.OutputRe
 	return output
 }
 
-func (v *L2Validator) getGovTokenAddr(t Testing) common.Address {
-	assetManagerABI, err := bindings.AssetManagerMetaData.GetAbi()
+func (v *L2Validator) isValPoolTerminated(t Testing) bool {
+	outputIndex, err := v.l2os.FetchNextOutputIndex(t.Ctx())
 	require.NoError(t, err)
 
-	callData, err := assetManagerABI.Pack("ASSET_TOKEN")
-	require.NoError(t, err)
-
-	returnData, err := v.l1.CallContract(t.Ctx(), ethereum.CallMsg{
-		To:   &v.assetManagerContractAddr,
-		Data: callData,
-	}, nil)
-	require.NoError(t, err)
-
-	tokenAddr := common.BytesToAddress(returnData)
-	return tokenAddr
+	return v.l2os.IsValPoolTerminated(outputIndex)
 }
