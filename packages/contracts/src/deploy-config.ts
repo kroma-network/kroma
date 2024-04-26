@@ -250,6 +250,8 @@ interface OptionalL2DeployConfig {
   mintManagerInitMintPerBlock: string
   mintManagerSlidingWindowBlocks: number
   mintManagerDecayingFactor: number
+  mintManagerRecipients: string[]
+  mintManagerShares: string[]
 }
 
 /**

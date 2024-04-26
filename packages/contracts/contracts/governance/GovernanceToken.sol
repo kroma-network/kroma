@@ -31,7 +31,7 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes {
         address _bridge,
         address _remoteToken,
         address _mintManager
-    ) KromaMintableERC20(_bridge, _remoteToken, "Kroma", "KRO") ERC20Permit("Kroma") {
+    ) KromaMintableERC20(_bridge, _remoteToken, "", "") ERC20Permit("Kroma") {
         MINT_MANAGER = _mintManager;
     }
 
@@ -56,11 +56,22 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes {
      * @param _from   Address to burn tokens from.
      * @param _amount Amount of tokens to burn.
      */
-    function burn(
-        address _from,
-        uint256 _amount
-    ) external override onlyBridge {
+    function burn(address _from, uint256 _amount) external override onlyBridge {
         _burn(_from, _amount);
+    }
+
+    /**
+     * @inheritdoc ERC20
+     */
+    function name() public pure override returns (string memory) {
+        return "Kroma";
+    }
+
+    /**
+     * @inheritdoc ERC20
+     */
+    function symbol() public pure override returns (string memory) {
+        return "KRO";
     }
 
     /**
