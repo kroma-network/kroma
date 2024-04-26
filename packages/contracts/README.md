@@ -53,7 +53,7 @@ We work on this repository with a combination of [Hardhat](https://hardhat.org) 
    A specific version must be used.
 
    ```shell
-   > foundryup --version nightly-d369d2486f85576eec4ca41d277391dfdae21ba7
+   > foundryup --version nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9
    ```
 
 2. Install node modules with pnpm and Node.js:
