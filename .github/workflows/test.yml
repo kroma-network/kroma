@@ -56,7 +56,7 @@ jobs:
         run: pnpm build
 
       - name: Generate L1 allocs
-        run: make devnet-allocs
+        run: make e2e-allocs
 
       - name: Run tests
         env:

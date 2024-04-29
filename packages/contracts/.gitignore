@@ -26,9 +26,13 @@ deployments/getting-started
 deployments/*/.deploy
 deployments/1337
 deployments/devnetL1
+deployments/e2eL1
 
 # Devnet config which changes with each 'make devnet-up'
 deploy-config/devnetL1.json
+
+# E2E config which changes with each 'make e2e-allocs'
+deploy-config/e2eL1.json
 
 # Getting Started guide deploy config
 deploy-config/getting-started.json

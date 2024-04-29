@@ -75,6 +75,13 @@ const config: HardhatUserConfig = {
       saveDeployments: true,
       deploy: ['./deploy/L1'],
     },
+    e2eL1: {
+      live: false,
+      url: 'http://localhost:8545',
+      accounts: [PRIVATE_KEY_DEPLOYER_DEVNET],
+      saveDeployments: true,
+      deploy: ['./deploy/L1'],
+    },
     devnetL2: {
       live: false,
       url: process.env.RPC_URL || 'http://localhost:9545',

@@ -109,6 +109,9 @@ devnet-clean:
 devnet-allocs: pre-devnet
 	PYTHONPATH=./kroma-devnet $(PYTHON) ./kroma-devnet/main.py --monorepo-dir=. --allocs
 
+e2e-allocs: pre-devnet
+	PYTHONPATH=./kroma-devnet $(PYTHON) ./kroma-devnet/main.py --monorepo-dir=. --allocs-e2e
+
 devnet-logs:
 	@(cd ./ops-devnet && docker compose logs -f)
 .PHONY: devnet-logs
