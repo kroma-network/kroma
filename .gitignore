@@ -32,6 +32,7 @@ bin
 *.log
 
 .devnet
+.e2e
 
 # Ignore local fuzzing results
 **/testdata/fuzz/

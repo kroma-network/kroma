@@ -71,9 +71,9 @@ def main():
     devnet_config_path = pjoin(deploy_config_dir, 'devnetL1.json')
     devnet_config_template_path = pjoin(deploy_config_dir, 'devnetL1-template.json')
     # [Kroma: START]
+    e2e_dir = pjoin(monorepo_dir, '.e2e')
     e2e_deployment_dir = pjoin(contracts_bedrock_dir, 'deployments', 'e2eL1')
     e2e_config_path = pjoin(deploy_config_dir, 'e2eL1.json')
-    e2e_config_template_path = pjoin(deploy_config_dir, 'e2eL1-template.json')
     # [Kroma: END]
     ops_chain_ops = pjoin(monorepo_dir, 'kroma-chain-ops')
     sdk_dir = pjoin(monorepo_dir, 'packages', 'sdk')
@@ -101,9 +101,9 @@ def main():
       e2e_deployment_dir=e2e_deployment_dir,
       e2e_l1_deployments_path=pjoin(e2e_deployment_dir, '.deploy'),
       e2e_config_path=e2e_config_path,
-      e2e_config_template_path=e2e_config_template_path,
-      allocs_e2e_path=pjoin(devnet_dir, 'allocs-e2e-l1.json'),
-      addresses_e2e_json_path=pjoin(devnet_dir, 'addresses-e2e.json')
+      e2e_config_template_path=devnet_config_template_path,
+      allocs_e2e_path=pjoin(e2e_dir, 'allocs-e2e-l1.json'),
+      addresses_e2e_json_path=pjoin(e2e_dir, 'addresses-e2e.json')
       # [Kroma: END]
     )
 
@@ -118,8 +118,11 @@ def main():
         devnet_l1_genesis(paths)
         return
 
+    # NOTE: This is a temporary workaround to separate the e2e deployment from the devnet deployment
+    # The changes in https://github.com/kroma-network/kroma/pull/315 should be reverted after the successful transition to validator system v2.
     if args.allocs_e2e:
-        e2e_devnet_l1_genesis(paths)
+        os.makedirs(e2e_dir, exist_ok=True)
+        e2e_l1_genesis(paths)
         return
 
     git_commit = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
@@ -235,6 +238,7 @@ def init_devnet_l1_deploy_config(paths, update_timestamp=False):
 # [Kroma: START]
 def init_e2e_l1_deploy_config(paths):
     deploy_config_e2e = read_json(paths.e2e_config_template_path)
+    deploy_config_e2e['validatorPoolTerminateOutputIndex'] = '0xf'
     write_json(paths.e2e_config_path, deploy_config_e2e)
 # [Kroma: END]
 
@@ -272,7 +276,7 @@ def devnet_l1_genesis(paths):
         geth.terminate()
 
 # [Kroma: START]
-def e2e_devnet_l1_genesis(paths):
+def e2e_l1_genesis(paths):
     log.info('Generating L1 genesis state for e2e')
 
     run_command([

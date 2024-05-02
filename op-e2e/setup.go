@@ -106,7 +106,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	deployConfig.ValidatorManagerRoundDurationSeconds = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	deployConfig.MintManagerMintActivatedBlock = nil
 	// [Kroma: END]
-	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")
+	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make e2e-allocs?")
 	l1Deployments := config.L1Deployments.Copy()
 	require.NoError(t, l1Deployments.Check(deployConfig))
 

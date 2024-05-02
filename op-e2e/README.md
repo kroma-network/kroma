@@ -6,18 +6,17 @@ run the following commands from the root of the repository:
 
 ```bash
 make install-geth
-make cannon-prestate
-make devnet-allocs
+make e2e-allocs
 ```
 
-This will leave artifacts in the `.devnet` directory that will be
+This will leave artifacts in the `.e2e` directory that will be
 read into `op-e2e` at runtime. The default deploy configuration
 used for starting all `op-e2e` based tests can be found in
-`packages/contracts/deploy-config/devnetL1.json`. There
+`packages/contracts/deploy-config/e2eL1.json`. There
 are some values that are safe to change in memory in `op-e2e` at
 runtime, but others cannot be changed or else it will result in
-broken tests. Any changes to `devnetL1.json` should result in
-rebuilding the `.devnet` artifacts before the new values will
+broken tests. Any changes to `e2eL1.json` should result in
+rebuilding the `.e2e` artifacts before the new values will
 be present in the `op-e2e` tests.
 
 ## Running tests
