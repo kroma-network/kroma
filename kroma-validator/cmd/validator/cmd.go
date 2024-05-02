@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/kroma-network/kroma/op-service/optsutils"
 	"math/big"
 
+	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	opservice "github.com/ethereum-optimism/optimism/op-service"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
 )
@@ -39,7 +39,7 @@ func Deposit(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 
 	if err = sendTransaction(txManager, valpoolAddr, txData, amount); err != nil {
@@ -74,7 +74,7 @@ func Withdraw(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 
 	if err = sendTransaction(txManager, valpoolAddr, txData, "0"); err != nil {
@@ -102,7 +102,7 @@ func Unbond(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 
 	if err = sendTransaction(txManager, valpoolAddr, txData, "0"); err != nil {
@@ -112,7 +112,7 @@ func Unbond(ctx *cli.Context) error {
 	return nil
 }
 
-func RegisterValidator(ctx *cli.Context) error {
+func Register(ctx *cli.Context) error {
 	amount := ctx.String("amount")
 
 	assets, success := new(big.Int).SetString(amount, 10)
@@ -122,7 +122,7 @@ func RegisterValidator(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 
 	assetManagerAddr, err := opservice.ParseAddress(ctx.String(flags.AssetManagerAddressFlag.Name))
@@ -177,7 +177,7 @@ func Activate(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 
 	if err = sendTransaction(txManager, valManagerAddr, txData, "0"); err != nil {
@@ -195,7 +195,7 @@ func Unjail(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 	validatorAddr := txManager.Config.From
 
@@ -221,7 +221,7 @@ func ChangeCommissionRate(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 
 	valManagerAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
@@ -256,8 +256,9 @@ func Delegate(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
+	validatorAddr := txManager.Config.From
 
 	assetManagerAddr, err := opservice.ParseAddress(ctx.String(flags.AssetManagerAddressFlag.Name))
 	if err != nil {
@@ -266,11 +267,6 @@ func Delegate(ctx *cli.Context) error {
 
 	if err = approve(ctx, delegateAmount, txManager, assetManagerAddr); err != nil {
 		return fmt.Errorf("failed to approve assets: %w", err)
-	}
-
-	validatorAddr := txManager.Config.From
-	if err != nil {
-		return fmt.Errorf("failed to get validator address: %w", err)
 	}
 
 	assetManagerAbi, err := bindings.AssetManagerMetaData.GetAbi()
@@ -305,13 +301,9 @@ func InitUndelegate(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
-
 	validatorAddr := txManager.Config.From
-	if err != nil {
-		return fmt.Errorf("failed to get validator address: %w", err)
-	}
 
 	assetManagerAddr, err := opservice.ParseAddress(ctx.String(flags.AssetManagerAddressFlag.Name))
 	if err != nil {
@@ -320,7 +312,7 @@ func InitUndelegate(ctx *cli.Context) error {
 
 	assetManagerContract, err := bindings.NewAssetManagerCaller(assetManagerAddr, txManager.Backend.(*ethclient.Client))
 	if err != nil {
-		return fmt.Errorf("failed to create AssetManager contract: %w", err)
+		return fmt.Errorf("failed to fetch AssetManager contract: %w", err)
 	}
 
 	shares, err := assetManagerContract.PreviewDelegate(optsutils.NewSimpleCallOpts(ctx.Context), validatorAddr, undelegateAmount)
@@ -348,7 +340,7 @@ func FinalizeUndelegate(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 	validatorAddr := txManager.Config.From
 
@@ -394,7 +386,7 @@ func InitClaimValidatorReward(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 
 	if err = sendTransaction(txManager, assetManagerAddr, txData, "0"); err != nil {
@@ -422,7 +414,7 @@ func FinalizeClaimValidatorReward(ctx *cli.Context) error {
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create tx manager: %w", err)
+		return err
 	}
 
 	if err = sendTransaction(txManager, assetManagerAddr, txData, "0"); err != nil {
@@ -433,7 +425,6 @@ func FinalizeClaimValidatorReward(ctx *cli.Context) error {
 }
 
 func approve(ctx *cli.Context, amount *big.Int, txManager *txmgr.SimpleTxManager, assetManagerAddr common.Address) error {
-
 	erc20Abi, err := bindings.ERC20MetaData.GetAbi()
 	if err != nil {
 		return fmt.Errorf("failed to get ERC20 ABI: %w", err)
@@ -446,12 +437,15 @@ func approve(ctx *cli.Context, amount *big.Int, txManager *txmgr.SimpleTxManager
 
 	assetManagerContract, err := bindings.NewAssetManagerCaller(assetManagerAddr, txManager.Backend.(*ethclient.Client))
 	if err != nil {
-		return fmt.Errorf("failed to create AssetManager contract: %w", err)
+		return fmt.Errorf("failed to fetch AssetManager contract: %w", err)
 	}
 
-	govTokenAddr, err := assetManagerContract.ASSETTOKEN(optsutils.NewSimpleCallOpts(ctx.Context))
+	assetTokenAddr, err := assetManagerContract.ASSETTOKEN(optsutils.NewSimpleCallOpts(ctx.Context))
+	if err != nil {
+		return fmt.Errorf("failed to fetch asset token address: %w", err)
+	}
 
-	if err = sendTransaction(txManager, govTokenAddr, txData, "0"); err != nil {
+	if err = sendTransaction(txManager, assetTokenAddr, txData, "0"); err != nil {
 		return err
 	}
 

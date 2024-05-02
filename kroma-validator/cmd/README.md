@@ -6,86 +6,110 @@ the new validator system with the asset token are included.
 
 ## Usage
 
-You can use these subcommands via running kroma-validator container.
+You can use these subcommands via the running kroma-validator container.
 
 ```bash
-docker compose exec kroma-validator validator [command]
+docker compose exec kroma-validator kroma-validator [command]
 ```
 
 The descriptions of whole or particular commands can be checked by running the following command:
 
 ```bash
-docker compose exec kroma-validator validator --help
-docker compose exec kroma-validator validator [command] --help
+docker compose exec kroma-validator kroma-validator --help
+docker compose exec kroma-validator kroma-validator [command] --help
 ```
 
 ## Commands
 
 ### Commands for Validator System V1
+
 The following commands are available in Validator System V1. Note that these commands will be **deprecated** and
 removed in the future after the new validator system is introduced. You can still use `withdraw` and `unbond` even
 after the transition to the Validator System V2.
+
 - `deposit` - Deposit ETH to `ValidatorPool`.
   - `--amount [value]` - _(Required)_ The amount of ETH to deposit (in Wei).
+
   ```bash
-  docker compose exec kroma-validator validator deposit --amount 100000000
+  docker compose exec kroma-validator kroma-validator deposit --amount 100000000
   ```
+
 - `withdraw` - Withdraw ETH from `ValidatorPool`.
   - `--amount [value]` - _(Required)_ The amount of ETH to withdraw (in Wei).
+
   ```bash
-  docker compose exec kroma-validator validator withdraw
+  docker compose exec kroma-validator kroma-validator withdraw --amount 100000000
   ```
+
 - `unbond` - Manually unbond the bonded ETH from `ValidatorPool` (including reward distribution).
+
   ```bash
-  docker compose exec kroma-validator validator unbond
+  docker compose exec kroma-validator kroma-validator unbond
   ```
 
 ### Commands for Validator System V2 (_EXPERIMENTAL_)
+
 The following commands are available in Validator System V2:
-- `register` - Register a new validator.
+
+- `register` - Register as new validator to `ValidatorManager`.
   - `--amount [value]` - _(Required)_ The amount of tokens to delegate initially (in Wei).
   - `--commission-rate [value]` - _(Required)_ The initial commission rate of the validator (in %).
   - `--commission-max-change-rate [value]` - _(Required)_ The max change rate of the commission of the validator (in %).
+
   ```bash
-  docker compose exec kroma-validator validator register --amount 100000000 --commission-rate 5 --commission-max-change-rate 5
+  docker compose exec kroma-validator kroma-validator register --amount 100000000 --commission-rate 5 --commission-max-change-rate 5
   ```
-- `activate` - Activate the validator to be eligible to submit output roots and create challenges.
+
+- `activate` - Activate the validator in `ValidatorManager` to be eligible to submit output roots and create challenges.
+
   ```bash
-  docker compose exec kroma-validator validator activate
+  docker compose exec kroma-validator kroma-validator activate
   ```
-- `unjail` - Unjail the validator.
+
+- `unjail` - Unjail the validator in `ValidatorManager`.
+
   ```bash
-  docker compose exec kroma-validator validator unjail
+  docker compose exec kroma-validator kroma-validator unjail
   ```
-- `changeCommissionRate` - Change the commission rate of the validator.
+
+- `changeCommissionRate` - Change the commission rate of the validator in `ValidatorManager`.
   - `--commission-rate [value]` - _(Required)_ The new commission rate of the validator (in %).
+
   ```bash
-  docker compose exec kroma-validator validator changeCommissionRate --commission-rate 5
+  docker compose exec kroma-validator kroma-validator changeCommissionRate --commission-rate 5
   ```
 
 - `delegate` - Self-delegate asset tokens to the `AssetManager`.
   - `--amount [value]` - _(Required)_ The amount of tokens to delegate (in Wei).
+
   ```bash
-  docker compose exec kroma-validator validator delegate --amount 100000000
+  docker compose exec kroma-validator kroma-validator delegate --amount 100000000
   ```
-- `undelegate init` - Initiate the undelegations of asset tokens from the `AssetManager`.
+
+- `undelegate init` - Initiate the undelegation of asset tokens from the `AssetManager`.
   - `--amount [value]` - _(Required)_ The amount of tokens to undelegate (in Wei).
+
   ```bash
-  docker compose exec kroma-validator validator undelegate init --amount 100000000
+  docker compose exec kroma-validator kroma-validator undelegate init --amount 100000000
   ```
 
 - `undelegate finalize` - Finalize the undelegations of asset tokens from the `AssetManager`.
-Should be called after 1 week has passed from the `undelegate init` command.
+  Should be called after 1 week has passed from the `undelegate init` command.
+
   ```bash
-  docker compose exec kroma-validator validator undelegate finalize
+  docker compose exec kroma-validator kroma-validator undelegate finalize
   ```
+
 - `claim init` - Initiate the claim of validator reward from the `AssetManager`.
   - `--amount [value]` - _(Required)_ The amount of tokens to claim (in Wei).
+
   ```bash
-  docker compose exec kroma-validator validator claim init --amount 100000000
+  docker compose exec kroma-validator kroma-validator claim init --amount 100000000
   ```
+
 - `claim finalize` - Finalize the claim of validator reward from the `AssetManager`. Should be called after 1 week
-has passed from the `claim init` command.
+  has passed from the `claim init` command.
+
   ```bash
-  docker compose exec kroma-validator validator claim finalize
+  docker compose exec kroma-validator kroma-validator claim finalize
   ```
