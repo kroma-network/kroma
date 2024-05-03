@@ -4,10 +4,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 )
@@ -471,7 +471,6 @@ interaction2:
 
 func TestChallengeForceDeleteOutputBySecurityCouncil(t *testing.T) {
 	rt := defaultRuntime(t, setupSequencerTest)
-	rt.SetCreationPeriod(9)
 
 	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
 	rt.setupMaliciousValidator()
@@ -501,9 +500,6 @@ interaction:
 			// call bisect by validator
 			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, true)
 			rt.IncludeL1Block(rt.validator.address)
-		case chal.StatusAsserterTimeout:
-			rt.txHash = rt.challenger1.ActProveFault(rt.t, rt.outputIndex, true)
-			rt.IncludeL1Block(rt.challenger1.address)
 		case chal.StatusChallengerTimeout:
 			rt.txHash = rt.validator.ActChallengerTimeout(rt.t, rt.outputIndex, rt.challenger1.address)
 			rt.IncludeL1Block(rt.validator.address)
@@ -511,15 +507,13 @@ interaction:
 			// do nothing
 			rt.miner.ActEmptyBlock(rt.t)
 		case chal.StatusNone:
-			if rt.IsCreationEnded() {
-				outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
-				isEqual := rt.guardian.ActValidateL2Output(rt.t, rt.outputOnL1.OutputRoot, outputBlockNum)
-				require.False(t, isEqual)
+			outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
+			isEqual := rt.guardian.ActValidateL2Output(rt.t, rt.outputOnL1.OutputRoot, outputBlockNum)
+			require.False(t, isEqual)
 
-				rt.txHash = rt.guardian.ActForceDeleteOutput(rt.t, rt.outputIndex)
-				rt.IncludeL1Block(rt.challenger1.address)
-				break interaction
-			}
+			rt.txHash = rt.guardian.ActForceDeleteOutput(rt.t, rt.outputIndex)
+			rt.IncludeL1Block(rt.challenger1.address)
+			break interaction
 		default:
 			break interaction
 		}
