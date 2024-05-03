@@ -229,16 +229,25 @@ func (s *L1Miner) ActL1EndBlock(t Testing) {
 	}
 }
 
-func (s *L1Miner) includeL1Block(t StatefulTesting, sender common.Address, timeDelta uint64) {
+func (s *L1Miner) ActEmptyBlock(t Testing) {
+	s.ActL1StartBlock(12)(t)
+	s.ActL1EndBlock(t)
+}
+
+// [Kroma: START]
+func (s *L1Miner) includeL1BlockBySender(t StatefulTesting, sender common.Address, timeDelta uint64) {
 	s.ActL1StartBlock(timeDelta)(t)
 	s.ActL1IncludeTx(sender)(t)
 	s.ActL1EndBlock(t)
 }
 
-func (s *L1Miner) ActEmptyBlock(t Testing) {
-	s.ActL1StartBlock(12)(t)
+func (s *L1Miner) includeL1BlockByTx(t StatefulTesting, txHash common.Hash, timeDelta uint64) {
+	s.ActL1StartBlock(timeDelta)(t)
+	s.ActL1IncludeTxByHash(txHash)(t)
 	s.ActL1EndBlock(t)
 }
+
+// [Kroma: END]
 
 func (s *L1Miner) Close() error {
 	return s.L1Replica.Close()

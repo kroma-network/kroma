@@ -102,8 +102,6 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	// [Kroma: START]
 	deployConfig.L2GenesisDeltaTimeOffset = nil
 	deployConfig.L2GenesisEcotoneTimeOffset = nil
-	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
-	deployConfig.ValidatorManagerRoundDurationSeconds = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	deployConfig.MintManagerMintActivatedBlock = nil
 	// [Kroma: END]
 	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")

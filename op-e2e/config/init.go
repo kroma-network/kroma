@@ -10,15 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/exp/slog"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/log"
-
 	"github.com/ethereum-optimism/optimism/op-e2e/external"
 	op_service "github.com/ethereum-optimism/optimism/op-service"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/log"
+	"golang.org/x/exp/slog"
+
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 

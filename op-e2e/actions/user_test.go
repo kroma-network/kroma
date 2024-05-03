@@ -258,7 +258,7 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 	seq.ActL2PipelineFull(t)
 
 	validator.ActDeposit(t, 1000)
-	miner.includeL1Block(t, dp.Addresses.TrustedValidator, 12)
+	miner.includeL1BlockBySender(t, dp.Addresses.TrustedValidator, 12)
 
 	// create l2 output submission transactions until there is nothing left to submit
 	for {
@@ -269,7 +269,7 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 		// submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		miner.includeL1Block(t, dp.Addresses.TrustedValidator, 12)
+		miner.includeL1BlockBySender(t, dp.Addresses.TrustedValidator, 12)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 		require.NoError(t, err)

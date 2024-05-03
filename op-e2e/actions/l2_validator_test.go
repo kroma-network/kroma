@@ -4,6 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -11,9 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
@@ -64,13 +64,13 @@ func RunValidatorPoolTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 		SecurityCouncilAddr:  sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:         dp.Secrets.TrustedValidator,
 		AllowNonFinalized:    false,
-	}, miner.EthClient(), seqEngine.EthClient(), sequencer.RollupClient())
+	}, miner.EthClient(), seqEngine.EthClient(), rollupSeqCl)
 
 	proceedWithBlocks(t, miner, sequencer, batcher, dp.Addresses.Batcher, 1)
 
 	// deposit bond for validator
 	validator.ActDeposit(t, 1_000)
-	miner.includeL1Block(t, validator.address, 12)
+	miner.includeL1BlockBySender(t, validator.address, 12)
 
 	require.Equal(t, sequencer.SyncStatus().UnsafeL2, sequencer.SyncStatus().FinalizedL2)
 	// create l2 output submission transactions until there is nothing left to submit
@@ -94,6 +94,31 @@ func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	log := testlog.Logger(t, log.LevelDebug)
 	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
 
+	// Redeploy and upgrade ValidatorPool to set the termination index for testing ValidatorManager
+	newTerminationIndex := big.NewInt(2)
+	deployTx, upgradeTx, err := e2eutils.RedeployValPoolToTerminate(
+		t.Ctx(),
+		newTerminationIndex,
+		miner.EthClient(),
+		dp.Secrets,
+		sd.RollupCfg.L1ChainID,
+		sd.DeploymentsL1,
+		dp.DeployConfig,
+	)
+	require.NoError(t, err)
+
+	// Check deploy tx submission was successful
+	miner.includeL1BlockByTx(t, deployTx.Hash(), 12)
+	receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), deployTx.Hash())
+	require.NoError(t, err)
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "deploy tx submission failed")
+
+	// Check upgrade tx submission was successful
+	miner.includeL1BlockByTx(t, upgradeTx.Hash(), 12)
+	receipt, err = miner.EthClient().TransactionReceipt(t.Ctx(), upgradeTx.Hash())
+	require.NoError(t, err)
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "upgrade tx submission failed")
+
 	rollupSeqCl := sequencer.RollupClient()
 	batcher := NewL2Batcher(log, sd.RollupCfg, DefaultBatcherCfg(dp),
 		rollupSeqCl, miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
@@ -107,15 +132,15 @@ func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 		SecurityCouncilAddr:  sd.DeploymentsL1.SecurityCouncilProxy,
 		ValidatorKey:         dp.Secrets.TrustedValidator,
 		AllowNonFinalized:    false,
-	}, miner.EthClient(), seqEngine.EthClient(), sequencer.RollupClient())
+	}, miner.EthClient(), seqEngine.EthClient(), rollupSeqCl)
 
 	proceedWithBlocks(t, miner, sequencer, batcher, dp.Addresses.Batcher, 6)
 
 	// deposit bond for validator
 	validator.ActDeposit(t, 1_000)
-	miner.includeL1Block(t, validator.address, 12)
-	// Submit 16 outputs to ValidatorPool
-	for i := 0; i < 16; i++ {
+	miner.includeL1BlockBySender(t, validator.address, 12)
+	// Submit outputs to ValidatorPool until newTerminationIndex
+	for i := uint64(0); new(big.Int).SetUint64(i).Cmp(newTerminationIndex) <= 0; i++ {
 		submitOutput(t, validator, miner)
 	}
 
@@ -126,21 +151,25 @@ func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	// approve governance token
 	assets := new(big.Int).SetUint64(1_000)
 	validator.ActApprove(t, assets)
-	miner.includeL1Block(t, validator.address, 12)
+	miner.includeL1BlockBySender(t, validator.address, 12)
 
 	// register validator
 	validator.ActRegisterValidator(t, assets)
-	miner.includeL1Block(t, validator.address, 12)
+	miner.includeL1BlockBySender(t, validator.address, 12)
 
-	require.Equal(t, sequencer.SyncStatus().UnsafeL2, sequencer.SyncStatus().FinalizedL2)
 	// create l2 output submission transactions until there is nothing left to submit
+	submitAfterTransition := false
 	for {
 		waitTime := validator.CalculateWaitTime(t)
 		if waitTime > 0 {
 			break
 		}
 		submitOutput(t, validator, miner)
+		submitAfterTransition = true
 	}
+
+	// Assert validator submitted at least one output after transition
+	require.True(t, submitAfterTransition)
 
 	checkRightOutputSubmitted(t, sd.DeploymentsL1.L2OutputOracleProxy, miner, sequencer, seqEngine)
 }
@@ -155,7 +184,7 @@ func proceedWithBlocks(t StatefulTesting, miner *L1Miner, sequencer *L2Sequencer
 		sequencer.ActBuildToL1Head(t)
 		// submit and include in L1
 		batcher.ActSubmitAll(t)
-		miner.includeL1Block(t, batcherAddr, 12)
+		miner.includeL1BlockBySender(t, batcherAddr, 12)
 		// finalize the first and second L1 blocks, including the batch
 		miner.ActL1SafeNext(t)
 		miner.ActL1SafeNext(t)
@@ -172,7 +201,7 @@ func submitOutput(t StatefulTesting, validator *L2Validator, miner *L1Miner) {
 	// submit to L1
 	validator.ActSubmitL2Output(t)
 	// include output on L1
-	miner.includeL1Block(t, validator.address, 12)
+	miner.includeL1BlockBySender(t, validator.address, 12)
 	// Check submission was successful
 	receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 	require.NoError(t, err)
