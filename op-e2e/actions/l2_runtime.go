@@ -11,16 +11,23 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	validator "github.com/kroma-network/kroma/kroma-validator"
 )
 
-const defaultDepositAmount = 1_000
+const (
+	defaultDepositAmount          = 1_000
+	defaultValidatorSystemVersion = 1
+)
 
-// [Kroma: START]
+var defaultValPoolTerminationIndex = common.Big2
+
+// These definitions are moved from l1_replica_test.go file.
 var defaultRollupTestParams = &e2eutils.TestParams{
 	MaxSequencerDrift:   40,
 	SequencerWindowSize: 120,
@@ -29,8 +36,6 @@ var defaultRollupTestParams = &e2eutils.TestParams{
 }
 
 var defaultAlloc = &e2eutils.AllocParams{PrefundTestUsers: true}
-
-// [Kroma: END]
 
 type Runtime struct {
 	t                        StatefulTesting
@@ -49,6 +54,8 @@ type Runtime struct {
 	colosseumContract        *bindings.Colosseum
 	securityCouncilContract  *bindings.SecurityCouncil
 	valPoolContract          *bindings.ValidatorPoolCaller
+	valManContract           *bindings.ValidatorManagerCaller
+	assetTokenContract       *bindings.GovernanceTokenCaller
 	targetInvalidBlockNumber uint64
 	outputIndex              *big.Int
 	outputOnL1               bindings.TypesCheckpointOutput
@@ -59,11 +66,12 @@ type Runtime struct {
 
 type SetupSequencerTestFunc = func(t Testing, sd *e2eutils.SetupData, log log.Logger) (*L1Miner, *L2Engine, *L2Sequencer)
 
-// defaultRuntime is currently only used for l2_challenger_test
-func defaultRuntime(gt *testing.T, setupSequencerTest SetupSequencerTestFunc) Runtime {
+// defaultRuntime is currently only used for l2_challenger_test.
+func defaultRuntime(gt *testing.T, setupSequencerTest SetupSequencerTestFunc, deltaTimeOffset *hexutil.Uint64) Runtime {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	dp.DeployConfig.ColosseumDummyHash = common.HexToHash(e2e.DummyHashDev)
+	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	l := testlog.Logger(t, log.LvlDebug)
 	rt := Runtime{
@@ -91,8 +99,8 @@ func (rt *Runtime) setTargetInvalidBlockNumber(targetInvalidBlockNumber uint64) 
 	rt.targetInvalidBlockNumber = targetInvalidBlockNumber
 }
 
-func (rt *Runtime) setupHonestValidator() {
-	rt.validator = rt.honestValidator(rt.dp.Secrets.TrustedValidator)
+func (rt *Runtime) setupHonestValidator(setInvalidBlockNumber bool) {
+	rt.validator = rt.honestValidator(rt.dp.Secrets.TrustedValidator, setInvalidBlockNumber)
 }
 
 func (rt *Runtime) setupMaliciousValidator() {
@@ -100,11 +108,11 @@ func (rt *Runtime) setupMaliciousValidator() {
 }
 
 func (rt *Runtime) setupHonestChallenger1() {
-	rt.challenger1 = rt.honestValidator(rt.dp.Secrets.Challenger1)
+	rt.challenger1 = rt.honestValidator(rt.dp.Secrets.Challenger1, true)
 }
 
 func (rt *Runtime) setupHonestChallenger2() {
-	rt.challenger2 = rt.honestValidator(rt.dp.Secrets.Challenger2)
+	rt.challenger2 = rt.honestValidator(rt.dp.Secrets.Challenger2, true)
 }
 
 func (rt *Runtime) setupMaliciousChallenger1() {
@@ -116,26 +124,30 @@ func (rt *Runtime) setupMaliciousChallenger2() {
 }
 
 func (rt *Runtime) setupHonestGuardian() {
-	rt.guardian = rt.honestValidator(rt.dp.Secrets.Challenger1)
+	rt.guardian = rt.honestValidator(rt.dp.Secrets.Challenger1, true)
 }
 
 func (rt *Runtime) setupMaliciousGuardian() {
 	rt.guardian = rt.maliciousValidator(rt.dp.Secrets.Challenger1)
 }
 
-func (rt *Runtime) honestValidator(pk *ecdsa.PrivateKey) *L2Validator {
+func (rt *Runtime) honestValidator(pk *ecdsa.PrivateKey, setInvalidBlockNumber bool) *L2Validator {
 	// setup mockup rpc for returning valid output
 	validatorRPC := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient())
 	validatorRollupClient := sources.NewRollupClient(validatorRPC)
 	validator := NewL2Validator(rt.t, rt.l, &ValidatorCfg{
-		OutputOracleAddr:    rt.sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorPoolAddr:   rt.sd.DeploymentsL1.ValidatorPoolProxy,
-		ColosseumAddr:       rt.sd.DeploymentsL1.ColosseumProxy,
-		SecurityCouncilAddr: rt.sd.DeploymentsL1.SecurityCouncilProxy,
-		ValidatorKey:        pk,
-		AllowNonFinalized:   false,
+		OutputOracleAddr:     rt.sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr:    rt.sd.DeploymentsL1.ValidatorPoolProxy,
+		ValidatorManagerAddr: rt.sd.DeploymentsL1.ValidatorManagerProxy,
+		AssetManagerAddr:     rt.sd.DeploymentsL1.AssetManagerProxy,
+		ColosseumAddr:        rt.sd.DeploymentsL1.ColosseumProxy,
+		SecurityCouncilAddr:  rt.sd.DeploymentsL1.SecurityCouncilProxy,
+		ValidatorKey:         pk,
+		AllowNonFinalized:    false,
 	}, rt.miner.EthClient(), rt.seqEngine.EthClient(), validatorRollupClient)
-	validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
+	if setInvalidBlockNumber {
+		validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
+	}
 	return validator
 }
 
@@ -144,18 +156,20 @@ func (rt *Runtime) maliciousValidator(pk *ecdsa.PrivateKey) *L2Validator {
 	validatorRPC := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient())
 	validatorRollupClient := sources.NewRollupClient(validatorRPC)
 	validator := NewL2Validator(rt.t, rt.l, &ValidatorCfg{
-		OutputOracleAddr:    rt.sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorPoolAddr:   rt.sd.DeploymentsL1.ValidatorPoolProxy,
-		ColosseumAddr:       rt.sd.DeploymentsL1.ColosseumProxy,
-		SecurityCouncilAddr: rt.sd.DeploymentsL1.SecurityCouncilProxy,
-		ValidatorKey:        pk,
-		AllowNonFinalized:   false,
+		OutputOracleAddr:     rt.sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr:    rt.sd.DeploymentsL1.ValidatorPoolProxy,
+		ValidatorManagerAddr: rt.sd.DeploymentsL1.ValidatorManagerProxy,
+		AssetManagerAddr:     rt.sd.DeploymentsL1.AssetManagerProxy,
+		ColosseumAddr:        rt.sd.DeploymentsL1.ColosseumProxy,
+		SecurityCouncilAddr:  rt.sd.DeploymentsL1.SecurityCouncilProxy,
+		ValidatorKey:         pk,
+		AllowNonFinalized:    false,
 	}, rt.miner.EthClient(), rt.seqEngine.EthClient(), validatorRollupClient)
 	validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 	return validator
 }
 
-func (rt *Runtime) bindChallengeContracts() {
+func (rt *Runtime) bindContracts() {
 	var err error
 	// bind contracts
 	rt.outputOracleContract, err = bindings.NewL2OutputOracle(rt.sd.DeploymentsL1.L2OutputOracleProxy, rt.miner.EthClient())
@@ -169,17 +183,95 @@ func (rt *Runtime) bindChallengeContracts() {
 
 	rt.valPoolContract, err = bindings.NewValidatorPoolCaller(rt.sd.DeploymentsL1.ValidatorPoolProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
+
+	rt.valManContract, err = bindings.NewValidatorManagerCaller(rt.sd.DeploymentsL1.ValidatorManagerProxy, rt.miner.EthClient())
+	require.NoError(rt.t, err)
+
+	assetManContract, err := bindings.NewAssetManagerCaller(rt.sd.DeploymentsL1.AssetManagerProxy, rt.miner.EthClient())
+	require.NoError(rt.t, err)
+	assetTokenAddr, err := assetManContract.ASSETTOKEN(nil)
+	require.NoError(rt.t, err)
+	rt.assetTokenContract, err = bindings.NewGovernanceTokenCaller(assetTokenAddr, rt.miner.EthClient())
+	require.NoError(rt.t, err)
 }
 
-// setupOutputSubmitted sets output submission by validator
-func (rt *Runtime) setupOutputSubmitted() {
+// assertRedeployValPoolToTerminate redeploys and upgrades ValidatorPool to change the termination index.
+// It also asserts that the deploying and upgrade tx is successful.
+func (rt *Runtime) assertRedeployValPoolToTerminate(newTerminationIndex *big.Int) {
+	deployTx, upgradeTx, err := e2eutils.RedeployValPoolToTerminate(
+		rt.t.Ctx(),
+		newTerminationIndex,
+		rt.miner.EthClient(),
+		rt.dp.Secrets,
+		rt.sd.RollupCfg.L1ChainID,
+		rt.sd.DeploymentsL1,
+		rt.dp.DeployConfig,
+	)
+	require.NoError(rt.t, err)
+
+	// Check deploy tx submission was successful
+	rt.includeL1BlockByTx(deployTx.Hash())
+	receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), deployTx.Hash())
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "deploy tx submission failed")
+
+	// Check upgrade tx submission was successful
+	rt.includeL1BlockByTx(upgradeTx.Hash())
+	receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), upgradeTx.Hash())
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "upgrade tx submission failed")
+}
+
+// setupOutputSubmitted sets output submission by validator.
+func (rt *Runtime) setupOutputSubmitted(version uint64) {
 	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
 	// config is set) block to pass after each submission interval before submitting the output
 	// root. For example, if the submission interval is set to 1800 blocks, the output root can
 	// only be submitted at 1801 finalized blocks. In fact, the following code is designed to
 	// create one or more finalized L2 blocks in order to pass the test. If Proto Dank Sharding
 	// is introduced, the below code fix may no longer be necessary.
-	for i := 0; i < 2; i++ {
+	rt.proceedWithBlocks(3)
+
+	// deposit bond for validator
+	rt.validator.ActDeposit(rt.t, defaultDepositAmount)
+	rt.includeL1BlockBySender(rt.validator.address)
+
+	// check validator balance increased
+	bal, err := rt.valPoolContract.BalanceOf(nil, rt.validator.address)
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, new(big.Int).SetUint64(defaultDepositAmount), bal)
+
+	if version == defaultValidatorSystemVersion+1 {
+		minActivateAmount, err := rt.valManContract.MINACTIVATEAMOUNT(nil)
+		require.NoError(rt.t, err)
+
+		// approve governance token
+		rt.validator.ActApprove(rt.t, minActivateAmount)
+		rt.includeL1BlockBySender(rt.validator.address)
+
+		// register validator
+		rt.validator.ActRegisterValidator(rt.t, minActivateAmount)
+		rt.includeL1BlockBySender(rt.validator.address)
+
+		// check validator status is active
+		status, err := rt.validator.getValidatorStatus(rt.t)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, validator.StatusActive, status)
+	}
+
+	// create l2 output submission transactions until there is nothing left to submit
+	for {
+		waitTime := rt.validator.CalculateWaitTime(rt.t)
+		if waitTime > 0 {
+			break
+		}
+		rt.submitL2Output()
+	}
+}
+
+// proceedWithBlocks proceeds n blocks.
+func (rt *Runtime) proceedWithBlocks(n int) {
+	for i := 0; i < n; i++ {
 		// L1 block
 		rt.miner.ActEmptyBlock(rt.t)
 		// L2 block
@@ -188,7 +280,7 @@ func (rt *Runtime) setupOutputSubmitted() {
 		rt.sequencer.ActBuildToL1Head(rt.t)
 		// submit and include in L1
 		rt.batcher.ActSubmitAll(rt.t)
-		rt.IncludeL1Block(rt.dp.Addresses.Batcher)
+		rt.includeL1BlockBySender(rt.dp.Addresses.Batcher)
 		// finalize the first and second L1 blocks, including the batch
 		rt.miner.ActL1SafeNext(rt.t)
 		rt.miner.ActL1SafeNext(rt.t)
@@ -199,37 +291,21 @@ func (rt *Runtime) setupOutputSubmitted() {
 		rt.sequencer.ActL1SafeSignal(rt.t)
 		rt.sequencer.ActL1FinalizedSignal(rt.t)
 	}
-
-	// deposit bond for validator
-	rt.validator.ActDeposit(rt.t, defaultDepositAmount)
-	rt.IncludeL1Block(rt.validator.address)
-
-	// check validator balance increased
-	bal, err := rt.valPoolContract.BalanceOf(nil, rt.validator.address)
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, new(big.Int).SetUint64(defaultDepositAmount), bal)
-
-	require.Equal(rt.t, rt.sequencer.SyncStatus().UnsafeL2, rt.sequencer.SyncStatus().FinalizedL2)
-
-	// create l2 output submission transactions until there is nothing left to submit
-	for {
-		waitTime := rt.validator.CalculateWaitTime(rt.t)
-		if waitTime > 0 {
-			break
-		}
-		// and submit it to L1
-		rt.validator.ActSubmitL2Output(rt.t)
-		// include output on L1
-		rt.IncludeL1Block(rt.validator.address)
-		// Check submission was successful
-		receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.validator.LastSubmitL2OutputTx())
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "submission failed")
-	}
 }
 
-// setupChallenge sets challenge by challenger
-func (rt *Runtime) setupChallenge(challenger *L2Validator) {
+func (rt *Runtime) submitL2Output() {
+	// submit to L1
+	rt.validator.ActSubmitL2Output(rt.t)
+	// include output on L1
+	rt.includeL1BlockBySender(rt.validator.address)
+	// Check submission was successful
+	receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.validator.LastSubmitL2OutputTx())
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "submission failed")
+}
+
+// setupChallenge sets challenge by challenger.
+func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint64) {
 	// check that the output root that L1 stores is different from challenger's output root
 	// NOTE(chokobole): Comment these 2 lines because of the reason above.
 	// If Proto Dank Sharding is introduced, the below code fix may be restored.
@@ -247,20 +323,38 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator) {
 	outputComputed := challenger.fetchOutput(rt.t, rt.outputOnL1.L2BlockNumber)
 	require.NotEqual(rt.t, eth.Bytes32(rt.outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
-	// deposit bond for challenger
-	challenger.ActDeposit(rt.t, defaultDepositAmount)
-	rt.IncludeL1Block(challenger.address)
+	if version == defaultValidatorSystemVersion {
+		// deposit bond for challenger
+		challenger.ActDeposit(rt.t, defaultDepositAmount)
+		rt.includeL1BlockBySender(challenger.address)
 
-	// check bond amount before create challenge
-	bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt(), bond.Amount)
+		// check bond amount before create challenge
+		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt(), bond.Amount)
+	} else if version == defaultValidatorSystemVersion+1 {
+		minActivateAmount, err := rt.valManContract.MINACTIVATEAMOUNT(nil)
+		require.NoError(rt.t, err)
+
+		// approve governance token
+		challenger.ActApprove(rt.t, minActivateAmount)
+		rt.includeL1BlockBySender(challenger.address)
+
+		// register validator
+		challenger.ActRegisterValidator(rt.t, minActivateAmount)
+		rt.includeL1BlockBySender(challenger.address)
+
+		// check validator status is active
+		status, err := challenger.getValidatorStatus(rt.t)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, validator.StatusActive, status)
+	}
 
 	// submit create challenge tx
 	rt.txHash = challenger.ActCreateChallenge(rt.t, rt.outputIndex)
 
 	// include tx on L1
-	rt.IncludeL1Block(challenger.address)
+	rt.includeL1BlockBySender(challenger.address)
 
 	// Check whether the submission was successful
 	rt.receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.txHash)
@@ -272,17 +366,23 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator) {
 	require.NoError(rt.t, err)
 	require.NotNil(rt.t, challenge, "challenge not found")
 
-	// check pending bond amount after create challenge
-	pendingBond, err := rt.valPoolContract.GetPendingBond(nil, rt.outputIndex, challenger.address)
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, pendingBond, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt())
+	if version == defaultValidatorSystemVersion {
+		// check pending bond amount after create challenge
+		pendingBond, err := rt.valPoolContract.GetPendingBond(nil, rt.outputIndex, challenger.address)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, pendingBond, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt())
 
-	// check challenger balance decreased
-	cBal, err := rt.valPoolContract.BalanceOf(nil, challenger.address)
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, new(big.Int).Sub(new(big.Int).SetInt64(defaultDepositAmount), rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt()), cBal)
+		// check challenger balance decreased
+		cBal, err := rt.valPoolContract.BalanceOf(nil, challenger.address)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, new(big.Int).Sub(new(big.Int).SetInt64(defaultDepositAmount), rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt()), cBal)
+	}
 }
 
-func (rt *Runtime) IncludeL1Block(from common.Address) {
+func (rt *Runtime) includeL1BlockBySender(from common.Address) {
 	rt.miner.includeL1BlockBySender(rt.t, from, rt.l1BlockDelta)
+}
+
+func (rt *Runtime) includeL1BlockByTx(txHash common.Hash) {
+	rt.miner.includeL1BlockByTx(rt.t, txHash, rt.l1BlockDelta)
 }

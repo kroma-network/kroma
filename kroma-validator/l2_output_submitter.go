@@ -10,16 +10,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/optsutils"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
 )
@@ -294,7 +294,7 @@ func (l *L2OutputSubmitter) CanSubmitOutput(ctx context.Context, outputIndex *bi
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	if l.IsValPoolTerminated(outputIndex) {
-		validatorStatus, err := l.getValidatorStatus(ctx)
+		validatorStatus, err := l.GetValidatorStatus(ctx)
 		if err != nil {
 			return false, err
 		}
@@ -304,7 +304,7 @@ func (l *L2OutputSubmitter) CanSubmitOutput(ctx context.Context, outputIndex *bi
 			return false, nil
 		}
 
-		if isInJail, err := l.isInJail(ctx); err != nil {
+		if isInJail, err := l.IsInJail(ctx); err != nil {
 			return false, err
 		} else if isInJail {
 			l.log.Warn("validator is in jail")
@@ -381,7 +381,7 @@ func (l *L2OutputSubmitter) IsValPoolTerminated(outputIndex *big.Int) bool {
 	return l.cfg.ValPoolTerminationIndex.Cmp(outputIndex) < 0
 }
 
-func (l *L2OutputSubmitter) getValidatorStatus(ctx context.Context) (uint8, error) {
+func (l *L2OutputSubmitter) GetValidatorStatus(ctx context.Context) (uint8, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	validatorStatus, err := l.valManagerContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())
@@ -391,7 +391,7 @@ func (l *L2OutputSubmitter) getValidatorStatus(ctx context.Context) (uint8, erro
 	return validatorStatus, nil
 }
 
-func (l *L2OutputSubmitter) isInJail(ctx context.Context) (bool, error) {
+func (l *L2OutputSubmitter) IsInJail(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	isInJail, err := l.valManagerContract.InJail(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())

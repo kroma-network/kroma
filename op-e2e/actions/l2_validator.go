@@ -216,6 +216,20 @@ func (v *L2Validator) isValPoolTerminated(t Testing) bool {
 	return v.l2os.IsValPoolTerminated(outputIndex)
 }
 
+func (v *L2Validator) getValidatorStatus(t Testing) (uint8, error) {
+	validatorStatus, err := v.l2os.GetValidatorStatus(t.Ctx())
+	require.NoError(t, err)
+
+	return validatorStatus, err
+}
+
+func (v *L2Validator) isInJail(t Testing) (bool, error) {
+	inJail, err := v.l2os.IsInJail(t.Ctx())
+	require.NoError(t, err)
+
+	return inJail, err
+}
+
 // sendTx reimplements creating & sending transactions because we need to do the final send as async in
 // the action tests while we do it synchronously in the real system.
 func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int, data []byte, gasLimitMultiplier float64) {

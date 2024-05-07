@@ -707,7 +707,7 @@ contract Colosseum is Initializable, ISemver {
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
-            // Slash the asseter's asset and move it to pending challenge reward for the output.
+            // Slash the asserter's asset and move it to pending challenge reward for the output.
             L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, SECURITY_COUNCIL, output.submitter);
         }
     }

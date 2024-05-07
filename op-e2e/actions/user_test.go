@@ -138,12 +138,14 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 		seq.RollupClient(), miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
 
 	validator := NewL2Validator(t, log, &ValidatorCfg{
-		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorPoolAddr:   sd.DeploymentsL1.ValidatorPoolProxy,
-		ColosseumAddr:       sd.DeploymentsL1.ColosseumProxy,
-		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
-		ValidatorKey:        dp.Secrets.TrustedValidator,
-		AllowNonFinalized:   true,
+		OutputOracleAddr:     sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr:    sd.DeploymentsL1.ValidatorPoolProxy,
+		ValidatorManagerAddr: sd.DeploymentsL1.ValidatorManagerProxy,
+		AssetManagerAddr:     sd.DeploymentsL1.AssetManagerProxy,
+		ColosseumAddr:        sd.DeploymentsL1.ColosseumProxy,
+		SecurityCouncilAddr:  sd.DeploymentsL1.SecurityCouncilProxy,
+		ValidatorKey:         dp.Secrets.TrustedValidator,
+		AllowNonFinalized:    true,
 	}, miner.EthClient(), seqEngine.EthClient(), seq.RollupClient())
 
 	// need to start derivation before we can make L2 blocks
