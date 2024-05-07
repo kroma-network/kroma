@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
+	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,9 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/optsutils"
-	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
@@ -610,7 +610,7 @@ func (c *Challenger) submitChallengeTx(tx *types.Transaction) error {
 	return c.cfg.TxManager.SendTransaction(c.ctx, tx).Err
 }
 
-// CanCreateChallenge checks if challenger is in the status that can make challenge.
+// CanCreateChallenge checks if challenger is in the status that can create challenge.
 func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
@@ -621,15 +621,15 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 			return false, fmt.Errorf("failed to fetch the validator status: %w", err)
 		}
 
-		if isInJail, err := c.IsInJail(ctx); err != nil {
-			return false, err
-		} else if isInJail {
-			c.log.Warn("validator is in jail")
+		if validatorStatus != StatusActive {
+			c.log.Warn("validator is not in the status that can create a challenge", "status", validatorStatus)
 			return false, nil
 		}
 
-		if validatorStatus != StatusActive {
-			c.log.Warn("validator is not in the status that can create a challenge", "status", validatorStatus)
+		if isInJail, err := c.isInJail(ctx); err != nil {
+			return false, err
+		} else if isInJail {
+			c.log.Warn("validator is in jail")
 			return false, nil
 		}
 	} else {
@@ -658,7 +658,7 @@ func (c *Challenger) IsValPoolTerminated(outputIndex *big.Int) bool {
 	return c.cfg.ValPoolTerminationIndex.Cmp(outputIndex) < 0
 }
 
-func (c *Challenger) IsInJail(ctx context.Context) (bool, error) {
+func (c *Challenger) isInJail(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
 	from := c.cfg.TxManager.From()
