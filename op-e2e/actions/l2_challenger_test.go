@@ -22,8 +22,8 @@ var challengerTests = []struct {
 	{"ChallengeChallengerBisectTimeout", ChallengeChallengerBisectTimeout},
 	{"ChallengeChallengerProvingTimeout", ChallengeChallengerProvingTimeout},
 	{"ChallengeInvalidProofFail", ChallengeInvalidProofFail},
-	{"MultipleChallenges", MultipleChallenges},
 	{"ChallengeForceDeleteOutputBySecurityCouncil", ChallengeForceDeleteOutputBySecurityCouncil},
+	{"MultipleChallenges", MultipleChallenges},
 }
 
 // TestChallengerBatchType run each challenger-related test case in singular batch mode and span batch mode.
@@ -511,6 +511,102 @@ interaction:
 	}
 }
 
+func ChallengeForceDeleteOutputBySecurityCouncil(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
+	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
+
+	if version == defaultValidatorSystemVersion+1 {
+		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
+	}
+
+	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
+	rt.setupMaliciousValidator()
+	rt.setupHonestChallenger1()
+	rt.setupHonestGuardian()
+
+	// bind contracts
+	rt.bindContracts()
+
+	// submit outputs
+	rt.setupOutputSubmitted(version)
+
+	// create challenge
+	rt.setupChallenge(rt.challenger1, version)
+
+interaction:
+	for {
+		status, err := rt.colosseumContract.GetStatus(nil, rt.outputIndex, rt.challenger1.address)
+		require.NoError(rt.t, err)
+
+		switch status {
+		case chal.StatusChallengerTurn:
+			// call bisect by challenger
+			rt.txHash = rt.challenger1.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, false)
+			rt.includeL1BlockBySender(rt.challenger1.address)
+		case chal.StatusAsserterTurn:
+			// call bisect by validator
+			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, true)
+			rt.includeL1BlockBySender(rt.validator.address)
+		case chal.StatusChallengerTimeout:
+			rt.txHash = rt.validator.ActChallengerTimeout(rt.t, rt.outputIndex, rt.challenger1.address)
+			rt.includeL1BlockBySender(rt.validator.address)
+		case chal.StatusReadyToProve:
+			// do nothing
+			rt.miner.ActEmptyBlock(rt.t)
+		case chal.StatusNone:
+			outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
+			isEqual := rt.guardian.ActValidateL2Output(rt.t, rt.outputOnL1.OutputRoot, outputBlockNum)
+			require.False(t, isEqual)
+
+			rt.txHash = rt.guardian.ActForceDeleteOutput(rt.t, rt.outputIndex)
+			rt.includeL1BlockBySender(rt.challenger1.address)
+			break interaction
+		default:
+			break interaction
+		}
+
+		// check whether the submission was successful
+		rt.receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.txHash)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, types.ReceiptStatusSuccessful, rt.receipt.Status, "failed to progress interactive fault proof")
+	}
+
+	confirmReceipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.txHash)
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, types.ReceiptStatusSuccessful, confirmReceipt.Status, "failed to confirm")
+
+	// check output is deleted
+	remoteOutput, err := rt.outputOracleContract.GetL2Output(nil, rt.outputIndex)
+	require.NoError(rt.t, err, "unable to get l2 output")
+	outputDeleted := val.IsOutputDeleted(remoteOutput.OutputRoot)
+	require.True(rt.t, outputDeleted, "invalid output is not deleted")
+
+	// check output submitter is changed to security council
+	securityCouncilAddr, err := rt.colosseumContract.SECURITYCOUNCIL(nil)
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, remoteOutput.Submitter, securityCouncilAddr)
+
+	if version == defaultValidatorSystemVersion {
+		// check bond amount doubled after output is deleted forcefully
+		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
+	} else if version == defaultValidatorSystemVersion+1 {
+		// check asserter has been slashed
+		valStatus, err := rt.validator.getValidatorStatus(rt.t)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, val.StatusRegistered, valStatus)
+
+		inJail, err := rt.validator.isInJail(rt.t)
+		require.NoError(rt.t, err)
+		require.True(rt.t, inJail)
+
+		// check security council has received tax
+		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
+		require.NoError(rt.t, err)
+		require.True(t, bal.Uint64() > 0)
+	}
+}
+
 func MultipleChallenges(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
@@ -618,101 +714,5 @@ interaction2:
 		balance, err := rt.valPoolContract.BalanceOf(nil, rt.challenger2.address)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, balance.Int64(), int64(defaultDepositAmount))
-	}
-}
-
-func ChallengeForceDeleteOutputBySecurityCouncil(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
-	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
-
-	if version == defaultValidatorSystemVersion+1 {
-		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
-	}
-
-	rt.setTargetInvalidBlockNumber(testdata.TargetBlockNumber)
-	rt.setupMaliciousValidator()
-	rt.setupHonestChallenger1()
-	rt.setupHonestGuardian()
-
-	// bind contracts
-	rt.bindContracts()
-
-	// submit outputs
-	rt.setupOutputSubmitted(version)
-
-	// create challenge
-	rt.setupChallenge(rt.challenger1, version)
-
-interaction:
-	for {
-		status, err := rt.colosseumContract.GetStatus(nil, rt.outputIndex, rt.challenger1.address)
-		require.NoError(rt.t, err)
-
-		switch status {
-		case chal.StatusChallengerTurn:
-			// call bisect by challenger
-			rt.txHash = rt.challenger1.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, false)
-			rt.includeL1BlockBySender(rt.challenger1.address)
-		case chal.StatusAsserterTurn:
-			// call bisect by validator
-			rt.txHash = rt.validator.ActBisect(rt.t, rt.outputIndex, rt.challenger1.address, true)
-			rt.includeL1BlockBySender(rt.validator.address)
-		case chal.StatusChallengerTimeout:
-			rt.txHash = rt.validator.ActChallengerTimeout(rt.t, rt.outputIndex, rt.challenger1.address)
-			rt.includeL1BlockBySender(rt.validator.address)
-		case chal.StatusReadyToProve:
-			// do nothing
-			rt.miner.ActEmptyBlock(rt.t)
-		case chal.StatusNone:
-			outputBlockNum := rt.outputOnL1.L2BlockNumber.Uint64()
-			isEqual := rt.guardian.ActValidateL2Output(rt.t, rt.outputOnL1.OutputRoot, outputBlockNum)
-			require.False(t, isEqual)
-
-			rt.txHash = rt.guardian.ActForceDeleteOutput(rt.t, rt.outputIndex)
-			rt.includeL1BlockBySender(rt.challenger1.address)
-			break interaction
-		default:
-			break interaction
-		}
-
-		// check whether the submission was successful
-		rt.receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.txHash)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, types.ReceiptStatusSuccessful, rt.receipt.Status, "failed to progress interactive fault proof")
-	}
-
-	confirmReceipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.txHash)
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, types.ReceiptStatusSuccessful, confirmReceipt.Status, "failed to confirm")
-
-	// check output is deleted
-	remoteOutput, err := rt.outputOracleContract.GetL2Output(nil, rt.outputIndex)
-	require.NoError(rt.t, err, "unable to get l2 output")
-	outputDeleted := val.IsOutputDeleted(remoteOutput.OutputRoot)
-	require.True(rt.t, outputDeleted, "invalid output is not deleted")
-
-	// check output submitter is changed to security council
-	securityCouncilAddr, err := rt.colosseumContract.SECURITYCOUNCIL(nil)
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, remoteOutput.Submitter, securityCouncilAddr)
-
-	if version == defaultValidatorSystemVersion {
-		// check bond amount doubled after output is deleted forcefully
-		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == defaultValidatorSystemVersion+1 {
-		// check asserter has been slashed
-		valStatus, err := rt.validator.getValidatorStatus(rt.t)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, val.StatusRegistered, valStatus)
-
-		inJail, err := rt.validator.isInJail(rt.t)
-		require.NoError(rt.t, err)
-		require.True(rt.t, inJail)
-
-		// check security council has received tax
-		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
-		require.NoError(rt.t, err)
-		require.True(t, bal.Uint64() > 0)
 	}
 }
