@@ -14,8 +14,6 @@ import (
 )
 
 type (
-	ProofType int32
-
 	JsonRpcError struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
@@ -35,7 +33,7 @@ type (
 	}
 
 	ProverClient interface {
-		Prove(ctx context.Context, traceString string, proofType ProofType) (*ProveResponse, error)
+		Prove(ctx context.Context, traceString string) (*ProveResponse, error)
 	}
 
 	Fetcher struct {
@@ -66,9 +64,7 @@ func (f *Fetcher) FetchProofAndPair(ctx context.Context, trace string) (*ProofAn
 	cCtx, cCancel := context.WithTimeout(ctx, f.timeout)
 	defer cCancel()
 
-	// NOTE(0xHansLee): only ProofType_AGG(4) is used for proof.
-	// https://github.com/kroma-network/kroma-prover/blob/dev/prover-server/src/spec.rs#L10-L16
-	resp, err := f.Client.Prove(cCtx, trace, 4)
+	resp, err := f.Client.Prove(cCtx, trace)
 	if err != nil {
 		f.logger.Error("could not request fault proof", "err", err)
 		return nil, err
@@ -102,7 +98,7 @@ type JsonRPCProverClient struct {
 	address string
 }
 
-func (c JsonRPCProverClient) Prove(ctx context.Context, traceString string, proofType ProofType) (*ProveResponse, error) {
+func (c JsonRPCProverClient) Prove(ctx context.Context, traceString string) (*ProveResponse, error) {
 	reqBody := struct {
 		Jsonrpc string `json:"jsonrpc"`
 		Method  string `json:"method"`
@@ -111,7 +107,7 @@ func (c JsonRPCProverClient) Prove(ctx context.Context, traceString string, proo
 	}{
 		Jsonrpc: "2.0",
 		Method:  "prove",
-		Params:  []any{traceString, proofType},
+		Params:  []any{traceString},
 		Id:      "0",
 	}
 
