@@ -3,7 +3,6 @@ package actions
 import (
 	"context"
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"math/big"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -136,48 +136,6 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	}
 }
 
-// sendTx reimplements creating & sending transactions because we need to do the final send as async in
-// the action tests while we do it synchronously in the real system.
-func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int, data []byte, gasLimitMultiplier float64) {
-	gasTipCap := big.NewInt(2 * params.GWei)
-	pendingHeader, err := v.l1.HeaderByNumber(t.Ctx(), big.NewInt(-1))
-	require.NoError(t, err, "need l1 pending header for gas price estimation")
-	gasFeeCap := new(big.Int).Add(gasTipCap, new(big.Int).Mul(pendingHeader.BaseFee, big.NewInt(2)))
-	chainID, err := v.l1.ChainID(t.Ctx())
-	require.NoError(t, err)
-	nonce, err := v.l1.NonceAt(t.Ctx(), v.address, nil)
-	require.NoError(t, err)
-
-	gasLimit, err := v.l1.EstimateGas(t.Ctx(), ethereum.CallMsg{
-		From:      v.address,
-		To:        toAddr,
-		Value:     txValue,
-		GasFeeCap: gasFeeCap,
-		GasTipCap: gasTipCap,
-		Data:      data,
-	})
-	require.NoError(t, err)
-
-	rawTx := &types.DynamicFeeTx{
-		Nonce:     nonce,
-		To:        toAddr,
-		Value:     txValue,
-		Data:      data,
-		GasFeeCap: gasFeeCap,
-		GasTipCap: gasTipCap,
-		Gas:       uint64(float64(gasLimit) * gasLimitMultiplier),
-		ChainID:   chainID,
-	}
-
-	tx, err := types.SignNewTx(v.privKey, types.LatestSignerForChainID(chainID), rawTx)
-	require.NoError(t, err, "need to sign tx")
-
-	err = v.l1.SendTransaction(t.Ctx(), tx)
-	require.NoError(t, err, "need to send tx")
-
-	v.lastTx = tx.Hash()
-}
-
 func (v *L2Validator) CalculateWaitTime(t Testing) time.Duration {
 	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
 	require.NoError(t, err)
@@ -203,10 +161,6 @@ func (v *L2Validator) ActSubmitL2Output(t Testing) {
 	// this is non-blocking while the txmgr is blocking & deadlocks the tests.
 	// Also set gasLimitMultiplier above 1 because finalization process sets state variables from 0 to value.
 	v.sendTx(t, &v.l2ooContractAddr, common.Big0, txData, 2)
-}
-
-func (v *L2Validator) LastSubmitL2OutputTx() common.Hash {
-	return v.lastTx
 }
 
 func (v *L2Validator) ActDeposit(t Testing, depositAmount uint64) {
@@ -260,4 +214,50 @@ func (v *L2Validator) isValPoolTerminated(t Testing) bool {
 	require.NoError(t, err)
 
 	return v.l2os.IsValPoolTerminated(outputIndex)
+}
+
+// sendTx reimplements creating & sending transactions because we need to do the final send as async in
+// the action tests while we do it synchronously in the real system.
+func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int, data []byte, gasLimitMultiplier float64) {
+	gasTipCap := big.NewInt(2 * params.GWei)
+	pendingHeader, err := v.l1.HeaderByNumber(t.Ctx(), big.NewInt(-1))
+	require.NoError(t, err, "need l1 pending header for gas price estimation")
+	gasFeeCap := new(big.Int).Add(gasTipCap, new(big.Int).Mul(pendingHeader.BaseFee, big.NewInt(2)))
+	chainID, err := v.l1.ChainID(t.Ctx())
+	require.NoError(t, err)
+	nonce, err := v.l1.NonceAt(t.Ctx(), v.address, nil)
+	require.NoError(t, err)
+
+	gasLimit, err := v.l1.EstimateGas(t.Ctx(), ethereum.CallMsg{
+		From:      v.address,
+		To:        toAddr,
+		Value:     txValue,
+		GasFeeCap: gasFeeCap,
+		GasTipCap: gasTipCap,
+		Data:      data,
+	})
+	require.NoError(t, err)
+
+	rawTx := &types.DynamicFeeTx{
+		Nonce:     nonce,
+		To:        toAddr,
+		Value:     txValue,
+		Data:      data,
+		GasFeeCap: gasFeeCap,
+		GasTipCap: gasTipCap,
+		Gas:       uint64(float64(gasLimit) * gasLimitMultiplier),
+		ChainID:   chainID,
+	}
+
+	tx, err := types.SignNewTx(v.privKey, types.LatestSignerForChainID(chainID), rawTx)
+	require.NoError(t, err, "need to sign tx")
+
+	err = v.l1.SendTransaction(t.Ctx(), tx)
+	require.NoError(t, err, "need to send tx")
+
+	v.lastTx = tx.Hash()
+}
+
+func (v *L2Validator) LastSubmitL2OutputTx() common.Hash {
+	return v.lastTx
 }
