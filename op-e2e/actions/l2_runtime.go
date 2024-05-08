@@ -237,41 +237,6 @@ func (rt *Runtime) setupOutputSubmitted(version uint64) {
 	}
 }
 
-// proceedWithBlocks proceeds n blocks.
-func (rt *Runtime) proceedWithBlocks(n int) {
-	for i := 0; i < n; i++ {
-		// L1 block
-		rt.miner.ActEmptyBlock(rt.t)
-		// L2 block
-		rt.sequencer.ActL1HeadSignal(rt.t)
-		rt.sequencer.ActL2PipelineFull(rt.t)
-		rt.sequencer.ActBuildToL1Head(rt.t)
-		// submit and include in L1
-		rt.batcher.ActSubmitAll(rt.t)
-		rt.includeL1BlockBySender(rt.dp.Addresses.Batcher)
-		// finalize the first and second L1 blocks, including the batch
-		rt.miner.ActL1SafeNext(rt.t)
-		rt.miner.ActL1SafeNext(rt.t)
-		rt.miner.ActL1FinalizeNext(rt.t)
-		rt.miner.ActL1FinalizeNext(rt.t)
-		// derive and see the L2 chain fully finalize
-		rt.sequencer.ActL2PipelineFull(rt.t)
-		rt.sequencer.ActL1SafeSignal(rt.t)
-		rt.sequencer.ActL1FinalizedSignal(rt.t)
-	}
-}
-
-func (rt *Runtime) submitL2Output() {
-	// submit to L1
-	rt.validator.ActSubmitL2Output(rt.t)
-	// include output on L1
-	rt.includeL1BlockBySender(rt.validator.address)
-	// Check submission was successful
-	receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.validator.LastSubmitL2OutputTx())
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "submission failed")
-}
-
 // setupChallenge sets challenge by challenger.
 func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint64) {
 	// check that the output root that L1 stores is different from challenger's output root
@@ -354,6 +319,41 @@ func (rt *Runtime) registerToValMan(validator *L2Validator) {
 	status, err := validator.getValidatorStatus(rt.t)
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, val.StatusActive, status)
+}
+
+// proceedWithBlocks proceeds n blocks.
+func (rt *Runtime) proceedWithBlocks(n int) {
+	for i := 0; i < n; i++ {
+		// L1 block
+		rt.miner.ActEmptyBlock(rt.t)
+		// L2 block
+		rt.sequencer.ActL1HeadSignal(rt.t)
+		rt.sequencer.ActL2PipelineFull(rt.t)
+		rt.sequencer.ActBuildToL1Head(rt.t)
+		// submit and include in L1
+		rt.batcher.ActSubmitAll(rt.t)
+		rt.includeL1BlockBySender(rt.dp.Addresses.Batcher)
+		// finalize the first and second L1 blocks, including the batch
+		rt.miner.ActL1SafeNext(rt.t)
+		rt.miner.ActL1SafeNext(rt.t)
+		rt.miner.ActL1FinalizeNext(rt.t)
+		rt.miner.ActL1FinalizeNext(rt.t)
+		// derive and see the L2 chain fully finalize
+		rt.sequencer.ActL2PipelineFull(rt.t)
+		rt.sequencer.ActL1SafeSignal(rt.t)
+		rt.sequencer.ActL1FinalizedSignal(rt.t)
+	}
+}
+
+func (rt *Runtime) submitL2Output() {
+	// submit to L1
+	rt.validator.ActSubmitL2Output(rt.t)
+	// include output on L1
+	rt.includeL1BlockBySender(rt.validator.address)
+	// Check submission was successful
+	receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.validator.LastSubmitL2OutputTx())
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "submission failed")
 }
 
 func (rt *Runtime) includeL1BlockBySender(from common.Address) {
