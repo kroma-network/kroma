@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	validator "github.com/kroma-network/kroma/kroma-validator"
+	val "github.com/kroma-network/kroma/kroma-validator"
 )
 
 const (
@@ -100,61 +100,52 @@ func (rt *Runtime) setTargetInvalidBlockNumber(targetInvalidBlockNumber uint64) 
 }
 
 func (rt *Runtime) setupHonestValidator(setInvalidBlockNumber bool) {
-	rt.validator = rt.honestValidator(rt.dp.Secrets.TrustedValidator, setInvalidBlockNumber)
+	rt.validator = rt.setupValidator(rt.dp.Secrets.TrustedValidator, setInvalidBlockNumber, false)
 }
 
 func (rt *Runtime) setupMaliciousValidator() {
-	rt.validator = rt.maliciousValidator(rt.dp.Secrets.TrustedValidator)
+	rt.validator = rt.setupValidator(rt.dp.Secrets.TrustedValidator, true, true)
 }
 
 func (rt *Runtime) setupHonestChallenger1() {
-	rt.challenger1 = rt.honestValidator(rt.dp.Secrets.Challenger1, true)
+	rt.challenger1 = rt.setupValidator(rt.dp.Secrets.Challenger1, true, false)
 }
 
 func (rt *Runtime) setupHonestChallenger2() {
-	rt.challenger2 = rt.honestValidator(rt.dp.Secrets.Challenger2, true)
+	rt.challenger2 = rt.setupValidator(rt.dp.Secrets.Challenger2, true, false)
 }
 
 func (rt *Runtime) setupMaliciousChallenger1() {
-	rt.challenger1 = rt.maliciousValidator(rt.dp.Secrets.Challenger1)
+	rt.challenger1 = rt.setupValidator(rt.dp.Secrets.Challenger1, true, true)
 }
 
 func (rt *Runtime) setupMaliciousChallenger2() {
-	rt.challenger2 = rt.maliciousValidator(rt.dp.Secrets.Challenger2)
+	rt.challenger2 = rt.setupValidator(rt.dp.Secrets.Challenger2, true, true)
 }
 
 func (rt *Runtime) setupHonestGuardian() {
-	rt.guardian = rt.honestValidator(rt.dp.Secrets.Challenger1, true)
+	rt.guardian = rt.setupValidator(rt.dp.Secrets.Challenger1, true, false)
 }
 
 func (rt *Runtime) setupMaliciousGuardian() {
-	rt.guardian = rt.maliciousValidator(rt.dp.Secrets.Challenger1)
+	rt.guardian = rt.setupValidator(rt.dp.Secrets.Challenger1, true, true)
 }
 
-func (rt *Runtime) honestValidator(pk *ecdsa.PrivateKey, setInvalidBlockNumber bool) *L2Validator {
-	// setup mockup rpc for returning valid output
-	validatorRPC := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient())
-	validatorRollupClient := sources.NewRollupClient(validatorRPC)
-	validator := NewL2Validator(rt.t, rt.l, &ValidatorCfg{
-		OutputOracleAddr:     rt.sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorPoolAddr:    rt.sd.DeploymentsL1.ValidatorPoolProxy,
-		ValidatorManagerAddr: rt.sd.DeploymentsL1.ValidatorManagerProxy,
-		AssetManagerAddr:     rt.sd.DeploymentsL1.AssetManagerProxy,
-		ColosseumAddr:        rt.sd.DeploymentsL1.ColosseumProxy,
-		SecurityCouncilAddr:  rt.sd.DeploymentsL1.SecurityCouncilProxy,
-		ValidatorKey:         pk,
-		AllowNonFinalized:    false,
-	}, rt.miner.EthClient(), rt.seqEngine.EthClient(), validatorRollupClient)
-	if setInvalidBlockNumber {
+func (rt *Runtime) setupValidator(pk *ecdsa.PrivateKey, setInvalidBlockNumber bool, isMalicious bool) *L2Validator {
+	var validatorRollupClient *sources.RollupClient
+	if isMalicious {
+		// setup mockup rpc for returning invalid output
+		validatorRPC := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient())
 		validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
+		validatorRollupClient = sources.NewRollupClient(validatorRPC)
+	} else {
+		// setup mockup rpc for returning valid output
+		validatorRPC := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient())
+		if setInvalidBlockNumber {
+			validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
+		}
+		validatorRollupClient = sources.NewRollupClient(validatorRPC)
 	}
-	return validator
-}
-
-func (rt *Runtime) maliciousValidator(pk *ecdsa.PrivateKey) *L2Validator {
-	// setup mockup rpc for returning invalid output
-	validatorRPC := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient())
-	validatorRollupClient := sources.NewRollupClient(validatorRPC)
 	validator := NewL2Validator(rt.t, rt.l, &ValidatorCfg{
 		OutputOracleAddr:     rt.sd.DeploymentsL1.L2OutputOracleProxy,
 		ValidatorPoolAddr:    rt.sd.DeploymentsL1.ValidatorPoolProxy,
@@ -165,7 +156,6 @@ func (rt *Runtime) maliciousValidator(pk *ecdsa.PrivateKey) *L2Validator {
 		ValidatorKey:         pk,
 		AllowNonFinalized:    false,
 	}, rt.miner.EthClient(), rt.seqEngine.EthClient(), validatorRollupClient)
-	validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 	return validator
 }
 
@@ -232,31 +222,9 @@ func (rt *Runtime) setupOutputSubmitted(version uint64) {
 	// is introduced, the below code fix may no longer be necessary.
 	rt.proceedWithBlocks(3)
 
-	// deposit bond for validator
-	rt.validator.ActDeposit(rt.t, defaultDepositAmount)
-	rt.includeL1BlockBySender(rt.validator.address)
-
-	// check validator balance increased
-	bal, err := rt.valPoolContract.BalanceOf(nil, rt.validator.address)
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, new(big.Int).SetUint64(defaultDepositAmount), bal)
-
+	rt.depositToValPool(rt.validator)
 	if version == defaultValidatorSystemVersion+1 {
-		minActivateAmount, err := rt.valManContract.MINACTIVATEAMOUNT(nil)
-		require.NoError(rt.t, err)
-
-		// approve governance token
-		rt.validator.ActApprove(rt.t, minActivateAmount)
-		rt.includeL1BlockBySender(rt.validator.address)
-
-		// register validator
-		rt.validator.ActRegisterValidator(rt.t, minActivateAmount)
-		rt.includeL1BlockBySender(rt.validator.address)
-
-		// check validator status is active
-		status, err := rt.validator.getValidatorStatus(rt.t)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, validator.StatusActive, status)
+		rt.registerToValMan(rt.validator)
 	}
 
 	// create l2 output submission transactions until there is nothing left to submit
@@ -307,10 +275,6 @@ func (rt *Runtime) submitL2Output() {
 // setupChallenge sets challenge by challenger.
 func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint64) {
 	// check that the output root that L1 stores is different from challenger's output root
-	// NOTE(chokobole): Comment these 2 lines because of the reason above.
-	// If Proto Dank Sharding is introduced, the below code fix may be restored.
-	// block := sequencer.SyncStatus().FinalizedL2
-	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
 	targetBlockNum := big.NewInt(int64(rt.targetInvalidBlockNumber))
 	var err error
 	rt.outputIndex, err = rt.outputOracleContract.GetL2OutputIndexAfter(nil, targetBlockNum)
@@ -324,30 +288,14 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint64) {
 	require.NotEqual(rt.t, eth.Bytes32(rt.outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
 	if version == defaultValidatorSystemVersion {
-		// deposit bond for challenger
-		challenger.ActDeposit(rt.t, defaultDepositAmount)
-		rt.includeL1BlockBySender(challenger.address)
+		rt.depositToValPool(challenger)
 
 		// check bond amount before create challenge
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt(), bond.Amount)
 	} else if version == defaultValidatorSystemVersion+1 {
-		minActivateAmount, err := rt.valManContract.MINACTIVATEAMOUNT(nil)
-		require.NoError(rt.t, err)
-
-		// approve governance token
-		challenger.ActApprove(rt.t, minActivateAmount)
-		rt.includeL1BlockBySender(challenger.address)
-
-		// register validator
-		challenger.ActRegisterValidator(rt.t, minActivateAmount)
-		rt.includeL1BlockBySender(challenger.address)
-
-		// check validator status is active
-		status, err := challenger.getValidatorStatus(rt.t)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, validator.StatusActive, status)
+		rt.registerToValMan(challenger)
 	}
 
 	// submit create challenge tx
@@ -377,6 +325,35 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint64) {
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, new(big.Int).Sub(new(big.Int).SetInt64(defaultDepositAmount), rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt()), cBal)
 	}
+}
+
+func (rt *Runtime) depositToValPool(validator *L2Validator) {
+	// deposit bond for validator
+	validator.ActDeposit(rt.t, defaultDepositAmount)
+	rt.includeL1BlockBySender(validator.address)
+
+	// check validator balance increased
+	bal, err := rt.valPoolContract.BalanceOf(nil, validator.address)
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, new(big.Int).SetUint64(defaultDepositAmount), bal)
+}
+
+func (rt *Runtime) registerToValMan(validator *L2Validator) {
+	minActivateAmount, err := rt.valManContract.MINACTIVATEAMOUNT(nil)
+	require.NoError(rt.t, err)
+
+	// approve governance token
+	validator.ActApprove(rt.t, minActivateAmount)
+	rt.includeL1BlockBySender(validator.address)
+
+	// register validator
+	validator.ActRegisterValidator(rt.t, minActivateAmount)
+	rt.includeL1BlockBySender(validator.address)
+
+	// check validator status is active
+	status, err := validator.getValidatorStatus(rt.t)
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, val.StatusActive, status)
 }
 
 func (rt *Runtime) includeL1BlockBySender(from common.Address) {

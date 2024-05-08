@@ -65,9 +65,7 @@ func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 
 	rt.proceedWithBlocks(6)
 
-	// deposit bond for validator
-	rt.validator.ActDeposit(rt.t, defaultDepositAmount)
-	rt.includeL1BlockBySender(rt.validator.address)
+	rt.depositToValPool(rt.validator)
 
 	// Submit outputs to ValidatorPool until newTerminationIndex
 	for i := uint64(0); new(big.Int).SetUint64(i).Cmp(newTerminationIndex) <= 0; i++ {
@@ -78,14 +76,7 @@ func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	isValPoolTerminated := rt.validator.isValPoolTerminated(rt.t)
 	require.True(rt.t, isValPoolTerminated, "ValPool should be terminated")
 
-	// approve governance token
-	assets := new(big.Int).SetUint64(defaultDepositAmount)
-	rt.validator.ActApprove(rt.t, assets)
-	rt.includeL1BlockBySender(rt.validator.address)
-
-	// register validator
-	rt.validator.ActRegisterValidator(rt.t, assets)
-	rt.includeL1BlockBySender(rt.validator.address)
+	rt.registerToValMan(rt.validator)
 
 	// create l2 output submission transactions until there is nothing left to submit
 	submitAfterTransition := false
@@ -106,9 +97,6 @@ func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 
 // checkRightOutputSubmitted checks that L1 stored the expected output root
 func checkRightOutputSubmitted(t StatefulTesting, outputOracleContract *bindings.L2OutputOracle, sequencer *L2Sequencer, seqEngine *L2Engine) {
-	// NOTE: If Proto Dank Sharding is introduced, the below code fix may be restored.
-	// block := sequencer.SyncStatus().FinalizedL2
-	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
 	blockNum, err := outputOracleContract.LatestBlockNumber(&bind.CallOpts{})
 	require.NoError(t, err)
 	outputOnL1, err := outputOracleContract.GetL2OutputAfter(&bind.CallOpts{}, blockNum)
@@ -116,7 +104,7 @@ func checkRightOutputSubmitted(t StatefulTesting, outputOracleContract *bindings
 	block, err := seqEngine.EthClient().BlockByNumber(t.Ctx(), blockNum)
 	require.NoError(t, err)
 	require.Less(t, block.Time(), outputOnL1.Timestamp.Uint64(), "output is registered with L1 timestamp of L2 tx output submission, past L2 block")
-	outputComputed, err := sequencer.RollupClient().OutputAtBlock(t.Ctx(), blockNum.Uint64())
+	outputComputed, err := sequencer.RollupClient().OutputAtBlock(t.Ctx(), outputOnL1.L2BlockNumber.Uint64())
 	require.NoError(t, err)
 	require.Equal(t, eth.Bytes32(outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must match")
 }
