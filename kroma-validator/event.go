@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 const (
@@ -13,30 +15,21 @@ const (
 	KeyEventReadyToProve     = "ReadyToProve"
 )
 
-type ChallengeCreatedEvent struct {
-	OutputIndex *big.Int
-	Asserter    common.Address
-	Challenger  common.Address
-}
-
-func NewChallengeCreatedEvent(log types.Log) ChallengeCreatedEvent {
-	return ChallengeCreatedEvent{
+func NewChallengeCreatedEvent(log types.Log) *bindings.ColosseumChallengeCreated {
+	return &bindings.ColosseumChallengeCreated{
 		OutputIndex: new(big.Int).SetBytes(log.Topics[1][:]),
 		Asserter:    common.BytesToAddress(log.Topics[2][:]),
 		Challenger:  common.BytesToAddress(log.Topics[3][:]),
 	}
 }
 
-type OutputSubmittedEvent struct {
-	ExpectedOutputRoot string
-	OutputIndex        *big.Int
-	L2BlockNumber      *big.Int
-}
+func NewOutputSubmittedEvent(log types.Log) *bindings.L2OutputOracleOutputSubmitted {
+	var outputRoot [32]byte
+	copy(outputRoot[:], log.Topics[1][:])
 
-func NewOutputSubmittedEvent(log types.Log) OutputSubmittedEvent {
-	return OutputSubmittedEvent{
-		ExpectedOutputRoot: log.Topics[1].Hex(),
-		OutputIndex:        new(big.Int).SetBytes(log.Topics[2][:]),
-		L2BlockNumber:      new(big.Int).SetBytes(log.Topics[3][:]),
+	return &bindings.L2OutputOracleOutputSubmitted{
+		OutputRoot:    outputRoot,
+		L2OutputIndex: new(big.Int).SetBytes(log.Topics[2][:]),
+		L2BlockNumber: new(big.Int).SetBytes(log.Topics[3][:]),
 	}
 }

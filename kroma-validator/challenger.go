@@ -323,7 +323,7 @@ func (c *Challenger) scanPrevOutputs() error {
 			ev := NewOutputSubmittedEvent(vLog)
 			// handle output
 			c.wg.Add(1)
-			go c.handleOutput(ev.OutputIndex)
+			go c.handleOutput(ev.L2OutputIndex)
 		// for ChallengeCreated event
 		case c.cfg.ColosseumAddr:
 			ev := NewChallengeCreatedEvent(vLog)
