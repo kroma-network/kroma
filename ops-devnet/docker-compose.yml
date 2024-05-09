@@ -12,7 +12,7 @@ volumes:
 
 services:
   create-beacon-chain-genesis:
-    image: "gcr.io/prysmaticlabs/prysm/cmd/prysmctl:latest"
+    image: "gcr.io/prysmaticlabs/prysm/cmd/prysmctl:HEAD-ba6dff"
     command:
       - testnet
       - generate-genesis
@@ -29,7 +29,7 @@ services:
       - "${PWD}/prysm-config.yml:/config.yml"
 
   beacon-chain:
-    image: "gcr.io/prysmaticlabs/prysm/beacon-chain:latest"
+    image: "gcr.io/prysmaticlabs/prysm/beacon-chain:HEAD-ba6dff"
     command:
       - --datadir=/db/beacondata
       - --min-sync-peers=0
@@ -64,7 +64,7 @@ services:
       - "${PWD}/test-jwt-secret.txt:/test-jwt-secret.txt"
 
   validator:
-    image: "gcr.io/prysmaticlabs/prysm/validator:latest"
+    image: "gcr.io/prysmaticlabs/prysm/validator:HEAD-ba6dff"
     command:
       - --beacon-rpc-provider=beacon-chain:4000
       - --datadir=/db/validatordata
@@ -83,7 +83,7 @@ services:
       - "${PWD}/prysm-config.yml:/config.yml"
 
   l1:
-    image: "ethereum/client-go:latest"
+    image: "ethereum/client-go:v1.13.8"
     entrypoint: "/bin/sh /entrypoint.sh"
     ports:
       - "8551:8551"
