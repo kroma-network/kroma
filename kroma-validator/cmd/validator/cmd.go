@@ -84,6 +84,43 @@ func Withdraw(ctx *cli.Context) error {
 	return nil
 }
 
+func WithdrawTo(ctx *cli.Context) error {
+	address := ctx.String("address")
+	toAddr := common.HexToAddress(address)
+
+	amount := ctx.String("amount")
+	withdrawAmount, success := new(big.Int).SetString(amount, 10)
+	if !success {
+		return errors.New("failed to parse withdraw amount")
+	}
+
+	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
+	if err != nil {
+		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
+	}
+
+	txData, err := valpoolABI.Pack("withdrawTo", toAddr, withdrawAmount)
+	if err != nil {
+		return fmt.Errorf("failed to create withdrawTo transaction data: %w", err)
+	}
+
+	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
+	if err != nil {
+		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
+	}
+
+	txManager, err := newTxManager(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err = sendTransaction(txManager, valpoolAddr, txData, "0"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func Unbond(ctx *cli.Context) error {
 	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
 	if err != nil {

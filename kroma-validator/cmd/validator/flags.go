@@ -16,6 +16,12 @@ var EthAmountFlag = &cli.StringFlag{
 	Required: true,
 }
 
+var AddressFlag = &cli.StringFlag{
+	Name:     "address",
+	Usage:    "Address to receive ETH",
+	Required: true,
+}
+
 var CommissionRateFlag = &cli.Uint64Flag{
 	Name:     "commission-rate",
 	Usage:    "The commission rate earned by the validator (in percentage). Maximum 100.",

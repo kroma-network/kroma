@@ -15,7 +15,7 @@ import (
 
 var challengerTests = []struct {
 	name string
-	f    func(ft *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64)
+	f    func(ft *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8)
 }{
 	{"ChallengeBasic", ChallengeBasic},
 	{"ChallengeAsserterBisectTimeout", ChallengeAsserterBisectTimeout},
@@ -31,7 +31,7 @@ func TestChallengerBatchType(t *testing.T) {
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_SingularBatch", func(t *testing.T) {
-			test.f(t, nil, defaultValidatorSystemVersion)
+			test.f(t, nil, validatorV1)
 		})
 	}
 
@@ -39,7 +39,7 @@ func TestChallengerBatchType(t *testing.T) {
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_SpanBatch", func(t *testing.T) {
-			test.f(t, &deltaTimeOffset, defaultValidatorSystemVersion)
+			test.f(t, &deltaTimeOffset, validatorV1)
 		})
 	}
 }
@@ -49,21 +49,21 @@ func TestValidatorSystemVersion(t *testing.T) {
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_ValidatorPool", func(t *testing.T) {
-			test.f(t, nil, defaultValidatorSystemVersion)
+			test.f(t, nil, validatorV1)
 		})
 	}
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_ValidatorManager", func(t *testing.T) {
-			test.f(t, nil, defaultValidatorSystemVersion+1)
+			test.f(t, nil, validatorV2)
 		})
 	}
 }
 
-func ChallengeBasic(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
+func ChallengeBasic(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == defaultValidatorSystemVersion+1 {
+	if version == validatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -80,6 +80,13 @@ func ChallengeBasic(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint6
 
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
+
+	var beforeAsset *big.Int
+	var slashingAmount *big.Int
+	var taxAmount *big.Int
+	if version == validatorV2 {
+		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
+	}
 
 interaction:
 	for {
@@ -128,16 +135,20 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		// check bond amount doubled after challenge proven
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == defaultValidatorSystemVersion+1 {
+	} else if version == validatorV2 {
 		// check asserter has been slashed
 		valStatus, err := rt.validator.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, val.StatusRegistered, valStatus)
+
+		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.validator.address)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
 
 		inJail, err := rt.validator.isInJail(rt.t)
 		require.NoError(rt.t, err)
@@ -146,14 +157,14 @@ interaction:
 		// check security council has received tax
 		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
 		require.NoError(rt.t, err)
-		require.True(t, bal.Uint64() > 0)
+		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
 	}
 }
 
-func ChallengeAsserterBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
+func ChallengeAsserterBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == defaultValidatorSystemVersion+1 {
+	if version == validatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -170,6 +181,13 @@ func ChallengeAsserterBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint6
 
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
+
+	var beforeAsset *big.Int
+	var slashingAmount *big.Int
+	var taxAmount *big.Int
+	if version == validatorV2 {
+		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
+	}
 
 interaction:
 	for {
@@ -213,16 +231,20 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		// check bond amount doubled after challenge proven
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == defaultValidatorSystemVersion+1 {
+	} else if version == validatorV2 {
 		// check asserter has been slashed
 		valStatus, err := rt.validator.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, val.StatusRegistered, valStatus)
+
+		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.validator.address)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
 
 		inJail, err := rt.validator.isInJail(rt.t)
 		require.NoError(rt.t, err)
@@ -231,14 +253,14 @@ interaction:
 		// check security council has received tax
 		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
 		require.NoError(rt.t, err)
-		require.True(t, bal.Uint64() > 0)
+		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
 	}
 }
 
-func ChallengeChallengerBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
+func ChallengeChallengerBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == defaultValidatorSystemVersion+1 {
+	if version == validatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -254,6 +276,13 @@ func ChallengeChallengerBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uin
 
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
+
+	var beforeAsset *big.Int
+	var slashingAmount *big.Int
+	var taxAmount *big.Int
+	if version == validatorV2 {
+		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.challenger1.address)
+	}
 
 interaction:
 	for {
@@ -296,16 +325,20 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		// check bond amount doubled after challenger timed out
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == defaultValidatorSystemVersion+1 {
+	} else if version == validatorV2 {
 		// check challenger has been slashed
 		valStatus, err := rt.challenger1.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, val.StatusRegistered, valStatus)
+
+		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.challenger1.address)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
 
 		inJail, err := rt.challenger1.isInJail(rt.t)
 		require.NoError(rt.t, err)
@@ -314,14 +347,14 @@ interaction:
 		// check security council has received tax
 		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
 		require.NoError(rt.t, err)
-		require.True(t, bal.Uint64() > 0)
+		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
 	}
 }
 
-func ChallengeChallengerProvingTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
+func ChallengeChallengerProvingTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == defaultValidatorSystemVersion+1 {
+	if version == validatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -337,6 +370,13 @@ func ChallengeChallengerProvingTimeout(t *testing.T, deltaTimeOffset *hexutil.Ui
 
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
+
+	var beforeAsset *big.Int
+	var slashingAmount *big.Int
+	var taxAmount *big.Int
+	if version == validatorV2 {
+		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.challenger1.address)
+	}
 
 interaction:
 	for {
@@ -383,16 +423,20 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		// check bond amount doubled after challenger timed out
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == defaultValidatorSystemVersion+1 {
+	} else if version == validatorV2 {
 		// check challenger has been slashed
 		valStatus, err := rt.challenger1.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, val.StatusRegistered, valStatus)
+
+		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.challenger1.address)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
 
 		inJail, err := rt.challenger1.isInJail(rt.t)
 		require.NoError(rt.t, err)
@@ -401,14 +445,14 @@ interaction:
 		// check security council has received tax
 		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
 		require.NoError(rt.t, err)
-		require.True(t, bal.Uint64() > 0)
+		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
 	}
 }
 
-func ChallengeInvalidProofFail(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
+func ChallengeInvalidProofFail(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == defaultValidatorSystemVersion+1 {
+	if version == validatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -425,6 +469,13 @@ func ChallengeInvalidProofFail(t *testing.T, deltaTimeOffset *hexutil.Uint64, ve
 
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
+
+	var taxAmount *big.Int
+	if version == validatorV2 {
+		// if the challenger proves fault with invalid proof, asserter will be slashed
+		// after security council dismisses the challenge, the slashed asset should be handled manually
+		_, _, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
+	}
 
 interaction:
 	for {
@@ -493,12 +544,12 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		// check bond amount doubled after challenge is proven incorrectly anyway
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == defaultValidatorSystemVersion+1 {
+	} else if version == validatorV2 {
 		// check asserter has been unjailed by guardian
 		inJail, err := rt.validator.isInJail(rt.t)
 		require.NoError(rt.t, err)
@@ -507,14 +558,14 @@ interaction:
 		// check security council has received tax
 		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
 		require.NoError(rt.t, err)
-		require.True(t, bal.Uint64() > 0)
+		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
 	}
 }
 
-func ChallengeForceDeleteOutputBySecurityCouncil(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
+func ChallengeForceDeleteOutputBySecurityCouncil(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == defaultValidatorSystemVersion+1 {
+	if version == validatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -531,6 +582,13 @@ func ChallengeForceDeleteOutputBySecurityCouncil(t *testing.T, deltaTimeOffset *
 
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
+
+	var beforeAsset *big.Int
+	var slashingAmount *big.Int
+	var taxAmount *big.Int
+	if version == validatorV2 {
+		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
+	}
 
 interaction:
 	for {
@@ -585,12 +643,12 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, remoteOutput.Submitter, securityCouncilAddr)
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		// check bond amount doubled after output is deleted forcefully
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == defaultValidatorSystemVersion+1 {
+	} else if version == validatorV2 {
 		// check asserter has been slashed
 		valStatus, err := rt.validator.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
@@ -600,17 +658,21 @@ interaction:
 		require.NoError(rt.t, err)
 		require.True(rt.t, inJail)
 
-		// check security council has received tax
+		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.validator.address)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
+
+		// check security council has received tax (in this case, tax is double: challenger timeout and force delete output)
 		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
 		require.NoError(rt.t, err)
-		require.True(t, bal.Uint64() > 0)
+		require.Equal(t, taxAmount.Uint64()*2, bal.Uint64())
 	}
 }
 
-func MultipleChallenges(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint64) {
+func MultipleChallenges(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == defaultValidatorSystemVersion+1 {
+	if version == validatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -673,7 +735,7 @@ interaction1:
 	// check output submitter is changed to challenger
 	require.Equal(rt.t, remoteOutput.Submitter, rt.challenger1.address)
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		// check pending bond amount before challenge is canceled
 		balance, err := rt.valPoolContract.BalanceOf(nil, rt.challenger2.address)
 		require.NoError(rt.t, err)
@@ -709,7 +771,7 @@ interaction2:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		// check pending bond amount refunded after challenge canceled
 		balance, err := rt.valPoolContract.BalanceOf(nil, rt.challenger2.address)
 		require.NoError(rt.t, err)

@@ -5,13 +5,13 @@ import (
 	"math/big"
 	"testing"
 
-	e2e "github.com/ethereum-optimism/optimism/op-e2e"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -20,9 +20,11 @@ import (
 	val "github.com/kroma-network/kroma/kroma-validator"
 )
 
+const defaultDepositAmount = 1_000
+
 const (
-	defaultDepositAmount          = 1_000
-	defaultValidatorSystemVersion = 1
+	validatorV1 uint8 = iota
+	validatorV2
 )
 
 var defaultValPoolTerminationIndex = common.Big2
@@ -55,6 +57,7 @@ type Runtime struct {
 	securityCouncilContract  *bindings.SecurityCouncil
 	valPoolContract          *bindings.ValidatorPoolCaller
 	valManContract           *bindings.ValidatorManagerCaller
+	assetManContract         *bindings.AssetManagerCaller
 	assetTokenContract       *bindings.GovernanceTokenCaller
 	targetInvalidBlockNumber uint64
 	outputIndex              *big.Int
@@ -70,7 +73,6 @@ type SetupSequencerTestFunc = func(t Testing, sd *e2eutils.SetupData, log log.Lo
 func defaultRuntime(gt *testing.T, setupSequencerTest SetupSequencerTestFunc, deltaTimeOffset *hexutil.Uint64) Runtime {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
-	dp.DeployConfig.ColosseumDummyHash = common.HexToHash(e2e.DummyHashDev)
 	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	l := testlog.Logger(t, log.LvlDebug)
@@ -177,9 +179,10 @@ func (rt *Runtime) bindContracts() {
 	rt.valManContract, err = bindings.NewValidatorManagerCaller(rt.sd.DeploymentsL1.ValidatorManagerProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
-	assetManContract, err := bindings.NewAssetManagerCaller(rt.sd.DeploymentsL1.AssetManagerProxy, rt.miner.EthClient())
+	rt.assetManContract, err = bindings.NewAssetManagerCaller(rt.sd.DeploymentsL1.AssetManagerProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
-	assetTokenAddr, err := assetManContract.ASSETTOKEN(nil)
+
+	assetTokenAddr, err := rt.assetManContract.ASSETTOKEN(nil)
 	require.NoError(rt.t, err)
 	rt.assetTokenContract, err = bindings.NewGovernanceTokenCaller(assetTokenAddr, rt.miner.EthClient())
 	require.NoError(rt.t, err)
@@ -213,7 +216,7 @@ func (rt *Runtime) assertRedeployValPoolToTerminate(newTerminationIndex *big.Int
 }
 
 // setupOutputSubmitted sets output submission by validator.
-func (rt *Runtime) setupOutputSubmitted(version uint64) {
+func (rt *Runtime) setupOutputSubmitted(version uint8) {
 	// NOTE(chokobole): It is necessary to wait for one finalized (or safe if AllowNonFinalized
 	// config is set) block to pass after each submission interval before submitting the output
 	// root. For example, if the submission interval is set to 1800 blocks, the output root can
@@ -223,7 +226,7 @@ func (rt *Runtime) setupOutputSubmitted(version uint64) {
 	rt.proceedWithBlocks(3)
 
 	rt.depositToValPool(rt.validator)
-	if version == defaultValidatorSystemVersion+1 {
+	if version == validatorV2 {
 		rt.registerToValMan(rt.validator)
 	}
 
@@ -238,7 +241,7 @@ func (rt *Runtime) setupOutputSubmitted(version uint64) {
 }
 
 // setupChallenge sets challenge by challenger.
-func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint64) {
+func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 	// check that the output root that L1 stores is different from challenger's output root
 	targetBlockNum := big.NewInt(int64(rt.targetInvalidBlockNumber))
 	var err error
@@ -252,14 +255,14 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint64) {
 	outputComputed := challenger.fetchOutput(rt.t, rt.outputOnL1.L2BlockNumber)
 	require.NotEqual(rt.t, eth.Bytes32(rt.outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		rt.depositToValPool(challenger)
 
 		// check bond amount before create challenge
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt(), bond.Amount)
-	} else if version == defaultValidatorSystemVersion+1 {
+	} else if version == validatorV2 {
 		rt.registerToValMan(challenger)
 	}
 
@@ -279,7 +282,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint64) {
 	require.NoError(rt.t, err)
 	require.NotNil(rt.t, challenge, "challenge not found")
 
-	if version == defaultValidatorSystemVersion {
+	if version == validatorV1 {
 		// check pending bond amount after create challenge
 		pendingBond, err := rt.valPoolContract.GetPendingBond(nil, rt.outputIndex, challenger.address)
 		require.NoError(rt.t, err)
@@ -354,6 +357,27 @@ func (rt *Runtime) submitL2Output() {
 	receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), rt.validator.LastSubmitL2OutputTx())
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "submission failed")
+}
+
+func (rt *Runtime) fetchChallengeAssets(loser common.Address) (*big.Int, *big.Int, *big.Int) {
+	slashingRate, err := rt.assetManContract.SLASHINGRATE(nil)
+	require.NoError(rt.t, err)
+	slashingRateDenom, err := rt.assetManContract.SLASHINGRATEDENOM(nil)
+	require.NoError(rt.t, err)
+	taxRate, err := rt.assetManContract.TAXNUMERATOR(nil)
+	require.NoError(rt.t, err)
+	taxDenom, err := rt.assetManContract.TAXDENOMINATOR(nil)
+	require.NoError(rt.t, err)
+	minSlashingAmount, err := rt.assetManContract.MINSLASHINGAMOUNT(nil)
+	require.NoError(rt.t, err)
+	totalAsset, err := rt.assetManContract.TotalKroAssets(nil, loser)
+	require.NoError(rt.t, err)
+
+	slashingAmount := new(big.Int).Div(new(big.Int).Mul(totalAsset, slashingRate), slashingRateDenom)
+	slashingAmount = math.BigMax(slashingAmount, minSlashingAmount)
+	taxAmount := new(big.Int).Div(new(big.Int).Mul(slashingAmount, taxRate), taxDenom)
+
+	return totalAsset, slashingAmount, taxAmount
 }
 
 func (rt *Runtime) includeL1BlockBySender(from common.Address) {
