@@ -45,6 +45,13 @@ func main() {
 			Action:      cmd.Withdraw,
 		},
 		{
+			Name:        "withdrawTo",
+			Usage:       "Withdraw ETH from ValidatorPool to specific address",
+			Description: "This command will be deprecated in a future release of validator system V2. You can still use this command to withdraw your asset from the ValidatorPool to specific address.",
+			Flags:       []cli.Flag{cmd.AddressFlag, cmd.EthAmountFlag},
+			Action:      cmd.WithdrawTo,
+		},
+		{
 			Name:        "unbond",
 			Usage:       "Attempt to unbond in ValidatorPool",
 			Description: "This command will be deprecated in a future release of validator system V2. You can still use this command to unbond your asset from the ValidatorPool.",
