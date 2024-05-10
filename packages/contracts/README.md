@@ -1,39 +1,39 @@
 # Kroma Smart Contracts
 
 This package contains the smart contracts that compose the on-chain component of Kroma.
-You can find detailed specifications for the contracts contained within this package [here](../../specs).
+You can find detailed specifications for the contracts contained within this package [here](https://specs.kroma.network).
 
 ## Contracts Overview
 
 ### Contracts deployed to L1
 
-| Name                                                                                             | Proxy Type                                 | Description |
-|--------------------------------------------------------------------------------------------------|--------------------------------------------|-------------|
-| [`L1CrossDomainMessenger`](../../specs/messengers.md)                                            | [`Proxy`](./contracts/universal/Proxy.sol) |             |
-| High-level interface for sending messages to and receiving messages from Kroma                   |                                            |             |
-| [`L1StandardBridge`](../../specs/bridges.md)                                                     | [`Proxy`](./contracts/universal/Proxy.sol) |             |
-| Standardized system for transfering ERC20 tokens to/from Kroma                                   |                                            |             |
-| [`L2OutputOracle`](../../specs/validator.md#l2-output-oracle-smart-contract)                     | [`Proxy`](./contracts/universal/Proxy.sol) |             |
-| Stores commitments to the state of Kroma which can be used by contracts on L1 to access L2 state |                                            |             |
-| [`KromaPortal`](../../specs/deposits.md#deposit-contract)                                        | [`Proxy`](./contracts/universal/Proxy.sol) |             |
-| Low-level message passing interface                                                              |                                            |             |
-| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory)               | [`Proxy`](./contracts/universal/Proxy.sol) |             |
-| Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge`    |                                            |             |
-| [`ProxyAdmin`](../../specs/TODO)                                                                 | -                                          |             |
-| Contract that can upgrade L1 contracts                                                           |                                            |             |
+| Name                                                                                                          | Proxy Type                                 | Description |
+|---------------------------------------------------------------------------------------------------------------|--------------------------------------------|-------------|
+| [`L1CrossDomainMessenger`](https://specs.kroma.network/protocol/messengers.html)                              | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| High-level interface for sending messages to and receiving messages from Kroma                                |                                            |             |
+| [`L1StandardBridge`](https://specs.kroma.network/protocol/bridges.html)                                       | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| Standardized system for transfering ERC20 tokens to/from Kroma                                                |                                            |             |
+| [`L2OutputOracle`](https://specs.kroma.network/protocol/validator.html#l2-output-oracle-smart-contract)       | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| Stores commitments to the state of Kroma which can be used by contracts on L1 to access L2 state              |                                            |             |
+| [`KromaPortal`](https://specs.kroma.network/protocol/deposits.html#deposit-contract)                          | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| Low-level message passing interface                                                                           |                                            |             |
+| [`KromaMintableERC20Factory`](https://specs.kroma.network/protocol/predeploys.html#kromamintableerc20factory) | [`Proxy`](./contracts/universal/Proxy.sol) |             |
+| Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge`                 |                                            |             |
+| [`ProxyAdmin`](https://specs.kroma.network/protocol/predeploys.html#proxyadmin)                               | -                                          |             |
+| Contract that can upgrade L1 contracts                                                                        |                                            |             |
 
 ### Contracts deployed to L2
 
-| Name                                                                               | Proxy Type                                 | Description                                                                                   |
-|------------------------------------------------------------------------------------|--------------------------------------------|-----------------------------------------------------------------------------------------------|
-| [`GasPriceOracle`](../../specs/predeploys.md#gaspriceoracle)                       | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L2 gas price configuration values                                                      |
-| [`L1Block`](../../specs/predeploys.md#l1block)                                     | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L1 block context information (e.g., latest known L1 block hash)                        |
-| [`L2CrossDomainMessenger`](../../specs/predeploys.md#l2crossdomainmessenger)       | [`Proxy`](./contracts/universal/Proxy.sol) | High-level interface for sending messages to and receiving messages from L1                   |
-| [`L2StandardBridge`](../../specs/predeploys.md#l2standardbridge)                   | [`Proxy`](./contracts/universal/Proxy.sol) | Standardized system for transferring ERC20 tokens to/from L1                                  |
-| [`L2ToL1MessagePasser`](../../specs/predeploys.md#l2tol1messagepasser)             | [`Proxy`](./contracts/universal/Proxy.sol) | Low-level message passing interface                                                           |
-| [`ValidatorRewardVault`](../../specs/predeploys.md#validatorrewardvault)           | [`Proxy`](./contracts/universal/Proxy.sol) | Vault for L2 transaction fees                                                                 |
-| [`KromaMintableERC20Factory`](../../specs/predeploys.md#KromaMintableerc20factory) | [`Proxy`](./contracts/universal/Proxy.sol) | Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge` |
-| [`L2ProxyAdmin`](../../specs/TODO)                                                 | -                                          | Contract that can upgrade L2 contracts when sent a transaction from L1                        |
+| Name                                                                                                          | Proxy Type                                 | Description                                                                                   |
+|---------------------------------------------------------------------------------------------------------------|--------------------------------------------|-----------------------------------------------------------------------------------------------|
+| [`GasPriceOracle`](https://specs.kroma.network/protocol/predeploys.html#gaspriceoracle)                       | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L2 gas price configuration values                                                      |
+| [`L1Block`](https://specs.kroma.network/protocol/predeploys.html#l1block)                                     | [`Proxy`](./contracts/universal/Proxy.sol) | Stores L1 block context information (e.g., latest known L1 block hash)                        |
+| [`L2CrossDomainMessenger`](https://specs.kroma.network/protocol/predeploys.html#l2crossdomainmessenger)       | [`Proxy`](./contracts/universal/Proxy.sol) | High-level interface for sending messages to and receiving messages from L1                   |
+| [`L2StandardBridge`](https://specs.kroma.network/protocol/predeploys.html#l2standardbridge)                   | [`Proxy`](./contracts/universal/Proxy.sol) | Standardized system for transferring ERC20 tokens to/from L1                                  |
+| [`L2ToL1MessagePasser`](https://specs.kroma.network/protocol/predeploys.html#l2tol1messagepasser)             | [`Proxy`](./contracts/universal/Proxy.sol) | Low-level message passing interface                                                           |
+| [`ValidatorRewardVault`](https://specs.kroma.network/protocol/predeploys.html#validatorrewardvault)           | [`Proxy`](./contracts/universal/Proxy.sol) | Vault for L2 transaction fees                                                                 |
+| [`KromaMintableERC20Factory`](https://specs.kroma.network/protocol/predeploys.html#kromamintableerc20factory) | [`Proxy`](./contracts/universal/Proxy.sol) | Deploys standard `KromaMintableERC20` tokens that are compatible with either `StandardBridge` |
+| [`L2ProxyAdmin`](https://specs.kroma.network/protocol/predeploys.html#proxyadmin)                             | -                                          | Contract that can upgrade L2 contracts when sent a transaction from L1                        |
 
 ## Installation
 
@@ -53,7 +53,7 @@ We work on this repository with a combination of [Hardhat](https://hardhat.org) 
    A specific version must be used.
 
    ```shell
-   > foundryup --version nightly-d369d2486f85576eec4ca41d277391dfdae21ba7
+   > foundryup --version nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9
    ```
 
 2. Install node modules with pnpm and Node.js:

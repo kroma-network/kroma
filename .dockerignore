@@ -10,7 +10,6 @@ e2e
 
 node_modules
 packages/
-specs/
 test
 tests/testdata
 

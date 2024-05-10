@@ -252,12 +252,8 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 		return defaultWaitTime
 	}
 
-	canSubmitOutput, err := l.CanSubmitOutput(ctx, outputIndex)
-	if err != nil {
+	if err = l.assertCanSubmitOutput(ctx, outputIndex); err != nil {
 		l.log.Error("failed to check the validator can submit output", "err", err)
-		return defaultWaitTime
-	}
-	if !canSubmitOutput {
 		return defaultWaitTime
 	}
 
@@ -289,31 +285,31 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 	return 0
 }
 
-// CanSubmitOutput checks if the validator satisfies the condition to submit L2Output.
-func (l *L2OutputSubmitter) CanSubmitOutput(ctx context.Context, outputIndex *big.Int) (bool, error) {
+// assertCanSubmitOutput asserts that the validator satisfies the condition to submit L2Output.
+func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputIndex *big.Int) error {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	if l.IsValPoolTerminated(outputIndex) {
 		validatorStatus, err := l.GetValidatorStatus(ctx)
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		if validatorStatus != StatusActive {
 			l.log.Warn("validator is not in the status to submit output", "currentStatus", validatorStatus)
-			return false, nil
+			return nil
 		}
 
 		if isInJail, err := l.IsInJail(ctx); err != nil {
-			return false, err
+			return err
 		} else if isInJail {
 			l.log.Warn("validator is in jail")
-			return false, nil
+			return nil
 		}
 	} else {
 		balance, err := l.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
+			return fmt.Errorf("failed to fetch deposit amount: %w", err)
 		}
 		l.metr.RecordDepositAmount(balance)
 
@@ -323,13 +319,13 @@ func (l *L2OutputSubmitter) CanSubmitOutput(ctx context.Context, outputIndex *bi
 				"requiredBondAmount", l.requiredBondAmount,
 				"deposit", balance,
 			)
-			return false, nil
+			return nil
 		}
 
 		l.log.Info("deposit amount and bond amount", "deposit", balance, "bond", l.requiredBondAmount)
 	}
 
-	return true, nil
+	return nil
 }
 
 func (l *L2OutputSubmitter) FetchNextOutputIndex(ctx context.Context) (*big.Int, error) {

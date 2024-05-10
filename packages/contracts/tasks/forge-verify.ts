@@ -132,9 +132,9 @@ task('forge-contract-verify', 'Verify contracts using forge')
         continue
       }
 
-      const contractName = Object.values(
+      const contractName = Object.entries(
         metadata.settings.compilationTarget
-      )[0].toString()
+      )[0].join(':')
       const compilerVersion = metadata.compiler.version
 
       const iface = new ethers.utils.Interface(deployment.abi)
