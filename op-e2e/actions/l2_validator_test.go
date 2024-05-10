@@ -76,7 +76,7 @@ func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	isValPoolTerminated := rt.validator.isValPoolTerminated(rt.t)
 	require.True(rt.t, isValPoolTerminated, "ValPool should be terminated")
 
-	rt.registerToValMan(rt.validator)
+	rt.registerToValMgr(rt.validator)
 
 	// create l2 output submission transactions until there is nothing left to submit
 	submitAfterTransition := false

@@ -43,12 +43,12 @@ type Challenger struct {
 	l1Client *ethclient.Client
 	l2Client *ethclient.Client
 
-	l2OOContract       *bindings.L2OutputOracle
-	l2OOABI            *abi.ABI
-	colosseumContract  *bindings.Colosseum
-	colosseumABI       *abi.ABI
-	valPoolContract    *bindings.ValidatorPoolCaller
-	valManagerContract *bindings.ValidatorManagerCaller
+	l2OOContract      *bindings.L2OutputOracle
+	l2OOABI           *abi.ABI
+	colosseumContract *bindings.Colosseum
+	colosseumABI      *abi.ABI
+	valPoolContract   *bindings.ValidatorPoolCaller
+	valMgrContract    *bindings.ValidatorManagerCaller
 
 	submissionInterval        *big.Int
 	finalizationPeriodSeconds *big.Int
@@ -91,7 +91,7 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		return nil, err
 	}
 
-	valManagerContract, err := bindings.NewValidatorManagerCaller(cfg.ValidatorManagerAddr, cfg.L1Client)
+	valMgrContract, err := bindings.NewValidatorManagerCaller(cfg.ValidatorManagerAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
@@ -104,12 +104,12 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		l1Client: cfg.L1Client,
 		l2Client: cfg.L2Client,
 
-		l2OOContract:       l2OOContract,
-		l2OOABI:            l2OOABI,
-		colosseumContract:  colosseumContract,
-		colosseumABI:       colosseumABI,
-		valPoolContract:    valPoolContract,
-		valManagerContract: valManagerContract,
+		l2OOContract:      l2OOContract,
+		l2OOABI:           l2OOABI,
+		colosseumContract: colosseumContract,
+		colosseumABI:      colosseumABI,
+		valPoolContract:   valPoolContract,
+		valMgrContract:    valMgrContract,
 	}, nil
 }
 
@@ -616,7 +616,7 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 	defer cCancel()
 	from := c.cfg.TxManager.From()
 	if c.IsValPoolTerminated(outputIndex) {
-		validatorStatus, err := c.valManagerContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), from)
+		validatorStatus, err := c.valMgrContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch the validator status: %w", err)
 		}
@@ -662,7 +662,7 @@ func (c *Challenger) isInJail(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
 	from := c.cfg.TxManager.From()
-	isInJail, err := c.valManagerContract.InJail(optsutils.NewSimpleCallOpts(cCtx), from)
+	isInJail, err := c.valMgrContract.InJail(optsutils.NewSimpleCallOpts(cCtx), from)
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch the jail status: %w", err)
 	}

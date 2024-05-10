@@ -207,8 +207,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     ValidatorPool poolImpl;
     AssetManager assetMan;
     AssetManager assetManImpl;
-    ValidatorManager valMan;
-    ValidatorManager valManImpl;
+    ValidatorManager valMgr;
+    ValidatorManager valMgrImpl;
     L2OutputOracle oracle;
     L2OutputOracle oracleImpl;
     Colosseum colosseum;
@@ -293,8 +293,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         vm.label(address(pool), "ValidatorPool");
         assetMan = AssetManager(address(new Proxy(multisig)));
         vm.label(address(assetMan), "AssetManager");
-        valMan = ValidatorManager(address(new Proxy(multisig)));
-        vm.label(address(valMan), "ValidatorManager");
+        valMgr = ValidatorManager(address(new Proxy(multisig)));
+        vm.label(address(valMgr), "ValidatorManager");
         oracle = L2OutputOracle(address(new Proxy(multisig)));
         vm.label(address(oracle), "L2OutputOracle");
 
@@ -338,7 +338,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _kgh: IERC721(kgh),
             _kghManager: IKGHManager(kghManager),
             _securityCouncil: guardian,
-            _validatorManager: valMan,
+            _validatorManager: valMgr,
             _undelegationPeriod: uint128(undelegationPeriod),
             _slashingRate: slashingRate,
             _minSlashingAmount: minSlashingAmount
@@ -358,7 +358,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _minRegisterAmount: minRegisterAmount,
             _minActivateAmount: minActivateAmount
         });
-        valManImpl = new ValidatorManager({ _constructorParams: constructorParams });
+        valMgrImpl = new ValidatorManager({ _constructorParams: constructorParams });
 
         // By default the first block has timestamp and number zero, which will cause underflows in
         // the tests, so we'll move forward to these block values.
@@ -368,7 +368,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         // Deploy the L2OutputOracle
         oracleImpl = new L2OutputOracle({
             _validatorPool: pool,
-            _validatorManager: valMan,
+            _validatorManager: valMgr,
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
@@ -387,7 +387,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         Proxy(payable(address(assetMan))).upgradeTo(address(assetManImpl));
 
         vm.prank(multisig);
-        Proxy(payable(address(valMan))).upgradeTo(address(valManImpl));
+        Proxy(payable(address(valMgr))).upgradeTo(address(valMgrImpl));
 
         vm.prank(multisig);
         Proxy(payable(address(oracle))).upgradeToAndCall(
@@ -404,7 +404,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     function _registerValidator(address validator, uint128 assets) internal {
         vm.startPrank(validator);
         assetToken.approve(address(assetMan), uint256(assets));
-        valMan.registerValidator(assets, 10, 5);
+        valMgr.registerValidator(assets, 10, 5);
         vm.stopPrank();
     }
 
@@ -420,7 +420,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
         if (!isPublicRound) {
-            vm.prank(valMan.nextValidator());
+            vm.prank(valMgr.nextValidator());
         }
         oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
     }
@@ -437,7 +437,7 @@ contract ValidatorSystemUpgrade_Initializer is L2OutputOracle_Initializer {
         // Deploy L2OutputOracle with new arguments
         oracleImpl = new L2OutputOracle({
             _validatorPool: pool,
-            _validatorManager: valMan,
+            _validatorManager: valMgr,
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,

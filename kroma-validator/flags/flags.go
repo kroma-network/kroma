@@ -59,11 +59,11 @@ var (
 		Required: true,
 		EnvVars:  prefixEnvVars("VALPOOL_ADDRESS"),
 	}
-	ValManagerAddressFlag = &cli.StringFlag{
-		Name:     "valmanager-address",
+	ValMgrAddressFlag = &cli.StringFlag{
+		Name:     "valmgr-address",
 		Usage:    "Address of the ValidatorManager contract",
 		Required: true,
-		EnvVars:  prefixEnvVars("VALMANAGER_ADDRESS"),
+		EnvVars:  prefixEnvVars("VALMGR_ADDRESS"),
 	}
 	AssetManagerAddressFlag = &cli.StringFlag{
 		Name:     "assetmanager-address",
@@ -144,7 +144,7 @@ var requiredFlags = []cli.Flag{
 	L2OOAddressFlag,
 	ColosseumAddressFlag,
 	ValPoolAddressFlag,
-	ValManagerAddressFlag,
+	ValMgrAddressFlag,
 	AssetManagerAddressFlag,
 	OutputSubmitterEnabledFlag,
 	ChallengerEnabledFlag,

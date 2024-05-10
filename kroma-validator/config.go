@@ -87,8 +87,8 @@ type CLIConfig struct {
 	// ValPoolAddress is the ValidatorPool contract address.
 	ValPoolAddress string
 
-	// ValManagerAddress is the ValidatorManager contract address.
-	ValManagerAddress string
+	// ValMgrAddress is the ValidatorManager contract address.
+	ValMgrAddress string
 
 	// AssetManagerAddress is the AssetManager contract address.
 	AssetManagerAddress string
@@ -158,7 +158,7 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		L2OOAddress:            ctx.String(flags.L2OOAddressFlag.Name),
 		ColosseumAddress:       ctx.String(flags.ColosseumAddressFlag.Name),
 		ValPoolAddress:         ctx.String(flags.ValPoolAddressFlag.Name),
-		ValManagerAddress:      ctx.String(flags.ValManagerAddressFlag.Name),
+		ValMgrAddress:          ctx.String(flags.ValMgrAddressFlag.Name),
 		AssetManagerAddress:    ctx.String(flags.AssetManagerAddressFlag.Name),
 		OutputSubmitterEnabled: ctx.Bool(flags.OutputSubmitterEnabledFlag.Name),
 		ChallengerEnabled:      ctx.Bool(flags.ChallengerEnabledFlag.Name),
@@ -206,7 +206,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
-	valManagerAddress, err := opservice.ParseAddress(cfg.ValManagerAddress)
+	valMgrAddress, err := opservice.ParseAddress(cfg.ValMgrAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +272,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		SecurityCouncilAddr:             securityCouncilAddress,
 		ValidatorPoolAddr:               valPoolAddress,
 		ValPoolTerminationIndex:         valPoolTerminationIndex,
-		ValidatorManagerAddr:            valManagerAddress,
+		ValidatorManagerAddr:            valMgrAddress,
 		AssetManagerAddr:                assetManagerAddress,
 		ChallengerPollInterval:          cfg.ChallengerPollInterval,
 		NetworkTimeout:                  cfg.TxMgrConfig.NetworkTimeout,

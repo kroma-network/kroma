@@ -61,9 +61,9 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, deployments.ValidatorPoolProxy, valPoolAddr)
 
-	valManAddr, err := oracle.VALIDATORMANAGER(callOpts)
+	valMgrAddr, err := oracle.VALIDATORMANAGER(callOpts)
 	require.NoError(t, err)
-	require.Equal(t, deployments.ValidatorManagerProxy, valManAddr)
+	require.Equal(t, deployments.ValidatorManagerProxy, valMgrAddr)
 
 	colosseumAddr, err := oracle.COLOSSEUM(callOpts)
 	require.NoError(t, err)

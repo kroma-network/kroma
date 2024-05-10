@@ -174,22 +174,22 @@ func Register(ctx *cli.Context) error {
 	commissionRate := uint8(ctx.Uint64("commission-rate"))
 	commissionMaxChangeRate := uint8(ctx.Uint64("commission-max-change-rate"))
 
-	valManagerAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
+	valMgrAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
 	if err != nil {
 		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
 	}
 
-	txData, err := valManagerAbi.Pack("registerValidator", assets, commissionRate, commissionMaxChangeRate)
+	txData, err := valMgrAbi.Pack("registerValidator", assets, commissionRate, commissionMaxChangeRate)
 	if err != nil {
 		return fmt.Errorf("failed to create register validator transaction data: %w", err)
 	}
 
-	valManagerAddr, err := opservice.ParseAddress(ctx.String(flags.ValManagerAddressFlag.Name))
+	valMgrAddr, err := opservice.ParseAddress(ctx.String(flags.ValMgrAddressFlag.Name))
 	if err != nil {
 		return fmt.Errorf("failed to parse ValidatorManager address: %w", err)
 	}
 
-	if err = sendTransaction(txManager, valManagerAddr, txData, "0"); err != nil {
+	if err = sendTransaction(txManager, valMgrAddr, txData, "0"); err != nil {
 		return err
 	}
 
@@ -197,17 +197,17 @@ func Register(ctx *cli.Context) error {
 }
 
 func Activate(ctx *cli.Context) error {
-	valManagerAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
+	valMgrAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
 	if err != nil {
 		return fmt.Errorf("failed to get ValidatorManager ABI: %w", err)
 	}
 
-	txData, err := valManagerAbi.Pack("activateValidator")
+	txData, err := valMgrAbi.Pack("activateValidator")
 	if err != nil {
 		return fmt.Errorf("failed to create activate transaction data: %w", err)
 	}
 
-	valManagerAddr, err := opservice.ParseAddress(ctx.String(flags.ValManagerAddressFlag.Name))
+	valMgrAddr, err := opservice.ParseAddress(ctx.String(flags.ValMgrAddressFlag.Name))
 	if err != nil {
 		return fmt.Errorf("failed to parse ValidatorManager address: %w", err)
 	}
@@ -217,7 +217,7 @@ func Activate(ctx *cli.Context) error {
 		return err
 	}
 
-	if err = sendTransaction(txManager, valManagerAddr, txData, "0"); err != nil {
+	if err = sendTransaction(txManager, valMgrAddr, txData, "0"); err != nil {
 		return err
 	}
 
@@ -225,7 +225,7 @@ func Activate(ctx *cli.Context) error {
 }
 
 func Unjail(ctx *cli.Context) error {
-	valManagerAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
+	valMgrAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
 	if err != nil {
 		return fmt.Errorf("failed to get ValidatorManager ABI: %w", err)
 	}
@@ -236,17 +236,17 @@ func Unjail(ctx *cli.Context) error {
 	}
 	validatorAddr := txManager.Config.From
 
-	txData, err := valManagerAbi.Pack("tryUnjail", validatorAddr, false)
+	txData, err := valMgrAbi.Pack("tryUnjail", validatorAddr, false)
 	if err != nil {
 		return fmt.Errorf("failed to create try unjail transaction data: %w", err)
 	}
 
-	valManagerAddr, err := opservice.ParseAddress(ctx.String(flags.ValManagerAddressFlag.Name))
+	valMgrAddr, err := opservice.ParseAddress(ctx.String(flags.ValMgrAddressFlag.Name))
 	if err != nil {
 		return fmt.Errorf("failed to parse ValidatorManager address: %w", err)
 	}
 
-	if err = sendTransaction(txManager, valManagerAddr, txData, "0"); err != nil {
+	if err = sendTransaction(txManager, valMgrAddr, txData, "0"); err != nil {
 		return err
 	}
 
@@ -261,22 +261,22 @@ func ChangeCommissionRate(ctx *cli.Context) error {
 		return err
 	}
 
-	valManagerAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
+	valMgrAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
 	if err != nil {
 		return fmt.Errorf("failed to get ValidatorManager ABI: %w", err)
 	}
 
-	txData, err := valManagerAbi.Pack("changeCommissionRate", commissionRate)
+	txData, err := valMgrAbi.Pack("changeCommissionRate", commissionRate)
 	if err != nil {
 		return fmt.Errorf("failed to create change commission rate transaction data: %w", err)
 	}
 
-	valManagerAddr, err := opservice.ParseAddress(ctx.String(flags.ValManagerAddressFlag.Name))
+	valMgrAddr, err := opservice.ParseAddress(ctx.String(flags.ValMgrAddressFlag.Name))
 	if err != nil {
 		return fmt.Errorf("failed to parse ValidatorManager address: %w", err)
 	}
 
-	if err = sendTransaction(txManager, valManagerAddr, txData, "0"); err != nil {
+	if err = sendTransaction(txManager, valMgrAddr, txData, "0"); err != nil {
 		return err
 	}
 

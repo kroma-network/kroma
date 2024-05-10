@@ -56,7 +56,7 @@ type Runtime struct {
 	colosseumContract        *bindings.Colosseum
 	securityCouncilContract  *bindings.SecurityCouncil
 	valPoolContract          *bindings.ValidatorPoolCaller
-	valManContract           *bindings.ValidatorManagerCaller
+	valMgrContract           *bindings.ValidatorManagerCaller
 	assetManContract         *bindings.AssetManagerCaller
 	assetTokenContract       *bindings.GovernanceTokenCaller
 	targetInvalidBlockNumber uint64
@@ -176,7 +176,7 @@ func (rt *Runtime) bindContracts() {
 	rt.valPoolContract, err = bindings.NewValidatorPoolCaller(rt.sd.DeploymentsL1.ValidatorPoolProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
-	rt.valManContract, err = bindings.NewValidatorManagerCaller(rt.sd.DeploymentsL1.ValidatorManagerProxy, rt.miner.EthClient())
+	rt.valMgrContract, err = bindings.NewValidatorManagerCaller(rt.sd.DeploymentsL1.ValidatorManagerProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
 	rt.assetManContract, err = bindings.NewAssetManagerCaller(rt.sd.DeploymentsL1.AssetManagerProxy, rt.miner.EthClient())
@@ -227,7 +227,7 @@ func (rt *Runtime) setupOutputSubmitted(version uint8) {
 
 	rt.depositToValPool(rt.validator)
 	if version == validatorV2 {
-		rt.registerToValMan(rt.validator)
+		rt.registerToValMgr(rt.validator)
 	}
 
 	// create l2 output submission transactions until there is nothing left to submit
@@ -263,7 +263,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt(), bond.Amount)
 	} else if version == validatorV2 {
-		rt.registerToValMan(challenger)
+		rt.registerToValMgr(challenger)
 	}
 
 	// submit create challenge tx
@@ -306,8 +306,8 @@ func (rt *Runtime) depositToValPool(validator *L2Validator) {
 	require.Equal(rt.t, new(big.Int).SetUint64(defaultDepositAmount), bal)
 }
 
-func (rt *Runtime) registerToValMan(validator *L2Validator) {
-	minActivateAmount, err := rt.valManContract.MINACTIVATEAMOUNT(nil)
+func (rt *Runtime) registerToValMgr(validator *L2Validator) {
+	minActivateAmount, err := rt.valMgrContract.MINACTIVATEAMOUNT(nil)
 	require.NoError(rt.t, err)
 
 	// approve governance token

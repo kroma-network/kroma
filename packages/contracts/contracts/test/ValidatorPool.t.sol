@@ -111,7 +111,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         address oracleAddress = address(oracle);
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
             pool,
-            valMan,
+            valMgr,
             address(colosseum),
             submissionInterval,
             l2BlockTime,
@@ -767,7 +767,7 @@ contract ValidatorPool_SystemUpgrade_Test is ValidatorSystemUpgrade_Initializer 
         address oracleAddress = address(oracle);
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
             pool,
-            valMan,
+            valMgr,
             address(colosseum),
             submissionInterval,
             l2BlockTime,

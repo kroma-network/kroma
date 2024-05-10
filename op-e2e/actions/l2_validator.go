@@ -48,7 +48,7 @@ type L2Validator struct {
 	privKey                  *ecdsa.PrivateKey
 	l2ooContractAddr         common.Address
 	valPoolContractAddr      common.Address
-	valManagerContractAddr   common.Address
+	valMgrContractAddr       common.Address
 	assetManagerContractAddr common.Address
 	lastTx                   common.Hash
 	cfg                      *validator.Config
@@ -130,7 +130,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		privKey:                  cfg.ValidatorKey,
 		l2ooContractAddr:         cfg.OutputOracleAddr,
 		valPoolContractAddr:      cfg.ValidatorPoolAddr,
-		valManagerContractAddr:   cfg.ValidatorManagerAddr,
+		valMgrContractAddr:       cfg.ValidatorManagerAddr,
 		assetManagerContractAddr: cfg.AssetManagerAddr,
 		cfg:                      &validatorCfg,
 	}
@@ -174,10 +174,10 @@ func (v *L2Validator) ActDeposit(t Testing, depositAmount uint64) {
 }
 
 func (v *L2Validator) ActRegisterValidator(t Testing, assets *big.Int) {
-	valManagerABI, err := bindings.ValidatorManagerMetaData.GetAbi()
+	valMgrABI, err := bindings.ValidatorManagerMetaData.GetAbi()
 	require.NoError(t, err)
 
-	txData, err := valManagerABI.Pack(
+	txData, err := valMgrABI.Pack(
 		"registerValidator",
 		assets,
 		uint8(10),
@@ -185,7 +185,7 @@ func (v *L2Validator) ActRegisterValidator(t Testing, assets *big.Int) {
 	)
 	require.NoError(t, err)
 
-	v.sendTx(t, &v.valManagerContractAddr, common.Big0, txData, 1)
+	v.sendTx(t, &v.valMgrContractAddr, common.Big0, txData, 1)
 }
 
 func (v *L2Validator) ActApprove(t Testing, assets *big.Int) {
