@@ -164,6 +164,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			"batcher":    testlog.Logger(t, log.LevelInfo).New("role", "batcher"),
 			"validator":  testlog.Logger(t, log.LevelCrit).New("role", "validator"),
 			"challenger": testlog.Logger(t, log.LevelCrit).New("role", "challenger"),
+			"guardian":   testlog.Logger(t, log.LevelCrit).New("role", "guardian"),
 		},
 		GethOptions:            map[string][]geth.GethOption{},
 		P2PTopology:            nil, // no P2P connectivity by default
@@ -246,9 +247,9 @@ type SystemConfig struct {
 	MaxPendingTransactions uint64
 
 	// [Kroma: START]
-	// TODO(0xHansLee): temporal flag for malicious validator. If it is set true, the validator acts as a malicious one
-	EnableMaliciousValidator bool
-	EnableGuardian           bool
+	// EnableChallenge enables challenge setup, the validator will act as a malicious one and
+	// the challenger and guardian will act as honest parties.
+	EnableChallenge bool
 	// [Kroma: END]
 }
 
@@ -301,6 +302,7 @@ type System struct {
 	RollupNodes    map[string]*rollupNode.OpNode
 	Validator      *validator.Validator
 	Challenger     *validator.Validator
+	Guardian       *validator.Validator
 	BatchSubmitter *bss.BatcherService
 	Mocknet        mocknet.Mocknet
 
@@ -421,6 +423,12 @@ func (sys *System) Close() {
 	if sys.Challenger != nil {
 		if err := sys.Challenger.Stop(); err != nil {
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop Challenger: %w", err))
+		}
+	}
+
+	if sys.Guardian != nil {
+		if err := sys.Guardian.Stop(); err != nil {
+			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop Guardian: %w", err))
 		}
 	}
 	// [Kroma: END]
@@ -814,7 +822,6 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		AllowNonFinalized:               cfg.NonFinalizedOutputs,
 		OutputSubmitterRetryInterval:    50 * time.Millisecond,
 		OutputSubmitterRoundBuffer:      30,
-		ChallengerEnabled:               false,
 		OutputSubmitterEnabled:          true,
 		OutputSubmitterAllowPublicRound: true,
 		SecurityCouncilAddress:          config.L1Deployments.SecurityCouncilProxy.Hex(),
@@ -845,8 +852,8 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	validatorCfg.RollupClient = sources.NewRollupClient(validatorMaliciousL2RPC)
 	validatorCfg.L2Client = sys.Clients["sequencer"]
 
-	// If malicious validator is turned on, set target block number for submitting invalid output
-	if cfg.EnableMaliciousValidator {
+	// For challenge setup, set target block number for submitting invalid output
+	if cfg.EnableChallenge {
 		validatorMaliciousL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 	}
 
@@ -872,10 +879,9 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		ChallengerPollInterval: 500 * time.Millisecond,
 		ProverRPC:              "http://0.0.0.0:0",
 		TxMgrConfig:            newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
-		OutputSubmitterEnabled: false,
+		AllowNonFinalized:      cfg.NonFinalizedOutputs,
 		ChallengerEnabled:      true,
 		SecurityCouncilAddress: config.L1Deployments.SecurityCouncilProxy.Hex(),
-		GuardianEnabled:        cfg.EnableGuardian,
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
@@ -897,8 +903,8 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	challengerCfg.RollupClient = sources.NewRollupClient(challengerHonestL2RPC)
 	challengerCfg.L2Client = sys.Clients["sequencer"]
 
-	// If malicious validator is turned on, set target block number for challenge
-	if cfg.EnableMaliciousValidator {
+	// For challenge setup, set target block number for submitting invalid output
+	if cfg.EnableChallenge {
 		challengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 	}
 
@@ -911,6 +917,57 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 	if err := sys.Challenger.Start(); err != nil {
 		return nil, fmt.Errorf("unable to start challenger: %w", err)
+	}
+
+	// Run validator node (Guardian)
+	guardianCliCfg := validator.CLIConfig{
+		L1EthRpc:               sys.EthInstances["l1"].WSEndpoint(),
+		L2EthRpc:               sys.EthInstances["sequencer"].HTTPEndpoint(),
+		RollupRpc:              sys.RollupNodes["sequencer"].HTTPEndpoint(),
+		L2OOAddress:            config.L1Deployments.L2OutputOracleProxy.Hex(),
+		ColosseumAddress:       config.L1Deployments.ColosseumProxy.Hex(),
+		ValPoolAddress:         config.L1Deployments.ValidatorPoolProxy.Hex(),
+		ValMgrAddress:          config.L1Deployments.ValidatorManagerProxy.Hex(),
+		AssetManagerAddress:    config.L1Deployments.AssetManagerProxy.Hex(),
+		TxMgrConfig:            newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Guardian),
+		AllowNonFinalized:      cfg.NonFinalizedOutputs,
+		SecurityCouncilAddress: config.L1Deployments.SecurityCouncilProxy.Hex(),
+		GuardianEnabled:        true,
+		LogConfig: oplog.CLIConfig{
+			Level:  log.LevelInfo,
+			Format: oplog.FormatText,
+		},
+	}
+
+	guardianCfg, err := validator.NewValidatorConfig(guardianCliCfg, sys.Cfg.Loggers["guardian"], validatormetrics.NoopMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init guardian config: %w", err)
+	}
+
+	// Replace to mock RPC client
+	cl, err = rpc.DialHTTP(guardianCliCfg.RollupRpc)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init guardian rollup rpc client: %w", err)
+	}
+	rpcCl = client.NewBaseRPCClient(cl)
+	guardianHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
+	guardianCfg.RollupClient = sources.NewRollupClient(guardianHonestL2RPC)
+	guardianCfg.L2Client = sys.Clients["sequencer"]
+
+	// For challenge setup, set target block number for submitting invalid output
+	if cfg.EnableChallenge {
+		guardianHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
+	}
+
+	// Replace to mock fetcher
+	guardianCfg.ProofFetcher = e2eutils.NewFetcher(sys.Cfg.Loggers["guardian"], "./testdata/proof")
+	sys.Guardian, err = validator.NewValidator(*guardianCfg, sys.Cfg.Loggers["guardian"], validatormetrics.NoopMetrics)
+	if err != nil {
+		return nil, fmt.Errorf("unable to setup guardian: %w", err)
+	}
+
+	if err := sys.Guardian.Start(); err != nil {
+		return nil, fmt.Errorf("unable to start guardian: %w", err)
 	}
 
 	var batchType uint = derive.SingularBatchType

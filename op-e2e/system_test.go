@@ -1487,8 +1487,7 @@ func TestChallenge(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
-	cfg.EnableMaliciousValidator = true
-	cfg.EnableGuardian = true
+	cfg.EnableChallenge = true
 
 	sys, err := cfg.Start(t)
 	require.NoError(t, err, "Error starting up system")
@@ -1582,6 +1581,116 @@ func TestChallenge(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestChallengerTimeoutByGuardian(t *testing.T) {
+	InitParallel(t)
+
+	cfg := DefaultSystemConfig(t)
+	cfg.EnableChallenge = true
+
+	sys, err := cfg.Start(t)
+	require.NoError(t, err, "Error starting up system")
+	defer sys.Close()
+
+	l1Client := sys.Clients["l1"]
+
+	// deposit to ValidatorPool to be a challenger
+	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.Challenger1, big.NewInt(1_000_000_000))
+	require.NoError(t, err, "Error challenger deposit to ValidatorPool")
+
+	// OutputOracle is already deployed
+	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
+	require.NoError(t, err)
+
+	// Colosseum is already deployed
+	colosseum, err := bindings.NewColosseumCaller(cfg.L1Deployments.ColosseumProxy, l1Client)
+	require.NoError(t, err)
+
+	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
+
+	// set a timeout for waiting creation period of challenge to end
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("Timed out for challenger timeout by guardian test")
+		default:
+			nextOutputIndex, err := l2OutputOracle.NextOutputIndex(&bind.CallOpts{})
+			require.NoError(t, err)
+
+			// wait until target output is submitted
+			if nextOutputIndex.Uint64() <= targetOutputOracleIndex {
+				continue
+			}
+
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), cfg.Secrets.Addresses().Challenger1)
+			require.NoError(t, err)
+
+			// wait until challenge is created
+			if challengeStatus == chal.StatusNone {
+				continue
+			} else {
+				if sys.Challenger != nil {
+					// stop challenger to make the status to ChallengerTimeout
+					if err := sys.Challenger.Stop(); err != nil {
+						t.Fatalf("Failed to stop challenger")
+					}
+					sys.Challenger = nil
+				}
+				if sys.Validator != nil {
+					// stop asserter not to call challenger timeout
+					if err := sys.Validator.Stop(); err != nil {
+						t.Fatalf("Failed to stop validator")
+					}
+					sys.Validator = nil
+				}
+			}
+
+			inCreationPeriod, err := colosseum.IsInCreationPeriod(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
+			require.NoError(t, err)
+
+			// wait until creation period is ended
+			if inCreationPeriod {
+				continue
+			}
+
+			challengeStatus, err = colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), cfg.Secrets.Addresses().Challenger1)
+			require.NoError(t, err)
+
+			// assert that asserter didn't call challenger timeout
+			if challengeStatus != chal.StatusChallengerTimeout {
+				continue
+			}
+		}
+		break
+	}
+	cancel()
+
+	// set a timeout for security council to call challenger timeout
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("Timed out for challenger timeout by guardian test")
+		default:
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), cfg.Secrets.Addresses().Challenger1)
+			require.NoError(t, err)
+
+			// after challenger timeout is called, status is NONE
+			if challengeStatus != chal.StatusNone {
+				continue
+			}
+		}
+		break
 	}
 }
 

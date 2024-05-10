@@ -126,11 +126,11 @@ func (rt *Runtime) setupMaliciousChallenger2() {
 }
 
 func (rt *Runtime) setupHonestGuardian() {
-	rt.guardian = rt.setupValidator(rt.dp.Secrets.Challenger1, true, false)
+	rt.guardian = rt.setupValidator(rt.dp.Secrets.Guardian, true, false)
 }
 
 func (rt *Runtime) setupMaliciousGuardian() {
-	rt.guardian = rt.setupValidator(rt.dp.Secrets.Challenger1, true, true)
+	rt.guardian = rt.setupValidator(rt.dp.Secrets.Guardian, true, true)
 }
 
 func (rt *Runtime) setupValidator(pk *ecdsa.PrivateKey, setInvalidBlockNumber bool, isMalicious bool) *L2Validator {

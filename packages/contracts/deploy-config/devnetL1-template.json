@@ -59,8 +59,7 @@
   "assetManagerMinSlashingAmount": "0x5",
   "securityCouncilOwners": [
     "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
-    "0xFABB0ac9d68B0B445fB7357272Ff202C5651694a"
+    "0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec"
   ],
   "governorVotingDelayBlocks": 0,
   "governorVotingPeriodBlocks": 100,
@@ -69,7 +68,7 @@
   "timeLockMinDelaySeconds": 1,
   "l2GovernorVotingPeriodBlocks": 150,
   "l2TimeLockMinDelaySeconds": 300,
-  "colosseumCreationPeriodSeconds": 60,
+  "colosseumCreationPeriodSeconds": 100,
   "colosseumBisectionTimeout": 30,
   "colosseumProvingTimeout": 30,
   "colosseumDummyHash": "0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7",
