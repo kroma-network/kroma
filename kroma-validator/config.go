@@ -231,7 +231,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	var fetcher ProofFetcher
-	if cfg.ChallengerEnabled {
+	if len(cfg.ProverRPC) > 0 {
 		fetcher, err = chal.NewFetcher(cfg.ProverRPC, cfg.FetchingProofTimeout, l)
 		if err != nil {
 			return nil, err

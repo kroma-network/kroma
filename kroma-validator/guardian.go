@@ -208,7 +208,7 @@ func (g *Guardian) scanPrevChallenges() {
 		default:
 			status, err := g.cfg.RollupClient.SyncStatus(g.ctx)
 			if err != nil {
-				g.log.Error("failed to get sync status: %w", err)
+				g.log.Error("failed to get sync status", "err", err)
 				continue
 			}
 
@@ -231,12 +231,16 @@ func (g *Guardian) scanPrevChallenges() {
 
 			logs, err := g.cfg.L1Client.FilterLogs(g.ctx, query)
 			if err != nil {
-				g.log.Error("failed to get event logs related to challenge creation: %w", err)
+				g.log.Error("failed to get event logs related to challenge creation", "err", err)
 				continue
 			}
 
 			for _, vLog := range logs {
-				ev := NewChallengeCreatedEvent(vLog)
+				ev, err := NewChallengeCreatedEvent(vLog)
+				if err != nil {
+					g.log.Error("failed to parse challenge created event", "err", err)
+					continue
+				}
 				g.wg.Add(1)
 				go g.processChallengerTimeout(ev)
 			}
@@ -409,7 +413,7 @@ func (g *Guardian) subscriptionLoop() {
 	}
 }
 
-// processOutputValidation validates deleted outputs and sends confirm txs when multi sig tx that requires confirmation is created.
+// processOutputValidation validates the deleted output and sends confirm tx when multi sig tx that requires confirmation is created.
 func (g *Guardian) processOutputValidation(event *bindings.SecurityCouncilValidationRequested) {
 	g.log.Info("processing validation of the deleted output", "l2BlockNumber", event.L2BlockNumber, "outputRoot", event.OutputRoot, "transactionId", event.TransactionId)
 
@@ -433,7 +437,7 @@ func (g *Guardian) processOutputValidation(event *bindings.SecurityCouncilValida
 	}
 }
 
-// processOutputDeletion validates requested outputs and sends confirm txs when multi sig tx that requires confirmation is created.
+// processOutputDeletion validates the requested output deletion and sends confirm tx when multi sig tx that requires confirmation is created.
 func (g *Guardian) processOutputDeletion(event *bindings.SecurityCouncilDeletionRequested) {
 	g.log.Info("processing validation of the output to be deleted", "outputIndex", event.OutputIndex, "transactionId", event.TransactionId)
 
@@ -616,7 +620,7 @@ func (g *Guardian) isInGuardianPeriod(outputIndex *big.Int) (inGuardianPeriod bo
 	}
 	// outputs that have been finalized are not target
 	if isFinalized {
-		g.log.Info("the output is finalized, no need to handling", "outputIndex", outputIndex)
+		g.log.Info("the output is finalized, no need to handle", "outputIndex", outputIndex)
 		return false, false, nil
 	}
 

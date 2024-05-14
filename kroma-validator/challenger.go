@@ -320,13 +320,21 @@ func (c *Challenger) scanPrevOutputs() error {
 		switch vLog.Address {
 		// for OutputSubmitted event
 		case c.cfg.L2OutputOracleAddr:
-			ev := NewOutputSubmittedEvent(vLog)
+			ev, err := NewOutputSubmittedEvent(vLog)
+			if err != nil {
+				c.log.Error("failed to parse output submitted event", "err", err)
+				continue
+			}
 			// handle output
 			c.wg.Add(1)
 			go c.handleOutput(ev.L2OutputIndex)
 		// for ChallengeCreated event
 		case c.cfg.ColosseumAddr:
-			ev := NewChallengeCreatedEvent(vLog)
+			ev, err := NewChallengeCreatedEvent(vLog)
+			if err != nil {
+				c.log.Error("failed to parse challenge created event", "err", err)
+				continue
+			}
 			if ev.OutputIndex.Sign() == 1 && c.isRelatedChallenge(ev.Asserter, ev.Challenger) {
 				c.wg.Add(1)
 				go c.handleChallenge(ev.OutputIndex, ev.Asserter, ev.Challenger)
