@@ -60,5 +60,5 @@ jobs:
 
       - name: Run tests
         env:
-          OP_E2E_DISABLE_PARALLEL: true
+          OP_E2E_DISABLE_PARALLEL: false
         run: make test
