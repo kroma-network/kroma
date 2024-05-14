@@ -195,7 +195,7 @@ func (g *Guardian) initSub() {
 
 // scanPrevChallenges scans all the previous challenges before current L1 block within the finalization window to handle challenger timeout.
 func (g *Guardian) scanPrevChallenges() {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(g.cfg.GuardianPollInterval)
 	defer func() {
 		ticker.Stop()
 		g.wg.Done()
@@ -251,7 +251,7 @@ func (g *Guardian) scanPrevChallenges() {
 func (g *Guardian) inspectorLoop() {
 	defer g.wg.Done()
 
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(g.cfg.GuardianPollInterval)
 	defer ticker.Stop()
 
 	for ; ; <-ticker.C {
@@ -341,7 +341,7 @@ func (g *Guardian) inspectOutput(outputIndex, fromBlock, toBlock *big.Int) {
 	g.log.Info("inspect output if there is an undeniable bug", "outputIndex", outputIndex)
 	defer g.wg.Done()
 
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(g.cfg.GuardianPollInterval)
 	defer ticker.Stop()
 
 	for ; ; <-ticker.C {

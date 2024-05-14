@@ -6,11 +6,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
-
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
@@ -21,6 +16,11 @@ import (
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
+
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
@@ -51,6 +51,7 @@ type Config struct {
 	OutputSubmitterRoundBuffer      uint64
 	ChallengerEnabled               bool
 	GuardianEnabled                 bool
+	GuardianPollInterval            time.Duration
 	ProofFetcher                    ProofFetcher
 }
 
@@ -117,6 +118,9 @@ type CLIConfig struct {
 
 	GuardianEnabled bool
 
+	// GuardianPollInterval is how frequently to poll L1 for inspection.
+	GuardianPollInterval time.Duration
+
 	FetchingProofTimeout time.Duration
 
 	TxMgrConfig   txmgr.CLIConfig
@@ -173,6 +177,7 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		SecurityCouncilAddress:          ctx.String(flags.SecurityCouncilAddressFlag.Name),
 		ProverRPC:                       ctx.String(flags.ProverRPCFlag.Name),
 		GuardianEnabled:                 ctx.Bool(flags.GuardianEnabledFlag.Name),
+		GuardianPollInterval:            ctx.Duration(flags.GuardianPollIntervalFlag.Name),
 		FetchingProofTimeout:            ctx.Duration(flags.FetchingProofTimeoutFlag.Name),
 		RPCConfig:                       oprpc.ReadCLIConfig(ctx),
 		LogConfig:                       oplog.ReadCLIConfig(ctx),
@@ -226,7 +231,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	var fetcher ProofFetcher
-	if len(cfg.ProverRPC) > 0 {
+	if cfg.ChallengerEnabled {
 		fetcher, err = chal.NewFetcher(cfg.ProverRPC, cfg.FetchingProofTimeout, l)
 		if err != nil {
 			return nil, err
@@ -275,6 +280,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		ValidatorManagerAddr:            valMgrAddress,
 		AssetManagerAddr:                assetManagerAddress,
 		ChallengerPollInterval:          cfg.ChallengerPollInterval,
+		GuardianPollInterval:            cfg.GuardianPollInterval,
 		NetworkTimeout:                  cfg.TxMgrConfig.NetworkTimeout,
 		TxManager:                       txManager,
 		L1Client:                        l1Client,

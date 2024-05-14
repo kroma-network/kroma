@@ -824,7 +824,6 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		OutputSubmitterRoundBuffer:      30,
 		OutputSubmitterEnabled:          true,
 		OutputSubmitterAllowPublicRound: true,
-		SecurityCouncilAddress:          config.L1Deployments.SecurityCouncilProxy.Hex(),
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
@@ -881,7 +880,6 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		TxMgrConfig:            newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
 		AllowNonFinalized:      cfg.NonFinalizedOutputs,
 		ChallengerEnabled:      true,
-		SecurityCouncilAddress: config.L1Deployments.SecurityCouncilProxy.Hex(),
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
@@ -929,10 +927,11 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		ValPoolAddress:         config.L1Deployments.ValidatorPoolProxy.Hex(),
 		ValMgrAddress:          config.L1Deployments.ValidatorManagerProxy.Hex(),
 		AssetManagerAddress:    config.L1Deployments.AssetManagerProxy.Hex(),
+		SecurityCouncilAddress: config.L1Deployments.SecurityCouncilProxy.Hex(),
 		TxMgrConfig:            newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Guardian),
 		AllowNonFinalized:      cfg.NonFinalizedOutputs,
-		SecurityCouncilAddress: config.L1Deployments.SecurityCouncilProxy.Hex(),
 		GuardianEnabled:        true,
+		GuardianPollInterval:   time.Second,
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
@@ -959,8 +958,6 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		guardianHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 	}
 
-	// Replace to mock fetcher
-	guardianCfg.ProofFetcher = e2eutils.NewFetcher(sys.Cfg.Loggers["guardian"], "./testdata/proof")
 	sys.Guardian, err = validator.NewValidator(*guardianCfg, sys.Cfg.Loggers["guardian"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup guardian: %w", err)
