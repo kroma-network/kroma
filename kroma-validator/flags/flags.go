@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/urfave/cli/v2"
-
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
 	oppprof "github.com/ethereum-optimism/optimism/op-service/oppprof"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/urfave/cli/v2"
 )
 
 const EnvVarPrefix = "VALIDATOR"
@@ -59,11 +58,11 @@ var (
 		Required: true,
 		EnvVars:  prefixEnvVars("VALPOOL_ADDRESS"),
 	}
-	ValManagerAddressFlag = &cli.StringFlag{
-		Name:     "valmanager-address",
+	ValMgrAddressFlag = &cli.StringFlag{
+		Name:     "valmgr-address",
 		Usage:    "Address of the ValidatorManager contract",
 		Required: true,
-		EnvVars:  prefixEnvVars("VALMANAGER_ADDRESS"),
+		EnvVars:  prefixEnvVars("VALMGR_ADDRESS"),
 	}
 	AssetManagerAddressFlag = &cli.StringFlag{
 		Name:     "assetmanager-address",
@@ -129,6 +128,12 @@ var (
 		Usage:   "Enable guardian",
 		EnvVars: prefixEnvVars("GUARDIAN_ENABLED"),
 	}
+	GuardianPollIntervalFlag = &cli.DurationFlag{
+		Name:    "guardian.poll-interval",
+		Usage:   "Poll interval for guardian inspection",
+		EnvVars: prefixEnvVars("GUARDIAN_POLL_INTERVAL"),
+		Value:   time.Minute,
+	}
 	FetchingProofTimeoutFlag = &cli.DurationFlag{
 		Name:    "fetching-proof-timeout",
 		Usage:   "Duration we will wait to fetching proof",
@@ -144,7 +149,7 @@ var requiredFlags = []cli.Flag{
 	L2OOAddressFlag,
 	ColosseumAddressFlag,
 	ValPoolAddressFlag,
-	ValManagerAddressFlag,
+	ValMgrAddressFlag,
 	AssetManagerAddressFlag,
 	OutputSubmitterEnabledFlag,
 	ChallengerEnabledFlag,
@@ -159,6 +164,7 @@ var optionalFlags = []cli.Flag{
 	ProverRPCFlag,
 	SecurityCouncilAddressFlag,
 	GuardianEnabledFlag,
+	GuardianPollIntervalFlag,
 	FetchingProofTimeoutFlag,
 }
 

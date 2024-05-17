@@ -119,7 +119,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
 
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
             pool,
-            valMan,
+            valMgr,
             address(colosseum),
             submissionInterval,
             l2BlockTime,
@@ -137,7 +137,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
             kgh,
             kghManager,
             address(guardian),
-            valMan,
+            valMgr,
             uint128(undelegationPeriod),
             slashingRate,
             minSlashingAmount
@@ -175,7 +175,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(validator);
         kro.approve(address(assetManager), kroAmount);
         // Self delegation
-        valMan.registerValidator(kroAmount, 0, 10);
+        valMgr.registerValidator(kroAmount, 0, 10);
         vm.stopPrank();
 
         vm.startPrank(delegator);
@@ -190,7 +190,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(validator);
         kro.approve(address(assetManager), 100e18);
         // Self delegation
-        valMan.registerValidator(100e18, 0, 0);
+        valMgr.registerValidator(100e18, 0, 0);
         vm.stopPrank();
 
         kgh.mint(delegator, tokenId);
@@ -205,7 +205,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         kro.transfer(address(validator), 100e18);
         vm.startPrank(validator);
         kro.approve(address(assetManager), 100e18);
-        valMan.registerValidator(100e18, 0, 10);
+        valMgr.registerValidator(100e18, 0, 10);
         vm.stopPrank();
 
         uint256[] memory tokenIds = new uint256[](kghCounts);
@@ -226,7 +226,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(address(assetManager.KGH()), address(kgh));
         assertEq(address(assetManager.KGH_MANAGER()), address(kghManager));
         assertEq(assetManager.SECURITY_COUNCIL(), address(guardian));
-        assertEq(address(assetManager.VALIDATOR_MANAGER()), address(valMan));
+        assertEq(address(assetManager.VALIDATOR_MANAGER()), address(valMgr));
         assertEq(assetManager.UNDELEGATION_PERIOD(), undelegationPeriod);
         assertEq(assetManager.SLASHING_RATE(), slashingRate);
         assertEq(assetManager.MIN_SLASHING_AMOUNT(), minSlashingAmount);
@@ -239,7 +239,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
             kgh,
             kghManager,
             address(guardian),
-            valMan,
+            valMgr,
             uint128(undelegationPeriod),
             1001,
             minSlashingAmount
@@ -250,7 +250,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         _setUpKroDelegation(100e18);
 
         assertEq(assetManager.totalKroAssets(validator), 200e18);
-        assertEq(valMan.getWeight(validator), 200e18);
+        assertEq(valMgr.getWeight(validator), 200e18);
     }
 
     function test_delegate_withoutValidatorDelegation_reverts() external {
@@ -264,7 +264,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(kroShares, 1e26);
         assertEq(kghShares, 1e26);
         assertEq(assetManager.totalKghAssets(validator), VKRO_PER_KGH);
-        assertEq(valMan.getWeight(validator), 100e18 + kghManager.totalKroInKgh(1));
+        assertEq(valMgr.getWeight(validator), 100e18 + kghManager.totalKroInKgh(1));
     }
 
     function test_delegateKgh_withoutValidatorDelegation_reverts() external {
@@ -281,7 +281,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(kroShares, 1e27);
         assertEq(kghShares, 1e27);
         assertEq(assetManager.totalKghAssets(validator), VKRO_PER_KGH * kghCounts);
-        assertEq(valMan.getWeight(validator), 100e18 + kghManager.totalKroInKgh(1) * kghCounts);
+        assertEq(valMgr.getWeight(validator), 100e18 + kghManager.totalKroInKgh(1) * kghCounts);
     }
 
     function test_initUndelegate_succeeds() public {
@@ -291,13 +291,13 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
         vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
         // After reward distributed, updated validator weight is including base reward and boosted reward.
         // Boosted reward with 100 kgh delegation
         uint128 boostedReward = 6283173600000736769;
-        assertEq(valMan.getWeight(validator), 200e18 + baseReward + boostedReward);
+        assertEq(valMgr.getWeight(validator), 200e18 + baseReward + boostedReward);
 
         // Fully undelegate
         uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator);
@@ -313,7 +313,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(assetManager.totalKroAssets(validator), 100e18 + baseReward / 2 + 1);
         assertEq(pendingAssets, 100e18 + baseReward / 2 - 1);
         assertEq(
-            valMan.getWeight(validator),
+            valMgr.getWeight(validator),
             assetManager.totalKroAssets(validator) + boostedReward
         );
     }
@@ -333,7 +333,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
         vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
         uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator3);
@@ -358,7 +358,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         _submitOutputRoot(validator);
 
         vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
         uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator);
@@ -391,14 +391,14 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
         vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
         // After reward distributed, updated validator weight is including base reward and boosted reward.
         // Boosted reward with 100 kgh delegation
         uint128 boostedReward = 6283173600000736769;
         assertEq(
-            valMan.getWeight(validator),
+            valMgr.getWeight(validator),
             100e18 + kghManager.totalKroInKgh(tokenId) + baseReward + boostedReward
         );
 
@@ -416,7 +416,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(pendingKroAsset, baseReward / 2 - 1);
         assertEq(pendingKghAsset, boostedReward / kghCounts);
         assertEq(
-            valMan.getWeight(validator),
+            valMgr.getWeight(validator),
             assetManager.totalKroAssets(validator) + (boostedReward - boostedReward / kghCounts)
         );
     }
@@ -433,14 +433,14 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
         vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
         // After reward distributed, updated validator weight is including base reward and boosted reward.
         // Boosted reward with 100 kgh delegation
         uint128 boostedReward = 6283173600000736769;
         assertEq(
-            valMan.getWeight(validator),
+            valMgr.getWeight(validator),
             100e18 + kghManager.totalKroInKgh(1) * kghCounts + baseReward + boostedReward
         );
 
@@ -461,7 +461,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(pendingKroAsset, baseReward - (baseReward / (kghCounts + 1) + 1));
         // After undelegating all the kghs, 69 of boosted reward is remaining because of the offset
         assertEq(pendingKghAsset, 6283173600000736700);
-        assertEq(valMan.getWeight(validator), assetManager.totalKroAssets(validator) + 69);
+        assertEq(valMgr.getWeight(validator), assetManager.totalKroAssets(validator) + 69);
     }
 
     function test_initUndelegateKghBatch_noShares_reverts() external {
@@ -479,10 +479,10 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.warp(block.timestamp + commissionRateMinChangeSeconds);
         // Set commission rate to 10%
         vm.prank(validator);
-        valMan.changeCommissionRate(10);
+        valMgr.changeCommissionRate(10);
 
         vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
         vm.startPrank(validator);
@@ -492,7 +492,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(assetManager.totalKroAssets(validator), 218e18);
 
         // Check validator tree updated except for claimed rewards
-        assertEq(valMan.getWeight(validator), assetManager.reflectiveWeight(validator));
+        assertEq(valMgr.getWeight(validator), assetManager.reflectiveWeight(validator));
     }
 
     function test_finalizeUndelegate_succeeds() external {
@@ -555,7 +555,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
         vm.startPrank(address(mockOracle));
-        valMan.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
         vm.stopPrank();
 
         vm.startPrank(delegator);

@@ -616,7 +616,7 @@ interaction:
 			require.False(t, isEqual)
 
 			rt.txHash = rt.guardian.ActForceDeleteOutput(rt.t, rt.outputIndex)
-			rt.includeL1BlockBySender(rt.challenger1.address)
+			rt.includeL1BlockBySender(rt.guardian.address)
 			break interaction
 		default:
 			break interaction

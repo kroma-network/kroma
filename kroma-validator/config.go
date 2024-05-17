@@ -6,11 +6,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
-
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
@@ -21,6 +16,11 @@ import (
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
+
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
@@ -51,6 +51,7 @@ type Config struct {
 	OutputSubmitterRoundBuffer      uint64
 	ChallengerEnabled               bool
 	GuardianEnabled                 bool
+	GuardianPollInterval            time.Duration
 	ProofFetcher                    ProofFetcher
 }
 
@@ -87,8 +88,8 @@ type CLIConfig struct {
 	// ValPoolAddress is the ValidatorPool contract address.
 	ValPoolAddress string
 
-	// ValManagerAddress is the ValidatorManager contract address.
-	ValManagerAddress string
+	// ValMgrAddress is the ValidatorManager contract address.
+	ValMgrAddress string
 
 	// AssetManagerAddress is the AssetManager contract address.
 	AssetManagerAddress string
@@ -116,6 +117,9 @@ type CLIConfig struct {
 	ChallengerEnabled bool
 
 	GuardianEnabled bool
+
+	// GuardianPollInterval is how frequently to poll L1 for inspection.
+	GuardianPollInterval time.Duration
 
 	FetchingProofTimeout time.Duration
 
@@ -158,7 +162,7 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		L2OOAddress:            ctx.String(flags.L2OOAddressFlag.Name),
 		ColosseumAddress:       ctx.String(flags.ColosseumAddressFlag.Name),
 		ValPoolAddress:         ctx.String(flags.ValPoolAddressFlag.Name),
-		ValManagerAddress:      ctx.String(flags.ValManagerAddressFlag.Name),
+		ValMgrAddress:          ctx.String(flags.ValMgrAddressFlag.Name),
 		AssetManagerAddress:    ctx.String(flags.AssetManagerAddressFlag.Name),
 		OutputSubmitterEnabled: ctx.Bool(flags.OutputSubmitterEnabledFlag.Name),
 		ChallengerEnabled:      ctx.Bool(flags.ChallengerEnabledFlag.Name),
@@ -173,6 +177,7 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		SecurityCouncilAddress:          ctx.String(flags.SecurityCouncilAddressFlag.Name),
 		ProverRPC:                       ctx.String(flags.ProverRPCFlag.Name),
 		GuardianEnabled:                 ctx.Bool(flags.GuardianEnabledFlag.Name),
+		GuardianPollInterval:            ctx.Duration(flags.GuardianPollIntervalFlag.Name),
 		FetchingProofTimeout:            ctx.Duration(flags.FetchingProofTimeoutFlag.Name),
 		RPCConfig:                       oprpc.ReadCLIConfig(ctx),
 		LogConfig:                       oplog.ReadCLIConfig(ctx),
@@ -206,7 +211,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
-	valManagerAddress, err := opservice.ParseAddress(cfg.ValManagerAddress)
+	valMgrAddress, err := opservice.ParseAddress(cfg.ValMgrAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -272,9 +277,10 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		SecurityCouncilAddr:             securityCouncilAddress,
 		ValidatorPoolAddr:               valPoolAddress,
 		ValPoolTerminationIndex:         valPoolTerminationIndex,
-		ValidatorManagerAddr:            valManagerAddress,
+		ValidatorManagerAddr:            valMgrAddress,
 		AssetManagerAddr:                assetManagerAddress,
 		ChallengerPollInterval:          cfg.ChallengerPollInterval,
+		GuardianPollInterval:            cfg.GuardianPollInterval,
 		NetworkTimeout:                  cfg.TxMgrConfig.NetworkTimeout,
 		TxManager:                       txManager,
 		L1Client:                        l1Client,

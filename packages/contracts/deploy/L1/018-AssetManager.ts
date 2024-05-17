@@ -14,7 +14,7 @@ const deployFn: DeployFunction = async (hre) => {
     'L1GovernanceTokenProxy'
   )
   const scProxyAddress = await getDeploymentAddress(hre, 'SecurityCouncilProxy')
-  const valManProxyAddress = await getDeploymentAddress(
+  const valMgrProxyAddress = await getDeploymentAddress(
     hre,
     'ValidatorManagerProxy'
   )
@@ -25,7 +25,7 @@ const deployFn: DeployFunction = async (hre) => {
       hre.deployConfig.assetManagerKgh,
       hre.deployConfig.assetManagerKghManager,
       scProxyAddress,
-      valManProxyAddress,
+      valMgrProxyAddress,
       hre.deployConfig.assetManagerUndelegationPeriod,
       hre.deployConfig.assetManagerSlashingRate,
       hre.deployConfig.assetManagerMinSlashingAmount,
@@ -51,7 +51,7 @@ const deployFn: DeployFunction = async (hre) => {
       await assertContractVariable(
         contract,
         'VALIDATOR_MANAGER',
-        valManProxyAddress
+        valMgrProxyAddress
       )
       await assertContractVariable(
         contract,

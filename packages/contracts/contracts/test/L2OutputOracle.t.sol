@@ -26,7 +26,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
 
     function test_constructor_succeeds() external {
         assertEq(address(oracle.VALIDATOR_POOL()), address(pool));
-        assertEq(address(oracle.VALIDATOR_MANAGER()), address(valMan));
+        assertEq(address(oracle.VALIDATOR_MANAGER()), address(valMgr));
         assertEq(oracle.COLOSSEUM(), address(colosseum));
         assertEq(oracle.SUBMISSION_INTERVAL(), submissionInterval);
         assertEq(oracle.latestBlockNumber(), startingBlockNumber);
@@ -38,7 +38,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         vm.expectRevert("L2OutputOracle: starting L2 timestamp must be less than current time");
         new L2OutputOracle({
             _validatorPool: pool,
-            _validatorManager: valMan,
+            _validatorManager: valMgr,
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
@@ -52,7 +52,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         vm.expectRevert("L2OutputOracle: L2 block time must be greater than 0");
         new L2OutputOracle({
             _validatorPool: pool,
-            _validatorManager: valMan,
+            _validatorManager: valMgr,
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: 0,
@@ -66,7 +66,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         vm.expectRevert("L2OutputOracle: submission interval must be greater than 0");
         new L2OutputOracle({
             _validatorPool: pool,
-            _validatorManager: valMan,
+            _validatorManager: valMgr,
             _colosseum: address(colosseum),
             _submissionInterval: 0,
             _l2BlockTime: l2BlockTime,
@@ -465,7 +465,7 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is ValidatorSystemUpgrade_In
         outputRoot = keccak256(abi.encode(nextBlockNumber));
 
         assertTrue(pool.isTerminated(oracle.nextOutputIndex()));
-        assertEq(valMan.nextValidator(), trusted);
+        assertEq(valMgr.nextValidator(), trusted);
 
         vm.expectCall(
             address(oracle.VALIDATOR_MANAGER()),
@@ -498,7 +498,7 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is ValidatorSystemUpgrade_In
         // Now only ValidatorManager can set finalized output after upgrade
         vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
         outputIndex = oracle.latestOutputIndex();
-        vm.prank(address(valMan));
+        vm.prank(address(valMgr));
         oracle.setLatestFinalizedOutputIndex(outputIndex);
 
         assertEq(oracle.latestFinalizedOutputIndex(), outputIndex);
@@ -507,7 +507,7 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is ValidatorSystemUpgrade_In
     function test_setLatestFinalizedOutputIndex_wrongCaller_reverts() external {
         // Only ValidatorPool can set finalized output before upgrade
         uint256 outputIndex = oracle.latestOutputIndex();
-        vm.prank(address(valMan));
+        vm.prank(address(valMgr));
         vm.expectRevert(
             "L2OutputOracle: only the validator pool contract can set latest finalized output index"
         );
@@ -544,7 +544,7 @@ contract L2OutputOracleUpgradeable_Test is L2OutputOracle_Initializer {
         assertEq(startingTimestamp, oracleImpl.startingTimestamp());
 
         assertEq(address(oracle.VALIDATOR_POOL()), address(pool));
-        assertEq(address(oracle.VALIDATOR_MANAGER()), address(valMan));
+        assertEq(address(oracle.VALIDATOR_MANAGER()), address(valMgr));
         assertEq(address(colosseum), oracleImpl.COLOSSEUM());
     }
 

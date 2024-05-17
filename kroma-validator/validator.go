@@ -6,15 +6,14 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
-
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/ethereum-optimism/optimism/op-service/monitoring"
 	"github.com/ethereum-optimism/optimism/op-service/opio"
 	"github.com/ethereum-optimism/optimism/op-service/optsutils"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
@@ -109,9 +108,12 @@ func NewValidator(cfg Config, l log.Logger, m metrics.Metricer) (*Validator, err
 		}
 	}
 
-	challenger, err := NewChallenger(cfg, l, m)
-	if err != nil {
-		return nil, err
+	var challenger *Challenger
+	if cfg.OutputSubmitterEnabled || cfg.ChallengerEnabled {
+		challenger, err = NewChallenger(cfg, l, m)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var guardian *Guardian
@@ -145,23 +147,25 @@ func (v *Validator) Start() error {
 	// wait for kroma node to sync completed
 	v.waitSyncCompleted()
 
-	if err := v.cfg.TxManager.Start(v.ctx); err != nil {
-		return fmt.Errorf("cannot start TxManager: %w", err)
+	if v.cfg.TxManager != nil {
+		if err := v.cfg.TxManager.Start(v.ctx); err != nil {
+			return fmt.Errorf("cannot start TxManager: %w", err)
+		}
 	}
 
-	if v.cfg.OutputSubmitterEnabled {
+	if v.l2os != nil {
 		if err := v.l2os.Start(v.ctx); err != nil {
 			return fmt.Errorf("cannot start l2 output submitter: %w", err)
 		}
 	}
 
-	if v.cfg.OutputSubmitterEnabled || v.cfg.ChallengerEnabled {
+	if v.challenger != nil {
 		if err := v.challenger.Start(v.ctx); err != nil {
 			return fmt.Errorf("cannot start challenger: %w", err)
 		}
 	}
 
-	if v.cfg.GuardianEnabled {
+	if v.guardian != nil {
 		if err := v.guardian.Start(v.ctx); err != nil {
 			return fmt.Errorf("cannot start guardian: %w", err)
 		}
@@ -172,23 +176,26 @@ func (v *Validator) Start() error {
 
 func (v *Validator) Stop() error {
 	v.l.Info("stopping Validator")
-	if err := v.cfg.TxManager.Stop(); err != nil {
-		return fmt.Errorf("failed to stop TxManager: %w", err)
+
+	if v.cfg.TxManager != nil {
+		if err := v.cfg.TxManager.Stop(); err != nil {
+			return fmt.Errorf("failed to stop TxManager: %w", err)
+		}
 	}
 
-	if v.cfg.OutputSubmitterEnabled {
+	if v.l2os != nil {
 		if err := v.l2os.Stop(); err != nil {
 			return fmt.Errorf("failed to stop l2 output submitter: %w", err)
 		}
 	}
 
-	if v.cfg.OutputSubmitterEnabled || v.cfg.ChallengerEnabled {
+	if v.challenger != nil {
 		if err := v.challenger.Stop(); err != nil {
 			return fmt.Errorf("failed to stop challenger: %w", err)
 		}
 	}
 
-	if v.cfg.GuardianEnabled {
+	if v.guardian != nil {
 		if err := v.guardian.Stop(); err != nil {
 			return fmt.Errorf("failed to stop guardian: %w", err)
 		}

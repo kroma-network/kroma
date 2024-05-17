@@ -964,7 +964,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         // Submit invalid output as asserter
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         warpToSubmitTime();
-        vm.prank(valMan.nextValidator());
+        vm.prank(valMgr.nextValidator());
         oracle.submitL2Output(keccak256(abi.encode()), nextBlockNumber, 0, 0);
 
         // To create challenge, challenger also registers validator

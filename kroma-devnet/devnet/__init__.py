@@ -283,7 +283,7 @@ def devnet_deploy(paths):
         'L2OO_ADDRESS': l2_output_oracle,
         'COLOSSEUM_ADDRESS': colosseum,
         'VALPOOL_ADDRESS': validator_pool,
-        'VALMANAGER_ADDRESS': validator_manager,
+        'VALMGR_ADDRESS': validator_manager,
         'ASSETMANAGER_ADDRESS': asset_manager,
         'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address
     })

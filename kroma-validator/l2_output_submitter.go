@@ -40,11 +40,11 @@ type L2OutputSubmitter struct {
 	log  log.Logger
 	metr metrics.Metricer
 
-	l2OOContract       *bindings.L2OutputOracleCaller
-	l2OOABI            *abi.ABI
-	valPoolContract    *bindings.ValidatorPoolCaller
-	valManagerContract *bindings.ValidatorManagerCaller
-	valManagerAbi      *abi.ABI
+	l2OOContract    *bindings.L2OutputOracleCaller
+	l2OOABI         *abi.ABI
+	valPoolContract *bindings.ValidatorPoolCaller
+	valMgrContract  *bindings.ValidatorManagerCaller
+	valMgrAbi       *abi.ABI
 
 	singleRoundInterval *big.Int
 	l2BlockTime         *big.Int
@@ -67,7 +67,7 @@ func NewL2OutputSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*L2Outp
 		return nil, err
 	}
 
-	parsedValManagerAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
+	parsedValMgrAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
@@ -77,20 +77,20 @@ func NewL2OutputSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*L2Outp
 		return nil, err
 	}
 
-	valManagerContract, err := bindings.NewValidatorManagerCaller(cfg.ValidatorManagerAddr, cfg.L1Client)
+	valMgrContract, err := bindings.NewValidatorManagerCaller(cfg.ValidatorManagerAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
 
 	return &L2OutputSubmitter{
-		cfg:                cfg,
-		log:                l.New("service", "submitter"),
-		metr:               m,
-		l2OOContract:       l2OOContract,
-		l2OOABI:            parsedL2OOAbi,
-		valPoolContract:    valPoolContract,
-		valManagerContract: valManagerContract,
-		valManagerAbi:      parsedValManagerAbi,
+		cfg:             cfg,
+		log:             l.New("service", "submitter"),
+		metr:            m,
+		l2OOContract:    l2OOContract,
+		l2OOABI:         parsedL2OOAbi,
+		valPoolContract: valPoolContract,
+		valMgrContract:  valMgrContract,
+		valMgrAbi:       parsedValMgrAbi,
 	}, nil
 }
 
@@ -380,7 +380,7 @@ func (l *L2OutputSubmitter) IsValPoolTerminated(outputIndex *big.Int) bool {
 func (l *L2OutputSubmitter) GetValidatorStatus(ctx context.Context) (uint8, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
-	validatorStatus, err := l.valManagerContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())
+	validatorStatus, err := l.valMgrContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch the validator status: %w", err)
 	}
@@ -390,7 +390,7 @@ func (l *L2OutputSubmitter) GetValidatorStatus(ctx context.Context) (uint8, erro
 func (l *L2OutputSubmitter) IsInJail(ctx context.Context) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
-	isInJail, err := l.valManagerContract.InJail(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())
+	isInJail, err := l.valMgrContract.InJail(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch the jail status: %w", err)
 	}
@@ -466,7 +466,7 @@ func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context, outputIndex *
 func (l *L2OutputSubmitter) getNextValidatorAddress(ctx context.Context, outputIndex *big.Int) (common.Address, error) {
 	opts := optsutils.NewSimpleCallOpts(ctx)
 	if l.IsValPoolTerminated(outputIndex) {
-		return l.valManagerContract.NextValidator(opts)
+		return l.valMgrContract.NextValidator(opts)
 	}
 	return l.valPoolContract.NextValidator(opts)
 }

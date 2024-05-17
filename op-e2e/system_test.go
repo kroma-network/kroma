@@ -10,23 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
-
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	gethutils "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
@@ -44,6 +27,23 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
+
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	val "github.com/kroma-network/kroma/kroma-validator"
@@ -1487,8 +1487,7 @@ func TestChallenge(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
-	cfg.EnableMaliciousValidator = true
-	cfg.EnableGuardian = true
+	cfg.EnableChallenge = true
 
 	sys, err := cfg.Start(t)
 	require.NoError(t, err, "Error starting up system")
@@ -1582,6 +1581,140 @@ func TestChallenge(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestChallengerTimeoutByGuardian(t *testing.T) {
+	InitParallel(t)
+
+	cfg := DefaultSystemConfig(t)
+	cfg.EnableChallenge = true
+
+	sys, err := cfg.Start(t)
+	require.NoError(t, err, "Error starting up system")
+	defer sys.Close()
+
+	l1Client := sys.Clients["l1"]
+
+	// deposit to ValidatorPool to be a challenger
+	err = cfg.DepositValidatorPool(l1Client, cfg.Secrets.Challenger1, big.NewInt(1_000_000_000))
+	require.NoError(t, err, "Error challenger deposit to ValidatorPool")
+
+	// OutputOracle is already deployed
+	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
+	require.NoError(t, err)
+
+	// Colosseum is already deployed
+	colosseum, err := bindings.NewColosseum(cfg.L1Deployments.ColosseumProxy, l1Client)
+	require.NoError(t, err)
+
+	targetOutputOracleIndex := new(big.Int).SetUint64(
+		uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval))))
+	challengerAddr := cfg.Secrets.Addresses().Challenger1
+
+	// set a timeout for waiting creation period of challenge to end
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("Timed out at challenger timeout test for guardian")
+		default:
+			nextOutputIndex, err := l2OutputOracle.NextOutputIndex(&bind.CallOpts{})
+			require.NoError(t, err)
+
+			// wait until target output is submitted
+			if nextOutputIndex.Cmp(targetOutputOracleIndex) <= 0 {
+				continue
+			}
+
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, targetOutputOracleIndex, challengerAddr)
+			require.NoError(t, err)
+
+			// wait until challenge is created
+			if challengeStatus == chal.StatusNone {
+				continue
+			} else {
+				if sys.Challenger != nil {
+					// stop challenger to make the status to ChallengerTimeout
+					if err := sys.Challenger.Stop(); err != nil {
+						t.Fatalf("Failed to stop challenger")
+					}
+					sys.Challenger = nil
+				}
+				if sys.Validator != nil {
+					// stop asserter not to call challenger timeout
+					if err := sys.Validator.Stop(); err != nil {
+						t.Fatalf("Failed to stop validator")
+					}
+					sys.Validator = nil
+				}
+			}
+
+			inCreationPeriod, err := colosseum.IsInCreationPeriod(&bind.CallOpts{}, targetOutputOracleIndex)
+			require.NoError(t, err)
+
+			// wait until creation period is ended
+			if inCreationPeriod {
+				continue
+			}
+
+			challengeStatus, err = colosseum.GetStatus(&bind.CallOpts{}, targetOutputOracleIndex, challengerAddr)
+			require.NoError(t, err)
+
+			// assert that asserter didn't call challenger timeout
+			if challengeStatus != chal.StatusChallengerTimeout {
+				continue
+			}
+		}
+		break
+	}
+	cancel()
+
+	// set a timeout for security council to call challenger timeout
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("Timed out at challenger timeout test for guardian")
+		default:
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, targetOutputOracleIndex, challengerAddr)
+			require.NoError(t, err)
+
+			// after challenger timeout is called, status is NONE
+			if challengeStatus != chal.StatusNone {
+				continue
+			} else {
+				// assert that the one who called challenger timeout is guardian
+				toBlock := latestBlock(t, l1Client)
+				iter, err := colosseum.FilterChallengerTimedOut(
+					&bind.FilterOpts{End: &toBlock},
+					[]*big.Int{targetOutputOracleIndex},
+					[]common.Address{challengerAddr},
+				)
+				require.NoError(t, err)
+				eventExists := iter.Next()
+				require.True(t, eventExists)
+				txHash := iter.Event.Raw.TxHash
+				err = iter.Close()
+				require.NoError(t, err)
+
+				tx, _, err := l1Client.TransactionByHash(context.Background(), txHash)
+				require.NoError(t, err)
+				receipt, err := l1Client.TransactionReceipt(context.Background(), txHash)
+				require.NoError(t, err)
+				from, err := l1Client.TransactionSender(context.Background(), tx, receipt.BlockHash, receipt.TransactionIndex)
+				require.NoError(t, err)
+				require.Equal(t, from, cfg.Secrets.Addresses().Guardian)
+			}
+		}
+		break
 	}
 }
 

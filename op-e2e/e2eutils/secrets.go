@@ -19,7 +19,7 @@ import (
 var DefaultMnemonicConfig = &MnemonicConfig{
 	Mnemonic:         "test test test test test test test test test test test junk",
 	CliqueSigner:     "m/44'/60'/0'/0/0",
-	TrustedValidator: "m/44'/60'/0'/0/1",
+	TrustedValidator: "m/44'/60'/0'/0/1", // 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 	Batcher:          "m/44'/60'/0'/0/2",
 	Deployer:         "m/44'/60'/0'/0/3",
 	Alice:            "m/44'/60'/0'/0/4",
@@ -31,6 +31,7 @@ var DefaultMnemonicConfig = &MnemonicConfig{
 	// [Kroma: START],
 	Challenger1: "m/44'/60'/0'/0/11",
 	Challenger2: "m/44'/60'/0'/0/12",
+	Guardian:    "m/44'/60'/0'/0/13", // 0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec
 	// [Kroma: END]
 }
 
@@ -56,6 +57,7 @@ type MnemonicConfig struct {
 	// [Kroma: START]
 	Challenger1 string
 	Challenger2 string
+	Guardian    string
 	// [Kroma: END
 }
 
@@ -106,6 +108,8 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// [Kroma: START]
 	challenger1, err := wallet.PrivateKey(account(m.Challenger1))
 	if err != nil {
 		return nil, err
@@ -114,6 +118,11 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 	if err != nil {
 		return nil, err
 	}
+	guardian, err := wallet.PrivateKey(account(m.Guardian))
+	if err != nil {
+		return nil, err
+	}
+	//	[Kroma: END]
 
 	return &Secrets{
 		Deployer:         deployer,
@@ -130,6 +139,7 @@ func (m *MnemonicConfig) Secrets() (*Secrets, error) {
 		// [Kroma :START]
 		Challenger1: challenger1,
 		Challenger2: challenger2,
+		Guardian:    guardian,
 		//	[Kroma: END]
 	}, nil
 }
@@ -156,6 +166,7 @@ type Secrets struct {
 	// [Kroma: START]
 	Challenger1 *ecdsa.PrivateKey
 	Challenger2 *ecdsa.PrivateKey
+	Guardian    *ecdsa.PrivateKey
 	// [Kroma: END]
 }
 
@@ -188,6 +199,7 @@ func (s *Secrets) Addresses() *Addresses {
 		// [Kroma: START]
 		Challenger1: crypto.PubkeyToAddress(s.Challenger1.PublicKey),
 		Challenger2: crypto.PubkeyToAddress(s.Challenger2.PublicKey),
+		Guardian:    crypto.PubkeyToAddress(s.Guardian.PublicKey),
 		// [Kroma: END]
 	}
 }
@@ -211,6 +223,7 @@ type Addresses struct {
 	// [Kroma: START]
 	Challenger1 common.Address
 	Challenger2 common.Address
+	Guardian    common.Address
 	// [Kroma: END]
 }
 
@@ -229,6 +242,7 @@ func (a *Addresses) All() []common.Address {
 		// [Kroma: START]
 		a.Challenger1,
 		a.Challenger2,
+		a.Guardian,
 		// [Kroma: END]
 	}
 }
