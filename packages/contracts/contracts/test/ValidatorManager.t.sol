@@ -49,8 +49,8 @@ contract MockL2OutputOracle is L2OutputOracle {
         l2Outputs[outputIndex].outputRoot = bytes32(0);
     }
 
-    function mockSetLatestFinalizedOutputIndex(uint256 l2OutputIndex) external {
-        latestFinalizedOutputIndex = l2OutputIndex;
+    function mockSetNextFinalizeOutputIndex(uint256 l2OutputIndex) external {
+        nextFinalizeOutputIndex = l2OutputIndex;
     }
 }
 
@@ -144,14 +144,14 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         VKRO_PER_KGH = assetMan.VKRO_PER_KGH();
 
-        // Submit until terminateOutputIndex and set it latest finalized output
+        // Submit until terminateOutputIndex and set next output index to be finalized after it
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
         for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitL2OutputV1();
         }
         vm.warp(oracle.finalizedAt(terminateOutputIndex));
-        mockOracle.mockSetLatestFinalizedOutputIndex(terminateOutputIndex);
+        mockOracle.mockSetNextFinalizeOutputIndex(terminateOutputIndex + 1);
     }
 
     function test_constructor_succeeds() external {
@@ -388,7 +388,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
                 validatorReward
         );
 
-        assertEq(oracle.latestFinalizedOutputIndex(), terminateOutputIndex + 1);
+        assertEq(oracle.nextFinalizeOutputIndex(), terminateOutputIndex + 2);
     }
 
     function test_afterSubmitL2Output_updatePriorityValidator_succeeds() external {
@@ -403,8 +403,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         // Submit the first output which interacts with ValidatorManager
         _submitL2OutputV2(false);
 
-        // Check if lastest finalized output is not updated
-        assertEq(oracle.latestFinalizedOutputIndex(), terminateOutputIndex);
+        // Check if next finalize output is not updated
+        assertEq(oracle.nextFinalizeOutputIndex(), terminateOutputIndex + 1);
         // Check if next priority validator is set in ValidatorManager
         address nextValidator = mockValMgr.nextPriorityValidator();
         assertTrue(nextValidator != address(0));
@@ -416,8 +416,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         _submitL2OutputV2(true);
         vm.stopPrank();
 
-        // Check if lastest finalized output is updated
-        assertEq(oracle.latestFinalizedOutputIndex(), terminateOutputIndex + 1);
+        // Check if next finalize output is updated
+        assertEq(oracle.nextFinalizeOutputIndex(), terminateOutputIndex + 2);
 
         // Submit 10 outputs
         uint256 tries = 10;

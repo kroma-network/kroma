@@ -65,9 +65,9 @@ contract L2OutputOracle is Initializable, ISemver {
     Types.CheckpointOutput[] internal l2Outputs;
 
     /**
-     * @notice The output index of the latest finalized output.
+     * @notice The output index of the next finalization target output.
      */
-    uint256 public latestFinalizedOutputIndex;
+    uint256 public nextFinalizeOutputIndex;
 
     /**
      * @notice Emitted when an output is submitted.
@@ -279,26 +279,26 @@ contract L2OutputOracle is Initializable, ISemver {
     }
 
     /**
-     * @notice Updates the latest finalized output index. This function may only be called by the
-     *         validator pool contract before terminated, after that by the validator manager
+     * @notice Updates the next output index to be finalized. This function may only be called by
+     *         the validator pool contract before terminated, after that by the validator manager
      *         contract.
      *
-     * @param _outputIndex Index of the latest finalized output.
+     * @param _outputIndex Index of the next output to be finalized.
      */
-    function setLatestFinalizedOutputIndex(uint256 _outputIndex) external {
-        if (VALIDATOR_POOL.isTerminated(_outputIndex)) {
+    function setNextFinalizeOutputIndex(uint256 _outputIndex) external {
+        if (VALIDATOR_POOL.isTerminated(_outputIndex - 1)) {
             require(
                 msg.sender == address(VALIDATOR_MANAGER),
-                "L2OutputOracle: only the validator manager contract can set latest finalized output index"
+                "L2OutputOracle: only the validator manager contract can set next finalize output index"
             );
         } else {
             require(
                 msg.sender == address(VALIDATOR_POOL),
-                "L2OutputOracle: only the validator pool contract can set latest finalized output index"
+                "L2OutputOracle: only the validator pool contract can set next finalize output index"
             );
         }
 
-        latestFinalizedOutputIndex = _outputIndex;
+        nextFinalizeOutputIndex = _outputIndex;
     }
 
     /**

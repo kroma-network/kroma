@@ -482,50 +482,36 @@ contract L2OutputOracle_ValidatorSystemUpgrade_Test is ValidatorSystemUpgrade_In
         oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
     }
 
-    function test_setLatestFinalizedOutputIndex_succeeds() external {
+    function test_setNextFinalizeOutputIndex_succeeds() external {
         // Only ValidatorPool can set finalized output before upgrade
-        uint256 outputIndex = oracle.latestOutputIndex();
         vm.prank(address(pool));
-        oracle.setLatestFinalizedOutputIndex(outputIndex);
+        oracle.setNextFinalizeOutputIndex(1);
+        assertEq(oracle.nextFinalizeOutputIndex(), 1);
 
-        assertEq(oracle.latestFinalizedOutputIndex(), outputIndex);
-
-        // Submit more outputs to progress after upgrade
-        for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex + 1; i++) {
-            _submitL2OutputV1();
-        }
+        vm.prank(address(pool));
+        oracle.setNextFinalizeOutputIndex(terminateOutputIndex + 1);
+        assertEq(oracle.nextFinalizeOutputIndex(), terminateOutputIndex + 1);
 
         // Now only ValidatorManager can set finalized output after upgrade
-        vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
-        outputIndex = oracle.latestOutputIndex();
         vm.prank(address(valMgr));
-        oracle.setLatestFinalizedOutputIndex(outputIndex);
-
-        assertEq(oracle.latestFinalizedOutputIndex(), outputIndex);
+        oracle.setNextFinalizeOutputIndex(terminateOutputIndex + 2);
+        assertEq(oracle.nextFinalizeOutputIndex(), terminateOutputIndex + 2);
     }
 
-    function test_setLatestFinalizedOutputIndex_wrongCaller_reverts() external {
+    function test_setNextFinalizeOutputIndex_wrongCaller_reverts() external {
         // Only ValidatorPool can set finalized output before upgrade
-        uint256 outputIndex = oracle.latestOutputIndex();
         vm.prank(address(valMgr));
         vm.expectRevert(
-            "L2OutputOracle: only the validator pool contract can set latest finalized output index"
+            "L2OutputOracle: only the validator pool contract can set next finalize output index"
         );
-        oracle.setLatestFinalizedOutputIndex(outputIndex);
-
-        // Submit more outputs to progress after upgrade
-        for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex + 1; i++) {
-            _submitL2OutputV1();
-        }
+        oracle.setNextFinalizeOutputIndex(1);
 
         // Now only ValidatorManager can set finalized output after upgrade
-        vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
-        outputIndex = oracle.latestOutputIndex();
         vm.prank(address(pool));
         vm.expectRevert(
-            "L2OutputOracle: only the validator manager contract can set latest finalized output index"
+            "L2OutputOracle: only the validator manager contract can set next finalize output index"
         );
-        oracle.setLatestFinalizedOutputIndex(outputIndex);
+        oracle.setNextFinalizeOutputIndex(terminateOutputIndex + 2);
     }
 }
 
