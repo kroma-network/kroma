@@ -311,7 +311,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         emit Unbonded(0, firstOutput.submitter, uint128(firstBond.amount));
         vm.expectCall(
             address(oracle),
-            abi.encodeWithSelector(L2OutputOracle.setLatestFinalizedOutputIndex.selector, 0)
+            abi.encodeWithSelector(L2OutputOracle.setNextFinalizeOutputIndex.selector, 1)
         );
         pool.createBond(nextOutputIndex, expiresAt);
         assertEq(pool.balanceOf(firstOutput.submitter), requiredBondAmount);
@@ -391,8 +391,8 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         vm.expectCall(
             address(oracle),
             abi.encodeWithSelector(
-                L2OutputOracle.setLatestFinalizedOutputIndex.selector,
-                outputIndex
+                L2OutputOracle.setNextFinalizeOutputIndex.selector,
+                outputIndex + 1
             )
         );
         vm.prank(trusted);
@@ -465,8 +465,8 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         vm.expectCall(
             address(oracle),
             abi.encodeWithSelector(
-                L2OutputOracle.setLatestFinalizedOutputIndex.selector,
-                secondOutputIndex
+                L2OutputOracle.setNextFinalizeOutputIndex.selector,
+                secondOutputIndex + 1
             )
         );
         vm.prank(trusted);
@@ -518,8 +518,8 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         bond = pool.getBond(tries - 1);
         assertEq(bond.amount, requiredBondAmount);
 
-        // check if latest finalized output index is set correctly
-        assertEq(oracle.latestFinalizedOutputIndex(), outputIndex - 1);
+        // check if next finalize output index is set correctly
+        assertEq(oracle.nextFinalizeOutputIndex(), outputIndex);
     }
 
     function test_unbond_notExpired_reverts() external {

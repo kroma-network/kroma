@@ -233,7 +233,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
         }
 
         // Select the next priority validator.
-        _updatePriorityValidator();
+        unchecked {
+            _updatePriorityValidator();
+        }
     }
 
     /**
@@ -302,7 +304,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         _sendToJail(loser);
 
-        if (L2_ORACLE.latestFinalizedOutputIndex() < outputIndex) {
+        if (L2_ORACLE.nextFinalizeOutputIndex() <= outputIndex) {
             // If output is not rewarded yet, add slashing asset to the pending challenge reward.
             unchecked {
                 _pendingChallengeReward[outputIndex] += challengeReward;
@@ -490,7 +492,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @return Whether the reward distribution is done at least once or not.
      */
     function _distributeReward() private returns (bool) {
-        uint256 outputIndex = L2_ORACLE.latestFinalizedOutputIndex() + 1;
+        uint256 outputIndex = L2_ORACLE.nextFinalizeOutputIndex();
         uint256 latestOutputIndex = L2_ORACLE.latestOutputIndex();
 
         if (!L2_ORACLE.VALIDATOR_POOL().isTerminated(outputIndex)) {
@@ -539,7 +541,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         }
 
         if (finalizedOutputNum > 0) {
-            L2_ORACLE.setLatestFinalizedOutputIndex(outputIndex - 1);
+            L2_ORACLE.setNextFinalizeOutputIndex(outputIndex);
 
             return true;
         }
@@ -600,11 +602,11 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function _updatePriorityValidator() private {
         uint120 weightSum = activatedValidatorTotalWeight();
+        uint256 nextFinalizeOutputIndex = L2_ORACLE.nextFinalizeOutputIndex();
 
-        if (weightSum > 0) {
-            uint256 latestFinalizedOutputIndex = L2_ORACLE.latestFinalizedOutputIndex();
+        if (weightSum > 0 && nextFinalizeOutputIndex > 0) {
             Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(
-                latestFinalizedOutputIndex
+                nextFinalizeOutputIndex - 1
             );
 
             uint120 weight = uint120(

@@ -416,8 +416,8 @@ contract ValidatorPool is ReentrancyGuardUpgradeable, ISemver {
                 nextUnbondOutputIndex = outputIndex;
             }
 
-            // Set the latest finalized output index in L2OutputOracle.
-            L2_ORACLE.setLatestFinalizedOutputIndex(outputIndex - 1);
+            // Set the next output index to be finalized in L2OutputOracle.
+            L2_ORACLE.setNextFinalizeOutputIndex(outputIndex);
 
             return true;
         }

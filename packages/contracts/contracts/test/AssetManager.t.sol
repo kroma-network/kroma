@@ -154,12 +154,12 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         // KRO bridged from L2 Validator Reward Vault
         kro.transfer(address(assetManager), 1e22);
 
-        // Submit until terminateOutputIndex and set it latest finalized output
+        // Submit until terminateOutputIndex and set next output index to be finalized after it
         for (uint256 i = mockOracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitOutputRoot(pool.nextValidator());
         }
         vm.warp(mockOracle.finalizedAt(terminateOutputIndex));
-        mockOracle.mockSetLatestFinalizedOutputIndex(terminateOutputIndex);
+        mockOracle.mockSetNextFinalizeOutputIndex(terminateOutputIndex + 1);
     }
 
     function _submitOutputRoot(address _validator) internal {
