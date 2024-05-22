@@ -54,7 +54,7 @@ func RunValidatorPoolTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	rt := defaultRuntime(gt, setupSequencerTest, deltaTimeOffset)
 
-	// Redeploy and upgrade ValidatorPool to set the termination index for testing ValidatorManager
+	// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test
 	newTerminationIndex := common.Big2
 	rt.assertRedeployValPoolToTerminate(newTerminationIndex)
 

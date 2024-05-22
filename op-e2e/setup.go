@@ -20,8 +20,10 @@ import (
 	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/fakebeacon"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
@@ -39,11 +41,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	geth_eth "github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -61,12 +61,11 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 	validator "github.com/kroma-network/kroma/kroma-validator"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
-	"github.com/kroma-network/kroma/op-e2e/e2eutils/batcher"
+	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
 	"github.com/kroma-network/kroma/op-e2e/testdata"
 	"github.com/kroma-network/kroma/op-service/client"
 )
@@ -111,7 +110,9 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	require.Equal(t, secrets.Addresses().Batcher, deployConfig.BatchSenderAddress)
 	require.Equal(t, secrets.Addresses().SequencerP2P, deployConfig.P2PSequencerAddress)
 	require.Equal(t, secrets.Addresses().TrustedValidator, deployConfig.ValidatorPoolTrustedValidator)
+	// [Kroma: START]
 	require.Equal(t, secrets.Addresses().TrustedValidator, deployConfig.ValidatorManagerTrustedValidator)
+	// [Kroma: END]
 
 	// Tests depend on premine being filled with secrets addresses
 	premine := make(map[common.Address]*big.Int)
@@ -159,12 +160,14 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 			},
 		},
 		Loggers: map[string]log.Logger{
-			"verifier":   testlog.Logger(t, log.LevelInfo).New("role", "verifier"),
-			"sequencer":  testlog.Logger(t, log.LevelInfo).New("role", "sequencer"),
-			"batcher":    testlog.Logger(t, log.LevelInfo).New("role", "batcher"),
-			"validator":  testlog.Logger(t, log.LevelCrit).New("role", "validator"),
+			"verifier":  testlog.Logger(t, log.LevelInfo).New("role", "verifier"),
+			"sequencer": testlog.Logger(t, log.LevelInfo).New("role", "sequencer"),
+			"batcher":   testlog.Logger(t, log.LevelInfo).New("role", "batcher"),
+			"validator": testlog.Logger(t, log.LevelCrit).New("role", "validator"),
+			// [Kroma: START]
 			"challenger": testlog.Logger(t, log.LevelCrit).New("role", "challenger"),
 			"guardian":   testlog.Logger(t, log.LevelCrit).New("role", "guardian"),
+			// [Kroma: END]
 		},
 		GethOptions:            map[string][]geth.GethOption{},
 		P2PTopology:            nil, // no P2P connectivity by default
@@ -250,6 +253,9 @@ type SystemConfig struct {
 	// EnableChallenge enables challenge setup, the validator will act as a malicious one and
 	// the challenger and guardian will act as honest parties.
 	EnableChallenge bool
+
+	// UseValidatorV2 makes validator system transit to V2 during test.
+	UseValidatorV2 bool
 	// [Kroma: END]
 }
 
@@ -296,13 +302,15 @@ type System struct {
 	L2GenesisCfg *core.Genesis
 
 	// Connections to running nodes
-	EthInstances   map[string]EthInstance
-	Clients        map[string]*ethclient.Client
-	RawClients     map[string]*rpc.Client
-	RollupNodes    map[string]*rollupNode.OpNode
-	Validator      *validator.Validator
-	Challenger     *validator.Validator
-	Guardian       *validator.Validator
+	EthInstances map[string]EthInstance
+	Clients      map[string]*ethclient.Client
+	RawClients   map[string]*rpc.Client
+	RollupNodes  map[string]*rollupNode.OpNode
+	Validator    *validator.Validator
+	// [Kroma: START]
+	Challenger *validator.Validator
+	Guardian   *validator.Validator
+	// [Kroma: END]
 	BatchSubmitter *bss.BatcherService
 	Mocknet        mocknet.Mocknet
 
@@ -395,6 +403,18 @@ func (sys *System) Close() {
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop L2OutputSubmitter: %w", err))
 		}
 	}
+	// [Kroma: START]
+	if sys.Challenger != nil {
+		if err := sys.Challenger.Stop(); err != nil {
+			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop Challenger: %w", err))
+		}
+	}
+	if sys.Guardian != nil {
+		if err := sys.Guardian.Stop(); err != nil {
+			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop Guardian: %w", err))
+		}
+	}
+	// [Kroma: END]
 	if sys.BatchSubmitter != nil {
 		if err := sys.BatchSubmitter.Kill(); err != nil && !errors.Is(err, bss.ErrAlreadyStopped) {
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop BatchSubmitter: %w", err))
@@ -419,19 +439,6 @@ func (sys *System) Close() {
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop Mocknet: %w", err))
 		}
 	}
-	// [Kroma: START]
-	if sys.Challenger != nil {
-		if err := sys.Challenger.Stop(); err != nil {
-			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop Challenger: %w", err))
-		}
-	}
-
-	if sys.Guardian != nil {
-		if err := sys.Guardian.Stop(); err != nil {
-			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop Guardian: %w", err))
-		}
-	}
-	// [Kroma: END]
 	require.NoError(sys.t, combinedErr, "Failed to stop system")
 }
 
@@ -807,6 +814,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		return sys, nil
 	}
 
+	// [Kroma: START]
 	// Run validator node (L2 Output Submitter, Asserter)
 	validatorCliCfg := validator.CLIConfig{
 		L1EthRpc:                        sys.EthInstances["l1"].WSEndpoint(),
@@ -820,8 +828,8 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		ChallengerPollInterval:          500 * time.Millisecond,
 		TxMgrConfig:                     newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		AllowNonFinalized:               cfg.NonFinalizedOutputs,
-		OutputSubmitterRetryInterval:    50 * time.Millisecond,
-		OutputSubmitterRoundBuffer:      30,
+		OutputSubmitterRetryInterval:    500 * time.Millisecond,
+		OutputSubmitterRoundBuffer:      cfg.DeployConfig.L2OutputOracleSubmissionInterval / 2,
 		OutputSubmitterEnabled:          true,
 		OutputSubmitterAllowPublicRound: true,
 		LogConfig: oplog.CLIConfig{
@@ -831,9 +839,36 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	}
 
 	// deposit to ValidatorPool to be a validator
-	err = cfg.DepositValidatorPool(sys.Clients["l1"], cfg.Secrets.TrustedValidator, big.NewInt(params.Ether))
-	if err != nil {
-		return nil, fmt.Errorf("trusted validator unable to deposit to ValidatorPool: %w", err)
+	validatorHelper := sys.ValidatorHelper()
+	validatorHelper.DepositToValPool(cfg.Secrets.TrustedValidator, big.NewInt(params.Ether))
+
+	if cfg.UseValidatorV2 {
+		// register to ValidatorManager to be a validator
+		validatorHelper.RegisterToValMgr(cfg.Secrets.TrustedValidator, cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt())
+
+		func() {
+			// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			deployTx, upgradeTx, err := e2eutils.RedeployValPoolToTerminate(
+				ctx,
+				cfg.DeployConfig.ValidatorPoolTerminateOutputIndex.ToInt(),
+				l1Client,
+				cfg.Secrets,
+				cfg.L1ChainIDBig(),
+				cfg.L1Deployments,
+				cfg.DeployConfig,
+			)
+			require.NoError(t, err)
+
+			// Check deploy tx and upgrade tx submission were successful
+			ctx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			_, err = wait.ForReceiptOK(ctx, l1Client, deployTx.Hash())
+			require.NoError(t, err)
+			_, err = wait.ForReceiptOK(ctx, l1Client, upgradeTx.Hash())
+			require.NoError(t, err)
+		}()
 	}
 
 	validatorCfg, err := validator.NewValidatorConfig(validatorCliCfg, sys.Cfg.Loggers["validator"], validatormetrics.NoopMetrics)
@@ -870,6 +905,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			return nil, fmt.Errorf("unable to start challenge system: %w", err)
 		}
 	}
+	// [Kroma: END]
 
 	var batchType uint = derive.SingularBatchType
 	if cfg.DeployConfig.L2GenesisDeltaTimeOffset != nil && *cfg.DeployConfig.L2GenesisDeltaTimeOffset == hexutil.Uint64(0) {
@@ -917,6 +953,8 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 	return sys, nil
 }
+
+// [Kroma: START]
 
 func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 	// Run validator node (Challenger)
@@ -1020,6 +1058,8 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 	return nil
 }
 
+// [Kroma: END]
+
 // IP6 range that gets blackholed (in case our traffic ever makes it out onto
 // the internet).
 var blackholeIP6 = net.ParseIP("100::")
@@ -1069,6 +1109,14 @@ func (sys *System) BatcherHelper() *batcher.Helper {
 	return batcher.NewHelper(sys.t, sys.Cfg.Secrets.Batcher, sys.RollupConfig, sys.NodeClient("l1"))
 }
 
+// [Kroma: START]
+
+func (sys *System) ValidatorHelper() *valhelper.Helper {
+	return valhelper.NewHelper(sys.t, sys.NodeClient("l1"), sys.Cfg.L1ChainIDBig(), sys.Cfg.L2ChainIDBig(), sys.Cfg.DeployConfig.L1BlockTime)
+}
+
+// [Kroma: END]
+
 func UseHTTP() bool {
 	return os.Getenv("OP_E2E_USE_HTTP") == "true"
 }
@@ -1117,66 +1165,6 @@ func (cfg SystemConfig) L1ChainIDBig() *big.Int {
 
 func (cfg SystemConfig) L2ChainIDBig() *big.Int {
 	return new(big.Int).SetUint64(cfg.DeployConfig.L2ChainID)
-}
-
-func (cfg SystemConfig) DepositValidatorPool(l1Client *ethclient.Client, priv *ecdsa.PrivateKey, value *big.Int) error {
-	valpoolContract, err := bindings.NewValidatorPool(config.L1Deployments.ValidatorPoolProxy, l1Client)
-	if err != nil {
-		return fmt.Errorf("unable to create ValidatorPool instance: %w", err)
-	}
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(priv, cfg.L1ChainIDBig())
-	if err != nil {
-		return fmt.Errorf("unable to create transactor opts: %w", err)
-	}
-	transactOpts.Value = value
-	tx, err := valpoolContract.Deposit(transactOpts)
-	if err != nil {
-		return fmt.Errorf("unable to send deposit transaction: %w", err)
-	}
-	_, err = geth.WaitForTransaction(tx.Hash(), l1Client, time.Duration(3*cfg.DeployConfig.L1BlockTime)*time.Second)
-	if err != nil {
-		return fmt.Errorf("unable to wait for validator deposit tx on L1: %w", err)
-	}
-
-	return nil
-}
-
-func (cfg SystemConfig) SendTransferTx(l2Seq *ethclient.Client, l2Sync *ethclient.Client) (*types.Receipt, error) {
-	chainId := cfg.L2ChainIDBig()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	nonce, err := l2Seq.PendingNonceAt(ctx, cfg.Secrets.Addresses().Alice)
-	cancel()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce: %w", err)
-	}
-	tx := types.MustSignNewTx(cfg.Secrets.Alice, types.LatestSignerForChainID(chainId), &types.DynamicFeeTx{
-		ChainID:   chainId,
-		Nonce:     nonce,
-		To:        &common.Address{0xff, 0xff},
-		Value:     common.Big1,
-		GasTipCap: big.NewInt(10),
-		GasFeeCap: big.NewInt(200),
-		Gas:       21000,
-	})
-
-	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
-	err = l2Seq.SendTransaction(ctx, tx)
-	cancel()
-	if err != nil {
-		return nil, fmt.Errorf("failed to send L2 tx to sequencer: %w", err)
-	}
-
-	_, err = geth.WaitForL2Transaction(tx.Hash(), l2Seq, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("failed to wait L2 tx on sequencer: %w", err)
-	}
-
-	receipt, err := geth.WaitForL2Transaction(tx.Hash(), l2Sync, 4*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("failed to wait L2 tx on verifier: %w", err)
-	}
-
-	return receipt, nil
 }
 
 func hexPriv(in *ecdsa.PrivateKey) string {

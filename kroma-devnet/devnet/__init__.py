@@ -291,6 +291,11 @@ def devnet_deploy(paths):
     log.info("Deposit ETH into ValidatorPool contract to be a validator...")
     run_command(['docker', 'compose', 'exec', 'kroma-validator',
                  'kroma-validator', 'deposit', '--amount', '1000000000'], cwd=paths.ops_bedrock_dir)
+
+    # TODO(seolaoh): set termination index of ValidatorPool to a smaller value when V2 goes live
+    log.info("Register to ValidatorManager contract to be a validator...")
+    run_command(['docker', 'compose', 'exec', 'kroma-validator', 'kroma-validator', 'register',
+                 '--amount', '100', '--commission-rate', '5', '--commission-max-change-rate', '5'], cwd=paths.ops_bedrock_dir)
     # [Kroma: END]
 
     log.info('Bringing up `artifact-server`')

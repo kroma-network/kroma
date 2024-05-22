@@ -307,8 +307,7 @@ func (rt *Runtime) depositToValPool(validator *L2Validator) {
 }
 
 func (rt *Runtime) registerToValMgr(validator *L2Validator) {
-	minActivateAmount, err := rt.valMgrContract.MINACTIVATEAMOUNT(nil)
-	require.NoError(rt.t, err)
+	minActivateAmount := rt.dp.DeployConfig.ValidatorManagerMinActivateAmount.ToInt()
 
 	// approve governance token
 	validator.ActApprove(rt.t, minActivateAmount)
