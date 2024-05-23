@@ -53,7 +53,6 @@ type PredeploysImmutableConfig struct {
 		// [Kroma: START]
 		Bridge      common.Address
 		RemoteToken common.Address
-		MintManager common.Address
 		// [Kroma: END]
 	}
 	/* [Kroma: START]
@@ -98,12 +97,6 @@ type PredeploysImmutableConfig struct {
 	ValidatorRewardVault struct {
 		ValidatorPoolAddress common.Address
 		RewardDivider        *big.Int
-	}
-	MintManager struct {
-		MintActivatedBlock  *big.Int
-		InitMintPerBlock    *big.Int
-		SlidingWindowBlocks *big.Int
-		DecayingFactor      *big.Int
 	}
 	// [Kroma: END]
 }
@@ -312,29 +305,7 @@ func l2ImmutableDeployer(backend *backends.SimulatedBackend, opts *bind.Transact
 		if !ok {
 			return nil, fmt.Errorf("invalid type for remoteToken")
 		}
-		mintManager, ok := deployment.Args[2].(common.Address)
-		if !ok {
-			return nil, fmt.Errorf("invalid type for mintManager")
-		}
-		_, tx, _, err = bindings.DeployGovernanceToken(opts, backend, bridge, remoteToken, mintManager)
-	case "MintManager":
-		mintActivatedBlock, ok := deployment.Args[0].(*big.Int)
-		if !ok {
-			return nil, fmt.Errorf("invalid type for mintActivatedBlock")
-		}
-		initMintPerBlock, ok := deployment.Args[1].(*big.Int)
-		if !ok {
-			return nil, fmt.Errorf("invalid type for initMintPerBlock")
-		}
-		slidingWindowBlocks, ok := deployment.Args[2].(*big.Int)
-		if !ok {
-			return nil, fmt.Errorf("invalid type for slidingWindowBlocks")
-		}
-		decayingFactor, ok := deployment.Args[3].(*big.Int)
-		if !ok {
-			return nil, fmt.Errorf("invalid type for decayingFactor")
-		}
-		_, tx, _, err = bindings.DeployMintManager(opts, backend, mintActivatedBlock, initMintPerBlock, slidingWindowBlocks, decayingFactor)
+		_, tx, _, err = bindings.DeployGovernanceToken(opts, backend, bridge, remoteToken)
 	// [Kroma: END]
 	default:
 		return tx, fmt.Errorf("unknown contract: %s", deployment.Name)

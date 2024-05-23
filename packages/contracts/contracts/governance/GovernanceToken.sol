@@ -12,28 +12,18 @@ import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
  * @title GovernanceToken
  * @notice The KRO token used in governance, supporting voting and delegation. Implements
  *         EIP 2612 allowing signed approvals. It can be bridged to other specified chain.
- *         This token is minted once every block by the MintManager.
  */
 contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes {
-    /**
-     * @notice Address of the MintManager contract that will have minter role.
-     */
-    address public immutable MINT_MANAGER;
-
     /**
      * @notice Constructs the GovernanceToken contract.
      *
      * @param _bridge      Address of the StandardBridge on this network.
      * @param _remoteToken Address of the corresponding token on the remote chain.
-     * @param _mintManager Address of the MintManager contract.
      */
     constructor(
         address _bridge,
-        address _remoteToken,
-        address _mintManager
-    ) KromaMintableERC20(_bridge, _remoteToken, "", "") ERC20Permit("Kroma") {
-        MINT_MANAGER = _mintManager;
-    }
+        address _remoteToken
+    ) KromaMintableERC20(_bridge, _remoteToken, "", "") ERC20Permit("Kroma") {}
 
     /**
      * @notice Allows the owner to mint tokens.
@@ -43,7 +33,7 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes {
      */
     function mint(address _account, uint256 _amount) external override {
         require(
-            msg.sender == BRIDGE || msg.sender == MINT_MANAGER,
+            msg.sender == BRIDGE,
             "GovernanceToken: only minter can mint"
         );
 

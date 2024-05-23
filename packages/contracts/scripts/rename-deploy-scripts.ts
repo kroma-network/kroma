@@ -40,7 +40,6 @@ const L2_ORDERED_NAMES = [
   'KromaMintableERC20Factory',
   'KromaMintableERC721Factory',
   'GovernanceToken',
-  'MintManager'
 ]
 
 const main = async () => {
