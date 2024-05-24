@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
 )
 
 // TestValidatorBatchType run each validator-related test case in singular batch mode and span batch mode.
@@ -46,7 +47,7 @@ func RunValidatorPoolTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	rt.bindContracts()
 
 	// submit outputs
-	rt.setupOutputSubmitted(validatorV1)
+	rt.setupOutputSubmitted(validator.ValidatorV1)
 
 	checkRightOutputSubmitted(rt.t, rt.outputOracleContract, rt.sequencer, rt.seqEngine)
 }

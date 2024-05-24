@@ -13,18 +13,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
+const (
+	ValidatorV1 uint8 = iota
+	ValidatorV2
+)
+
 type Helper struct {
 	t                  *testing.T
 	l1Client           *ethclient.Client
 	l1ChainID          *big.Int
-	l2ChainID          *big.Int
 	l1BlockTime        uint64
 	valPoolContract    *bindings.ValidatorPool
 	ValMgrContract     *bindings.ValidatorManager
@@ -32,7 +35,7 @@ type Helper struct {
 	AssetTokenContract *bindings.GovernanceToken
 }
 
-func NewHelper(t *testing.T, l1Client *ethclient.Client, l1ChainID *big.Int, l2ChainID *big.Int, l1BlockTime uint64) *Helper {
+func NewHelper(t *testing.T, l1Client *ethclient.Client, l1ChainID *big.Int, l1BlockTime uint64) *Helper {
 	valPoolContract, err := bindings.NewValidatorPool(config.L1Deployments.ValidatorPoolProxy, l1Client)
 	require.NoError(t, err)
 
@@ -49,7 +52,6 @@ func NewHelper(t *testing.T, l1Client *ethclient.Client, l1ChainID *big.Int, l2C
 		t:                  t,
 		l1Client:           l1Client,
 		l1ChainID:          l1ChainID,
-		l2ChainID:          l2ChainID,
 		l1BlockTime:        l1BlockTime,
 		valPoolContract:    valPoolContract,
 		ValMgrContract:     valMgrContract,
@@ -115,34 +117,4 @@ func (h *Helper) Delegate(priv *ecdsa.PrivateKey, validator common.Address, amou
 
 	_, err = wait.ForReceiptOK(context.Background(), h.l1Client, tx.Hash())
 	require.NoError(h.t, err)
-}
-
-func (h *Helper) SendTransferTx(l2Seq *ethclient.Client, l2Sync *ethclient.Client, priv *ecdsa.PrivateKey) *types.Receipt {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	nonce, err := l2Seq.PendingNonceAt(ctx, crypto.PubkeyToAddress(priv.PublicKey))
-	cancel()
-	require.NoError(h.t, err)
-
-	tx := types.MustSignNewTx(priv, types.LatestSignerForChainID(h.l2ChainID), &types.DynamicFeeTx{
-		ChainID:   h.l2ChainID,
-		Nonce:     nonce,
-		To:        &common.Address{0xff, 0xff},
-		Value:     common.Big1,
-		GasTipCap: big.NewInt(10),
-		GasFeeCap: big.NewInt(200),
-		Gas:       21000,
-	})
-
-	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Duration(h.l1BlockTime)*time.Second)
-	err = l2Seq.SendTransaction(ctx, tx)
-	cancel()
-	require.NoError(h.t, err)
-
-	_, err = geth.WaitForL2Transaction(tx.Hash(), l2Seq, 4*time.Duration(h.l1BlockTime)*time.Second)
-	require.NoError(h.t, err)
-
-	receipt, err := geth.WaitForL2Transaction(tx.Hash(), l2Sync, 4*time.Duration(h.l1BlockTime)*time.Second)
-	require.NoError(h.t, err)
-
-	return receipt
 }

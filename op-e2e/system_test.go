@@ -48,6 +48,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
+	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
 )
 
 // TestSystemBatchType run each system e2e test case in singular batch mode and span batch mode.
@@ -169,7 +170,7 @@ func TestL2OutputSubmitterV2(t *testing.T) {
 	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
 	cfg.DeployConfig.L1BlockTime = 3
 	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle
-	cfg.UseValidatorV2 = true
+	cfg.ValidatorVersion = valhelper.ValidatorV2
 	newTerminationIndex := hexutil.Big(*common.Big1)
 	cfg.DeployConfig.ValidatorPoolTerminateOutputIndex = &newTerminationIndex
 
@@ -256,7 +257,6 @@ func TestValidationReward(t *testing.T) {
 
 	l2Seq := sys.Clients["sequencer"]
 	l2Verif := sys.Clients["verifier"]
-	validatorHelper := sys.ValidatorHelper()
 
 	validatorVault, err := bindings.NewValidatorRewardVault(predeploys.ValidatorRewardVaultAddr, l2Verif)
 	require.NoError(t, err)
@@ -266,7 +266,8 @@ func TestValidationReward(t *testing.T) {
 	require.GreaterOrEqual(t, rewardDivider.Uint64(), uint64(1))
 
 	// Send a transaction to pay a fee
-	_ = validatorHelper.SendTransferTx(l2Seq, l2Verif, cfg.Secrets.Alice)
+	_, err = wait.ForTransferTxOnL2(sys.Cfg.L2ChainIDBig(), l2Seq, l2Verif, cfg.Secrets.Alice, common.Address{0xff, 0xff}, common.Big1)
+	require.NoError(t, err)
 
 	l2RewardedCh := make(chan *bindings.ValidatorRewardVaultRewarded, 1)
 	rewardedSub, err := validatorVault.WatchRewarded(&bind.WatchOpts{}, l2RewardedCh, nil, nil)
@@ -291,14 +292,14 @@ func TestValidationReward(t *testing.T) {
 	}
 }
 
-func TestValidatorSystemUpgrade(t *testing.T) {
+func TestValidatorSystemUpgradeToV2(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
 	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
 	cfg.DeployConfig.L1BlockTime = 3
 	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle
-	cfg.UseValidatorV2 = true
+	cfg.ValidatorVersion = valhelper.ValidatorV2
 	// Set termination index of ValidatorPool large enough to enable auto finalization in ValidatorPool at least once
 	outputNum := cfg.DeployConfig.FinalizationPeriodSeconds /
 		(cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime)
@@ -1768,7 +1769,7 @@ func TestChallengeV2(t *testing.T) {
 	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
 	cfg.DeployConfig.L1BlockTime = 3
 	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle
-	cfg.UseValidatorV2 = true
+	cfg.ValidatorVersion = valhelper.ValidatorV2
 	newTerminationIndex := hexutil.Big(*common.Big1)
 	cfg.DeployConfig.ValidatorPoolTerminateOutputIndex = &newTerminationIndex
 

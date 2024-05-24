@@ -11,6 +11,7 @@ import (
 
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
+	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
 )
 
 var challengerTests = []struct {
@@ -31,7 +32,7 @@ func TestChallengerBatchType(t *testing.T) {
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_SingularBatch", func(t *testing.T) {
-			test.f(t, nil, validatorV1)
+			test.f(t, nil, valhelper.ValidatorV1)
 		})
 	}
 
@@ -39,7 +40,7 @@ func TestChallengerBatchType(t *testing.T) {
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_SpanBatch", func(t *testing.T) {
-			test.f(t, &deltaTimeOffset, validatorV1)
+			test.f(t, &deltaTimeOffset, valhelper.ValidatorV1)
 		})
 	}
 }
@@ -49,13 +50,13 @@ func TestValidatorSystemVersion(t *testing.T) {
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_ValidatorPool", func(t *testing.T) {
-			test.f(t, nil, validatorV1)
+			test.f(t, nil, valhelper.ValidatorV1)
 		})
 	}
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_ValidatorManager", func(t *testing.T) {
-			test.f(t, nil, validatorV2)
+			test.f(t, nil, valhelper.ValidatorV2)
 		})
 	}
 }
@@ -63,7 +64,7 @@ func TestValidatorSystemVersion(t *testing.T) {
 func ChallengeBasic(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -84,7 +85,7 @@ func ChallengeBasic(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8
 	var beforeAsset *big.Int
 	var slashingAmount *big.Int
 	var taxAmount *big.Int
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
 	}
 
@@ -135,12 +136,12 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		// check bond amount doubled after challenge proven
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == validatorV2 {
+	} else if version == valhelper.ValidatorV2 {
 		// check asserter has been slashed
 		valStatus, err := rt.validator.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
@@ -164,7 +165,7 @@ interaction:
 func ChallengeAsserterBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -185,7 +186,7 @@ func ChallengeAsserterBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint6
 	var beforeAsset *big.Int
 	var slashingAmount *big.Int
 	var taxAmount *big.Int
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
 	}
 
@@ -231,12 +232,12 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		// check bond amount doubled after challenge proven
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == validatorV2 {
+	} else if version == valhelper.ValidatorV2 {
 		// check asserter has been slashed
 		valStatus, err := rt.validator.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
@@ -260,7 +261,7 @@ interaction:
 func ChallengeChallengerBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -280,7 +281,7 @@ func ChallengeChallengerBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uin
 	var beforeAsset *big.Int
 	var slashingAmount *big.Int
 	var taxAmount *big.Int
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.challenger1.address)
 	}
 
@@ -325,12 +326,12 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		// check bond amount doubled after challenger timed out
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == validatorV2 {
+	} else if version == valhelper.ValidatorV2 {
 		// check challenger has been slashed
 		valStatus, err := rt.challenger1.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
@@ -354,7 +355,7 @@ interaction:
 func ChallengeChallengerProvingTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -374,7 +375,7 @@ func ChallengeChallengerProvingTimeout(t *testing.T, deltaTimeOffset *hexutil.Ui
 	var beforeAsset *big.Int
 	var slashingAmount *big.Int
 	var taxAmount *big.Int
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.challenger1.address)
 	}
 
@@ -423,12 +424,12 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		// check bond amount doubled after challenger timed out
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == validatorV2 {
+	} else if version == valhelper.ValidatorV2 {
 		// check challenger has been slashed
 		valStatus, err := rt.challenger1.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
@@ -452,7 +453,7 @@ interaction:
 func ChallengeInvalidProofFail(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -471,7 +472,7 @@ func ChallengeInvalidProofFail(t *testing.T, deltaTimeOffset *hexutil.Uint64, ve
 	rt.setupChallenge(rt.challenger1, version)
 
 	var taxAmount *big.Int
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		// if the challenger proves fault with invalid proof, asserter will be slashed
 		// after security council dismisses the challenge, the slashed asset should be handled manually
 		_, _, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
@@ -544,12 +545,12 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		// check bond amount doubled after challenge is proven incorrectly anyway
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == validatorV2 {
+	} else if version == valhelper.ValidatorV2 {
 		// check asserter has been unjailed by guardian
 		inJail, err := rt.validator.isInJail(rt.t)
 		require.NoError(rt.t, err)
@@ -565,7 +566,7 @@ interaction:
 func ChallengeForceDeleteOutputBySecurityCouncil(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -586,7 +587,7 @@ func ChallengeForceDeleteOutputBySecurityCouncil(t *testing.T, deltaTimeOffset *
 	var beforeAsset *big.Int
 	var slashingAmount *big.Int
 	var taxAmount *big.Int
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
 	}
 
@@ -643,12 +644,12 @@ interaction:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, remoteOutput.Submitter, securityCouncilAddr)
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		// check bond amount doubled after output is deleted forcefully
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
-	} else if version == validatorV2 {
+	} else if version == valhelper.ValidatorV2 {
 		// check asserter has been slashed
 		valStatus, err := rt.validator.getValidatorStatus(rt.t)
 		require.NoError(rt.t, err)
@@ -672,7 +673,7 @@ interaction:
 func MultipleChallenges(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
 	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 	}
 
@@ -735,7 +736,7 @@ interaction1:
 	// check output submitter is changed to challenger
 	require.Equal(rt.t, remoteOutput.Submitter, rt.challenger1.address)
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		// check pending bond amount before challenge is canceled
 		balance, err := rt.valPoolContract.BalanceOf(nil, rt.challenger2.address)
 		require.NoError(rt.t, err)
@@ -771,7 +772,7 @@ interaction2:
 	require.NoError(rt.t, err)
 	require.Equal(rt.t, chal.StatusNone, status)
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		// check pending bond amount refunded after challenge canceled
 		balance, err := rt.valPoolContract.BalanceOf(nil, rt.challenger2.address)
 		require.NoError(rt.t, err)

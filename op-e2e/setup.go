@@ -109,8 +109,8 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 
 	require.Equal(t, secrets.Addresses().Batcher, deployConfig.BatchSenderAddress)
 	require.Equal(t, secrets.Addresses().SequencerP2P, deployConfig.P2PSequencerAddress)
-	require.Equal(t, secrets.Addresses().TrustedValidator, deployConfig.ValidatorPoolTrustedValidator)
 	// [Kroma: START]
+	require.Equal(t, secrets.Addresses().TrustedValidator, deployConfig.ValidatorPoolTrustedValidator)
 	require.Equal(t, secrets.Addresses().TrustedValidator, deployConfig.ValidatorManagerTrustedValidator)
 	// [Kroma: END]
 
@@ -254,8 +254,8 @@ type SystemConfig struct {
 	// the challenger and guardian will act as honest parties.
 	EnableChallenge bool
 
-	// UseValidatorV2 makes validator system transit to V2 during test.
-	UseValidatorV2 bool
+	// ValidatorVersion makes the version of validator system other than V1.
+	ValidatorVersion uint8
 	// [Kroma: END]
 }
 
@@ -842,7 +842,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	validatorHelper := sys.ValidatorHelper()
 	validatorHelper.DepositToValPool(cfg.Secrets.TrustedValidator, big.NewInt(params.Ether))
 
-	if cfg.UseValidatorV2 {
+	if cfg.ValidatorVersion == valhelper.ValidatorV2 {
 		// register to ValidatorManager to be a validator
 		validatorHelper.RegisterToValMgr(cfg.Secrets.TrustedValidator, cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt())
 
@@ -1112,7 +1112,7 @@ func (sys *System) BatcherHelper() *batcher.Helper {
 // [Kroma: START]
 
 func (sys *System) ValidatorHelper() *valhelper.Helper {
-	return valhelper.NewHelper(sys.t, sys.NodeClient("l1"), sys.Cfg.L1ChainIDBig(), sys.Cfg.L2ChainIDBig(), sys.Cfg.DeployConfig.L1BlockTime)
+	return valhelper.NewHelper(sys.t, sys.NodeClient("l1"), sys.Cfg.L1ChainIDBig(), sys.Cfg.DeployConfig.L1BlockTime)
 }
 
 // [Kroma: END]
