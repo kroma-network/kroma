@@ -347,11 +347,11 @@ interface IValidatorManager {
     function inJail(address validator) external view returns (bool);
 
     /**
-     * @notice Returns if the given validator satisfies output submission condition.
+     * @notice Returns if the status of the given validator is active.
      *
      * @param validator Address of the validator.
      *
-     * @return If the given validator satisfies output submission condition.
+     * @return If the status of the given validator is active.
      */
-    function canSubmitOutput(address validator) external view returns (bool);
+    function isActive(address validator) external view returns (bool);
 }

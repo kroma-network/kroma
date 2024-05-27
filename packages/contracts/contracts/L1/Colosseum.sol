@@ -457,8 +457,8 @@ contract Colosseum is Initializable, ISemver {
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
-            // Only the validators who satisfy output submission condition can create challenge.
-            if (!L2_ORACLE.VALIDATOR_MANAGER().canSubmitOutput(msg.sender))
+            // Only the validators whose status is active can create challenge.
+            if (!L2_ORACLE.VALIDATOR_MANAGER().isActive(msg.sender))
                 revert ImproperValidatorStatus();
         } else {
             L2_ORACLE.VALIDATOR_POOL().addPendingBond(_outputIndex, msg.sender);

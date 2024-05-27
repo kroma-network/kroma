@@ -195,7 +195,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         bool ready = assets >= MIN_ACTIVATE_AMOUNT;
         if (ready) {
-            _validatorTree.insert(msg.sender, uint120(ASSET_MANAGER.reflectiveWeight(msg.sender)));
+            _activateValidator(msg.sender);
         }
 
         emit ValidatorRegistered(
@@ -214,9 +214,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (getStatus(msg.sender) != ValidatorStatus.READY || inJail(msg.sender))
             revert ImproperValidatorStatus();
 
-        _validatorTree.insert(msg.sender, uint120(ASSET_MANAGER.reflectiveWeight(msg.sender)));
-
-        emit ValidatorActivated(msg.sender, block.timestamp);
+        _activateValidator(msg.sender);
     }
 
     /**
@@ -287,6 +285,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
         delete _jail[validator];
 
         emit ValidatorUnjailed(validator);
+
+        if (getStatus(validator) == ValidatorStatus.READY) {
+            _activateValidator(validator);
+        }
     }
 
     /**
@@ -328,7 +330,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
             validator != _nextValidator
         ) revert NotSelectedPriorityValidator();
 
-        if (!canSubmitOutput(validator)) revert ImproperValidatorStatus();
+        if (!isActive(validator)) revert ImproperValidatorStatus();
     }
 
     /**
@@ -460,7 +462,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function canSubmitOutput(address validator) public view returns (bool) {
+    function isActive(address validator) public view returns (bool) {
         if (getStatus(validator) == ValidatorStatus.ACTIVE) return true;
         return false;
     }
@@ -483,6 +485,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function activatedValidatorTotalWeight() public view returns (uint120) {
         return _validatorTree.nodes[_validatorTree.root].weightSum;
+    }
+
+    /**
+     * @notice Private function to activate a validator and adds the validator to validator tree.
+     *
+     * @param validator Address of the validator.
+     */
+    function _activateValidator(address validator) private {
+        _validatorTree.insert(validator, uint120(ASSET_MANAGER.reflectiveWeight(validator)));
+
+        emit ValidatorActivated(validator, block.timestamp);
     }
 
     /**

@@ -185,6 +185,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         vm.startPrank(trusted);
         assetToken.approve(address(assetMan), uint256(assets));
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorActivated(trusted, block.timestamp);
         vm.expectEmit(true, true, false, true, address(valMgr));
         emit ValidatorRegistered(trusted, true, commissionRate, commissionMaxChangeRate, assets);
         valMgr.registerValidator(assets, commissionRate, commissionMaxChangeRate);
@@ -624,15 +626,19 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
     function test_tryUnjail_succeeds() external {
         test_afterSubmitL2Output_tryJail_succeeds();
+        assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.READY);
 
         vm.warp(valMgr.jailExpiresAt(asserter));
         vm.prank(asserter);
-        vm.expectEmit(false, false, false, true, address(valMgr));
+        vm.expectEmit(true, false, false, false, address(valMgr));
         emit ValidatorUnjailed(asserter);
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorActivated(asserter, block.timestamp);
         valMgr.tryUnjail(asserter, false);
 
         assertEq(valMgr.noSubmissionCount(asserter), 0);
         assertFalse(valMgr.inJail(asserter));
+        assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.ACTIVE);
     }
 
     function test_tryUnjail_notInJail_reverts() external {
