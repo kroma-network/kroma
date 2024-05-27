@@ -18,14 +18,10 @@ import (
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	val "github.com/kroma-network/kroma/kroma-validator"
+	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
 )
 
 const defaultDepositAmount = 1_000
-
-const (
-	validatorV1 uint8 = iota
-	validatorV2
-)
 
 var defaultValPoolTerminationIndex = common.Big2
 
@@ -226,7 +222,7 @@ func (rt *Runtime) setupOutputSubmitted(version uint8) {
 	rt.proceedWithBlocks(3)
 
 	rt.depositToValPool(rt.validator)
-	if version == validatorV2 {
+	if version == valhelper.ValidatorV2 {
 		rt.registerToValMgr(rt.validator)
 	}
 
@@ -255,14 +251,14 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 	outputComputed := challenger.fetchOutput(rt.t, rt.outputOnL1.L2BlockNumber)
 	require.NotEqual(rt.t, eth.Bytes32(rt.outputOnL1.OutputRoot), outputComputed.OutputRoot, "output roots must different")
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		rt.depositToValPool(challenger)
 
 		// check bond amount before create challenge
 		bond, err := rt.valPoolContract.GetBond(nil, rt.outputIndex)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt(), bond.Amount)
-	} else if version == validatorV2 {
+	} else if version == valhelper.ValidatorV2 {
 		rt.registerToValMgr(challenger)
 	}
 
@@ -282,7 +278,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 	require.NoError(rt.t, err)
 	require.NotNil(rt.t, challenge, "challenge not found")
 
-	if version == validatorV1 {
+	if version == valhelper.ValidatorV1 {
 		// check pending bond amount after create challenge
 		pendingBond, err := rt.valPoolContract.GetPendingBond(nil, rt.outputIndex, challenger.address)
 		require.NoError(rt.t, err)
@@ -307,8 +303,7 @@ func (rt *Runtime) depositToValPool(validator *L2Validator) {
 }
 
 func (rt *Runtime) registerToValMgr(validator *L2Validator) {
-	minActivateAmount, err := rt.valMgrContract.MINACTIVATEAMOUNT(nil)
-	require.NoError(rt.t, err)
+	minActivateAmount := rt.dp.DeployConfig.ValidatorManagerMinActivateAmount.ToInt()
 
 	// approve governance token
 	validator.ActApprove(rt.t, minActivateAmount)

@@ -29,8 +29,8 @@ var DefaultMnemonicConfig = &MnemonicConfig{
 	SysCfgOwner:      "m/44'/60'/0'/0/0",
 
 	// [Kroma: START],
-	Challenger1: "m/44'/60'/0'/0/11",
-	Challenger2: "m/44'/60'/0'/0/12",
+	Challenger1: "m/44'/60'/0'/0/11", // 0x71bE63f3384f5fb98995898A86B02Fb2426c5788
+	Challenger2: "m/44'/60'/0'/0/12", // 0xFABB0ac9d68B0B445fB7357272Ff202C5651694a
 	Guardian:    "m/44'/60'/0'/0/13", // 0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec
 	// [Kroma: END]
 }
