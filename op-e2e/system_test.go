@@ -349,6 +349,8 @@ func TestValidatorSystemUpgradeToV2(t *testing.T) {
 		case <-ctx.Done():
 			t.Fatalf("Timed out waiting for the first reward distribution in ValidatorManager")
 		case evt := <-rewardedCh:
+			require.Equal(t, new(big.Int).Add(newTerminationIndex.ToInt(), common.Big1).Uint64(), evt.OutputIndex.Uint64())
+
 			newIndex, err := l2OutputOracle.NextFinalizeOutputIndex(&bind.CallOpts{})
 			require.NoError(t, err)
 			require.NotEqual(t, newIndex.Uint64(), nextFinalizeOutputIndex.Uint64())
