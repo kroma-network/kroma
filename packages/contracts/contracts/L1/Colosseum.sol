@@ -240,6 +240,11 @@ contract Colosseum is Initializable, ISemver {
     error OutputAlreadyDeleted();
 
     /**
+     * @notice Reverts when the status of validator is improper.
+     */
+    error ImproperValidatorStatus();
+
+    /**
      * @notice Reverts when output is not deleted.
      */
     error OutputNotDeleted();
@@ -453,7 +458,8 @@ contract Colosseum is Initializable, ISemver {
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
             // Only the validators who satisfy output submission condition can create challenge.
-            L2_ORACLE.VALIDATOR_MANAGER().assertCanSubmitOutput(msg.sender);
+            if (!L2_ORACLE.VALIDATOR_MANAGER().canSubmitOutput(msg.sender))
+                revert ImproperValidatorStatus();
         } else {
             L2_ORACLE.VALIDATOR_POOL().addPendingBond(_outputIndex, msg.sender);
         }

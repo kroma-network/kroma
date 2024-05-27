@@ -332,7 +332,7 @@ func TestValidatorSystemUpgradeToV2(t *testing.T) {
 
 	// Subscribe reward distribution event in ValidatorManager
 	rewardedCh := make(chan *bindings.ValidatorManagerRewardDistributed, 1)
-	rewardedSub, err := validatorHelper.ValMgrContract.WatchRewardDistributed(&bind.WatchOpts{}, rewardedCh, []common.Address{})
+	rewardedSub, err := validatorHelper.ValMgrContract.WatchRewardDistributed(&bind.WatchOpts{}, rewardedCh, []*big.Int{}, []common.Address{})
 	require.NoError(t, err)
 	defer rewardedSub.Unsubscribe()
 

@@ -624,6 +624,13 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 	defer cCancel()
 	from := c.cfg.TxManager.From()
 	if c.IsValPoolTerminated(outputIndex) {
+		if isInJail, err := c.isInJail(ctx); err != nil {
+			return false, err
+		} else if isInJail {
+			c.log.Warn("validator is in jail")
+			return false, nil
+		}
+
 		validatorStatus, err := c.valMgrContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch the validator status: %w", err)
@@ -631,13 +638,6 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 
 		if validatorStatus != StatusActive {
 			c.log.Warn("validator is not in the status that can create a challenge", "status", validatorStatus)
-			return false, nil
-		}
-
-		if isInJail, err := c.isInJail(ctx); err != nil {
-			return false, err
-		} else if isInJail {
-			c.log.Warn("validator is in jail")
 			return false, nil
 		}
 	} else {

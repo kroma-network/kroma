@@ -265,6 +265,7 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 	roundBuffer := new(big.Int).SetUint64(l.cfg.OutputSubmitterRoundBuffer)
 	if currentBlockNumber.Cmp(nextBlockNumberToWait) < 0 {
 		nextBlockNumberToWait = new(big.Int).Sub(nextBlockNumber, roundBuffer)
+		l.log.Info("submission interval has not elapsed", "currentBlockNumber", currentBlockNumber, "nextBlockNumberToWait", nextBlockNumberToWait)
 		return l.getLeftTimeForL2Blocks(currentBlockNumber, nextBlockNumberToWait)
 	}
 
@@ -278,6 +279,7 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 		// wait for L2 blocks proceeding until public round when not selected for priority validator
 		roundIntervalToWait := new(big.Int).Sub(l.singleRoundInterval, roundBuffer)
 		nextBlockNumberToWait = new(big.Int).Add(nextBlockNumber, roundIntervalToWait)
+		l.log.Info("wait for next submission chance", "currentBlockNumber", currentBlockNumber, "nextBlockNumberToWait", nextBlockNumberToWait)
 		return l.getLeftTimeForL2Blocks(currentBlockNumber, nextBlockNumberToWait)
 	}
 
@@ -290,6 +292,13 @@ func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputInd
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	if l.IsValPoolTerminated(outputIndex) {
+		if isInJail, err := l.IsInJail(ctx); err != nil {
+			return err
+		} else if isInJail {
+			l.log.Warn("validator is in jail")
+			return nil
+		}
+
 		validatorStatus, err := l.GetValidatorStatus(ctx)
 		if err != nil {
 			return err
@@ -297,13 +306,6 @@ func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputInd
 
 		if validatorStatus != StatusActive {
 			l.log.Warn("validator is not in the status to submit output", "currentStatus", validatorStatus)
-			return nil
-		}
-
-		if isInJail, err := l.IsInJail(ctx); err != nil {
-			return err
-		} else if isInJail {
-			l.log.Warn("validator is in jail")
 			return nil
 		}
 	} else {
@@ -399,7 +401,6 @@ func (l *L2OutputSubmitter) IsInJail(ctx context.Context) (bool, error) {
 }
 
 func (l *L2OutputSubmitter) getLeftTimeForL2Blocks(currentBlockNumber *big.Int, targetBlockNumber *big.Int) time.Duration {
-	l.log.Info("submission interval has not elapsed", "currentBlockNumber", currentBlockNumber, "targetBlockNumber", targetBlockNumber)
 	waitBlockNum := new(big.Int).Sub(targetBlockNumber, currentBlockNumber)
 
 	var waitDuration time.Duration

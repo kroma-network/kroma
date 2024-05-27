@@ -328,7 +328,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
             validator != _nextValidator
         ) revert NotSelectedPriorityValidator();
 
-        assertCanSubmitOutput(validator);
+        if (!canSubmitOutput(validator)) revert ImproperValidatorStatus();
     }
 
     /**
@@ -460,9 +460,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function assertCanSubmitOutput(address validator) public view {
-        if (getStatus(validator) != ValidatorStatus.ACTIVE || inJail(validator))
-            revert ImproperValidatorStatus();
+    function canSubmitOutput(address validator) public view returns (bool) {
+        if (getStatus(validator) == ValidatorStatus.ACTIVE) return true;
+        return false;
     }
 
     /**
@@ -519,7 +519,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
                     validatorReward
                 );
 
-                emit RewardDistributed(submitter, validatorReward, baseReward, boostedReward);
+                emit RewardDistributed(
+                    outputIndex,
+                    submitter,
+                    validatorReward,
+                    baseReward,
+                    boostedReward
+                );
 
                 uint128 challengeReward = _pendingChallengeReward[outputIndex];
                 if (challengeReward > 0) {
@@ -634,20 +640,19 @@ contract ValidatorManager is ISemver, IValidatorManager {
      *         submission round but did not submit the output.
      */
     function _tryJail() private {
-        if (_nextPriorityValidator != address(0)) {
-            if (_validatorInfo[_nextPriorityValidator].noSubmissionCount >= JAIL_THRESHOLD) {
-                _sendToJail(_nextPriorityValidator);
-            } else {
-                unchecked {
-                    _validatorInfo[_nextPriorityValidator].noSubmissionCount++;
-                }
+        if (_nextPriorityValidator == address(0)) return;
+
+        if (_validatorInfo[_nextPriorityValidator].noSubmissionCount >= JAIL_THRESHOLD) {
+            _sendToJail(_nextPriorityValidator);
+        } else {
+            unchecked {
+                _validatorInfo[_nextPriorityValidator].noSubmissionCount++;
             }
         }
     }
 
     /**
-     * @notice Send the given validator to the jail. If the validator is already in jail, the
-     *         expiration timestamp is updated.
+     * @notice Send the given validator to the jail and remove from the validator tree.
      *
      * @param validator Address of the validator.
      */
@@ -656,6 +661,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
         _jail[validator] = expiresAt;
 
         emit ValidatorJailed(validator, expiresAt);
+
+        if (_validatorTree.remove(validator)) emit ValidatorStopped(validator, block.timestamp);
     }
 
     /**

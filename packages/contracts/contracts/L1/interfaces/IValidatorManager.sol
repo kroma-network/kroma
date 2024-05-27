@@ -152,12 +152,14 @@ interface IValidatorManager {
     /**
      * @notice Emitted when the output reward is distributed.
      *
+     * @param outputIndex     Index of the L2 checkpoint output.
      * @param validator       Address of the validator whose vault is rewarded.
      * @param validatorReward The amount of validator reward.
      * @param baseReward      The amount of base reward for KRO delegators.
      * @param boostedReward   The amount of boosted reward for KGH delegators.
      */
     event RewardDistributed(
+        uint256 indexed outputIndex,
         address indexed validator,
         uint128 validatorReward,
         uint128 baseReward,
@@ -345,9 +347,11 @@ interface IValidatorManager {
     function inJail(address validator) external view returns (bool);
 
     /**
-     * @notice Asserts that the given validator satisfies output submission condition.
+     * @notice Returns if the given validator satisfies output submission condition.
      *
      * @param validator Address of the validator.
+     *
+     * @return If the given validator satisfies output submission condition.
      */
-    function assertCanSubmitOutput(address validator) external view;
+    function canSubmitOutput(address validator) external view returns (bool);
 }
