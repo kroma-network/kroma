@@ -246,12 +246,6 @@ interface OptionalL2DeployConfig {
   gasPriceOracleOverhead: number
   gasPriceOracleScalar: number
   validatorRewardScalar: number
-  mintManagerMintActivatedBlock: string
-  mintManagerInitMintPerBlock: string
-  mintManagerSlidingWindowBlocks: number
-  mintManagerDecayingFactor: number
-  mintManagerRecipients: string[]
-  mintManagerShares: string[]
 }
 
 /**
@@ -477,18 +471,6 @@ export const deployConfigSpec: {
     type: 'number',
   },
   l2TimeLockMinDelaySeconds: {
-    type: 'number',
-  },
-  mintManagerMintActivatedBlock: {
-    type: 'string',
-  },
-  mintManagerInitMintPerBlock: {
-    type: 'string',
-  },
-  mintManagerSlidingWindowBlocks: {
-    type: 'number',
-  },
-  mintManagerDecayingFactor: {
     type: 'number',
   },
 }

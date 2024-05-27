@@ -3,8 +3,6 @@ pragma solidity 0.8.15;
 
 import { Constants } from "../libraries/Constants.sol";
 import { ISemver } from "../universal/ISemver.sol";
-import { Predeploys } from "../libraries/Predeploys.sol";
-import { SafeCall } from "../libraries/SafeCall.sol";
 
 /// @custom:proxied
 /// @custom:predeploy 0x4200000000000000000000000000000000000002
@@ -13,7 +11,6 @@ import { SafeCall } from "../libraries/SafeCall.sol";
 ///         Values within this contract are updated once per epoch (every L1 block) and can only be
 ///         set by the "depositor" account, a special system address. Depositor account transactions
 ///         are created by the protocol whenever we move to a new epoch.
-///         This contract calls MintManager to mint governance tokens.
 contract L1Block is ISemver {
     /// @notice Address of the special depositor account.
     address public constant DEPOSITOR_ACCOUNT = 0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001;
@@ -63,7 +60,6 @@ contract L1Block is ISemver {
 
     /// @custom:legacy
     /// @notice Updates the L1 block values.
-    ///         After updating, call the mint function of MintManager to mint GovernanceToken.
     /// @param _number                L1 blocknumber.
     /// @param _timestamp             L1 timestamp.
     /// @param _basefee               L1 basefee.
@@ -102,10 +98,6 @@ contract L1Block is ISemver {
         l1FeeOverhead = _l1FeeOverhead;
         l1FeeScalar = _l1FeeScalar;
         validatorRewardScalar = _validatorRewardScalar;
-
-        // Call MintManager to mint governance tokens. Note that SafeCall is used to call the mint function,
-        // ensuring that the L1 block values are updated even if a revert occurs in the MintManager contract.
-        SafeCall.call(Predeploys.MINT_MANAGER, gasleft(), 0, abi.encodeWithSignature("mint()"));
     }
 
     /// @notice Updates the L1 block values for an Ecotone upgraded chain.
@@ -121,7 +113,6 @@ contract L1Block is ISemver {
     ///   8. _hash                  L1 blockhash.
     ///   9. _batcherHash           Versioned hash to authenticate batcher by.
     ///   10. _validatorRewardScalar Validator reward scalar.
-    /// After updating, call the mint function of MintManager to mint GovernanceToken.
     function setL1BlockValuesEcotone() external {
         assembly {
         // Revert if the caller is not the depositor account.
@@ -140,9 +131,5 @@ contract L1Block is ISemver {
             sstore(batcherHash.slot, calldataload(132)) // bytes32
             sstore(validatorRewardScalar.slot, calldataload(164)) // uint256
         }
-
-        // Call MintManager to mint governance tokens. Note that SafeCall is used to call the mint function,
-        // ensuring that the L1 block values are updated even if a revert occurs in the MintManager contract.
-        SafeCall.call(Predeploys.MINT_MANAGER, gasleft(), 0, abi.encodeWithSignature("mint()"));
     }
 }

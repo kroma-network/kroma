@@ -34,7 +34,6 @@ contracts=(
   contracts/governance/TimeLock.sol:TimeLock
   contracts/governance/UpgradeGovernor.sol:UpgradeGovernor
   contracts/governance/GovernanceToken.sol:GovernanceToken
-  contracts/governance/MintManager.sol:MintManager
 )
 
 dir=$(dirname "$0")

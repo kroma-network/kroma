@@ -53,19 +53,5 @@
   "colosseumSegmentsLengths": "2,2,3,3",
   "zkVerifierHashScalar": "0x12f2215154abbfe8c4cbb6ce26e741c074f0b2b7382f8de01f7dee61b6d83d05",
   "zkVerifierM56Px": "0x2f871fa2350511069a310ad1cca63540b8e582771cc35dfe6f335f1983396312",
-  "zkVerifierM56Py": "0xc578b532be0a2a2373ed0b7fd640eb604d67738c6f4732696f310e521af7c2",
-  "mintManagerMintActivatedBlock": "0x0",
-  "mintManagerInitMintPerBlock": "0xde0b6b3a7640000",
-  "mintManagerSlidingWindowBlocks": 3888000,
-  "mintManagerDecayingFactor": 92224,
-  "mintManagerRecipients": [
-    "0x4200000000000000000000000000000000000006",
-    "0x4200000000000000000000000000000000000007",
-    "0x4200000000000000000000000000000000000008"
-  ],
-  "mintManagerShares": [
-    20000,
-    30000,
-    50000
-  ]
+  "zkVerifierM56Py": "0xc578b532be0a2a2373ed0b7fd640eb604d67738c6f4732696f310e521af7c2"
 }
