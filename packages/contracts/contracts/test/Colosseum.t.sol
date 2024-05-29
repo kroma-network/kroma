@@ -1066,7 +1066,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
 
         vm.expectCall(
             address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
-            abi.encodeWithSelector(IValidatorManager.assertCanSubmitOutput.selector, challenger)
+            abi.encodeWithSelector(IValidatorManager.isActive.selector, challenger)
         );
         vm.prank(challenger);
         colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);

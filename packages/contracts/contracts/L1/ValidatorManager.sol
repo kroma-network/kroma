@@ -195,7 +195,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         bool ready = assets >= MIN_ACTIVATE_AMOUNT;
         if (ready) {
-            _validatorTree.insert(msg.sender, uint120(ASSET_MANAGER.reflectiveWeight(msg.sender)));
+            _activateValidator(msg.sender);
         }
 
         emit ValidatorRegistered(
@@ -214,9 +214,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (getStatus(msg.sender) != ValidatorStatus.READY || inJail(msg.sender))
             revert ImproperValidatorStatus();
 
-        _validatorTree.insert(msg.sender, uint120(ASSET_MANAGER.reflectiveWeight(msg.sender)));
-
-        emit ValidatorActivated(msg.sender, block.timestamp);
+        _activateValidator(msg.sender);
     }
 
     /**
@@ -287,6 +285,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
         delete _jail[validator];
 
         emit ValidatorUnjailed(validator);
+
+        if (getStatus(validator) == ValidatorStatus.READY) {
+            _activateValidator(validator);
+        }
     }
 
     /**
@@ -328,7 +330,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
             validator != _nextValidator
         ) revert NotSelectedPriorityValidator();
 
-        assertCanSubmitOutput(validator);
+        if (!isActive(validator)) revert ImproperValidatorStatus();
     }
 
     /**
@@ -460,9 +462,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function assertCanSubmitOutput(address validator) public view {
-        if (getStatus(validator) != ValidatorStatus.ACTIVE || inJail(validator))
-            revert ImproperValidatorStatus();
+    function isActive(address validator) public view returns (bool) {
+        if (getStatus(validator) == ValidatorStatus.ACTIVE) return true;
+        return false;
     }
 
     /**
@@ -483,6 +485,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function activatedValidatorTotalWeight() public view returns (uint120) {
         return _validatorTree.nodes[_validatorTree.root].weightSum;
+    }
+
+    /**
+     * @notice Private function to activate a validator and adds the validator to validator tree.
+     *
+     * @param validator Address of the validator.
+     */
+    function _activateValidator(address validator) private {
+        _validatorTree.insert(validator, uint120(ASSET_MANAGER.reflectiveWeight(validator)));
+
+        emit ValidatorActivated(validator, block.timestamp);
     }
 
     /**
@@ -519,7 +532,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
                     validatorReward
                 );
 
-                emit RewardDistributed(submitter, validatorReward, baseReward, boostedReward);
+                emit RewardDistributed(
+                    outputIndex,
+                    submitter,
+                    validatorReward,
+                    baseReward,
+                    boostedReward
+                );
 
                 uint128 challengeReward = _pendingChallengeReward[outputIndex];
                 if (challengeReward > 0) {
@@ -634,20 +653,19 @@ contract ValidatorManager is ISemver, IValidatorManager {
      *         submission round but did not submit the output.
      */
     function _tryJail() private {
-        if (_nextPriorityValidator != address(0)) {
-            if (_validatorInfo[_nextPriorityValidator].noSubmissionCount >= JAIL_THRESHOLD) {
-                _sendToJail(_nextPriorityValidator);
-            } else {
-                unchecked {
-                    _validatorInfo[_nextPriorityValidator].noSubmissionCount++;
-                }
+        if (_nextPriorityValidator == address(0)) return;
+
+        if (_validatorInfo[_nextPriorityValidator].noSubmissionCount >= JAIL_THRESHOLD) {
+            _sendToJail(_nextPriorityValidator);
+        } else {
+            unchecked {
+                _validatorInfo[_nextPriorityValidator].noSubmissionCount++;
             }
         }
     }
 
     /**
-     * @notice Send the given validator to the jail. If the validator is already in jail, the
-     *         expiration timestamp is updated.
+     * @notice Send the given validator to the jail and remove from the validator tree.
      *
      * @param validator Address of the validator.
      */
@@ -656,6 +674,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
         _jail[validator] = expiresAt;
 
         emit ValidatorJailed(validator, expiresAt);
+
+        if (_validatorTree.remove(validator)) emit ValidatorStopped(validator, block.timestamp);
     }
 
     /**

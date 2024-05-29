@@ -98,6 +98,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     event ValidatorUnjailed(address indexed validator);
 
     event RewardDistributed(
+        uint256 indexed outputIndex,
         address indexed validator,
         uint128 validatorReward,
         uint128 baseReward,
@@ -184,6 +185,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         vm.startPrank(trusted);
         assetToken.approve(address(assetMan), uint256(assets));
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorActivated(trusted, block.timestamp);
         vm.expectEmit(true, true, false, true, address(valMgr));
         emit ValidatorRegistered(trusted, true, commissionRate, commissionMaxChangeRate, assets);
         valMgr.registerValidator(assets, commissionRate, commissionMaxChangeRate);
@@ -312,8 +315,6 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         // Undelegate all assets of jailed validator
         uint128 kroShares = assetMan.getKroTotalShareBalance(asserter, asserter);
         vm.prank(asserter);
-        vm.expectEmit(true, false, false, true, address(valMgr));
-        emit ValidatorStopped(asserter, block.timestamp);
         assetMan.initUndelegate(asserter, kroShares);
         assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.EXITED);
 
@@ -364,7 +365,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         mockOracle.addOutput(oracle.nextBlockNumber());
         vm.prank(address(oracle));
         vm.expectEmit(true, false, false, true, address(valMgr));
-        emit RewardDistributed(trusted, validatorReward, baseReward, boostedReward);
+        emit RewardDistributed(
+            terminateOutputIndex + 1,
+            trusted,
+            validatorReward,
+            baseReward,
+            boostedReward
+        );
         valMgr.afterSubmitL2Output(outputIndex);
 
         uint128 kroReward = assetMan.totalKroAssets(trusted) -
@@ -469,10 +476,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.prank(address(oracle));
         vm.expectEmit(true, false, false, true, address(valMgr));
         emit ValidatorJailed(asserter, uint128(block.timestamp) + jailPeriodSeconds);
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorStopped(asserter, block.timestamp);
         valMgr.afterSubmitL2Output(outputIndex);
 
         assertEq(valMgr.noSubmissionCount(asserter), jailThreshold);
         assertTrue(valMgr.inJail(asserter));
+        assertEq(valMgr.getWeight(asserter), 0);
     }
 
     function test_afterSubmitL2Output_resetNoSubmissionCount_succeeds() external {
@@ -616,15 +626,19 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
     function test_tryUnjail_succeeds() external {
         test_afterSubmitL2Output_tryJail_succeeds();
+        assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.READY);
 
         vm.warp(valMgr.jailExpiresAt(asserter));
         vm.prank(asserter);
-        vm.expectEmit(false, false, false, true, address(valMgr));
+        vm.expectEmit(true, false, false, false, address(valMgr));
         emit ValidatorUnjailed(asserter);
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorActivated(asserter, block.timestamp);
         valMgr.tryUnjail(asserter, false);
 
         assertEq(valMgr.noSubmissionCount(asserter), 0);
         assertFalse(valMgr.inJail(asserter));
+        assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.ACTIVE);
     }
 
     function test_tryUnjail_notInJail_reverts() external {
@@ -681,8 +695,12 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint128 slashingAmount = (minActivateAmount * slashingRate) /
             assetMan.SLASHING_RATE_DENOM();
         vm.prank(address(colosseum));
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorStopped(asserter, block.timestamp);
         vm.expectEmit(true, true, false, true, address(valMgr));
         emit Slashed(challengedOutputIndex, asserter, slashingAmount);
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorJailed(asserter, uint128(block.timestamp) + jailPeriodSeconds);
         valMgr.slash(challengedOutputIndex, challenger, asserter);
 
         // Asserter in jail after slashed
