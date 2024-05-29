@@ -4,15 +4,14 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/httputil"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
 	txmetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -32,6 +31,7 @@ type Metricer interface {
 
 	RecordL2OutputSubmitted(l2ref eth.L2BlockRef)
 	RecordDepositAmount(amount *big.Int)
+	RecordValidatorStatus(status uint8)
 	RecordNextValidator(address common.Address)
 	RecordChallengeCheckpoint(outputIndex *big.Int)
 }
@@ -48,6 +48,7 @@ type Metrics struct {
 	Info                prometheus.GaugeVec
 	Up                  prometheus.Gauge
 	DepositAmount       prometheus.Gauge
+	ValidatorStatus     prometheus.Gauge
 	NextValidator       prometheus.GaugeVec
 	ChallengeCheckpoint prometheus.Gauge
 }
@@ -89,6 +90,11 @@ func NewMetrics(procName string) *Metrics {
 			Name:      "deposit_amount",
 			Help:      "The amount deposited into the ValidatorPool contract",
 		}),
+		ValidatorStatus: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace: ns,
+			Name:      "validator_status",
+			Help:      "The status of validator in the ValidatorManager contract",
+		}),
 		NextValidator: *factory.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: ns,
 			Name:      "next_validator",
@@ -109,7 +115,8 @@ func (m *Metrics) Start(host string, port int) (*httputil.HTTPServer, error) {
 }
 
 func (m *Metrics) StartBalanceMetrics(ctx context.Context,
-	l log.Logger, client *ethclient.Client, account common.Address) {
+	l log.Logger, client *ethclient.Client, account common.Address,
+) {
 	// TODO(7684): util was refactored to close, but ctx is still being used by caller for shutdown
 	balanceMetric := opmetrics.LaunchBalanceMetrics(l, m.registry, m.ns, client, account)
 	go func() {
@@ -138,6 +145,11 @@ func (m *Metrics) RecordL2OutputSubmitted(l2ref eth.L2BlockRef) {
 // RecordDepositAmount sets the amount deposited into the ValidatorPool contract.
 func (m *Metrics) RecordDepositAmount(amount *big.Int) {
 	m.DepositAmount.Set(opmetrics.WeiToEther(amount))
+}
+
+// RecordValidatorStatus sets the status of validator in the ValidatorManager contract.
+func (m *Metrics) RecordValidatorStatus(status uint8) {
+	m.ValidatorStatus.Set(float64(status))
 }
 
 // RecordNextValidator sets the address of the next validator.

@@ -303,6 +303,7 @@ func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputInd
 		if err != nil {
 			return err
 		}
+		l.metr.RecordValidatorStatus(validatorStatus)
 
 		if validatorStatus != StatusActive {
 			l.log.Warn("validator is not in the status to submit output", "currentStatus", validatorStatus)

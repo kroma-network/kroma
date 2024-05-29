@@ -635,6 +635,7 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch the validator status: %w", err)
 		}
+		c.metr.RecordValidatorStatus(validatorStatus)
 
 		if validatorStatus != StatusActive {
 			c.log.Warn("validator is not in the status that can create a challenge", "status", validatorStatus)
