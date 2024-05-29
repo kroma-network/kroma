@@ -318,6 +318,50 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         );
     }
 
+    function test_initUndelegate_self_succeeds() public {
+        _setUpKroDelegation(minActivateAmount);
+        _submitOutputRoot(validator);
+        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
+
+        vm.startPrank(address(mockOracle));
+        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
+
+        // After reward distributed, updated validator weight is including base reward.
+        assertEq(valMgr.getWeight(validator), minActivateAmount * 2 + baseReward);
+
+        // Partially undelegate
+        uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, validator);
+        vm.prank(validator);
+        assetManager.initUndelegate(validator, sharesToUndelegate / 2);
+
+        uint128 pendingAssets = assetManager.getPendingKroReward(
+            block.timestamp,
+            validator,
+            validator
+        );
+
+        assertEq(
+            assetManager.totalKroAssets(validator),
+            ((minActivateAmount * 2) * 3) / 4 + (baseReward * 3) / 4 + 1
+        );
+        assertEq(pendingAssets, minActivateAmount / 2 + baseReward / 4 - 1);
+        assertEq(valMgr.getWeight(validator), assetManager.totalKroAssets(validator));
+        assertEq(assetManager.totalValidatorKro(validator), minActivateAmount / 2);
+
+        // Fully undelegate
+        sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, validator);
+        vm.prank(validator);
+        assetManager.initUndelegate(validator, sharesToUndelegate);
+
+        pendingAssets = assetManager.getPendingKroReward(block.timestamp, validator, validator);
+
+        assertEq(assetManager.totalKroAssets(validator), minActivateAmount + baseReward / 2 + 1);
+        assertEq(pendingAssets, minActivateAmount + baseReward / 2 - 1);
+        assertEq(valMgr.getWeight(validator), 0); // removed from tree after fully self-undelegate
+        assertEq(assetManager.totalValidatorKro(validator), 0);
+    }
+
     function test_initUndelegate_exactAmount_succeeds() external {
         assetManager.modifyKghNum(validator, 100);
         _setUpKroDelegation(9_990e18);

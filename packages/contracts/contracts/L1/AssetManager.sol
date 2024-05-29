@@ -1030,6 +1030,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 shares
     ) internal {
         Vault storage vault = _vaults[validator];
+        uint128 ownerTotalShares = vault.kroDelegators[owner].shares;
 
         unchecked {
             vault.asset.totalKroShares -= shares;
@@ -1037,7 +1038,10 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
             vault.asset.totalKro -= assets;
             if (owner == validator) {
-                vault.asset.validatorKro -= assets;
+                vault.asset.validatorKro -= vault.asset.validatorKro.mulDiv(
+                    shares,
+                    ownerTotalShares
+                );
             }
             _addPendingKroShares(vault, assets, shares);
         }
