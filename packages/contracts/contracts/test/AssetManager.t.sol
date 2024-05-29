@@ -51,7 +51,7 @@ contract MockAssetManager is AssetManager {
     function modifyKghNum(address validator, uint128 amount) external {
         // We do not consider KROs in the KGH here, since this mock function
         // is only used for testing the boosted reward calculation.
-        _vaults[validator].asset.totalKghShares += previewKghDelegate(validator) * amount;
+        _vaults[validator].asset.totalKghShares += _convertToKghShares(validator) * amount;
         _vaults[validator].asset.totalKgh += amount;
     }
 
@@ -92,8 +92,15 @@ contract MockAssetManager is AssetManager {
         return (pendingKroAsset, pendingKghAsset);
     }
 
-    function totalKghAssets(address validator) public view virtual returns (uint128) {
+    function totalKghAssets(address validator) external view returns (uint128) {
         return _totalKghAssets(validator);
+    }
+
+    function convertToKghAssets(
+        address validator,
+        uint256 tokenId
+    ) external view returns (uint128) {
+        return _convertToKghAssets(validator, tokenId);
     }
 }
 

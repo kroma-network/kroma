@@ -301,34 +301,6 @@ interface IAssetManager {
     error FinalizedPendingNotExists();
 
     /**
-     * @notice Returns the max amount that a KRO delegator can undelegate.
-     *
-     * @param validator Address of validator.
-     * @param delegator Address of KRO delegator.
-     *
-     * @return The max amount that a KRO delegator can undelegate.
-     */
-    function getKroTotalBalance(
-        address validator,
-        address delegator
-    ) external view returns (uint128);
-
-    /**
-     * @notice Returns the max amount of KRO that a KGH delegator can undelegate.
-     *
-     * @param validator Address of validator.
-     * @param delegator Address of KGH delegator.
-     * @param tokenId   Token Id of the KGH.
-     *
-     * @return The max amount that a KGH delegator can undelegate.
-     */
-    function getKghTotalBalance(
-        address validator,
-        address delegator,
-        uint256 tokenId
-    ) external view returns (uint128);
-
-    /**
      * @notice Returns the amount of KRO shares that the KRO delegator has.
      *
      * @param validator Address of the validator.
@@ -342,7 +314,7 @@ interface IAssetManager {
     ) external view returns (uint128);
 
     /**
-     * @notice Returns the amount of KGH shares that the KGH delegator has.
+     * @notice Returns the amount of KRO and KGH shares that the KGH delegator has.
      *
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.

@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
 import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
+import { IKGHManager } from "../universal/IKGHManager.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
+import { MockAssetManager } from "./AssetManager.t.sol";
 import { ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
 
 contract MockL2OutputOracle is L2OutputOracle {
@@ -73,6 +78,7 @@ contract MockValidatorManager is ValidatorManager {
 contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     MockL2OutputOracle mockOracle;
     MockValidatorManager mockValMgr;
+    MockAssetManager mockAssetMan;
     uint128 public VKRO_PER_KGH;
 
     event ValidatorRegistered(
@@ -142,6 +148,21 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.prank(multisig);
         Proxy(payable(valMgrAddress)).upgradeTo(address(mockValMgrImpl));
         mockValMgr = MockValidatorManager(valMgrAddress);
+
+        address assetManAddress = address(assetMan);
+        MockAssetManager mockAssetManImpl = new MockAssetManager(
+            IERC20(assetToken),
+            IERC721(kgh),
+            IKGHManager(kghManager),
+            guardian,
+            valMgr,
+            uint128(undelegationPeriod),
+            slashingRate,
+            minSlashingAmount
+        );
+        vm.prank(multisig);
+        Proxy(payable(assetManAddress)).upgradeTo(address(mockAssetManImpl));
+        mockAssetMan = MockAssetManager(assetManAddress);
 
         VKRO_PER_KGH = assetMan.VKRO_PER_KGH();
 
@@ -379,7 +400,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
             kghCounts *
             VKRO_PER_KGH;
         vm.prank(trusted);
-        uint128 oneKghReward = assetMan.previewKghUndelegate(trusted, 1) - VKRO_PER_KGH;
+        uint128 oneKghReward = mockAssetMan.convertToKghAssets(trusted, 1) - VKRO_PER_KGH;
 
         assertEq(kroReward, baseReward);
         assertEq(oneKghReward, boostedReward / kghCounts);
