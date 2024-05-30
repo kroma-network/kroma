@@ -248,6 +248,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
+    function totalValidatorReward(address validator) external view returns (uint128) {
+        return _vaults[validator].asset.validatorRewardKro;
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
     function reflectiveWeight(address validator) external view returns (uint128) {
         return
             _vaults[validator].asset.totalKro +

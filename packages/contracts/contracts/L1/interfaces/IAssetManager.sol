@@ -413,6 +413,15 @@ interface IAssetManager {
     function totalValidatorKro(address validator) external view returns (uint128);
 
     /**
+     * @notice Returns the total amount of KRO accumulated as validator reward.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The total amount of KRO accumulated as validator reward.
+     */
+    function totalValidatorReward(address validator) external view returns (uint128);
+
+    /**
      * @notice Returns the reflective weight of given validator. It can be different from the actual
      *         current weight of the validator in validator tree since it includes all accumulated
      *         rewards.
