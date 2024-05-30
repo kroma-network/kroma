@@ -98,9 +98,10 @@ contract MockAssetManager is AssetManager {
 
     function convertToKghAssets(
         address validator,
+        address delegator,
         uint256 tokenId
     ) external view returns (uint128) {
-        return _convertToKghAssets(validator, tokenId);
+        return _convertToKghAssets(validator, delegator, tokenId);
     }
 }
 

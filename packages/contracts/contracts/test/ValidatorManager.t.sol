@@ -400,7 +400,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
             kghCounts *
             VKRO_PER_KGH;
         vm.prank(trusted);
-        uint128 oneKghReward = mockAssetMan.convertToKghAssets(trusted, 1) - VKRO_PER_KGH;
+        uint128 oneKghReward = mockAssetMan.convertToKghAssets(trusted, trusted, 1) - VKRO_PER_KGH;
 
         assertEq(kroReward, baseReward);
         assertEq(oneKghReward, boostedReward / kghCounts);

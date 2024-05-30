@@ -203,14 +203,15 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function previewKghUndelegate(
         address validator,
+        address delegator,
         uint256 tokenId
     ) external view returns (uint128) {
         uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenId);
 
-        uint128 kghAssets = _convertToKghAssets(validator, tokenId) - VKRO_PER_KGH;
+        uint128 kghAssets = _convertToKghAssets(validator, delegator, tokenId) - VKRO_PER_KGH;
         uint128 kroAssets = _convertToKroAssets(
             validator,
-            _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kro
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kro
         ) - kroInKgh;
 
         return kghAssets + kroAssets;
@@ -426,7 +427,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
                 kroShares += kroSharesForTokenId;
                 kghShares += kghSharesForTokenId;
                 kroInKghs += KGH_MANAGER.totalKroInKgh(tokenIds[i]);
-                kghAssetsToWithdraw += _convertToKghAssets(validator, tokenIds[i]);
+                kghAssetsToWithdraw += _convertToKghAssets(validator, msg.sender, tokenIds[i]);
 
                 delete shares[tokenIds[i]];
 
@@ -861,14 +862,16 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @notice Internal conversion function for KGH (from token Id to assets).
      *
      * @param validator Address of the validator.
+     * @param delegator Address of the delegator.
      * @param tokenId   Token Id of KGH to convert to assets.
      */
     function _convertToKghAssets(
         address validator,
+        address delegator,
         uint256 tokenId
     ) internal view returns (uint128) {
         return
-            _vaults[validator].kghDelegators[msg.sender].shares[tokenId].kgh.mulDiv(
+            _vaults[validator].kghDelegators[delegator].shares[tokenId].kgh.mulDiv(
                 _totalKghAssets(validator) + 1,
                 _totalKghShares(validator) + DECIMAL_OFFSET
             );
@@ -1035,7 +1038,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     ) internal {
         Vault storage vault = _vaults[validator];
         uint128 kroAssetsToWithdraw = _convertToKroAssets(validator, kroShares);
-        uint128 kghAssetsToWithdraw = _convertToKghAssets(validator, tokenId);
+        uint128 kghAssetsToWithdraw = _convertToKghAssets(validator, owner, tokenId);
         uint128 boostedRewardsToReceive;
 
         uint256[] memory tokenIds = new uint256[](1);

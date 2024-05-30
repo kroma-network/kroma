@@ -365,12 +365,14 @@ interface IAssetManager {
      *         at the current block, given current on-chain conditions.
      *
      * @param validator The address of the validator.
+     * @param delegator The address of the delegator.
      * @param tokenId   The tokenId of KGH to undelegate.
      *
      * @return The amount of assets that the Vault would exchange for the KGH of given tokenId.
      */
     function previewKghUndelegate(
         address validator,
+        address delegator,
         uint256 tokenId
     ) external view returns (uint128);
 
