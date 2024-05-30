@@ -151,7 +151,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
             minSlashingAmount
         );
 
-        address assetManagerAddr = address(assetMan);
+        address assetManagerAddr = address(assetMgr);
 
         vm.prank(multisig);
         Proxy(payable(assetManagerAddr)).upgradeTo(address(assetManagerImpl));

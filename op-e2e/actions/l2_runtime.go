@@ -53,7 +53,7 @@ type Runtime struct {
 	securityCouncilContract  *bindings.SecurityCouncil
 	valPoolContract          *bindings.ValidatorPoolCaller
 	valMgrContract           *bindings.ValidatorManagerCaller
-	assetManContract         *bindings.AssetManagerCaller
+	assetMgrContract         *bindings.AssetManagerCaller
 	assetTokenContract       *bindings.GovernanceTokenCaller
 	targetInvalidBlockNumber uint64
 	outputIndex              *big.Int
@@ -175,10 +175,10 @@ func (rt *Runtime) bindContracts() {
 	rt.valMgrContract, err = bindings.NewValidatorManagerCaller(rt.sd.DeploymentsL1.ValidatorManagerProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
-	rt.assetManContract, err = bindings.NewAssetManagerCaller(rt.sd.DeploymentsL1.AssetManagerProxy, rt.miner.EthClient())
+	rt.assetMgrContract, err = bindings.NewAssetManagerCaller(rt.sd.DeploymentsL1.AssetManagerProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
-	assetTokenAddr, err := rt.assetManContract.ASSETTOKEN(nil)
+	assetTokenAddr, err := rt.assetMgrContract.ASSETTOKEN(nil)
 	require.NoError(rt.t, err)
 	rt.assetTokenContract, err = bindings.NewGovernanceTokenCaller(assetTokenAddr, rt.miner.EthClient())
 	require.NoError(rt.t, err)
@@ -355,17 +355,17 @@ func (rt *Runtime) submitL2Output() {
 }
 
 func (rt *Runtime) fetchChallengeAssets(loser common.Address) (*big.Int, *big.Int, *big.Int) {
-	slashingRate, err := rt.assetManContract.SLASHINGRATE(nil)
+	slashingRate, err := rt.assetMgrContract.SLASHINGRATE(nil)
 	require.NoError(rt.t, err)
-	slashingRateDenom, err := rt.assetManContract.SLASHINGRATEDENOM(nil)
+	slashingRateDenom, err := rt.assetMgrContract.SLASHINGRATEDENOM(nil)
 	require.NoError(rt.t, err)
-	taxRate, err := rt.assetManContract.TAXNUMERATOR(nil)
+	taxRate, err := rt.assetMgrContract.TAXNUMERATOR(nil)
 	require.NoError(rt.t, err)
-	taxDenom, err := rt.assetManContract.TAXDENOMINATOR(nil)
+	taxDenom, err := rt.assetMgrContract.TAXDENOMINATOR(nil)
 	require.NoError(rt.t, err)
-	minSlashingAmount, err := rt.assetManContract.MINSLASHINGAMOUNT(nil)
+	minSlashingAmount, err := rt.assetMgrContract.MINSLASHINGAMOUNT(nil)
 	require.NoError(rt.t, err)
-	totalAsset, err := rt.assetManContract.TotalKroAssets(nil, loser)
+	totalAsset, err := rt.assetMgrContract.TotalKroAssets(nil, loser)
 	require.NoError(rt.t, err)
 
 	slashingAmount := new(big.Int).Div(new(big.Int).Mul(totalAsset, slashingRate), slashingRateDenom)

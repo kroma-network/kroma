@@ -147,7 +147,7 @@ interaction:
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, val.StatusRegistered, valStatus)
 
-		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.validator.address)
+		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.validator.address)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
 
@@ -243,7 +243,7 @@ interaction:
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, val.StatusRegistered, valStatus)
 
-		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.validator.address)
+		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.validator.address)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
 
@@ -337,7 +337,7 @@ interaction:
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, val.StatusRegistered, valStatus)
 
-		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.challenger1.address)
+		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.challenger1.address)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
 
@@ -435,7 +435,7 @@ interaction:
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, val.StatusRegistered, valStatus)
 
-		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.challenger1.address)
+		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.challenger1.address)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
 
@@ -659,7 +659,7 @@ interaction:
 		require.NoError(rt.t, err)
 		require.True(rt.t, inJail)
 
-		afterAsset, err := rt.assetManContract.TotalKroAssets(nil, rt.validator.address)
+		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.validator.address)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
 
