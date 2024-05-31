@@ -726,6 +726,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
                 : MIN_SLASHING_AMOUNT;
 
             unchecked {
+                // Since validatorKro is included in totalKro, it does not need to be included in
+                // totalAmount calculation, but we should update this value as well.
+                vault.asset.validatorKro -= vault.asset.validatorKro.mulDiv(
+                    challengeReward,
+                    totalAmount
+                );
+
                 vault.asset.totalKro -= arr[0].mulDiv(challengeReward, totalAmount);
                 vault.asset.boostedReward -= arr[1].mulDiv(challengeReward, totalAmount);
                 vault.pending.totalPendingAssets -= arr[2].mulDiv(challengeReward, totalAmount);
@@ -756,6 +763,11 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
             }
 
             unchecked {
+                vault.asset.validatorKro += vault.asset.validatorKro.mulDiv(
+                    challengeReward,
+                    totalAmount
+                );
+
                 vault.asset.totalKro += arr[0].mulDiv(challengeReward, totalAmount);
                 vault.asset.boostedReward += arr[1].mulDiv(challengeReward, totalAmount);
                 vault.pending.totalPendingAssets += arr[2].mulDiv(challengeReward, totalAmount);

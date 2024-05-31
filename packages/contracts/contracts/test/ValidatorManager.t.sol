@@ -746,6 +746,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
             kghCounts *
             kghManager.totalKroInKgh(1);
         assertEq(asserterTotalKro, minActivateAmount - slashingAmount);
+        assertEq(assetMgr.totalValidatorKro(asserter), asserterTotalKro);
         // Asserter has 0 rewards
         assertEq(assetMgr.reflectiveWeight(asserter), assetMgr.totalKroAssets(asserter));
 
@@ -770,6 +771,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
                 challengeReward -
                 1 // Challenge reward is reduced by 1 when distributed to each assets in validator vault
         );
+        assertGt(assetMgr.totalValidatorKro(challenger), minActivateAmount);
     }
 
     function test_slash_notColosseum_reverts() external {
