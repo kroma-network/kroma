@@ -300,7 +300,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
             0,
             true
         );
-        updateValidatorTree(loser, true);
 
         emit Slashed(outputIndex, loser, tax + challengeReward);
 

@@ -716,16 +716,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint128 slashingAmount = (minActivateAmount * slashingRate) /
             assetMgr.SLASHING_RATE_DENOM();
         vm.prank(address(colosseum));
-        vm.expectEmit(true, false, false, true, address(valMgr));
-        emit ValidatorStopped(asserter, block.timestamp);
         vm.expectEmit(true, true, false, true, address(valMgr));
         emit Slashed(challengedOutputIndex, asserter, slashingAmount);
         vm.expectEmit(true, false, false, true, address(valMgr));
         emit ValidatorJailed(asserter, uint128(block.timestamp) + jailPeriodSeconds);
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorStopped(asserter, block.timestamp);
         valMgr.slash(challengedOutputIndex, challenger, asserter);
-
-        // Asserter in jail after slashed
-        assertTrue(valMgr.inJail(asserter));
 
         // This will be done by the l2 output oracle contract in the real environment
         vm.prank(challenger);
@@ -738,6 +735,12 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         _submitL2OutputV2(true);
         vm.stopPrank();
 
+        // Asserter in jail after slashed
+        assertTrue(valMgr.inJail(asserter));
+        // Asserter removed from validator tree
+        assertEq(valMgr.activatedValidatorCount(), count + 1);
+        assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.REGISTERED);
+
         // Asserter asset decreased by slashingAmount
         uint128 asserterTotalKro = assetMgr.totalKroAssets(asserter) -
             kghCounts *
@@ -745,10 +748,6 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(asserterTotalKro, minActivateAmount - slashingAmount);
         // Asserter has 0 rewards
         assertEq(assetMgr.reflectiveWeight(asserter), assetMgr.totalKroAssets(asserter));
-
-        // Asserter removed from validator tree
-        assertEq(valMgr.activatedValidatorCount(), count + 1);
-        assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.REGISTERED);
 
         // Security council balance of asset token increased by tax
         uint128 taxAmount = (slashingAmount * assetMgr.TAX_NUMERATOR()) /
