@@ -69,4 +69,9 @@ library Predeploys {
      */
     address internal constant KROMA_MINTABLE_ERC721_FACTORY =
         0x420000000000000000000000000000000000000c;
+
+    /**
+     * @notice Address of the GovernanceToken predeploy.
+     */
+    address internal constant GOVERNANCE_TOKEN = 0x42000000000000000000000000000000000000fF;
 }

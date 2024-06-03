@@ -80,7 +80,7 @@ contract L1Block is ISemver {
         uint256 _l1FeeScalar,
         uint256 _validatorRewardScalar
     )
-        external
+    external
     {
         require(msg.sender == DEPOSITOR_ACCOUNT, "L1Block: only the depositor account can set L1 block values");
 
@@ -115,15 +115,15 @@ contract L1Block is ISemver {
     ///   10. _validatorRewardScalar Validator reward scalar.
     function setL1BlockValuesEcotone() external {
         assembly {
-            // Revert if the caller is not the depositor account.
+        // Revert if the caller is not the depositor account.
             if xor(caller(), DEPOSITOR_ACCOUNT) {
                 mstore(0x00, 0x3cc50b45) // 0x3cc50b45 is the 4-byte selector of "NotDepositor()"
                 revert(0x1C, 0x04) // returns the stored 4-byte selector from above
             }
             let data := calldataload(4)
-            // sequencenum (uint64), blobBaseFeeScalar (uint32), baseFeeScalar (uint32)
+        // sequencenum (uint64), blobBaseFeeScalar (uint32), baseFeeScalar (uint32)
             sstore(sequenceNumber.slot, shr(128, calldataload(4)))
-            // number (uint64) and timestamp (uint64)
+        // number (uint64) and timestamp (uint64)
             sstore(number.slot, shr(128, calldataload(20)))
             sstore(basefee.slot, calldataload(36)) // uint256
             sstore(blobBaseFee.slot, calldataload(68)) // uint256

@@ -37,10 +37,16 @@ func TestBuildKroma(t *testing.T) {
 		// 	MinWithdrawalAmount: big.NewInt(100),
 		// 	WithdrawalNetwork:   0,
 		// },
-		L1BlockNumber:   struct{}{},
-		GasPriceOracle:  struct{}{},
-		L1Block:         struct{}{},
-		GovernanceToken: struct{}{},
+		L1BlockNumber:  struct{}{},
+		GasPriceOracle: struct{}{},
+		L1Block:        struct{}{},
+		GovernanceToken: struct {
+			Bridge      common.Address
+			RemoteToken common.Address
+		}{
+			Bridge:      predeploys.L2StandardBridgeAddr,
+			RemoteToken: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		},
 		// LegacyMessagePasser: struct{}{},
 		L2ERC721Bridge: struct {
 			OtherBridge common.Address

@@ -33,6 +33,7 @@ contracts=(
   contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken
   contracts/governance/TimeLock.sol:TimeLock
   contracts/governance/UpgradeGovernor.sol:UpgradeGovernor
+  contracts/governance/GovernanceToken.sol:GovernanceToken
 )
 
 dir=$(dirname "$0")

@@ -283,6 +283,9 @@ type DeployConfig struct {
 	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
+
+	// L1GovernanceTokenProxy represents the address of the L1GovernanceTokenProxy on L1.
+	L1GovernanceTokenProxy common.Address `json:"l1GovernanceTokenProxy"`
 	// [Kroma: END]
 }
 
@@ -384,9 +387,11 @@ func (d *DeployConfig) Check() error {
 		if d.GovernanceTokenSymbol == "" {
 			return fmt.Errorf("%w: GovernanceToken.symbol cannot be empty", ErrInvalidDeployConfig)
 		}
-		if d.GovernanceTokenOwner == (common.Address{}) {
-			return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
-		}
+		// [Kroma: START]
+		// if d.GovernanceTokenOwner == (common.Address{}) {
+		// 	return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
+		// }
+		// [Kroma: END]
 	}
 	// L2 block time must always be smaller than L1 block time
 	if d.L1BlockTime < d.L2BlockTime {
@@ -527,6 +532,12 @@ func (d *DeployConfig) CheckAddresses() error {
 	if d.KromaPortalProxy == (common.Address{}) {
 		return fmt.Errorf("%w: KromaPortalProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
+
+	// [Kroma: START]
+	if d.L1GovernanceTokenProxy == (common.Address{}) {
+		return fmt.Errorf("%w: L1GovernanceTokenProxy cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	// [Kroma: END]
 	return nil
 }
 
@@ -540,6 +551,7 @@ func (d *DeployConfig) SetDeployments(deployments *L1Deployments) {
 
 	// [Kroma: START]
 	d.ValidatorPoolProxy = deployments.ValidatorPoolProxy
+	d.L1GovernanceTokenProxy = deployments.L1GovernanceTokenProxy
 	// [Kroma: END]
 }
 
@@ -722,6 +734,8 @@ type L1Deployments struct {
 	// [Kroma: START]
 	Colosseum                 common.Address `json:"Colosseum"`
 	ColosseumProxy            common.Address `json:"ColosseumProxy"`
+	L1GovernanceToken         common.Address `json:"L1GovernanceToken"`
+	L1GovernanceTokenProxy    common.Address `json:"L1GovernanceTokenProxy"`
 	Poseidon2                 common.Address `json:"Poseidon2"`
 	SecurityCouncil           common.Address `json:"SecurityCouncil"`
 	SecurityCouncilProxy      common.Address `json:"SecurityCouncilProxy"`
@@ -924,14 +938,21 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 			WithdrawalNetwork:   config.SequencerFeeVaultWithdrawalNetwork.ToUint8(),
 		},
 		[Kroma: END] */
-		L1BlockNumber:   struct{}{},
-		GasPriceOracle:  struct{}{},
-		L1Block:         struct{}{},
-		GovernanceToken: struct{}{},
+		L1BlockNumber:  struct{}{},
+		GasPriceOracle: struct{}{},
+		L1Block:        struct{}{},
 		/* [Kroma: START]
 		LegacyMessagePasser: struct{}{},
 		[Kroma: END] */
 		// [Kroma: START]
+		GovernanceToken: struct {
+			Bridge      common.Address
+			RemoteToken common.Address
+		}{
+			Bridge:      predeploys.L2StandardBridgeAddr,
+			RemoteToken: config.L1GovernanceTokenProxy,
+		},
+		// [Kroma: END]
 		L2ERC721Bridge: struct {
 			OtherBridge common.Address
 			Messenger   common.Address
@@ -951,9 +972,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		}{
 			Bridge: predeploys.L2StandardBridgeAddr,
 		},
-		// [Kroma: END]
 		ProxyAdmin: struct{}{},
-		// [Kroma: START]
 		ProtocolVault: struct {
 			Recipient common.Address
 		}{
@@ -1047,7 +1066,7 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		storage["GovernanceToken"] = state.StorageValues{
 			"_name":   config.GovernanceTokenName,
 			"_symbol": config.GovernanceTokenSymbol,
-			"_owner":  config.GovernanceTokenOwner,
+			// "_owner":  config.GovernanceTokenOwner,
 		}
 	}
 	storage["ProxyAdmin"] = state.StorageValues{

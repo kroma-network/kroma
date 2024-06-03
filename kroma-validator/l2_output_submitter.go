@@ -10,16 +10,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/optsutils"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
 )
@@ -232,11 +232,8 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 		return defaultWaitTime
 	}
 
-	hasEnoughDeposit, err := l.HasEnoughDeposit(ctx)
+	err = l.assertEnoughDeposit(ctx)
 	if err != nil {
-		return defaultWaitTime
-	}
-	if !hasEnoughDeposit {
 		return defaultWaitTime
 	}
 
@@ -268,14 +265,14 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 	return 0
 }
 
-// HasEnoughDeposit checks if validator has enough deposit to bond when trying output submission.
-func (l *L2OutputSubmitter) HasEnoughDeposit(ctx context.Context) (bool, error) {
+// assertEnoughDeposit asserts that validator has enough deposit to bond when trying output submission.
+func (l *L2OutputSubmitter) assertEnoughDeposit(ctx context.Context) error {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
 	balance, err := l.valpoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
 	if err != nil {
-		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
+		return fmt.Errorf("failed to fetch deposit amount: %w", err)
 	}
 	l.metr.RecordDepositAmount(balance)
 
@@ -285,11 +282,11 @@ func (l *L2OutputSubmitter) HasEnoughDeposit(ctx context.Context) (bool, error) 
 			"requiredBondAmount", l.requiredBondAmount,
 			"deposit", balance,
 		)
-		return false, nil
+		return nil
 	}
 	l.log.Info("deposit amount", "deposit", balance)
 
-	return true, nil
+	return nil
 }
 
 func (l *L2OutputSubmitter) FetchNextBlockNumber(ctx context.Context) (*big.Int, error) {

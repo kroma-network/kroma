@@ -1,15 +1,8 @@
-# Components
-/components @kroma-network/l2-protocol
-/e2e        @kroma-network/l2-protocol
-/utils      @kroma-network/l2-protocol
+# All
 
-# Contracts
-/bindings @kroma-network/l2-protocol
-/packages @kroma-network/l2-protocol
+* @kroma-network/l2-protocol
 
 # Ops
+
 /.github    @kroma-network/devops
 /ops-devnet @kroma-network/devops
-
-# Misc
-/specs @kroma-network/l2-protocol

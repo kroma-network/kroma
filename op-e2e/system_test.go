@@ -32,6 +32,7 @@ import (
 	gethutils "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
@@ -47,7 +48,6 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
-	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 // TestSystemBatchType run each system e2e test case in singular batch mode and span batch mode.

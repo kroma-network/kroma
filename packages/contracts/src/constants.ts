@@ -18,6 +18,7 @@ export const predeploys = {
   L2ERC721Bridge: '0x420000000000000000000000000000000000000A',
   KromaMintableERC20Factory: '0x420000000000000000000000000000000000000B',
   KromaMintableERC721Factory: '0x420000000000000000000000000000000000000C',
+  GovernanceToken: '0x42000000000000000000000000000000000000ff',
 }
 
 const uint128Max = ethers.BigNumber.from('0xffffffffffffffffffffffffffffffff')

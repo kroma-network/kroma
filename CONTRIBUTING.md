@@ -13,7 +13,7 @@ There are plenty of ways to contribute, in particular we appreciate support in t
   which are meant as introductory issues for external contributors.
 - Join [Kroma Discord](https://discord.gg/kroma) and answer the questions.
 - Get involved in the protocol design process by proposing changes or new features or write parts of the spec yourself
-  in the [specs](./specs).
+  in the [specs](https://specs.kroma.network).
 
 Note that we have a [Code of Conduct](https://github.com/kroma-network/.github/blob/main/CODE_OF_CONDUCT.md),
 please follow it in all your interactions with the project.
@@ -74,16 +74,16 @@ and how you should use it to maintain a clean commit history.
 
 You'll need the following:
 
-* [Git](https://git-scm.com/downloads)
-* [NodeJS](https://nodejs.org/en/download/)
-* [Node Version Manager](https://github.com/nvm-sh/nvm)
-* [pnpm](https://pnpm.io/installation)
-* [Docker](https://docs.docker.com/get-docker/)
-* [Docker Compose](https://docs.docker.com/compose/install/)
-* [Go](https://go.dev/dl/)
-* [Foundry](https://getfoundry.sh)
-* [jq](https://jqlang.github.io/jq/)
-* [go-ethereum](https://github.com/ethereum/go-ethereum)
+- [Git](https://git-scm.com/downloads)
+- [NodeJS](https://nodejs.org/en/download/)
+- [Node Version Manager](https://github.com/nvm-sh/nvm)
+- [pnpm](https://pnpm.io/installation)
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Go](https://go.dev/dl/)
+- [Foundry](https://getfoundry.sh)
+- [jq](https://jqlang.github.io/jq/)
+- [go-ethereum](https://github.com/ethereum/go-ethereum)
 
 ### Setup
 
@@ -148,9 +148,11 @@ pnpm test
 #### Running unit tests (Go)
 
 Change directory to the package you want to run tests for. Then:
+
 ```shell
 go test ./...
 ```
 
 #### Running e2e tests (Go)
+
 See [this document](./op-e2e/README.md)

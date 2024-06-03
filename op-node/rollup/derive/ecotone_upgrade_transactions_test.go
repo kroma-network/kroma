@@ -9,8 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 func TestSourcesMatchSpec(t *testing.T) {
@@ -73,14 +71,14 @@ func TestEcotoneNetworkTransactions(t *testing.T) {
 	require.Equal(t, deployL1BlockSource.SourceHash(), deployL1Block.SourceHash())
 	require.Nil(t, deployL1Block.To())
 	require.Equal(t, uint64(500_000), deployL1Block.Gas())
-	require.Equal(t, bindings.L1BlockMetaData.Bin, hexutil.Bytes(deployL1Block.Data()).String())
+	require.Equal(t, hexutil.Bytes(l1BlockDeploymentBytecode).String(), hexutil.Bytes(deployL1Block.Data()).String())
 
 	deployGasPriceOracleSender, deployGasPriceOracle := toDepositTxn(t, upgradeTxns[1])
 	require.Equal(t, deployGasPriceOracleSender, common.HexToAddress("0x4210000000000000000000000000000000000001"))
 	require.Equal(t, deployGasPriceOracleSource.SourceHash(), deployGasPriceOracle.SourceHash())
 	require.Nil(t, deployGasPriceOracle.To())
 	require.Equal(t, uint64(1_000_000), deployGasPriceOracle.Gas())
-	require.Equal(t, bindings.GasPriceOracleMetaData.Bin, hexutil.Bytes(deployGasPriceOracle.Data()).String())
+	require.Equal(t, hexutil.Bytes(gasPriceOracleDeploymentBytecode).String(), hexutil.Bytes(deployGasPriceOracle.Data()).String())
 
 	updateL1BlockProxySender, updateL1BlockProxy := toDepositTxn(t, upgradeTxns[2])
 	require.Equal(t, updateL1BlockProxySender, common.Address{})

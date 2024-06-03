@@ -283,6 +283,9 @@ func (m *Metrics) RecordChannelClosed(id derive.ChannelID, numPendingBlocks int,
 		comprRatio = float64(outputComprBytes) / float64(inputBytes)
 	}
 	m.channelComprRatio.Observe(comprRatio)
+	// [Kroma: START]
+	m.channelComprRatioValue.Set(comprRatio)
+	// [Kroma: END]
 
 	m.channelClosedReason.Set(float64(ClosedReasonToNum(reason)))
 }

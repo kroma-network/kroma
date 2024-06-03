@@ -9,6 +9,8 @@ import { Encoding } from "../libraries/Encoding.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 
 // Target contract
+import { GovernanceToken } from "../governance/GovernanceToken.sol";
+import { Predeploys } from "../libraries/Predeploys.sol";
 import { L1Block } from "../L2/L1Block.sol";
 
 contract L1BlockTest is CommonTest {
@@ -17,7 +19,7 @@ contract L1BlockTest is CommonTest {
     bytes32 immutable NON_ZERO_HASH = keccak256(abi.encode(1));
 
     /// @dev Sets up the test suite.
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
         l1Block = new L1Block();
         depositor = l1Block.DEPOSITOR_ACCOUNT();

@@ -20,12 +20,13 @@ Additionally, Kroma is advancing towards decentralization. As an initial step fo
 permissionless validator and challenge system.
 
 For more detailed information about Kroma, check [Kroma docs](https://docs.kroma.network) (or
-[spec docs](./specs)).
+[spec docs](https://specs.kroma.network)).
 
 ## Links
 
 - Official Website: [Kroma](https://kroma.network)
 - Documentation: [Kroma Docs](https://docs.kroma.network)
+- Specs: [Kroma Specs](https://specs.kroma.network)
 - Blog: [Kroma Medium](https://medium.com/@kroma-network)
 - Discord: [Kroma Discord](https://discord.gg/kroma)
 - X (Twitter): [Kroma X](https://twitter.com/kroma_network)
