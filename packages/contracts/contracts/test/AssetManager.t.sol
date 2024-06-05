@@ -51,7 +51,7 @@ contract MockAssetManager is AssetManager {
     function modifyKghNum(address validator, uint128 amount) external {
         // We do not consider KROs in the KGH here, since this mock function
         // is only used for testing the boosted reward calculation.
-        _vaults[validator].asset.totalKghShares += previewKghDelegate(validator) * amount;
+        _vaults[validator].asset.totalKghShares += _convertToKghShares(validator) * amount;
         _vaults[validator].asset.totalKgh += amount;
     }
 
@@ -92,8 +92,16 @@ contract MockAssetManager is AssetManager {
         return (pendingKroAsset, pendingKghAsset);
     }
 
-    function totalKghAssets(address validator) public view virtual returns (uint128) {
+    function totalKghAssets(address validator) external view returns (uint128) {
         return _totalKghAssets(validator);
+    }
+
+    function convertToKghAssets(
+        address validator,
+        address delegator,
+        uint256 tokenId
+    ) external view returns (uint128) {
+        return _convertToKghAssets(validator, delegator, tokenId);
     }
 }
 
@@ -143,7 +151,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
             minSlashingAmount
         );
 
-        address assetManagerAddr = address(assetMan);
+        address assetManagerAddr = address(assetMgr);
 
         vm.prank(multisig);
         Proxy(payable(assetManagerAddr)).upgradeTo(address(assetManagerImpl));
@@ -316,6 +324,50 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
             valMgr.getWeight(validator),
             assetManager.totalKroAssets(validator) + boostedReward
         );
+    }
+
+    function test_initUndelegate_self_succeeds() public {
+        _setUpKroDelegation(minActivateAmount);
+        _submitOutputRoot(validator);
+        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
+
+        vm.startPrank(address(mockOracle));
+        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
+        vm.stopPrank();
+
+        // After reward distributed, updated validator weight is including base reward.
+        assertEq(valMgr.getWeight(validator), minActivateAmount * 2 + baseReward);
+
+        // Partially undelegate
+        uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, validator);
+        vm.prank(validator);
+        assetManager.initUndelegate(validator, sharesToUndelegate / 2);
+
+        uint128 pendingAssets = assetManager.getPendingKroReward(
+            block.timestamp,
+            validator,
+            validator
+        );
+
+        assertEq(
+            assetManager.totalKroAssets(validator),
+            ((minActivateAmount * 2) * 3) / 4 + (baseReward * 3) / 4 + 1
+        );
+        assertEq(pendingAssets, minActivateAmount / 2 + baseReward / 4 - 1);
+        assertEq(valMgr.getWeight(validator), assetManager.totalKroAssets(validator));
+        assertEq(assetManager.totalValidatorKro(validator), minActivateAmount / 2);
+
+        // Fully undelegate
+        sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, validator);
+        vm.prank(validator);
+        assetManager.initUndelegate(validator, sharesToUndelegate);
+
+        pendingAssets = assetManager.getPendingKroReward(block.timestamp, validator, validator);
+
+        assertEq(assetManager.totalKroAssets(validator), minActivateAmount + baseReward / 2 + 1);
+        assertEq(pendingAssets, minActivateAmount + baseReward / 2 - 1);
+        assertEq(valMgr.getWeight(validator), 0); // removed from tree after fully self-undelegate
+        assertEq(assetManager.totalValidatorKro(validator), 0);
     }
 
     function test_initUndelegate_exactAmount_succeeds() external {

@@ -205,7 +205,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     // Test target
     ValidatorPool pool;
     ValidatorPool poolImpl;
-    AssetManager assetMan;
+    AssetManager assetMgr;
     AssetManager assetManImpl;
     ValidatorManager valMgr;
     ValidatorManager valMgrImpl;
@@ -291,8 +291,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         // Deploy proxies
         pool = ValidatorPool(address(new Proxy(multisig)));
         vm.label(address(pool), "ValidatorPool");
-        assetMan = AssetManager(address(new Proxy(multisig)));
-        vm.label(address(assetMan), "AssetManager");
+        assetMgr = AssetManager(address(new Proxy(multisig)));
+        vm.label(address(assetMgr), "AssetManager");
         valMgr = ValidatorManager(address(new Proxy(multisig)));
         vm.label(address(valMgr), "ValidatorManager");
         oracle = L2OutputOracle(address(new Proxy(multisig)));
@@ -347,7 +347,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         // Deploy the ValidatorManager
         constructorParams = IValidatorManager.ConstructorParams({
             _l2Oracle: oracle,
-            _assetManager: assetMan,
+            _assetManager: assetMgr,
             _trustedValidator: trusted,
             _commissionRateMinChangeSeconds: commissionRateMinChangeSeconds,
             _roundDurationSeconds: uint128(roundDuration),
@@ -384,7 +384,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         );
 
         vm.prank(multisig);
-        Proxy(payable(address(assetMan))).upgradeTo(address(assetManImpl));
+        Proxy(payable(address(assetMgr))).upgradeTo(address(assetManImpl));
 
         vm.prank(multisig);
         Proxy(payable(address(valMgr))).upgradeTo(address(valMgrImpl));
@@ -403,7 +403,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
 
     function _registerValidator(address validator, uint128 assets) internal {
         vm.startPrank(validator);
-        assetToken.approve(address(assetMan), uint256(assets));
+        assetToken.approve(address(assetMgr), uint256(assets));
         valMgr.registerValidator(assets, 10, 5);
         vm.stopPrank();
     }

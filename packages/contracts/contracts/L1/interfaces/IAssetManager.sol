@@ -301,34 +301,6 @@ interface IAssetManager {
     error FinalizedPendingNotExists();
 
     /**
-     * @notice Returns the max amount that a KRO delegator can undelegate.
-     *
-     * @param validator Address of validator.
-     * @param delegator Address of KRO delegator.
-     *
-     * @return The max amount that a KRO delegator can undelegate.
-     */
-    function getKroTotalBalance(
-        address validator,
-        address delegator
-    ) external view returns (uint128);
-
-    /**
-     * @notice Returns the max amount of KRO that a KGH delegator can undelegate.
-     *
-     * @param validator Address of validator.
-     * @param delegator Address of KGH delegator.
-     * @param tokenId   Token Id of the KGH.
-     *
-     * @return The max amount that a KGH delegator can undelegate.
-     */
-    function getKghTotalBalance(
-        address validator,
-        address delegator,
-        uint256 tokenId
-    ) external view returns (uint128);
-
-    /**
      * @notice Returns the amount of KRO shares that the KRO delegator has.
      *
      * @param validator Address of the validator.
@@ -342,7 +314,7 @@ interface IAssetManager {
     ) external view returns (uint128);
 
     /**
-     * @notice Returns the amount of KGH shares that the KGH delegator has.
+     * @notice Returns the amount of KRO and KGH shares that the KGH delegator has.
      *
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
@@ -393,12 +365,14 @@ interface IAssetManager {
      *         at the current block, given current on-chain conditions.
      *
      * @param validator The address of the validator.
+     * @param delegator The address of the delegator.
      * @param tokenId   The tokenId of KGH to undelegate.
      *
      * @return The amount of assets that the Vault would exchange for the KGH of given tokenId.
      */
     function previewKghUndelegate(
         address validator,
+        address delegator,
         uint256 tokenId
     ) external view returns (uint128);
 
@@ -437,6 +411,15 @@ interface IAssetManager {
      * @return The total amount of KRO a validator has self-delegated.
      */
     function totalValidatorKro(address validator) external view returns (uint128);
+
+    /**
+     * @notice Returns the total amount of KRO accumulated as validator reward.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The total amount of KRO accumulated as validator reward.
+     */
+    function totalValidatorReward(address validator) external view returns (uint128);
 
     /**
      * @notice Returns the reflective weight of given validator. It can be different from the actual
