@@ -286,7 +286,7 @@ func (c *Challenger) scanPrevOutputs() error {
 		return fmt.Errorf("failed to get sync status: %w", err)
 	}
 
-	toBlock := new(big.Int).SetUint64(status.CurrentL1.Number)
+	toBlock := new(big.Int).SetUint64(status.HeadL1.Number)
 	// TODO(0xHansLee): add L1BlockTime to rollup config and change to use it
 	finalizationStartL1Block := new(big.Int).Sub(toBlock, new(big.Int).Div(c.finalizationPeriodSeconds, big.NewInt(12)))
 	// The fromBlock is the maximum value of either genesis block(1) or the first block of the finalization window

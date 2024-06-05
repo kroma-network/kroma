@@ -193,7 +193,7 @@ func (g *Guardian) initSub() {
 	})
 }
 
-// scanPrevChallenges scans all the previous challenges before current L1 block within the finalization window to handle challenger timeout.
+// scanPrevChallenges scans all the previous challenges before current L1 head within the finalization window to handle challenger timeout.
 func (g *Guardian) scanPrevChallenges() {
 	ticker := time.NewTicker(g.cfg.GuardianPollInterval)
 	defer func() {
@@ -212,7 +212,7 @@ func (g *Guardian) scanPrevChallenges() {
 				continue
 			}
 
-			toBlock := new(big.Int).SetUint64(status.CurrentL1.Number)
+			toBlock := new(big.Int).SetUint64(status.HeadL1.Number)
 			finalizationStartL1Block := new(big.Int).Sub(toBlock, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
 			// The fromBlock is the maximum value of either genesis block(1) or the first block of the finalization window
 			fromBlock := math.BigMax(common.Big1, finalizationStartL1Block)
@@ -276,14 +276,14 @@ func (g *Guardian) inspectorLoop() {
 				currentL2 = new(big.Int).SetUint64(status.FinalizedL2.Number)
 			}
 
-			// currentL1 and finalizedL1 are used for searching events of ReadyToProve in L1 blocks
-			currentL1 := new(big.Int).SetUint64(status.CurrentL1.Number)
-			finalizedL1 := new(big.Int).Sub(currentL1, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
+			// headL1 and finalizedL1 are used for searching events of ReadyToProve in L1 blocks
+			headL1 := new(big.Int).SetUint64(status.HeadL1.Number)
+			finalizedL1 := new(big.Int).Sub(headL1, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
 			finalizedL1 = math.BigMax(common.Big1, finalizedL1)
 
 			creationPeriodL2 := new(big.Int).Div(g.creationPeriodSeconds, g.l2BlockTime)
 			if currentL2.Cmp(creationPeriodL2) != 1 {
-				g.log.Warn("there is no output when the creation period is over yet", "currentL1", currentL1, "currentL2", currentL2, "creationPeriodL2", creationPeriodL2)
+				g.log.Warn("there is no output when the creation period is over yet", "headL1", headL1, "currentL2", currentL2, "creationPeriodL2", creationPeriodL2)
 				continue
 			}
 
@@ -313,7 +313,7 @@ func (g *Guardian) inspectorLoop() {
 
 					for i := startOutputIndex; i.Cmp(endOutputIndex) < 0; i.Add(i, common.Big1) {
 						g.wg.Add(1)
-						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(currentL1))
+						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(headL1))
 					}
 
 					g.checkpoint = endOutputIndex.Sub(endOutputIndex, common.Big1)
@@ -330,7 +330,7 @@ func (g *Guardian) inspectorLoop() {
 
 					for i := new(big.Int).Add(g.checkpoint, common.Big1); i.Cmp(outputIndex) < 0; i.Add(i, common.Big1) {
 						g.wg.Add(1)
-						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(currentL1))
+						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(headL1))
 					}
 
 					g.checkpoint = outputIndex.Sub(outputIndex, common.Big1)
