@@ -379,15 +379,3 @@
 | _delegates                       | mapping(address => address)                        | 9    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
 | _checkpoints                     | mapping(address => struct ERC20Votes.Checkpoint[]) | 10   | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
 | _totalSupplyCheckpoints          | struct ERC20Votes.Checkpoint[]                     | 11   | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
-
-=======================
-➡ contracts/governance/MintManager.sol:MintManager
-=======================
-
-| Name            | Type                        | Slot | Offset | Bytes | Contract                                         |
-|-----------------|-----------------------------|------|--------|-------|--------------------------------------------------|
-| _initialized    | uint8                       | 0    | 0      | 1     | contracts/governance/MintManager.sol:MintManager |
-| _initializing   | bool                        | 0    | 1      | 1     | contracts/governance/MintManager.sol:MintManager |
-| recipients      | address[]                   | 1    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |
-| shareOf         | mapping(address => uint256) | 2    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |
-| lastMintedBlock | uint256                     | 3    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |

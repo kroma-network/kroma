@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -118,12 +116,12 @@ func TestERC20BridgeDeposits(t *testing.T) {
 // TestBridgeGovernanceToken tests the L1StandardBridge bridge GovernanceToken
 // functionality.
 func TestBridgeGovernanceToken(t *testing.T) {
+	// TODO(pangssu): Enable testing when the GovernanceToken contract is ready.
+	t.Skip("Skip because initial mint is not implemented")
+
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
-	cfg.DeployConfig.MintManagerMintActivatedBlock = (*hexutil.Big)(new(big.Int).SetUint64(0))
-	cfg.DeployConfig.MintManagerRecipients = []common.Address{cfg.Secrets.Addresses().Alice}
-	cfg.DeployConfig.MintManagerShares = []uint64{100000}
 
 	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
@@ -151,6 +149,7 @@ func TestBridgeGovernanceToken(t *testing.T) {
 	l2Bridge, err := bindings.NewL2StandardBridge(l2BridgeAddr, l2Client)
 	require.NoError(t, err)
 
+	// Init token contracts
 	l1Token, err := bindings.NewGovernanceToken(l1TokenAddr, l1Client)
 	require.NoError(t, err)
 	l2Token, err := bindings.NewGovernanceToken(l2TokenAddr, l2Client)

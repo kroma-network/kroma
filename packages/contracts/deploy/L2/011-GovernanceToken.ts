@@ -1,7 +1,6 @@
 import '@kroma/hardhat-deploy-config'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
-import { predeploys } from '../../src'
 import { assertContractVariable, deploy, getDeploymentAddress } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
@@ -17,7 +16,6 @@ const deployFn: DeployFunction = async (hre) => {
     args: [
       l2StandardBridgeProxyAddress,
       Artifact__L1GovernanceTokenProxy.address,
-      predeploys.MintManager,
     ],
     isProxyImpl: true,
     postDeployAction: async (contract) => {
@@ -31,7 +29,6 @@ const deployFn: DeployFunction = async (hre) => {
         'REMOTE_TOKEN',
         Artifact__L1GovernanceTokenProxy.address,
       )
-      await assertContractVariable(contract, 'MINT_MANAGER', predeploys.MintManager)
     },
   })
 }

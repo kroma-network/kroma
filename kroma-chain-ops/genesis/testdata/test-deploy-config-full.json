@@ -95,24 +95,10 @@
   "colosseumDummyHash": "0xa1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7",
   "colosseumMaxTxs": 100,
   "colosseumSegmentsLengths": "2,2,3,3",
-  "zkVerifierHashScalar": "0x1545b1bf82c58ee35648bd877da9c5010193e82b036b16bf382acf31bc2ab576",
-  "zkVerifierM56Px": "0x15ae1a8e3b993dd9aadc8f9086d1ea239d4cd5c09cfa445f337e1b60d7b3eb87",
-  "zkVerifierM56Py": "0x2c702ede24f9db8c8c9a439975facd3872a888c5f84f58b3b5f5a5623bac945a",
-  "l1GovernanceTokenProxy": "0x4200000000000000000000000000000000000064",
-  "mintManagerMintActivatedBlock": "0x0",
-  "mintManagerInitMintPerBlock": "0xde0b6b3a7640000",
-  "mintManagerSlidingWindowBlocks": 3888000,
-  "mintManagerDecayingFactor": 92224,
-  "mintManagerRecipients": [
-    "0x4200000000000000000000000000000000000006",
-    "0x4200000000000000000000000000000000000007",
-    "0x4200000000000000000000000000000000000008"
-  ],
-  "mintManagerShares": [
-    20000,
-    30000,
-    50000
-  ]
+  "zkVerifierHashScalar": "0xb54142d3712f03ff5c15914a3dce82c0d8a8d537e165e2342048adf14e34aa",
+  "zkVerifierM56Px": "0x175a2d1aaf07ee184a955e35f3deac123ef1088b68c38bace37056dcfc9d304d",
+  "zkVerifierM56Py": "0x150856c3d1750c2578b823cb3c7d74ed3e94c1cfece7e1bfdaaff36eea788fb9",
+  "l1GovernanceTokenProxy": "0x4200000000000000000000000000000000000064"
 }
 
 

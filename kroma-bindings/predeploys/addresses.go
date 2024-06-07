@@ -20,7 +20,6 @@ const (
 	L2ERC721Bridge               = "0x420000000000000000000000000000000000000A"
 	KromaMintableERC20Factory    = "0x420000000000000000000000000000000000000B"
 	KromaMintableERC721Factory   = "0x420000000000000000000000000000000000000C"
-	MintManager                  = "0x4200000000000000000000000000000000000070"
 	GovernanceToken              = "0x42000000000000000000000000000000000000FF"
 	Create2Deployer              = "0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2"
 	MultiCall3                   = "0xcA11bde05977b3631167028862bE2a173976CA11"
@@ -50,7 +49,6 @@ var (
 	L2ERC721BridgeAddr               = common.HexToAddress(L2ERC721Bridge)
 	KromaMintableERC20FactoryAddr    = common.HexToAddress(KromaMintableERC20Factory)
 	KromaMintableERC721FactoryAddr   = common.HexToAddress(KromaMintableERC721Factory)
-	MintManagerAddr                  = common.HexToAddress(MintManager)
 	Create2DeployerAddr              = common.HexToAddress(Create2Deployer)
 	MultiCall3Addr                   = common.HexToAddress(MultiCall3)
 	Safe_v130Addr                    = common.HexToAddress(Safe_v130)
@@ -103,12 +101,6 @@ func init() {
 	Predeploys["L2ERC721Bridge"] = &oppredeploys.Predeploy{Address: L2ERC721BridgeAddr}
 	Predeploys["KromaMintableERC20Factory"] = &oppredeploys.Predeploy{Address: KromaMintableERC20FactoryAddr}
 	Predeploys["KromaMintableERC721Factory"] = &oppredeploys.Predeploy{Address: KromaMintableERC721FactoryAddr}
-	Predeploys["MintManager"] = &oppredeploys.Predeploy{
-		Address: MintManagerAddr,
-		Enabled: func(config oppredeploys.DeployConfig) bool {
-			return config.GovernanceEnabled()
-		},
-	}
 	Predeploys["Create2Deployer"] = &oppredeploys.Predeploy{
 		Address:       Create2DeployerAddr,
 		ProxyDisabled: true,

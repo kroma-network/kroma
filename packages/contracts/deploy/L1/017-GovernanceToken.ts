@@ -21,7 +21,6 @@ const deployFn: DeployFunction = async (hre) => {
     args: [
       l1StandardBridgeProxyAddress,
       predeploys.GovernanceToken,
-      zeroAddress,
     ],
     isProxyImpl: true,
     postDeployAction: async (contract) => {
@@ -35,7 +34,6 @@ const deployFn: DeployFunction = async (hre) => {
         'REMOTE_TOKEN',
         predeploys.GovernanceToken
       )
-      await assertContractVariable(contract, 'MINT_MANAGER', zeroAddress)
     },
   })
 }

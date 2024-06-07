@@ -101,7 +101,6 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	// [Kroma: START]
 	deployConfig.L2GenesisDeltaTimeOffset = nil
 	deployConfig.L2GenesisEcotoneTimeOffset = nil
-	deployConfig.MintManagerMintActivatedBlock = nil
 	// [Kroma: END]
 	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")
 	l1Deployments := config.L1Deployments.Copy()

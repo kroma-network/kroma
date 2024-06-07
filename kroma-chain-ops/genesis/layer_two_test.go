@@ -79,7 +79,7 @@ func testBuildL2Genesis(t *testing.T, config *genesis.DeployConfig) *core.Genesi
 
 	if writeFile {
 		file, _ := json.MarshalIndent(gen, "", " ")
-		_ = os.WriteFile("genesis.json", file, 0644)
+		_ = os.WriteFile("genesis.json", file, 0o644)
 	}
 	return gen
 }
@@ -90,7 +90,7 @@ func TestBuildL2MainnetGenesis(t *testing.T) {
 	config.EnableGovernance = true
 	config.FundDevAccounts = false
 	gen := testBuildL2Genesis(t, config)
-	require.Equal(t, 538, len(gen.Alloc))
+	require.Equal(t, 537, len(gen.Alloc))
 }
 
 func TestBuildL2MainnetNoGovernanceGenesis(t *testing.T) {

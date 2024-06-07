@@ -13,7 +13,6 @@ contract GovernanceToken_Test is CommonTest {
     GovernanceToken governanceToken;
     address bridge;
     address remoteToken;
-    address mintManager;
 
     /// @dev Sets up the test suite.
     function setUp() public virtual override {
@@ -23,15 +22,13 @@ contract GovernanceToken_Test is CommonTest {
         rando = makeAddr("rando");
         bridge = makeAddr("bridge");
         remoteToken = makeAddr("remoteToken");
-        mintManager = makeAddr("mintManager");
-        governanceToken = new GovernanceToken(bridge, remoteToken, mintManager);
+        governanceToken = new GovernanceToken(bridge, remoteToken);
     }
 
     /// @dev Tests that the constructor sets the correct initial state.
     function test_constructor_succeeds() external {
         assertEq(governanceToken.BRIDGE(), bridge);
         assertEq(governanceToken.REMOTE_TOKEN(), remoteToken);
-        assertEq(governanceToken.MINT_MANAGER(), mintManager);
         assertEq(governanceToken.name(), "Kroma");
         assertEq(governanceToken.symbol(), "KRO");
         assertEq(governanceToken.decimals(), 18);
@@ -42,17 +39,6 @@ contract GovernanceToken_Test is CommonTest {
     function test_mint_fromBridge_succeeds() external {
         // Mint 100 tokens.
         vm.prank(bridge);
-        governanceToken.mint(owner, 100);
-
-        // Balances have updated correctly.
-        assertEq(governanceToken.balanceOf(owner), 100);
-        assertEq(governanceToken.totalSupply(), 100);
-    }
-
-    /// @dev Tests that the MintManager can successfully call `mint`.
-    function test_mint_fromMintManager_succeeds() external {
-        // Mint 100 tokens.
-        vm.prank(mintManager);
         governanceToken.mint(owner, 100);
 
         // Balances have updated correctly.
@@ -75,7 +61,7 @@ contract GovernanceToken_Test is CommonTest {
     /// @dev Tests that the owner can successfully call `burn`.
     function test_burn_succeeds() external {
         // Mint 100 tokens to rando.
-        vm.prank(mintManager);
+        vm.prank(bridge);
         governanceToken.mint(rando, 100);
 
         // Rando burns their tokens.
@@ -90,7 +76,7 @@ contract GovernanceToken_Test is CommonTest {
     /// @dev Tests that the bridge contract can successfully call `burn`.
     function test_burn_fromBridge_succeeds() external {
         // Mint 100 tokens to rando.
-        vm.prank(mintManager);
+        vm.prank(bridge);
         governanceToken.mint(rando, 100);
 
         // Bridge burns rando's tokens.
@@ -105,7 +91,7 @@ contract GovernanceToken_Test is CommonTest {
     /// @dev Tests that the owner can successfully call `burnFrom`.
     function test_burnFrom_succeeds() external {
         // Mint 100 tokens to rando.
-        vm.prank(mintManager);
+        vm.prank(bridge);
         governanceToken.mint(rando, 100);
 
         // Rando approves owner to burn 50 tokens.
@@ -124,7 +110,7 @@ contract GovernanceToken_Test is CommonTest {
     /// @dev Tests that `transfer` correctly transfers tokens.
     function test_transfer_succeeds() external {
         // Mint 100 tokens to rando.
-        vm.prank(mintManager);
+        vm.prank(bridge);
         governanceToken.mint(rando, 100);
 
         // Rando transfers 50 tokens to owner.
@@ -140,7 +126,7 @@ contract GovernanceToken_Test is CommonTest {
     /// @dev Tests that `approve` correctly sets allowances.
     function test_approve_succeeds() external {
         // Mint 100 tokens to rando.
-        vm.prank(mintManager);
+        vm.prank(bridge);
         governanceToken.mint(rando, 100);
 
         // Rando approves owner to spend 50 tokens.
@@ -154,7 +140,7 @@ contract GovernanceToken_Test is CommonTest {
     /// @dev Tests that `transferFrom` correctly transfers tokens.
     function test_transferFrom_succeeds() external {
         // Mint 100 tokens to rando.
-        vm.prank(mintManager);
+        vm.prank(bridge);
         governanceToken.mint(rando, 100);
 
         // Rando approves owner to spend 50 tokens.
@@ -174,7 +160,7 @@ contract GovernanceToken_Test is CommonTest {
     /// @dev Tests that `increaseAllowance` correctly increases allowances.
     function test_increaseAllowance_succeeds() external {
         // Mint 100 tokens to rando.
-        vm.prank(mintManager);
+        vm.prank(bridge);
         governanceToken.mint(rando, 100);
 
         // Rando approves owner to spend 50 tokens.
@@ -192,7 +178,7 @@ contract GovernanceToken_Test is CommonTest {
     /// @dev Tests that `decreaseAllowance` correctly decreases allowances.
     function test_decreaseAllowance_succeeds() external {
         // Mint 100 tokens to rando.
-        vm.prank(mintManager);
+        vm.prank(bridge);
         governanceToken.mint(rando, 100);
 
         // Rando approves owner to spend 100 tokens.
