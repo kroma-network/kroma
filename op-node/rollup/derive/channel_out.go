@@ -7,16 +7,19 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 )
 
-var ErrMaxFrameSizeTooSmall = errors.New("maxSize is too small to fit the fixed frame overhead")
-var ErrNotDepositTx = errors.New("first transaction in block is not a deposit tx")
-var ErrTooManyRLPBytes = errors.New("batch would cause RLP bytes to go over limit")
-var ErrChannelOutAlreadyClosed = errors.New("channel-out already closed")
+var (
+	ErrMaxFrameSizeTooSmall    = errors.New("maxSize is too small to fit the fixed frame overhead")
+	ErrNotDepositTx            = errors.New("first transaction in block is not a deposit tx")
+	ErrTooManyRLPBytes         = errors.New("batch would cause RLP bytes to go over limit")
+	ErrChannelOutAlreadyClosed = errors.New("channel-out already closed")
+)
 
 // FrameV0OverHeadSize is the absolute minimum size of a frame.
 // This is the fixed overhead frame size, calculated as specified

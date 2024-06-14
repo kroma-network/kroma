@@ -115,7 +115,7 @@ services:
       CHAIN_ID: 901
       GETH_MINER_RECOMMIT: 100ms
     volumes:
-      - "l2_data:/db"
+      - "~/Desktop/db:/db"
       - "${PWD}/entrypoint-l2.sh:/entrypoint.sh"
       - "${PWD}/../.devnet/genesis-l2.json:/genesis.json"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
@@ -123,6 +123,7 @@ services:
       - "/bin/sh"
       - "/entrypoint.sh"
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
+      - "--KromaZKTrie=false"
 
   kroma-node:
     pid: host # allow debugging

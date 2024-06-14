@@ -16,6 +16,7 @@ func PayloadToBlockRef(rollupCfg *rollup.Config, payload *eth.ExecutionPayload) 
 	genesis := &rollupCfg.Genesis
 	var l1Origin eth.BlockID
 	var sequenceNumber uint64
+	// [Kroma: ZKT to MPT]
 	if uint64(payload.BlockNumber) == genesis.L2.Number {
 		if payload.BlockHash != genesis.L2.Hash {
 			return eth.L2BlockRef{}, fmt.Errorf("expected L2 genesis hash to match L2 block at genesis block number %d: %s <> %s", genesis.L2.Number, payload.BlockHash, genesis.L2.Hash)
