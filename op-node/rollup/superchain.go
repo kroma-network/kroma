@@ -101,8 +101,6 @@ func LoadOPStackRollupConfig(chainID uint64) (*Config, error) {
 		CanyonTime:        chConfig.CanyonTime,
 		DeltaTime:         chConfig.DeltaTime,
 		EcotoneTime:       chConfig.EcotoneTime,
-		// TODO(seolaoh): uncomment this when geth updated
-		// KromaMPTTime:           chConfig.KromaMPTTime,
 		FjordTime:              chConfig.FjordTime,
 		BatchInboxAddress:      common.Address(chConfig.BatchInboxAddr),
 		DepositContractAddress: common.Address(addrs.OptimismPortalProxy),

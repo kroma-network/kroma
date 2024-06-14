@@ -45,7 +45,7 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 		&cli.Uint64Flag{
 			Name:     KromaMPTOverrideFlagName,
 			Usage:    "Manually specify the Kroma MPT fork timestamp, overriding the bundled setting",
-			EnvVars:  opservice.PrefixEnvVar(envPrefix, "OVERRIDE_KROMA_MPT"),
+			EnvVars:  opservice.PrefixEnvVar(envPrefix, "OVERRIDE_MPT"),
 			Hidden:   false,
 			Category: category,
 		},
