@@ -63,6 +63,8 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 		CancunTime:                    config.EcotoneTime(block.Time()),
 		EcotoneTime:                   config.EcotoneTime(block.Time()),
 		InteropTime:                   config.InteropTime(block.Time()),
+		// [Kroma: ZKT to MPT]
+		KromaMptTime: config.KromaMptTime(block.Time()),
 		Kroma: &params.KromaConfig{
 			EIP1559Denominator:       eip1559Denom,
 			EIP1559Elasticity:        eip1559Elasticity,

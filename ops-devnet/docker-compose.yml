@@ -7,6 +7,7 @@ version: '3.4'
 volumes:
   l1_data:
   l2_data:
+  l2_historical_data:
   kroma_log:
 
 
@@ -107,7 +108,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:v0.5.0
+    image: kromanetwork/geth:mpt
     ports:
       - "9545:8545"
       - "9546:8546"
@@ -123,6 +124,9 @@ services:
       - "/bin/sh"
       - "/entrypoint.sh"
       - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
+      - "--KromaZKTrie=false"
+      - "--rollup.historicalrpc=http://l2-historical:8545"
+      - "--override.mpt=1719583200"
 
   kroma-node:
     pid: host # allow debugging
@@ -168,6 +172,51 @@ services:
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
       - "${PWD}/../.devnet/rollup.json:/rollup.json"
       - kroma_log:/kroma_log
+
+  l2-historical:
+    pid: host # allow debugging
+    image: kromanetwork/geth:mpt
+    ports:
+      - "6545:8545"
+      - "6546:8546"
+    environment:
+      CHAIN_ID: 901
+      GETH_MINER_RECOMMIT: 100ms
+    volumes:
+      - "l2_historical_data:/db"
+      - "${PWD}/entrypoint-l2.sh:/entrypoint.sh"
+      - "${PWD}/../.devnet/genesis-l2.json:/genesis.json"
+      - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
+    entrypoint: # pass the L2 specific flags by overriding the entry-point and adding extra arguments
+      - "/bin/sh"
+      - "/entrypoint.sh"
+      - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
+      - "--KromaZKTrie=false"
+      - "--override.mpt=1719583200"
+
+  kroma-node-historical:
+    pid: host # allow debugging
+    depends_on:
+      - l1
+      - l2
+    image: "kromanetwork/node"
+    build:
+      context: ..
+      target: "op-node"
+    environment:
+      NODE_L1_ETH_RPC: ws://l1:8546
+      NODE_L2_ENGINE_RPC: http://l2-historical:8551
+      NODE_L2_ENGINE_AUTH: /config/test-jwt-secret.txt
+      NODE_ROLLUP_CONFIG: /rollup.json
+      NODE_L1_BEACON: http://beacon-chain:3500
+      NODE_SEQUENCER_ENABLED: false
+      NODE_SEQUENCER_L1_CONFS: 0
+      NODE_VERIFIER_L1_CONFS: 0
+    volumes:
+      - "${PWD}/p2p-sequencer-key.txt:/config/p2p-sequencer-key.txt"
+      - "${PWD}/p2p-node-key.txt:/config/p2p-node-key.txt"
+      - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
+      - "${PWD}/../.devnet/rollup.json:/rollup.json"
 
   kroma-validator:
     pid: host # allow debugging

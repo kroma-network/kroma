@@ -96,6 +96,9 @@ type Config struct {
 	// Active if InteropTime != nil && L2 block timestamp >= *InteropTime, inactive otherwise.
 	InteropTime *uint64 `json:"interop_time,omitempty"`
 
+	// KromaMptTime  // TODO: add comment
+	KromaMptTime *uint64 `json:"mpt_time,omitempty"`
+
 	// Note: below addresses are part of the block-derivation process,
 	// and required to be the same network-wide to stay in consensus.
 
@@ -367,6 +370,11 @@ func (c *Config) IsInterop(timestamp uint64) bool {
 	return c.InteropTime != nil && timestamp >= *c.InteropTime
 }
 
+// IsKromaMPT // TODO: add comment
+func (c *Config) IsKromaMPT(timestamp uint64) bool {
+	return c.KromaMptTime != nil && timestamp >= *c.KromaMptTime
+}
+
 // ForkchoiceUpdatedVersion returns the EngineAPIMethod suitable for the chain hard fork version.
 func (c *Config) ForkchoiceUpdatedVersion(attr *eth.PayloadAttributes) eth.EngineAPIMethod {
 	if attr == nil {
@@ -472,6 +480,7 @@ func (c *Config) Description(l2Chains map[string]string) string {
 	// Report the protocol version
 	banner += fmt.Sprintf("Node supports up to OP-Stack Protocol Version: %s\n", OPStackSupport)
 	[Kroma: END] */
+	banner += fmt.Sprintf("  - Kroma MPT: %s\n", fmtForkTimeOrUnset(c.KromaMptTime))
 	return banner
 }
 
@@ -500,6 +509,7 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 		"ecotone_time", fmtForkTimeOrUnset(c.EcotoneTime),
 		"fjord_time", fmtForkTimeOrUnset(c.FjordTime),
 		"interop_time", fmtForkTimeOrUnset(c.InteropTime),
+		"mpt_time", fmtForkTimeOrUnset(c.KromaMptTime),
 	)
 }
 

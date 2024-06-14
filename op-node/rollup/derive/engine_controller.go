@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 type syncStatusEnum int
@@ -34,8 +35,10 @@ const (
 
 var errNoFCUNeeded = errors.New("no FCU call was needed")
 
-var _ EngineControl = (*EngineController)(nil)
-var _ LocalEngineControl = (*EngineController)(nil)
+var (
+	_ EngineControl      = (*EngineController)(nil)
+	_ LocalEngineControl = (*EngineController)(nil)
+)
 
 type ExecEngine interface {
 	GetPayload(ctx context.Context, payloadInfo eth.PayloadInfo) (*eth.ExecutionPayloadEnvelope, error)
@@ -327,7 +330,8 @@ func (e *EngineController) InsertUnsafePayload(ctx context.Context, envelope *et
 	// Check if there is a finalized head once when doing EL sync. If so, transition to CL sync
 	if e.syncStatus == syncStatusWillStartEL {
 		b, err := e.engine.L2BlockRefByLabel(ctx, eth.Finalized)
-		isTransitionBlock := e.rollupCfg.Genesis.L2.Number != 0 && b.Hash == e.rollupCfg.Genesis.L2.Hash
+		// [Kroma: ZKT to MPT]
+		isTransitionBlock := e.rollupCfg.Genesis.L2.Number != 0 && b.Hash == e.rollupCfg.Genesis.L2.Hash || e.rollupCfg.IsKromaMPT(ref.Time)
 		if errors.Is(err, ethereum.NotFound) || isTransitionBlock {
 			e.syncStatus = syncStatusStartedEL
 			e.log.Info("Starting EL sync")

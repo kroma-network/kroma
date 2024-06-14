@@ -126,6 +126,9 @@ type DeployConfig struct {
 	// L2GenesisInteropTimeOffset is the number of seconds after genesis block that the Interop hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Interop.
 	L2GenesisInteropTimeOffset *hexutil.Uint64 `json:"l2GenesisInteropTimeOffset,omitempty"`
+	// L2GenesisKromaMptTimeOffset // TODO: add comment
+	// [Kroma: ZKT to MPT]
+	L2GenesisKromaMptTimeOffset *hexutil.Uint64 `json:"l2GenesisKromaMptTimeOffset,omitempty"`
 	// L2GenesisBlockExtraData is configurable extradata. Will default to []byte("BEDROCK") if left unspecified.
 	L2GenesisBlockExtraData []byte `json:"l2GenesisBlockExtraData"`
 	// ProxyAdminOwner represents the owner of the ProxyAdmin predeploy on L2.
@@ -735,6 +738,17 @@ func (d *DeployConfig) InteropTime(genesisTime uint64) *uint64 {
 	return &v
 }
 
+func (d *DeployConfig) KromaMptTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisKromaMptTimeOffset == nil {
+		return nil
+	}
+	v := uint64(0)
+	if offset := *d.L2GenesisKromaMptTimeOffset; offset > 0 {
+		v = genesisTime + uint64(offset)
+	}
+	return &v
+}
+
 // RollupConfig converts a DeployConfig to a rollup.Config
 func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHash common.Hash, l2GenesisBlockNumber uint64) (*rollup.Config, error) {
 	if d.KromaPortalProxy == (common.Address{}) {
@@ -778,6 +792,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		EcotoneTime:            d.EcotoneTime(l1StartBlock.Time()),
 		FjordTime:              d.FjordTime(l1StartBlock.Time()),
 		InteropTime:            d.InteropTime(l1StartBlock.Time()),
+		KromaMptTime:           d.KromaMptTime(l1StartBlock.Time()),
 		UsePlasma:              d.UsePlasma,
 		DAChallengeAddress:     d.DAChallengeProxy,
 		DAChallengeWindow:      d.DAChallengeWindow,
