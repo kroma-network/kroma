@@ -11,6 +11,9 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gstate "github.com/ethereum/go-ethereum/core/state"
@@ -18,9 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
@@ -159,9 +159,23 @@ type DeployConfig struct {
 	GovernanceTokenSymbol string `json:"governanceTokenSymbol"`
 	// GovernanceTokenName represents the ERC20 name of the GovernanceToken
 	GovernanceTokenName string `json:"governanceTokenName"`
-	// GovernanceTokenOwner represents the owner of the GovernanceToken. Has the ability
-	// to mint and burn tokens.
-	GovernanceTokenOwner common.Address `json:"governanceTokenOwner"`
+	// [Kroma: START]
+	// // GovernanceTokenOwner represents the owner of the GovernanceToken. Has the ability
+	// // to mint and burn tokens.
+	// GovernanceTokenOwner common.Address `json:"governanceTokenOwner"`
+	// L1GovernanceTokenProxy represents the address of the L1GovernanceTokenProxy on L1.
+	L1GovernanceTokenProxy common.Address `json:"l1GovernanceTokenProxy"`
+	// MintManagerOwner represents the owner of the MintManager on L1 and L2. Has the ability to mint initially.
+	MintManagerOwner common.Address `json:"mintManagerOwner"`
+	// L1MintManagerRecipients is an array of recipient addresses to receive the minted governance tokens on L1.
+	L1MintManagerRecipients []common.Address `json:"l1MintManagerRecipients"`
+	// L1MintManagerShares is an array of each recipient's share of total minted tokens on L1.
+	L1MintManagerShares []uint64 `json:"l1MintManagerShares"`
+	// L2MintManagerRecipients is an array of recipient addresses to receive the minted governance tokens on L2.
+	L2MintManagerRecipients []common.Address `json:"l2MintManagerRecipients"`
+	// L2MintManagerShares is an array of each recipient's share of total minted tokens on L2.
+	L2MintManagerShares []uint64 `json:"l2MintManagerShares"`
+	// [Kroma: END]
 	// DeploymentWaitConfirmations is the number of confirmations to wait during
 	// deployment. This is DEPRECATED and should be removed in a future PR.
 	DeploymentWaitConfirmations int `json:"deploymentWaitConfirmations"`
@@ -283,9 +297,6 @@ type DeployConfig struct {
 	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
-
-	// L1GovernanceTokenProxy represents the address of the L1GovernanceTokenProxy on L1.
-	L1GovernanceTokenProxy common.Address `json:"l1GovernanceTokenProxy"`
 	// [Kroma: END]
 }
 
@@ -391,6 +402,21 @@ func (d *DeployConfig) Check() error {
 		// if d.GovernanceTokenOwner == (common.Address{}) {
 		// 	return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
 		// }
+		if d.MintManagerOwner == (common.Address{}) {
+			return fmt.Errorf("%w: MintManagerOwner cannot be address(0)", ErrInvalidDeployConfig)
+		}
+		if len(d.L1MintManagerRecipients) == 0 {
+			return fmt.Errorf("%w: L1MintManagerRecipients array cannot be empty", ErrInvalidDeployConfig)
+		}
+		if len(d.L1MintManagerRecipients) != len(d.L1MintManagerShares) {
+			return fmt.Errorf("%w: L1MintManagerRecipients and L1MintManagerShares must be the same length", ErrInvalidDeployConfig)
+		}
+		if len(d.L2MintManagerRecipients) == 0 {
+			return fmt.Errorf("%w: L2MintManagerRecipients array cannot be empty", ErrInvalidDeployConfig)
+		}
+		if len(d.L2MintManagerRecipients) != len(d.L2MintManagerShares) {
+			return fmt.Errorf("%w: L2MintManagerRecipients and L2MintManagerShares must be the same length", ErrInvalidDeployConfig)
+		}
 		// [Kroma: END]
 	}
 	// L2 block time must always be smaller than L1 block time
@@ -736,6 +762,7 @@ type L1Deployments struct {
 	ColosseumProxy            common.Address `json:"ColosseumProxy"`
 	L1GovernanceToken         common.Address `json:"L1GovernanceToken"`
 	L1GovernanceTokenProxy    common.Address `json:"L1GovernanceTokenProxy"`
+	L1MintManager             common.Address `json:"L1MintManager"`
 	Poseidon2                 common.Address `json:"Poseidon2"`
 	SecurityCouncil           common.Address `json:"SecurityCouncil"`
 	SecurityCouncilProxy      common.Address `json:"SecurityCouncilProxy"`
@@ -908,6 +935,11 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 	if config.L1FeeVaultRecipient == (common.Address{}) {
 		return nil, fmt.Errorf("L1FeeVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
+	// [Kroma: START]
+	if config.L1GovernanceTokenProxy == (common.Address{}) {
+		return nil, fmt.Errorf("L1GovernanceTokenProxy cannot be address(0): %w", ErrInvalidImmutablesConfig)
+	}
+	// [Kroma: END]
 
 	rewardDivider := config.FinalizationPeriodSeconds / (config.L2OutputOracleSubmissionInterval * config.L2BlockTime)
 
@@ -941,9 +973,6 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		L1BlockNumber:  struct{}{},
 		GasPriceOracle: struct{}{},
 		L1Block:        struct{}{},
-		/* [Kroma: START]
-		LegacyMessagePasser: struct{}{},
-		[Kroma: END] */
 		// [Kroma: START]
 		GovernanceToken: struct {
 			Bridge      common.Address
@@ -952,6 +981,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 			Bridge:      predeploys.L2StandardBridgeAddr,
 			RemoteToken: config.L1GovernanceTokenProxy,
 		},
+		// LegacyMessagePasser: struct{}{},
 		// [Kroma: END]
 		L2ERC721Bridge: struct {
 			OtherBridge common.Address
@@ -973,6 +1003,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 			Bridge: predeploys.L2StandardBridgeAddr,
 		},
 		ProxyAdmin: struct{}{},
+		// [Kroma: START]
 		ProtocolVault: struct {
 			Recipient common.Address
 		}{
