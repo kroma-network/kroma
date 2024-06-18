@@ -1,5 +1,4 @@
 import '@kroma/hardhat-deploy-config'
-import { ethers } from 'ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
 import { predeploys } from '../../src'
@@ -10,19 +9,18 @@ import {
 } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const zeroAddress = ethers.constants.AddressZero
   const l1StandardBridgeProxyAddress = await getDeploymentAddress(
     hre,
     'L1StandardBridgeProxy'
   )
 
+  const l1MintManagerAddress = await getDeploymentAddress(hre, 'L1MintManager')
+
   await deploy(hre, 'L1GovernanceToken', {
     contract: 'GovernanceToken',
-    args: [
-      l1StandardBridgeProxyAddress,
-      predeploys.GovernanceToken,
-    ],
+    args: [l1StandardBridgeProxyAddress, predeploys.GovernanceToken],
     isProxyImpl: true,
+    initArgs: [l1MintManagerAddress],
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,

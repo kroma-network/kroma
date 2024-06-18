@@ -1,4 +1,4 @@
-import {ethers} from "ethers";
+import { ethers } from 'ethers'
 
 /**
  * Predeploys are Solidity contracts that are injected into the initial L2 state and provide

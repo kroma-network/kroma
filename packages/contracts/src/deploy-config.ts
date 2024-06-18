@@ -209,6 +209,11 @@ interface RequiredDeployConfig {
    * L2 : Governor voting period in block.
    */
   l2GovernorVotingPeriodBlocks: number
+
+  /**
+   * The owner of MintManager on L1 and L2.
+   */
+  mintManagerOwner: string
 }
 
 /**
@@ -226,6 +231,8 @@ interface OptionalL1DeployConfig {
   l1GenesisBlockGasUsed: string
   l1GenesisBlockParentHash: string
   l1GenesisBlockBaseFeePerGas: string
+  l1MintManagerRecipients: string[]
+  l1MintManagerShares: string[]
 }
 
 /**
@@ -246,6 +253,8 @@ interface OptionalL2DeployConfig {
   gasPriceOracleOverhead: number
   gasPriceOracleScalar: number
   validatorRewardScalar: number
+  l2MintManagerRecipients: string[]
+  l2MintManagerShares: string[]
 }
 
 /**
@@ -472,5 +481,9 @@ export const deployConfigSpec: {
   },
   l2TimeLockMinDelaySeconds: {
     type: 'number',
+  },
+  mintManagerOwner: {
+    type: 'address',
+    default: ethers.constants.AddressZero,
   },
 }
