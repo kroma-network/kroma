@@ -155,16 +155,18 @@ type DeployConfig struct {
 	GasPriceOracleScalar uint64 `json:"gasPriceOracleScalar"`
 	// EnableGovernance configures whether or not include governance token predeploy.
 	EnableGovernance bool `json:"enableGovernance"`
+	/* [Kroma: START]
 	// GovernanceTokenSymbol represents the  ERC20 symbol of the GovernanceToken.
 	GovernanceTokenSymbol string `json:"governanceTokenSymbol"`
 	// GovernanceTokenName represents the ERC20 name of the GovernanceToken
 	GovernanceTokenName string `json:"governanceTokenName"`
+	// GovernanceTokenOwner represents the owner of the GovernanceToken. Has the ability
+	// to mint and burn tokens.
+	GovernanceTokenOwner common.Address `json:"governanceTokenOwner"`
+	[Kroma: END] */
 	// [Kroma: START]
-	// // GovernanceTokenOwner represents the owner of the GovernanceToken. Has the ability
-	// // to mint and burn tokens.
-	// GovernanceTokenOwner common.Address `json:"governanceTokenOwner"`
-	// L1GovernanceTokenProxy represents the address of the L1GovernanceTokenProxy on L1.
-	L1GovernanceTokenProxy common.Address `json:"l1GovernanceTokenProxy"`
+	// GovernanceTokenProxySalt is used to determine GovernanceTokenProxy address on L1 and L2.
+	GovernanceTokenProxySalt common.Hash `json:"governanceTokenProxySalt"`
 	// MintManagerOwner represents the owner of the MintManager on L1 and L2. Has the ability to mint initially.
 	MintManagerOwner common.Address `json:"mintManagerOwner"`
 	// L1MintManagerRecipients is an array of recipient addresses to receive the minted governance tokens on L1.
@@ -392,16 +394,18 @@ func (d *DeployConfig) Check() error {
 		return fmt.Errorf("%w: L2 genesis block base fee per gas cannot be nil", ErrInvalidDeployConfig)
 	}
 	if d.EnableGovernance {
+		/* [Kroma: START]
 		if d.GovernanceTokenName == "" {
 			return fmt.Errorf("%w: GovernanceToken.name cannot be empty", ErrInvalidDeployConfig)
 		}
 		if d.GovernanceTokenSymbol == "" {
 			return fmt.Errorf("%w: GovernanceToken.symbol cannot be empty", ErrInvalidDeployConfig)
 		}
+		if d.GovernanceTokenOwner == (common.Address{}) {
+			return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
+		}
+		[Kroma: END] */
 		// [Kroma: START]
-		// if d.GovernanceTokenOwner == (common.Address{}) {
-		// 	return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
-		// }
 		if d.MintManagerOwner == (common.Address{}) {
 			return fmt.Errorf("%w: MintManagerOwner cannot be address(0)", ErrInvalidDeployConfig)
 		}
@@ -558,12 +562,6 @@ func (d *DeployConfig) CheckAddresses() error {
 	if d.KromaPortalProxy == (common.Address{}) {
 		return fmt.Errorf("%w: KromaPortalProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
-
-	// [Kroma: START]
-	if d.L1GovernanceTokenProxy == (common.Address{}) {
-		return fmt.Errorf("%w: L1GovernanceTokenProxy cannot be address(0)", ErrInvalidDeployConfig)
-	}
-	// [Kroma: END]
 	return nil
 }
 
@@ -577,7 +575,6 @@ func (d *DeployConfig) SetDeployments(deployments *L1Deployments) {
 
 	// [Kroma: START]
 	d.ValidatorPoolProxy = deployments.ValidatorPoolProxy
-	d.L1GovernanceTokenProxy = deployments.L1GovernanceTokenProxy
 	// [Kroma: END]
 }
 
@@ -760,9 +757,7 @@ type L1Deployments struct {
 	// [Kroma: START]
 	Colosseum                 common.Address `json:"Colosseum"`
 	ColosseumProxy            common.Address `json:"ColosseumProxy"`
-	L1GovernanceToken         common.Address `json:"L1GovernanceToken"`
 	L1GovernanceTokenProxy    common.Address `json:"L1GovernanceTokenProxy"`
-	L1MintManager             common.Address `json:"L1MintManager"`
 	Poseidon2                 common.Address `json:"Poseidon2"`
 	SecurityCouncil           common.Address `json:"SecurityCouncil"`
 	SecurityCouncilProxy      common.Address `json:"SecurityCouncilProxy"`
@@ -813,6 +808,12 @@ func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 				name == "DataAvailabilityChallengeProxy") {
 			continue
 		}
+		// [Kroma: START]
+		// Skip contract that will be deployed later in setup
+		if name == "L1GovernanceTokenProxy" {
+			continue
+		}
+		// [Kroma: END]
 		if val.Field(i).Interface().(common.Address) == (common.Address{}) {
 			return fmt.Errorf("%s is not set", name)
 		}
@@ -935,11 +936,6 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 	if config.L1FeeVaultRecipient == (common.Address{}) {
 		return nil, fmt.Errorf("L1FeeVaultRecipient cannot be address(0): %w", ErrInvalidImmutablesConfig)
 	}
-	// [Kroma: START]
-	if config.L1GovernanceTokenProxy == (common.Address{}) {
-		return nil, fmt.Errorf("L1GovernanceTokenProxy cannot be address(0): %w", ErrInvalidImmutablesConfig)
-	}
-	// [Kroma: END]
 
 	rewardDivider := config.FinalizationPeriodSeconds / (config.L2OutputOracleSubmissionInterval * config.L2BlockTime)
 
@@ -973,16 +969,10 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		L1BlockNumber:  struct{}{},
 		GasPriceOracle: struct{}{},
 		L1Block:        struct{}{},
-		// [Kroma: START]
-		GovernanceToken: struct {
-			Bridge      common.Address
-			RemoteToken common.Address
-		}{
-			Bridge:      predeploys.L2StandardBridgeAddr,
-			RemoteToken: config.L1GovernanceTokenProxy,
-		},
-		// LegacyMessagePasser: struct{}{},
-		// [Kroma: END]
+		/* [Kroma: START]
+		GovernanceToken: struct{}{},
+		LegacyMessagePasser: struct{}{},
+		[Kroma: END]*/
 		L2ERC721Bridge: struct {
 			OtherBridge common.Address
 			Messenger   common.Address
@@ -1093,13 +1083,15 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"symbol":   "WETH",
 		"decimals": 18,
 	}
+	/* [Kroma: START]
 	if config.EnableGovernance {
 		storage["GovernanceToken"] = state.StorageValues{
 			"_name":   config.GovernanceTokenName,
 			"_symbol": config.GovernanceTokenSymbol,
-			// "_owner":  config.GovernanceTokenOwner,
+			"_owner":  config.GovernanceTokenOwner,
 		}
 	}
+	[Kroma: END] */
 	storage["ProxyAdmin"] = state.StorageValues{
 		"_owner": config.ProxyAdminOwner,
 	}

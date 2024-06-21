@@ -6,7 +6,7 @@ import { CommonTest } from "./CommonTest.t.sol";
 
 // Target contract dependencies
 import { GovernanceToken } from "../governance/GovernanceToken.sol";
-import { Predeploys } from "../libraries/Predeploys.sol";
+import { Proxy } from "../universal/Proxy.sol";
 
 // Target contract
 import { MintManager } from "../governance/MintManager.sol";
@@ -29,19 +29,22 @@ contract MintManagerTest is CommonTest {
         owner = makeAddr("owner");
         rando = makeAddr("rando");
 
+        governanceToken = GovernanceToken(address(new Proxy(multisig)));
+
         SHARE_DENOMINATOR = 100;
         for (uint256 i = 0; i < recipients.length; i++) {
             string memory name = string(abi.encodePacked("recipient", i));
             recipients[i] = makeAddr(name);
             shares[i] = SHARE_DENOMINATOR / recipients.length;
         }
-        mintManager = new MintManager(Predeploys.GOVERNANCE_TOKEN, owner, recipients, shares);
+        mintManager = new MintManager(address(governanceToken), owner, recipients, shares);
 
-        governanceToken = GovernanceToken(Predeploys.GOVERNANCE_TOKEN);
         GovernanceToken govTokenImpl = new GovernanceToken(address(0), address(0));
-        vm.etch(address(governanceToken), address(govTokenImpl).code);
-
-        governanceToken.initialize(address(mintManager));
+        vm.prank(multisig);
+        toProxy(address(governanceToken)).upgradeToAndCall(
+            address(govTokenImpl),
+            abi.encodeCall(governanceToken.initialize, address(mintManager))
+        );
 
         MINT_CAP = mintManager.MINT_CAP() * 10 ** governanceToken.decimals();
     }

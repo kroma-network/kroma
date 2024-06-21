@@ -9,7 +9,6 @@ import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 
 /**
  * @custom:proxied
- * @custom:predeploy 0x42000000000000000000000000000000000000ff
  * @title GovernanceToken
  * @notice The KRO token used in governance, supporting voting and delegation. Implements
  *         EIP 2612 allowing signed approvals. `mint` function is only allowed to the owner or

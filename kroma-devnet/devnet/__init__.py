@@ -153,7 +153,7 @@ def deploy_contracts(paths):
     ], env={}, cwd=paths.contracts_bedrock_dir)
 
     run_command([
-        'npx', 'hardhat', 'deploy', '--network', 'devnetL1'
+        'npx', 'hardhat', 'deploy', '--network', 'devnetL1', '--tags', 'setup'
     ], env={}, cwd=paths.contracts_bedrock_dir)
 
     run_command([

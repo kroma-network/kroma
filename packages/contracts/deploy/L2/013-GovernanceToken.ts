@@ -5,31 +5,30 @@ import { predeploys } from '../../src'
 import { assertContractVariable, deploy } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const l1 = hre.network.companionNetworks['l1']
-  const deployConfig = hre.getDeployConfig(l1)
+  const Artifact__L1GovernanceTokenProxy = await hre.companionNetworks[
+    'l1'
+  ].deployments.get('L1GovernanceTokenProxy')
 
-  await deploy(hre, 'MintManager', {
+  await deploy(hre, 'GovernanceToken', {
     args: [
-      predeploys.GovernanceToken,
-      deployConfig.mintManagerOwner,
-      deployConfig.l2MintManagerRecipients,
-      deployConfig.l2MintManagerShares,
+      predeploys.L2StandardBridge,
+      Artifact__L1GovernanceTokenProxy.address,
     ],
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,
-        'GOVERNANCE_TOKEN',
-        predeploys.GovernanceToken
+        'BRIDGE',
+        predeploys.L2StandardBridge
       )
       await assertContractVariable(
         contract,
-        'owner',
-        deployConfig.mintManagerOwner
+        'REMOTE_TOKEN',
+        Artifact__L1GovernanceTokenProxy.address
       )
     },
   })
 }
 
-deployFn.tags = ['MintManager', 'setup', 'l2', 'tge']
+deployFn.tags = ['GovernanceToken', 'l2', 'tge']
 
 export default deployFn

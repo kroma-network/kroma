@@ -4,9 +4,6 @@ pragma solidity 0.8.15;
 // Testing utilities
 import { CommonTest } from "./CommonTest.t.sol";
 
-// Target contract dependencies
-import { Predeploys } from "../libraries/Predeploys.sol";
-
 // Target contract
 import { GovernanceToken } from "../governance/GovernanceToken.sol";
 
@@ -26,10 +23,7 @@ contract GovernanceToken_Test is CommonTest {
         remoteToken = makeAddr("remoteToken");
         mintManager = makeAddr("mintManager");
 
-        governanceToken = GovernanceToken(Predeploys.GOVERNANCE_TOKEN);
-        GovernanceToken govTokenImpl = new GovernanceToken(bridge, remoteToken);
-        vm.etch(address(governanceToken), address(govTokenImpl).code);
-
+        governanceToken = new GovernanceToken(bridge, remoteToken);
         governanceToken.initialize(mintManager);
     }
 

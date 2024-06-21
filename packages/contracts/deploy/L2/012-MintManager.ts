@@ -8,34 +8,36 @@ import {
 } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const l1GovernanceTokenProxyAddress = await getDeploymentAddress(
+  const l1 = hre.network.companionNetworks['l1']
+  const deployConfig = hre.getDeployConfig(l1)
+
+  const GovernanceTokenProxyAddress = await getDeploymentAddress(
     hre,
-    'L1GovernanceTokenProxy'
+    'GovernanceTokenProxy'
   )
 
-  await deploy(hre, 'L1MintManager', {
-    contract: 'MintManager',
+  await deploy(hre, 'MintManager', {
     args: [
-      l1GovernanceTokenProxyAddress,
-      hre.deployConfig.mintManagerOwner,
-      hre.deployConfig.l1MintManagerRecipients,
-      hre.deployConfig.l1MintManagerShares,
+      GovernanceTokenProxyAddress,
+      deployConfig.mintManagerOwner,
+      deployConfig.l2MintManagerRecipients,
+      deployConfig.l2MintManagerShares,
     ],
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,
         'GOVERNANCE_TOKEN',
-        l1GovernanceTokenProxyAddress
+        GovernanceTokenProxyAddress
       )
       await assertContractVariable(
         contract,
         'owner',
-        hre.deployConfig.mintManagerOwner
+        deployConfig.mintManagerOwner
       )
     },
   })
 }
 
-deployFn.tags = ['L1MintManager', 'setup', 'l1', 'tge']
+deployFn.tags = ['MintManager', 'l2', 'tge']
 
 export default deployFn

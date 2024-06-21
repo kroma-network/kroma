@@ -211,6 +211,11 @@ interface RequiredDeployConfig {
   l2GovernorVotingPeriodBlocks: number
 
   /**
+   * The salt to determine GovernanceTokenProxy address on L1 and L2.
+   */
+  governanceTokenProxySalt: string
+
+  /**
    * The owner of MintManager on L1 and L2.
    */
   mintManagerOwner: string
@@ -481,6 +486,10 @@ export const deployConfigSpec: {
   },
   l2TimeLockMinDelaySeconds: {
     type: 'number',
+  },
+  governanceTokenProxySalt: {
+    type: 'string', // bytes32
+    default: ethers.constants.HashZero,
   },
   mintManagerOwner: {
     type: 'address',

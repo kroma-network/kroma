@@ -239,52 +239,83 @@ func UsePlasma() bool {
 
 // [Kroma: START]
 
-// MintGovernanceTokenOnL1 mints and distributes GovernanceToken to each recipient on L1.
-func MintGovernanceTokenOnL1(t require.TestingT, ctx context.Context, l1Client *ethclient.Client,
+// SetUpGovernanceTokenOnL1 deploys GovernanceToken and MintManager on L1, and mints and distributes GovernanceToken to each recipient.
+func SetUpGovernanceTokenOnL1(t require.TestingT, ctx context.Context, l1Client *ethclient.Client,
 	deployConfig *genesis.DeployConfig, l1Deployments *genesis.L1Deployments, secrets *Secrets, l1ChainID *big.Int,
 ) {
-	governanceToken, err := bindings.NewGovernanceTokenCaller(l1Deployments.L1GovernanceTokenProxy, l1Client)
+	sysCfgOwnerOpts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l1ChainID)
 	require.NoError(t, err)
 
-	mintManager, err := bindings.NewMintManager(l1Deployments.L1MintManager, l1Client)
+	// Deploy L1GovernanceToken as a proxy
+	l1GovTokenProxyAddr, tx, l1GovTokenProxy, err := bindings.DeployProxy(sysCfgOwnerOpts, l1Client, secrets.Addresses().SysCfgOwner)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+	l1Deployments.L1GovernanceTokenProxy = l1GovTokenProxyAddr
+
+	l1GovTokenAddr, tx, _, err := bindings.DeployGovernanceToken(sysCfgOwnerOpts, l1Client, l1Deployments.L1StandardBridgeProxy, l1GovTokenProxyAddr)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
+	l1MintManagerShares := make([]*big.Int, len(deployConfig.L1MintManagerShares))
+	for i, v := range deployConfig.L1MintManagerShares {
+		l1MintManagerShares[i] = new(big.Int).SetUint64(v)
+	}
+
+	// Deploy L1MintManager
+	l1MintManagerAddr, tx, l1MintManager, err := bindings.DeployMintManager(sysCfgOwnerOpts, l1Client, l1GovTokenProxyAddr,
+		deployConfig.MintManagerOwner, deployConfig.L1MintManagerRecipients, l1MintManagerShares)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+
+	govTokenABI, err := bindings.GovernanceTokenMetaData.GetAbi()
+	require.NoError(t, err)
+	data, err := govTokenABI.Pack("initialize", l1MintManagerAddr)
+	require.NoError(t, err)
+
+	// Upgrade proxy and initialize L1GovernanceToken
+	tx, err = l1GovTokenProxy.UpgradeToAndCall(sysCfgOwnerOpts, l1GovTokenAddr, data)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+
+	l1GovToken, err := bindings.NewGovernanceTokenCaller(l1GovTokenProxyAddr, l1Client)
+	require.NoError(t, err)
+
+	// Ensure that the GovernanceToken is not distributed yet
 	for _, recipient := range deployConfig.L1MintManagerRecipients {
-		balance, err := governanceToken.BalanceOf(nil, recipient)
+		balance, err := l1GovToken.BalanceOf(nil, recipient)
 		require.NoError(t, err)
 		require.Equal(t, "0", balance.String())
 	}
 
-	sysCfgOwnerOpts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l1ChainID)
-	require.NoError(t, err)
-
-	tx, err := mintManager.Mint(sysCfgOwnerOpts)
+	tx, err = l1MintManager.Mint(sysCfgOwnerOpts)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
-	tx, err = mintManager.Distribute(sysCfgOwnerOpts)
+	tx, err = l1MintManager.Distribute(sysCfgOwnerOpts)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
-	tx, err = mintManager.RenounceOwnershipOfToken(sysCfgOwnerOpts)
+	tx, err = l1MintManager.RenounceOwnershipOfToken(sysCfgOwnerOpts)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
 	// Check if the GovernanceToken distributed correctly
-	mintCap, err := mintManager.MINTCAP(nil)
+	mintCap, err := l1MintManager.MINTCAP(nil)
 	require.NoError(t, err)
 	mintCap.Mul(mintCap, big.NewInt(1e18))
-	shareDenom, err := mintManager.SHAREDENOMINATOR(nil)
+	shareDenom, err := l1MintManager.SHAREDENOMINATOR(nil)
 	require.NoError(t, err)
 
 	for i, recipient := range deployConfig.L1MintManagerRecipients {
-		shares := new(big.Int).SetUint64(deployConfig.L1MintManagerShares[i])
-		amount := new(big.Int).Div(new(big.Int).Mul(mintCap, shares), shareDenom)
-
-		balance, err := governanceToken.BalanceOf(nil, recipient)
+		amount := new(big.Int).Div(new(big.Int).Mul(mintCap, l1MintManagerShares[i]), shareDenom)
+		balance, err := l1GovToken.BalanceOf(nil, recipient)
 		require.NoError(t, err)
 		require.Equal(t, amount.String(), balance.String())
 	}

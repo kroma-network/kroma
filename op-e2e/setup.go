@@ -797,9 +797,9 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		return sys, nil
 	}
 
-	// Mint and distribute GovernanceToken to each recipient on L1 if governance enabled.
+	// Setup and mint GovernanceToken to each recipient on L1 if governance enabled.
 	if cfg.DeployConfig.GovernanceEnabled() {
-		e2eutils.MintGovernanceTokenOnL1(t, context.Background(), sys.Clients["l1"], cfg.DeployConfig,
+		e2eutils.SetUpGovernanceTokenOnL1(t, context.Background(), sys.Clients["l1"], cfg.DeployConfig,
 			cfg.L1Deployments, cfg.Secrets, cfg.L1ChainIDBig())
 	}
 
