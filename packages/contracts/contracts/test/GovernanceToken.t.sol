@@ -4,6 +4,9 @@ pragma solidity 0.8.15;
 // Testing utilities
 import { CommonTest } from "./CommonTest.t.sol";
 
+// Target contract dependencies
+import { Proxy } from "../universal/Proxy.sol";
+
 // Target contract
 import { GovernanceToken } from "../governance/GovernanceToken.sol";
 
@@ -23,8 +26,13 @@ contract GovernanceToken_Test is CommonTest {
         remoteToken = makeAddr("remoteToken");
         mintManager = makeAddr("mintManager");
 
-        governanceToken = new GovernanceToken(bridge, remoteToken);
-        governanceToken.initialize(mintManager);
+        governanceToken = GovernanceToken(address(new Proxy(multisig)));
+        GovernanceToken govTokenImpl = new GovernanceToken(bridge, remoteToken);
+        vm.prank(multisig);
+        toProxy(address(governanceToken)).upgradeToAndCall(
+            address(govTokenImpl),
+            abi.encodeCall(governanceToken.initialize, mintManager)
+        );
     }
 
     /// @dev Tests that the constructor sets the correct initial state.

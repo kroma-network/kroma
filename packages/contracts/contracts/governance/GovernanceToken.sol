@@ -25,7 +25,9 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes, Ownab
     constructor(
         address _bridge,
         address _remoteToken
-    ) KromaMintableERC20(_bridge, _remoteToken, "", "") ERC20Permit("Kroma") {}
+    ) KromaMintableERC20(_bridge, _remoteToken, "", "") ERC20Permit("Kroma") {
+        _disableInitializers();
+    }
 
     /**
      * @notice Initializer.
