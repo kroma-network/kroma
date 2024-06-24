@@ -204,7 +204,9 @@ export const deployDeterministicProxy = async (
   // Ensure there is not code at the address.
   let code = await hre.ethers.provider.getCode(create2Address)
   if (code !== '0x') {
-    throw new Error(`already existing code at ${create2Address}`)
+    throw new Error(
+      `existing contract code found at ${create2Address}. Use a different salt or verify the intended deployment address.`
+    )
   }
 
   // Ensure there is code at the Create2Deployer address.

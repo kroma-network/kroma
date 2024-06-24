@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
@@ -240,20 +241,29 @@ func UsePlasma() bool {
 // [Kroma: START]
 
 // SetUpGovernanceTokenOnL1 deploys GovernanceToken and MintManager on L1, and mints and distributes GovernanceToken to each recipient.
-func SetUpGovernanceTokenOnL1(t require.TestingT, ctx context.Context, l1Client *ethclient.Client,
-	deployConfig *genesis.DeployConfig, l1Deployments *genesis.L1Deployments, secrets *Secrets, l1ChainID *big.Int,
+func SetUpGovernanceTokenOnL1(t require.TestingT, ctx context.Context, l1Client *ethclient.Client, l2Client *ethclient.Client,
+	deployConfig *genesis.DeployConfig, l1Deployments *genesis.L1Deployments, secrets *Secrets, l1ChainID *big.Int, l2ChainID *big.Int,
 ) {
-	sysCfgOwnerOpts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l1ChainID)
+	l1Opts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l1ChainID)
+	require.NoError(t, err)
+	l2Opts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l2ChainID)
 	require.NoError(t, err)
 
-	// Deploy L1GovernanceToken as a proxy
-	l1GovTokenProxyAddr, tx, l1GovTokenProxy, err := bindings.DeployProxy(sysCfgOwnerOpts, l1Client, secrets.Addresses().SysCfgOwner)
+	// Deploy L1GovernanceToken on L1 as a proxy
+	l1GovTokenProxyAddr, tx, l1GovTokenProxy, err := bindings.DeployProxy(l1Opts, l1Client, secrets.Addresses().SysCfgOwner)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 	l1Deployments.L1GovernanceTokenProxy = l1GovTokenProxyAddr
 
-	l1GovTokenAddr, tx, _, err := bindings.DeployGovernanceToken(sysCfgOwnerOpts, l1Client, l1Deployments.L1StandardBridgeProxy, l1GovTokenProxyAddr)
+	// Deploy GovernanceToken on L2
+	govTokenAddr, tx, _, err := bindings.DeployGovernanceToken(l2Opts, l2Client, predeploys.L2StandardBridgeAddr, l1GovTokenProxyAddr)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l2Client, tx.Hash())
+	require.NoError(t, err)
+	deployConfig.GovernanceTokenAddress = govTokenAddr
+
+	l1GovTokenAddr, tx, _, err := bindings.DeployGovernanceToken(l1Opts, l1Client, l1Deployments.L1StandardBridgeProxy, govTokenAddr)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
@@ -264,7 +274,7 @@ func SetUpGovernanceTokenOnL1(t require.TestingT, ctx context.Context, l1Client 
 	}
 
 	// Deploy L1MintManager
-	l1MintManagerAddr, tx, l1MintManager, err := bindings.DeployMintManager(sysCfgOwnerOpts, l1Client, l1GovTokenProxyAddr,
+	l1MintManagerAddr, tx, l1MintManager, err := bindings.DeployMintManager(l1Opts, l1Client, l1GovTokenProxyAddr,
 		deployConfig.MintManagerOwner, deployConfig.L1MintManagerRecipients, l1MintManagerShares)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
@@ -276,7 +286,7 @@ func SetUpGovernanceTokenOnL1(t require.TestingT, ctx context.Context, l1Client 
 	require.NoError(t, err)
 
 	// Upgrade proxy and initialize L1GovernanceToken
-	tx, err = l1GovTokenProxy.UpgradeToAndCall(sysCfgOwnerOpts, l1GovTokenAddr, data)
+	tx, err = l1GovTokenProxy.UpgradeToAndCall(l1Opts, l1GovTokenAddr, data)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
@@ -291,17 +301,17 @@ func SetUpGovernanceTokenOnL1(t require.TestingT, ctx context.Context, l1Client 
 		require.Equal(t, "0", balance.String())
 	}
 
-	tx, err = l1MintManager.Mint(sysCfgOwnerOpts)
+	tx, err = l1MintManager.Mint(l1Opts)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
-	tx, err = l1MintManager.Distribute(sysCfgOwnerOpts)
+	tx, err = l1MintManager.Distribute(l1Opts)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
-	tx, err = l1MintManager.RenounceOwnershipOfToken(sysCfgOwnerOpts)
+	tx, err = l1MintManager.RenounceOwnershipOfToken(l1Opts)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)

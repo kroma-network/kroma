@@ -24,7 +24,7 @@
   "l2GenesisBlockBaseFeePerGas": "0x1",
   "gasPriceOracleOverhead": 2100,
   "gasPriceOracleScalar": 1000000,
-  "enableGovernance": true,
+  "enableGovernance": false,
   "eip1559Denominator": 50,
   "eip1559DenominatorCanyon": 250,
   "eip1559Elasticity": 6,

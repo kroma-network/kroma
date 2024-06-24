@@ -13,16 +13,14 @@ const deployFn: DeployFunction = async (hre) => {
     'L1StandardBridgeProxy'
   )
 
-  const Artifact__GovernanceTokenProxy = await hre.companionNetworks[
-    'l2'
-  ].deployments.get('GovernanceTokenProxy')
+  const governanceTokenProxyAddress = await getDeploymentAddress(
+    hre,
+    'L1GovernanceTokenProxy'
+  )
 
   await deploy(hre, 'L1GovernanceToken', {
     contract: 'GovernanceToken',
-    args: [
-      l1StandardBridgeProxyAddress,
-      Artifact__GovernanceTokenProxy.address,
-    ],
+    args: [l1StandardBridgeProxyAddress, governanceTokenProxyAddress],
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,
@@ -32,7 +30,7 @@ const deployFn: DeployFunction = async (hre) => {
       await assertContractVariable(
         contract,
         'REMOTE_TOKEN',
-        Artifact__GovernanceTokenProxy.address
+        governanceTokenProxyAddress
       )
     },
   })

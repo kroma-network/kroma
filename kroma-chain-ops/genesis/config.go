@@ -165,6 +165,8 @@ type DeployConfig struct {
 	GovernanceTokenOwner common.Address `json:"governanceTokenOwner"`
 	[Kroma: END] */
 	// [Kroma: START]
+	// GovernanceTokenAddress represents GovernanceToken address on L2.
+	GovernanceTokenAddress common.Address `json:"governanceTokenAddress,omitempty"`
 	// GovernanceTokenProxySalt is used to determine GovernanceTokenProxy address on L1 and L2.
 	GovernanceTokenProxySalt common.Hash `json:"governanceTokenProxySalt"`
 	// MintManagerOwner represents the owner of the MintManager on L1 and L2. Has the ability to mint initially.
