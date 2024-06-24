@@ -358,3 +358,19 @@
 | _delegates                       | mapping(address => address)                        | 9    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
 | _checkpoints                     | mapping(address => struct ERC20Votes.Checkpoint[]) | 10   | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
 | _totalSupplyCheckpoints          | struct ERC20Votes.Checkpoint[]                     | 11   | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _initialized                     | uint8                                              | 12   | 0      | 1     | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _initializing                    | bool                                               | 12   | 1      | 1     | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| __gap                            | uint256[50]                                        | 13   | 0      | 1600  | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _owner                           | address                                            | 63   | 0      | 20    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| __gap                            | uint256[49]                                        | 64   | 0      | 1568  | contracts/governance/GovernanceToken.sol:GovernanceToken |
+
+=======================
+➡ contracts/governance/MintManager.sol:MintManager
+=======================
+
+| Name       | Type                        | Slot | Offset | Bytes | Contract                                         |
+|------------|-----------------------------|------|--------|-------|--------------------------------------------------|
+| _owner     | address                     | 0    | 0      | 20    | contracts/governance/MintManager.sol:MintManager |
+| minted     | bool                        | 0    | 20     | 1     | contracts/governance/MintManager.sol:MintManager |
+| recipients | address[]                   | 1    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |
+| shareOf    | mapping(address => uint256) | 2    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |

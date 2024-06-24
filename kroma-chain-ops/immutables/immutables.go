@@ -46,16 +46,11 @@ type PredeploysImmutableConfig struct {
 	KromaMintableERC20Factory struct {
 		Bridge common.Address
 	}
-	L1BlockNumber   struct{}
-	GasPriceOracle  struct{}
-	L1Block         struct{}
-	GovernanceToken struct {
-		// [Kroma: START]
-		Bridge      common.Address
-		RemoteToken common.Address
-		// [Kroma: END]
-	}
+	L1BlockNumber  struct{}
+	GasPriceOracle struct{}
+	L1Block        struct{}
 	/* [Kroma: START]
+	GovernanceToken struct{}
 	LegacyMessagePasser struct{}
 	[Kroma: END] */
 	L2ERC721Bridge struct {
@@ -295,18 +290,6 @@ func l2ImmutableDeployer(backend *backends.SimulatedBackend, opts *bind.Transact
 	case "EAS":
 		_, tx, _, err = bindings.DeployEAS(opts, backend)
 	[Kroma: END] */
-	// [Kroma: START]
-	case "GovernanceToken":
-		bridge, ok := deployment.Args[0].(common.Address)
-		if !ok {
-			return nil, fmt.Errorf("invalid type for bridge")
-		}
-		remoteToken, ok := deployment.Args[1].(common.Address)
-		if !ok {
-			return nil, fmt.Errorf("invalid type for remoteToken")
-		}
-		_, tx, _, err = bindings.DeployGovernanceToken(opts, backend, bridge, remoteToken)
-	// [Kroma: END]
 	default:
 		return tx, fmt.Errorf("unknown contract: %s", deployment.Name)
 	}

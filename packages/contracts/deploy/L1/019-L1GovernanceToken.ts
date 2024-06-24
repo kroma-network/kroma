@@ -1,8 +1,6 @@
 import '@kroma/hardhat-deploy-config'
-import { ethers } from 'ethers'
 import { DeployFunction } from 'hardhat-deploy/dist/types'
 
-import { predeploys } from '../../src'
 import {
   assertContractVariable,
   deploy,
@@ -10,19 +8,19 @@ import {
 } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const zeroAddress = ethers.constants.AddressZero
   const l1StandardBridgeProxyAddress = await getDeploymentAddress(
     hre,
     'L1StandardBridgeProxy'
   )
 
+  const governanceTokenProxyAddress = await getDeploymentAddress(
+    hre,
+    'L1GovernanceTokenProxy'
+  )
+
   await deploy(hre, 'L1GovernanceToken', {
     contract: 'GovernanceToken',
-    args: [
-      l1StandardBridgeProxyAddress,
-      predeploys.GovernanceToken,
-    ],
-    isProxyImpl: true,
+    args: [l1StandardBridgeProxyAddress, governanceTokenProxyAddress],
     postDeployAction: async (contract) => {
       await assertContractVariable(
         contract,
@@ -32,12 +30,12 @@ const deployFn: DeployFunction = async (hre) => {
       await assertContractVariable(
         contract,
         'REMOTE_TOKEN',
-        predeploys.GovernanceToken
+        governanceTokenProxyAddress
       )
     },
   })
 }
 
-deployFn.tags = ['L1GovernanceToken', 'setup', 'l1', 'tge']
+deployFn.tags = ['L1GovernanceToken', 'l1', 'tge']
 
 export default deployFn

@@ -1,20 +1,25 @@
 package e2eutils
 
 import (
+	"context"
 	"math/big"
 	"os"
 	"path"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
@@ -24,7 +29,7 @@ var testingJWTSecret = [32]byte{123}
 func WriteDefaultJWT(t TestingBase) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -64,7 +69,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	deployConfig.L1BlockTime = tp.L1BlockTime
 	deployConfig.UsePlasma = tp.UsePlasma
 	// [Kroma: START]
-	//genesisTimeOffset := hexutil.Uint64(0)
+	// genesisTimeOffset := hexutil.Uint64(0)
 	deployConfig.L2GenesisDeltaTimeOffset = nil
 	deployConfig.L2GenesisEcotoneTimeOffset = nil
 	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
@@ -232,3 +237,98 @@ func UseFPAC() bool {
 func UsePlasma() bool {
 	return os.Getenv("OP_E2E_USE_PLASMA") == "true"
 }
+
+// [Kroma: START]
+
+// SetUpGovernanceTokenOnL1 deploys GovernanceToken and MintManager on L1, and mints and distributes GovernanceToken to each recipient.
+func SetUpGovernanceTokenOnL1(t require.TestingT, ctx context.Context, l1Client *ethclient.Client, l2Client *ethclient.Client,
+	deployConfig *genesis.DeployConfig, l1Deployments *genesis.L1Deployments, secrets *Secrets, l1ChainID *big.Int, l2ChainID *big.Int,
+) {
+	l1Opts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l1ChainID)
+	require.NoError(t, err)
+	l2Opts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l2ChainID)
+	require.NoError(t, err)
+
+	// Deploy L1GovernanceToken on L1 as a proxy
+	l1GovTokenProxyAddr, tx, l1GovTokenProxy, err := bindings.DeployProxy(l1Opts, l1Client, secrets.Addresses().SysCfgOwner)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+	l1Deployments.L1GovernanceTokenProxy = l1GovTokenProxyAddr
+
+	// Deploy GovernanceToken on L2
+	govTokenAddr, tx, _, err := bindings.DeployGovernanceToken(l2Opts, l2Client, predeploys.L2StandardBridgeAddr, l1GovTokenProxyAddr)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l2Client, tx.Hash())
+	require.NoError(t, err)
+	deployConfig.GovernanceTokenAddress = govTokenAddr
+
+	l1GovTokenAddr, tx, _, err := bindings.DeployGovernanceToken(l1Opts, l1Client, l1Deployments.L1StandardBridgeProxy, govTokenAddr)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+
+	l1MintManagerShares := make([]*big.Int, len(deployConfig.L1MintManagerShares))
+	for i, v := range deployConfig.L1MintManagerShares {
+		l1MintManagerShares[i] = new(big.Int).SetUint64(v)
+	}
+
+	// Deploy L1MintManager
+	l1MintManagerAddr, tx, l1MintManager, err := bindings.DeployMintManager(l1Opts, l1Client, l1GovTokenProxyAddr,
+		deployConfig.MintManagerOwner, deployConfig.L1MintManagerRecipients, l1MintManagerShares)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+
+	govTokenABI, err := bindings.GovernanceTokenMetaData.GetAbi()
+	require.NoError(t, err)
+	data, err := govTokenABI.Pack("initialize", l1MintManagerAddr)
+	require.NoError(t, err)
+
+	// Upgrade proxy and initialize L1GovernanceToken
+	tx, err = l1GovTokenProxy.UpgradeToAndCall(l1Opts, l1GovTokenAddr, data)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+
+	l1GovToken, err := bindings.NewGovernanceTokenCaller(l1GovTokenProxyAddr, l1Client)
+	require.NoError(t, err)
+
+	// Ensure that the GovernanceToken is not distributed yet
+	for _, recipient := range deployConfig.L1MintManagerRecipients {
+		balance, err := l1GovToken.BalanceOf(nil, recipient)
+		require.NoError(t, err)
+		require.Equal(t, "0", balance.String())
+	}
+
+	tx, err = l1MintManager.Mint(l1Opts)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+
+	tx, err = l1MintManager.Distribute(l1Opts)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+
+	tx, err = l1MintManager.RenounceOwnershipOfToken(l1Opts)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+
+	// Check if the GovernanceToken distributed correctly
+	mintCap, err := l1MintManager.MINTCAP(nil)
+	require.NoError(t, err)
+	mintCap.Mul(mintCap, big.NewInt(1e18))
+	shareDenom, err := l1MintManager.SHAREDENOMINATOR(nil)
+	require.NoError(t, err)
+
+	for i, recipient := range deployConfig.L1MintManagerRecipients {
+		amount := new(big.Int).Div(new(big.Int).Mul(mintCap, l1MintManagerShares[i]), shareDenom)
+		balance, err := l1GovToken.BalanceOf(nil, recipient)
+		require.NoError(t, err)
+		require.Equal(t, amount.String(), balance.String())
+	}
+}
+
+// [Kroma: END]
