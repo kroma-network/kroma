@@ -19,7 +19,7 @@ contract MintManager is Ownable {
     /**
      * @notice The denominator of each recipient's share.
      */
-    uint256 public constant SHARE_DENOMINATOR = 100;
+    uint256 public constant SHARE_DENOMINATOR = 10 ** 5;
 
     /**
      * @notice The GovernanceToken that the MintManager can mint.

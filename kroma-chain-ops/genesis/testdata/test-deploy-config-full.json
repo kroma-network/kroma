@@ -88,8 +88,8 @@
     "0xa0ee7a142d267c1f36714e4a8f75612f20a79720"
   ],
   "l1MintManagerShares": [
-    2,
-    3
+    2000,
+    3000
   ],
   "l2MintManagerRecipients": [
     "0x15d34aaf54267db7d7c367839aaf71a00a2c6a65",
@@ -101,13 +101,13 @@
     "0xbcd4042de499d14e55001ccbb24a551f3b954096"
   ],
   "l2MintManagerShares": [
-    2,
-    16,
-    7,
-    13,
-    25,
-    15,
-    17
+    2000,
+    16000,
+    7000,
+    13000,
+    25000,
+    15000,
+    17000
   ]
 }
 
