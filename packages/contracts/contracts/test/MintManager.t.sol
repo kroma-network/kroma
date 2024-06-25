@@ -31,7 +31,7 @@ contract MintManagerTest is CommonTest {
 
         governanceToken = GovernanceToken(address(new Proxy(multisig)));
 
-        SHARE_DENOMINATOR = 100;
+        SHARE_DENOMINATOR = 10 ** 5;
         for (uint256 i = 0; i < recipients.length; i++) {
             string memory name = string(abi.encodePacked("recipient", i));
             recipients[i] = makeAddr(name);
