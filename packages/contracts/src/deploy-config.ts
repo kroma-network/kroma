@@ -260,6 +260,18 @@ interface OptionalL2DeployConfig {
   validatorRewardScalar: number
   l2MintManagerRecipients: string[]
   l2MintManagerShares: string[]
+  investorVestingWalletBeneficiary: string
+  investorVestingWalletStartTimestamp: number
+  investorVestingWalletDurationSeconds: number
+  investorVestingWalletCliffDivider: number
+  investorVestingWalletCycleSeconds: number
+  investorVestingWalletOwner: string
+  teamVestingWalletBeneficiary: string
+  teamVestingWalletStartTimestamp: number
+  teamVestingWalletDurationSeconds: number
+  teamVestingWalletCliffDivider: number
+  teamVestingWalletCycleSeconds: number
+  teamVestingWalletOwner: string
 }
 
 /**
@@ -493,6 +505,5 @@ export const deployConfigSpec: {
   },
   mintManagerOwner: {
     type: 'address',
-    default: ethers.constants.AddressZero,
   },
 }

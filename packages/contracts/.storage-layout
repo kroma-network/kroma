@@ -247,6 +247,27 @@
 |------|------|------|--------|-------|----------|
 
 =======================
+➡ contracts/universal/KromaVestingWallet.sol:KromaVestingWallet
+=======================
+
+| Name           | Type                        | Slot | Offset | Bytes | Contract                                                      |
+|----------------|-----------------------------|------|--------|-------|---------------------------------------------------------------|
+| _initialized   | uint8                       | 0    | 0      | 1     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _initializing  | bool                        | 0    | 1      | 1     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| __gap          | uint256[50]                 | 1    | 0      | 1600  | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _released      | uint256                     | 51   | 0      | 32    | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _erc20Released | mapping(address => uint256) | 52   | 0      | 32    | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _beneficiary   | address                     | 53   | 0      | 20    | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _start         | uint64                      | 53   | 20     | 8     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _duration      | uint64                      | 54   | 0      | 8     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| __gap          | uint256[48]                 | 55   | 0      | 1536  | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _owner         | address                     | 103  | 0      | 20    | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| __gap          | uint256[49]                 | 104  | 0      | 1568  | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _beneficiary   | address                     | 153  | 0      | 20    | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _cliffDivider  | uint64                      | 153  | 20     | 8     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _vestingCycle  | uint64                      | 154  | 0      | 8     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+
+=======================
 ➡ contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken
 =======================
 
