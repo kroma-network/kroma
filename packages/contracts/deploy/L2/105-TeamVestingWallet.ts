@@ -3,63 +3,76 @@ import { DeployFunction } from 'hardhat-deploy/dist/types'
 
 import {
   assertContractVariable,
-  deploy,
+  deployAndUpgradeByDeployer,
   deployProxy,
-  getDeploymentAddress,
 } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  // Deploy proxy contract
-  const proxyAdminProxy = await getDeploymentAddress(hre, 'ProxyAdminProxy')
-  await deployProxy(hre, 'TeamVestingWalletProxy', proxyAdminProxy)
+  // Deploy proxy contract with deployer as admin
+  const { deployer } = await hre.getNamedAccounts()
+  const teamVestingWalletProxy = await deployProxy(
+    hre,
+    'TeamVestingWalletProxy',
+    deployer
+  )
 
   // Deploy impl contract and upgrade proxy
   const l1 = hre.network.companionNetworks['l1']
   const deployConfig = hre.getDeployConfig(l1)
 
-  const teamVestingWallet = await deploy(hre, 'TeamVestingWallet', {
+  await deployAndUpgradeByDeployer(hre, 'TeamVestingWallet', {
     contract: 'KromaVestingWallet',
-    isProxyImpl: true,
+    args: [
+      deployConfig.teamVestingWalletCliffDivider,
+      deployConfig.teamVestingWalletCycleSeconds,
+    ],
     initArgs: [
       deployConfig.teamVestingWalletBeneficiary,
       deployConfig.teamVestingWalletStartTimestamp,
       deployConfig.teamVestingWalletDurationSeconds,
-      deployConfig.teamVestingWalletCliffDivider,
-      deployConfig.teamVestingWalletCycleSeconds,
-      deployConfig.teamVestingWalletOwner,
     ],
+    postDeployAction: async (contract) => {
+      await assertContractVariable(
+        contract,
+        'CLIFF_DIVIDER',
+        deployConfig.teamVestingWalletCliffDivider
+      )
+      await assertContractVariable(
+        contract,
+        'VESTING_CYCLE',
+        deployConfig.teamVestingWalletCycleSeconds
+      )
+    },
   })
 
   // Ensure variables are set correctly after initialization
+  const upgradedProxy = await hre.ethers.getContractAt(
+    'KromaVestingWallet',
+    teamVestingWalletProxy.address
+  )
   assertContractVariable(
-    teamVestingWallet,
+    upgradedProxy,
     'beneficiary',
     deployConfig.teamVestingWalletBeneficiary
   )
   assertContractVariable(
-    teamVestingWallet,
+    upgradedProxy,
     'start',
     deployConfig.teamVestingWalletStartTimestamp
   )
   assertContractVariable(
-    teamVestingWallet,
+    upgradedProxy,
     'duration',
     deployConfig.teamVestingWalletDurationSeconds
   )
-  assertContractVariable(
-    teamVestingWallet,
-    'cliffDivider',
-    deployConfig.teamVestingWalletCliffDivider
-  )
-  assertContractVariable(
-    teamVestingWallet,
-    'vestingCycle',
-    deployConfig.teamVestingWalletCycleSeconds
-  )
-  assertContractVariable(
-    teamVestingWallet,
-    'owner',
-    deployConfig.teamVestingWalletOwner
+
+  // Change admin of TeamVestingWalletProxy to mintManagerOwner
+  const signer = hre.ethers.provider.getSigner(deployer)
+  const contractWithSigner = teamVestingWalletProxy.connect(signer)
+  const tx = await contractWithSigner.changeAdmin(deployConfig.mintManagerOwner)
+  await tx.wait()
+  console.log(
+    `changed admin of "TeamVestingWalletProxy" to ${deployConfig.mintManagerOwner}`
   )
 }
 

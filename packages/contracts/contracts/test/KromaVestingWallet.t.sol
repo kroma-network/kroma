@@ -16,7 +16,6 @@ contract KromaVestingWalletTest is CommonTest {
     uint64 durationSec;
     uint64 cliffDivider;
     uint64 vestingCycle;
-    address vestingWalletOwner;
 
     GovernanceToken token;
     address tokenOwner;
@@ -26,7 +25,6 @@ contract KromaVestingWalletTest is CommonTest {
         super.setUp();
 
         beneficiary = makeAddr("beneficiary");
-        vestingWalletOwner = makeAddr("vestingWalletOwner");
         vestingCycle = SECONDS_PER_3_MONTHS;
         startTime = vestingCycle;
         durationNum = 12;
@@ -37,21 +35,11 @@ contract KromaVestingWalletTest is CommonTest {
         totalAllocation = 15 * 10_000_000 * (10 ** 18);
 
         vestingWallet = KromaVestingWallet(payable(address(new Proxy(multisig))));
-        KromaVestingWallet vestingWalletImpl = new KromaVestingWallet();
+        KromaVestingWallet vestingWalletImpl = new KromaVestingWallet(cliffDivider, vestingCycle);
         vm.prank(multisig);
         toProxy(address(vestingWallet)).upgradeToAndCall(
             address(vestingWalletImpl),
-            abi.encodeCall(
-                vestingWallet.initialize,
-                (
-                    beneficiary,
-                    startTime,
-                    durationSec,
-                    cliffDivider,
-                    vestingCycle,
-                    vestingWalletOwner
-                )
-            )
+            abi.encodeCall(vestingWallet.initialize, (beneficiary, startTime, durationSec))
         );
 
         token = GovernanceToken(address(new Proxy(multisig)));
@@ -67,38 +55,23 @@ contract KromaVestingWalletTest is CommonTest {
         assertEq(token.balanceOf(address(vestingWallet)), totalAllocation);
     }
 
+    function test_constructor_succeeds() external {
+        assertEq(vestingWallet.CLIFF_DIVIDER(), cliffDivider);
+        assertEq(vestingWallet.VESTING_CYCLE(), vestingCycle);
+    }
+
+    function test_constructor_zeroValues_reverts() external {
+        vm.expectRevert("KromaVestingWallet: cliff divider is zero");
+        new KromaVestingWallet(0, vestingCycle);
+
+        vm.expectRevert("KromaVestingWallet: vesting cycle is zero");
+        new KromaVestingWallet(cliffDivider, 0);
+    }
+
     function test_initialize_succeeds() external {
-        assertEq(vestingWallet.cliffDivider(), cliffDivider);
-        assertEq(vestingWallet.vestingCycle(), vestingCycle);
+        assertEq(vestingWallet.beneficiary(), beneficiary);
         assertEq(vestingWallet.start(), startTime);
         assertEq(vestingWallet.duration(), durationSec);
-        assertEq(vestingWallet.beneficiary(), beneficiary);
-        assertEq(vestingWallet.owner(), vestingWalletOwner);
-    }
-
-    function test_setBeneficiary_owner_succeeds() external {
-        address newBeneficiary = makeAddr("newBeneficary");
-        vm.prank(vestingWalletOwner);
-        vestingWallet.setBeneficiary(newBeneficiary);
-    }
-
-    function test_setBeneficiary_beneficiary_succeeds() external {
-        address newBeneficiary = makeAddr("newBeneficary");
-        vm.prank(beneficiary);
-        vestingWallet.setBeneficiary(newBeneficiary);
-    }
-
-    function test_setBeneficiary_randomAddress_reverts() external {
-        address newBeneficiary = makeAddr("newBeneficary");
-        vm.prank(tokenOwner);
-        vm.expectRevert("KromaVestingWallet: caller is not beneficiary or owner");
-        vestingWallet.setBeneficiary(newBeneficiary);
-    }
-
-    function test_setBeneficiary_zeroBeneficiary_reverts() external {
-        vm.prank(vestingWalletOwner);
-        vm.expectRevert("KromaVestingWallet: beneficiary is zero address");
-        vestingWallet.setBeneficiary(ZERO_ADDRESS);
     }
 
     function test_release_token_succeeds() external {
@@ -139,30 +112,6 @@ contract KromaVestingWalletTest is CommonTest {
         vm.prank(beneficiary);
         vestingWallet.release(address(token));
         assertEq(token.balanceOf(beneficiary), totalAllocation);
-    }
-
-    function test_release_tokenWhenBeneficiaryChanged_succeeds() external {
-        // Ensure test env is set properly
-        assertEq(token.balanceOf(beneficiary), 0);
-
-        uint256 cliffAmount = totalAllocation / cliffDivider;
-        uint256 vestingAmountPer3Months = (totalAllocation - cliffAmount) / durationNum;
-
-        vm.warp(startTime + vestingCycle);
-
-        vm.startPrank(beneficiary);
-        vestingWallet.release(address(token));
-        assertEq(token.balanceOf(beneficiary), cliffAmount + vestingAmountPer3Months);
-
-        address newBeneficary = makeAddr("newBeneficary");
-        vestingWallet.setBeneficiary(newBeneficary);
-        vm.stopPrank();
-
-        vm.warp(startTime + vestingCycle * 2);
-        vm.prank(newBeneficary);
-        vestingWallet.release(address(token));
-        assertEq(token.balanceOf(beneficiary), cliffAmount + vestingAmountPer3Months);
-        assertEq(token.balanceOf(newBeneficary), vestingAmountPer3Months);
     }
 
     function test_release_succeeds() external {
@@ -211,83 +160,13 @@ contract KromaVestingWalletTest is CommonTest {
         assertEq(beneficiary.balance, totalEthAllocation);
     }
 
-    function test_release_whenBeneficiaryChanged_succeeds() external {
-        uint256 totalEthAllocation = 1 ether;
-        vm.deal(address(vestingWallet), totalEthAllocation);
-
-        // Ensure test env is set properly
-        assertEq(beneficiary.balance, 0);
-
-        uint256 cliffAmount = totalEthAllocation / cliffDivider;
-        uint256 vestingAmountPer3Months = (totalEthAllocation - cliffAmount) / durationNum;
-
-        vm.warp(startTime + vestingCycle);
-
-        vm.startPrank(beneficiary);
-        vestingWallet.release();
-        assertEq(beneficiary.balance, cliffAmount + vestingAmountPer3Months);
-
-        address newBeneficary = makeAddr("newBeneficary");
-        vestingWallet.setBeneficiary(newBeneficary);
-        vm.stopPrank();
-
-        vm.warp(startTime + vestingCycle * 2);
-        vm.prank(newBeneficary);
-        vestingWallet.release();
-        assertEq(beneficiary.balance, cliffAmount + vestingAmountPer3Months);
-        assertEq(newBeneficary.balance, vestingAmountPer3Months);
-    }
-
     function test_release_notBeneficiary_reverts() external {
-        vm.startPrank(vestingWalletOwner);
+        vm.startPrank(tokenOwner);
 
         vm.expectRevert("KromaVestingWallet: caller is not beneficiary");
         vestingWallet.release(address(token));
 
         vm.expectRevert("KromaVestingWallet: caller is not beneficiary");
         vestingWallet.release();
-    }
-
-    function test_migrateTokensToNewWallet_succeeds() external {
-        KromaVestingWallet newVestingWallet = new KromaVestingWallet();
-
-        vm.prank(vestingWalletOwner);
-        vestingWallet.migrateTokensToNewWallet(address(token), address(newVestingWallet));
-
-        assertEq(token.balanceOf(address(vestingWallet)), 0);
-        assertEq(token.balanceOf(address(newVestingWallet)), totalAllocation);
-    }
-
-    function test_migrateEthToNewWallet_succeeds() external {
-        uint256 totalEthAllocation = 1 ether;
-        vm.deal(address(vestingWallet), totalEthAllocation);
-
-        KromaVestingWallet newVestingWallet = new KromaVestingWallet();
-
-        vm.prank(vestingWalletOwner);
-        vestingWallet.migrateEthToNewWallet(address(newVestingWallet));
-
-        assertEq(address(vestingWallet).balance, 0);
-        assertEq(address(newVestingWallet).balance, totalEthAllocation);
-    }
-
-    function test_migrateTokensToNewWallet_notOwner_reverts() external {
-        vm.startPrank(beneficiary);
-
-        vm.expectRevert("Ownable: caller is not the owner");
-        vestingWallet.migrateTokensToNewWallet(address(token), beneficiary);
-
-        vm.expectRevert("Ownable: caller is not the owner");
-        vestingWallet.migrateEthToNewWallet(beneficiary);
-    }
-
-    function test_migrateTokensToNewWallet_targetNotContract_reverts() external {
-        vm.startPrank(vestingWalletOwner);
-
-        vm.expectRevert("KromaVestingWallet: new wallet must be a contract");
-        vestingWallet.migrateTokensToNewWallet(address(token), beneficiary);
-
-        vm.expectRevert("KromaVestingWallet: new wallet must be a contract");
-        vestingWallet.migrateEthToNewWallet(beneficiary);
     }
 }

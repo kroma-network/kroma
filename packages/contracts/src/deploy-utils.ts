@@ -28,6 +28,127 @@ interface DeployOptions {
 }
 
 /**
+ * Deploys implementation contract and upgrades proxy to the deployed implementation contract.
+ * Upgrade is processed via ProxyAdmin contract.
+ *
+ * @param hre HardhatRuntimeEnvironment.
+ * @param name Name to use for the deployment file.
+ * @param opts Parameters for the deployment.
+ * @param opts.isProxyImpl Whether to update the implementation of the proxy.
+ * @param opts.initArgs Arguments to pass to the proxy initializer.
+ * @returns A deployed contract object.
+ */
+export const deploy = async (
+  hre: HardhatRuntimeEnvironment,
+  name: string,
+  opts: DeployOptions = {}
+): Promise<Contract | null> => {
+  const created = await deployImpl(hre, name, opts)
+
+  if (opts.isProxyImpl) {
+    const { deployer } = await hre.getNamedAccounts()
+    const proxyName = name + 'Proxy'
+    const proxy = await getContractFromArtifact(hre, proxyName, {
+      signerOrProvider: deployer,
+    })
+    const hasImpl = await hasImplementation(hre, proxy.address)
+    const admin = await getProxyAdmin(hre, proxy.address)
+
+    let proxyAdmin = await hre.ethers.getContractAt('ProxyAdmin', admin)
+    const proxyOwner = await proxyAdmin.owner()
+    proxyAdmin = proxyAdmin.connect(hre.ethers.provider.getSigner(proxyOwner))
+
+    if (!opts.initArgs || hasImpl) {
+      console.log(`upgrading "${proxyName}" to ${created.address}`)
+      const tx = await proxyAdmin.upgrade(proxy.address, created.address)
+      await hre.ethers.provider.waitForTransaction(tx.hash)
+    } else {
+      console.log(
+        `upgrading "${proxyName}" to ${created.address} and initializing`
+      )
+
+      if (!opts.initializer) {
+        opts.initializer = 'initialize'
+      }
+
+      // Ensure that the contract has the initialize function.
+      try {
+        created.interface.getFunction(opts.initializer)
+      } catch (error) {
+        throw new Error(
+          `deployed "${name}" does not have the function "${opts.initializer}"`
+        )
+      }
+
+      const tx = await proxyAdmin.upgradeAndCall(
+        proxy.address,
+        created.address,
+        created.interface.encodeFunctionData(opts.initializer, opts.initArgs)
+      )
+      await hre.ethers.provider.waitForTransaction(tx.hash)
+    }
+  }
+
+  return created
+}
+
+/**
+ * Deploys implementation contract and upgrades proxy to the deployed implementation contract.
+ * Only used when proxy should be upgraded by deployer.
+ *
+ * @param hre HardhatRuntimeEnvironment.
+ * @param name Name to use for the deployment file.
+ * @param opts Parameters for the deployment.
+ * @param opts.initArgs Arguments to pass to the proxy initializer.
+ * @returns A deployed contract object.
+ */
+export const deployAndUpgradeByDeployer = async (
+  hre: HardhatRuntimeEnvironment,
+  name: string,
+  opts: DeployOptions = {}
+): Promise<Contract | null> => {
+  const created = await deployImpl(hre, name, opts)
+
+  const { deployer } = await hre.getNamedAccounts()
+  const proxyName = name + 'Proxy'
+  const proxy = await getContractFromArtifact(hre, proxyName, {
+    signerOrProvider: deployer,
+  })
+  const hasImpl = await hasImplementation(hre, proxy.address)
+
+  if (!opts.initArgs || hasImpl) {
+    console.log(`upgrading "${proxyName}" to ${created.address}`)
+    const tx = await proxy.upgradeTo(created.address)
+    await hre.ethers.provider.waitForTransaction(tx.hash)
+  } else {
+    console.log(
+      `upgrading "${proxyName}" to ${created.address} and initializing`
+    )
+
+    if (!opts.initializer) {
+      opts.initializer = 'initialize'
+    }
+
+    // Ensure that the contract has the initialize function.
+    try {
+      created.interface.getFunction(opts.initializer)
+    } catch (error) {
+      throw new Error(
+        `deployed "${name}" does not have the function "${opts.initializer}"`
+      )
+    }
+
+    const tx = await proxy.upgradeToAndCall(
+      created.address,
+      created.interface.encodeFunctionData(opts.initializer, opts.initArgs)
+    )
+    await hre.ethers.provider.waitForTransaction(tx.hash)
+  }
+
+  return created
+}
+
+/**
  * Wrapper around hardhat-deploy with some extra features.
  *
  * @param hre HardhatRuntimeEnvironment.
@@ -35,12 +156,10 @@ interface DeployOptions {
  * @param opts Parameters for the deployment.
  * @param opts.contract Name of the contract to deploy.
  * @param opts.args Arguments to pass to the contract constructor.
- * @param opts.isProxyImpl Whether to update the implementation of the proxy.
- * @param opts.initArgs Arguments to pass to the proxy initializer.
  * @param opts.postDeployAction Action to perform after the contract is deployed.
  * @returns A deployed contract object.
  */
-export const deploy = async (
+const deployImpl = async (
   hre: HardhatRuntimeEnvironment,
   name: string,
   opts: DeployOptions = {}
@@ -90,40 +209,6 @@ export const deploy = async (
 
   if (typeof opts.postDeployAction === 'function') {
     await opts.postDeployAction(created)
-  }
-
-  if (opts.isProxyImpl) {
-    const proxyName = name + 'Proxy'
-    const proxy = await getContractFromArtifact(hre, proxyName, {
-      signerOrProvider: deployer,
-    })
-    const hasImpl = await hasImplementation(hre, proxy.address)
-    const admin = await getProxyAdmin(hre, proxy.address)
-
-    let proxyAdmin = await hre.ethers.getContractAt('ProxyAdmin', admin)
-    const proxyOwner = await proxyAdmin.owner()
-    proxyAdmin = proxyAdmin.connect(hre.ethers.provider.getSigner(proxyOwner))
-
-    if (!opts.initArgs || hasImpl) {
-      console.log(`upgrading "${proxyName}" to ${created.address}`)
-      const tx = await proxyAdmin.upgrade(proxy.address, created.address)
-      await hre.ethers.provider.waitForTransaction(tx.hash)
-    } else {
-      console.log(
-        `upgrading "${proxyName}" to ${created.address} and initializing`
-      )
-
-      if (!opts.initializer) {
-        opts.initializer = 'initialize'
-      }
-
-      const tx = await proxyAdmin.upgradeAndCall(
-        proxy.address,
-        created.address,
-        created.interface.encodeFunctionData(opts.initializer, opts.initArgs)
-      )
-      await hre.ethers.provider.waitForTransaction(tx.hash)
-    }
   }
 
   return created

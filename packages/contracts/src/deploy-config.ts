@@ -265,13 +265,11 @@ interface OptionalL2DeployConfig {
   investorVestingWalletDurationSeconds: number
   investorVestingWalletCliffDivider: number
   investorVestingWalletCycleSeconds: number
-  investorVestingWalletOwner: string
   teamVestingWalletBeneficiary: string
   teamVestingWalletStartTimestamp: number
   teamVestingWalletDurationSeconds: number
   teamVestingWalletCliffDivider: number
   teamVestingWalletCycleSeconds: number
-  teamVestingWalletOwner: string
 }
 
 /**
