@@ -38,6 +38,11 @@ contract MintManagerTest is CommonTest {
             shares[i] = SHARE_DENOMINATOR / recipients.length;
         }
         mintManager = new MintManager(address(governanceToken), owner, recipients, shares);
+        assertEq(mintManager.pendingOwner(), owner);
+
+        vm.prank(owner);
+        mintManager.acceptOwnership();
+        assertEq(mintManager.owner(), owner);
 
         GovernanceToken govTokenImpl = new GovernanceToken(address(0), address(0));
         vm.prank(multisig);
@@ -45,6 +50,11 @@ contract MintManagerTest is CommonTest {
             address(govTokenImpl),
             abi.encodeCall(governanceToken.initialize, address(mintManager))
         );
+        assertEq(governanceToken.pendingOwner(), address(mintManager));
+
+        vm.prank(owner);
+        mintManager.acceptOwnershipOfToken();
+        assertEq(governanceToken.owner(), address(mintManager));
 
         MINT_CAP = mintManager.MINT_CAP() * 10 ** governanceToken.decimals();
     }
@@ -59,6 +69,28 @@ contract MintManagerTest is CommonTest {
             assertEq(mintManager.recipients(i), recipients[i]);
             assertEq(mintManager.shareOf(recipients[i]), shares[i]);
         }
+    }
+
+    function test_constructor_sameRecipient_succeeds() external {
+        recipients = new address[](3);
+        shares = new uint256[](3);
+
+        recipients[0] = address(1);
+        recipients[1] = address(2);
+        recipients[2] = address(2);
+
+        shares[0] = 3;
+        shares[1] = 1;
+        shares[2] = 2;
+
+        mintManager = new MintManager(address(governanceToken), owner, recipients, shares);
+
+        vm.expectRevert(bytes(""));
+        mintManager.recipients(2);
+        assertEq(mintManager.recipients(0), recipients[0]);
+        assertEq(mintManager.recipients(1), recipients[1]);
+        assertEq(mintManager.shareOf(recipients[0]), shares[0]);
+        assertEq(mintManager.shareOf(recipients[1]), shares[1] + shares[2]);
     }
 
     function test_constructor_invalidLengthArray_reverts() external {
@@ -163,6 +195,8 @@ contract MintManagerTest is CommonTest {
     }
 
     function test_renounceOwnershipOfToken_succeeds() external {
+        test_mint_succeeds();
+
         assertEq(governanceToken.owner(), address(mintManager));
 
         vm.prank(owner);
@@ -177,18 +211,45 @@ contract MintManagerTest is CommonTest {
         mintManager.renounceOwnershipOfToken();
     }
 
-    function test_transferOwnershipOfToken_succeeds() external {
+    function test_renounceOwnershipOfToken_beforeMinted_reverts() external {
+        vm.prank(owner);
+        vm.expectRevert("MintManager: not minted before renounce ownership");
+        mintManager.renounceOwnershipOfToken();
+    }
+
+    function test_transferAndAcceptOwnershipOfToken_succeeds() external {
         assertEq(governanceToken.owner(), address(mintManager));
 
-        vm.prank(owner);
-        mintManager.transferOwnershipOfToken(rando);
+        address newOwner = makeAddr("newOwner");
+        MintManager newMintManager = new MintManager(
+            address(governanceToken),
+            newOwner,
+            recipients,
+            shares
+        );
+        vm.prank(newOwner);
+        newMintManager.acceptOwnership();
 
-        assertEq(governanceToken.owner(), rando);
+        vm.prank(owner);
+        mintManager.transferOwnershipOfToken(address(newMintManager));
+        assertEq(governanceToken.pendingOwner(), address(newMintManager));
+        assertEq(governanceToken.owner(), address(mintManager));
+
+        vm.prank(newOwner);
+        newMintManager.acceptOwnershipOfToken();
+        assertEq(governanceToken.pendingOwner(), ZERO_ADDRESS);
+        assertEq(governanceToken.owner(), address(newMintManager));
     }
 
     function test_transferOwnershipOfToken_fromNotOwner_reverts() external {
         vm.prank(rando);
         vm.expectRevert("Ownable: caller is not the owner");
         mintManager.transferOwnershipOfToken(rando);
+    }
+
+    function test_acceptOwnershipOfToken_fromNotOwner_reverts() external {
+        vm.prank(rando);
+        vm.expectRevert("Ownable: caller is not the owner");
+        mintManager.acceptOwnershipOfToken();
     }
 }

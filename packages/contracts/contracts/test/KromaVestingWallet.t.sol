@@ -49,6 +49,8 @@ contract KromaVestingWalletTest is CommonTest {
             address(tokenImpl),
             abi.encodeCall(token.initialize, tokenOwner)
         );
+        vm.prank(tokenOwner);
+        token.acceptOwnership();
 
         vm.prank(tokenOwner);
         token.mint(address(vestingWallet), totalAllocation);

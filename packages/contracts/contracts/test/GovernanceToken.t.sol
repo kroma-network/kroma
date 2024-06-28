@@ -17,6 +17,10 @@ contract GovernanceToken_Test is CommonTest {
     address remoteToken;
     address mintManager;
 
+    event Mint(address indexed account, uint256 amount);
+
+    event Burn(address indexed account, uint256 amount);
+
     /// @dev Sets up the test suite.
     function setUp() public virtual override {
         super.setUp();
@@ -33,6 +37,11 @@ contract GovernanceToken_Test is CommonTest {
             address(govTokenImpl),
             abi.encodeCall(governanceToken.initialize, mintManager)
         );
+        assertEq(governanceToken.pendingOwner(), mintManager);
+
+        vm.prank(mintManager);
+        governanceToken.acceptOwnership();
+        assertEq(governanceToken.owner(), mintManager);
     }
 
     /// @dev Tests that the constructor sets the correct initial state.
@@ -45,13 +54,11 @@ contract GovernanceToken_Test is CommonTest {
         assertEq(governanceToken.totalSupply(), 0);
     }
 
-    function test_initialize_succeeds() external {
-        assertEq(governanceToken.owner(), mintManager);
-    }
-
     /// @dev Tests that the owner can successfully call `mint`.
     function test_mint_fromOwner_succeeds() external {
         // Mint 100 tokens.
+        vm.expectEmit(true, false, false, true, address(governanceToken));
+        emit Mint(rando, 100);
         vm.prank(mintManager);
         governanceToken.mint(rando, 100);
 
@@ -63,6 +70,8 @@ contract GovernanceToken_Test is CommonTest {
     /// @dev Tests the bridge contract can successfully call `mint`.
     function test_mint_fromBridge_succeeds() external {
         // Mint 100 tokens.
+        vm.expectEmit(true, false, false, true, address(governanceToken));
+        emit Mint(rando, 100);
         vm.prank(bridge);
         governanceToken.mint(rando, 100);
 
@@ -83,21 +92,6 @@ contract GovernanceToken_Test is CommonTest {
         assertEq(governanceToken.totalSupply(), 0);
     }
 
-    /// @dev Tests that the token owner can successfully call `burn`.
-    function test_burn_succeeds() external {
-        // Mint 100 tokens to rando.
-        vm.prank(mintManager);
-        governanceToken.mint(rando, 100);
-
-        // Rando burns their tokens.
-        vm.prank(rando);
-        governanceToken.burn(50);
-
-        // Balances have updated correctly.
-        assertEq(governanceToken.balanceOf(rando), 50);
-        assertEq(governanceToken.totalSupply(), 50);
-    }
-
     /// @dev Tests that the bridge contract can successfully call `burn`.
     function test_burn_fromBridge_succeeds() external {
         // Mint 100 tokens to rando.
@@ -105,6 +99,8 @@ contract GovernanceToken_Test is CommonTest {
         governanceToken.mint(rando, 100);
 
         // Bridge burns rando's tokens.
+        vm.expectEmit(true, false, false, true, address(governanceToken));
+        emit Burn(rando, 100);
         vm.prank(bridge);
         governanceToken.burn(rando, 100);
 
@@ -113,23 +109,15 @@ contract GovernanceToken_Test is CommonTest {
         assertEq(governanceToken.totalSupply(), 0);
     }
 
-    /// @dev Tests that non-owner can successfully call `burnFrom`.
-    function test_burnFrom_succeeds() external {
+    /// @dev Tests that other than bridge contract cannot call `burn`.
+    function test_burn_fromNotBridge_reverts() external {
         // Mint 100 tokens to rando.
         vm.prank(mintManager);
         governanceToken.mint(rando, 100);
 
-        // Rando approves alice to burn 50 tokens.
+        vm.expectRevert("KromaMintableERC20: only bridge can mint and burn");
         vm.prank(rando);
-        governanceToken.approve(alice, 50);
-
-        // Alice burns 50 tokens from rando.
-        vm.prank(alice);
-        governanceToken.burnFrom(rando, 50);
-
-        // Balances have updated correctly.
-        assertEq(governanceToken.balanceOf(rando), 50);
-        assertEq(governanceToken.totalSupply(), 50);
+        governanceToken.burn(rando, 100);
     }
 
     /// @dev Tests that `transfer` correctly transfers tokens.

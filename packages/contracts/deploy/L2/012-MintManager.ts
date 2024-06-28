@@ -31,7 +31,7 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'owner',
+        'pendingOwner',
         deployConfig.mintManagerOwner
       )
     },
