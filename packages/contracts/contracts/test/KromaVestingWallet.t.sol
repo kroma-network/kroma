@@ -7,7 +7,7 @@ import { Proxy } from "../universal/Proxy.sol";
 import { CommonTest } from "./CommonTest.t.sol";
 
 contract KromaVestingWalletTest is CommonTest {
-    uint64 immutable SECONDS_PER_3_MONTHS = (60 * 60 * 24 * 365) / 4;
+    uint64 immutable SECONDS_PER_3_MONTHS = 365 days / 4;
 
     KromaVestingWallet vestingWallet;
     address beneficiary;

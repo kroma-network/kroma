@@ -260,16 +260,6 @@ interface OptionalL2DeployConfig {
   validatorRewardScalar: number
   l2MintManagerRecipients: string[]
   l2MintManagerShares: string[]
-  investorVestingWalletBeneficiary: string
-  investorVestingWalletStartTimestamp: number
-  investorVestingWalletDurationSeconds: number
-  investorVestingWalletCliffDivider: number
-  investorVestingWalletCycleSeconds: number
-  teamVestingWalletBeneficiary: string
-  teamVestingWalletStartTimestamp: number
-  teamVestingWalletDurationSeconds: number
-  teamVestingWalletCliffDivider: number
-  teamVestingWalletCycleSeconds: number
 }
 
 /**
