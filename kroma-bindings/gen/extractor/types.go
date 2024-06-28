@@ -15,7 +15,7 @@ import (
 )
 
 // This code moves the Types structure from each contract binding to a separate file
-// to prevent the duplication of binding for the Types structures in the contracts.
+// to prevent the duplication of binding for the Types of structures in the contracts.
 
 const TypesBinding = "types.go"
 
