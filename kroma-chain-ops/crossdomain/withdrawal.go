@@ -131,7 +131,7 @@ func (w *Withdrawal) Hash() (common.Hash, error) {
 }
 
 // StorageSlot will compute the storage slot that will be set to
-// true in the L2ToL1MessagePasser. The withdrawal proof was sent to
+// true in the L2ToL1MessagePasser. The withdrawal proof sent to
 // L1 will prove that this storage slot is set to "true".
 func (w *Withdrawal) StorageSlot() (common.Hash, error) {
 	hash, err := w.Hash()
