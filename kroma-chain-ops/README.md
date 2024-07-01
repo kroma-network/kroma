@@ -10,7 +10,7 @@ proxies to make sure they are configured correctly with the correct
 proxy admin address. After that, it checks that all [predeploys](../kroma-bindings/predeploys/addresses.go)
 are configured and aliased correctly. Additional contract-specific
 checks ensure configurations like ownership, version, and storage
-is set correctly for the predeploys.
+are set correctly for the predeploys.
 
 #### Usage
 
