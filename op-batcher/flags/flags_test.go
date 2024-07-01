@@ -12,7 +12,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// TestOptionalFlagsDontSetRequired asserts that all flags deemed an optional set
+// TestOptionalFlagsDontSetRequired asserts that all flags deemed optional set
 // the Required field to false.
 func TestOptionalFlagsDontSetRequired(t *testing.T) {
 	for _, flag := range optionalFlags {
