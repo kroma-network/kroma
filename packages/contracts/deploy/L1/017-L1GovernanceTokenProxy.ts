@@ -3,10 +3,13 @@ import { DeployFunction } from 'hardhat-deploy/dist/types'
 import { deployDeterministicProxy } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
+  // Deploy proxy contract with deployer as admin
+  const { deployer } = await hre.getNamedAccounts()
+
   await deployDeterministicProxy(
     hre,
     'L1GovernanceTokenProxy',
-    hre.deployConfig.mintManagerOwner,
+    deployer,
     hre.deployConfig.governanceTokenProxySalt
   )
 }

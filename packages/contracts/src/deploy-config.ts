@@ -493,6 +493,5 @@ export const deployConfigSpec: {
   },
   mintManagerOwner: {
     type: 'address',
-    default: ethers.constants.AddressZero,
   },
 }
