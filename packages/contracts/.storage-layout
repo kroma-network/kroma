@@ -379,14 +379,17 @@
 | __gap                            | uint256[50]                                        | 13   | 0      | 1600  | contracts/governance/GovernanceToken.sol:GovernanceToken |
 | _owner                           | address                                            | 63   | 0      | 20    | contracts/governance/GovernanceToken.sol:GovernanceToken |
 | __gap                            | uint256[49]                                        | 64   | 0      | 1568  | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _pendingOwner                    | address                                            | 113  | 0      | 20    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| __gap                            | uint256[49]                                        | 114  | 0      | 1568  | contracts/governance/GovernanceToken.sol:GovernanceToken |
 
 =======================
 ➡ contracts/governance/MintManager.sol:MintManager
 =======================
 
-| Name       | Type                        | Slot | Offset | Bytes | Contract                                         |
-|------------|-----------------------------|------|--------|-------|--------------------------------------------------|
-| _owner     | address                     | 0    | 0      | 20    | contracts/governance/MintManager.sol:MintManager |
-| minted     | bool                        | 0    | 20     | 1     | contracts/governance/MintManager.sol:MintManager |
-| recipients | address[]                   | 1    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |
-| shareOf    | mapping(address => uint256) | 2    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |
+| Name          | Type                        | Slot | Offset | Bytes | Contract                                         |
+|---------------|-----------------------------|------|--------|-------|--------------------------------------------------|
+| _owner        | address                     | 0    | 0      | 20    | contracts/governance/MintManager.sol:MintManager |
+| _pendingOwner | address                     | 1    | 0      | 20    | contracts/governance/MintManager.sol:MintManager |
+| minted        | bool                        | 1    | 20     | 1     | contracts/governance/MintManager.sol:MintManager |
+| recipients    | address[]                   | 2    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |
+| shareOf       | mapping(address => uint256) | 3    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |

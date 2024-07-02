@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 import { GovernanceToken } from "./GovernanceToken.sol";
 
@@ -10,7 +10,7 @@ import { GovernanceToken } from "./GovernanceToken.sol";
  * @notice MintManager issues mint cap amount of GovernanceToken at once (TGE) and distributes the
  *         tokens to specified recipients.
  */
-contract MintManager is Ownable {
+contract MintManager is Ownable2Step {
     /**
      * @notice The amount of tokens that can be minted.
      */
@@ -69,9 +69,11 @@ contract MintManager is Ownable {
             uint256 share = _shares[i];
             require(share != 0, "MintManager: share cannot be 0");
 
+            if (shareOf[recipient] == 0) {
+                recipients.push(recipient);
+            }
+            shareOf[recipient] += share;
             totalShares += share;
-            recipients.push(recipient);
-            shareOf[recipient] = share;
         }
 
         require(
@@ -113,15 +115,14 @@ contract MintManager is Ownable {
             uint256 amount = (mintCap * share) / SHARE_DENOMINATOR;
             GOVERNANCE_TOKEN.transfer(recipient, amount);
         }
-
-        uint256 balance = GOVERNANCE_TOKEN.balanceOf(address(this));
-        require(balance == 0, "MintManager: tokens remain after distribution");
     }
 
     /**
      * @notice Only the owner is allowed to renounce the ownership of the GovernanceToken.
      */
     function renounceOwnershipOfToken() external onlyOwner {
+        require(minted, "MintManager: not minted before renounce ownership");
+
         GOVERNANCE_TOKEN.renounceOwnership();
     }
 
@@ -132,5 +133,12 @@ contract MintManager is Ownable {
      */
     function transferOwnershipOfToken(address newMintManager) external onlyOwner {
         GOVERNANCE_TOKEN.transferOwnership(newMintManager);
+    }
+
+    /**
+     * @notice Only the owner is allowed to accept the ownership of the GovernanceToken.
+     */
+    function acceptOwnershipOfToken() external onlyOwner {
+        GOVERNANCE_TOKEN.acceptOwnership();
     }
 }

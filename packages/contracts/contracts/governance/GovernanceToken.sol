@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import { ERC20Burnable } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 
@@ -15,7 +14,7 @@ import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
  *         `Bridge`, and the total supply amount is minted at once (TGE). `Bridge` has the
  *         permission to `mint` and `burn`, for the purpose of bridging KRO to the remote chain.
  */
-contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes, OwnableUpgradeable {
+contract GovernanceToken is KromaMintableERC20, ERC20Votes, Ownable2StepUpgradeable {
     /**
      * @notice Constructs the GovernanceToken contract.
      *
@@ -35,7 +34,7 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes, Ownab
      * @param _owner The owner of this contract.
      */
     function initialize(address _owner) public initializer {
-        __Ownable_init();
+        __Ownable2Step_init();
         transferOwnership(_owner);
     }
 
@@ -98,6 +97,7 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes, Ownab
      */
     function _mint(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
         super._mint(account, amount);
+        emit Mint(account, amount);
     }
 
     /**
@@ -108,6 +108,7 @@ contract GovernanceToken is KromaMintableERC20, ERC20Burnable, ERC20Votes, Ownab
      */
     function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
         super._burn(account, amount);
+        emit Burn(account, amount);
     }
 
     /**

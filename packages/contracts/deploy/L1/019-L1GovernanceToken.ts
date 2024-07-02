@@ -41,7 +41,7 @@ const deployFn: DeployFunction = async (hre) => {
     'GovernanceToken',
     governanceTokenProxyAddress
   )
-  assertContractVariable(upgradedProxy, 'owner', l1MintManagerAddress)
+  assertContractVariable(upgradedProxy, 'pendingOwner', l1MintManagerAddress)
 
   // Change admin of L1GovernanceTokenProxy to mintManagerOwner
   const { deployer } = await hre.getNamedAccounts()
