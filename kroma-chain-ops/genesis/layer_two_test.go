@@ -55,8 +55,10 @@ func testBuildL2Genesis(t *testing.T, config *genesis.DeployConfig) *core.Genesi
 		require.Greater(t, len(account.Code), 0)
 
 		adminSlot, ok := account.Storage[genesis.AdminSlot]
-		isProxy := !predeploy.ProxyDisabled ||
+		isProxy := !predeploy.ProxyDisabled
+		/* [Kroma: START]
 			(!config.EnableGovernance && addr == predeploys.GovernanceTokenAddr)
+		[Kroma: END] */
 		if isProxy {
 			require.Equal(t, true, ok, name)
 			require.Equal(t, eth.AddressAsLeftPaddedHash(predeploys.ProxyAdminAddr), adminSlot)
@@ -90,7 +92,7 @@ func TestBuildL2MainnetGenesis(t *testing.T) {
 	config.EnableGovernance = true
 	config.FundDevAccounts = false
 	gen := testBuildL2Genesis(t, config)
-	require.Equal(t, 537, len(gen.Alloc))
+	require.Equal(t, 536, len(gen.Alloc))
 }
 
 func TestBuildL2MainnetNoGovernanceGenesis(t *testing.T) {

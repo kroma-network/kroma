@@ -284,6 +284,16 @@ interface RequiredDeployConfig {
    * L2 : Governor voting period in block.
    */
   l2GovernorVotingPeriodBlocks: number
+
+  /**
+   * The salt to determine GovernanceTokenProxy address on L1 and L2.
+   */
+  governanceTokenProxySalt: string
+
+  /**
+   * The owner of MintManager on L1 and L2.
+   */
+  mintManagerOwner: string
 }
 
 /**
@@ -301,6 +311,8 @@ interface OptionalL1DeployConfig {
   l1GenesisBlockGasUsed: string
   l1GenesisBlockParentHash: string
   l1GenesisBlockBaseFeePerGas: string
+  l1MintManagerRecipients: string[]
+  l1MintManagerShares: string[]
 }
 
 /**
@@ -321,6 +333,8 @@ interface OptionalL2DeployConfig {
   gasPriceOracleOverhead: number
   gasPriceOracleScalar: number
   validatorRewardScalar: number
+  l2MintManagerRecipients: string[]
+  l2MintManagerShares: string[]
 }
 
 /**
@@ -592,5 +606,12 @@ export const deployConfigSpec: {
   },
   l2TimeLockMinDelaySeconds: {
     type: 'number',
+  },
+  governanceTokenProxySalt: {
+    type: 'string', // bytes32
+    default: ethers.constants.HashZero,
+  },
+  mintManagerOwner: {
+    type: 'address',
   },
 }

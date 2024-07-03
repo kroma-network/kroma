@@ -37,7 +37,7 @@ const config: HardhatUserConfig = {
       deploy: ['./deploy/L1'],
     },
     kroma: {
-      url: process.env.L2_RPC_MAINNET || '',
+      url: process.env.L2_RPC_KROMA_MAINNET || '',
       accounts: [
         process.env.PRIVATE_KEY_DEPLOYER_MAINNET || ethers.constants.HashZero,
       ],
@@ -100,6 +100,10 @@ const config: HardhatUserConfig = {
       live: false,
       url: process.env.RPC_URL || 'http://localhost:9545',
       accounts: [PRIVATE_KEY_DEPLOYER_DEVNET],
+      saveDeployments: true,
+      companionNetworks: {
+        l1: 'devnetL1',
+      },
       deploy: ['./deploy/L2'],
     },
   },

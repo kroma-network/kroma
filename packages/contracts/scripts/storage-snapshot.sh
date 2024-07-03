@@ -32,10 +32,12 @@ contracts=(
   contracts/universal/Proxy.sol:Proxy
   contracts/universal/KromaMintableERC20.sol:KromaMintableERC20
   contracts/universal/KromaMintableERC20Factory.sol:KromaMintableERC20Factory
+  contracts/universal/KromaVestingWallet.sol:KromaVestingWallet
   contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken
   contracts/governance/TimeLock.sol:TimeLock
   contracts/governance/UpgradeGovernor.sol:UpgradeGovernor
   contracts/governance/GovernanceToken.sol:GovernanceToken
+  contracts/governance/MintManager.sol:MintManager
 )
 
 dir=$(dirname "$0")

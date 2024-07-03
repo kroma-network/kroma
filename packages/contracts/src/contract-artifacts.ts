@@ -54,6 +54,12 @@
         } catch {}
         
 
+        let MintManager
+        try {
+          MintManager = require('../artifacts/contracts/governance/MintManager.sol/MintManager.json')
+        } catch {}
+        
+
         let SecurityCouncilToken
         try {
           SecurityCouncilToken = require('../artifacts/contracts/governance/SecurityCouncilToken.sol/SecurityCouncilToken.json')
@@ -460,6 +466,7 @@ EchidnaFuzzHashing,
 EchidnaFuzzKromaPortal,
 EchidnaFuzzResourceMetering,
 GovernanceToken,
+MintManager,
 SecurityCouncilToken,
 TimeLock,
 UpgradeGovernor,

@@ -40,13 +40,7 @@ func TestBuildKroma(t *testing.T) {
 		L1BlockNumber:  struct{}{},
 		GasPriceOracle: struct{}{},
 		L1Block:        struct{}{},
-		GovernanceToken: struct {
-			Bridge      common.Address
-			RemoteToken common.Address
-		}{
-			Bridge:      predeploys.L2StandardBridgeAddr,
-			RemoteToken: common.HexToAddress("0x1234567890123456789012345678901234567890"),
-		},
+		// GovernanceToken: struct{}{},
 		// LegacyMessagePasser: struct{}{},
 		L2ERC721Bridge: struct {
 			OtherBridge common.Address

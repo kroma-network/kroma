@@ -27,7 +27,9 @@ const L1_ORDERED_NAMES = [
   'SecurityCouncilToken',
   'TimeLock',
   'UpgradeGovernor',
-  'L1GovernanceToken'
+  'L1GovernanceTokenProxy',
+  'L1MintManager',
+  'L1GovernanceToken',
 ]
 const L2_ORDERED_NAMES = [
   'L1Block',
@@ -41,6 +43,8 @@ const L2_ORDERED_NAMES = [
   'L1FeeVault',
   'KromaMintableERC20Factory',
   'KromaMintableERC721Factory',
+  'GovernanceTokenProxy',
+  'MintManager',
   'GovernanceToken',
 ]
 
