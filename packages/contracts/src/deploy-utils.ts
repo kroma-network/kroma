@@ -303,27 +303,48 @@ export const deployDeterministicProxy = async (
   const { deployer } = await hre.getNamedAccounts()
   const signer = hre.ethers.provider.getSigner(deployer)
 
-  const contractABI = [
+  const create2DeployerAbi = [
     'function deploy(uint256 value,bytes32 salt,bytes memory code) public',
   ]
-  const contract = new hre.ethers.Contract(
+  let create2Deployer = new hre.ethers.Contract(
     predeploys.Create2Deployer,
-    contractABI,
+    create2DeployerAbi,
     hre.ethers.provider
   )
-  const contractWithSigner = contract.connect(signer)
+  create2Deployer = create2Deployer.connect(signer)
 
   // Call deploy function of Create2Deployer contract.
-  const deployTx = await contractWithSigner.deploy(0, salt, simulateTx.data)
+  const deployTx = await create2Deployer.deploy(0, salt, simulateTx.data)
   await deployTx.wait(numDeployConfirmations)
   console.log(`deployed "${name}" at ${create2Address}`)
 
   // Save the deployment.
   const proxyAbi = JSON.parse(proxy.interface.format('json') as string)
+  const proxyBuildInfo = await hre.artifacts.getBuildInfo('Proxy.sol:Proxy')
+  const proxyArtifact = await hre.artifacts.readArtifact('Proxy')
+  const proxyCompiledOutput: any =
+    proxyBuildInfo.output.contracts[proxyArtifact.sourceName]['Proxy']
+  let metadata: string
+  try {
+    metadata = JSON.stringify(proxyCompiledOutput.metadata)
+  } catch (error) {
+    console.log(
+      `compiled output of Proxy contract does not have metadata field: ${error}`
+    )
+    metadata = ''
+  }
   const deployedBytecode = await hre.ethers.provider.getCode(create2Address)
+  const deployTxReceipt = await hre.ethers.provider.getTransactionReceipt(
+    deployTx.hash
+  )
+
   const proxyDeployment = {
     address: create2Address,
     abi: proxyAbi,
+    transactionHash: deployTx.hash,
+    receipt: deployTxReceipt,
+    args: [admin],
+    metadata,
     bytecode: proxy.bytecode,
     deployedBytecode,
   }
