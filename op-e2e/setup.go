@@ -814,12 +814,6 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	}
 
 	// [Kroma: START]
-	// Setup and mint GovernanceToken to each recipient on L1 if governance enabled.
-	if cfg.DeployConfig.GovernanceEnabled() {
-		e2eutils.SetUpGovernanceTokenOnL1(t, context.Background(), sys.Clients["l1"], sys.Clients["sequencer"], cfg.DeployConfig,
-			cfg.L1Deployments, cfg.Secrets, cfg.L1ChainIDBig(), cfg.L2ChainIDBig())
-	}
-
 	// Run validator node (L2 Output Submitter, Asserter)
 	validatorCliCfg := validator.CLIConfig{
 		L1EthRpc:                        sys.EthInstances["l1"].WSEndpoint(),

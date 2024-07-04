@@ -165,8 +165,8 @@ type DeployConfig struct {
 	GovernanceTokenOwner common.Address `json:"governanceTokenOwner"`
 	[Kroma: END] */
 	// [Kroma: START]
-	// GovernanceTokenAddress represents GovernanceToken address on L2.
-	GovernanceTokenAddress common.Address `json:"governanceTokenAddress,omitempty"`
+	// GovernanceTokenNotUseCreate2 is used to determine whether not to use CREATE2 to deploy GovernanceTokenProxy.
+	GovernanceTokenNotUseCreate2 bool `json:"governanceTokenNotUseCreate2,omitempty"`
 	// GovernanceTokenProxySalt is used to determine GovernanceTokenProxy address on L1 and L2.
 	GovernanceTokenProxySalt common.Hash `json:"governanceTokenProxySalt"`
 	// MintManagerOwner represents the owner of the MintManager on L1 and L2. Has the ability to mint initially.
@@ -443,6 +443,9 @@ func (d *DeployConfig) Check() error {
 		}
 		[Kroma: END] */
 		// [Kroma: START]
+		if d.GovernanceTokenProxySalt == (common.Hash{}) {
+			return fmt.Errorf("%w: GovernanceTokenProxySalt cannot be empty hash", ErrInvalidDeployConfig)
+		}
 		if d.MintManagerOwner == (common.Address{}) {
 			return fmt.Errorf("%w: MintManagerOwner cannot be address(0)", ErrInvalidDeployConfig)
 		}
@@ -842,7 +845,9 @@ type L1Deployments struct {
 	// [Kroma: START]
 	Colosseum                 common.Address `json:"Colosseum"`
 	ColosseumProxy            common.Address `json:"ColosseumProxy"`
+	L1GovernanceToken         common.Address `json:"L1GovernanceToken"`
 	L1GovernanceTokenProxy    common.Address `json:"L1GovernanceTokenProxy"`
+	L1MintManager             common.Address `json:"L1MintManager"`
 	Poseidon2                 common.Address `json:"Poseidon2"`
 	SecurityCouncil           common.Address `json:"SecurityCouncil"`
 	SecurityCouncilProxy      common.Address `json:"SecurityCouncilProxy"`
@@ -897,12 +902,6 @@ func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 				name == "DataAvailabilityChallengeProxy") {
 			continue
 		}
-		// [Kroma: START]
-		// Skip contract that will be deployed later in setup
-		if name == "L1GovernanceTokenProxy" {
-			continue
-		}
-		// [Kroma: END]
 		if val.Field(i).Interface().(common.Address) == (common.Address{}) {
 			return fmt.Errorf("%s is not set", name)
 		}

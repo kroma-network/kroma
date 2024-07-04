@@ -36,6 +36,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['L1MintManager', 'l1', 'tge']
+deployFn.tags = ['L1MintManager', 'setup', 'l1', 'tge']
 
 export default deployFn

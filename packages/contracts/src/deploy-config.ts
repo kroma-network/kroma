@@ -311,6 +311,7 @@ interface OptionalL1DeployConfig {
   l1GenesisBlockGasUsed: string
   l1GenesisBlockParentHash: string
   l1GenesisBlockBaseFeePerGas: string
+  governanceTokenNotUseCreate2: boolean
   l1MintManagerRecipients: string[]
   l1MintManagerShares: string[]
 }
@@ -606,6 +607,10 @@ export const deployConfigSpec: {
   },
   l2TimeLockMinDelaySeconds: {
     type: 'number',
+  },
+  governanceTokenNotUseCreate2: {
+    type: 'boolean',
+    default: false,
   },
   governanceTokenProxySalt: {
     type: 'string', // bytes32

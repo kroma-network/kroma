@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
@@ -13,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
@@ -101,6 +101,8 @@ func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployme
 	return memDB.Genesis(), nil
 }
 
+// [Kroma: START]
+
 // PostProcessL1DeveloperGenesis will apply post processing to the L1 genesis
 // state. This is required to handle edge cases in the genesis generation.
 // `block.number` is used during deployment and without specifically setting
@@ -119,7 +121,6 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 		return fmt.Errorf("portal proxy doesn't exist at %s", deployments.KromaPortalProxy)
 	}
 
-	// [Kroma: START]
 	slot, err := getStorageSlot("KromaPortal", "params")
 	if err != nil {
 		return err

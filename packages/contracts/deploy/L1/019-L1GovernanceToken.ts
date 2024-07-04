@@ -60,6 +60,6 @@ const deployFn: DeployFunction = async (hre) => {
   )
 }
 
-deployFn.tags = ['L1GovernanceToken', 'l1', 'tge']
+deployFn.tags = ['L1GovernanceToken', 'setup', 'l1', 'tge']
 
 export default deployFn

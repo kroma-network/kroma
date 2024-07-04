@@ -6,8 +6,6 @@ const PROXY_NAMES = [
   'SystemConfigProxy',
   'KromaPortalProxy',
   'ValidatorPoolProxy',
-  'AssetManagerProxy',
-  'ValidatorManagerProxy',
   'L2OutputOracleProxy',
   'L1CrossDomainMessengerProxy',
   'L1StandardBridgeProxy',
@@ -19,6 +17,8 @@ const PROXY_NAMES = [
   'SecurityCouncilTokenProxy',
   'TimeLockProxy',
   'UpgradeGovernorProxy',
+  'AssetManagerProxy',
+  'ValidatorManagerProxy',
 ]
 
 const deployFn: DeployFunction = async (hre) => {
