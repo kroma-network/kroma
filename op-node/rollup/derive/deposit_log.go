@@ -81,9 +81,7 @@ func UnmarshalDepositLogEvent(ev *types.Log) (*types.DepositTx, error) {
 	}
 	dep.SourceHash = source.SourceHash()
 	dep.From = from
-	/* [Kroma: START]
 	dep.IsSystemTransaction = false
-	[Kroma: END] */
 
 	var err error
 	switch version {
