@@ -157,7 +157,7 @@ task('forge-contract-verify', 'Verify contracts using forge')
       if (success) {
         console.log(`Contract verification successful for ${contractName}`)
       } else {
-        console.log(`Contract verification unsuccesful for ${contractName}`)
+        console.log(`Contract verification unsuccessful for ${contractName}`)
       }
     }
   })
