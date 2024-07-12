@@ -87,13 +87,11 @@ func TestInvalidDepositInFCU(t *testing.T) {
 	require.Equal(t, 0, balance.Cmp(common.Big0))
 
 	badDepositTx := types.NewTx(&types.DepositTx{
-		From:  fromAddr,
-		To:    &fromAddr, // send it to ourselves
-		Value: big.NewInt(params.Ether),
-		Gas:   25000,
-		/* [Kroma: START]
+		From:                fromAddr,
+		To:                  &fromAddr, // send it to ourselves
+		Value:               big.NewInt(params.Ether),
+		Gas:                 25000,
 		IsSystemTransaction: false,
-		[Kroma: END] */
 	})
 
 	// We are inserting a block with an invalid deposit.
@@ -259,13 +257,11 @@ func TestPreregolith(t *testing.T) {
 
 			// Simple transfer deposit tx
 			depositTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				To:    &fromAddr, // send it to ourselves
-				Value: big.NewInt(params.Ether),
-				Gas:   25000,
-				/* [Kroma: START]
+				From:                fromAddr,
+				To:                  &fromAddr, // send it to ourselves
+				Value:               big.NewInt(params.Ether),
+				Gas:                 25000,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			envelope, err := opGeth.AddL2Block(ctx, depositTx)
@@ -306,24 +302,20 @@ func TestPreregolith(t *testing.T) {
 			fromAddr := cfg.Secrets.Addresses().Alice
 			// Include a tx just to ensure Alice's nonce isn't 0
 			incrementNonceTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				To:    &fromAddr,
-				Value: big.NewInt(0),
-				Gas:   21_000,
-				/* [Kroma: START]
+				From:                fromAddr,
+				To:                  &fromAddr,
+				Value:               big.NewInt(0),
+				Gas:                 21_000,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			// Contract creation deposit tx
 			contractCreateTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				Value: big.NewInt(params.Ether),
-				Gas:   1000001,
-				Data:  []byte{},
-				/* [Kroma: START]
+				From:                fromAddr,
+				Value:               big.NewInt(params.Ether),
+				Gas:                 1000001,
+				Data:                []byte{},
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, incrementNonceTx, contractCreateTx)
@@ -372,10 +364,8 @@ func TestPreregolith(t *testing.T) {
 				To:    &fromAddr, // send it to ourselves
 				Value: big.NewInt(params.Ether),
 				// SystemTx is assigned 1M gas limit
-				Gas: uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
-				/* [Kroma: START]
+				Gas:                 uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			signer := types.LatestSigner(opGeth.L2ChainConfig)
@@ -410,9 +400,7 @@ func TestPreregolith(t *testing.T) {
 
 			rollupCfg := rollup.Config{}
 			systemTx, err := derive.L1InfoDeposit(&rollupCfg, opGeth.SystemConfig, 1, opGeth.L1Head, 0)
-			/* [Kroma: START]
 			systemTx.IsSystemTransaction = true
-			[Kroma: END] */
 			require.NoError(t, err)
 
 			_, err = opGeth.AddL2Block(ctx, types.NewTx(systemTx))
@@ -458,13 +446,11 @@ func TestRegolith(t *testing.T) {
 
 			// Simple transfer deposit tx
 			depositTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				To:    &fromAddr, // send it to ourselves
-				Value: big.NewInt(params.Ether),
-				Gas:   25000,
-				/* [Kroma: START]
+				From:                fromAddr,
+				To:                  &fromAddr, // send it to ourselves
+				Value:               big.NewInt(params.Ether),
+				Gas:                 25000,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			envelope, err := opGeth.AddL2Block(ctx, depositTx)
@@ -515,24 +501,20 @@ func TestRegolith(t *testing.T) {
 			fromAddr := cfg.Secrets.Addresses().Alice
 			// Include a tx just to ensure Alice's nonce isn't 0
 			incrementNonceTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				To:    &fromAddr,
-				Value: big.NewInt(0),
-				Gas:   21_000,
-				/* [Kroma: START]
+				From:                fromAddr,
+				To:                  &fromAddr,
+				Value:               big.NewInt(0),
+				Gas:                 21_000,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			// Contract creation deposit tx
 			contractCreateTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				Value: big.NewInt(params.Ether),
-				Gas:   1000001,
-				Data:  []byte{},
-				/* [Kroma: START]
+				From:                fromAddr,
+				Value:               big.NewInt(params.Ether),
+				Gas:                 1000001,
+				Data:                []byte{},
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, incrementNonceTx, contractCreateTx)
@@ -588,10 +570,8 @@ func TestRegolith(t *testing.T) {
 				To:    &fromAddr, // send it to ourselves
 				Value: big.NewInt(params.Ether),
 				// SystemTx is assigned 1M gas limit
-				Gas: uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
-				/* [Kroma: START]
+				Gas:                 uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			signer := types.LatestSigner(opGeth.L2ChainConfig)
@@ -629,9 +609,7 @@ func TestRegolith(t *testing.T) {
 
 			rollupCfg := rollup.Config{}
 			systemTx, err := derive.L1InfoDeposit(&rollupCfg, opGeth.SystemConfig, 1, opGeth.L1Head, 0)
-			/* [Kroma: START]
 			systemTx.IsSystemTransaction = true
-			[Kroma: END] */
 			require.NoError(t, err)
 
 			_, err = opGeth.AddL2Block(ctx, types.NewTx(systemTx))
@@ -693,50 +671,42 @@ func TestRegolith(t *testing.T) {
 
 			// Deposit TX to deploy a contract that lets us store an arbitrary value
 			deployTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				Value: common.Big0,
-				Data:  deployData,
-				Gas:   1_000_000,
-				/* [Kroma: START]
+				From:                fromAddr,
+				Value:               common.Big0,
+				Data:                deployData,
+				Gas:                 1_000_000,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			// Store a non-zero value
 			storeTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				To:    &storeContractAddr,
-				Value: common.Big0,
-				Data:  []byte{0x06},
-				Gas:   1_000_000,
-				/* [Kroma: START]
+				From:                fromAddr,
+				To:                  &storeContractAddr,
+				Value:               common.Big0,
+				Data:                []byte{0x06},
+				Gas:                 1_000_000,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			// Store a non-zero value
 			zeroTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				To:    &storeContractAddr,
-				Value: common.Big0,
-				Data:  []byte{0x00},
-				Gas:   1_000_000,
-				/* [Kroma: START]
+				From:                fromAddr,
+				To:                  &storeContractAddr,
+				Value:               common.Big0,
+				Data:                []byte{0x00},
+				Gas:                 1_000_000,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			// Store a non-zero value again
 			// Has same gas cost as zeroTx, except the first tx gets a gas refund for clearing the storage slot
 			rezeroTx := types.NewTx(&types.DepositTx{
-				From:  fromAddr,
-				To:    &storeContractAddr,
-				Value: common.Big0,
-				Data:  []byte{0x00},
-				Gas:   1_000_001,
-				/* [Kroma: START]
+				From:                fromAddr,
+				To:                  &storeContractAddr,
+				Value:               common.Big0,
+				Data:                []byte{0x00},
+				Gas:                 1_000_001,
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, deployTx, storeTx, zeroTx, rezeroTx)
@@ -822,9 +792,7 @@ func TestPreCanyon(t *testing.T) {
 				Data: []byte{
 					byte(vm.PUSH0),
 				},
-				/* [Kroma: START]
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
@@ -898,9 +866,7 @@ func TestCanyon(t *testing.T) {
 				Data: []byte{
 					byte(vm.PUSH0),
 				},
-				/* [Kroma: START]
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
@@ -968,9 +934,7 @@ func TestPreEcotone(t *testing.T) {
 					byte(vm.PUSH2),
 					byte(vm.TSTORE),
 				},
-				/* [Kroma: START]
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, tstoreTxn)
@@ -1051,9 +1015,7 @@ func TestEcotone(t *testing.T) {
 					byte(vm.TSTORE),
 					byte(vm.PUSH0),
 				},
-				/* [Kroma: START]
 				IsSystemTransaction: false,
-				[Kroma: END] */
 			})
 
 			_, err = opGeth.AddL2Block(ctx, tstoreTxn)

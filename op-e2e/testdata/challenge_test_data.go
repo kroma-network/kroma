@@ -84,7 +84,7 @@ func SetPrevOutputResponse(s **eth.OutputResponse) error {
 	(*s).PublicInputProof.NextBlock = NextHeader
 	toAddr := common.HexToAddress("0x4200000000000000000000000000000000000002")
 	(*s).PublicInputProof.NextTransactions = types.Transactions{
-		types.NewTx(&types.DepositTx{
+		types.NewTx(&types.KromaDepositTx{
 			SourceHash: common.HexToHash("0x81e84a0b340571d1b0ef61008afa413d4dc9b50884003177f02294cb961b7503"),
 			From:       common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001"),
 			To:         &toAddr,
@@ -141,7 +141,7 @@ func SetTargetOutputResponse(s **eth.OutputResponse) error {
 	}
 	toAddr := common.HexToAddress("0x4200000000000000000000000000000000000002")
 	(*s).PublicInputProof.NextTransactions = types.Transactions{
-		types.NewTx(&types.DepositTx{
+		types.NewTx(&types.KromaDepositTx{
 			SourceHash: common.HexToHash("0x40bcbd870b6c68f66e727762654cf39e1491b20be579a13d231a6a6d21f204ce"),
 			From:       common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001"),
 			To:         &toAddr,
