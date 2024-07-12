@@ -59,6 +59,11 @@ contract KromaVestingWallet is VestingWalletUpgradeable {
         uint64 _startTimestamp,
         uint64 _durationSeconds
     ) public initializer {
+        require(
+            _durationSeconds % VESTING_CYCLE == 0,
+            "KromaVestingWallet: duration should be multiple of vesting cycle"
+        );
+
         __VestingWallet_init(_beneficiary, _startTimestamp, _durationSeconds);
     }
 
@@ -94,7 +99,7 @@ contract KromaVestingWallet is VestingWalletUpgradeable {
     ) internal view override returns (uint256) {
         if (timestamp < start()) {
             return 0;
-        } else if (timestamp > start() + duration()) {
+        } else if (timestamp >= start() + duration()) {
             return totalAllocation;
         } else {
             // At the start date, cliff amount of the assets are immediately vested.
