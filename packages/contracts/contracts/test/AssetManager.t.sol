@@ -183,7 +183,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(validator);
         kro.approve(address(assetManager), kroAmount);
         // Self delegation
-        valMgr.registerValidator(kroAmount, 0, 10);
+        valMgr.registerValidator(kroAmount, 0, 10, withdrawAcc);
         vm.stopPrank();
 
         vm.startPrank(delegator);
@@ -198,7 +198,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(validator);
         kro.approve(address(assetManager), 100e18);
         // Self delegation
-        valMgr.registerValidator(100e18, 0, 0);
+        valMgr.registerValidator(100e18, 0, 0, withdrawAcc);
         vm.stopPrank();
 
         kgh.mint(delegator, tokenId);
@@ -213,7 +213,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         kro.transfer(address(validator), 100e18);
         vm.startPrank(validator);
         kro.approve(address(assetManager), 100e18);
-        valMgr.registerValidator(100e18, 0, 10);
+        valMgr.registerValidator(100e18, 0, 10, withdrawAcc);
         vm.stopPrank();
 
         uint256[] memory tokenIds = new uint256[](kghCounts);

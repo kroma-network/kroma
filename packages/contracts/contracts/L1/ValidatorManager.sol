@@ -174,7 +174,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
     function registerValidator(
         uint128 assets,
         uint8 commissionRate,
-        uint8 commissionMaxChangeRate
+        uint8 commissionMaxChangeRate,
+        address withdrawAccount
     ) external {
         if (getStatus(msg.sender) != ValidatorStatus.NONE) revert ImproperValidatorStatus();
 
@@ -185,11 +186,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (commissionMaxChangeRate > COMMISSION_RATE_DENOM)
             revert MaxCommissionChangeRateExceeded();
 
+        if (withdrawAccount == address(0)) revert NotZeroAddress();
+
         Validator storage validatorInfo = _validatorInfo[msg.sender];
         validatorInfo.isInitiated = true;
         validatorInfo.commissionRate = commissionRate;
         validatorInfo.commissionMaxChangeRate = commissionMaxChangeRate;
         validatorInfo.commissionRateChangedAt = uint128(block.timestamp);
+        validatorInfo.withdrawAccount = withdrawAccount;
 
         ASSET_MANAGER.delegateToRegister(msg.sender, assets);
 
