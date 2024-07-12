@@ -324,22 +324,18 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 	// Set a very large gas limit with `IsSystemTransaction` to ensure
 	// that the L1 Attributes Transaction does not run out of gas.
 	out := &types.DepositTx{
-		SourceHash: source.SourceHash(),
-		From:       L1InfoDepositerAddress,
-		To:         &L1BlockAddress,
-		Mint:       nil,
-		Value:      big.NewInt(0),
-		Gas:        150_000_000,
-		/* [Kroma: START]
+		SourceHash:          source.SourceHash(),
+		From:                L1InfoDepositerAddress,
+		To:                  &L1BlockAddress,
+		Mint:                nil,
+		Value:               big.NewInt(0),
+		Gas:                 150_000_000,
 		IsSystemTransaction: true,
-		[Kroma: END] */
-		Data: data,
+		Data:                data,
 	}
 	// With the regolith fork we disable the IsSystemTx functionality, and allocate real gas
 	if rollupCfg.IsRegolith(l2BlockTime) {
-		/* [Kroma: START]
 		out.IsSystemTransaction = false
-		[Kroma: END] */
 		out.Gas = RegolithSystemTxGas
 	}
 	return out, nil
@@ -356,5 +352,10 @@ func L1InfoDepositBytes(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNu
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode L1 info tx: %w", err)
 	}
+	// [Kroma: START] Use KromaDepositTx instead of DepositTx before MPT time
+	if !rollupCfg.IsKromaMPT(l2BlockTime) {
+		opaqueL1Tx, err = ToKromaDepositBytes(opaqueL1Tx)
+	}
+	// [Kroma: END]
 	return opaqueL1Tx, nil
 }
