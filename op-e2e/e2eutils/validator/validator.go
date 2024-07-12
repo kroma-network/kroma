@@ -85,7 +85,7 @@ func (h *Helper) UnbondValPool(priv *ecdsa.PrivateKey) bool {
 	return receipt.Status == types.ReceiptStatusSuccessful
 }
 
-func (h *Helper) RegisterToValMgr(priv *ecdsa.PrivateKey, amount *big.Int) {
+func (h *Helper) RegisterToValMgr(priv *ecdsa.PrivateKey, amount *big.Int, withdrawAddr common.Address) {
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(priv, h.l1ChainID)
 	require.NoError(h.t, err)
 
@@ -95,7 +95,7 @@ func (h *Helper) RegisterToValMgr(priv *ecdsa.PrivateKey, amount *big.Int) {
 	_, err = wait.ForReceiptOK(context.Background(), h.l1Client, tx.Hash())
 	require.NoError(h.t, err)
 
-	tx, err = h.ValMgrContract.RegisterValidator(transactOpts, amount, uint8(10), uint8(2))
+	tx, err = h.ValMgrContract.RegisterValidator(transactOpts, amount, uint8(10), uint8(2), withdrawAddr)
 	require.NoError(h.t, err)
 
 	_, err = wait.ForReceiptOK(context.Background(), h.l1Client, tx.Hash())

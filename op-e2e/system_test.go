@@ -1763,7 +1763,7 @@ func TestChallengeV2(t *testing.T) {
 
 	// Register to ValidatorManager to be a challenger
 	beforeAmount := cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt()
-	validatorHelper.RegisterToValMgr(cfg.Secrets.Challenger1, beforeAmount)
+	validatorHelper.RegisterToValMgr(cfg.Secrets.Challenger1, beforeAmount, cfg.Secrets.Addresses().Challenger1)
 
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
 	require.NoError(t, err)
