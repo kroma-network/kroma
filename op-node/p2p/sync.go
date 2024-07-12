@@ -21,10 +21,12 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/op-node/rollup/derive"
 )
 
 // StreamCtxFn provides a new context to use when handling stream requests
@@ -667,6 +669,20 @@ func (s *SyncClient) readExecutionPayload(data []byte, expectedTime uint64) (*et
 	if err := res.UnmarshalSSZ(blockVersion, uint32(len(data)), bytes.NewReader(data)); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
+
+	// [Kroma: START] Use KromaDepositTx instead of DepositTx before MPT time
+	if !s.cfg.IsKromaMPT(expectedTime) {
+		for i, otx := range res.Transactions {
+			if otx[0] == types.DepositTxType {
+				var err error
+				res.Transactions[i], err = derive.ToKromaDepositBytes(otx)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert deposit tx: %w", err)
+				}
+			}
+		}
+	}
+	// [Kroma: END]
 
 	return &eth.ExecutionPayloadEnvelope{ExecutionPayload: &res}, nil
 }
