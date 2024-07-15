@@ -258,7 +258,8 @@ interface IValidatorManager {
      * @param assets                  The amount of assets to self-delegate.
      * @param commissionRate          The commission rate the validator sets.
      * @param commissionMaxChangeRate Maximum changeable commission rate at once.
-     * @param withdrawAccount         An account that withdraw to. Only this account can withdraw
+     * @param withdrawAccount         An account where assets can be withdrawn to. Only this account
+     *                                can withdraw the assets.
      */
     function registerValidator(
         uint128 assets,
