@@ -64,6 +64,7 @@ func main() {
 				cmd.TokenAmountFlag,
 				cmd.CommissionRateFlag,
 				cmd.CommissionMaxChangeRateFlag,
+				cmd.WithdrawAccountFlag,
 			},
 			Action: cmd.Register,
 		},

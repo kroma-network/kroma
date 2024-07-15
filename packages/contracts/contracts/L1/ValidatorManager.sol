@@ -174,7 +174,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
     function registerValidator(
         uint128 assets,
         uint8 commissionRate,
-        uint8 commissionMaxChangeRate
+        uint8 commissionMaxChangeRate,
+        address withdrawAccount
     ) external {
         if (getStatus(msg.sender) != ValidatorStatus.NONE) revert ImproperValidatorStatus();
 
@@ -185,11 +186,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (commissionMaxChangeRate > COMMISSION_RATE_DENOM)
             revert MaxCommissionChangeRateExceeded();
 
+        if (withdrawAccount == address(0)) revert ZeroAddress();
+
         Validator storage validatorInfo = _validatorInfo[msg.sender];
         validatorInfo.isInitiated = true;
         validatorInfo.commissionRate = commissionRate;
         validatorInfo.commissionMaxChangeRate = commissionMaxChangeRate;
         validatorInfo.commissionRateChangedAt = uint128(block.timestamp);
+        validatorInfo.withdrawAccount = withdrawAccount;
 
         ASSET_MANAGER.delegateToRegister(msg.sender, assets);
 
@@ -352,6 +356,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function getCommissionMaxChangeRate(address validator) external view returns (uint8) {
         return _validatorInfo[validator].commissionMaxChangeRate;
+    }
+
+    /**
+     * @notice Returns the address of withdraw account of given validator.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The address of withdraw account of given validator.
+     */
+    function getWithdrawAccount(address validator) external view returns (address) {
+        return _validatorInfo[validator].withdrawAccount;
     }
 
     /**

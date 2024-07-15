@@ -843,7 +843,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 	if cfg.ValidatorVersion == valhelper.ValidatorV2 {
 		// register to ValidatorManager to be a validator
-		validatorHelper.RegisterToValMgr(cfg.Secrets.TrustedValidator, cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt())
+		validatorHelper.RegisterToValMgr(cfg.Secrets.TrustedValidator, cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt(), cfg.Secrets.Addresses().TrustedValidator)
 
 		func() {
 			// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test

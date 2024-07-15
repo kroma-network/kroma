@@ -254,6 +254,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     // Test data
     address internal asserter = 0x000000000000000000000000000000000000aAaB;
     address internal challenger = 0x000000000000000000000000000000000000AAaC;
+    address internal withdrawAcc = 0x000000000000000000000000000000000000AAaE;
     uint256 initL1Time;
 
     event OutputSubmitted(
@@ -404,7 +405,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     function _registerValidator(address validator, uint128 assets) internal {
         vm.startPrank(validator);
         assetToken.approve(address(assetMgr), uint256(assets));
-        valMgr.registerValidator(assets, 10, 5);
+        valMgr.registerValidator(assets, 10, 5, withdrawAcc);
         vm.stopPrank();
     }
 

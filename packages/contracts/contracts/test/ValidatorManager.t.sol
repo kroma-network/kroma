@@ -210,13 +210,14 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         emit ValidatorActivated(trusted, block.timestamp);
         vm.expectEmit(true, true, false, true, address(valMgr));
         emit ValidatorRegistered(trusted, true, commissionRate, commissionMaxChangeRate, assets);
-        valMgr.registerValidator(assets, commissionRate, commissionMaxChangeRate);
+        valMgr.registerValidator(assets, commissionRate, commissionMaxChangeRate, withdrawAcc);
         vm.stopPrank();
 
         assertEq(assetToken.balanceOf(trusted), trustedBalance - assets);
         assertEq(assetMgr.totalKroAssets(trusted), assets);
         assertEq(valMgr.getCommissionRate(trusted), commissionRate);
         assertEq(valMgr.getCommissionMaxChangeRate(trusted), commissionMaxChangeRate);
+        assertEq(valMgr.getWithdrawAccount(trusted), withdrawAcc);
         assertEq(mockValMgr.commissionRateChangedAt(trusted), block.timestamp);
 
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
@@ -235,7 +236,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectEmit(true, true, false, true, address(valMgr));
         emit ValidatorRegistered(trusted, false, commissionRate, commissionMaxChangeRate, assets);
-        valMgr.registerValidator(assets, commissionRate, commissionMaxChangeRate);
+        valMgr.registerValidator(assets, commissionRate, commissionMaxChangeRate, withdrawAcc);
         vm.stopPrank();
 
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.REGISTERED);
@@ -251,7 +252,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMgr.registerValidator(assets, 10, 5);
+        valMgr.registerValidator(assets, 10, 5, withdrawAcc);
     }
 
     function test_registerValidator_smallAsset_reverts() external {
@@ -260,7 +261,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.InsufficientAsset.selector);
-        valMgr.registerValidator(assets, 10, 5);
+        valMgr.registerValidator(assets, 10, 5, withdrawAcc);
     }
 
     function test_registerValidator_largeCommissionRate_reverts() external {
@@ -269,7 +270,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.MaxCommissionRateExceeded.selector);
-        valMgr.registerValidator(assets, 101, 5);
+        valMgr.registerValidator(assets, 101, 5, withdrawAcc);
     }
 
     function test_registerValidator_largeCommissionMaxChangeRate_reverts() external {
@@ -278,7 +279,16 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.MaxCommissionChangeRateExceeded.selector);
-        valMgr.registerValidator(assets, 10, 101);
+        valMgr.registerValidator(assets, 10, 101, withdrawAcc);
+    }
+
+    function test_registerValidator_withdrawZeroAddr_reverts() external {
+        uint128 assets = minRegisterAmount;
+
+        vm.startPrank(trusted);
+        assetToken.approve(address(assetMgr), uint256(assets));
+        vm.expectRevert(IValidatorManager.ZeroAddress.selector);
+        valMgr.registerValidator(assets, 10, 5, address(0));
     }
 
     function test_activateValidator_succeeds() external {

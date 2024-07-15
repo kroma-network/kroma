@@ -79,6 +79,8 @@ interface IValidatorManager {
      * @custom:field commissionRate          Commission rate of validator.
      * @custom:field commissionMaxChangeRate Maximum changeable commission rate at once.
      * @custom:field commissionRateChangedAt Last timestamp when the commission rate was changed.
+     * @custom:field withdrawAccount         An account where assets can be withdrawn to. Only this
+     *                                       account can withdraw the assets.
      */
     struct Validator {
         bool isInitiated;
@@ -86,6 +88,7 @@ interface IValidatorManager {
         uint8 commissionRate;
         uint8 commissionMaxChangeRate;
         uint128 commissionRateChangedAt;
+        address withdrawAccount;
     }
 
     /**
@@ -219,6 +222,11 @@ interface IValidatorManager {
     error MaxCommissionChangeRateExceeded();
 
     /**
+     * @notice Reverts when the address is zero address.
+     */
+    error ZeroAddress();
+
+    /**
      * @notice Reverts when try to change commission rate with same value as previous.
      */
     error SameCommissionRate();
@@ -250,11 +258,14 @@ interface IValidatorManager {
      * @param assets                  The amount of assets to self-delegate.
      * @param commissionRate          The commission rate the validator sets.
      * @param commissionMaxChangeRate Maximum changeable commission rate at once.
+     * @param withdrawAccount         An account where assets can be withdrawn to. Only this account
+     *                                can withdraw the assets.
      */
     function registerValidator(
         uint128 assets,
         uint8 commissionRate,
-        uint8 commissionMaxChangeRate
+        uint8 commissionMaxChangeRate,
+        address withdrawAccount
     ) external;
 
     /**

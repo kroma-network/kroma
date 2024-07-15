@@ -173,13 +173,17 @@ func Register(ctx *cli.Context) error {
 
 	commissionRate := uint8(ctx.Uint64("commission-rate"))
 	commissionMaxChangeRate := uint8(ctx.Uint64("commission-max-change-rate"))
+	withdrawAccount, err := opservice.ParseAddress(ctx.String(WithdrawAccountFlag.Name))
+	if err != nil {
+		return fmt.Errorf("failed to parse withdraw address: %w", err)
+	}
 
 	valMgrAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
 	if err != nil {
-		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
+		return fmt.Errorf("failed to get ValidatorManager ABI: %w", err)
 	}
 
-	txData, err := valMgrAbi.Pack("registerValidator", assets, commissionRate, commissionMaxChangeRate)
+	txData, err := valMgrAbi.Pack("registerValidator", assets, commissionRate, commissionMaxChangeRate, withdrawAccount)
 	if err != nil {
 		return fmt.Errorf("failed to create register validator transaction data: %w", err)
 	}
