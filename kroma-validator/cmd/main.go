@@ -32,7 +32,7 @@ func main() {
 	app.Commands = cli.Commands{
 		{
 			Name:        "deposit",
-			Usage:       "DepositV1 ETH into ValidatorPool to be used as bond",
+			Usage:       "Deposit ETH into ValidatorPool to be used as bond",
 			Description: "This command will be deprecated in a future release of validator system V2. Please use the 'register' command to register as a validator.",
 			Flags:       []cli.Flag{cmd.EthAmountFlag},
 			Action:      cmd.Deposit,

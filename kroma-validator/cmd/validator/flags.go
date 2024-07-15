@@ -36,6 +36,6 @@ var CommissionMaxChangeRateFlag = &cli.Uint64Flag{
 
 var WithdrawAccountFlag = &cli.StringFlag{
 	Name:     "withdraw-account",
-	Usage:    "Address to withdraw deposited KRO",
+	Usage:    "Address to withdraw deposited asset token",
 	Required: true,
 }
