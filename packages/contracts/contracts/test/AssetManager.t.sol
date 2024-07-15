@@ -183,7 +183,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(validator);
         kro.approve(address(assetManager), kroAmount);
         // Self delegation
-        valMgr.registerValidator(kroAmount, 0, 10, withdrawAcc);
+        valMgr.registerValidator(kroAmount, 0, withdrawAcc);
         vm.stopPrank();
 
         vm.startPrank(delegator);
@@ -198,7 +198,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(validator);
         kro.approve(address(assetManager), 100e18);
         // Self delegation
-        valMgr.registerValidator(100e18, 0, 0, withdrawAcc);
+        valMgr.registerValidator(100e18, 0, withdrawAcc);
         vm.stopPrank();
 
         kgh.mint(delegator, tokenId);
@@ -213,7 +213,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         kro.transfer(address(validator), 100e18);
         vm.startPrank(validator);
         kro.approve(address(assetManager), 100e18);
-        valMgr.registerValidator(100e18, 0, 10, withdrawAcc);
+        valMgr.registerValidator(100e18, 0, withdrawAcc);
         vm.stopPrank();
 
         uint256[] memory tokenIds = new uint256[](kghCounts);
@@ -528,10 +528,12 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         _submitOutputRoot(validator);
         vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
 
-        vm.warp(block.timestamp + commissionRateMinChangeSeconds);
         // Set commission rate to 10%
-        vm.prank(validator);
-        valMgr.changeCommissionRate(10);
+        vm.startPrank(validator);
+        valMgr.initCommissionChange(10);
+        vm.warp(block.timestamp + commissionChangeDelaySeconds);
+        valMgr.finalizeCommissionChange();
+        vm.stopPrank();
 
         vm.startPrank(address(mockOracle));
         valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());

@@ -43,7 +43,7 @@
   "validatorManagerTrustedValidator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   "validatorManagerMinRegisterAmount": "0x32",
   "validatorManagerMinActivateAmount": "0x64",
-  "validatorManagerCommissionMinChangeSeconds": 120,
+  "validatorManagerCommissionChangeDelaySeconds": 120,
   "validatorManagerRoundDurationSeconds": 4,
   "validatorManagerJailPeriodSeconds": 120,
   "validatorManagerJailThreshold": 2,

@@ -66,9 +66,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
     uint128 public immutable MIN_ACTIVATE_AMOUNT;
 
     /**
-     * @notice The minimum duration to change the commission rate of the validator (in seconds).
+     * @notice The delay to finalize the commission rate change of the validator (in seconds).
      */
-    uint128 public immutable COMMISSION_RATE_MIN_CHANGE_SECONDS;
+    uint128 public immutable COMMISSION_CHANGE_DELAY_SECONDS;
 
     /**
      * @notice The duration of a submission round for one output (in seconds).
@@ -159,7 +159,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         TRUSTED_VALIDATOR = _constructorParams._trustedValidator;
         MIN_REGISTER_AMOUNT = _constructorParams._minRegisterAmount;
         MIN_ACTIVATE_AMOUNT = _constructorParams._minActivateAmount;
-        COMMISSION_RATE_MIN_CHANGE_SECONDS = _constructorParams._commissionRateMinChangeSeconds;
+        COMMISSION_CHANGE_DELAY_SECONDS = _constructorParams._commissionChangeDelaySeconds;
         // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
         ROUND_DURATION_SECONDS = _constructorParams._roundDurationSeconds;
         JAIL_PERIOD_SECONDS = _constructorParams._jailPeriodSeconds;
@@ -174,7 +174,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
     function registerValidator(
         uint128 assets,
         uint8 commissionRate,
-        uint8 commissionMaxChangeRate,
         address withdrawAccount
     ) external {
         if (getStatus(msg.sender) != ValidatorStatus.NONE) revert ImproperValidatorStatus();
@@ -183,16 +182,11 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         if (commissionRate > COMMISSION_RATE_DENOM) revert MaxCommissionRateExceeded();
 
-        if (commissionMaxChangeRate > COMMISSION_RATE_DENOM)
-            revert MaxCommissionChangeRateExceeded();
-
         if (withdrawAccount == address(0)) revert ZeroAddress();
 
         Validator storage validatorInfo = _validatorInfo[msg.sender];
         validatorInfo.isInitiated = true;
         validatorInfo.commissionRate = commissionRate;
-        validatorInfo.commissionMaxChangeRate = commissionMaxChangeRate;
-        validatorInfo.commissionRateChangedAt = uint128(block.timestamp);
         validatorInfo.withdrawAccount = withdrawAccount;
 
         ASSET_MANAGER.delegateToRegister(msg.sender, assets);
@@ -202,13 +196,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
             _activateValidator(msg.sender);
         }
 
-        emit ValidatorRegistered(
-            msg.sender,
-            ready,
-            commissionRate,
-            commissionMaxChangeRate,
-            assets
-        );
+        emit ValidatorRegistered(msg.sender, ready, commissionRate, assets);
     }
 
     /**
@@ -243,32 +231,42 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function changeCommissionRate(uint8 newCommissionRate) external {
+    function initCommissionChange(uint8 newCommissionRate) external {
         if (getStatus(msg.sender) < ValidatorStatus.REGISTERED || inJail(msg.sender))
             revert ImproperValidatorStatus();
 
         Validator storage validatorInfo = _validatorInfo[msg.sender];
-
-        if (
-            validatorInfo.commissionRateChangedAt + COMMISSION_RATE_MIN_CHANGE_SECONDS >
-            block.timestamp
-        ) revert NotElapsedCommissionChangePeriod();
 
         if (newCommissionRate > COMMISSION_RATE_DENOM) revert MaxCommissionRateExceeded();
 
         uint8 oldCommissionRate = validatorInfo.commissionRate;
         if (newCommissionRate == oldCommissionRate) revert SameCommissionRate();
 
-        uint8 changeRange = newCommissionRate > oldCommissionRate
-            ? newCommissionRate - oldCommissionRate
-            : oldCommissionRate - newCommissionRate;
-        if (changeRange > validatorInfo.commissionMaxChangeRate)
-            revert CommissionChangeRateExceeded();
+        validatorInfo.pendingCommissionRate = newCommissionRate;
+        validatorInfo.commissionChangeInitTime = uint128(block.timestamp);
+
+        emit ValidatorCommissionChangeInitiated(msg.sender, oldCommissionRate, newCommissionRate);
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function finalizeCommissionChange() external {
+        if (getStatus(msg.sender) < ValidatorStatus.REGISTERED || inJail(msg.sender))
+            revert ImproperValidatorStatus();
+
+        if (block.timestamp < canFinalizeCommissionChangeAt(msg.sender))
+            revert NotElapsedCommissionChangeDelay();
+
+        Validator storage validatorInfo = _validatorInfo[msg.sender];
+        uint8 oldCommissionRate = validatorInfo.commissionRate;
+        uint8 newCommissionRate = validatorInfo.pendingCommissionRate;
 
         validatorInfo.commissionRate = newCommissionRate;
-        validatorInfo.commissionRateChangedAt = uint128(block.timestamp);
+        validatorInfo.pendingCommissionRate = 0;
+        validatorInfo.commissionChangeInitTime = 0;
 
-        emit ValidatorCommissionRateChanged(msg.sender, oldCommissionRate, newCommissionRate);
+        emit ValidatorCommissionChangeFinalized(msg.sender, oldCommissionRate, newCommissionRate);
     }
 
     /**
@@ -348,14 +346,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Returns the commission max change rate of given validator.
+     * @notice Returns the pending commission rate of given validator.
      *
      * @param validator Address of the validator.
      *
-     * @return The commission max change rate of given validator.
+     * @return The pending commission rate of given validator.
      */
-    function getCommissionMaxChangeRate(address validator) external view returns (uint8) {
-        return _validatorInfo[validator].commissionMaxChangeRate;
+    function getPendingCommissionRate(address validator) external view returns (uint8) {
+        return _validatorInfo[validator].pendingCommissionRate;
     }
 
     /**
@@ -490,6 +488,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function noSubmissionCount(address validator) public view returns (uint8) {
         return _validatorInfo[validator].noSubmissionCount;
+    }
+
+    /**
+     * @notice Returns when commission change of given validator can be finalized.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return When commission change of given validator can be finalized.
+     */
+    function canFinalizeCommissionChangeAt(address validator) public view returns (uint256) {
+        return _validatorInfo[validator].commissionChangeInitTime + COMMISSION_CHANGE_DELAY_SECONDS;
     }
 
     /**

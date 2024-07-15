@@ -112,9 +112,9 @@ interface RequiredDeployConfig {
   validatorManagerMinActivateAmount: string
 
   /**
-   * The minimum duration of commission change in seconds.
+   * The delay to finalize the commission rate change in seconds.
    */
-  validatorManagerCommissionMinChangeSeconds: number
+  validatorManagerCommissionChangeDelaySeconds: number
 
   /**
    * The duration of one submission round in seconds.
@@ -412,7 +412,7 @@ export const deployConfigSpec: {
   validatorManagerMinActivateAmount: {
     type: 'string', // uint128
   },
-  validatorManagerCommissionMinChangeSeconds: {
+  validatorManagerCommissionChangeDelaySeconds: {
     type: 'number',
   },
   validatorManagerRoundDurationSeconds: {

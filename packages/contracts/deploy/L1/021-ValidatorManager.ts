@@ -33,8 +33,8 @@ const deployFn: DeployFunction = async (hre) => {
         _l2Oracle: l2OutputOracleProxyAddress,
         _assetManager: assetManagerProxyAddress,
         _trustedValidator: hre.deployConfig.validatorManagerTrustedValidator,
-        _commissionRateMinChangeSeconds:
-          hre.deployConfig.validatorManagerCommissionMinChangeSeconds,
+        _commissionChangeDelaySeconds:
+          hre.deployConfig.validatorManagerCommissionChangeDelaySeconds,
         _roundDurationSeconds:
           hre.deployConfig.validatorManagerRoundDurationSeconds,
         _jailPeriodSeconds: hre.deployConfig.validatorManagerJailPeriodSeconds,
@@ -75,8 +75,8 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'COMMISSION_RATE_MIN_CHANGE_SECONDS',
-        hre.deployConfig.validatorManagerCommissionMinChangeSeconds
+        'COMMISSION_CHANGE_DELAY_SECONDS',
+        hre.deployConfig.validatorManagerCommissionChangeDelaySeconds
       )
       await assertContractVariable(
         contract,

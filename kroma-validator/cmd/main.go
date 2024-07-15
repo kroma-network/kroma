@@ -63,7 +63,6 @@ func main() {
 			Flags: []cli.Flag{
 				cmd.TokenAmountFlag,
 				cmd.CommissionRateFlag,
-				cmd.CommissionMaxChangeRateFlag,
 				cmd.WithdrawAccountFlag,
 			},
 			Action: cmd.Register,
@@ -79,10 +78,21 @@ func main() {
 			Action: cmd.Unjail,
 		},
 		{
-			Name:   "changeCommissionRate",
-			Usage:  "(EXPERIMENTAL) Change the commission rate of the validator in ValidatorManager",
-			Flags:  []cli.Flag{cmd.CommissionRateFlag},
-			Action: cmd.ChangeCommissionRate,
+			Name:  "changeCommissionRate",
+			Usage: "(EXPERIMENTAL) Change the commission rate of the validator in ValidatorManager",
+			Subcommands: []*cli.Command{
+				{
+					Name:   "init",
+					Usage:  "(EXPERIMENTAL) Initiate the commission rate change",
+					Flags:  []cli.Flag{cmd.CommissionRateFlag},
+					Action: cmd.InitCommissionChange,
+				},
+				{
+					Name:   "finalize",
+					Usage:  "(EXPERIMENTAL) Finalize the commission rate change",
+					Action: cmd.FinalizeCommissionChange,
+				},
+			},
 		},
 		{
 			Name:   "delegate",

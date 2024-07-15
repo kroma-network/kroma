@@ -28,12 +28,6 @@ var CommissionRateFlag = &cli.Uint64Flag{
 	Required: true,
 }
 
-var CommissionMaxChangeRateFlag = &cli.Uint64Flag{
-	Name:     "commission-max-change-rate",
-	Usage:    "The maximum changeable commission rate at once (in percentage). Maximum 100.",
-	Required: true,
-}
-
 var WithdrawAccountFlag = &cli.StringFlag{
 	Name:     "withdraw-account",
 	Usage:    "Address to withdraw deposited asset token",

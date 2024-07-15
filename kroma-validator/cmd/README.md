@@ -62,10 +62,10 @@ The following commands are available in Validator System V2:
 - `register` - Register as new validator to `ValidatorManager`.
   - `--amount [value]` - _(Required)_ The amount of tokens to delegate initially (in Wei).
   - `--commission-rate [value]` - _(Required)_ The initial commission rate of the validator (in %).
-  - `--commission-max-change-rate [value]` - _(Required)_ The max change rate of the commission of the validator (in %).
+  - `--withdraw-account [value]` - _(Required)_ The address to withdraw deposited asset token.
 
   ```bash
-  kroma-validator register --amount 100000000 --commission-rate 5 --commission-max-change-rate 5
+  kroma-validator register --amount 100000000 --commission-rate 5 --withdraw-account 0x0000000000000000000000000000000000000001
   ```
 
 - `activate` - Activate the validator in `ValidatorManager` to be eligible to submit output roots and create challenges.
@@ -80,11 +80,17 @@ The following commands are available in Validator System V2:
   kroma-validator unjail
   ```
 
-- `changeCommissionRate` - Change the commission rate of the validator in `ValidatorManager`.
+- `changeCommissionRate init` - Initiate the commission rate change of the validator in `ValidatorManager`.
   - `--commission-rate [value]` - _(Required)_ The new commission rate of the validator (in %).
 
   ```bash
-  kroma-validator changeCommissionRate --commission-rate 5
+  kroma-validator changeCommissionRate init --commission-rate 5
+  ```
+
+- `changeCommissionRate finalize` - Finalize the commission rate change of the validator in `ValidatorManager`.
+
+  ```bash
+  kroma-validator changeCommissionRate finalize
   ```
 
 - `delegate` - Self-delegate asset tokens to the `AssetManager`.
