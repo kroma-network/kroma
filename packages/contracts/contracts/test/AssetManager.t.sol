@@ -182,7 +182,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         kro.transfer(address(delegator), kroAmount);
         vm.startPrank(validator);
         kro.approve(address(assetManager), kroAmount);
-        // Self delegation
+        // deposit
         valMgr.registerValidator(kroAmount, 0, withdrawAcc);
         vm.stopPrank();
 
@@ -257,8 +257,9 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_delegate_succeeds() external {
         _setUpKroDelegation(100e18);
 
-        assertEq(assetManager.totalKroAssets(validator), 200e18);
+        assertEq(assetManager.totalKroAssets(validator), 100e18);
         assertEq(valMgr.getWeight(validator), 200e18);
+        assertEq(assetManager.totalValidatorKro(validator), 100e18);
     }
 
     function test_delegate_withoutValidatorDelegation_reverts() external {

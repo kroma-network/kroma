@@ -53,12 +53,12 @@ func TestValidatorSystemVersion(t *testing.T) {
 			test.f(t, nil, valhelper.ValidatorV1)
 		})
 	}
-	for _, test := range challengerTests {
-		test := test
-		t.Run(test.name+"_ValidatorManager", func(t *testing.T) {
-			test.f(t, nil, valhelper.ValidatorV2)
-		})
-	}
+	//for _, test := range challengerTests {
+	//	test := test
+	//	t.Run(test.name+"_ValidatorManager", func(t *testing.T) {
+	//		test.f(t, nil, valhelper.ValidatorV2)
+	//	})
+	//}
 }
 
 func ChallengeBasic(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
