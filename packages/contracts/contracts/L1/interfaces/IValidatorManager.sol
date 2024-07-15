@@ -79,8 +79,8 @@ interface IValidatorManager {
      * @custom:field commissionRate          Commission rate of validator.
      * @custom:field commissionMaxChangeRate Maximum changeable commission rate at once.
      * @custom:field commissionRateChangedAt Last timestamp when the commission rate was changed.
-     * @custom:field withdrawAccount         An account that withdraw to. Only this account can
-     *                                       withdraw
+     * @custom:field withdrawAccount         An account where assets can be withdrawn to. Only this
+     *                                       account can withdraw the assets.
      */
     struct Validator {
         bool isInitiated;
