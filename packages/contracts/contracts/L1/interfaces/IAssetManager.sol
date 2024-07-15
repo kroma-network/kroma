@@ -9,12 +9,12 @@ interface IAssetManager {
     /**
      * @notice Represents the asset information of the vault of a validator.
      *
-     * @custom:field totalKro           Total amount of KRO in the vault.
+     * @custom:field totalKro           Total amount of KRO of delegators in the vault.
      * @custom:field totalKroShares     Total shares for KRO delegation in the vault.
      * @custom:field totalKgh           Total number of KGH in the vault.
      * @custom:field totalKroInKgh      Total amount of KRO which KGHs in the vault have.
      * @custom:field totalKghShares     Total shares for KGH delegation in the vault.
-     * @custom:field validatorKro       Amount of KRO that the validator self-delegated.
+     * @custom:field validatorKro       Amount of KRO that the validator deposited.
      * @custom:field boostedReward      Cumulated boosted reward for KGH delegators in the vault.
      * @custom:field validatorRewardKro Cumulated reward for the validator.
      */
@@ -107,6 +107,14 @@ interface IAssetManager {
         mapping(address => KroDelegator) kroDelegators;
         mapping(address => KghDelegator) kghDelegators;
     }
+
+    /**
+     * @notice Emitted when validator deposit KROs
+     *
+     * @param validator Address of the validator.
+     * @param amount    The amount of KRO deposited.
+     */
+    event Deposited(address indexed validator, uint128 amount);
 
     /**
      * @notice Emitted when KROs are delegated.
