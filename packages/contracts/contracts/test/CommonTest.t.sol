@@ -254,7 +254,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     // Test data
     address internal asserter = 0x000000000000000000000000000000000000aAaB;
     address internal challenger = 0x000000000000000000000000000000000000AAaC;
-    address internal withdrawAcc = 0x000000000000000000000000000000000000AaaD;
+    address internal withdrawAcc = 0x000000000000000000000000000000000000AAaE;
     uint256 initL1Time;
 
     event OutputSubmitted(

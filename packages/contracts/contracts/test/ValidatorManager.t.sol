@@ -217,6 +217,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(assetMgr.totalKroAssets(trusted), assets);
         assertEq(valMgr.getCommissionRate(trusted), commissionRate);
         assertEq(valMgr.getCommissionMaxChangeRate(trusted), commissionMaxChangeRate);
+        assertEq(valMgr.getWithdrawAccount(trusted), withdrawAcc);
         assertEq(mockValMgr.commissionRateChangedAt(trusted), block.timestamp);
 
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
@@ -286,7 +287,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
-        vm.expectRevert(IValidatorManager.NotZeroAddress.selector);
+        vm.expectRevert(IValidatorManager.ZeroAddress.selector);
         valMgr.registerValidator(assets, 10, 5, address(0));
     }
 

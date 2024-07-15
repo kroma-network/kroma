@@ -224,7 +224,7 @@ interface IValidatorManager {
     /**
      * @notice Reverts when the address is zero address.
      */
-    error NotZeroAddress();
+    error ZeroAddress();
 
     /**
      * @notice Reverts when try to change commission rate with same value as previous.
