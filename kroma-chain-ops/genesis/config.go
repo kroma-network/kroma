@@ -283,9 +283,8 @@ type DeployConfig struct {
 	ValidatorManagerMinRegisterAmount *hexutil.Big `json:"validatorManagerMinRegisterAmount"`
 	// ValidatorManagerMinActivateAmount is the amount of the minimum activation amount.
 	ValidatorManagerMinActivateAmount *hexutil.Big `json:"validatorManagerMinActivateAmount"`
-	// ValidatorManagerCommissionMinChangeSeconds is the minimum duration of commission change in
-	// seconds.
-	ValidatorManagerCommissionMinChangeSeconds uint64 `json:"validatorManagerCommissionMinChangeSeconds"`
+	// ValidatorManagerCommissionChangeDelaySeconds is the delay to finalize the commission rate change in seconds.
+	ValidatorManagerCommissionChangeDelaySeconds uint64 `json:"validatorManagerCommissionChangeDelaySeconds"`
 	// ValidatorManagerRoundDurationSeconds is the duration of one submission round in seconds.
 	ValidatorManagerRoundDurationSeconds uint64 `json:"validatorManagerRoundDurationSeconds"`
 	// ValidatorManagerJailPeriodSeconds is the duration of jail period in seconds.
@@ -550,8 +549,8 @@ func (d *DeployConfig) Check() error {
 	if d.ValidatorManagerMinActivateAmount.ToInt().Cmp(d.ValidatorManagerMinRegisterAmount.ToInt()) < 0 {
 		return fmt.Errorf("%w: ValidatorManagerMinActivateAmount must equal or more than ValidatorManagerMinRegisterAmount", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorManagerCommissionMinChangeSeconds == 0 {
-		return fmt.Errorf("%w: ValidatorManagerCommissionMinChangeSeconds cannot be 0", ErrInvalidDeployConfig)
+	if d.ValidatorManagerCommissionChangeDelaySeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerCommissionChangeDelaySeconds cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.ValidatorManagerRoundDurationSeconds == 0 {
 		return fmt.Errorf("%w: ValidatorManagerRoundDurationSeconds cannot be 0", ErrInvalidDeployConfig)

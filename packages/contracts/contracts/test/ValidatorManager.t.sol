@@ -69,10 +69,6 @@ contract MockValidatorManager is ValidatorManager {
     function nextPriorityValidator() external view returns (address) {
         return _nextPriorityValidator;
     }
-
-    function commissionRateChangedAt(address validator) external view returns (uint128) {
-        return _validatorInfo[validator].commissionRateChangedAt;
-    }
 }
 
 contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
@@ -85,7 +81,6 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         address indexed validator,
         bool activated,
         uint8 commissionRate,
-        uint8 commissionMaxChangeRate,
         uint128 assets
     );
 
@@ -93,7 +88,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
     event ValidatorStopped(address indexed validator, uint256 stopsAt);
 
-    event ValidatorCommissionRateChanged(
+    event ValidatorCommissionChangeInitiated(
+        address indexed validator,
+        uint8 oldCommissionRate,
+        uint8 newCommissionRate
+    );
+
+    event ValidatorCommissionChangeFinalized(
         address indexed validator,
         uint8 oldCommissionRate,
         uint8 newCommissionRate
@@ -182,7 +183,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMgr.TRUSTED_VALIDATOR(), trusted);
         assertEq(valMgr.MIN_REGISTER_AMOUNT(), minRegisterAmount);
         assertEq(valMgr.MIN_ACTIVATE_AMOUNT(), minActivateAmount);
-        assertEq(valMgr.COMMISSION_RATE_MIN_CHANGE_SECONDS(), commissionRateMinChangeSeconds);
+        assertEq(valMgr.COMMISSION_CHANGE_DELAY_SECONDS(), commissionChangeDelaySeconds);
         assertEq(valMgr.ROUND_DURATION_SECONDS(), roundDuration);
         assertEq(valMgr.JAIL_PERIOD_SECONDS(), jailPeriodSeconds);
         assertEq(valMgr.JAIL_THRESHOLD(), jailThreshold);
@@ -202,23 +203,20 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         uint128 assets = minActivateAmount;
         uint8 commissionRate = 10;
-        uint8 commissionMaxChangeRate = 5;
 
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectEmit(true, false, false, true, address(valMgr));
         emit ValidatorActivated(trusted, block.timestamp);
         vm.expectEmit(true, true, false, true, address(valMgr));
-        emit ValidatorRegistered(trusted, true, commissionRate, commissionMaxChangeRate, assets);
-        valMgr.registerValidator(assets, commissionRate, commissionMaxChangeRate, withdrawAcc);
+        emit ValidatorRegistered(trusted, true, commissionRate, assets);
+        valMgr.registerValidator(assets, commissionRate, withdrawAcc);
         vm.stopPrank();
 
         assertEq(assetToken.balanceOf(trusted), trustedBalance - assets);
         assertEq(assetMgr.totalKroAssets(trusted), assets);
         assertEq(valMgr.getCommissionRate(trusted), commissionRate);
-        assertEq(valMgr.getCommissionMaxChangeRate(trusted), commissionMaxChangeRate);
         assertEq(valMgr.getWithdrawAccount(trusted), withdrawAcc);
-        assertEq(mockValMgr.commissionRateChangedAt(trusted), block.timestamp);
 
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
         assertEq(valMgr.activatedValidatorCount(), count + 1);
@@ -230,13 +228,12 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         uint128 assets = minActivateAmount - 1;
         uint8 commissionRate = 10;
-        uint8 commissionMaxChangeRate = 5;
 
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectEmit(true, true, false, true, address(valMgr));
-        emit ValidatorRegistered(trusted, false, commissionRate, commissionMaxChangeRate, assets);
-        valMgr.registerValidator(assets, commissionRate, commissionMaxChangeRate, withdrawAcc);
+        emit ValidatorRegistered(trusted, false, commissionRate, assets);
+        valMgr.registerValidator(assets, commissionRate, withdrawAcc);
         vm.stopPrank();
 
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.REGISTERED);
@@ -252,7 +249,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMgr.registerValidator(assets, 10, 5, withdrawAcc);
+        valMgr.registerValidator(assets, 10, withdrawAcc);
     }
 
     function test_registerValidator_smallAsset_reverts() external {
@@ -261,7 +258,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.InsufficientAsset.selector);
-        valMgr.registerValidator(assets, 10, 5, withdrawAcc);
+        valMgr.registerValidator(assets, 10, withdrawAcc);
     }
 
     function test_registerValidator_largeCommissionRate_reverts() external {
@@ -270,16 +267,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.MaxCommissionRateExceeded.selector);
-        valMgr.registerValidator(assets, 101, 5, withdrawAcc);
-    }
-
-    function test_registerValidator_largeCommissionMaxChangeRate_reverts() external {
-        uint128 assets = minRegisterAmount;
-
-        vm.startPrank(trusted);
-        assetToken.approve(address(assetMgr), uint256(assets));
-        vm.expectRevert(IValidatorManager.MaxCommissionChangeRateExceeded.selector);
-        valMgr.registerValidator(assets, 10, 101, withdrawAcc);
+        valMgr.registerValidator(assets, 101, withdrawAcc);
     }
 
     function test_registerValidator_withdrawZeroAddr_reverts() external {
@@ -288,7 +276,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.ZeroAddress.selector);
-        valMgr.registerValidator(assets, 10, 5, address(0));
+        valMgr.registerValidator(assets, 10, address(0));
     }
 
     function test_activateValidator_succeeds() external {
@@ -548,111 +536,109 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         valMgr.afterSubmitL2Output(0);
     }
 
-    function test_changeCommissionRate_succeeds() public {
+    function test_initCommissionChange_succeeds() public {
         _registerValidator(asserter, minActivateAmount);
 
         uint8 commissionRate = valMgr.getCommissionRate(asserter);
-        uint8 commissionMaxChangeRate = valMgr.getCommissionMaxChangeRate(asserter);
-        uint8 newCommissionRate = commissionRate + commissionMaxChangeRate;
+        uint8 newCommissionRate = commissionRate + 1;
 
-        vm.warp(
-            mockValMgr.commissionRateChangedAt(asserter) +
-                valMgr.COMMISSION_RATE_MIN_CHANGE_SECONDS()
-        );
         vm.prank(asserter);
-        vm.expectEmit(false, false, false, true, address(valMgr));
-        emit ValidatorCommissionRateChanged(asserter, commissionRate, newCommissionRate);
-        valMgr.changeCommissionRate(newCommissionRate);
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorCommissionChangeInitiated(asserter, commissionRate, newCommissionRate);
+        valMgr.initCommissionChange(newCommissionRate);
 
-        assertEq(valMgr.getCommissionRate(asserter), newCommissionRate);
+        assertEq(valMgr.getPendingCommissionRate(asserter), newCommissionRate);
+        assertEq(
+            valMgr.canFinalizeCommissionChangeAt(asserter),
+            block.timestamp + valMgr.COMMISSION_CHANGE_DELAY_SECONDS()
+        );
     }
 
-    function test_changeCommissionRate_twice_succeeds() external {
-        test_changeCommissionRate_succeeds();
-
-        uint8 commissionRate = valMgr.getCommissionRate(asserter);
-        uint8 commissionMaxChangeRate = valMgr.getCommissionMaxChangeRate(asserter);
-        uint8 newCommissionRate = commissionRate - commissionMaxChangeRate;
-
-        vm.warp(
-            mockValMgr.commissionRateChangedAt(asserter) +
-                valMgr.COMMISSION_RATE_MIN_CHANGE_SECONDS()
-        );
-        vm.prank(asserter);
-        valMgr.changeCommissionRate(newCommissionRate);
-
-        assertEq(valMgr.getCommissionRate(asserter), newCommissionRate);
-    }
-
-    function test_changeCommissionRate_exited_reverts() external {
+    function test_initCommissionChange_exited_reverts() external {
         _registerValidator(trusted, minActivateAmount);
+
         uint128 kroShares = assetMgr.getKroTotalShareBalance(trusted, trusted);
         vm.prank(trusted);
         assetMgr.initUndelegate(trusted, kroShares);
-
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.EXITED);
 
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMgr.changeCommissionRate(15);
+        valMgr.initCommissionChange(15);
     }
 
-    function test_changeCommissionRate_inJail_reverts() external {
+    function test_initCommissionChange_inJail_reverts() external {
         test_afterSubmitL2Output_tryJail_succeeds();
 
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMgr.changeCommissionRate(15);
+        valMgr.initCommissionChange(15);
     }
 
-    function test_changeCommissionRate_minChangeSecNotElapsed_reverts() external {
+    function test_initCommissionChange_largeCommissionRate_reverts() external {
         _registerValidator(asserter, minActivateAmount);
 
-        vm.prank(asserter);
-        vm.expectRevert(IValidatorManager.NotElapsedCommissionChangePeriod.selector);
-        valMgr.changeCommissionRate(15);
-    }
-
-    function test_changeCommissionRate_largeCommissionRate_reverts() external {
-        _registerValidator(asserter, minActivateAmount);
-
-        vm.warp(
-            mockValMgr.commissionRateChangedAt(asserter) +
-                valMgr.COMMISSION_RATE_MIN_CHANGE_SECONDS()
-        );
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.MaxCommissionRateExceeded.selector);
-        valMgr.changeCommissionRate(101);
+        valMgr.initCommissionChange(101);
     }
 
-    function test_changeCommissionRate_sameCommissionRate_reverts() external {
+    function test_initCommissionChange_sameCommissionRate_reverts() external {
         _registerValidator(asserter, minActivateAmount);
 
         uint8 commissionRate = valMgr.getCommissionRate(asserter);
-
-        vm.warp(
-            mockValMgr.commissionRateChangedAt(asserter) +
-                valMgr.COMMISSION_RATE_MIN_CHANGE_SECONDS()
-        );
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.SameCommissionRate.selector);
-        valMgr.changeCommissionRate(commissionRate);
+        valMgr.initCommissionChange(commissionRate);
     }
 
-    function test_changeCommissionRate_largeChangeRate_reverts() external {
-        _registerValidator(asserter, minActivateAmount);
+    function test_finalizeCommissionChange_succeeds() public {
+        test_initCommissionChange_succeeds();
 
-        uint8 commissionRate = valMgr.getCommissionRate(asserter);
-        uint8 commissionMaxChangeRate = valMgr.getCommissionMaxChangeRate(asserter);
-        uint8 newCommissionRate = commissionRate + commissionMaxChangeRate + 1;
+        uint8 oldCommissionRate = valMgr.getCommissionRate(asserter);
+        uint8 newCommissionRate = valMgr.getPendingCommissionRate(asserter);
 
-        vm.warp(
-            mockValMgr.commissionRateChangedAt(asserter) +
-                valMgr.COMMISSION_RATE_MIN_CHANGE_SECONDS()
-        );
+        vm.warp(valMgr.canFinalizeCommissionChangeAt(asserter));
         vm.prank(asserter);
-        vm.expectRevert(IValidatorManager.CommissionChangeRateExceeded.selector);
-        valMgr.changeCommissionRate(newCommissionRate);
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorCommissionChangeFinalized(asserter, oldCommissionRate, newCommissionRate);
+        valMgr.finalizeCommissionChange();
+
+        assertEq(valMgr.getCommissionRate(asserter), newCommissionRate);
+        assertEq(valMgr.getPendingCommissionRate(asserter), 0);
+        assertEq(
+            valMgr.canFinalizeCommissionChangeAt(asserter),
+            valMgr.COMMISSION_CHANGE_DELAY_SECONDS()
+        );
+    }
+
+    function test_finalizeCommissionChange_exited_reverts() external {
+        _registerValidator(trusted, minActivateAmount);
+
+        uint128 kroShares = assetMgr.getKroTotalShareBalance(trusted, trusted);
+        vm.prank(trusted);
+        assetMgr.initUndelegate(trusted, kroShares);
+        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.EXITED);
+
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
+        valMgr.finalizeCommissionChange();
+    }
+
+    function test_finalizeCommissionChange_inJail_reverts() external {
+        test_afterSubmitL2Output_tryJail_succeeds();
+
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
+        valMgr.finalizeCommissionChange();
+    }
+
+    function test_finalizeCommissionChange_changeDelayNotElapsed_reverts() external {
+        test_initCommissionChange_succeeds();
+
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.NotElapsedCommissionChangeDelay.selector);
+        valMgr.finalizeCommissionChange();
     }
 
     function test_tryUnjail_succeeds() external {

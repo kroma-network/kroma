@@ -242,7 +242,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint128 internal minSlashingAmount = 1e18;
 
     // ValidatorManager constructor arguments
-    uint128 internal commissionRateMinChangeSeconds = 7 days;
+    uint128 internal commissionChangeDelaySeconds = 7 days;
     uint128 internal jailPeriodSeconds = 7 days;
     uint128 internal jailThreshold = 2;
     uint128 internal maxOutputFinalizations = 10;
@@ -350,7 +350,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _l2Oracle: oracle,
             _assetManager: assetMgr,
             _trustedValidator: trusted,
-            _commissionRateMinChangeSeconds: commissionRateMinChangeSeconds,
+            _commissionChangeDelaySeconds: commissionChangeDelaySeconds,
             _roundDurationSeconds: uint128(roundDuration),
             _jailPeriodSeconds: jailPeriodSeconds,
             _jailThreshold: jailThreshold,
@@ -405,7 +405,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     function _registerValidator(address validator, uint128 assets) internal {
         vm.startPrank(validator);
         assetToken.approve(address(assetMgr), uint256(assets));
-        valMgr.registerValidator(assets, 10, 5, withdrawAcc);
+        valMgr.registerValidator(assets, 10, withdrawAcc);
         vm.stopPrank();
     }
 

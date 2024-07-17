@@ -172,7 +172,6 @@ func Register(ctx *cli.Context) error {
 	}
 
 	commissionRate := uint8(ctx.Uint64("commission-rate"))
-	commissionMaxChangeRate := uint8(ctx.Uint64("commission-max-change-rate"))
 	withdrawAccount, err := opservice.ParseAddress(ctx.String(WithdrawAccountFlag.Name))
 	if err != nil {
 		return fmt.Errorf("failed to parse withdraw address: %w", err)
@@ -183,7 +182,7 @@ func Register(ctx *cli.Context) error {
 		return fmt.Errorf("failed to get ValidatorManager ABI: %w", err)
 	}
 
-	txData, err := valMgrAbi.Pack("registerValidator", assets, commissionRate, commissionMaxChangeRate, withdrawAccount)
+	txData, err := valMgrAbi.Pack("registerValidator", assets, commissionRate, withdrawAccount)
 	if err != nil {
 		return fmt.Errorf("failed to create register validator transaction data: %w", err)
 	}
@@ -257,7 +256,7 @@ func Unjail(ctx *cli.Context) error {
 	return nil
 }
 
-func ChangeCommissionRate(ctx *cli.Context) error {
+func InitCommissionChange(ctx *cli.Context) error {
 	commissionRate := uint8(ctx.Uint64("commission-rate"))
 
 	txManager, err := newTxManager(ctx)
@@ -270,9 +269,37 @@ func ChangeCommissionRate(ctx *cli.Context) error {
 		return fmt.Errorf("failed to get ValidatorManager ABI: %w", err)
 	}
 
-	txData, err := valMgrAbi.Pack("changeCommissionRate", commissionRate)
+	txData, err := valMgrAbi.Pack("initCommissionChange", commissionRate)
 	if err != nil {
-		return fmt.Errorf("failed to create change commission rate transaction data: %w", err)
+		return fmt.Errorf("failed to create init commission change transaction data: %w", err)
+	}
+
+	valMgrAddr, err := opservice.ParseAddress(ctx.String(flags.ValMgrAddressFlag.Name))
+	if err != nil {
+		return fmt.Errorf("failed to parse ValidatorManager address: %w", err)
+	}
+
+	if err = sendTransaction(txManager, valMgrAddr, txData, "0"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func FinalizeCommissionChange(ctx *cli.Context) error {
+	txManager, err := newTxManager(ctx)
+	if err != nil {
+		return err
+	}
+
+	valMgrAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
+	if err != nil {
+		return fmt.Errorf("failed to get ValidatorManager ABI: %w", err)
+	}
+
+	txData, err := valMgrAbi.Pack("finalizeCommissionChange")
+	if err != nil {
+		return fmt.Errorf("failed to create finalize commission change transaction data: %w", err)
 	}
 
 	valMgrAddr, err := opservice.ParseAddress(ctx.String(flags.ValMgrAddressFlag.Name))

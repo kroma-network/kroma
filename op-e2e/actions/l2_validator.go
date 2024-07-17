@@ -181,7 +181,6 @@ func (v *L2Validator) ActRegisterValidator(t Testing, assets *big.Int) {
 		"registerValidator",
 		assets,
 		uint8(10),
-		uint8(2),
 		v.address,
 	)
 	require.NoError(t, err)

@@ -95,7 +95,7 @@ func (h *Helper) RegisterToValMgr(priv *ecdsa.PrivateKey, amount *big.Int, withd
 	_, err = wait.ForReceiptOK(context.Background(), h.l1Client, tx.Hash())
 	require.NoError(h.t, err)
 
-	tx, err = h.ValMgrContract.RegisterValidator(transactOpts, amount, uint8(10), uint8(2), withdrawAddr)
+	tx, err = h.ValMgrContract.RegisterValidator(transactOpts, amount, uint8(10), withdrawAddr)
 	require.NoError(h.t, err)
 
 	_, err = wait.ForReceiptOK(context.Background(), h.l1Client, tx.Hash())

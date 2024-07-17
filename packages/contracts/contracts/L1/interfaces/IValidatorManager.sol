@@ -40,27 +40,26 @@ interface IValidatorManager {
     /**
      * @notice Constructs the constructor parameters of ValidatorManager contract.
      *
-     * @custom:field _l2Oracle                       Address of the L2OutputOracle contract.
-     * @custom:field _assetManager                   Address of the AssetManager contract.
-     * @custom:field _trustedValidator               Address of the trusted validator.
-     * @custom:field _commissionRateMinChangeSeconds The minimum duration to change the commission
-     *                                               rate in seconds.
-     * @custom:field _roundDurationSeconds           The duration of one submission round in
-     *                                               seconds.
-     * @custom:field _jailPeriodSeconds              The minimum duration to get out of jail in
-     *                                               seconds.
-     * @custom:field _jailThreshold                  The maximum allowed number of output
-     *                                               non-submissions before jailed.
-     * @custom:field _maxOutputFinalizations         Max number of finalized outputs.
-     * @custom:field _baseReward                     Base reward for the validator.
-     * @custom:field _minRegisterAmount              Minimum amount to register as a validator.
-     * @custom:field _minActivateAmount              Minimum amount to activate a validator.
+     * @custom:field _l2Oracle                     Address of the L2OutputOracle contract.
+     * @custom:field _assetManager                 Address of the AssetManager contract.
+     * @custom:field _trustedValidator             Address of the trusted validator.
+     * @custom:field _commissionChangeDelaySeconds The delay to finalize the commission rate change
+     *                                             in seconds.
+     * @custom:field _roundDurationSeconds         The duration of one submission round in seconds.
+     * @custom:field _jailPeriodSeconds            The minimum duration to get out of jail in
+     *                                             seconds.
+     * @custom:field _jailThreshold                The maximum allowed number of output
+     *                                             non-submissions before jailed.
+     * @custom:field _maxOutputFinalizations       Max number of finalized outputs.
+     * @custom:field _baseReward                   Base reward for the validator.
+     * @custom:field _minRegisterAmount            Minimum amount to register as a validator.
+     * @custom:field _minActivateAmount            Minimum amount to activate a validator.
      */
     struct ConstructorParams {
         L2OutputOracle _l2Oracle;
         AssetManager _assetManager;
         address _trustedValidator;
-        uint128 _commissionRateMinChangeSeconds;
+        uint128 _commissionChangeDelaySeconds;
         uint128 _roundDurationSeconds;
         uint128 _jailPeriodSeconds;
         uint128 _jailThreshold;
@@ -73,21 +72,21 @@ interface IValidatorManager {
     /**
      * @notice Constructs the information of a validator.
      *
-     * @custom:field isInitiated             Whether the validator is initiated.
-     * @custom:field noSubmissionCount       Number of counts that the validator did not submit the
-     *                                       output in priority round.
-     * @custom:field commissionRate          Commission rate of validator.
-     * @custom:field commissionMaxChangeRate Maximum changeable commission rate at once.
-     * @custom:field commissionRateChangedAt Last timestamp when the commission rate was changed.
-     * @custom:field withdrawAccount         An account where assets can be withdrawn to. Only this
-     *                                       account can withdraw the assets.
+     * @custom:field isInitiated              Whether the validator is initiated.
+     * @custom:field noSubmissionCount        Number of counts that the validator did not submit the
+     *                                        output in priority round.
+     * @custom:field commissionRate           Commission rate of validator.
+     * @custom:field pendingCommissionRate    Pending commission rate of validator.
+     * @custom:field commissionChangeInitTime Timestamp of commission change initialization.
+     * @custom:field withdrawAccount          An account where assets can be withdrawn to. Only this
+     *                                        account can withdraw the assets.
      */
     struct Validator {
         bool isInitiated;
         uint8 noSubmissionCount;
         uint8 commissionRate;
-        uint8 commissionMaxChangeRate;
-        uint128 commissionRateChangedAt;
+        uint8 pendingCommissionRate;
+        uint128 commissionChangeInitTime;
         address withdrawAccount;
     }
 
@@ -97,14 +96,12 @@ interface IValidatorManager {
      * @param validator               Address of the validator.
      * @param activated               If the validator is activated or not.
      * @param commissionRate          The commission rate the validator sets.
-     * @param commissionMaxChangeRate Maximum changeable commission rate at once.
      * @param assets                  The number of assets the validator self-delegates.
      */
     event ValidatorRegistered(
         address indexed validator,
         bool activated,
         uint8 commissionRate,
-        uint8 commissionMaxChangeRate,
         uint128 assets
     );
 
@@ -125,13 +122,26 @@ interface IValidatorManager {
     event ValidatorStopped(address indexed validator, uint256 stopsAt);
 
     /**
-     * @notice Emitted when a validator changed commission rate.
+     * @notice Emitted when a validator initiated commission rate change.
      *
      * @param validator         Address of the validator.
      * @param oldCommissionRate The old commission rate.
      * @param newCommissionRate The new commission rate.
      */
-    event ValidatorCommissionRateChanged(
+    event ValidatorCommissionChangeInitiated(
+        address indexed validator,
+        uint8 oldCommissionRate,
+        uint8 newCommissionRate
+    );
+
+    /**
+     * @notice Emitted when a validator finalized commission rate change.
+     *
+     * @param validator         Address of the validator.
+     * @param oldCommissionRate The old commission rate.
+     * @param newCommissionRate The new commission rate.
+     */
+    event ValidatorCommissionChangeFinalized(
         address indexed validator,
         uint8 oldCommissionRate,
         uint8 newCommissionRate
@@ -217,29 +227,19 @@ interface IValidatorManager {
     error MaxCommissionRateExceeded();
 
     /**
-     * @notice Reverts when the commission max change rate exceeds the max value.
-     */
-    error MaxCommissionChangeRateExceeded();
-
-    /**
-     * @notice Reverts when the address is zero address.
-     */
-    error ZeroAddress();
-
-    /**
      * @notice Reverts when try to change commission rate with same value as previous.
      */
     error SameCommissionRate();
 
     /**
-     * @notice Reverts when try to change commission rate beyond max change rate.
+     * @notice Reverts when the delay of commission rate change finalization has not elapsed.
      */
-    error CommissionChangeRateExceeded();
+    error NotElapsedCommissionChangeDelay();
 
     /**
-     * @notice Reverts when the min change seconds of commission has not elapsed.
+     * @notice Reverts when the address is zero address.
      */
-    error NotElapsedCommissionChangePeriod();
+    error ZeroAddress();
 
     /**
      * @notice Reverts when try to unjail before jail period elapsed.
@@ -255,16 +255,14 @@ interface IValidatorManager {
      * @notice Registers as a validator with assets at least MIN_REGISTER_AMOUNT. The validator with
      *         assets more than MIN_ACTIVATE_AMOUNT can be activated at the same time.
      *
-     * @param assets                  The amount of assets to self-delegate.
-     * @param commissionRate          The commission rate the validator sets.
-     * @param commissionMaxChangeRate Maximum changeable commission rate at once.
-     * @param withdrawAccount         An account where assets can be withdrawn to. Only this account
-     *                                can withdraw the assets.
+     * @param assets          The amount of assets to self-delegate.
+     * @param commissionRate  The commission rate the validator sets.
+     * @param withdrawAccount An account where assets can be withdrawn to. Only this account can
+     *                        withdraw the assets.
      */
     function registerValidator(
         uint128 assets,
         uint8 commissionRate,
-        uint8 commissionMaxChangeRate,
         address withdrawAccount
     ) external;
 
@@ -284,14 +282,19 @@ interface IValidatorManager {
     function afterSubmitL2Output(uint256 outputIndex) external;
 
     /**
-     * @notice Changes the commission rate of a validator. An exited or jailed validator cannot
-     *         change it, and a validator can change it after COMMISION_RATE_MIN_CHANGE_SECONDS
-     *         elapsed since the last changed time. Also, the validator can only make changes within
-     *         the commissionMaxChangeRate that the validator set initially.
+     * @notice Initiates the commission rate change of a validator. An exited or jailed validator
+     *         cannot initiate it.
      *
      * @param newCommissionRate The new commission rate to apply.
      */
-    function changeCommissionRate(uint8 newCommissionRate) external;
+    function initCommissionChange(uint8 newCommissionRate) external;
+
+    /**
+     * @notice Finalizes the commission rate change of a validator. An exited or jailed validator
+     *         cannot finalize it, and a validator can finalize it after
+     *         COMMISION_CHANGE_DELAY_SECONDS elapsed since the initialization of commission change.
+     */
+    function finalizeCommissionChange() external;
 
     /**
      * @notice Attempts to unjail a validator. Only Colosseum can set force to true, otherwise only
