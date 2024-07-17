@@ -105,10 +105,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     modifier isRegistered(address validator) {
         if (
-            msg.sender != validator &&
-            (VALIDATOR_MANAGER.getStatus(validator) <
-                IValidatorManager.ValidatorStatus.REGISTERED ||
-                VALIDATOR_MANAGER.inJail(validator))
+            VALIDATOR_MANAGER.getStatus(validator) < IValidatorManager.ValidatorStatus.REGISTERED ||
+            VALIDATOR_MANAGER.inJail(validator)
         ) revert ImproperValidatorStatus();
         _;
     }
@@ -258,6 +256,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     function reflectiveWeight(address validator) external view returns (uint128) {
         return
             _vaults[validator].asset.totalKro +
+            _vaults[validator].asset.validatorKro +
             _vaults[validator].asset.boostedReward +
             _vaults[validator].asset.validatorRewardKro;
     }
@@ -299,6 +298,32 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @notice Deposit KRO to register as a validator.
+     *         This function is only called by the ValidatorManager contract.
+     *
+     * @param validator Address of the validator.
+     * @param assets    The amount of KRO to deposit.
+     */
+    function depositToRegister(address validator, uint128 assets) external onlyValidatorManager {
+        if (assets == 0) revert NotAllowedZeroInput();
+        _deposit(validator, assets, false);
+        emit Deposited(validator, assets);
+    }
+
+    /**
+     * @notice Deposit KRO. To deposit KRO, the validator should be initiated.
+     *
+     * @param assets The amount of KRO to deposit.
+     */
+    function deposit(uint128 assets) external {
+        if (assets == 0) revert NotAllowedZeroInput();
+        if (VALIDATOR_MANAGER.getStatus(msg.sender) == IValidatorManager.ValidatorStatus.NONE)
+            revert ImproperValidatorStatus();
+        _deposit(msg.sender, assets, true);
+        emit Deposited(msg.sender, assets);
+    }
+
+    /**
      * @inheritdoc IAssetManager
      */
     function delegate(
@@ -306,25 +331,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 assets
     ) external isRegistered(validator) returns (uint128) {
         if (assets == 0) revert NotAllowedZeroInput();
-        uint128 shares = _delegate(validator, msg.sender, assets, true);
+        uint128 shares = _delegate(validator, msg.sender, assets);
         emit KroDelegated(validator, msg.sender, assets, shares);
-        return shares;
-    }
-
-    /**
-     * @notice Delegate KRO to the validator and returns the amount of shares that the vault would
-     *        exchange. This function is only called by the ValidatorManager contract.
-     *
-     * @param validator Address of the validator.
-     * @param assets    The amount of KRO to delegate.
-     *
-     * @return The amount of shares that the Vault would exchange for the amount of assets provided.
-     */
-    function delegateToRegister(
-        address validator,
-        uint128 assets
-    ) external onlyValidatorManager returns (uint128) {
-        uint128 shares = _delegate(validator, validator, assets, false);
         return shares;
     }
 
@@ -695,6 +703,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @return The tax amount.
      * @return The challenge reward to be added to the winner's asset.
      */
+    // TODO: change this according to the new design regarding to bond
     function modifyBalanceWithChallenge(
         address validator,
         uint128 challengeReward,
@@ -897,20 +906,38 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @notice Internal function to delegate KRO to the validator.
+     * @notice Internal function to deposit KRO by the validator.
      *
      * @param validator  Address of the validator.
-     * @param owner      Address of the delegator.
-     * @param assets     The amount of KRO to delegate.
+     * @param assets     The amount of KRO to deposit.
      * @param updateTree Flag to update the validator tree.
+     */
+    function _deposit(address validator, uint128 assets, bool updateTree) internal {
+        Vault storage vault = _vaults[validator];
+        ASSET_TOKEN.safeTransferFrom(validator, address(this), assets);
+
+        unchecked {
+            vault.asset.validatorKro += assets;
+        }
+
+        if (updateTree) {
+            VALIDATOR_MANAGER.updateValidatorTree(validator, false);
+        }
+    }
+
+    /**
+     * @notice Internal function to delegate KRO to the validator.
+     *
+     * @param validator Address of the validator.
+     * @param owner     Address of the delegator.
+     * @param assets    The amount of KRO to delegate.
      *
      * @return The amount of shares that the Vault would exchange for the amount of assets provided.
      */
     function _delegate(
         address validator,
         address owner,
-        uint128 assets,
-        bool updateTree
+        uint128 assets
     ) internal returns (uint128) {
         uint128 shares = _convertToKroShares(validator, assets);
         Vault storage vault = _vaults[validator];
@@ -921,15 +948,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
             vault.asset.totalKro += assets;
             vault.asset.totalKroShares += shares;
             vault.kroDelegators[owner].shares += shares;
-
-            if (owner == validator) {
-                vault.asset.validatorKro += assets;
-            }
         }
 
-        if (updateTree) {
-            VALIDATOR_MANAGER.updateValidatorTree(validator, false);
-        }
+        VALIDATOR_MANAGER.updateValidatorTree(validator, false);
 
         return shares;
     }
@@ -1020,19 +1041,12 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 shares
     ) internal {
         Vault storage vault = _vaults[validator];
-        uint128 ownerTotalShares = vault.kroDelegators[owner].shares;
 
         unchecked {
             vault.asset.totalKroShares -= shares;
             vault.kroDelegators[owner].shares -= shares;
 
             vault.asset.totalKro -= assets;
-            if (owner == validator) {
-                vault.asset.validatorKro -= vault.asset.validatorKro.mulDiv(
-                    shares,
-                    ownerTotalShares
-                );
-            }
             _addPendingKroShares(vault, assets, shares);
         }
 

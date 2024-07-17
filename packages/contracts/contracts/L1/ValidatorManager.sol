@@ -189,7 +189,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         validatorInfo.commissionRate = commissionRate;
         validatorInfo.withdrawAccount = withdrawAccount;
 
-        ASSET_MANAGER.delegateToRegister(msg.sender, assets);
+        ASSET_MANAGER.depositToRegister(msg.sender, assets);
 
         bool ready = assets >= MIN_ACTIVATE_AMOUNT;
         if (ready) {

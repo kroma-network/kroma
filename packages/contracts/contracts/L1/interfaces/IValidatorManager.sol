@@ -96,7 +96,7 @@ interface IValidatorManager {
      * @param validator               Address of the validator.
      * @param activated               If the validator is activated or not.
      * @param commissionRate          The commission rate the validator sets.
-     * @param assets                  The number of assets the validator self-delegates.
+     * @param assets                  The number of assets the validator deposits.
      */
     event ValidatorRegistered(
         address indexed validator,
@@ -255,7 +255,7 @@ interface IValidatorManager {
      * @notice Registers as a validator with assets at least MIN_REGISTER_AMOUNT. The validator with
      *         assets more than MIN_ACTIVATE_AMOUNT can be activated at the same time.
      *
-     * @param assets          The amount of assets to self-delegate.
+     * @param assets          The amount of assets to deposit.
      * @param commissionRate  The commission rate the validator sets.
      * @param withdrawAccount An account where assets can be withdrawn to. Only this account can
      *                        withdraw the assets.
