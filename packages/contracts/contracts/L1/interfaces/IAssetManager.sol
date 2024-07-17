@@ -9,7 +9,7 @@ interface IAssetManager {
     /**
      * @notice Represents the asset information of the vault of a validator.
      *
-     * @custom:field totalKro           Total amount of KRO of delegators in the vault.
+     * @custom:field totalKro           Total amount of KRO of delegators in the vault (including totalKroInKgh).
      * @custom:field totalKroShares     Total shares for KRO delegation in the vault.
      * @custom:field totalKgh           Total number of KGH in the vault.
      * @custom:field totalKroInKgh      Total amount of KRO which KGHs in the vault have.
@@ -109,7 +109,7 @@ interface IAssetManager {
     }
 
     /**
-     * @notice Emitted when validator deposit KROs
+     * @notice Emitted when validator deposited KROs.
      *
      * @param validator Address of the validator.
      * @param amount    The amount of KRO deposited.
@@ -412,11 +412,11 @@ interface IAssetManager {
     function totalKroInKgh(address validator) external view returns (uint128);
 
     /**
-     * @notice Returns the total amount of KRO a validator has self-delegated.
+     * @notice Returns the total amount of KRO a validator has deposited.
      *
      * @param validator Address of the validator.
      *
-     * @return The total amount of KRO a validator has self-delegated.
+     * @return The total amount of KRO a validator has deposited.
      */
     function totalValidatorKro(address validator) external view returns (uint128);
 

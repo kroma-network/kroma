@@ -105,8 +105,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     modifier isRegistered(address validator) {
         if (
-            VALIDATOR_MANAGER.getStatus(validator) < IValidatorManager.ValidatorStatus.REGISTERED ||
-            VALIDATOR_MANAGER.inJail(validator)
+            (VALIDATOR_MANAGER.getStatus(validator) <
+                IValidatorManager.ValidatorStatus.REGISTERED) || VALIDATOR_MANAGER.inJail(validator)
         ) revert ImproperValidatorStatus();
         _;
     }
@@ -298,21 +298,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @inheritdoc IAssetManager
-     */
-    function delegate(
-        address validator,
-        uint128 assets
-    ) external isRegistered(validator) returns (uint128) {
-        if (assets == 0) revert NotAllowedZeroInput();
-        uint128 shares = _delegate(validator, msg.sender, assets);
-        emit KroDelegated(validator, msg.sender, assets, shares);
-        return shares;
-    }
-
-    /**
      * @notice Deposit KRO to register as a validator.
-     * This function is only called by the ValidatorManager contract.
+     *         This function is only called by the ValidatorManager contract.
      *
      * @param validator Address of the validator.
      * @param assets    The amount of KRO to deposit.
@@ -324,14 +311,29 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @notice Deposit KRO. To deposit KRO, the validator should be registered.
+     * @notice Deposit KRO. To deposit KRO, the validator should be initiated.
      *
      * @param assets The amount of KRO to deposit.
      */
-    function deposit(uint128 assets) external isRegistered(msg.sender) {
+    function deposit(uint128 assets) external {
         if (assets == 0) revert NotAllowedZeroInput();
+        if (VALIDATOR_MANAGER.getStatus(msg.sender) == IValidatorManager.ValidatorStatus.NONE)
+            revert ImproperValidatorStatus();
         _deposit(msg.sender, assets, true);
         emit Deposited(msg.sender, assets);
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
+    function delegate(
+        address validator,
+        uint128 assets
+    ) external isRegistered(validator) returns (uint128) {
+        if (assets == 0) revert NotAllowedZeroInput();
+        uint128 shares = _delegate(validator, msg.sender, assets);
+        emit KroDelegated(validator, msg.sender, assets, shares);
+        return shares;
     }
 
     /**
@@ -903,6 +905,14 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
             );
     }
 
+    /**
+     * @notice Internal function to deposit KRO to the validator.
+     *
+     * @param validator  Address of the validator.
+     * @param assets     The amount of KRO to delegate.
+     * @param updateTree Flag to update the validator tree.
+     */
+
     function _deposit(address validator, uint128 assets, bool updateTree) internal {
         Vault storage vault = _vaults[validator];
         ASSET_TOKEN.safeTransferFrom(validator, address(this), assets);
@@ -919,9 +929,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @notice Internal function to delegate KRO to the validator.
      *
-     * @param validator  Address of the validator.
-     * @param owner      Address of the delegator.
-     * @param assets     The amount of KRO to delegate.
+     * @param validator Address of the validator.
+     * @param owner     Address of the delegator.
+     * @param assets    The amount of KRO to delegate.
      *
      * @return The amount of shares that the Vault would exchange for the amount of assets provided.
      */
