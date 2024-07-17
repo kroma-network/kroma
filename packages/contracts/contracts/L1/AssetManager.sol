@@ -909,7 +909,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @notice Internal function to deposit KRO by the validator.
      *
      * @param validator  Address of the validator.
-     * @param assets     The amount of KRO to delegate.
+     * @param assets     The amount of KRO to deposit.
      * @param updateTree Flag to update the validator tree.
      */
     function _deposit(address validator, uint128 assets, bool updateTree) internal {
