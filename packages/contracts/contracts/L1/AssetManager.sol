@@ -251,7 +251,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @inheritdoc IAssetManager
+     * @notice Returns the reflective weight of given validator. It can be different from the actual
+     *         current weight of the validator in validator tree since it includes all accumulated
+     *         rewards.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The reflective weight of given validator.
      */
     function reflectiveWeight(address validator) external view returns (uint128) {
         return
@@ -311,9 +317,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @notice Deposit KRO. To deposit KRO, the validator should be initiated.
-     *
-     * @param assets The amount of KRO to deposit.
+     * @inheritdoc IAssetManager
      */
     function deposit(uint128 assets) external {
         if (assets == 0) revert NotAllowedZeroInput();
