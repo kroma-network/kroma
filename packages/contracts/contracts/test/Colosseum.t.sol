@@ -1084,119 +1084,119 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
     }
 
-    //    function test_proveFault_callValidatorManager_succeeds() public {
-    //        test_createChallenge_callValidatorManager_succeeds();
-    //
-    //        Types.Challenge memory challenge = colosseum.getChallenge(targetOutputIndex, challenger);
-    //
-    //        while (colosseum.isAbleToBisect(targetOutputIndex, challenger)) {
-    //            _bisect(targetOutputIndex, challenger, _nextSender(challenge));
-    //            challenge = colosseum.getChallenge(targetOutputIndex, challenger);
-    //        }
-    //
-    //        (
-    //            Types.OutputRootProof memory srcOutputRootProof,
-    //            Types.OutputRootProof memory dstOutputRootProof
-    //        ) = ColosseumTestData.outputRootProof();
-    //        Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
-    //        Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
-    //        ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
-    //        (ColosseumTestData.Account memory account, bytes[] memory merkleProof) = ColosseumTestData
-    //            .merkleProof();
-    //
-    //        Types.PublicInputProof memory proof = Types.PublicInputProof({
-    //            srcOutputRootProof: srcOutputRootProof,
-    //            dstOutputRootProof: dstOutputRootProof,
-    //            publicInput: publicInput,
-    //            rlps: rlps,
-    //            l2ToL1MessagePasserBalance: bytes32(account.balance),
-    //            l2ToL1MessagePasserCodeHash: account.codeHash,
-    //            merkleProof: merkleProof
-    //        });
-    //
-    //        uint256 position = _detectFault(challenge, challenge.challenger);
-    //
-    //        vm.expectCall(
-    //            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
-    //            abi.encodeWithSelector(
-    //                IValidatorManager.slash.selector,
-    //                targetOutputIndex,
-    //                challenger,
-    //                challenge.asserter
-    //            )
-    //        );
-    //        vm.prank(challenger);
-    //        colosseum.proveFault(targetOutputIndex, position, proof, pp.proof, pp.pair);
-    //    }
+    function test_proveFault_callValidatorManager_succeeds() public {
+        test_createChallenge_callValidatorManager_succeeds();
 
-    //    function test_dismissChallenge_callValidatorManager_succeeds() external {
-    //        Types.CheckpointOutput memory output = oracle.getL2Output(targetOutputIndex);
-    //
-    //        test_proveFault_callValidatorManager_succeeds();
-    //
-    //        vm.expectCall(
-    //            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
-    //            abi.encodeWithSelector(IValidatorManager.tryUnjail.selector, output.submitter, true)
-    //        );
-    //        vm.prank(colosseum.SECURITY_COUNCIL());
-    //        colosseum.dismissChallenge(
-    //            targetOutputIndex,
-    //            challenger,
-    //            output.submitter,
-    //            output.outputRoot,
-    //            bytes32(0)
-    //        );
-    //    }
+        Types.Challenge memory challenge = colosseum.getChallenge(targetOutputIndex, challenger);
 
-    //    function test_forceDeleteOutput_callValidatorManager_succeeds() external {
-    //        test_createChallenge_callValidatorManager_succeeds();
-    //
-    //        Types.Challenge memory challenge = colosseum.getChallenge(targetOutputIndex, challenger);
-    //
-    //        while (colosseum.isAbleToBisect(targetOutputIndex, challenger)) {
-    //            _bisect(targetOutputIndex, challenger, _nextSender(challenge));
-    //            challenge = colosseum.getChallenge(targetOutputIndex, challenger);
-    //        }
-    //
-    //        vm.expectCall(
-    //            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
-    //            abi.encodeWithSelector(
-    //                IValidatorManager.slash.selector,
-    //                targetOutputIndex,
-    //                colosseum.SECURITY_COUNCIL(),
-    //                challenge.asserter
-    //            )
-    //        );
-    //        vm.prank(colosseum.SECURITY_COUNCIL());
-    //        colosseum.forceDeleteOutput(targetOutputIndex);
-    //    }
+        while (colosseum.isAbleToBisect(targetOutputIndex, challenger)) {
+            _bisect(targetOutputIndex, challenger, _nextSender(challenge));
+            challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+        }
 
-    //    function test_challengerTimeout_callValidatorManager_succeeds() external {
-    //        test_createChallenge_callValidatorManager_succeeds();
-    //
-    //        Types.Challenge memory challenge = colosseum.getChallenge(targetOutputIndex, challenger);
-    //        _bisect(targetOutputIndex, challenger, challenge.asserter);
-    //
-    //        challenge = colosseum.getChallenge(targetOutputIndex, challenger);
-    //        vm.warp(challenge.timeoutAt + 1);
-    //
-    //        // check the challenger timeout
-    //        assertEq(_nextSender(challenge), challenger);
-    //        assertTrue(
-    //            colosseum.getStatus(targetOutputIndex, challenger) ==
-    //                Colosseum.ChallengeStatus.CHALLENGER_TIMEOUT
-    //        );
-    //
-    //        vm.expectCall(
-    //            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
-    //            abi.encodeWithSelector(
-    //                IValidatorManager.slash.selector,
-    //                targetOutputIndex,
-    //                challenge.asserter,
-    //                challenger
-    //            )
-    //        );
-    //        vm.prank(challenge.asserter);
-    //        colosseum.challengerTimeout(targetOutputIndex, challenger);
-    //    }
+        (
+            Types.OutputRootProof memory srcOutputRootProof,
+            Types.OutputRootProof memory dstOutputRootProof
+        ) = ColosseumTestData.outputRootProof();
+        Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
+        Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
+        ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
+        (ColosseumTestData.Account memory account, bytes[] memory merkleProof) = ColosseumTestData
+            .merkleProof();
+
+        Types.PublicInputProof memory proof = Types.PublicInputProof({
+            srcOutputRootProof: srcOutputRootProof,
+            dstOutputRootProof: dstOutputRootProof,
+            publicInput: publicInput,
+            rlps: rlps,
+            l2ToL1MessagePasserBalance: bytes32(account.balance),
+            l2ToL1MessagePasserCodeHash: account.codeHash,
+            merkleProof: merkleProof
+        });
+
+        uint256 position = _detectFault(challenge, challenge.challenger);
+
+        vm.expectCall(
+            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(
+                IValidatorManager.slash.selector,
+                targetOutputIndex,
+                challenger,
+                challenge.asserter
+            )
+        );
+        vm.prank(challenger);
+        colosseum.proveFault(targetOutputIndex, position, proof, pp.proof, pp.pair);
+    }
+
+    function test_dismissChallenge_callValidatorManager_succeeds() external {
+        Types.CheckpointOutput memory output = oracle.getL2Output(targetOutputIndex);
+
+        test_proveFault_callValidatorManager_succeeds();
+
+        vm.expectCall(
+            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(IValidatorManager.tryUnjail.selector, output.submitter, true)
+        );
+        vm.prank(colosseum.SECURITY_COUNCIL());
+        colosseum.dismissChallenge(
+            targetOutputIndex,
+            challenger,
+            output.submitter,
+            output.outputRoot,
+            bytes32(0)
+        );
+    }
+
+    function test_forceDeleteOutput_callValidatorManager_succeeds() external {
+        test_createChallenge_callValidatorManager_succeeds();
+
+        Types.Challenge memory challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+
+        while (colosseum.isAbleToBisect(targetOutputIndex, challenger)) {
+            _bisect(targetOutputIndex, challenger, _nextSender(challenge));
+            challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+        }
+
+        vm.expectCall(
+            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(
+                IValidatorManager.slash.selector,
+                targetOutputIndex,
+                colosseum.SECURITY_COUNCIL(),
+                challenge.asserter
+            )
+        );
+        vm.prank(colosseum.SECURITY_COUNCIL());
+        colosseum.forceDeleteOutput(targetOutputIndex);
+    }
+
+    function test_challengerTimeout_callValidatorManager_succeeds() external {
+        test_createChallenge_callValidatorManager_succeeds();
+
+        Types.Challenge memory challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+        _bisect(targetOutputIndex, challenger, challenge.asserter);
+
+        challenge = colosseum.getChallenge(targetOutputIndex, challenger);
+        vm.warp(challenge.timeoutAt + 1);
+
+        // check the challenger timeout
+        assertEq(_nextSender(challenge), challenger);
+        assertTrue(
+            colosseum.getStatus(targetOutputIndex, challenger) ==
+                Colosseum.ChallengeStatus.CHALLENGER_TIMEOUT
+        );
+
+        vm.expectCall(
+            address(colosseum.L2_ORACLE().VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(
+                IValidatorManager.slash.selector,
+                targetOutputIndex,
+                challenge.asserter,
+                challenger
+            )
+        );
+        vm.prank(challenge.asserter);
+        colosseum.challengerTimeout(targetOutputIndex, challenger);
+    }
 }

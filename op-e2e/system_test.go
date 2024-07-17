@@ -1742,124 +1742,124 @@ func TestChallenge(t *testing.T) {
 	}
 }
 
-//func TestChallengeV2(t *testing.T) {
-//	InitParallel(t)
-//
-//	cfg := DefaultSystemConfig(t)
-//	cfg.EnableChallenge = true
-//	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
-//	cfg.DeployConfig.L1BlockTime = 3
-//	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle
-//	cfg.ValidatorVersion = valhelper.ValidatorV2
-//	newTerminationIndex := hexutil.Big(*common.Big1)
-//	cfg.DeployConfig.ValidatorPoolTerminateOutputIndex = &newTerminationIndex
-//
-//	sys, err := cfg.Start(t)
-//	require.NoError(t, err, "Error starting up system")
-//	defer sys.Close()
-//
-//	l1Client := sys.Clients["l1"]
-//	validatorHelper := sys.ValidatorHelper()
-//
-//	// Register to ValidatorManager to be a challenger
-//	beforeAmount := cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt()
-//	validatorHelper.RegisterToValMgr(cfg.Secrets.Challenger1, beforeAmount, cfg.Secrets.Addresses().Challenger1)
-//
-//	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
-//	require.NoError(t, err)
-//
-//	colosseum, err := bindings.NewColosseumCaller(cfg.L1Deployments.ColosseumProxy, l1Client)
-//	require.NoError(t, err)
-//
-//	securityCouncil, err := bindings.NewSecurityCouncil(cfg.L1Deployments.SecurityCouncilProxy, l1Client)
-//	require.NoError(t, err)
-//
-//	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
-//	challengerAddr := cfg.Secrets.Addresses().Challenger1
-//	validatorAddr := cfg.Secrets.Addresses().TrustedValidator
-//
-//	// Subscribe slash event in ValidatorManager
-//	slashedCh := make(chan *bindings.ValidatorManagerSlashed, 1)
-//	slashedSub, err := validatorHelper.ValMgrContract.WatchSlashed(&bind.WatchOpts{}, slashedCh, []*big.Int{}, []common.Address{})
-//	require.NoError(t, err)
-//	defer slashedSub.Unsubscribe()
-//
-//	// Set a timeout for challenge success and output validation by security council
-//	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
-//	defer cancel()
-//
-//	ticker := time.NewTicker(time.Second)
-//	defer ticker.Stop()
-//
-//	for challengeCreated, numCheck, slashed := false, 0, false; ; <-ticker.C {
-//		select {
-//		case <-ctx.Done():
-//			t.Fatalf("Timed out waiting for challenge conclusion")
-//		case evt := <-slashedCh:
-//			require.Equal(t, validatorAddr, evt.Loser)
-//			require.Equal(t, targetOutputOracleIndex, evt.OutputIndex.Uint64())
-//
-//			slashedAmount := evt.Amount
-//			afterAmount, err := validatorHelper.AssetMgrContract.TotalKroAssets(&bind.CallOpts{}, validatorAddr)
-//			require.NoError(t, err)
-//			require.Equal(t, new(big.Int).Sub(beforeAmount, slashedAmount).Uint64(), afterAmount.Uint64())
-//
-//			taxNum, err := validatorHelper.AssetMgrContract.TAXNUMERATOR(&bind.CallOpts{})
-//			require.NoError(t, err)
-//			taxDenom, err := validatorHelper.AssetMgrContract.TAXDENOMINATOR(&bind.CallOpts{})
-//			require.NoError(t, err)
-//			taxAmount := new(big.Int).Div(new(big.Int).Mul(slashedAmount, taxNum), taxDenom)
-//
-//			scBalance, err := validatorHelper.AssetTokenContract.BalanceOf(&bind.CallOpts{}, cfg.L1Deployments.SecurityCouncilProxy)
-//			require.NoError(t, err)
-//			require.Equal(t, taxAmount.Uint64(), scBalance.Uint64())
-//
-//			slashed = true
-//		default:
-//			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), challengerAddr)
-//			require.NoError(t, err)
-//
-//			if challengeStatus == chal.StatusReadyToProve {
-//				challengeCreated = true
-//			}
-//			if !challengeCreated {
-//				continue
-//			}
-//			// after challenge is proven, status is NONE
-//			if challengeStatus != chal.StatusNone {
-//				continue
-//			}
-//
-//			// check validation request tx exists and not executed
-//			toBlock := latestBlock(t, l1Client)
-//			iter, err := securityCouncil.FilterValidationRequested(&bind.FilterOpts{End: &toBlock}, nil)
-//			require.NoError(t, err)
-//			eventExists := iter.Next()
-//			require.True(t, eventExists)
-//			tx, err := securityCouncil.Transactions(&bind.CallOpts{}, iter.Event.TransactionId)
-//			require.NoError(t, err)
-//			eventExists = iter.Next()
-//			require.False(t, eventExists)
-//			err = iter.Close()
-//			require.NoError(t, err)
-//			require.NotEqual(t, tx.Target, common.Address{})
-//			require.False(t, tx.Executed)
-//
-//			// check output is deleted by challenger
-//			output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
-//			require.NoError(t, err)
-//			require.Equal(t, output.Submitter, challengerAddr)
-//			require.True(t, val.IsOutputDeleted(output.OutputRoot))
-//
-//			numCheck++
-//		}
-//
-//		// after enough time for security council elapsed, the challenge is regarded to be correct
-//		if slashed && numCheck >= 5 {
-//			return
-//		}
-//	}
-//}
+func TestChallengeV2(t *testing.T) {
+	InitParallel(t)
+
+	cfg := DefaultSystemConfig(t)
+	cfg.EnableChallenge = true
+	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
+	cfg.DeployConfig.L1BlockTime = 3
+	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle
+	cfg.ValidatorVersion = valhelper.ValidatorV2
+	newTerminationIndex := hexutil.Big(*common.Big1)
+	cfg.DeployConfig.ValidatorPoolTerminateOutputIndex = &newTerminationIndex
+
+	sys, err := cfg.Start(t)
+	require.NoError(t, err, "Error starting up system")
+	defer sys.Close()
+
+	l1Client := sys.Clients["l1"]
+	validatorHelper := sys.ValidatorHelper()
+
+	// Register to ValidatorManager to be a challenger
+	beforeAmount := cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt()
+	validatorHelper.RegisterToValMgr(cfg.Secrets.Challenger1, beforeAmount, cfg.Secrets.Addresses().Challenger1)
+
+	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
+	require.NoError(t, err)
+
+	colosseum, err := bindings.NewColosseumCaller(cfg.L1Deployments.ColosseumProxy, l1Client)
+	require.NoError(t, err)
+
+	securityCouncil, err := bindings.NewSecurityCouncil(cfg.L1Deployments.SecurityCouncilProxy, l1Client)
+	require.NoError(t, err)
+
+	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
+	challengerAddr := cfg.Secrets.Addresses().Challenger1
+	validatorAddr := cfg.Secrets.Addresses().TrustedValidator
+
+	// Subscribe slash event in ValidatorManager
+	slashedCh := make(chan *bindings.ValidatorManagerSlashed, 1)
+	slashedSub, err := validatorHelper.ValMgrContract.WatchSlashed(&bind.WatchOpts{}, slashedCh, []*big.Int{}, []common.Address{})
+	require.NoError(t, err)
+	defer slashedSub.Unsubscribe()
+
+	// Set a timeout for challenge success and output validation by security council
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for challengeCreated, numCheck, slashed := false, 0, false; ; <-ticker.C {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("Timed out waiting for challenge conclusion")
+		case evt := <-slashedCh:
+			require.Equal(t, validatorAddr, evt.Loser)
+			require.Equal(t, targetOutputOracleIndex, evt.OutputIndex.Uint64())
+
+			slashedAmount := evt.Amount
+			afterAmount, err := validatorHelper.AssetMgrContract.TotalKroAssets(&bind.CallOpts{}, validatorAddr)
+			require.NoError(t, err)
+			require.Equal(t, new(big.Int).Sub(beforeAmount, slashedAmount).Uint64(), afterAmount.Uint64())
+
+			taxNum, err := validatorHelper.AssetMgrContract.TAXNUMERATOR(&bind.CallOpts{})
+			require.NoError(t, err)
+			taxDenom, err := validatorHelper.AssetMgrContract.TAXDENOMINATOR(&bind.CallOpts{})
+			require.NoError(t, err)
+			taxAmount := new(big.Int).Div(new(big.Int).Mul(slashedAmount, taxNum), taxDenom)
+
+			scBalance, err := validatorHelper.AssetTokenContract.BalanceOf(&bind.CallOpts{}, cfg.L1Deployments.SecurityCouncilProxy)
+			require.NoError(t, err)
+			require.Equal(t, taxAmount.Uint64(), scBalance.Uint64())
+
+			slashed = true
+		default:
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex), challengerAddr)
+			require.NoError(t, err)
+
+			if challengeStatus == chal.StatusReadyToProve {
+				challengeCreated = true
+			}
+			if !challengeCreated {
+				continue
+			}
+			// after challenge is proven, status is NONE
+			if challengeStatus != chal.StatusNone {
+				continue
+			}
+
+			// check validation request tx exists and not executed
+			toBlock := latestBlock(t, l1Client)
+			iter, err := securityCouncil.FilterValidationRequested(&bind.FilterOpts{End: &toBlock}, nil)
+			require.NoError(t, err)
+			eventExists := iter.Next()
+			require.True(t, eventExists)
+			tx, err := securityCouncil.Transactions(&bind.CallOpts{}, iter.Event.TransactionId)
+			require.NoError(t, err)
+			eventExists = iter.Next()
+			require.False(t, eventExists)
+			err = iter.Close()
+			require.NoError(t, err)
+			require.NotEqual(t, tx.Target, common.Address{})
+			require.False(t, tx.Executed)
+
+			// check output is deleted by challenger
+			output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, new(big.Int).SetUint64(targetOutputOracleIndex))
+			require.NoError(t, err)
+			require.Equal(t, output.Submitter, challengerAddr)
+			require.True(t, val.IsOutputDeleted(output.OutputRoot))
+
+			numCheck++
+		}
+
+		// after enough time for security council elapsed, the challenge is regarded to be correct
+		if slashed && numCheck >= 5 {
+			return
+		}
+	}
+}
 
 func TestChallengerTimeoutByGuardian(t *testing.T) {
 	InitParallel(t)
