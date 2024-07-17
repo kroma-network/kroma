@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 // TestAttributesQueue checks that it properly uses the PreparePayloadAttributes function
@@ -59,11 +60,7 @@ func TestAttributesQueue(t *testing.T) {
 		ValidatorRewardScalar: [32]byte{},
 	}
 
-	rollupCfg := rollup.Config{}
-	l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
-	require.NoError(t, err)
-
-	testAttributes := func(l1InfoTx []byte) {
+	testAttributes := func(l1InfoTx []byte, suggestedFeeRecipient common.Address) {
 		l1Fetcher := &testutils.MockL1Source{}
 		defer l1Fetcher.AssertExpectations(t)
 		l1Fetcher.ExpectInfoByHash(l1Info.InfoHash, l1Info, nil)
@@ -73,7 +70,7 @@ func TestAttributesQueue(t *testing.T) {
 		attrs := eth.PayloadAttributes{
 			Timestamp:             eth.Uint64Quantity(safeHead.Time + cfg.BlockTime),
 			PrevRandao:            eth.Bytes32(l1Info.InfoMixDigest),
-			SuggestedFeeRecipient: common.Address{},
+			SuggestedFeeRecipient: suggestedFeeRecipient,
 			Transactions:          []eth.Data{l1InfoTx, eth.Data("foobar"), eth.Data("example")},
 			NoTxPool:              true,
 			GasLimit:              (*eth.Uint64Quantity)(&expectedL1Cfg.GasLimit),
@@ -89,13 +86,23 @@ func TestAttributesQueue(t *testing.T) {
 	}
 
 	t.Run("before kroma mpt time", func(st *testing.T) {
-		testAttributes(l1InfoTx)
+		rollupCfg := rollup.Config{}
+		l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
+		require.NoError(st, err)
+
+		l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+		require.NoError(st, err)
+		testAttributes(l1InfoTx, common.Address{})
 	})
 
 	t.Run("after kroma mpt time", func(st *testing.T) {
 		zero := uint64(0)
-		rollupCfg.KromaMPTTime = &zero
-
-		testAttributes(l1InfoTx)
+		cfg.KromaMPTTime = &zero
+		rollupCfg := rollup.Config{
+			KromaMPTTime: &zero,
+		}
+		l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
+		require.NoError(st, err)
+		testAttributes(l1InfoTx, predeploys.ProtocolVaultAddr)
 	})
 }
