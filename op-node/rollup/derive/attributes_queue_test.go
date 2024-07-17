@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 // TestAttributesQueue checks that it properly uses the PreparePayloadAttributes function
@@ -63,7 +64,7 @@ func TestAttributesQueue(t *testing.T) {
 	l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
 	require.NoError(t, err)
 
-	testAttributes := func(l1InfoTx []byte) {
+	testAttributes := func(l1InfoTx []byte, suggestedFeeRecipient common.Address) {
 		l1Fetcher := &testutils.MockL1Source{}
 		defer l1Fetcher.AssertExpectations(t)
 		l1Fetcher.ExpectInfoByHash(l1Info.InfoHash, l1Info, nil)
@@ -89,13 +90,15 @@ func TestAttributesQueue(t *testing.T) {
 	}
 
 	t.Run("before kroma mpt time", func(st *testing.T) {
-		testAttributes(l1InfoTx)
+		l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+		require.NoError(st, err)
+		testAttributes(l1InfoTx, common.Address{})
 	})
 
 	t.Run("after kroma mpt time", func(st *testing.T) {
 		zero := uint64(0)
 		rollupCfg.KromaMptTime = &zero
 
-		testAttributes(l1InfoTx)
+		testAttributes(l1InfoTx, predeploys.ProtocolVaultAddr)
 	})
 }
