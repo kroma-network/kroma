@@ -105,8 +105,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     modifier isRegistered(address validator) {
         if (
-            (VALIDATOR_MANAGER.getStatus(validator) <
-                IValidatorManager.ValidatorStatus.REGISTERED) || VALIDATOR_MANAGER.inJail(validator)
+            VALIDATOR_MANAGER.getStatus(validator) < IValidatorManager.ValidatorStatus.REGISTERED ||
+            VALIDATOR_MANAGER.inJail(validator)
         ) revert ImproperValidatorStatus();
         _;
     }
@@ -906,13 +906,12 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @notice Internal function to deposit KRO to the validator.
+     * @notice Internal function to deposit KRO by the validator.
      *
      * @param validator  Address of the validator.
      * @param assets     The amount of KRO to delegate.
      * @param updateTree Flag to update the validator tree.
      */
-
     function _deposit(address validator, uint128 assets, bool updateTree) internal {
         Vault storage vault = _vaults[validator];
         ASSET_TOKEN.safeTransferFrom(validator, address(this), assets);
