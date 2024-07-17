@@ -72,19 +72,19 @@ interface IValidatorManager {
     /**
      * @notice Constructs the information of a validator.
      *
-     * @custom:field isInitiated              Whether the validator is initiated.
-     * @custom:field noSubmissionCount        Number of counts that the validator did not submit the
-     *                                        output in priority round.
-     * @custom:field commissionRate           Commission rate of validator.
-     * @custom:field pendingCommissionRate    Pending commission rate of validator.
-     * @custom:field commissionChangeInitTime Timestamp of commission change initialization.
+     * @custom:field isInitiated                 Whether the validator is initiated.
+     * @custom:field noSubmissionCount           Number of counts that the validator did not submit
+     *                                           the output in priority round.
+     * @custom:field commissionRate              Commission rate of validator.
+     * @custom:field pendingCommissionRate       Pending commission rate of validator.
+     * @custom:field commissionChangeInitiatedAt Timestamp of commission change initialization.
      */
     struct Validator {
         bool isInitiated;
         uint8 noSubmissionCount;
         uint8 commissionRate;
         uint8 pendingCommissionRate;
-        uint128 commissionChangeInitTime;
+        uint128 commissionChangeInitiatedAt;
     }
 
     /**
@@ -145,20 +145,12 @@ interface IValidatorManager {
     );
 
     /**
-     * @notice Emitted when a validator is jailed when it does not submit outputs in priority round.
+     * @notice Emitted when a validator is jailed.
      *
      * @param validator Address of the validator.
      * @param expiresAt The expiration timestamp of the jail.
      */
     event ValidatorJailed(address indexed validator, uint128 expiresAt);
-
-    /**
-     * @notice Emitted when a validator is jailed by slashing.
-     *
-     * @param validator Address of the validator.
-     * @param expiresAt The expiration timestamp of the jail.
-     */
-    event ValidatorJailedBySlashing(address indexed validator, uint128 expiresAt);
 
     /**
      * @notice Emitted when a validator is unjailed.
@@ -168,20 +160,20 @@ interface IValidatorManager {
     event ValidatorUnjailed(address indexed validator);
 
     /**
-     * @notice Emitted when validator KRO is reserved during output submission or challenge creation.
+     * @notice Emitted when validator KRO is bonded during output submission or challenge creation.
      *
      * @param validator Address of the validator.
-     * @param amount    The amount of KRO reserved.
+     * @param amount    The amount of KRO bonded.
      */
-    event ValidatorKroReserved(address indexed validator, uint128 amount);
+    event ValidatorKroBonded(address indexed validator, uint128 amount);
 
     /**
-     * @notice Emitted when validator KRO is unreserved during output finalization or slashing.
+     * @notice Emitted when validator KRO is unbonded during output finalization or slashing.
      *
      * @param validator Address of the validator.
-     * @param amount    The amount of KRO unreserved.
+     * @param amount    The amount of KRO unbonded.
      */
-    event ValidatorKroUnreserved(address indexed validator, uint128 amount);
+    event ValidatorKroUnbonded(address indexed validator, uint128 amount);
 
     /**
      * @notice Emitted when the output reward is distributed.
@@ -256,11 +248,6 @@ interface IValidatorManager {
      * @notice Reverts when the delay of commission rate change finalization has not elapsed.
      */
     error NotElapsedCommissionChangeDelay();
-
-    /**
-     * @notice Reverts when the address is zero address.
-     */
-    error ZeroAddress();
 
     /**
      * @notice Reverts when try to unjail before jail period elapsed.
@@ -380,7 +367,7 @@ interface IValidatorManager {
      *
      * @return When commission change of given validator can be finalized.
      */
-    function canFinalizeCommissionChangeAt(address validator) external view returns (uint256);
+    function canFinalizeCommissionChangeAt(address validator) external view returns (uint128);
 
     /**
      * @notice Checks the eligibility to submit L2 checkpoint output during output submission.

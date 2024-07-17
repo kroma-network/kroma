@@ -182,14 +182,11 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         if (commissionRate > COMMISSION_RATE_DENOM) revert MaxCommissionRateExceeded();
 
-        if (withdrawAccount == address(0)) revert ZeroAddress();
-
         Validator storage validatorInfo = _validatorInfo[msg.sender];
         validatorInfo.isInitiated = true;
         validatorInfo.commissionRate = commissionRate;
-        validatorInfo.withdrawAccount = withdrawAccount;
 
-        ASSET_MANAGER.depositToRegister(msg.sender, assets);
+        ASSET_MANAGER.depositToRegister(msg.sender, assets, withdrawAccount);
 
         bool ready = assets >= MIN_ACTIVATE_AMOUNT;
         if (ready) {
@@ -243,7 +240,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (newCommissionRate == oldCommissionRate) revert SameCommissionRate();
 
         validatorInfo.pendingCommissionRate = newCommissionRate;
-        validatorInfo.commissionChangeInitTime = uint128(block.timestamp);
+        validatorInfo.commissionChangeInitiatedAt = uint128(block.timestamp);
 
         emit ValidatorCommissionChangeInitiated(msg.sender, oldCommissionRate, newCommissionRate);
     }
@@ -264,7 +261,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         validatorInfo.commissionRate = newCommissionRate;
         validatorInfo.pendingCommissionRate = 0;
-        validatorInfo.commissionChangeInitTime = 0;
+        validatorInfo.commissionChangeInitiatedAt = 0;
 
         emit ValidatorCommissionChangeFinalized(msg.sender, oldCommissionRate, newCommissionRate);
     }
@@ -346,18 +343,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function getPendingCommissionRate(address validator) external view returns (uint8) {
         return _validatorInfo[validator].pendingCommissionRate;
-    }
-
-    // TODO: move this to AssetManager
-    /**
-     * @notice Returns the address of withdraw account of given validator.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The address of withdraw account of given validator.
-     */
-    function getWithdrawAccount(address validator) external view returns (address) {
-        return _validatorInfo[validator].withdrawAccount;
     }
 
     /**
@@ -470,8 +455,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function canFinalizeCommissionChangeAt(address validator) public view returns (uint256) {
-        return _validatorInfo[validator].commissionChangeInitTime + COMMISSION_CHANGE_DELAY_SECONDS;
+    function canFinalizeCommissionChangeAt(address validator) public view returns (uint128) {
+        return
+            _validatorInfo[validator].commissionChangeInitiatedAt + COMMISSION_CHANGE_DELAY_SECONDS;
     }
 
     /**

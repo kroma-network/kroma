@@ -9,20 +9,20 @@ interface IAssetManager {
     /**
      * @notice Represents the asset information of the vault of a validator.
      *
-     * @custom:field validatorKro         Total amount of KRO that deposited by the validator and
-     *                                    accumulated as validator reward (including validatorKroReserved).
-     * @custom:field validatorKroReserved Total amount of validator KRO that reserved during output
-     *                                    submission or challenge creation.
-     * @custom:field totalKro             Total amount of KRO that delegated by the delegators and
-     *                                    accumulated as KRO delegation reward (including totalKroInKgh).
-     * @custom:field totalKroShares       Total shares for KRO delegation in the vault.
-     * @custom:field totalKgh             Total number of KGH in the vault.
-     * @custom:field totalKroInKgh        Total amount of KRO which KGHs in the vault have.
-     * @custom:field rewardPerKghStored   Accumulated boosted reward per 1 KGH.
+     * @custom:field validatorKro       Total amount of KRO that deposited by the validator and
+     *                                  accumulated as validator reward (including validatorKroBonded).
+     * @custom:field validatorKroBonded Total amount of validator KRO that bonded during output
+     *                                  submission or challenge creation.
+     * @custom:field totalKro           Total amount of KRO that delegated by the delegators and
+     *                                  accumulated as KRO delegation reward (including totalKroInKgh).
+     * @custom:field totalKroShares     Total shares for KRO delegation in the vault.
+     * @custom:field totalKgh           Total number of KGH in the vault.
+     * @custom:field totalKroInKgh      Total amount of KRO which KGHs in the vault have.
+     * @custom:field rewardPerKghStored Accumulated boosted reward per 1 KGH.
      */
     struct Asset {
         uint128 validatorKro;
-        uint128 validatorKroReserved;
+        uint128 validatorKroBonded;
         uint128 totalKro;
         uint128 totalKroShares;
         uint128 totalKgh;
@@ -45,18 +45,17 @@ interface IAssetManager {
     /**
      * @notice Constructs the delegator of KGH in the vault of a validator.
      *
-     * @custom:field lastDelegatedAt   Last timestamp when the delegator delegated. The delegator
-     *                                 can undelegate after UNDELEGATION_DELAY_SECONDS elapsed.
-     * @custom:field rewardPerKghPaid  Accumulated paid boosted reward per 1 KGH.
-     * @custom:field kghNum            Total number of KGH delegated.
-     * @custom:field delegationHistory A mapping of tokenId to the delegation timestamp.
-     * @custom:field kroShares         A mapping of tokenId to the amount of shares for KRO in KGH.
+     * @custom:field rewardPerKghPaid Accumulated paid boosted reward per 1 KGH.
+     * @custom:field kghNum           Total number of KGH delegated.
+     * @custom:field delegatedAt      A mapping of tokenId to the delegation timestamp. The
+     *                                delegator can undelegate after UNDELEGATION_DELAY_SECONDS
+     *                                elapsed from each delegation timestamp.
+     * @custom:field kroShares        A mapping of tokenId to the amount of shares for KRO in KGH.
      */
     struct KghDelegator {
-        uint128 lastDelegatedAt;
         uint128 rewardPerKghPaid;
         uint256 kghNum;
-        mapping(uint256 => uint128) delegationHistory;
+        mapping(uint256 => uint128) delegatedAt;
         mapping(uint256 => uint128) kroShares;
     }
 
@@ -229,6 +228,11 @@ interface IAssetManager {
     error NotAllowedZeroInput();
 
     /**
+     * @notice Reverts when the address is zero address.
+     */
+    error ZeroAddress();
+
+    /**
      * @notice Reverts when the asset is insufficient.
      */
     error InsufficientAsset();
@@ -260,14 +264,14 @@ interface IAssetManager {
      *
      * @return When the validator can withdraw KRO.
      */
-    function canWithdrawAt(address validator) external view returns (uint256);
+    function canWithdrawAt(address validator) external view returns (uint128);
 
     /**
-     * @notice Returns the total amount of KRO a validator has deposited and rewarded.
+     * @notice Returns the total amount of KRO a validator has deposited and been rewarded.
      *
      * @param validator Address of the validator.
      *
-     * @return The total amount of KRO a validator has deposited and rewarded.
+     * @return The total amount of KRO a validator has deposited and been rewarded.
      */
     function totalValidatorKro(address validator) external view returns (uint128);
 
@@ -325,7 +329,7 @@ interface IAssetManager {
     function canUndelegateKroAt(
         address validator,
         address delegator
-    ) external view returns (uint256);
+    ) external view returns (uint128);
 
     /**
      * @notice Returns the number of KGH delegated by the given delegator.
@@ -353,18 +357,21 @@ interface IAssetManager {
     ) external view returns (uint128);
 
     /**
-     * @notice Returns when the KGH delegators can undelegate KGH. The delegators can undelegate
-     *         after UNDELEGATION_DELAY_SECONDS elapsed from lastDelegatedAt.
+     * @notice Returns when the KGH delegators can undelegate KGH. The delegators can undelegate KGH
+     *         for the given token id after UNDELEGATION_DELAY_SECONDS elapsed from delegation
+     *         timestamp.
      *
      * @param validator Address of the validator.
      * @param delegator Address of the KGH delegator.
+     * @param tokenId   The token id of KGH to undelegate.
      *
-     * @return When the KGH delegators can undelegate KGH.
+     * @return When the KGH delegators can undelegate KGH for the given token id.
      */
     function canUndelegateKghAt(
         address validator,
-        address delegator
-    ) external view returns (uint256);
+        address delegator,
+        uint256 tokenId
+    ) external view returns (uint128);
 
     /**
      * @notice Allows an on-chain or off-chain user to simulate the effects of their KRO delegation
