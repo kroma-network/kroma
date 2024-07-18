@@ -261,6 +261,11 @@ interface IAssetManager {
     error ShareNotExists();
 
     /**
+     * @notice Reverts when the given token ids are invalid.
+     */
+    error InvalidTokenIdsInput();
+
+    /**
      * @notice Returns the address of withdraw account of given validator.
      *
      * @param validator Address of the validator.
@@ -506,6 +511,7 @@ interface IAssetManager {
      * @notice Claim the reward of the KGH delegator from the given validator vault.
      *
      * @param validator Address of the validator.
+     * @param tokenIds  Array of token ids of KGHs to claim base reward.
      */
-    function claimKghReward(address validator) external;
+    function claimKghReward(address validator, uint256[] calldata tokenIds) external;
 }

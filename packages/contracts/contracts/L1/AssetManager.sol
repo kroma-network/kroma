@@ -830,6 +830,81 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @inheritdoc IAssetManager
+     */
+    function claimKghReward(address validator, uint256[] calldata tokenIds) external {
+        if (validator == address(0)) revert ZeroAddress();
+        if (tokenIds.length == 0) revert NotAllowedZeroInput();
+
+        Vault storage vault = _vaults[validator];
+        KghDelegator storage kghDelegator = vault.kghDelegators[msg.sender];
+        if (kghDelegator.kghNum < tokenIds.length) revert InvalidTokenIdsInput();
+
+        // Auto compounding is not applied for claim function.
+        uint128 claimedRewards = _claimBoostedReward(validator, msg.sender, tokenIds.length, false);
+
+        // Burn kroShares to claim the base reward.
+        uint128 kroSharesToBurn;
+        for (uint256 i = 0; i < tokenIds.length; ) {
+            uint128 kroShares = kghDelegator.shares[tokenIds[i]].kro -
+                _convertToKroShares(validator, KGH_MANAGER.totalKroInKgh(tokenIds[i]));
+            if (kroShares == 0) revert ShareNotExists();
+
+            unchecked {
+                kroSharesToBurn += kroShares;
+
+                ++i;
+            }
+        }
+
+        uint128 kghBaseReward = _convertToKroAssets(validator, kroSharesToBurn);
+
+        unchecked {
+            claimedRewards += kghBaseReward;
+            vault.asset.totalKroShares -= kroSharesToBurn;
+            vault.asset.totalKro -= claimedRewards;
+        }
+
+        ASSET_TOKEN.safeTransfer(msg.sender, claimedRewards);
+
+        emit KghRewardClaimed(validator, msg.sender, claimedRewards, kroSharesToBurn);
+    }
+
+    /**
+     * @notice Claim the boosted reward of the delegator.
+     *
+     * @param validator     Address of the validator.
+     * @param delegator     Address of the delegator.
+     * @param kghNum        The number of KGH to claim the boosted reward.
+     * @param isCompounding Flag to auto compound the boosted reward.
+     *
+     * @return The amount of the claimed boosted reward.
+     */
+    function _claimBoostedReward(
+        address validator,
+        address delegator,
+        uint256 kghNum,
+        bool isCompounding
+    ) internal returns (uint128) {
+        Vault storage vault = _vaults[validator];
+        KghDelegator storage kghDelegator = vault.kghDelegators[delegator];
+
+        uint128 rewardPerKghStored = vault.asset.rewardPerKghStored;
+        uint128 totalBoostedReward = kghDelegator.kghNum *
+            (rewardPerKghStored - kghDelegator.rewardPerKghPaid[delegator]);
+
+        kghDelegator.rewardPerKghPaid[delegator] = rewardPerKghStored;
+
+        if (isCompounding) {
+            _delegate(validator, delegator, totalBoostedReward);
+        }
+
+        vault.asset.boostedReward -= totalBoostedReward;
+
+        return boostedReward;
+    }
+
+    /**
      * @notice Add pending assets and shares when undelegating KRO.
      *
      * @param vault  Vault of the validator.
