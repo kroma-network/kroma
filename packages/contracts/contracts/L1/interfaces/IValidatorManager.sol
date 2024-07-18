@@ -72,31 +72,28 @@ interface IValidatorManager {
     /**
      * @notice Constructs the information of a validator.
      *
-     * @custom:field isInitiated              Whether the validator is initiated.
-     * @custom:field noSubmissionCount        Number of counts that the validator did not submit the
-     *                                        output in priority round.
-     * @custom:field commissionRate           Commission rate of validator.
-     * @custom:field pendingCommissionRate    Pending commission rate of validator.
-     * @custom:field commissionChangeInitTime Timestamp of commission change initialization.
-     * @custom:field withdrawAccount          An account where assets can be withdrawn to. Only this
-     *                                        account can withdraw the assets.
+     * @custom:field isInitiated                 Whether the validator is initiated.
+     * @custom:field noSubmissionCount           Number of counts that the validator did not submit
+     *                                           the output in priority round.
+     * @custom:field commissionRate              Commission rate of validator.
+     * @custom:field pendingCommissionRate       Pending commission rate of validator.
+     * @custom:field commissionChangeInitiatedAt Timestamp of commission change initialization.
      */
     struct Validator {
         bool isInitiated;
         uint8 noSubmissionCount;
         uint8 commissionRate;
         uint8 pendingCommissionRate;
-        uint128 commissionChangeInitTime;
-        address withdrawAccount;
+        uint128 commissionChangeInitiatedAt;
     }
 
     /**
      * @notice Emitted when registers as a validator.
      *
-     * @param validator               Address of the validator.
-     * @param activated               If the validator is activated or not.
-     * @param commissionRate          The commission rate the validator sets.
-     * @param assets                  The number of assets the validator deposits.
+     * @param validator      Address of the validator.
+     * @param activated      If the validator is activated or not.
+     * @param commissionRate The commission rate the validator sets.
+     * @param assets         The number of assets the validator deposits.
      */
     event ValidatorRegistered(
         address indexed validator,
@@ -161,6 +158,22 @@ interface IValidatorManager {
      * @param validator Address of the validator.
      */
     event ValidatorUnjailed(address indexed validator);
+
+    /**
+     * @notice Emitted when validator KRO is bonded during output submission or challenge creation.
+     *
+     * @param validator Address of the validator.
+     * @param amount    The amount of KRO bonded.
+     */
+    event ValidatorKroBonded(address indexed validator, uint128 amount);
+
+    /**
+     * @notice Emitted when validator KRO is unbonded during output finalization or slashing.
+     *
+     * @param validator Address of the validator.
+     * @param amount    The amount of KRO unbonded.
+     */
+    event ValidatorKroUnbonded(address indexed validator, uint128 amount);
 
     /**
      * @notice Emitted when the output reward is distributed.
@@ -235,11 +248,6 @@ interface IValidatorManager {
      * @notice Reverts when the delay of commission rate change finalization has not elapsed.
      */
     error NotElapsedCommissionChangeDelay();
-
-    /**
-     * @notice Reverts when the address is zero address.
-     */
-    error ZeroAddress();
 
     /**
      * @notice Reverts when try to unjail before jail period elapsed.
@@ -326,6 +334,42 @@ interface IValidatorManager {
     function updateValidatorTree(address validator, bool tryRemove) external;
 
     /**
+     * @notice Returns the no submission count of given validator.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The no submission count of given validator.
+     */
+    function noSubmissionCount(address validator) external view returns (uint8);
+
+    /**
+     * @notice Returns the commission rate of given validator.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The commission rate of given validator.
+     */
+    function getCommissionRate(address validator) external view returns (uint8);
+
+    /**
+     * @notice Returns the pending commission rate of given validator.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The pending commission rate of given validator.
+     */
+    function getPendingCommissionRate(address validator) external view returns (uint8);
+
+    /**
+     * @notice Returns when commission change of given validator can be finalized.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return When commission change of given validator can be finalized.
+     */
+    function canFinalizeCommissionChangeAt(address validator) external view returns (uint128);
+
+    /**
      * @notice Checks the eligibility to submit L2 checkpoint output during output submission.
      *         Note that only the validator whose status is ACTIVE can submit output. This function
      *         can only be called by L2OutputOracle during output submission.
@@ -361,6 +405,15 @@ interface IValidatorManager {
     function inJail(address validator) external view returns (bool);
 
     /**
+     * @notice Returns the jail expiration timestamp of given validator.
+     *
+     * @param validator Address of the jailed validator.
+     *
+     * @return The jail expiration timestamp of given validator.
+     */
+    function jailExpiresAt(address validator) external view returns (uint128);
+
+    /**
      * @notice Returns if the status of the given validator is active.
      *
      * @param validator Address of the validator.
@@ -368,4 +421,29 @@ interface IValidatorManager {
      * @return If the status of the given validator is active.
      */
     function isActive(address validator) external view returns (bool);
+
+    /**
+     * @notice Returns the weight of given validator. It not activated, returns 0.
+     *         Note that `weight / activatedValidatorTotalWeight()` is the probability that the
+     *         validator is selected as a priority validator.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The weight of given validator.
+     */
+    function getWeight(address validator) external view returns (uint120);
+
+    /**
+     * @notice Returns the number of activated validators.
+     *
+     * @return The number of activated validators.
+     */
+    function activatedValidatorCount() external view returns (uint32);
+
+    /**
+     * @notice Returns the total weight of activated validators.
+     *
+     * @return The total weight of activated validators.
+     */
+    function activatedValidatorTotalWeight() external view returns (uint120);
 }

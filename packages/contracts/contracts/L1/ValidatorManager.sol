@@ -182,14 +182,11 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         if (commissionRate > COMMISSION_RATE_DENOM) revert MaxCommissionRateExceeded();
 
-        if (withdrawAccount == address(0)) revert ZeroAddress();
-
         Validator storage validatorInfo = _validatorInfo[msg.sender];
         validatorInfo.isInitiated = true;
         validatorInfo.commissionRate = commissionRate;
-        validatorInfo.withdrawAccount = withdrawAccount;
 
-        ASSET_MANAGER.depositToRegister(msg.sender, assets);
+        ASSET_MANAGER.depositToRegister(msg.sender, assets, withdrawAccount);
 
         bool ready = assets >= MIN_ACTIVATE_AMOUNT;
         if (ready) {
@@ -243,7 +240,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (newCommissionRate == oldCommissionRate) revert SameCommissionRate();
 
         validatorInfo.pendingCommissionRate = newCommissionRate;
-        validatorInfo.commissionChangeInitTime = uint128(block.timestamp);
+        validatorInfo.commissionChangeInitiatedAt = uint128(block.timestamp);
 
         emit ValidatorCommissionChangeInitiated(msg.sender, oldCommissionRate, newCommissionRate);
     }
@@ -264,7 +261,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         validatorInfo.commissionRate = newCommissionRate;
         validatorInfo.pendingCommissionRate = 0;
-        validatorInfo.commissionChangeInitTime = 0;
+        validatorInfo.commissionChangeInitiatedAt = 0;
 
         emit ValidatorCommissionChangeFinalized(msg.sender, oldCommissionRate, newCommissionRate);
     }
@@ -335,66 +332,35 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Returns the commission rate of given validator.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The commission rate of given validator.
+     * @inheritdoc IValidatorManager
      */
     function getCommissionRate(address validator) external view returns (uint8) {
         return _validatorInfo[validator].commissionRate;
     }
 
     /**
-     * @notice Returns the pending commission rate of given validator.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The pending commission rate of given validator.
+     * @inheritdoc IValidatorManager
      */
     function getPendingCommissionRate(address validator) external view returns (uint8) {
         return _validatorInfo[validator].pendingCommissionRate;
     }
 
     /**
-     * @notice Returns the address of withdraw account of given validator.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The address of withdraw account of given validator.
-     */
-    function getWithdrawAccount(address validator) external view returns (address) {
-        return _validatorInfo[validator].withdrawAccount;
-    }
-
-    /**
-     * @notice Returns the number of activated validators.
-     *
-     * @return The number of activated validators.
+     * @inheritdoc IValidatorManager
      */
     function activatedValidatorCount() external view returns (uint32) {
         return _validatorTree.counter - _validatorTree.removed;
     }
 
     /**
-     * @notice Returns the weight of given validator. It not activated, returns 0.
-     *         Note that `weight / activatedValidatorTotalWeight()` is the probability that the
-     *         validator is selected as a priority validator.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The weight of given validator.
+     * @inheritdoc IValidatorManager
      */
     function getWeight(address validator) external view returns (uint120) {
         return _validatorTree.nodes[_validatorTree.nodeMap[validator]].weight;
     }
 
     /**
-     * @notice Returns the jail expiration timestamp of given validator.
-     *
-     * @param validator Address of the jailed validator.
-     *
-     * @return The jail expiration timestamp of given validator.
+     * @inheritdoc IValidatorManager
      */
     function jailExpiresAt(address validator) external view returns (uint128) {
         return _jail[validator];
@@ -480,31 +446,22 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
-     * @notice Returns the no submission count of given validator.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The no submission count of given validator.
+     * @inheritdoc IValidatorManager
      */
     function noSubmissionCount(address validator) public view returns (uint8) {
         return _validatorInfo[validator].noSubmissionCount;
     }
 
     /**
-     * @notice Returns when commission change of given validator can be finalized.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return When commission change of given validator can be finalized.
+     * @inheritdoc IValidatorManager
      */
-    function canFinalizeCommissionChangeAt(address validator) public view returns (uint256) {
-        return _validatorInfo[validator].commissionChangeInitTime + COMMISSION_CHANGE_DELAY_SECONDS;
+    function canFinalizeCommissionChangeAt(address validator) public view returns (uint128) {
+        return
+            _validatorInfo[validator].commissionChangeInitiatedAt + COMMISSION_CHANGE_DELAY_SECONDS;
     }
 
     /**
-     * @notice Returns the total weight of activated validators.
-     *
-     * @return The total weight of activated validators.
+     * @inheritdoc IValidatorManager
      */
     function activatedValidatorTotalWeight() public view returns (uint120) {
         return _validatorTree.nodes[_validatorTree.root].weightSum;

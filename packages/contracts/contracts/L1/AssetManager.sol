@@ -218,6 +218,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
+    function getWithdrawAccount(address validator) external view returns (address) {
+        return _vaults[validator].withdrawAccount;
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
     function totalKroAssets(address validator) public view returns (uint128) {
         return _vaults[validator].asset.totalKro;
     }
@@ -251,7 +258,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @inheritdoc IAssetManager
+     * @notice Returns the reflective weight of given validator. It can be different from the actual
+     *         current weight of the validator in validator tree since it includes all accumulated
+     *         rewards.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The reflective weight of given validator.
      */
     function reflectiveWeight(address validator) external view returns (uint128) {
         return
@@ -298,27 +311,35 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @notice Deposit KRO to register as a validator.
-     *         This function is only called by the ValidatorManager contract.
+     * @notice Deposit KRO to register as a validator. This function is only called by the
+     *         ValidatorManager contract.
      *
-     * @param validator Address of the validator.
-     * @param assets    The amount of KRO to deposit.
+     * @param validator       Address of the validator.
+     * @param assets          The amount of KRO to deposit.
+     * @param withdrawAccount An account where assets can be withdrawn to. Only this account can
+     *                        withdraw the assets.
      */
-    function depositToRegister(address validator, uint128 assets) external onlyValidatorManager {
+    function depositToRegister(
+        address validator,
+        uint128 assets,
+        address withdrawAccount
+    ) external onlyValidatorManager {
         if (assets == 0) revert NotAllowedZeroInput();
+        if (withdrawAccount == address(0)) revert ZeroAddress();
+
+        _vaults[validator].withdrawAccount = withdrawAccount;
         _deposit(validator, assets, false);
         emit Deposited(validator, assets);
     }
 
     /**
-     * @notice Deposit KRO. To deposit KRO, the validator should be initiated.
-     *
-     * @param assets The amount of KRO to deposit.
+     * @inheritdoc IAssetManager
      */
     function deposit(uint128 assets) external {
         if (assets == 0) revert NotAllowedZeroInput();
         if (VALIDATOR_MANAGER.getStatus(msg.sender) == IValidatorManager.ValidatorStatus.NONE)
             revert ImproperValidatorStatus();
+
         _deposit(msg.sender, assets, true);
         emit Deposited(msg.sender, assets);
     }
