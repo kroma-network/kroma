@@ -838,10 +838,10 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         Vault storage vault = _vaults[validator];
         KghDelegator storage kghDelegator = vault.kghDelegators[msg.sender];
-        if (kghDelegator.kghNum < tokenIds.length) revert InvalidTokenIdsInput();
+        if (kghDelegator.kghNum < uint128(tokenIds.length)) revert InvalidTokenIdsInput();
 
         // Auto compounding is not applied for claim function.
-        uint128 claimedRewards = _claimBoostedReward(validator, msg.sender, tokenIds.length, false);
+        uint128 claimedRewards = _claimBoostedReward(validator, msg.sender, uint128(tokenIds.length), false);
 
         // Burn kroShares to claim the base reward.
         uint128 kroSharesToBurn;
@@ -883,7 +883,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     function _claimBoostedReward(
         address validator,
         address delegator,
-        uint256 kghNum,
+        uint128 kghNum,
         bool isCompounding
     ) internal returns (uint128) {
         Vault storage vault = _vaults[validator];

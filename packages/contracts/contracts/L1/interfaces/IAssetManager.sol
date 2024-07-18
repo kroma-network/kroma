@@ -54,7 +54,7 @@ interface IAssetManager {
      */
     struct KghDelegator {
         uint128 rewardPerKghPaid;
-        uint256 kghNum;
+        uint128 kghNum;
         mapping(uint256 => uint128) delegatedAt;
         mapping(uint256 => uint128) kroShares;
     }
