@@ -302,7 +302,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function bondValidatorKro(address validator) external onlyColosseum {
-        ASSET_MANAGER.bondValidatorKro(submitter);
+        ASSET_MANAGER.bondValidatorKro(validator);
     }
 
     /**
@@ -427,12 +427,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         bool activated = _validatorTree.nodeMap[validator] > 0;
 
-        // To prevent all MIN_ACTIVATE_AMOUNT is fulfilled with KRO in KGH which is not subject to
-        // slash, enable to activate the validator when real asset satisfies the threshold.
-        if (
-            ASSET_MANAGER.reflectiveWeight(validator) - ASSET_MANAGER.totalKroInKgh(validator) <
-            MIN_ACTIVATE_AMOUNT
-        ) {
+        if (ASSET_MANAGER.reflectiveWeight(validator) < MIN_ACTIVATE_AMOUNT) {
             if (!activated) {
                 return ValidatorStatus.REGISTERED;
             }
