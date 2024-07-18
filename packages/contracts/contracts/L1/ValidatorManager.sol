@@ -55,7 +55,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
     address public immutable TRUSTED_VALIDATOR;
 
     /**
-     * @notice Minimum amount to register as a validator.
+     * @notice Minimum amount to register as a validator. It should be equal or more than
+     *         ASSET_MANAGER.SLASHING_AMOUNT.
      */
     uint128 public immutable MIN_REGISTER_AMOUNT;
 
@@ -153,6 +154,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
     constructor(ConstructorParams memory _constructorParams) {
         if (_constructorParams._minRegisterAmount > _constructorParams._minActivateAmount)
             revert InvalidConstructorParams();
+        if (
+            _constructorParams._minRegisterAmount <
+            _constructorParams._assetManager.SLASHING_AMOUNT()
+        ) revert InvalidConstructorParams();
 
         L2_ORACLE = _constructorParams._l2Oracle;
         ASSET_MANAGER = _constructorParams._assetManager;
@@ -212,7 +217,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
     function afterSubmitL2Output(uint256 outputIndex) external onlyL2OutputOracle {
         _distributeReward();
 
+        // Bond validator KRO to reserve slashing amount.
         address submitter = L2_ORACLE.getSubmitter(outputIndex);
+        ASSET_MANAGER.bondValidatorKro(submitter);
+
         if (submitter == _nextPriorityValidator) {
             _resetNoSubmissionCount(submitter);
         } else {
@@ -288,6 +296,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (getStatus(validator) == ValidatorStatus.READY) {
             _activateValidator(validator);
         }
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function bondValidatorKro(address validator) external onlyColosseum {
+        ASSET_MANAGER.bondValidatorKro(submitter);
     }
 
     /**
