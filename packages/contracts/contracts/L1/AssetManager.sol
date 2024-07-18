@@ -72,9 +72,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     uint256 public immutable UNDELEGATION_PERIOD;
 
     /**
-     * @notice The amount to slash.
+     * @notice The amount to bond.
      */
-    uint128 public immutable SLASHING_AMOUNT;
+    uint128 public immutable BOND_AMOUNT;
 
     /**
      * @notice A mapping of validator address to the vault.
@@ -115,7 +115,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param _securityCouncil    Address of the SecurityCouncil contract.
      * @param _validatorManager   Address of the ValidatorManager contract.
      * @param _undelegationPeriod Period that should wait to finalize the undelegation.
-     * @param _slashingAmount     Amount to slash.
+     * @param _bondAmount         Amount to bond.
      */
     constructor(
         IERC20 _assetToken,
@@ -124,7 +124,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         address _securityCouncil,
         IValidatorManager _validatorManager,
         uint128 _undelegationPeriod,
-        uint128 _slashingAmount
+        uint128 _bondAmount
     ) {
         ASSET_TOKEN = _assetToken;
         KGH = _kgh;
@@ -132,7 +132,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         SECURITY_COUNCIL = _securityCouncil;
         VALIDATOR_MANAGER = _validatorManager;
         UNDELEGATION_PERIOD = _undelegationPeriod;
-        SLASHING_AMOUNT = _slashingAmount;
+        BOND_AMOUNT = _bondAmount;
     }
 
     /**
@@ -677,19 +677,18 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function bondValidatorKro(address validator) external onlyValidatorManager {
         Vault storage vault = _vaults[validator];
+        if (vault.asset.validatorKro - vault.asset.validatorKroBonded < BOND_AMOUNT)
+            revert InsufficientAsset();
 
         unchecked {
-            if (vault.asset.validatorKro - vault.asset.validatorKroBonded < SLASHING_AMOUNT)
-                revert InsufficientAsset();
-
-            vault.asset.validatorKroBonded += SLASHING_AMOUNT;
-
-            emit ValidatorKroBonded(
-                validator,
-                SLASHING_AMOUNT,
-                vault.asset.validatorKro - vault.asset.validatorKroBonded
-            );
+            vault.asset.validatorKroBonded += BOND_AMOUNT;
         }
+
+        emit ValidatorKroBonded(
+            validator,
+            BOND_AMOUNT,
+            vault.asset.validatorKro - vault.asset.validatorKroBonded
+        );
     }
 
     /**

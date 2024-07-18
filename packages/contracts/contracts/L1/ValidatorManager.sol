@@ -56,7 +56,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
     /**
      * @notice Minimum amount to register as a validator. It should be equal or more than
-     *         ASSET_MANAGER.SLASHING_AMOUNT.
+     *         ASSET_MANAGER.BOND_AMOUNT.
      */
     uint128 public immutable MIN_REGISTER_AMOUNT;
 
@@ -154,10 +154,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
     constructor(ConstructorParams memory _constructorParams) {
         if (_constructorParams._minRegisterAmount > _constructorParams._minActivateAmount)
             revert InvalidConstructorParams();
-        if (
-            _constructorParams._minRegisterAmount <
-            _constructorParams._assetManager.SLASHING_AMOUNT()
-        ) revert InvalidConstructorParams();
+        if (_constructorParams._minRegisterAmount < _constructorParams._assetManager.BOND_AMOUNT())
+            revert InvalidConstructorParams();
 
         L2_ORACLE = _constructorParams._l2Oracle;
         ASSET_MANAGER = _constructorParams._assetManager;
