@@ -380,7 +380,17 @@ func (s *CrossLayerUser) CheckDepositTx(t Testing, l1TxHash common.Hash, index i
 		require.Less(t, index, len(depositReceipt.Logs), "must have enough logs in receipt")
 		reconstructedDep, err := derive.UnmarshalDepositLogEvent(depositReceipt.Logs[index])
 		require.NoError(t, err, "Could not reconstruct L2 Deposit")
-		l2Tx := types.NewTx(reconstructedDep)
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		l2Tx := types.NewTx(&types.KromaDepositTx{
+			SourceHash: reconstructedDep.SourceHash,
+			From:       reconstructedDep.From,
+			To:         reconstructedDep.To,
+			Mint:       reconstructedDep.Mint,
+			Value:      reconstructedDep.Value,
+			Gas:        reconstructedDep.Gas,
+			Data:       reconstructedDep.Data,
+		})
+		// [Kroma: END]
 		s.L2.CheckReceipt(t, l2Success, l2Tx.Hash())
 	}
 }

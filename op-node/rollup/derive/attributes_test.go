@@ -153,7 +153,12 @@ func TestPreparePayloadAttributes(t *testing.T) {
 		require.NoError(t, err)
 
 		l2Txs := append(append(make([]eth.Data, 0), l1InfoTx), usedDepositTxs...)
-
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		for i, otx := range l2Txs {
+			l2Txs[i], err = ToKromaDepositBytes(otx)
+			require.NoError(t, err)
+		}
+		// [Kroma: END]
 		l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, receipts, nil)
 		attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)
 		attrs, err := attrBuilder.PreparePayloadAttributes(context.Background(), l2Parent, epoch)
