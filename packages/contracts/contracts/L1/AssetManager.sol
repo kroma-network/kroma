@@ -441,12 +441,12 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         if (canUndelegateKghAt(validator, msg.sender, tokenId) > block.timestamp)
             revert NotElapsedMinDelegationPeriod();
 
-        // boost reward of KGH
-        uint128 boostReward = _claimBoostedReward(validator, msg.sender);
-
         // KRO in KGH including base reward
         uint128 kroShares = _vaults[validator].kghDelegators[msg.sender].kroShares[tokenId];
         uint128 kroAssets = _convertToKroAssets(validator, kroShares);
+
+        // boost reward of KGH
+        uint128 boostReward = _claimBoostedReward(validator, msg.sender);
 
         // update storage
         _undelegateKgh(validator, msg.sender, tokenId, kroAssets, kroShares);
@@ -466,44 +466,58 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
-    function initUndelegateKghBatch(address validator, uint256[] calldata tokenIds) external {
+    function undelegateKghBatch(address validator, uint256[] calldata tokenIds) external {
         if (tokenIds.length == 0) revert NotAllowedZeroInput();
 
-        mapping(uint256 => KghDelegatorShares) storage shares = _vaults[validator]
-            .kghDelegators[msg.sender]
-            .shares;
-        uint128 kroShares;
-        uint128 kghShares;
-        uint128 kroInKghs;
-        uint128 kghAssetsToWithdraw;
-        for (uint256 i = 0; i < tokenIds.length; ) {
-            uint128 kroSharesForTokenId = shares[tokenIds[i]].kro;
-            uint128 kghSharesForTokenId = shares[tokenIds[i]].kgh;
+        KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
 
-            if (kghSharesForTokenId == 0) revert ShareNotExists();
+        // KRO in KGH including base reward
+        uint128 kroShares;
+        uint128 kroInKghs;
+        for (uint256 i = 0; i < tokenIds.length; ) {
+            if (canUndelegateKghAt(validator, msg.sender, tokenIds[i]) > block.timestamp)
+                revert NotElapsedMinDelegationPeriod();
+
+            uint128 kroSharesForTokenId = kghDelegator.kroShares[tokenIds[i]];
+
+            delete kghDelegator.delegatedAt[tokenIds[i]];
+            delete kghDelegator.kroShares[tokenIds[i]];
 
             unchecked {
                 kroShares += kroSharesForTokenId;
-                kghShares += kghSharesForTokenId;
                 kroInKghs += KGH_MANAGER.totalKroInKgh(tokenIds[i]);
-                kghAssetsToWithdraw += _convertToKghAssets(validator, msg.sender, tokenIds[i]);
-
-                delete shares[tokenIds[i]];
 
                 ++i;
             }
         }
+        uint128 kroAssets = _convertToKroAssets(validator, kroShares);
 
-        _initUndelegateKghBatch(
+        // boost reward of KGH
+        uint128 boostReward = _claimBoostedReward(validator, msg.sender);
+
+        // update storage
+        _undelegateKghBatch(
             validator,
-            tokenIds,
-            kroInKghs,
+            msg.sender,
+            uint128(tokenIds.length),
+            kroAssets,
             kroShares,
-            kghShares,
-            kghAssetsToWithdraw
+            kroInKghs
         );
 
-        emit KghBatchUndelegationInitiated(validator, msg.sender, tokenIds, kroShares, kghShares);
+        // update validator tree
+        VALIDATOR_MANAGER.updateValidatorTree(validator, true);
+
+        // transfer KGH
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            KGH.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
+        }
+
+        // transfer KRO
+        uint128 totalKroAsset = boostReward + kroAssets;
+        ASSET_TOKEN.safeTransfer(msg.sender, totalKroAsset);
+
+        emit KghBatchUndelegated(validator, msg.sender, tokenIds, totalKroAsset, kroShares);
     }
 
     /**
@@ -994,52 +1008,32 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @notice Internal function to undelegate KGHs from the validator.
      *
      * @param validator           Address of the validator.
-     * @param tokenIds            Array of token ids of KGHs to undelegate.
+     * @param delegator           Address of the delegator.
+     * @param kghCount            The number of KGH token to undelegate.
      * @param kroInKghs           The amount of KRO in the KGHs.
+     * @param kroAssets           The amount of KRO Assets to undelegate.
      * @param kroShares           The amount of KRO shares to undelegate.
-     * @param kghShares           The amount of KGH shares to undelegate.
-     * @param kghAssetsToWithdraw The amount of KGH assets to withdraw.
      */
-    function _initUndelegateKghBatch(
+    function _undelegateKghBatch(
         address validator,
-        uint256[] calldata tokenIds,
+        address delegator,
+        uint128 kghCount,
         uint128 kroInKghs,
-        uint128 kroShares,
-        uint128 kghShares,
-        uint128 kghAssetsToWithdraw
+        uint128 kroAssets,
+        uint128 kroShares
     ) internal {
         Vault storage vault = _vaults[validator];
-        uint128 kroAssetsToWithdraw = _convertToKroAssets(validator, kroShares);
-        uint128 boostedRewardsToReceive;
+        KghDelegator storage kghDelegator = vault.kghDelegators[delegator];
 
         unchecked {
+            // asset
             vault.asset.totalKroShares -= kroShares;
-            vault.asset.totalKghShares -= kghShares;
-
-            uint128 baseRewardsToReceive = kroAssetsToWithdraw - kroInKghs;
-            boostedRewardsToReceive = kghAssetsToWithdraw - VKRO_PER_KGH * uint128(tokenIds.length);
-
-            vault.asset.totalKro -= kroAssetsToWithdraw;
+            vault.asset.totalKgh -= 1;
+            vault.asset.totalKro -= kroAssets;
             vault.asset.totalKroInKgh -= kroInKghs;
-            vault.asset.totalKgh -= uint128(tokenIds.length);
-            vault.asset.boostedReward -= boostedRewardsToReceive;
 
-            KghDelegatorShares memory pendingShares = KghDelegatorShares({
-                kro: kroShares.mulDiv(baseRewardsToReceive, kroAssetsToWithdraw),
-                kgh: kghShares.mulDiv(boostedRewardsToReceive, kghAssetsToWithdraw)
-            });
-
-            _addPendingKghShares(
-                vault,
-                tokenIds,
-                baseRewardsToReceive,
-                boostedRewardsToReceive,
-                pendingShares
-            );
-        }
-
-        if (kroAssetsToWithdraw + boostedRewardsToReceive > 0) {
-            VALIDATOR_MANAGER.updateValidatorTree(validator, true);
+            // delegator
+            kghDelegator.kghNum -= kghCount;
         }
     }
 
