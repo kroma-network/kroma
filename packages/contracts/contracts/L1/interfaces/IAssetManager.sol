@@ -125,14 +125,12 @@ interface IAssetManager {
      * @param delegator Address of the delegator.
      * @param tokenIds  Array of token ids of the KGHs.
      * @param kroInKghs The amount of KRO in the KGHs.
-     * @param kroShares The amount of KRO shares received.
      */
     event KghBatchDelegated(
         address indexed validator,
         address indexed delegator,
         uint256[] tokenIds,
-        uint128 kroInKghs,
-        uint128 kroShares
+        uint128 kroInKghs
     );
 
     /**
