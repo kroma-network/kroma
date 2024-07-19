@@ -46,8 +46,10 @@ interface IValidatorManager {
      * @custom:field _commissionChangeDelaySeconds The delay to finalize the commission rate change
      *                                             in seconds.
      * @custom:field _roundDurationSeconds         The duration of one submission round in seconds.
-     * @custom:field _jailPeriodSeconds            The minimum duration to get out of jail in
-     *                                             seconds.
+     * @custom:field _softJailPeriodSeconds        The minimum duration to get out of jail in
+     *                                             seconds in output non-submissions penalty.
+     * @custom:field _hardJailPeriodSeconds        The minimum duration to get out of jail in
+     *                                             seconds in slashing penalty.
      * @custom:field _jailThreshold                The maximum allowed number of output
      *                                             non-submissions before jailed.
      * @custom:field _maxOutputFinalizations       Max number of finalized outputs.
@@ -61,7 +63,8 @@ interface IValidatorManager {
         address _trustedValidator;
         uint128 _commissionChangeDelaySeconds;
         uint128 _roundDurationSeconds;
-        uint128 _jailPeriodSeconds;
+        uint128 _softJailPeriodSeconds;
+        uint128 _hardJailPeriodSeconds;
         uint128 _jailThreshold;
         uint128 _maxOutputFinalizations;
         uint128 _baseReward;
