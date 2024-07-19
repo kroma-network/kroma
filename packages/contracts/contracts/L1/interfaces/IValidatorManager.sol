@@ -160,22 +160,6 @@ interface IValidatorManager {
     event ValidatorUnjailed(address indexed validator);
 
     /**
-     * @notice Emitted when validator KRO is bonded during output submission or challenge creation.
-     *
-     * @param validator Address of the validator.
-     * @param amount    The amount of KRO bonded.
-     */
-    event ValidatorKroBonded(address indexed validator, uint128 amount);
-
-    /**
-     * @notice Emitted when validator KRO is unbonded during output finalization or slashing.
-     *
-     * @param validator Address of the validator.
-     * @param amount    The amount of KRO unbonded.
-     */
-    event ValidatorKroUnbonded(address indexed validator, uint128 amount);
-
-    /**
      * @notice Emitted when the output reward is distributed.
      *
      * @param outputIndex     Index of the L2 checkpoint output.
@@ -314,10 +298,18 @@ interface IValidatorManager {
     function tryUnjail(address validator, bool force) external;
 
     /**
+     * @notice Call ASSET_MANAGER.bondValidatorKro(). This function is only called by the Colosseum
+     *         contract.
+     *
+     * @param validator Address of the validator.
+     */
+    function bondValidatorKro(address validator) external;
+
+    /**
      * @notice Slash KRO from the vault of the challenge loser and move the slashing asset to
      *         pending challenge reward before output rewarded, after directly to winner's asset.
      *         Since the behavior could threaten the security of the chain, the loser is sent to
-     *         jail.
+     *         jail. This function is only called by the Colosseum contract.
      *
      * @param outputIndex The index of output challenged.
      * @param winner      Address of the challenge winner.

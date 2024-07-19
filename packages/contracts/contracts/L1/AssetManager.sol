@@ -42,11 +42,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     uint128 public constant DECIMAL_OFFSET = 10 ** 6;
 
     /**
-     * @notice The denominator for the slashing rate.
-     */
-    uint128 public constant SLASHING_RATE_DENOM = 1000;
-
-    /**
      * @notice Address of the KRO token contract.
      */
     IERC20 public immutable ASSET_TOKEN;
@@ -77,15 +72,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     uint256 public immutable UNDELEGATION_PERIOD;
 
     /**
-     * @notice The numerator of the slashing rate.
+     * @notice The amount to bond.
      */
-    uint128 public immutable SLASHING_RATE;
-
-    /**
-     * @notice Minimum amount to slash. It should be equal or less than
-     *         ValidatorManager.MIN_ACTIVATE_AMOUNT.
-     */
-    uint128 public immutable MIN_SLASHING_AMOUNT;
+    uint128 public immutable BOND_AMOUNT;
 
     /**
      * @notice A mapping of validator address to the vault.
@@ -126,8 +115,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param _securityCouncil    Address of the SecurityCouncil contract.
      * @param _validatorManager   Address of the ValidatorManager contract.
      * @param _undelegationPeriod Period that should wait to finalize the undelegation.
-     * @param _slashingRate       Numerator of the slashing rate.
-     * @param _minSlashingAmount  Minimum amount to slash.
+     * @param _bondAmount         Amount to bond.
      */
     constructor(
         IERC20 _assetToken,
@@ -136,19 +124,15 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         address _securityCouncil,
         IValidatorManager _validatorManager,
         uint128 _undelegationPeriod,
-        uint128 _slashingRate,
-        uint128 _minSlashingAmount
+        uint128 _bondAmount
     ) {
-        if (_slashingRate > SLASHING_RATE_DENOM) revert InvalidConstructorParams();
-
         ASSET_TOKEN = _assetToken;
         KGH = _kgh;
         KGH_MANAGER = _kghManager;
         SECURITY_COUNCIL = _securityCouncil;
         VALIDATOR_MANAGER = _validatorManager;
         UNDELEGATION_PERIOD = _undelegationPeriod;
-        SLASHING_RATE = _slashingRate;
-        MIN_SLASHING_AMOUNT = _minSlashingAmount;
+        BOND_AMOUNT = _bondAmount;
     }
 
     /**
@@ -248,6 +232,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function totalValidatorKro(address validator) external view returns (uint128) {
         return _vaults[validator].asset.validatorKro;
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
+    function totalValidatorKroBonded(address validator) external view returns (uint128) {
+        return _vaults[validator].asset.validatorKroBonded;
     }
 
     /**
@@ -679,6 +670,28 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @notice Bond KRO from validator KRO during output submission or challenge creation. This
+     *         function is only called by the ValidatorManager contract.
+     *
+     * @param validator Address of the validator.
+     */
+    function bondValidatorKro(address validator) external onlyValidatorManager {
+        Vault storage vault = _vaults[validator];
+        if (vault.asset.validatorKro - vault.asset.validatorKroBonded < BOND_AMOUNT)
+            revert InsufficientAsset();
+
+        unchecked {
+            vault.asset.validatorKroBonded += BOND_AMOUNT;
+        }
+
+        emit ValidatorKroBonded(
+            validator,
+            BOND_AMOUNT,
+            vault.asset.validatorKro - vault.asset.validatorKroBonded
+        );
+    }
+
+    /**
      * @notice Update the vault of validator with the distributed reward. This function is only
      *         called by the ValidatorManager contract.
      *
@@ -750,7 +763,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         ];
 
         if (isLoser) {
-            challengeReward = totalAmount.mulDiv(SLASHING_RATE, SLASHING_RATE_DENOM);
+            challengeReward = totalAmount.mulDiv(SLASHING_RATE, SLASHING_RATE_DENOM); // TODO
             challengeReward = challengeReward > MIN_SLASHING_AMOUNT
                 ? challengeReward
                 : MIN_SLASHING_AMOUNT;

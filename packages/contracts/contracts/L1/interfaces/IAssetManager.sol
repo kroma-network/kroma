@@ -208,14 +208,27 @@ interface IAssetManager {
     );
 
     /**
+     * @notice Emitted when validator KRO is bonded during output submission or challenge creation.
+     *
+     * @param validator Address of the validator.
+     * @param amount    The amount of KRO bonded.
+     * @param remainder The remaining amount of validator KRO excluding bonded KRO.
+     */
+    event ValidatorKroBonded(address indexed validator, uint128 amount, uint128 remainder);
+
+    /**
+     * @notice Emitted when validator KRO is unbonded during output finalization or slashing.
+     *
+     * @param validator Address of the validator.
+     * @param amount    The amount of KRO unbonded.
+     * @param remainder The remaining amount of validator KRO excluding bonded KRO.
+     */
+    event ValidatorKroUnbonded(address indexed validator, uint128 amount, uint128 remainder);
+
+    /**
      * @notice Reverts when caller is not allowed.
      */
     error NotAllowedCaller();
-
-    /**
-     * @notice Reverts when constructor parameters are invalid.
-     */
-    error InvalidConstructorParams();
 
     /**
      * @notice Reverts when the status of validator is improper.
@@ -274,6 +287,16 @@ interface IAssetManager {
      * @return The total amount of KRO a validator has deposited and been rewarded.
      */
     function totalValidatorKro(address validator) external view returns (uint128);
+
+    /**
+     * @notice Returns the total amount of validator KRO that bonded during output submission or
+     *         challenge creation.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The total amount of validator KRO bonded.
+     */
+    function totalValidatorKroBonded(address validator) external view returns (uint128);
 
     /**
      * @notice Returns the total amount of KRO that delegated by the delegators and accumulated as
