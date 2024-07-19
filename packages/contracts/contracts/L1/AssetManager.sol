@@ -67,9 +67,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     IValidatorManager public immutable VALIDATOR_MANAGER;
 
     /**
-     * @notice Delay for the finalization of undelegation.
+     * @notice Minimum delegation period. Can be updated via upgrade.
      */
-    uint256 public immutable UNDELEGATION_PERIOD;
+    uint256 public immutable MIN_DELEGATION_PERIOD;
 
     /**
      * @notice The numerator of the slashing rate.
@@ -231,6 +231,18 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @inheritdoc IAssetManager
+     */
+    function canUndelegateKroAt(
+        address validator,
+        address delegator
+    ) external view returns (uint128) {
+        return
+            _vaults[validator].kroDelegators[delegator].lastDelegatedAt +
+            uint128(MIN_DELEGATION_PERIOD);
+    }
+
+    /**
      * @notice Returns the reflective weight of given validator. It can be different from the actual
      *         current weight of the validator in validator tree since it includes all accumulated
      *         rewards.
@@ -301,7 +313,15 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 assets
     ) external isRegistered(validator) returns (uint128) {
         if (assets == 0) revert NotAllowedZeroInput();
-        uint128 shares = _delegate(validator, msg.sender, assets);
+
+        ASSET_TOKEN.safeTransferFrom(msg.sender, address(this), assets);
+
+        uint128 shares = _convertToKroShares(validator, assets);
+
+        _delegate(validator, msg.sender, assets, shares);
+
+        VALIDATOR_MANAGER.updateValidatorTree(validator, false);
+
         emit KroDelegated(validator, msg.sender, assets, shares);
         return shares;
     }
@@ -375,16 +395,23 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
-    function initUndelegate(address validator, uint128 shares) external {
+    function undelegate(address validator, uint128 shares) external {
         if (shares == 0) revert NotAllowedZeroInput();
         if (shares > _vaults[validator].kroDelegators[msg.sender].shares)
             revert InsufficientShare();
 
         uint128 assets = _convertToKroAssets(validator, shares);
         if (assets == 0) revert InsufficientAsset();
+        if (canUndelegateKroAt(validator, msg.sender) > uint128(block.timestamp))
+            revert NotElapsedMinDelegationPeriod();
 
-        _initUndelegate(validator, msg.sender, assets, shares);
-        emit KroUndelegationInitiated(validator, msg.sender, assets, shares);
+        _undelegate(validator, msg.sender, assets, shares);
+
+        VALIDATOR_MANAGER.updateValidatorTree(validator, true);
+
+        ASSET_TOKEN.safeTransfer(msg.sender, assets);
+
+        emit KroUndelegated(validator, msg.sender, assets, shares);
     }
 
     /**
@@ -463,55 +490,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         VALIDATOR_MANAGER.updateValidatorTree(msg.sender, true);
 
         emit RewardClaimInitiated(msg.sender, amount);
-    }
-
-    /**
-     * @inheritdoc IAssetManager
-     */
-    function finalizeUndelegate(address validator) external returns (uint128) {
-        Pending storage pendingAsset = _vaults[validator].pending;
-        if (pendingAsset.totalPendingKroShares == 0) revert PendingNotExists();
-
-        KroDelegator storage delegator = _vaults[validator].kroDelegators[msg.sender];
-        uint256[] memory requestTimes = delegator.undelegateRequestTimes;
-        if (requestTimes.length == 0) revert RequestNotExists();
-
-        uint128 assetsToUndelegate;
-        uint128 sharesToUndelegate;
-        // Loop only while the undelegation request time does exist.
-        for (uint256 i = requestTimes.length - 1; i >= 0 && requestTimes[i] > 0; ) {
-            if (requestTimes[i] + UNDELEGATION_PERIOD <= block.timestamp) {
-                unchecked {
-                    sharesToUndelegate += delegator.pendingKroShares[requestTimes[i]];
-                }
-
-                delete delegator.pendingKroShares[requestTimes[i]];
-                delete delegator.undelegateRequestTimes[i];
-            }
-
-            if (i == 0) {
-                break;
-            }
-            unchecked {
-                --i;
-            }
-        }
-
-        if (sharesToUndelegate == 0) revert FinalizedPendingNotExists();
-
-        unchecked {
-            assetsToUndelegate = sharesToUndelegate.mulDiv(
-                pendingAsset.totalPendingAssets,
-                pendingAsset.totalPendingKroShares
-            );
-            pendingAsset.totalPendingAssets -= assetsToUndelegate;
-            pendingAsset.totalPendingKroShares -= sharesToUndelegate;
-        }
-
-        ASSET_TOKEN.safeTransfer(msg.sender, assetsToUndelegate);
-
-        emit KroUndelegationFinalized(validator, msg.sender, assetsToUndelegate);
-        return assetsToUndelegate;
     }
 
     /**
@@ -776,20 +754,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @notice Add pending assets and shares when undelegating KRO.
-     *
-     * @param vault  Vault of the validator.
-     * @param assets The amount of assets to add as pending asset.
-     * @param shares The amount of shares to add as pending share.
-     */
-    function _addPendingKroShares(Vault storage vault, uint128 assets, uint128 shares) internal {
-        vault.pending.totalPendingAssets += assets;
-        vault.pending.totalPendingKroShares += shares;
-        vault.kroDelegators[msg.sender].pendingKroShares[block.timestamp] += shares;
-        vault.kroDelegators[msg.sender].undelegateRequestTimes.push(block.timestamp);
-    }
-
-    /**
      * @notice Add pending assets and shares when undelegating KGH.
      *
      * @param vault          Vault of the validator.
@@ -877,30 +841,26 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @notice Internal function to delegate KRO to the validator.
      *
      * @param validator Address of the validator.
-     * @param owner     Address of the delegator.
+     * @param delegator Address of the delegator.
      * @param assets    The amount of KRO to delegate.
+     * @param shares    The amount of shares to delegate.
      *
      * @return The amount of shares that the Vault would exchange for the amount of assets provided.
      */
     function _delegate(
         address validator,
-        address owner,
-        uint128 assets
-    ) internal returns (uint128) {
-        uint128 shares = _convertToKroShares(validator, assets);
+        address delegator,
+        uint128 assets,
+        uint128 shares
+    ) internal {
         Vault storage vault = _vaults[validator];
-
-        ASSET_TOKEN.safeTransferFrom(owner, address(this), assets);
 
         unchecked {
             vault.asset.totalKro += assets;
             vault.asset.totalKroShares += shares;
-            vault.kroDelegators[owner].shares += shares;
+            vault.kroDelegators[delegator].shares += shares;
+            vault.kroDelegators[delegator].lastDelegatedAt = uint128(block.timestamp);
         }
-
-        VALIDATOR_MANAGER.updateValidatorTree(validator, false);
-
-        return shares;
     }
 
     /**
@@ -967,13 +927,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @notice Internal function to undelegate KRO from the validator.
      *
      * @param validator Address of the validator.
-     * @param owner     Address of the delegator.
+     * @param delegator Address of the delegator.
      * @param assets    The amount of KRO to undelegate.
      * @param shares    The amount of shares to undelegate.
      */
-    function _initUndelegate(
+    function _undelegate(
         address validator,
-        address owner,
+        address delegator,
         uint128 assets,
         uint128 shares
     ) internal {
@@ -981,13 +941,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         unchecked {
             vault.asset.totalKroShares -= shares;
-            vault.kroDelegators[owner].shares -= shares;
-
+            vault.kroDelegators[delegator].shares -= shares;
             vault.asset.totalKro -= assets;
-            _addPendingKroShares(vault, assets, shares);
         }
-
-        VALIDATOR_MANAGER.updateValidatorTree(validator, true);
     }
 
     /**
