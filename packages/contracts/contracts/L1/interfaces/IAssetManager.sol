@@ -428,10 +428,15 @@ interface IAssetManager {
      *
      * @param validator The address of the validator.
      * @param delegator The address of the delegator.
+     * @param tokenIds  The token id array of KGH to check the base reward.
      *
      * @return The amount of claimable reward of KGH delegation.
      */
-    function getKghReward(address validator, address delegator) external view returns (uint128);
+    function getKghReward(
+        address validator,
+        address delegator,
+        uint256[] calldata tokenIds
+    ) external view returns (uint128);
 
     /**
      * @notice Deposit KRO. To deposit KRO, the validator should be initiated.
@@ -508,7 +513,7 @@ interface IAssetManager {
     function undelegateKghBatch(address validator, uint256[] calldata tokenIds) external;
 
     /**
-     * @notice Claim the reward of the KGH delegator from the given validator vault.
+     * @notice Claim the reward of the KGH delegator from the given validator vault and token ids.
      *
      * @param validator Address of the validator.
      * @param tokenIds  Array of token ids of KGHs to claim base reward.
