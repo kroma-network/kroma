@@ -173,6 +173,18 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @inheritdoc IAssetManager
+     */
+    function canUndelegateKroAt(
+        address validator,
+        address delegator
+    ) external view returns (uint128) {
+        return
+            _vaults[validator].kroDelegators[delegator].lastDelegatedAt +
+            uint128(MIN_DELEGATION_PERIOD);
+    }
+
+    /**
  * @inheritdoc IAssetManager
      */
     function getKghReward(
@@ -239,18 +251,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function totalValidatorReward(address validator) external view returns (uint128) {
         return _vaults[validator].asset.validatorRewardKro;
-    }
-
-    /**
-     * @inheritdoc IAssetManager
-     */
-    function canUndelegateKroAt(
-        address validator,
-        address delegator
-    ) external view returns (uint128) {
-        return
-            _vaults[validator].kroDelegators[delegator].lastDelegatedAt +
-            uint128(MIN_DELEGATION_PERIOD);
     }
 
     /**
@@ -409,7 +409,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         uint128 assets = _convertToKroAssets(validator, shares);
         if (assets == 0) revert InsufficientAsset();
-        if (canUndelegateKroAt(validator, msg.sender) > uint128(block.timestamp))
+        if (canUndelegateKroAt(validator, msg.sender) > block.timestamp)
             revert NotElapsedMinDelegationPeriod();
 
         _undelegate(validator, msg.sender, assets, shares);
@@ -934,8 +934,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param delegator Address of the delegator.
      * @param assets    The amount of KRO to delegate.
      * @param shares    The amount of shares to delegate.
-     *
-     * @return The amount of shares that the Vault would exchange for the amount of assets provided.
      */
     function _delegate(
         address validator,
@@ -1031,8 +1029,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         unchecked {
             vault.asset.totalKroShares -= shares;
-            vault.kroDelegators[delegator].shares -= shares;
             vault.asset.totalKro -= assets;
+            vault.kroDelegators[delegator].shares -= shares;
         }
     }
 
