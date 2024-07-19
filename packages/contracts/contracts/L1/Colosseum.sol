@@ -194,6 +194,19 @@ contract Colosseum is Initializable, ISemver {
     );
 
     /**
+     * @notice Emitted when challenge is deleted forcefully.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param asseter     Address of the asseter.
+     * @param timestamp   The timestamp when output deleted.
+     */
+    event OutputForceDeleted(
+        uint256 indexed outputIndex,
+        address indexed asseter,
+        uint256 timestamp
+    );
+
+    /**
      * @notice Emitted when challenge is canceled.
      *
      * @param outputIndex Index of the L2 checkpoint output.
@@ -273,6 +286,11 @@ contract Colosseum is Initializable, ISemver {
      * @notice Reverts when L1 is reorged.
      */
     error L1Reorged();
+
+    /**
+     * @notice Reverts when the output has already been validated by security council.
+     */
+    error SecurityCouncilValidated();
 
     /**
      * @notice Reverts when the public input has already been used to prove fault.
@@ -555,6 +573,9 @@ contract Colosseum is Initializable, ISemver {
         uint256[] calldata _zkproof,
         uint256[] calldata _pair
     ) external outputNotFinalized(_outputIndex) {
+        if (L2_ORACLE.getSubmitter(_outputIndex) == SECURITY_COUNCIL)
+            revert SecurityCouncilValidated();
+
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
         ChallengeStatus status = _challengeStatus(challenge);
 
@@ -687,10 +708,9 @@ contract Colosseum is Initializable, ISemver {
         if (_outputRoot == DELETED_OUTPUT_ROOT) revert CannotRollbackOutputToZero();
         if (L2_ORACLE.getL2Output(_outputIndex).outputRoot != DELETED_OUTPUT_ROOT)
             revert OutputNotDeleted();
-        verifiedPublicInputs[_publicInputHash] = false;
 
         // Rollback output root.
-        L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, _asserter);
+        L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, SECURITY_COUNCIL);
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
@@ -724,6 +744,8 @@ contract Colosseum is Initializable, ISemver {
             // Slash the asserter's asset and move it to pending challenge reward for the output.
             L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, SECURITY_COUNCIL, output.submitter);
         }
+
+        emit OutputForceDeleted(_outputIndex, output.submitter, block.timestamp);
     }
 
     /**
