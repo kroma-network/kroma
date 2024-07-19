@@ -91,6 +91,18 @@ func TestEcotoneNetworkUpgradeTransactions(gt *testing.T) {
 	// See [derive.EcotoneNetworkUpgradeTransactions]
 	require.Equal(t, 7, len(transactions))
 
+	// [Kroma: START] Use KromaDepositTx instead of DepositTx
+	for i, otx := range transactions {
+		if otx.Type() == types.DepositTxType {
+			b, err := otx.MarshalBinary()
+			require.NoError(gt, err)
+			kromaDep, err := derive.ToKromaDepositBytes(b)
+			require.NoError(gt, err)
+			transactions[i].UnmarshalBinary(kromaDep)
+		}
+	}
+	// [Kroma: END]
+
 	l1Info, err := derive.L1BlockInfoFromBytes(sd.RollupCfg, latestBlock.Time(), transactions[0].Data())
 	require.NoError(t, err)
 	require.Equal(t, derive.L1InfoBedrockLen, len(transactions[0].Data()))

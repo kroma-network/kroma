@@ -176,9 +176,10 @@ func DiffTestUtils() {
 
 		// Create deposit transaction
 		depositTx := makeDepositTx(from, to, value, mint, gasLimit, false, data, l1BlockHash, logIndex)
+		kromaDepTx := toKromaDepositTx(depositTx)
 
 		// RLP encode deposit transaction
-		encoded, err := types.NewTx(&depositTx).MarshalBinary()
+		encoded, err := types.NewTx(&kromaDepTx).MarshalBinary()
 		checkErr(err, "Error encoding deposit transaction")
 
 		// Hash encoded deposit transaction
@@ -206,9 +207,10 @@ func DiffTestUtils() {
 		checkOk(ok)
 
 		depositTx := makeDepositTx(from, to, value, mint, gasLimit, isCreate, data, l1BlockHash, logIndex)
+		kromaDepTx := toKromaDepositTx(depositTx)
 
 		// RLP encode deposit transaction
-		encoded, err := types.NewTx(&depositTx).MarshalBinary()
+		encoded, err := types.NewTx(&kromaDepTx).MarshalBinary()
 		checkErr(err, "Failed to RLP encode deposit transaction")
 		// Pack rlp encoded deposit transaction
 		packed, err := bytesArgs.Pack(&encoded)

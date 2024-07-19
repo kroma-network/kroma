@@ -117,14 +117,12 @@ func makeDepositTx(
 
 	// Create deposit transaction
 	depositTx := types.DepositTx{
-		SourceHash: udp.SourceHash(),
-		From:       from,
-		Value:      value,
-		Gas:        gasLimit.Uint64(),
-		/* [Kroma: START]
+		SourceHash:          udp.SourceHash(),
+		From:                from,
+		Value:               value,
+		Gas:                 gasLimit.Uint64(),
 		IsSystemTransaction: false, // This will never be a system transaction in the tests.
-		[Kroma: END] */
-		Data: data,
+		Data:                data,
 	}
 
 	// Fill optional fields
@@ -136,6 +134,25 @@ func makeDepositTx(
 	}
 
 	return depositTx
+}
+
+func toKromaDepositTx(depTx types.DepositTx) types.KromaDepositTx {
+	kromaDepTx := types.KromaDepositTx{
+		SourceHash: depTx.SourceHash,
+		From:       depTx.From,
+		Value:      new(big.Int).Set(depTx.Value),
+		Gas:        depTx.Gas,
+		Data:       depTx.Data,
+	}
+	// Fill optional fields
+	if depTx.Mint != nil {
+		kromaDepTx.Mint = new(big.Int).Set(depTx.Mint)
+	}
+	if depTx.To != nil {
+		to := *depTx.To
+		kromaDepTx.To = &to
+	}
+	return kromaDepTx
 }
 
 // Custom type to write the generated proof to
