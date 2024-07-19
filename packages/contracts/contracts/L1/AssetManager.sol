@@ -173,7 +173,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
- * @inheritdoc IAssetManager
+     * @inheritdoc IAssetManager
      */
     function getKghReward(
         address validator,
@@ -689,19 +689,29 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param validator Address of the validator.
      */
     function bondValidatorKro(address validator) external onlyValidatorManager {
-        Vault storage vault = _vaults[validator];
-        if (vault.asset.validatorKro - vault.asset.validatorKroBonded < BOND_AMOUNT)
-            revert InsufficientAsset();
+        Asset storage asset = _vaults[validator].asset;
+        if (asset.validatorKro - asset.validatorKroBonded < BOND_AMOUNT) revert InsufficientAsset();
 
         unchecked {
-            vault.asset.validatorKroBonded += BOND_AMOUNT;
+            asset.validatorKroBonded += BOND_AMOUNT;
         }
 
         emit ValidatorKroBonded(
             validator,
             BOND_AMOUNT,
-            vault.asset.validatorKro - vault.asset.validatorKroBonded
+            asset.validatorKro - asset.validatorKroBonded
         );
+    }
+
+    /**
+     * @notice Unbond KRO from validator KRO during output finalization or challenge slashing. This
+     *         function is only called by the ValidatorManager contract.
+     *
+     * @param validator Address of the validator.
+     */
+    function unbondValidatorKro(address validator) external onlyValidatorManager {
+        Asset storage asset = _vaults[validator].asset;
+        _unbondValidatorKro(validator, asset);
     }
 
     /**
@@ -726,119 +736,66 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
                 baseReward + boostedReward + validatorReward
             );
         } else {
-            Vault storage vault = _vaults[validator];
+            Asset storage asset = _vaults[validator].asset;
             unchecked {
-                vault.asset.totalKro += baseReward;
+                asset.totalKro += baseReward;
                 // TODO: handle reward for boosted reward
             }
+
+            _unbondValidatorKro(validator, asset);
         }
 
         // TODO - Distribute the reward from a designated vault to the AssetManager contract.
     }
 
     /**
-     * @notice Modify the balance of the vault during challenge. This function is only called by the
-     *         ValidatorManager contract.
+     * @notice Update the vault of challenge winner with the challenge reward. This function is only
+     *         called by the ValidatorManager contract.
      *
-     * @param validator       Address of the validator.
-     * @param challengeReward The challenge reward to be added to the winner's asset. If 0, the
-     *                        challenge reward which will be slashed from loser's asset is
-     *                        determined in this function.
-     * @param isLoser         True if the given validator is the loser at the challenge.
+     * @param winner          Address of the challenge winner.
+     * @param challengeReward The challenge reward to be added to the winner's asset.
+     */
+    function increaseBalanceWithChallenge(
+        address winner,
+        uint128 challengeReward
+    ) external onlyValidatorManager {
+        Asset storage asset = _vaults[winner].asset;
+
+        // If challenge reward is distributed to SECURITY_COUNCIL, transfer it directly.
+        if (winner == SECURITY_COUNCIL) {
+            ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, challengeReward);
+            return;
+        }
+
+        unchecked {
+            asset.validatorKro += challengeReward;
+        }
+    }
+
+    /**
+     * @notice Update the vault of challenge loser with the challenge reward. This function is only
+     *         called by the ValidatorManager contract.
      *
-     * @return The tax amount.
+     * @param loser Address of the challenge loser.
+     *
+     * @return The tax amount transferred to security council.
      * @return The challenge reward to be added to the winner's asset.
      */
-    // TODO: change this according to the new design regarding to bond
-    function modifyBalanceWithChallenge(
-        address validator,
-        uint128 challengeReward,
-        bool isLoser
+    function decreaseBalanceWithChallenge(
+        address loser
     ) external onlyValidatorManager returns (uint128, uint128) {
-        Vault storage vault = _vaults[validator];
+        Asset storage asset = _vaults[loser].asset;
+        uint128 challengeReward = BOND_AMOUNT;
 
-        uint128 totalAmount = vault.asset.totalKro +
-            vault.pending.totalPendingAssets +
-            vault.pending.totalPendingBoostedRewards +
-            vault.asset.validatorRewardKro +
-            vault.pending.totalPendingValidatorRewards +
-            vault.asset.boostedReward -
-            vault.asset.totalKroInKgh;
-
-        uint128[6] memory arr = [
-            (vault.asset.totalKro - vault.asset.totalKroInKgh),
-            vault.asset.boostedReward,
-            vault.pending.totalPendingAssets,
-            vault.pending.totalPendingBoostedRewards,
-            vault.asset.validatorRewardKro,
-            vault.pending.totalPendingValidatorRewards
-        ];
-
-        if (isLoser) {
-            challengeReward = totalAmount.mulDiv(SLASHING_RATE, SLASHING_RATE_DENOM); // TODO
-            challengeReward = challengeReward > MIN_SLASHING_AMOUNT
-                ? challengeReward
-                : MIN_SLASHING_AMOUNT;
-
-            unchecked {
-                // Since validatorKro is included in totalKro, it does not need to be included in
-                // totalAmount calculation, but we should update this value as well.
-                vault.asset.validatorKro -= vault.asset.validatorKro.mulDiv(
-                    challengeReward,
-                    totalAmount
-                );
-
-                vault.asset.totalKro -= arr[0].mulDiv(challengeReward, totalAmount);
-                vault.asset.boostedReward -= arr[1].mulDiv(challengeReward, totalAmount);
-                vault.pending.totalPendingAssets -= arr[2].mulDiv(challengeReward, totalAmount);
-                vault.pending.totalPendingBoostedRewards -= arr[3].mulDiv(
-                    challengeReward,
-                    totalAmount
-                );
-                vault.asset.validatorRewardKro -= arr[4].mulDiv(challengeReward, totalAmount);
-                vault.pending.totalPendingValidatorRewards -= arr[5].mulDiv(
-                    challengeReward,
-                    totalAmount
-                );
-            }
-
-            uint128 tax = challengeReward.mulDiv(TAX_NUMERATOR, TAX_DENOMINATOR);
-            unchecked {
-                challengeReward -= tax;
-            }
-
-            ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, tax);
-
-            return (tax, challengeReward);
-        } else {
-            // If challenge reward is distributed to SECURITY_COUNCIL, transfer it directly.
-            if (validator == SECURITY_COUNCIL) {
-                ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, challengeReward);
-                return (0, challengeReward);
-            }
-
-            unchecked {
-                vault.asset.validatorKro += vault.asset.validatorKro.mulDiv(
-                    challengeReward,
-                    totalAmount
-                );
-
-                vault.asset.totalKro += arr[0].mulDiv(challengeReward, totalAmount);
-                vault.asset.boostedReward += arr[1].mulDiv(challengeReward, totalAmount);
-                vault.pending.totalPendingAssets += arr[2].mulDiv(challengeReward, totalAmount);
-                vault.pending.totalPendingBoostedRewards += arr[3].mulDiv(
-                    challengeReward,
-                    totalAmount
-                );
-                vault.asset.validatorRewardKro += arr[4].mulDiv(challengeReward, totalAmount);
-                vault.pending.totalPendingValidatorRewards += arr[5].mulDiv(
-                    challengeReward,
-                    totalAmount
-                );
-            }
-
-            return (0, challengeReward);
+        unchecked {
+            asset.validatorKroBonded -= challengeReward;
+            asset.validatorKro -= challengeReward;
         }
+
+        uint128 tax = challengeReward.mulDiv(TAX_NUMERATOR, TAX_DENOMINATOR);
+        ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, tax);
+
+        return (tax, challengeReward - tax);
     }
 
     /**
@@ -959,11 +916,11 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param updateTree Flag to update the validator tree.
      */
     function _deposit(address validator, uint128 assets, bool updateTree) internal {
-        Vault storage vault = _vaults[validator];
+        Asset storage asset = _vaults[validator].asset;
         ASSET_TOKEN.safeTransferFrom(validator, address(this), assets);
 
         unchecked {
-            vault.asset.validatorKro += assets;
+            asset.validatorKro += assets;
         }
 
         if (updateTree) {
@@ -975,14 +932,14 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @notice Internal function to delegate KRO to the validator.
      *
      * @param validator Address of the validator.
-     * @param owner     Address of the delegator.
+     * @param delegator Address of the delegator.
      * @param assets    The amount of KRO to delegate.
      *
      * @return The amount of shares that the Vault would exchange for the amount of assets provided.
      */
     function _delegate(
         address validator,
-        address owner,
+        address delegator,
         uint128 assets
     ) internal returns (uint128) {
         uint128 shares = _convertToKroShares(validator, assets);
@@ -991,7 +948,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         unchecked {
             vault.asset.totalKro += assets;
             vault.asset.totalKroShares += shares;
-            vault.kroDelegators[owner].shares += shares;
+            vault.kroDelegators[delegator].shares += shares;
         }
 
         VALIDATOR_MANAGER.updateValidatorTree(validator, false);
@@ -1063,13 +1020,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @notice Internal function to undelegate KRO from the validator.
      *
      * @param validator Address of the validator.
-     * @param owner     Address of the delegator.
+     * @param delegator Address of the delegator.
      * @param assets    The amount of KRO to undelegate.
      * @param shares    The amount of shares to undelegate.
      */
     function _initUndelegate(
         address validator,
-        address owner,
+        address delegator,
         uint128 assets,
         uint128 shares
     ) internal {
@@ -1077,7 +1034,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         unchecked {
             vault.asset.totalKroShares -= shares;
-            vault.kroDelegators[owner].shares -= shares;
+            vault.kroDelegators[delegator].shares -= shares;
 
             vault.asset.totalKro -= assets;
             _addPendingKroShares(vault, assets, shares);
@@ -1090,21 +1047,21 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @notice Internal function to undelegate KGH from the validator.
      *
      * @param validator Address of the validator.
-     * @param owner     Address of the delegator.
+     * @param delegator Address of the delegator.
      * @param tokenId   Token Id of the KGH.
      * @param kroShares The amount of KRO shares to undelegate.
      * @param kghShares The amount of KGH shares to undelegate.
      */
     function _initUndelegateKgh(
         address validator,
-        address owner,
+        address delegator,
         uint256 tokenId,
         uint128 kroShares,
         uint128 kghShares
     ) internal {
         Vault storage vault = _vaults[validator];
         uint128 kroAssetsToWithdraw = _convertToKroAssets(validator, kroShares);
-        uint128 kghAssetsToWithdraw = _convertToKghAssets(validator, owner, tokenId);
+        uint128 kghAssetsToWithdraw = _convertToKghAssets(validator, delegator, tokenId);
         uint128 boostedRewardsToReceive;
 
         uint256[] memory tokenIds = new uint256[](1);
@@ -1113,7 +1070,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         unchecked {
             vault.asset.totalKroShares -= kroShares;
             vault.asset.totalKghShares -= kghShares;
-            delete vault.kghDelegators[owner].shares[tokenId];
+            delete vault.kghDelegators[delegator].shares[tokenId];
 
             uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenId);
             uint128 baseRewardsToReceive = kroAssetsToWithdraw - kroInKgh;
@@ -1204,10 +1161,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      *
      * @return The amount of the claimed boosted reward.
      */
-    function _claimBoostedReward(
-        address validator,
-        address delegator,
-    ) internal returns (uint128) {
+    function _claimBoostedReward(address validator, address delegator) internal returns (uint128) {
         Vault storage vault = _vaults[validator];
         KghDelegator storage kghDelegator = vault.kghDelegators[delegator];
 
@@ -1218,6 +1172,25 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         kghDelegator.rewardPerKghPaid = rewardPerKghStored;
 
         return totalBoostedReward;
+    }
+
+    /**
+     * @notice Internal function to unbond KRO from validator KRO during output finalization or
+     *         challenge slashing.
+     *
+     * @param validator Address of the validator.
+     * @param asset     Asset information of the vault of the validator.
+     */
+    function _unbondValidatorKro(address validator, Asset storage asset) internal {
+        unchecked {
+            asset.validatorKroBonded -= BOND_AMOUNT;
+
+            emit ValidatorKroUnbonded(
+                validator,
+                BOND_AMOUNT,
+                asset.validatorKro - asset.validatorKroBonded
+            );
+        }
     }
 
     /**

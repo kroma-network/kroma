@@ -696,6 +696,8 @@ contract Colosseum is Initializable, ISemver {
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
             // Unjail asserter.
             L2_ORACLE.VALIDATOR_MANAGER().tryUnjail(_asserter, true);
+            // Slash challenger.
+            L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, _asserter, _challenger);
         }
 
         emit ChallengeDismissed(_outputIndex, _challenger, block.timestamp);
@@ -922,7 +924,9 @@ contract Colosseum is Initializable, ISemver {
         emit ChallengeCanceled(_outputIndex, msg.sender, block.timestamp);
 
         // Switch validator system after validator pool contract terminated.
-        if (!L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            L2_ORACLE.VALIDATOR_MANAGER().unbondValidatorKro(msg.sender);
+        } else {
             L2_ORACLE.VALIDATOR_POOL().releasePendingBond(_outputIndex, msg.sender, msg.sender);
         }
 

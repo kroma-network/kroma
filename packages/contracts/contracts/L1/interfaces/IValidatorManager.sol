@@ -306,6 +306,14 @@ interface IValidatorManager {
     function bondValidatorKro(address validator) external;
 
     /**
+     * @notice Call ASSET_MANAGER.unbondValidatorKro(). This function is only called by the
+     *         Colosseum contract.
+     *
+     * @param validator Address of the validator.
+     */
+    function unbondValidatorKro(address validator) external;
+
+    /**
      * @notice Slash KRO from the vault of the challenge loser and move the slashing asset to
      *         pending challenge reward before output rewarded, after directly to winner's asset.
      *         Since the behavior could threaten the security of the chain, the loser is sent to
