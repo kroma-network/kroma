@@ -459,6 +459,10 @@ func TestRegolith(t *testing.T) {
 			// L1Info tx should report actual gas used, not 0 or the tx gas limit
 			infoTx, err := opGeth.L2Client.TransactionInBlock(ctx, envelope.ExecutionPayload.BlockHash, 0)
 			require.NoError(t, err)
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			infoTx, err = infoTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 			infoRcpt, err := opGeth.L2Client.TransactionReceipt(ctx, infoTx.Hash())
 			require.NoError(t, err)
 			require.NotZero(t, infoRcpt.GasUsed)
