@@ -55,7 +55,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
     address public immutable TRUSTED_VALIDATOR;
 
     /**
-     * @notice Minimum amount to register as a validator.
+     * @notice Minimum amount to register as a validator. It should be equal or more than
+     *         ASSET_MANAGER.BOND_AMOUNT.
      */
     uint128 public immutable MIN_REGISTER_AMOUNT;
 
@@ -153,6 +154,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
     constructor(ConstructorParams memory _constructorParams) {
         if (_constructorParams._minRegisterAmount > _constructorParams._minActivateAmount)
             revert InvalidConstructorParams();
+        if (_constructorParams._minRegisterAmount < _constructorParams._assetManager.BOND_AMOUNT())
+            revert InvalidConstructorParams();
 
         L2_ORACLE = _constructorParams._l2Oracle;
         ASSET_MANAGER = _constructorParams._assetManager;
@@ -212,7 +215,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
     function afterSubmitL2Output(uint256 outputIndex) external onlyL2OutputOracle {
         _distributeReward();
 
+        // Bond validator KRO to reserve slashing amount.
         address submitter = L2_ORACLE.getSubmitter(outputIndex);
+        ASSET_MANAGER.bondValidatorKro(submitter);
+
         if (submitter == _nextPriorityValidator) {
             _resetNoSubmissionCount(submitter);
         } else {
@@ -288,6 +294,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (getStatus(validator) == ValidatorStatus.READY) {
             _activateValidator(validator);
         }
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function bondValidatorKro(address validator) external onlyColosseum {
+        ASSET_MANAGER.bondValidatorKro(validator);
     }
 
     /**
@@ -412,12 +425,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         bool activated = _validatorTree.nodeMap[validator] > 0;
 
-        // To prevent all MIN_ACTIVATE_AMOUNT is fulfilled with KRO in KGH which is not subject to
-        // slash, enable to activate the validator when real asset satisfies the threshold.
-        if (
-            ASSET_MANAGER.reflectiveWeight(validator) - ASSET_MANAGER.totalKroInKgh(validator) <
-            MIN_ACTIVATE_AMOUNT
-        ) {
+        if (ASSET_MANAGER.reflectiveWeight(validator) < MIN_ACTIVATE_AMOUNT) {
             if (!activated) {
                 return ValidatorStatus.REGISTERED;
             }

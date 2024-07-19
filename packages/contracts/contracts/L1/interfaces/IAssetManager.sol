@@ -208,14 +208,27 @@ interface IAssetManager {
     );
 
     /**
+     * @notice Emitted when validator KRO is bonded during output submission or challenge creation.
+     *
+     * @param validator Address of the validator.
+     * @param amount    The amount of KRO bonded.
+     * @param remainder The remaining amount of validator KRO excluding bonded KRO.
+     */
+    event ValidatorKroBonded(address indexed validator, uint128 amount, uint128 remainder);
+
+    /**
+     * @notice Emitted when validator KRO is unbonded during output finalization or slashing.
+     *
+     * @param validator Address of the validator.
+     * @param amount    The amount of KRO unbonded.
+     * @param remainder The remaining amount of validator KRO excluding bonded KRO.
+     */
+    event ValidatorKroUnbonded(address indexed validator, uint128 amount, uint128 remainder);
+
+    /**
      * @notice Reverts when caller is not allowed.
      */
     error NotAllowedCaller();
-
-    /**
-     * @notice Reverts when constructor parameters are invalid.
-     */
-    error InvalidConstructorParams();
 
     /**
      * @notice Reverts when the status of validator is improper.
@@ -253,6 +266,11 @@ interface IAssetManager {
     error NotElapsedMinDelegationPeriod();
 
     /**
+     * @notice Reverts when the given token ids are invalid.
+     */
+    error InvalidTokenIdsInput();
+
+    /**
      * @notice Returns the address of withdraw account of given validator.
      *
      * @param validator Address of the validator.
@@ -279,6 +297,16 @@ interface IAssetManager {
      * @return The total amount of KRO a validator has deposited and been rewarded.
      */
     function totalValidatorKro(address validator) external view returns (uint128);
+
+    /**
+     * @notice Returns the total amount of validator KRO that bonded during output submission or
+     *         challenge creation.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The total amount of validator KRO bonded.
+     */
+    function totalValidatorKroBonded(address validator) external view returns (uint128);
 
     /**
      * @notice Returns the total amount of KRO that delegated by the delegators and accumulated as
@@ -405,10 +433,15 @@ interface IAssetManager {
      *
      * @param validator The address of the validator.
      * @param delegator The address of the delegator.
+     * @param tokenIds  The token id array of KGH to check the base reward.
      *
      * @return The amount of claimable reward of KGH delegation.
      */
-    function getKghReward(address validator, address delegator) external view returns (uint128);
+    function getKghReward(
+        address validator,
+        address delegator,
+        uint256[] calldata tokenIds
+    ) external view returns (uint128);
 
     /**
      * @notice Deposit KRO. To deposit KRO, the validator should be initiated.
@@ -485,9 +518,10 @@ interface IAssetManager {
     function undelegateKghBatch(address validator, uint256[] calldata tokenIds) external;
 
     /**
-     * @notice Claim the reward of the KGH delegator from the given validator vault.
+     * @notice Claim the reward of the KGH delegator from the given validator vault and token ids.
      *
      * @param validator Address of the validator.
+     * @param tokenIds  Array of token ids of KGHs to claim base reward.
      */
-    function claimKghReward(address validator) external;
+    function claimKghReward(address validator, uint256[] calldata tokenIds) external;
 }

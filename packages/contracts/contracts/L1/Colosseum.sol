@@ -423,6 +423,13 @@ contract Colosseum is Initializable, ISemver {
     ) external {
         if (_outputIndex == 0) revert NotAllowedGenesisOutput();
 
+        // Switch validator system after validator pool contract terminated.
+        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            // Only the validators whose status is active can create challenge.
+            if (!L2_ORACLE.VALIDATOR_MANAGER().isActive(msg.sender))
+                revert ImproperValidatorStatus();
+        }
+
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
 
         if (challenge.turn >= TURN_INIT) {
@@ -457,9 +464,8 @@ contract Colosseum is Initializable, ISemver {
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
-            // Only the validators whose status is active can create challenge.
-            if (!L2_ORACLE.VALIDATOR_MANAGER().isActive(msg.sender))
-                revert ImproperValidatorStatus();
+            // Bond validator KRO to reserve slashing amount.
+            L2_ORACLE.VALIDATOR_MANAGER().bondValidatorKro(msg.sender);
         } else {
             L2_ORACLE.VALIDATOR_POOL().addPendingBond(_outputIndex, msg.sender);
         }
