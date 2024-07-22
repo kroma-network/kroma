@@ -281,18 +281,12 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function tryUnjail(address validator, bool force) external {
+    function tryUnjail(address validator) external {
         if (!inJail(validator)) revert ImproperValidatorStatus();
+        if (msg.sender != validator) revert NotAllowedCaller();
+        if (_jail[validator] > block.timestamp) revert NotElapsedJailPeriod();
 
-        if (force) {
-            if (msg.sender != L2_ORACLE.COLOSSEUM()) revert NotAllowedCaller();
-        } else {
-            if (msg.sender != validator) revert NotAllowedCaller();
-            if (_jail[validator] > block.timestamp) revert NotElapsedJailPeriod();
-
-            _resetNoSubmissionCount(validator);
-        }
-
+        _resetNoSubmissionCount(validator);
         delete _jail[validator];
 
         emit ValidatorUnjailed(validator);
@@ -312,14 +306,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function slash(uint256 outputIndex, address winner, address loser) external onlyColosseum {
-        (uint128 tax, uint128 challengeReward) = ASSET_MANAGER.modifyBalanceWithChallenge(
-            loser,
-            0,
-            true
-        );
+    function unbondValidatorKro(address validator) external onlyColosseum {
+        ASSET_MANAGER.unbondValidatorKro(validator);
+    }
 
-        emit Slashed(outputIndex, loser, tax + challengeReward);
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function slash(uint256 outputIndex, address winner, address loser) external onlyColosseum {
+        uint128 challengeReward = ASSET_MANAGER.decreaseBalanceWithChallenge(loser);
+
+        emit Slashed(outputIndex, loser, challengeReward);
 
         _sendToJail(loser, false);
 
@@ -330,10 +327,31 @@ contract ValidatorManager is ISemver, IValidatorManager {
             }
         } else {
             // If output is already rewarded, add slashing asset to the winner's asset directly.
-            ASSET_MANAGER.modifyBalanceWithChallenge(winner, challengeReward, false);
+            challengeReward = ASSET_MANAGER.increaseBalanceWithChallenge(winner, challengeReward);
             updateValidatorTree(winner, false);
 
             emit ChallengeRewardDistributed(outputIndex, winner, challengeReward);
+        }
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function revertSlash(uint256 outputIndex, address loser) external onlyColosseum {
+        uint128 challengeReward = ASSET_MANAGER.revertDecreaseBalanceWithChallenge(loser);
+        unchecked {
+            _pendingChallengeReward[outputIndex] -= challengeReward;
+        }
+
+        emit SlashReverted(outputIndex, loser, challengeReward);
+
+        // Unjail the original loser.
+        delete _jail[loser];
+
+        emit ValidatorUnjailed(loser);
+
+        if (getStatus(loser) == ValidatorStatus.READY) {
+            _activateValidator(loser);
         }
     }
 
@@ -536,7 +554,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
                 uint128 challengeReward = _pendingChallengeReward[outputIndex];
                 if (challengeReward > 0) {
-                    ASSET_MANAGER.modifyBalanceWithChallenge(submitter, challengeReward, false);
+                    challengeReward = ASSET_MANAGER.increaseBalanceWithChallenge(
+                        submitter,
+                        challengeReward
+                    );
                     delete _pendingChallengeReward[outputIndex];
 
                     emit ChallengeRewardDistributed(outputIndex, submitter, challengeReward);

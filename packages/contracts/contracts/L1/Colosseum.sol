@@ -194,6 +194,19 @@ contract Colosseum is Initializable, ISemver {
     );
 
     /**
+     * @notice Emitted when challenge is deleted forcefully.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param asseter     Address of the asseter.
+     * @param timestamp   The timestamp when output deleted.
+     */
+    event OutputForceDeleted(
+        uint256 indexed outputIndex,
+        address indexed asseter,
+        uint256 timestamp
+    );
+
+    /**
      * @notice Emitted when challenge is canceled.
      *
      * @param outputIndex Index of the L2 checkpoint output.
@@ -694,8 +707,10 @@ contract Colosseum is Initializable, ISemver {
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
-            // Unjail asserter.
-            L2_ORACLE.VALIDATOR_MANAGER().tryUnjail(_asserter, true);
+            // Revert slash asserter.
+            L2_ORACLE.VALIDATOR_MANAGER().revertSlash(_outputIndex, _asserter);
+            // Slash challenger.
+            L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, _asserter, _challenger);
         }
 
         emit ChallengeDismissed(_outputIndex, _challenger, block.timestamp);
@@ -722,6 +737,8 @@ contract Colosseum is Initializable, ISemver {
             // Slash the asserter's asset and move it to pending challenge reward for the output.
             L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, SECURITY_COUNCIL, output.submitter);
         }
+
+        emit OutputForceDeleted(_outputIndex, output.submitter, block.timestamp);
     }
 
     /**
@@ -922,7 +939,9 @@ contract Colosseum is Initializable, ISemver {
         emit ChallengeCanceled(_outputIndex, msg.sender, block.timestamp);
 
         // Switch validator system after validator pool contract terminated.
-        if (!L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            L2_ORACLE.VALIDATOR_MANAGER().unbondValidatorKro(msg.sender);
+        } else {
             L2_ORACLE.VALIDATOR_POOL().releasePendingBond(_outputIndex, msg.sender, msg.sender);
         }
 

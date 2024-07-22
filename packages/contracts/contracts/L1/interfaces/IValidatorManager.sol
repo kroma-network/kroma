@@ -202,6 +202,15 @@ interface IValidatorManager {
     event Slashed(uint256 indexed outputIndex, address indexed loser, uint128 amount);
 
     /**
+     * @notice Emitted when the slash is reverted.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param loser       Address of the challenge original loser.
+     * @param amount      The amount of KRO refunded to the loser.
+     */
+    event SlashReverted(uint256 indexed outputIndex, address indexed loser, uint128 amount);
+
+    /**
      * @notice Reverts when caller is not allowed.
      */
     error NotAllowedCaller();
@@ -292,13 +301,12 @@ interface IValidatorManager {
     function finalizeCommissionChange() external;
 
     /**
-     * @notice Attempts to unjail a validator. Only Colosseum can set force to true, otherwise only
-     *         the validator who wants to unjail can call it.
+     * @notice Attempts to unjail a validator. Only the validator who wants to unjail can call
+     *         itself.
      *
      * @param validator Address of the validator.
-     * @param force     To unjail forcefully or not.
      */
-    function tryUnjail(address validator, bool force) external;
+    function tryUnjail(address validator) external;
 
     /**
      * @notice Call ASSET_MANAGER.bondValidatorKro(). This function is only called by the Colosseum
@@ -307,6 +315,14 @@ interface IValidatorManager {
      * @param validator Address of the validator.
      */
     function bondValidatorKro(address validator) external;
+
+    /**
+     * @notice Call ASSET_MANAGER.unbondValidatorKro(). This function is only called by the
+     *         Colosseum contract.
+     *
+     * @param validator Address of the validator.
+     */
+    function unbondValidatorKro(address validator) external;
 
     /**
      * @notice Slash KRO from the vault of the challenge loser and move the slashing asset to
@@ -320,6 +336,14 @@ interface IValidatorManager {
      * @param loser       Address of the challenge loser.
      */
     function slash(uint256 outputIndex, address winner, address loser) external;
+
+    /**
+     * @notice Revert slash. This function is only called by the Colosseum contract.
+     *
+     * @param outputIndex The index of output challenged.
+     * @param loser       Address of the challenge loser.
+     */
+    function revertSlash(uint256 outputIndex, address loser) external;
 
     /**
      * @notice Updates the validator tree.
