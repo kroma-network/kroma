@@ -79,9 +79,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
     uint128 public immutable ROUND_DURATION_SECONDS;
 
     /**
-     * @notice The minimum duration to get out of jail (in seconds).
+     * @notice The minimum duration to get out of jail in output non-submissions penalty (in seconds).
      */
-    uint128 public immutable JAIL_PERIOD_SECONDS;
+    uint128 public immutable SOFT_JAIL_PERIOD_SECONDS;
+
+    /**
+     * @notice The maximum duration to get out of jail in slashing penalty (in seconds).
+     */
+    uint128 public immutable HARD_JAIL_PERIOD_SECONDS;
 
     /**
      * @notice Maximum allowed number of output non-submissions in priority round before the
@@ -165,7 +170,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
         COMMISSION_CHANGE_DELAY_SECONDS = _constructorParams._commissionChangeDelaySeconds;
         // Note that this value MUST be (SUBMISSION_INTERVAL * L2_BLOCK_TIME) / 2.
         ROUND_DURATION_SECONDS = _constructorParams._roundDurationSeconds;
-        JAIL_PERIOD_SECONDS = _constructorParams._jailPeriodSeconds;
+        SOFT_JAIL_PERIOD_SECONDS = _constructorParams._softJailPeriodSeconds;
+        HARD_JAIL_PERIOD_SECONDS = _constructorParams._hardJailPeriodSeconds;
         JAIL_THRESHOLD = _constructorParams._jailThreshold;
         MAX_OUTPUT_FINALIZATIONS = _constructorParams._maxOutputFinalizations;
         BASE_REWARD = _constructorParams._baseReward;
@@ -275,18 +281,12 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function tryUnjail(address validator, bool force) external {
+    function tryUnjail(address validator) external {
         if (!inJail(validator)) revert ImproperValidatorStatus();
+        if (msg.sender != validator) revert NotAllowedCaller();
+        if (_jail[validator] > block.timestamp) revert NotElapsedJailPeriod();
 
-        if (force) {
-            if (msg.sender != L2_ORACLE.COLOSSEUM()) revert NotAllowedCaller();
-        } else {
-            if (msg.sender != validator) revert NotAllowedCaller();
-            if (_jail[validator] > block.timestamp) revert NotElapsedJailPeriod();
-
-            _resetNoSubmissionCount(validator);
-        }
-
+        _resetNoSubmissionCount(validator);
         delete _jail[validator];
 
         emit ValidatorUnjailed(validator);
@@ -306,16 +306,19 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
+    function unbondValidatorKro(address validator) external onlyColosseum {
+        ASSET_MANAGER.unbondValidatorKro(validator);
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
     function slash(uint256 outputIndex, address winner, address loser) external onlyColosseum {
-        (uint128 tax, uint128 challengeReward) = ASSET_MANAGER.modifyBalanceWithChallenge(
-            loser,
-            0,
-            true
-        );
+        uint128 challengeReward = ASSET_MANAGER.decreaseBalanceWithChallenge(loser);
 
-        emit Slashed(outputIndex, loser, tax + challengeReward);
+        emit Slashed(outputIndex, loser, challengeReward);
 
-        _sendToJail(loser);
+        _sendToJail(loser, false);
 
         if (L2_ORACLE.nextFinalizeOutputIndex() <= outputIndex) {
             // If output is not rewarded yet, add slashing asset to the pending challenge reward.
@@ -324,10 +327,31 @@ contract ValidatorManager is ISemver, IValidatorManager {
             }
         } else {
             // If output is already rewarded, add slashing asset to the winner's asset directly.
-            ASSET_MANAGER.modifyBalanceWithChallenge(winner, challengeReward, false);
+            challengeReward = ASSET_MANAGER.increaseBalanceWithChallenge(winner, challengeReward);
             updateValidatorTree(winner, false);
 
             emit ChallengeRewardDistributed(outputIndex, winner, challengeReward);
+        }
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
+    function revertSlash(uint256 outputIndex, address loser) external onlyColosseum {
+        uint128 challengeReward = ASSET_MANAGER.revertDecreaseBalanceWithChallenge(loser);
+        unchecked {
+            _pendingChallengeReward[outputIndex] -= challengeReward;
+        }
+
+        emit SlashReverted(outputIndex, loser, challengeReward);
+
+        // Unjail the original loser.
+        delete _jail[loser];
+
+        emit ValidatorUnjailed(loser);
+
+        if (getStatus(loser) == ValidatorStatus.READY) {
+            _activateValidator(loser);
         }
     }
 
@@ -530,7 +554,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
                 uint128 challengeReward = _pendingChallengeReward[outputIndex];
                 if (challengeReward > 0) {
-                    ASSET_MANAGER.modifyBalanceWithChallenge(submitter, challengeReward, false);
+                    challengeReward = ASSET_MANAGER.increaseBalanceWithChallenge(
+                        submitter,
+                        challengeReward
+                    );
                     delete _pendingChallengeReward[outputIndex];
 
                     emit ChallengeRewardDistributed(outputIndex, submitter, challengeReward);
@@ -638,13 +665,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
     /**
      * @notice Attempts to jail a validator who was selected as a priority validator for this
-     *         submission round but did not submit the output.
+     *         submission round but did not submit the output. The period to get out of jail is
+     *         SOFT_JAIL_PERIOD_SECONDS.
      */
     function _tryJail() private {
         if (_nextPriorityValidator == address(0)) return;
 
         if (_validatorInfo[_nextPriorityValidator].noSubmissionCount >= JAIL_THRESHOLD) {
-            _sendToJail(_nextPriorityValidator);
+            _sendToJail(_nextPriorityValidator, true);
         } else {
             unchecked {
                 _validatorInfo[_nextPriorityValidator].noSubmissionCount++;
@@ -656,9 +684,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @notice Send the given validator to the jail and remove from the validator tree.
      *
      * @param validator Address of the validator.
+     * @param isSoft    Whether the jail is soft or hard.
      */
-    function _sendToJail(address validator) private {
-        uint128 expiresAt = uint128(block.timestamp + JAIL_PERIOD_SECONDS);
+    function _sendToJail(address validator, bool isSoft) private {
+        uint128 jailSeconds = isSoft ? SOFT_JAIL_PERIOD_SECONDS : HARD_JAIL_PERIOD_SECONDS;
+        uint128 expiresAt = inJail(validator)
+            ? _jail[validator] + jailSeconds
+            : uint128(block.timestamp) + jailSeconds;
         _jail[validator] = expiresAt;
 
         emit ValidatorJailed(validator, expiresAt);
