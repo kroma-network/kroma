@@ -507,9 +507,9 @@ interface IAssetManager {
      * @notice Undelegate the KRO of given shares for the given validator.
      *
      * @param validator Address of the validator.
-     * @param shares    The amount of shares to undelegate.
+     * @param assets    The amount of assets to undelegate.
      */
-    function undelegate(address validator, uint128 shares) external;
+    function undelegate(address validator, uint128 assets) external;
 
     /**
      * @notice Undelegate KGH for given validator and tokenId.
