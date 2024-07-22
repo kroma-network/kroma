@@ -612,6 +612,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
         uint128 validatorReward;
 
         unchecked {
+            validatorReward = (BASE_REWARD + boostedReward).mulDiv(
+                commissionRate,
+                COMMISSION_RATE_DENOM
+            );
             baseReward = BASE_REWARD.mulDiv(
                 COMMISSION_RATE_DENOM - commissionRate,
                 COMMISSION_RATE_DENOM
@@ -626,9 +630,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
             uint128 validatorBaseReward = baseReward.mulDiv(validatorKro, totalKro + validatorKro);
             // Exclude the base reward for the validator from total base reward given to KRO delegators.
             baseReward -= validatorBaseReward;
-            validatorReward =
-                (BASE_REWARD + boostedReward).mulDiv(commissionRate, COMMISSION_RATE_DENOM) +
-                validatorBaseReward;
+            validatorReward += validatorBaseReward;
         }
 
         return (baseReward, boostedReward, validatorReward);
