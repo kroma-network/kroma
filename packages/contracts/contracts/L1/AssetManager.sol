@@ -690,17 +690,14 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function bondValidatorKro(address validator) external onlyValidatorManager {
         Asset storage asset = _vaults[validator].asset;
-        if (asset.validatorKro - asset.validatorKroBonded < BOND_AMOUNT) revert InsufficientAsset();
+        uint128 remainder = asset.validatorKro - asset.validatorKroBonded;
+        if (remainder < BOND_AMOUNT) revert InsufficientAsset();
 
         unchecked {
             asset.validatorKroBonded += BOND_AMOUNT;
         }
 
-        emit ValidatorKroBonded(
-            validator,
-            BOND_AMOUNT,
-            asset.validatorKro - asset.validatorKroBonded
-        );
+        emit ValidatorKroBonded(validator, BOND_AMOUNT, remainder - BOND_AMOUNT);
     }
 
     /**
