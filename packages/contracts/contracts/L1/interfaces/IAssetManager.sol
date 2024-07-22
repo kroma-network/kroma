@@ -351,6 +351,16 @@ interface IAssetManager {
     ) external view returns (uint128);
 
     /**
+     * @notice Returns the amount of KRO assets delegated to the given validator by the delegator.
+     *
+     * @param validator Address of the validator.
+     * @param delegator Address of the delegator.
+     *
+     * @return The amount of KRO assets that the delegator delegated to the validator.
+     */
+    function getKroAssets(address validator, address delegator) external view returns (uint128);
+
+    /**
      * @notice Returns when the KRO delegators can undelegate KRO. The delegators can undelegate
      *         after MIN_DELEGATION_PERIOD elapsed from lastDelegatedAt.
      *

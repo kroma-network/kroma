@@ -143,6 +143,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
+    function getKroAssets(address validator, address delegator) external view returns (uint128) {
+        return _convertToKroAssets(_vaults[validator].kroDelegators[delegator].shares);
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
     function getKghNum(address validator, address delegator) external view returns (uint128) {
         return _vaults[validator].kghDelegators[delegator].kghNum;
     }
