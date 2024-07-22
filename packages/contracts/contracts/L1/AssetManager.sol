@@ -370,7 +370,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     ) external isRegistered(validator) returns (uint128) {
         // claim boost reward
         uint128 boostRewardAssets = _claimBoostedReward(validator, msg.sender);
-        ASSET_TOKEN.safeTransfer(msg.sender, boostRewardAssets);
+        if (boostRewardAssets > 0) {
+            ASSET_TOKEN.safeTransfer(msg.sender, boostRewardAssets);
+        }
 
         KGH.safeTransferFrom(msg.sender, address(this), tokenId);
 
@@ -398,7 +400,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         // claim boost reward
         uint128 boostRewardAssets = _claimBoostedReward(validator, msg.sender);
-        ASSET_TOKEN.safeTransfer(msg.sender, boostRewardAssets);
+        if (boostRewardAssets > 0) {
+            ASSET_TOKEN.safeTransfer(msg.sender, boostRewardAssets);
+        }
 
         KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
         uint128 kroShares;
