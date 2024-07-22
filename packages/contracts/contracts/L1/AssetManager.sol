@@ -814,6 +814,27 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @notice Revert the changes of decreaseBalanceWithChallenge. This function is only called by
+     *         the ValidatorManager contract.
+     *
+     * @param loser Address of the challenge original loser.
+     *
+     * @return The challenge reward refunded to loser's asset.
+     */
+    function revertDecreaseBalanceWithChallenge(
+        address loser
+    ) external onlyValidatorManager returns (uint128) {
+        Asset storage asset = _vaults[loser].asset;
+
+        unchecked {
+            asset.validatorKroBonded += BOND_AMOUNT;
+            asset.validatorKro += BOND_AMOUNT;
+        }
+
+        return BOND_AMOUNT;
+    }
+
+    /**
      * @notice Add pending assets and shares when undelegating KRO.
      *
      * @param vault  Vault of the validator.

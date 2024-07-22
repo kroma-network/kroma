@@ -289,13 +289,12 @@ interface IValidatorManager {
     function finalizeCommissionChange() external;
 
     /**
-     * @notice Attempts to unjail a validator. Only Colosseum can set force to true, otherwise only
-     *         the validator who wants to unjail can call it.
+     * @notice Attempts to unjail a validator. Only the validator who wants to unjail can call
+     *         itself.
      *
      * @param validator Address of the validator.
-     * @param force     To unjail forcefully or not.
      */
-    function tryUnjail(address validator, bool force) external;
+    function tryUnjail(address validator) external;
 
     /**
      * @notice Call ASSET_MANAGER.bondValidatorKro(). This function is only called by the Colosseum
@@ -324,6 +323,14 @@ interface IValidatorManager {
      * @param loser       Address of the challenge loser.
      */
     function slash(uint256 outputIndex, address winner, address loser) external;
+
+    /**
+     * @notice Revert slash. This function is only called by the Colosseum contract.
+     *
+     * @param outputIndex The index of output challenged.
+     * @param loser       Address of the challenge loser.
+     */
+    function revertSlash(uint256 outputIndex, address loser) external;
 
     /**
      * @notice Updates the validator tree.
