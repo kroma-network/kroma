@@ -104,13 +104,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @notice Constructs the AssetManager contract.
      *
-     * @param _assetToken         Address of the KRO token.
-     * @param _kgh                Address of the KGH token.
-     * @param _kghManager         Address of the KGHManager contract.
-     * @param _securityCouncil    Address of the SecurityCouncil contract.
-     * @param _validatorManager   Address of the ValidatorManager contract.
-     * @param _undelegationPeriod Period that should wait to finalize the undelegation.
-     * @param _bondAmount         Amount to bond.
+     * @param _assetToken          Address of the KRO token.
+     * @param _kgh                 Address of the KGH token.
+     * @param _kghManager          Address of the KGHManager contract.
+     * @param _securityCouncil     Address of the SecurityCouncil contract.
+     * @param _validatorManager    Address of the ValidatorManager contract.
+     * @param _minDelegationPeriod Minimum delegation period.
+     * @param _bondAmount          Amount to bond.
      */
     constructor(
         IERC20 _assetToken,
@@ -408,8 +408,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         if (shares == 0) revert NotAllowedZeroInput();
         if (shares > _vaults[validator].kroDelegators[msg.sender].shares)
             revert InsufficientShare();
-
-        uint128 assets = _convertToKroAssets(validator, shares);
 
         if (canUndelegateKroAt(validator, msg.sender) > block.timestamp)
             revert NotElapsedMinDelegationPeriod();
