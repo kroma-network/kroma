@@ -104,13 +104,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @notice Constructs the AssetManager contract.
      *
-     * @param _assetToken         Address of the KRO token.
-     * @param _kgh                Address of the KGH token.
-     * @param _kghManager         Address of the KGHManager contract.
-     * @param _securityCouncil    Address of the SecurityCouncil contract.
-     * @param _validatorManager   Address of the ValidatorManager contract.
-     * @param _undelegationPeriod Period that should wait to finalize the undelegation.
-     * @param _bondAmount         Amount to bond.
+     * @param _assetToken          Address of the KRO token.
+     * @param _kgh                 Address of the KGH token.
+     * @param _kghManager          Address of the KGHManager contract.
+     * @param _securityCouncil     Address of the SecurityCouncil contract.
+     * @param _validatorManager    Address of the ValidatorManager contract.
+     * @param _minDelegationPeriod Minimum delegation period.
+     * @param _bondAmount          Amount to bond.
      */
     constructor(
         IERC20 _assetToken,
@@ -118,7 +118,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         IKGHManager _kghManager,
         address _securityCouncil,
         IValidatorManager _validatorManager,
-        uint128 _undelegationPeriod,
+        uint128 _minDelegationPeriod,
         uint128 _bondAmount
     ) {
         ASSET_TOKEN = _assetToken;
@@ -126,7 +126,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         KGH_MANAGER = _kghManager;
         SECURITY_COUNCIL = _securityCouncil;
         VALIDATOR_MANAGER = _validatorManager;
-        UNDELEGATION_PERIOD = _undelegationPeriod;
+        MIN_DELEGATION_PERIOD = _minDelegationPeriod;
         BOND_AMOUNT = _bondAmount;
     }
 
@@ -170,6 +170,31 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function previewUndelegate(address validator, uint128 shares) external view returns (uint128) {
         return _convertToKroAssets(validator, shares);
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
+    function canUndelegateKroAt(
+        address validator,
+        address delegator
+    ) external view returns (uint128) {
+        return
+            _vaults[validator].kroDelegators[delegator].lastDelegatedAt +
+            uint128(MIN_DELEGATION_PERIOD);
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
+    function canUndelegateKghAt(
+        address validator,
+        address delegator,
+        uint256 tokenId
+    ) external view returns (uint128) {
+        return
+            _vaults[validator].kghDelegators[delegator].delegatedAt[tokenId] +
+            uint128(MIN_DELEGATION_PERIOD);
     }
 
     /**
@@ -239,31 +264,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function totalValidatorReward(address validator) external view returns (uint128) {
         return _vaults[validator].asset.validatorRewardKro;
-    }
-
-    /**
-     * @inheritdoc IAssetManager
-     */
-    function canUndelegateKroAt(
-        address validator,
-        address delegator
-    ) external view returns (uint128) {
-        return
-            _vaults[validator].kroDelegators[delegator].lastDelegatedAt +
-            uint128(MIN_DELEGATION_PERIOD);
-    }
-
-    /**
-     * @inheritdoc IAssetManager
-     */
-    function canUndelegateKghAt(
-        address validator,
-        address delegator,
-        uint256 tokenId
-    ) external view returns (uint128) {
-        return
-            _vaults[validator].kghDelegators[delegator].delegatedAt[tokenId] +
-            uint128(MIN_DELEGATION_PERIOD);
     }
 
     /**
@@ -417,14 +417,14 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
-    function undelegate(address validator, uint128 shares) external {
+    function undelegate(address validator, uint128 assets) external {
+        if (assets == 0) revert InsufficientAsset();
+        uint128 shares = _convertToKroShares(validator, assets);
         if (shares == 0) revert NotAllowedZeroInput();
         if (shares > _vaults[validator].kroDelegators[msg.sender].shares)
             revert InsufficientShare();
 
-        uint128 assets = _convertToKroAssets(validator, shares);
-        if (assets == 0) revert InsufficientAsset();
-        if (canUndelegateKroAt(validator, msg.sender) > uint128(block.timestamp))
+        if (canUndelegateKroAt(validator, msg.sender) > block.timestamp)
             revert NotElapsedMinDelegationPeriod();
 
         _undelegate(validator, msg.sender, assets, shares);
@@ -867,8 +867,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param delegator Address of the delegator.
      * @param assets    The amount of KRO to delegate.
      * @param shares    The amount of shares to delegate.
-     *
-     * @return The amount of shares that the Vault would exchange for the amount of assets provided.
      */
     function _delegate(
         address validator,
@@ -964,8 +962,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         unchecked {
             vault.asset.totalKroShares -= shares;
-            vault.kroDelegators[delegator].shares -= shares;
             vault.asset.totalKro -= assets;
+            vault.kroDelegators[delegator].shares -= shares;
         }
     }
 
