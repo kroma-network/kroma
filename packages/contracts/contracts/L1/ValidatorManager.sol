@@ -314,9 +314,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function slash(uint256 outputIndex, address winner, address loser) external onlyColosseum {
-        (uint128 tax, uint128 challengeReward) = ASSET_MANAGER.decreaseBalanceWithChallenge(loser);
+        uint128 challengeReward = ASSET_MANAGER.decreaseBalanceWithChallenge(loser);
 
-        emit Slashed(outputIndex, loser, tax + challengeReward);
+        emit Slashed(outputIndex, loser, challengeReward);
 
         _sendToJail(loser);
 
@@ -327,7 +327,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
             }
         } else {
             // If output is already rewarded, add slashing asset to the winner's asset directly.
-            ASSET_MANAGER.increaseBalanceWithChallenge(winner, challengeReward);
+            challengeReward = ASSET_MANAGER.increaseBalanceWithChallenge(winner, challengeReward);
             updateValidatorTree(winner, false);
 
             emit ChallengeRewardDistributed(outputIndex, winner, challengeReward);
@@ -533,7 +533,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
                 uint128 challengeReward = _pendingChallengeReward[outputIndex];
                 if (challengeReward > 0) {
-                    ASSET_MANAGER.increaseBalanceWithChallenge(submitter, challengeReward);
+                    challengeReward = ASSET_MANAGER.increaseBalanceWithChallenge(
+                        submitter,
+                        challengeReward
+                    );
                     delete _pendingChallengeReward[outputIndex];
 
                     emit ChallengeRewardDistributed(outputIndex, submitter, challengeReward);

@@ -288,11 +288,6 @@ contract Colosseum is Initializable, ISemver {
     error L1Reorged();
 
     /**
-     * @notice Reverts when the output has already been validated by security council.
-     */
-    error SecurityCouncilValidated();
-
-    /**
      * @notice Reverts when the public input has already been used to prove fault.
      */
     error AlreadyUsedPublicInput();
@@ -573,9 +568,6 @@ contract Colosseum is Initializable, ISemver {
         uint256[] calldata _zkproof,
         uint256[] calldata _pair
     ) external outputNotFinalized(_outputIndex) {
-        if (L2_ORACLE.getSubmitter(_outputIndex) == SECURITY_COUNCIL)
-            revert SecurityCouncilValidated();
-
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
         ChallengeStatus status = _challengeStatus(challenge);
 
@@ -708,9 +700,10 @@ contract Colosseum is Initializable, ISemver {
         if (_outputRoot == DELETED_OUTPUT_ROOT) revert CannotRollbackOutputToZero();
         if (L2_ORACLE.getL2Output(_outputIndex).outputRoot != DELETED_OUTPUT_ROOT)
             revert OutputNotDeleted();
+        verifiedPublicInputs[_publicInputHash] = false;
 
         // Rollback output root.
-        L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, SECURITY_COUNCIL);
+        L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, _asserter);
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {

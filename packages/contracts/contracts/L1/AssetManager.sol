@@ -750,12 +750,15 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      *         called by the ValidatorManager contract.
      *
      * @param winner          Address of the challenge winner.
-     * @param challengeReward The challenge reward to be added to the winner's asset.
+     * @param challengeReward The challenge reward to be added to the winner's asset after excluding
+     *                        tax.
+     *
+     * @return The challenge reward added to winner's asset.
      */
     function increaseBalanceWithChallenge(
         address winner,
         uint128 challengeReward
-    ) external onlyValidatorManager {
+    ) external onlyValidatorManager returns (uint128) {
         Asset storage asset = _vaults[winner].asset;
 
         // If challenge reward is distributed to SECURITY_COUNCIL, transfer it directly.
@@ -764,9 +767,15 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
             return;
         }
 
+        uint128 tax = challengeReward.mulDiv(TAX_NUMERATOR, TAX_DENOMINATOR);
+        ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, tax);
+
         unchecked {
+            challengeReward -= tax;
             asset.validatorKro += challengeReward;
         }
+
+        return challengeReward;
     }
 
     /**
@@ -775,24 +784,19 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      *
      * @param loser Address of the challenge loser.
      *
-     * @return The tax amount transferred to security council.
-     * @return The challenge reward to be added to the winner's asset.
+     * @return The challenge reward slashed from loser's asset.
      */
     function decreaseBalanceWithChallenge(
         address loser
-    ) external onlyValidatorManager returns (uint128, uint128) {
+    ) external onlyValidatorManager returns (uint128) {
         Asset storage asset = _vaults[loser].asset;
-        uint128 challengeReward = BOND_AMOUNT;
 
         unchecked {
-            asset.validatorKroBonded -= challengeReward;
-            asset.validatorKro -= challengeReward;
+            asset.validatorKroBonded -= BOND_AMOUNT;
+            asset.validatorKro -= BOND_AMOUNT;
         }
 
-        uint128 tax = challengeReward.mulDiv(TAX_NUMERATOR, TAX_DENOMINATOR);
-        ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, tax);
-
-        return (tax, challengeReward - tax);
+        return BOND_AMOUNT;
     }
 
     /**
