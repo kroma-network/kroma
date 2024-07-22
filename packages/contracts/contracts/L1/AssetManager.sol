@@ -57,6 +57,11 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     address public immutable SECURITY_COUNCIL;
 
     /**
+     * @notice The address of Validator Reward Vault. Can be updated via upgrade.
+     */
+    address public immutable VALIDATOR_REWARD_VAULT;
+
+    /**
      * @notice Address of ValidatorManager contract. Can be updated via upgrade.
      */
     IValidatorManager public immutable VALIDATOR_MANAGER;
@@ -104,19 +109,21 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @notice Constructs the AssetManager contract.
      *
-     * @param _assetToken         Address of the KRO token.
-     * @param _kgh                Address of the KGH token.
-     * @param _kghManager         Address of the KGHManager contract.
-     * @param _securityCouncil    Address of the SecurityCouncil contract.
-     * @param _validatorManager   Address of the ValidatorManager contract.
-     * @param _undelegationPeriod Period that should wait to finalize the undelegation.
-     * @param _bondAmount         Amount to bond.
+     * @param _assetToken           Address of the KRO token.
+     * @param _kgh                  Address of the KGH token.
+     * @param _kghManager           Address of the KGHManager contract.
+     * @param _securityCouncil      Address of the SecurityCouncil contract.
+     * @param _validatorRewardVault Address of the Validator Reward Vault.
+     * @param _validatorManager     Address of the ValidatorManager contract.
+     * @param _undelegationPeriod   Period that should wait to finalize the undelegation.
+     * @param _bondAmount           Amount to bond.
      */
     constructor(
         IERC20 _assetToken,
         IERC721 _kgh,
         IKGHManager _kghManager,
         address _securityCouncil,
+        address _validatorRewardVault,
         IValidatorManager _validatorManager,
         uint128 _undelegationPeriod,
         uint128 _bondAmount
@@ -125,6 +132,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         KGH = _kgh;
         KGH_MANAGER = _kghManager;
         SECURITY_COUNCIL = _securityCouncil;
+        VALIDATOR_REWARD_VAULT = _validatorRewardVault;
         VALIDATOR_MANAGER = _validatorManager;
         UNDELEGATION_PERIOD = _undelegationPeriod;
         BOND_AMOUNT = _bondAmount;
@@ -735,6 +743,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 boostedReward,
         uint128 validatorReward
     ) external onlyValidatorManager {
+        // Distribute the reward from a designated vault to the AssetManager contract.
+        ASSET_TOKEN.safeTransferFrom(
+            VALIDATOR_REWARD_VAULT,
+            address(this),
+            baseReward + boostedReward + validatorReward
+        );
+
         // If reward is distributed to SECURITY_COUNCIL, transfer it directly.
         if (validator == SECURITY_COUNCIL) {
             ASSET_TOKEN.safeTransfer(
@@ -745,7 +760,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
             Asset storage asset = _vaults[validator].asset;
             unchecked {
                 asset.totalKro += baseReward;
-                // TODO: handle reward for boosted reward
+                asset.validatorKro += validatorReward;
+                asset.rewardPerKghStored += boostedReward / asset.totalKgh;
                 asset.validatorKroBonded -= BOND_AMOUNT;
             }
 
@@ -755,8 +771,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
                 asset.validatorKro - asset.validatorKroBonded
             );
         }
-
-        // TODO - Distribute the reward from a designated vault to the AssetManager contract.
     }
 
     /**
