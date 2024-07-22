@@ -708,7 +708,16 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function unbondValidatorKro(address validator) external onlyValidatorManager {
         Asset storage asset = _vaults[validator].asset;
-        _unbondValidatorKro(validator, asset);
+
+        unchecked {
+            asset.validatorKroBonded -= BOND_AMOUNT;
+        }
+
+        emit ValidatorKroUnbonded(
+            validator,
+            BOND_AMOUNT,
+            asset.validatorKro - asset.validatorKroBonded
+        );
     }
 
     /**
@@ -737,9 +746,14 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
             unchecked {
                 asset.totalKro += baseReward;
                 // TODO: handle reward for boosted reward
+                asset.validatorKroBonded -= BOND_AMOUNT;
             }
 
-            _unbondValidatorKro(validator, asset);
+            emit ValidatorKroUnbonded(
+                validator,
+                BOND_AMOUNT,
+                asset.validatorKro - asset.validatorKroBonded
+            );
         }
 
         // TODO - Distribute the reward from a designated vault to the AssetManager contract.
@@ -1173,25 +1187,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         kghDelegator.rewardPerKghPaid = rewardPerKghStored;
 
         return totalBoostedReward;
-    }
-
-    /**
-     * @notice Internal function to unbond KRO from validator KRO during output finalization or
-     *         challenge slashing.
-     *
-     * @param validator Address of the validator.
-     * @param asset     Asset information of the vault of the validator.
-     */
-    function _unbondValidatorKro(address validator, Asset storage asset) internal {
-        unchecked {
-            asset.validatorKroBonded -= BOND_AMOUNT;
-
-            emit ValidatorKroUnbonded(
-                validator,
-                BOND_AMOUNT,
-                asset.validatorKro - asset.validatorKroBonded
-            );
-        }
     }
 
     /**
