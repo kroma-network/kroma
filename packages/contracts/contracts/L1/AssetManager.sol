@@ -403,9 +403,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @inheritdoc IAssetManager
      */
     function undelegate(address validator, uint128 assets) external {
-        if (assets == 0) revert InsufficientAsset();
+        if (assets == 0) revert NotAllowedZeroInput();
         uint128 shares = _convertToKroShares(validator, assets);
-        if (shares == 0) revert NotAllowedZeroInput();
+        if (shares == 0) revert InsufficientShare();
         if (shares > _vaults[validator].kroDelegators[msg.sender].shares)
             revert InsufficientShare();
 
