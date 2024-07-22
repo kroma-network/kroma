@@ -199,6 +199,15 @@ interface IValidatorManager {
     event Slashed(uint256 indexed outputIndex, address indexed loser, uint128 amount);
 
     /**
+     * @notice Emitted when the slash is reverted.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     * @param loser       Address of the challenge original loser.
+     * @param amount      The amount of KRO refunded to the loser.
+     */
+    event SlashReverted(uint256 indexed outputIndex, address indexed loser, uint128 amount);
+
+    /**
      * @notice Reverts when caller is not allowed.
      */
     error NotAllowedCaller();
