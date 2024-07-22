@@ -312,7 +312,8 @@ interface IValidatorManager {
      * @notice Slash KRO from the vault of the challenge loser and move the slashing asset to
      *         pending challenge reward before output rewarded, after directly to winner's asset.
      *         Since the behavior could threaten the security of the chain, the loser is sent to
-     *         jail. This function is only called by the Colosseum contract.
+     *         jail for HARD_JAIL_PERIOD_SECONDS. This function is only called by the Colosseum
+     *         contract.
      *
      * @param outputIndex The index of output challenged.
      * @param winner      Address of the challenge winner.

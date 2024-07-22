@@ -644,7 +644,8 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
     /**
      * @notice Attempts to jail a validator who was selected as a priority validator for this
-     *         submission round but did not submit the output.
+     *         submission round but did not submit the output. The period to get out of jail is
+     *         SOFT_JAIL_PERIOD_SECONDS.
      */
     function _tryJail() private {
         if (_nextPriorityValidator == address(0)) return;
