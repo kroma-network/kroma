@@ -744,7 +744,11 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 validatorReward
     ) external onlyValidatorManager {
         // Distribute the reward from a designated vault to the AssetManager contract.
-        ASSET_TOKEN.transferFrom(VALIDATOR_REWARD_VAULT, address(this), baseReward + boostedReward + validatorReward);
+        ASSET_TOKEN.safeTransferFrom(
+            VALIDATOR_REWARD_VAULT,
+            address(this),
+            baseReward + boostedReward + validatorReward
+        );
 
         // If reward is distributed to SECURITY_COUNCIL, transfer it directly.
         if (validator == SECURITY_COUNCIL) {
@@ -758,6 +762,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
                 asset.totalKro += baseReward;
                 asset.validatorKro += validatorReward;
                 asset.rewardPerKghStored += boostedReward / asset.totalKgh;
+                asset.validatorKroBonded -= BOND_AMOUNT;
             }
 
             emit ValidatorKroUnbonded(
