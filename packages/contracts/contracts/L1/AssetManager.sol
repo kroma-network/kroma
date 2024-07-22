@@ -368,13 +368,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         address validator,
         uint256 tokenId
     ) external isRegistered(validator) returns (uint128) {
-        // claim boost reward and auto compounding it
+        // claim boost reward
         uint128 boostRewardAssets = _claimBoostedReward(validator, msg.sender);
-        if (boostRewardAssets > 0) {
-            uint128 boostRewardShares = _convertToKroShares(validator, boostRewardAssets);
-            emit KghRewardClaimed(validator, msg.sender, boostRewardAssets, boostRewardShares);
-            _delegate(validator, msg.sender, boostRewardAssets, boostRewardShares);
-        }
+        ASSET_TOKEN.safeTransfer(msg.sender, boostRewardAssets);
 
         KGH.safeTransferFrom(msg.sender, address(this), tokenId);
 
@@ -383,7 +379,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         _delegateKgh(validator, msg.sender, tokenId, kroInKgh, kroShares);
 
-        if (boostRewardAssets + kroInKgh > 0) {
+        if (kroInKgh > 0) {
             VALIDATOR_MANAGER.updateValidatorTree(validator, false);
         }
 
@@ -400,13 +396,9 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     ) external isRegistered(validator) returns (uint128) {
         if (tokenIds.length == 0) revert NotAllowedZeroInput();
 
-        // claim boost reward and auto compounding it
+        // claim boost reward
         uint128 boostRewardAssets = _claimBoostedReward(validator, msg.sender);
-        if (boostRewardAssets > 0) {
-            uint128 boostRewardShares = _convertToKroShares(validator, boostRewardAssets);
-            emit KghRewardClaimed(validator, msg.sender, boostRewardAssets, boostRewardShares);
-            _delegate(validator, msg.sender, boostRewardAssets, boostRewardShares);
-        }
+        ASSET_TOKEN.safeTransfer(msg.sender, boostRewardAssets);
 
         KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
         uint128 kroShares;
@@ -431,7 +423,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         _delegateKghBatch(validator, msg.sender, uint128(tokenIds.length), kroInKghs, kroShares);
 
-        if (boostRewardAssets + kroInKghs > 0) {
+        if (kroInKghs > 0) {
             VALIDATOR_MANAGER.updateValidatorTree(validator, false);
         }
 
