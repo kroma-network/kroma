@@ -356,7 +356,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         // claim boost reward and compounding it
         uint128 boostRewardAssets = _claimBoostedReward(validator, msg.sender);
         uint128 boostRewardShares = _convertToKroShares(validator, boostRewardAssets);
-        _delegate(validator, msg.sender, boostReward, boostRewardAssets, boostRewardShares);
+        _delegate(validator, msg.sender, boostRewardAssets, boostRewardShares);
 
         KGH.safeTransferFrom(msg.sender, address(this), tokenId);
 
@@ -383,7 +383,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         // claim boost reward and compounding it
         uint128 boostRewardAssets = _claimBoostedReward(validator, msg.sender);
         uint128 boostRewardShares = _convertToKroShares(validator, boostRewardAssets);
-        _delegate(validator, msg.sender, boostReward, boostRewardAssets, boostRewardShares);
+        _delegate(validator, msg.sender, boostRewardAssets, boostRewardShares);
 
         KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
         uint128 kroShares;
