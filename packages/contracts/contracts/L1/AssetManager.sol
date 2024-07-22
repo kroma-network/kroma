@@ -287,6 +287,21 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
+    function withdraw(uint128 assets) external {
+        if (assets == 0) revert NotAllowedZeroInput();
+        if (VALIDATOR_MANAGER.getStatus(msg.sender) == IValidatorManager.ValidatorStatus.NONE)
+            revert ImproperValidatorStatus();
+        if (_vault[msg.sender].lastDepositedAt + UNDELEGATION_PERIOD > block.timestamp) {
+            revert NotElapsedMinDelegationPeriod();
+        }
+
+        _withdraw(msg.sender, assets);
+        emit Withdrawn(msg.sender, assets);
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
     function delegate(
         address validator,
         uint128 assets
@@ -669,11 +684,25 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         unchecked {
             asset.validatorKro += assets;
+            vault.lastDepositedAt = uint128(block.timestamp);
         }
 
         if (updateTree) {
             VALIDATOR_MANAGER.updateValidatorTree(validator, false);
         }
+    }
+
+    function _withdraw(address validator, uint128 assets) internal {
+        Vault storage vault = _vaults[validator];
+        if (assets > vault.asset.validatorKro) revert InsufficientAsset();
+
+        ASSET_TOKEN.safeTransfer(vault.withdrawAccount, assets);
+
+        unchecked {
+            vault.asset.validatorKro -= assets;
+        }
+
+        VALIDATOR_MANAGER.updateValidatorTree(validator, false);
     }
 
     /**

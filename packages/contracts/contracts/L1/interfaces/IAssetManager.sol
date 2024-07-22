@@ -83,6 +83,14 @@ interface IAssetManager {
     event Deposited(address indexed validator, uint128 amount);
 
     /**
+     * @notice Emitted when validator withdrew KROs.
+     *
+     * @param validator Address of the validator.
+     * @param amount    The amount of KRO withdrawn.
+     */
+    event Withdrawn(address indexed validator, uint128 amount);
+
+    /**
      * @notice Emitted when KROs are delegated.
      *
      * @param validator Address of the validator.
@@ -399,6 +407,14 @@ interface IAssetManager {
      * @param assets The amount of KRO to deposit.
      */
     function deposit(uint128 assets) external;
+
+    /**
+     * @notice Withdraw KRO. To withdraw KRO, the validator should be initiated and MIN_DELEGATION_PERIOD
+     *         should be passed after the last deposit time.
+     *
+     * @param assets The amount of KRO to withdraw.
+     */
+    function withdraw(uint128 assets) external;
 
     /**
      * @notice Delegate KRO to the validator and returns the amount of shares that the vault would
