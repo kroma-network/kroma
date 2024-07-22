@@ -522,7 +522,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         VALIDATOR_MANAGER.updateValidatorTree(validator, true);
 
         // transfer KGH
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; ) {
             KGH.safeTransfer(msg.sender, tokenIds[i]);
 
             unchecked {
