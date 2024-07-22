@@ -118,7 +118,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         IKGHManager _kghManager,
         address _securityCouncil,
         IValidatorManager _validatorManager,
-        uint128 _undelegationPeriod,
+        uint128 _minDelegationPeriod,
         uint128 _bondAmount
     ) {
         ASSET_TOKEN = _assetToken;
@@ -126,7 +126,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         KGH_MANAGER = _kghManager;
         SECURITY_COUNCIL = _securityCouncil;
         VALIDATOR_MANAGER = _validatorManager;
-        UNDELEGATION_PERIOD = _undelegationPeriod;
+        MIN_DELEGATION_PERIOD = _minDelegationPeriod;
         BOND_AMOUNT = _bondAmount;
     }
 
@@ -185,7 +185,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
- * @inheritdoc IAssetManager
+     * @inheritdoc IAssetManager
      */
     function getKghReward(
         address validator,
@@ -402,13 +402,15 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
-    function undelegate(address validator, uint128 shares) external {
+    function undelegate(address validator, uint128 assets) external {
+        if (assets == 0) revert InsufficientAsset();
+        uint128 shares = _convertToKroShares(validator, assets);
         if (shares == 0) revert NotAllowedZeroInput();
         if (shares > _vaults[validator].kroDelegators[msg.sender].shares)
             revert InsufficientShare();
 
         uint128 assets = _convertToKroAssets(validator, shares);
-        if (assets == 0) revert InsufficientAsset();
+
         if (canUndelegateKroAt(validator, msg.sender) > block.timestamp)
             revert NotElapsedMinDelegationPeriod();
 
@@ -1152,10 +1154,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      *
      * @return The amount of the claimed boosted reward.
      */
-    function _claimBoostedReward(
-        address validator,
-        address delegator,
-    ) internal returns (uint128) {
+    function _claimBoostedReward(address validator, address delegator) internal returns (uint128) {
         Vault storage vault = _vaults[validator];
         KghDelegator storage kghDelegator = vault.kghDelegators[delegator];
 
