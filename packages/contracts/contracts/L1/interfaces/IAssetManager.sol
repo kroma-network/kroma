@@ -35,7 +35,7 @@ interface IAssetManager {
      *
      * @custom:field shares          Amount of shares for KRO delegation.
      * @custom:field lastDelegatedAt Last timestamp when the delegator delegated. The delegator can
-     *                               undelegate after UNDELEGATION_DELAY_SECONDS elapsed.
+     *                               undelegate after MIN_DELEGATION_PERIOD elapsed.
      */
     struct KroDelegator {
         uint128 shares;
@@ -48,7 +48,7 @@ interface IAssetManager {
      * @custom:field rewardPerKghPaid Accumulated paid boosted reward per 1 KGH.
      * @custom:field kghNum           Total number of KGH delegated.
      * @custom:field delegatedAt      A mapping of tokenId to the delegation timestamp. The
-     *                                delegator can undelegate after UNDELEGATION_DELAY_SECONDS
+     *                                delegator can undelegate after MIN_DELEGATION_PERIOD
      *                                elapsed from each delegation timestamp.
      * @custom:field kroShares        A mapping of tokenId to the amount of shares for KRO in KGH.
      */
@@ -65,7 +65,7 @@ interface IAssetManager {
      * @custom:field withdrawAccount An account where assets can be withdrawn to. Only this account
      *                               can withdraw the assets.
      * @custom:field lastDepositedAt Last timestamp when the validator deposited. The validator can
-     *                               withdraw after UNDELEGATION_DELAY_SECONDS elapsed.
+     *                               withdraw after MIN_DELEGATION_PERIOD elapsed.
      * @custom:field asset           Asset information of the vault.
      * @custom:field kroDelegators   A mapping of validator address to KRO delegator struct.
      * @custom:field kghDelegators   A mapping of validator address to KGH delegator struct.
@@ -261,6 +261,11 @@ interface IAssetManager {
     error ShareNotExists();
 
     /**
+     * @notice Reverts when the minimum delegation period is not elapsed.
+     */
+    error NotElapsedMinDelegationPeriod();
+
+    /**
      * @notice Reverts when the given token ids are invalid.
      */
     error InvalidTokenIdsInput();
@@ -276,7 +281,7 @@ interface IAssetManager {
 
     /**
      * @notice Returns when the validator can withdraw KRO. The validator can withdraw after
-     *         UNDELEGATION_DELAY_SECONDS elapsed from lastDepositedAt.
+     *         MIN_DELEGATION_PERIOD elapsed from lastDepositedAt.
      *
      * @param validator Address of the validator.
      *
@@ -346,8 +351,18 @@ interface IAssetManager {
     ) external view returns (uint128);
 
     /**
+     * @notice Returns the amount of KRO assets delegated to the given validator by the delegator.
+     *
+     * @param validator Address of the validator.
+     * @param delegator Address of the delegator.
+     *
+     * @return The amount of KRO assets that the delegator delegated to the validator.
+     */
+    function getKroAssets(address validator, address delegator) external view returns (uint128);
+
+    /**
      * @notice Returns when the KRO delegators can undelegate KRO. The delegators can undelegate
-     *         after UNDELEGATION_DELAY_SECONDS elapsed from lastDelegatedAt.
+     *         after MIN_DELEGATION_PERIOD elapsed from lastDelegatedAt.
      *
      * @param validator Address of the validator.
      * @param delegator Address of the KRO delegator.
@@ -386,7 +401,7 @@ interface IAssetManager {
 
     /**
      * @notice Returns when the KGH delegators can undelegate KGH. The delegators can undelegate KGH
-     *         for the given token id after UNDELEGATION_DELAY_SECONDS elapsed from delegation
+     *         for the given token id after MIN_DELEGATION_PERIOD elapsed from delegation
      *         timestamp.
      *
      * @param validator Address of the validator.
@@ -489,12 +504,12 @@ interface IAssetManager {
     function withdraw(uint128 assets) external;
 
     /**
-     * @notice Undelegate the KRO of given shares for the given validator.
+     * @notice Undelegate the KRO of given assets for the given validator.
      *
      * @param validator Address of the validator.
-     * @param shares    The amount of shares to undelegate.
+     * @param assets    The amount of assets to undelegate.
      */
-    function undelegate(address validator, uint128 shares) external;
+    function undelegate(address validator, uint128 assets) external;
 
     /**
      * @notice Undelegate KGH for given validator and tokenId.
