@@ -12,7 +12,6 @@ import { Uint128Math } from "../libraries/Uint128Math.sol";
 import { AssetManager } from "../L1/AssetManager.sol";
 import { IAssetManager } from "../L1/interfaces/IAssetManager.sol";
 import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
-import { IKGHManager } from "../universal/IKGHManager.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
 import { MockL2OutputOracle } from "./ValidatorManager.t.sol";
@@ -29,22 +28,20 @@ contract MockAssetManager is AssetManager {
     constructor(
         IERC20 _assetToken,
         IERC721 _kgh,
-        IKGHManager _kghManager,
         address _securityCouncil,
+        address _validatorRewardVault,
         IValidatorManager _validatorManager,
-        uint128 _undelegationPeriod,
-        uint128 _slashingRate,
-        uint128 _minSlashingAmount
+        uint128 _minDelegationPeriod,
+        uint128 _bondAmount
     )
         AssetManager(
             _assetToken,
             _kgh,
-            _kghManager,
             _securityCouncil,
+            _validatorRewardVault,
             _validatorManager,
-            _undelegationPeriod,
-            _slashingRate,
-            _minSlashingAmount
+            _minDelegationPeriod,
+            _bondAmount
         )
     {}
 
