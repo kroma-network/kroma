@@ -95,6 +95,14 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @notice Modifier to check if the caller is the withdraw account of the validator.
+     */
+    modifier onlyWithdrawAccount(address validator) {
+        if (msg.sender != _vaults[validator].withdrawAccount) revert NotAllowedCaller();
+        _;
+    }
+
+    /**
      * @notice Semantic version.
      * @custom:semver 1.0.0
      */
@@ -193,6 +201,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
+    function canWithdrawAt(address validator) public view returns (uint128) {
+        return _vaults[validator].lastDepositedAt + MIN_DELEGATION_PERIOD;
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
     function getKghReward(address validator, address delegator) external view returns (uint128) {
         Vault storage vault = _vaults[validator];
         KghDelegator storage kghDelegator = vault.kghDelegators[delegator];
@@ -282,6 +297,24 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         _deposit(msg.sender, assets, true);
         emit Deposited(msg.sender, assets);
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
+    function withdraw(address validator, uint128 assets) external onlyWithdrawAccount(validator) {
+        if (assets == 0) revert NotAllowedZeroInput();
+        if (canWithdrawAt(validator) > block.timestamp) {
+            revert NotElapsedMinDelegationPeriod();
+        }
+
+        _withdraw(validator, assets);
+
+        VALIDATOR_MANAGER.updateValidatorTree(validator, true);
+
+        ASSET_TOKEN.safeTransfer(_vaults[validator].withdrawAccount, assets);
+
+        emit Withdrawn(validator, assets);
     }
 
     /**
@@ -664,15 +697,31 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param updateTree Flag to update the validator tree.
      */
     function _deposit(address validator, uint128 assets, bool updateTree) internal {
-        Asset storage asset = _vaults[validator].asset;
+        Vault storage vault = _vaults[validator];
         ASSET_TOKEN.safeTransferFrom(validator, address(this), assets);
 
         unchecked {
-            asset.validatorKro += assets;
+            vault.asset.validatorKro += assets;
+            vault.lastDepositedAt = uint128(block.timestamp);
         }
 
         if (updateTree) {
             VALIDATOR_MANAGER.updateValidatorTree(validator, false);
+        }
+    }
+
+    /**
+     * @notice Internal function to withdraw KRO by the validator.
+     *
+     * @param validator Address of the validator.
+     * @param assets    The amount of KRO to withdraw.
+     */
+    function _withdraw(address validator, uint128 assets) internal {
+        Asset storage asset = _vaults[validator].asset;
+        if (assets > asset.validatorKro - asset.validatorKroBonded) revert InsufficientAsset();
+
+        unchecked {
+            asset.validatorKro -= assets;
         }
     }
 

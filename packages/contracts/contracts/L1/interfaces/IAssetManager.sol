@@ -401,6 +401,16 @@ interface IAssetManager {
     function deposit(uint128 assets) external;
 
     /**
+     * @notice Withdraw KRO. To withdraw KRO, the validator should be initiated and MIN_DELEGATION_PERIOD
+     *         should be passed after the last deposit time. Only withdrawAccount of the validator can call
+     *         this function.
+     *
+     * @param validator Address of the validator.
+     * @param assets    The amount of KRO to withdraw.
+     */
+    function withdraw(address validator, uint128 assets) external;
+
+    /**
      * @notice Delegate KRO to the validator and returns the amount of shares that the vault would
      *         exchange.
      *
@@ -426,13 +436,6 @@ interface IAssetManager {
      * @param tokenIds  The token ids of KGHs to delegate.
      */
     function delegateKghBatch(address validator, uint256[] calldata tokenIds) external;
-
-    /**
-     * @notice Withdraw KRO by the validator.
-     *
-     * @param assets The amount of KRO to withdraw.
-     */
-    function withdraw(uint128 assets) external;
 
     /**
      * @notice Undelegate the KRO of given assets for the given validator.
