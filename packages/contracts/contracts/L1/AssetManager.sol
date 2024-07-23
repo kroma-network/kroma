@@ -700,11 +700,11 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param updateTree Flag to update the validator tree.
      */
     function _deposit(address validator, uint128 assets, bool updateTree) internal {
-        Asset storage asset = _vaults[validator].asset;
+        Vault storage vault = _vaults[validator];
         ASSET_TOKEN.safeTransferFrom(validator, address(this), assets);
 
         unchecked {
-            asset.validatorKro += assets;
+            vault.asset.validatorKro += assets;
             vault.lastDepositedAt = uint128(block.timestamp);
         }
 
