@@ -601,9 +601,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
      *
      * @param validator Address of the validator.
      *
-     * @return The amount of base reward.
+     * @return The amount of base reward, excluding base reward for the validator.
      * @return The amount of boosted reward.
-     * @return The amount of validator reward.
+     * @return The amount of reward from commission and base reward for the validator.
      */
     function _calculateReward(address validator) internal view returns (uint128, uint128, uint128) {
         uint128 commissionRate = _validatorInfo[validator].commissionRate;
@@ -624,6 +624,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
                 COMMISSION_RATE_DENOM - commissionRate,
                 COMMISSION_RATE_DENOM
             );
+
+            uint128 validatorKro = ASSET_MANAGER.totalValidatorKro(validator);
+            uint128 totalKro = ASSET_MANAGER.totalKroAssets(validator);
+            uint128 validatorBaseReward = baseReward.mulDiv(validatorKro, totalKro + validatorKro);
+            // Exclude the base reward for the validator from total base reward given to KRO delegators.
+            baseReward -= validatorBaseReward;
+            validatorReward += validatorBaseReward;
         }
 
         return (baseReward, boostedReward, validatorReward);

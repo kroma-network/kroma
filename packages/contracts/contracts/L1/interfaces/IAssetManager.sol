@@ -504,7 +504,7 @@ interface IAssetManager {
     function withdraw(uint128 assets) external;
 
     /**
-     * @notice Undelegate the KRO of given shares for the given validator.
+     * @notice Undelegate the KRO of given assets for the given validator.
      *
      * @param validator Address of the validator.
      * @param assets    The amount of assets to undelegate.
