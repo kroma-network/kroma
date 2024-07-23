@@ -728,12 +728,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function _delegateKghBatch(address validator, address delegator, uint128 kghCount) internal {
         Vault storage vault = _vaults[validator];
-        KghDelegator storage kghDelegator = vault.kghDelegators[delegator];
 
         unchecked {
+            // asset
             vault.asset.totalKgh += kghCount;
 
-            kghDelegator.kghNum += kghCount;
+            // delegator
+            vault.kghDelegators[delegator].kghNum += kghCount;
         }
     }
 

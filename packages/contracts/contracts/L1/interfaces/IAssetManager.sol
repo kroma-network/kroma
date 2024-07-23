@@ -14,7 +14,7 @@ interface IAssetManager {
      * @custom:field validatorKroBonded Total amount of validator KRO that bonded during output
      *                                  submission or challenge creation.
      * @custom:field totalKro           Total amount of KRO that delegated by the delegators and
-     *                                  accumulated as KRO delegation reward (including totalKroInKgh).
+     *                                  accumulated as KRO delegation reward.
      * @custom:field totalKroShares     Total shares for KRO delegation in the vault.
      * @custom:field totalKgh           Total number of KGH in the vault.
      * @custom:field rewardPerKghStored Accumulated boosted reward per 1 KGH.
@@ -279,12 +279,12 @@ interface IAssetManager {
 
     /**
      * @notice Returns the total amount of KRO that delegated by the delegators and accumulated as
-     *         KRO delegation reward (including totalKroInKgh).
+     *         KRO delegation reward.
      *
      * @param validator Address of the validator.
      *
      * @return The total amount of KRO that delegated by the delegators and accumulated as KRO
-     *         delegation reward (including totalKroInKgh).
+     *         delegation reward.
      */
     function totalKroAssets(address validator) external view returns (uint128);
 
