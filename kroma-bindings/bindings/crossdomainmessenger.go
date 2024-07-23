@@ -742,7 +742,7 @@ func (it *CrossDomainMessengerFailedRelayedMessageIterator) Next() bool {
 	}
 }
 
-// Error returns any retrieval or parsing error that occurred during filtering.
+// Error returns any retrieval or parsing error occurred during filtering.
 func (it *CrossDomainMessengerFailedRelayedMessageIterator) Error() error {
 	return it.fail
 }
