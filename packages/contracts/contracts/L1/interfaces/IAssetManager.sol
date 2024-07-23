@@ -438,13 +438,6 @@ interface IAssetManager {
     function delegateKghBatch(address validator, uint256[] calldata tokenIds) external;
 
     /**
-     * @notice Withdraw KRO by the validator.
-     *
-     * @param assets The amount of KRO to withdraw.
-     */
-    function withdraw(uint128 assets) external;
-
-    /**
      * @notice Undelegate the KRO of given assets for the given validator.
      *
      * @param validator Address of the validator.

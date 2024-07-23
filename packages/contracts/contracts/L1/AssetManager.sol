@@ -202,7 +202,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @inheritdoc IAssetManager
      */
     function canWithdrawAt(address validator) public view returns (uint128) {
-        return _vaults[validator].lastDepositedAt + uint128(MIN_DELEGATION_PERIOD);
+        return _vaults[validator].lastDepositedAt + MIN_DELEGATION_PERIOD;
     }
 
     /**
