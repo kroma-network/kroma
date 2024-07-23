@@ -304,16 +304,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function withdraw(address validator, uint128 assets) external onlyWithdrawAccount(validator) {
         if (assets == 0) revert NotAllowedZeroInput();
-        if (VALIDATOR_MANAGER.getStatus(validator) == IValidatorManager.ValidatorStatus.NONE)
-            revert ImproperValidatorStatus();
-
         if (canWithdrawAt(validator) > block.timestamp) {
             revert NotElapsedMinDelegationPeriod();
         }
 
         _withdraw(validator, assets);
 
-        VALIDATOR_MANAGER.updateValidatorTree(validator, false);
+        VALIDATOR_MANAGER.updateValidatorTree(validator, true);
 
         ASSET_TOKEN.safeTransfer(_vaults[validator].withdrawAccount, assets);
 
@@ -713,13 +710,18 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         }
     }
 
+    /**
+     * @notice Internal function to withdraw KRO by the validator.
+     *
+     * @param validator Address of the validator.
+     * @param assets    The amount of KRO to withdraw.
+     */
     function _withdraw(address validator, uint128 assets) internal {
-        Vault storage vault = _vaults[validator];
-        if (assets > vault.asset.validatorKro - vault.asset.validatorKroBonded)
-            revert InsufficientAsset();
+        Asset storage asset = _vaults[validator].asset;
+        if (assets > asset.validatorKro - asset.validatorKroBonded) revert InsufficientAsset();
 
         unchecked {
-            vault.asset.validatorKro -= assets;
+            asset.validatorKro -= assets;
         }
     }
 

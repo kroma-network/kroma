@@ -83,14 +83,6 @@ interface IAssetManager {
     event Deposited(address indexed validator, uint128 amount);
 
     /**
-     * @notice Emitted when validator withdrew KROs.
-     *
-     * @param validator Address of the validator.
-     * @param amount    The amount of KRO withdrawn.
-     */
-    event Withdrawn(address indexed validator, uint128 amount);
-
-    /**
      * @notice Emitted when KROs are delegated.
      *
      * @param validator Address of the validator.
@@ -341,16 +333,6 @@ interface IAssetManager {
         address validator,
         address delegator
     ) external view returns (uint128);
-
-    /**
-     * @notice Returns when the validator can withdraw their validatorKro. The validator can withdraw
-     *         their validatorKro after MIN_DELEGATION_PERIOD elapsed from lastDepositedAt.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return When the validator can withdraw their validatorKro.
-     */
-    function canWithdrawAt(address validator) external view returns (uint128);
 
     /**
      * @notice Returns the number of KGH delegated by the given delegator.
