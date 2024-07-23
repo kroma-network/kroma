@@ -95,6 +95,14 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @notice Modifier to check if the caller is the withdraw account of the validator.
+     */
+    modifier onlyWithdrawAccount(address validator) {
+        if (msg.sender != _vaults[validator].withdrawAccount) revert NotAllowedCaller();
+        _;
+    }
+
+    /**
      * @notice Semantic version.
      * @custom:semver 1.0.0
      */
@@ -188,6 +196,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         return
             _vaults[validator].kghDelegators[delegator].delegatedAt[tokenId] +
             MIN_DELEGATION_PERIOD;
+    }
+
+    /**
+     * @inheritdoc IAssetManager
+     */
+    function canWithdrawAt(address validator) public view returns (uint128) {
+        return _vaults[validator].lastDepositedAt + uint128(MIN_DELEGATION_PERIOD);
     }
 
     /**
@@ -287,16 +302,22 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
-    function withdraw(uint128 assets) external {
+    function withdraw(address validator, uint128 assets) external onlyWithdrawAccount(validator) {
         if (assets == 0) revert NotAllowedZeroInput();
-        if (VALIDATOR_MANAGER.getStatus(msg.sender) == IValidatorManager.ValidatorStatus.NONE)
+        if (VALIDATOR_MANAGER.getStatus(validator) == IValidatorManager.ValidatorStatus.NONE)
             revert ImproperValidatorStatus();
-        if (_vault[msg.sender].lastDepositedAt + UNDELEGATION_PERIOD > block.timestamp) {
+
+        if (canWithdrawAt(validator) > block.timestamp) {
             revert NotElapsedMinDelegationPeriod();
         }
 
-        _withdraw(msg.sender, assets);
-        emit Withdrawn(msg.sender, assets);
+        _withdraw(validator, assets);
+
+        VALIDATOR_MANAGER.updateValidatorTree(validator, false);
+
+        ASSET_TOKEN.safeTransfer(_vaults[validator].withdrawAccount, assets);
+
+        emit Withdrawn(validator, assets);
     }
 
     /**
@@ -694,15 +715,12 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
     function _withdraw(address validator, uint128 assets) internal {
         Vault storage vault = _vaults[validator];
-        if (assets > vault.asset.validatorKro) revert InsufficientAsset();
-
-        ASSET_TOKEN.safeTransfer(vault.withdrawAccount, assets);
+        if (assets > vault.asset.validatorKro - vault.asset.validatorKroBonded)
+            revert InsufficientAsset();
 
         unchecked {
             vault.asset.validatorKro -= assets;
         }
-
-        VALIDATOR_MANAGER.updateValidatorTree(validator, false);
     }
 
     /**

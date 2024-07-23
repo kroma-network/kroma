@@ -343,6 +343,16 @@ interface IAssetManager {
     ) external view returns (uint128);
 
     /**
+     * @notice Returns when the validator can withdraw their validatorKro. The validator can withdraw
+     *         their validatorKro after MIN_DELEGATION_PERIOD elapsed from lastDepositedAt.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return When the validator can withdraw their validatorKro.
+     */
+    function canWithdrawAt(address validator) external view returns (uint128);
+
+    /**
      * @notice Returns the number of KGH delegated by the given delegator.
      *
      * @param validator Address of the validator.
@@ -410,11 +420,13 @@ interface IAssetManager {
 
     /**
      * @notice Withdraw KRO. To withdraw KRO, the validator should be initiated and MIN_DELEGATION_PERIOD
-     *         should be passed after the last deposit time.
+     *         should be passed after the last deposit time. Only withdrawAccount of the validator can call
+     *         this function.
      *
-     * @param assets The amount of KRO to withdraw.
+     * @param validator Address of the validator.
+     * @param assets    The amount of KRO to withdraw.
      */
-    function withdraw(uint128 assets) external;
+    function withdraw(address validator, uint128 assets) external;
 
     /**
      * @notice Delegate KRO to the validator and returns the amount of shares that the vault would
