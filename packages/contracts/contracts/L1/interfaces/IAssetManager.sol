@@ -14,10 +14,9 @@ interface IAssetManager {
      * @custom:field validatorKroBonded Total amount of validator KRO that bonded during output
      *                                  submission or challenge creation.
      * @custom:field totalKro           Total amount of KRO that delegated by the delegators and
-     *                                  accumulated as KRO delegation reward (including totalKroInKgh).
+     *                                  accumulated as KRO delegation reward.
      * @custom:field totalKroShares     Total shares for KRO delegation in the vault.
      * @custom:field totalKgh           Total number of KGH in the vault.
-     * @custom:field totalKroInKgh      Total amount of KRO which KGHs in the vault have.
      * @custom:field rewardPerKghStored Accumulated boosted reward per 1 KGH.
      */
     struct Asset {
@@ -26,7 +25,6 @@ interface IAssetManager {
         uint128 totalKro;
         uint128 totalKroShares;
         uint128 totalKgh;
-        uint128 totalKroInKgh;
         uint128 rewardPerKghStored;
     }
 
@@ -50,13 +48,11 @@ interface IAssetManager {
      * @custom:field delegatedAt      A mapping of tokenId to the delegation timestamp. The
      *                                delegator can undelegate after MIN_DELEGATION_PERIOD
      *                                elapsed from each delegation timestamp.
-     * @custom:field kroShares        A mapping of tokenId to the amount of shares for KRO in KGH.
      */
     struct KghDelegator {
         uint128 rewardPerKghPaid;
         uint128 kghNum;
         mapping(uint256 => uint128) delegatedAt;
-        mapping(uint256 => uint128) kroShares;
     }
 
     /**
@@ -107,16 +103,8 @@ interface IAssetManager {
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
      * @param tokenId   Token id of the KGH.
-     * @param kroInKgh  The amount of KRO in the KGH.
-     * @param kroShares The amount of KRO shares received.
      */
-    event KghDelegated(
-        address indexed validator,
-        address indexed delegator,
-        uint256 tokenId,
-        uint128 kroInKgh,
-        uint128 kroShares
-    );
+    event KghDelegated(address indexed validator, address indexed delegator, uint256 tokenId);
 
     /**
      * @notice Emitted when KGHs are delegated in batch.
@@ -124,15 +112,11 @@ interface IAssetManager {
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
      * @param tokenIds  Array of token ids of the KGHs.
-     * @param kroInKghs The amount of KRO in the KGHs.
-     * @param kroShares The amount of KRO shares received.
      */
     event KghBatchDelegated(
         address indexed validator,
         address indexed delegator,
-        uint256[] tokenIds,
-        uint128 kroInKghs,
-        uint128 kroShares
+        uint256[] tokenIds
     );
 
     /**
@@ -164,15 +148,13 @@ interface IAssetManager {
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
      * @param tokenId   Token id of the KGH.
-     * @param amount    The amount of KRO claimed as reward.
-     * @param kroShares The amount of KRO shares to be burnt.
+     * @param amount    The amount of KRO claimed as boosted reward.
      */
     event KghUndelegated(
         address indexed validator,
         address indexed delegator,
         uint256 tokenId,
-        uint128 amount,
-        uint128 kroShares
+        uint128 amount
     );
 
     /**
@@ -181,15 +163,13 @@ interface IAssetManager {
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
      * @param tokenIds  Array of token ids of the KGHs.
-     * @param amount    The amount of KRO claimed as reward.
-     * @param kroShares The amount of KRO shares to be burnt.
+     * @param amount    The amount of KRO claimed as boosted reward.
      */
     event KghBatchUndelegated(
         address indexed validator,
         address indexed delegator,
         uint256[] tokenIds,
-        uint128 amount,
-        uint128 kroShares
+        uint128 amount
     );
 
     /**
@@ -197,15 +177,9 @@ interface IAssetManager {
      *
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
-     * @param amount    The amount of KRO claimed as reward.
-     * @param kroShares The amount of KRO shares to be burnt.
+     * @param amount    The amount of KRO claimed as boosted reward.
      */
-    event KghRewardClaimed(
-        address indexed validator,
-        address indexed delegator,
-        uint128 amount,
-        uint128 kroShares
-    );
+    event KghRewardClaimed(address indexed validator, address indexed delegator, uint128 amount);
 
     /**
      * @notice Emitted when validator KRO is bonded during output submission or challenge creation.
@@ -254,11 +228,6 @@ interface IAssetManager {
      * @notice Reverts when the share is insufficient.
      */
     error InsufficientShare();
-
-    /**
-     * @notice Reverts when the share does not exist.
-     */
-    error ShareNotExists();
 
     /**
      * @notice Reverts when the minimum delegation period is not elapsed.
@@ -310,12 +279,12 @@ interface IAssetManager {
 
     /**
      * @notice Returns the total amount of KRO that delegated by the delegators and accumulated as
-     *         KRO delegation reward (including totalKroInKgh).
+     *         KRO delegation reward.
      *
      * @param validator Address of the validator.
      *
      * @return The total amount of KRO that delegated by the delegators and accumulated as KRO
-     *         delegation reward (including totalKroInKgh).
+     *         delegation reward.
      */
     function totalKroAssets(address validator) external view returns (uint128);
 
@@ -327,15 +296,6 @@ interface IAssetManager {
      * @return The total number of KGHs held by the vault.
      */
     function totalKghNum(address validator) external view returns (uint128);
-
-    /**
-     * @notice Returns the total amount of KRO in KGHs held by the vault.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The total amount of KRO in KGHs held by the vault.
-     */
-    function totalKroInKgh(address validator) external view returns (uint128);
 
     /**
      * @notice Returns the amount of KRO shares that the KRO delegator has.
@@ -385,21 +345,6 @@ interface IAssetManager {
     function getKghNum(address validator, address delegator) external view returns (uint128);
 
     /**
-     * @notice Returns the amount of KRO shares that the KGH delegator has.
-     *
-     * @param validator Address of the validator.
-     * @param delegator Address of the delegator.
-     * @param tokenId   Token id of the KGH.
-     *
-     * @return The amount of KRO shares that the KGH delegator has.
-     */
-    function getKghTotalShareBalance(
-        address validator,
-        address delegator,
-        uint256 tokenId
-    ) external view returns (uint128);
-
-    /**
      * @notice Returns when the KGH delegators can undelegate KGH. The delegators can undelegate KGH
      *         for the given token id after MIN_DELEGATION_PERIOD elapsed from delegation
      *         timestamp.
@@ -443,15 +388,10 @@ interface IAssetManager {
      *
      * @param validator The address of the validator.
      * @param delegator The address of the delegator.
-     * @param tokenIds  The token id array of KGH to check the base reward.
      *
      * @return The amount of claimable reward of KGH delegation.
      */
-    function getKghReward(
-        address validator,
-        address delegator,
-        uint256[] calldata tokenIds
-    ) external view returns (uint128);
+    function getKghReward(address validator, address delegator) external view returns (uint128);
 
     /**
      * @notice Deposit KRO. To deposit KRO, the validator should be initiated.
@@ -472,29 +412,20 @@ interface IAssetManager {
     function delegate(address validator, uint128 assets) external returns (uint128);
 
     /**
-     * @notice Delegate KGH to the validator and returns the amount of KRO shares that the vault
-     *         would exchange.
+     * @notice Delegate KGH to the validator.
      *
      * @param validator Address of the validator.
      * @param tokenId   The token id of KGH to delegate.
-     *
-     * @return The amount of KRO shares that the Vault would exchange for the KGH provided.
      */
-    function delegateKgh(address validator, uint256 tokenId) external returns (uint128);
+    function delegateKgh(address validator, uint256 tokenId) external;
 
     /**
-     * @notice Delegate KGHs to the validator and returns the amount of KRO shares that the vault
-     *         would exchange.
+     * @notice Delegate KGHs to the validator.
      *
      * @param validator Address of the validator.
      * @param tokenIds  The token ids of KGHs to delegate.
-     *
-     * @return The amount of KRO shares that the Vault would exchange for the KGHs provided.
      */
-    function delegateKghBatch(
-        address validator,
-        uint256[] calldata tokenIds
-    ) external returns (uint128);
+    function delegateKghBatch(address validator, uint256[] calldata tokenIds) external;
 
     /**
      * @notice Withdraw KRO by the validator.
@@ -528,10 +459,9 @@ interface IAssetManager {
     function undelegateKghBatch(address validator, uint256[] calldata tokenIds) external;
 
     /**
-     * @notice Claim the reward of the KGH delegator from the given validator vault and token ids.
+     * @notice Claim the boosted reward of the KGH delegator from the given validator vault.
      *
      * @param validator Address of the validator.
-     * @param tokenIds  Array of token ids of KGHs to claim base reward.
      */
-    function claimKghReward(address validator, uint256[] calldata tokenIds) external;
+    function claimKghReward(address validator) external;
 }

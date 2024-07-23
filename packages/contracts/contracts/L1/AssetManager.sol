@@ -7,15 +7,14 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 import { Uint128Math } from "../libraries/Uint128Math.sol";
-import { IKGHManager } from "../universal/IKGHManager.sol";
 import { ISemver } from "../universal/ISemver.sol";
 import { IAssetManager } from "./interfaces/IAssetManager.sol";
 import { IValidatorManager } from "./interfaces/IValidatorManager.sol";
 
 /**
  * @title AssetManager
- * @notice AssetManager is an abstract contract that handles (un)delegations of KRO and KGH, and
- *         the distribution of rewards to the delegators and the validator.
+ * @notice AssetManager is a contract that handles (un)delegations of KRO and KGH, and the
+ *         distribution of rewards to the delegators and the validator.
  */
 contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     using SafeERC20 for IERC20;
@@ -47,11 +46,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     IERC721 public immutable KGH;
 
     /**
-     * @notice Address of the KGHManager contract.
-     */
-    IKGHManager public immutable KGH_MANAGER;
-
-    /**
      * @notice The address of the SecurityCouncil contract. Can be updated via upgrade.
      */
     address public immutable SECURITY_COUNCIL;
@@ -69,10 +63,10 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @notice Minimum delegation period. Can be updated via upgrade.
      */
-    uint256 public immutable MIN_DELEGATION_PERIOD;
+    uint128 public immutable MIN_DELEGATION_PERIOD;
 
     /**
-     * @notice The amount to bond.
+     * @notice The amount to bond. Can be updated via upgrade.
      */
     uint128 public immutable BOND_AMOUNT;
 
@@ -111,7 +105,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      *
      * @param _assetToken           Address of the KRO token.
      * @param _kgh                  Address of the KGH token.
-     * @param _kghManager           Address of the KGHManager contract.
      * @param _securityCouncil      Address of the SecurityCouncil contract.
      * @param _validatorRewardVault Address of the Validator Reward Vault.
      * @param _validatorManager     Address of the ValidatorManager contract.
@@ -121,7 +114,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     constructor(
         IERC20 _assetToken,
         IERC721 _kgh,
-        IKGHManager _kghManager,
         address _securityCouncil,
         address _validatorRewardVault,
         IValidatorManager _validatorManager,
@@ -130,7 +122,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     ) {
         ASSET_TOKEN = _assetToken;
         KGH = _kgh;
-        KGH_MANAGER = _kghManager;
         SECURITY_COUNCIL = _securityCouncil;
         VALIDATOR_REWARD_VAULT = _validatorRewardVault;
         VALIDATOR_MANAGER = _validatorManager;
@@ -152,7 +143,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @inheritdoc IAssetManager
      */
     function getKroAssets(address validator, address delegator) external view returns (uint128) {
-        return _convertToKroAssets(_vaults[validator].kroDelegators[delegator].shares);
+        return _convertToKroAssets(validator, _vaults[validator].kroDelegators[delegator].shares);
     }
 
     /**
@@ -160,17 +151,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function getKghNum(address validator, address delegator) external view returns (uint128) {
         return _vaults[validator].kghDelegators[delegator].kghNum;
-    }
-
-    /**
-     * @inheritdoc IAssetManager
-     */
-    function getKghTotalShareBalance(
-        address validator,
-        address delegator,
-        uint256 tokenId
-    ) external view returns (uint128) {
-        return _vaults[validator].kghDelegators[delegator].kroShares[tokenId];
     }
 
     /**
@@ -194,9 +174,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         address validator,
         address delegator
     ) public view returns (uint128) {
-        return
-            _vaults[validator].kroDelegators[delegator].lastDelegatedAt +
-            uint128(MIN_DELEGATION_PERIOD);
+        return _vaults[validator].kroDelegators[delegator].lastDelegatedAt + MIN_DELEGATION_PERIOD;
     }
 
     /**
@@ -209,17 +187,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     ) public view returns (uint128) {
         return
             _vaults[validator].kghDelegators[delegator].delegatedAt[tokenId] +
-            uint128(MIN_DELEGATION_PERIOD);
+            MIN_DELEGATION_PERIOD;
     }
 
     /**
      * @inheritdoc IAssetManager
      */
-    function getKghReward(
-        address validator,
-        address delegator,
-        uint256[] calldata tokenIds
-    ) external view returns (uint128) {
+    function getKghReward(address validator, address delegator) external view returns (uint128) {
         Vault storage vault = _vaults[validator];
         KghDelegator storage kghDelegator = vault.kghDelegators[delegator];
 
@@ -227,9 +201,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 totalBoostedReward = kghDelegator.kghNum *
             (rewardPerKghStored - kghDelegator.rewardPerKghPaid);
 
-        (, uint128 kghBaseReward) = _calculateBaseRewardForKgh(validator, kghDelegator, tokenIds);
-
-        return totalBoostedReward + kghBaseReward;
+        return totalBoostedReward;
     }
 
     /**
@@ -256,13 +228,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
-    function totalKroInKgh(address validator) external view returns (uint128) {
-        return _vaults[validator].asset.totalKroInKgh;
-    }
-
-    /**
-     * @inheritdoc IAssetManager
-     */
     function totalValidatorKro(address validator) external view returns (uint128) {
         return _vaults[validator].asset.validatorKro;
     }
@@ -275,39 +240,14 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @inheritdoc IAssetManager
-     */
-    function totalValidatorReward(address validator) external view returns (uint128) {
-        return _vaults[validator].asset.validatorRewardKro;
-    }
-
-    /**
-     * @notice Returns the reflective weight of given validator. It can be different from the actual
-     *         current weight of the validator in validator tree since it includes all accumulated
-     *         rewards.
+     * @notice Returns the reflective weight of given validator.
      *
      * @param validator Address of the validator.
      *
      * @return The reflective weight of given validator.
      */
-    // TODO: modify total weight
     function reflectiveWeight(address validator) external view returns (uint128) {
-        return
-            _vaults[validator].asset.totalKro +
-            _vaults[validator].asset.validatorKro +
-            _vaults[validator].asset.boostedReward +
-            _vaults[validator].asset.validatorRewardKro;
-    }
-
-    /**
-     * @notice Returns the total amount of KRO shares held by the vault.
-     *
-     * @param validator Address of the validator.
-     *
-     * @return The total amount of shares held by the validator vault.
-     */
-    function _totalKroShares(address validator) internal view returns (uint128) {
-        return _vaults[validator].asset.totalKroShares;
+        return _vaults[validator].asset.totalKro + _vaults[validator].asset.validatorKro;
     }
 
     /**
@@ -352,6 +292,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 assets
     ) external isRegistered(validator) returns (uint128) {
         if (assets == 0) revert NotAllowedZeroInput();
+
         ASSET_TOKEN.safeTransferFrom(msg.sender, address(this), assets);
         uint128 shares = _convertToKroShares(validator, assets);
         _delegate(validator, msg.sender, assets, shares);
@@ -364,29 +305,18 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     /**
      * @inheritdoc IAssetManager
      */
-    function delegateKgh(
-        address validator,
-        uint256 tokenId
-    ) external isRegistered(validator) returns (uint128) {
-        // claim boost reward
-        uint128 boostRewardAssets = _claimBoostedReward(validator, msg.sender);
-        if (boostRewardAssets > 0) {
-            ASSET_TOKEN.safeTransfer(msg.sender, boostRewardAssets);
+    function delegateKgh(address validator, uint256 tokenId) external isRegistered(validator) {
+        // claim boosted reward
+        uint128 boostedReward = _claimBoostedReward(validator, msg.sender);
+        if (boostedReward > 0) {
+            ASSET_TOKEN.safeTransfer(msg.sender, boostedReward);
+            emit KghRewardClaimed(validator, msg.sender, boostedReward);
         }
 
         KGH.safeTransferFrom(msg.sender, address(this), tokenId);
+        _delegateKgh(validator, msg.sender, tokenId);
 
-        uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenId);
-        uint128 kroShares = _convertToKroShares(validator, kroInKgh);
-
-        _delegateKgh(validator, msg.sender, tokenId, kroInKgh, kroShares);
-
-        if (kroInKgh > 0) {
-            VALIDATOR_MANAGER.updateValidatorTree(validator, false);
-        }
-
-        emit KghDelegated(validator, msg.sender, tokenId, kroInKgh, kroShares);
-        return kroShares;
+        emit KghDelegated(validator, msg.sender, tokenId);
     }
 
     /**
@@ -395,44 +325,29 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     function delegateKghBatch(
         address validator,
         uint256[] calldata tokenIds
-    ) external isRegistered(validator) returns (uint128) {
+    ) external isRegistered(validator) {
         if (tokenIds.length == 0) revert NotAllowedZeroInput();
 
-        // claim boost reward
-        uint128 boostRewardAssets = _claimBoostedReward(validator, msg.sender);
-        if (boostRewardAssets > 0) {
-            ASSET_TOKEN.safeTransfer(msg.sender, boostRewardAssets);
+        // claim boosted reward
+        uint128 boostedReward = _claimBoostedReward(validator, msg.sender);
+        if (boostedReward > 0) {
+            ASSET_TOKEN.safeTransfer(msg.sender, boostedReward);
+            emit KghRewardClaimed(validator, msg.sender, boostedReward);
         }
 
         KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
-        uint128 kroShares;
-        uint128 kroInKghs;
-
         for (uint256 i = 0; i < tokenIds.length; ) {
             KGH.safeTransferFrom(msg.sender, address(this), tokenIds[i]);
-
-            uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenIds[i]);
-            uint128 kroSharesForTokenId = _convertToKroShares(validator, kroInKgh);
-
-            kghDelegator.kroShares[tokenIds[i]] = kroSharesForTokenId;
             kghDelegator.delegatedAt[tokenIds[i]] = uint128(block.timestamp);
 
             unchecked {
-                kroInKghs += kroInKgh;
-                kroShares += kroSharesForTokenId;
-
                 ++i;
             }
         }
 
-        _delegateKghBatch(validator, msg.sender, uint128(tokenIds.length), kroInKghs, kroShares);
+        _delegateKghBatch(validator, msg.sender, uint128(tokenIds.length));
 
-        if (kroInKghs > 0) {
-            VALIDATOR_MANAGER.updateValidatorTree(validator, false);
-        }
-
-        emit KghBatchDelegated(validator, msg.sender, tokenIds, kroInKghs, kroShares);
-        return kroShares;
+        emit KghBatchDelegated(validator, msg.sender, tokenIds);
     }
 
     /**
@@ -440,6 +355,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function undelegate(address validator, uint128 assets) external {
         if (assets == 0) revert NotAllowedZeroInput();
+
         uint128 shares = _convertToKroShares(validator, assets);
         if (shares == 0) revert InsufficientShare();
         if (shares > _vaults[validator].kroDelegators[msg.sender].shares)
@@ -460,30 +376,26 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      */
     function undelegateKgh(address validator, uint256 tokenId) external {
         KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
+
         if (kghDelegator.delegatedAt[tokenId] == 0) revert InvalidTokenIdsInput();
         if (canUndelegateKghAt(validator, msg.sender, tokenId) > block.timestamp)
             revert NotElapsedMinDelegationPeriod();
 
-        // KRO in KGH including base reward
-        uint128 kroShares = kghDelegator.kroShares[tokenId];
-        uint128 kroAssets = _convertToKroAssets(validator, kroShares);
-
-        // boost reward of KGH
-        uint128 boostReward = _claimBoostedReward(validator, msg.sender);
+        // boosted reward of KGH
+        uint128 boostedReward = _claimBoostedReward(validator, msg.sender);
 
         // update storage
-        _undelegateKgh(validator, msg.sender, tokenId, kroAssets, kroShares);
-
-        // update validator tree
-        VALIDATOR_MANAGER.updateValidatorTree(validator, true);
+        _undelegateKgh(validator, msg.sender, tokenId);
 
         // transfer KGH
-        KGH.safeTransfer(msg.sender, tokenId);
+        KGH.safeTransferFrom(address(this), msg.sender, tokenId);
 
         // transfer KRO
-        ASSET_TOKEN.safeTransfer(msg.sender, boostReward + kroAssets);
+        if (boostedReward > 0) {
+            ASSET_TOKEN.safeTransfer(msg.sender, boostedReward);
+        }
 
-        emit KghUndelegated(validator, msg.sender, tokenId, kroAssets + boostReward, kroShares);
+        emit KghUndelegated(validator, msg.sender, tokenId, boostedReward);
     }
 
     /**
@@ -494,47 +406,27 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[msg.sender];
 
-        // KRO in KGH including base reward
-        uint128 kroShares;
-        uint128 kroInKghs;
         for (uint256 i = 0; i < tokenIds.length; ) {
             if (kghDelegator.delegatedAt[tokenIds[i]] == 0) revert InvalidTokenIdsInput();
             if (canUndelegateKghAt(validator, msg.sender, tokenIds[i]) > block.timestamp)
                 revert NotElapsedMinDelegationPeriod();
 
-            uint128 kroSharesForTokenId = kghDelegator.kroShares[tokenIds[i]];
-
             delete kghDelegator.delegatedAt[tokenIds[i]];
-            delete kghDelegator.kroShares[tokenIds[i]];
 
             unchecked {
-                kroShares += kroSharesForTokenId;
-                kroInKghs += KGH_MANAGER.totalKroInKgh(tokenIds[i]);
-
                 ++i;
             }
         }
-        uint128 kroAssets = _convertToKroAssets(validator, kroShares);
 
-        // boost reward of KGH
-        uint128 boostReward = _claimBoostedReward(validator, msg.sender);
+        // boosted reward of KGHs
+        uint128 boostedReward = _claimBoostedReward(validator, msg.sender);
 
         // update storage
-        _undelegateKghBatch(
-            validator,
-            msg.sender,
-            uint128(tokenIds.length),
-            kroInKghs,
-            kroAssets,
-            kroShares
-        );
+        _undelegateKghBatch(validator, msg.sender, uint128(tokenIds.length));
 
-        // update validator tree
-        VALIDATOR_MANAGER.updateValidatorTree(validator, true);
-
-        // transfer KGH
+        // transfer KGHs
         for (uint256 i = 0; i < tokenIds.length; ) {
-            KGH.safeTransfer(msg.sender, tokenIds[i]);
+            KGH.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
 
             unchecked {
                 ++i;
@@ -542,41 +434,23 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         }
 
         // transfer KRO
-        uint128 totalKroAsset = boostReward + kroAssets;
-        ASSET_TOKEN.safeTransfer(msg.sender, totalKroAsset);
+        if (boostedReward > 0) {
+            ASSET_TOKEN.safeTransfer(msg.sender, boostedReward);
+        }
 
-        emit KghBatchUndelegated(validator, msg.sender, tokenIds, totalKroAsset, kroShares);
+        emit KghBatchUndelegated(validator, msg.sender, tokenIds, boostedReward);
     }
 
     /**
      * @inheritdoc IAssetManager
      */
-    function claimKghReward(address validator, uint256[] calldata tokenIds) external {
-        if (validator == address(0)) revert ZeroAddress();
-        if (tokenIds.length == 0) revert NotAllowedZeroInput();
+    function claimKghReward(address validator) external {
+        uint128 boostedReward = _claimBoostedReward(validator, msg.sender);
+        if (boostedReward == 0) revert InsufficientAsset();
 
-        Vault storage vault = _vaults[validator];
-        KghDelegator storage kghDelegator = vault.kghDelegators[msg.sender];
-        if (kghDelegator.kghNum != uint128(tokenIds.length)) revert InvalidTokenIdsInput();
+        ASSET_TOKEN.safeTransfer(msg.sender, boostedReward);
 
-        uint128 claimedRewards = _claimBoostedReward(validator, msg.sender);
-        if (claimedRewards == 0) revert InsufficientAsset();
-
-        (uint128 kroSharesToBurn, uint128 kghBaseReward) = _calculateBaseRewardForKgh(
-            validator,
-            kghDelegator,
-            tokenIds
-        );
-
-        unchecked {
-            claimedRewards += kghBaseReward;
-            vault.asset.totalKroShares -= kroSharesToBurn;
-            vault.asset.totalKro -= kghBaseReward;
-        }
-
-        ASSET_TOKEN.safeTransfer(msg.sender, claimedRewards);
-
-        emit KghRewardClaimed(validator, msg.sender, claimedRewards, kroSharesToBurn);
+        emit KghRewardClaimed(validator, msg.sender, boostedReward);
     }
 
     /**
@@ -681,7 +555,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         // If challenge reward is distributed to SECURITY_COUNCIL, transfer it directly.
         if (winner == SECURITY_COUNCIL) {
             ASSET_TOKEN.safeTransfer(SECURITY_COUNCIL, challengeReward);
-            return;
+            return challengeReward;
         }
 
         uint128 tax = challengeReward.mulDiv(TAX_NUMERATOR, TAX_DENOMINATOR);
@@ -738,35 +612,14 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
-     * @notice Internal function to calculate base rewards from the given validator address,
-     *         delegator struct, and token ids of KGHs.
+     * @notice Returns the total amount of KRO shares held by the vault.
      *
      * @param validator Address of the validator.
-     * @param delegator KghDelegator struct of the delegator.
-     * @param tokenIds  Array of token ids of the KGH to calculate base rewards.
      *
-     * @return The amount of shares corresponding to the reward.
-     * @return The amount of base rewards.
+     * @return The total amount of shares held by the validator vault.
      */
-    function _calculateBaseRewardForKgh(
-        address validator,
-        KghDelegator storage delegator,
-        uint256[] calldata tokenIds
-    ) internal view returns (uint128, uint128) {
-        uint128 kroSharesToBurn;
-        for (uint256 i = 0; i < tokenIds.length; ) {
-            if (kghDelegator.delegatedAt[tokenIds[i]] == 0) revert InvalidTokenIdsInput();
-            uint128 kroShares = kghDelegator.kroShares[tokenIds[i]] -
-                _convertToKroShares(validator, KGH_MANAGER.totalKroInKgh(tokenIds[i]));
-
-            unchecked {
-                kroSharesToBurn += kroShares;
-                ++i;
-            }
-        }
-
-        uint128 kghBaseReward = _convertToKroAssets(validator, kroSharesToBurn);
-        return (kroSharesToBurn, kghBaseReward);
+    function _totalKroShares(address validator) internal view returns (uint128) {
+        return _vaults[validator].asset.totalKroShares;
     }
 
     /**
@@ -853,27 +706,15 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
      * @param tokenId   Token Id of the KGH.
-     * @param kroInKgh  The amount of KRO in the KGH.
-     * @param kroShares The amount of KRO shares to receive.
      */
-    function _delegateKgh(
-        address validator,
-        address delegator,
-        uint256 tokenId,
-        uint128 kroInKgh,
-        uint128 kroShares
-    ) internal {
-        Asset storage asset = _vaults[validator].asset;
-        KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[delegator];
+    function _delegateKgh(address validator, address delegator, uint256 tokenId) internal {
+        Vault storage vault = _vaults[validator];
+        KghDelegator storage kghDelegator = vault.kghDelegators[delegator];
 
         unchecked {
-            asset.totalKro += kroInKgh;
-            asset.totalKroInKgh += kroInKgh;
-            asset.totalKgh += 1;
-            asset.totalKroShares += kroShares;
+            vault.asset.totalKgh += 1;
 
             ++kghDelegator.kghNum;
-            kghDelegator.kroShares[tokenId] = kroShares;
             kghDelegator.delegatedAt[tokenId] = uint128(block.timestamp);
         }
     }
@@ -884,26 +725,16 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
      * @param kghCount  The number of KGHs to delegate.
-     * @param kroInKghs The amount of KRO in the KGHs.
-     * @param kroShares The amount of KRO shares to receive.
      */
-    function _delegateKghBatch(
-        address validator,
-        address delegator,
-        uint128 kghCount,
-        uint128 kroInKghs,
-        uint128 kroShares
-    ) internal {
-        Asset storage asset = _vaults[validator].asset;
-        KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[delegator];
+    function _delegateKghBatch(address validator, address delegator, uint128 kghCount) internal {
+        Vault storage vault = _vaults[validator];
 
         unchecked {
-            asset.totalKro += kroInKghs;
-            asset.totalKroInKgh += kroInKghs;
-            asset.totalKgh += kghCount;
-            asset.totalKroShares += kroShares;
+            // asset
+            vault.asset.totalKgh += kghCount;
 
-            kghDelegator.kghNum += kghCount;
+            // delegator
+            vault.kghDelegators[delegator].kghNum += kghCount;
         }
     }
 
@@ -936,32 +767,18 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
      * @param tokenId   Token Id of the KGH.
-     * @param kroAssets The amount of KRO assets to undelegate.
-     * @param kroShares The amount of KRO shares to undelegate.
      */
-    function _undelegateKgh(
-        address validator,
-        address delegator,
-        uint256 tokenId,
-        uint128 kroAssets,
-        uint128 kroShares
-    ) internal {
-        Asset storage asset = _vaults[validator].asset;
-        KghDelegator storage kghDelegator = _vaults[validator].kghDelegators[delegator];
-
-        uint128 kroInKgh = KGH_MANAGER.totalKroInKgh(tokenId);
+    function _undelegateKgh(address validator, address delegator, uint256 tokenId) internal {
+        Vault storage vault = _vaults[validator];
+        KghDelegator storage kghDelegator = vault.kghDelegators[delegator];
 
         unchecked {
             // asset
-            asset.totalKroShares -= kroShares;
-            asset.totalKgh -= 1;
-            asset.totalKro -= kroAssets;
-            asset.totalKroInKgh -= kroInKgh;
+            vault.asset.totalKgh -= 1;
 
             // delegator
             kghDelegator.kghNum -= 1;
             delete kghDelegator.delegatedAt[tokenId];
-            delete kghDelegator.kroShares[tokenId];
         }
     }
 
@@ -971,29 +788,16 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
      * @param validator Address of the validator.
      * @param delegator Address of the delegator.
      * @param kghCount  The number of KGH token to undelegate.
-     * @param kroInKghs The amount of KRO in the KGHs.
-     * @param kroAssets The amount of KRO assets to undelegate.
-     * @param kroShares The amount of KRO shares to undelegate.
      */
-    function _undelegateKghBatch(
-        address validator,
-        address delegator,
-        uint128 kghCount,
-        uint128 kroInKghs,
-        uint128 kroAssets,
-        uint128 kroShares
-    ) internal {
-        Asset storage asset = _vaults[validator].asset;
+    function _undelegateKghBatch(address validator, address delegator, uint128 kghCount) internal {
+        Vault storage vault = _vaults[validator];
 
         unchecked {
             // asset
-            asset.totalKroShares -= kroShares;
-            asset.totalKgh -= kghCount;
-            asset.totalKro -= kroAssets;
-            asset.totalKroInKgh -= kroInKghs;
+            vault.asset.totalKgh -= kghCount;
 
             // delegator
-            _vaults[validator].kghDelegators[delegator].kghNum -= kghCount;
+            vault.kghDelegators[delegator].kghNum -= kghCount;
         }
     }
 
