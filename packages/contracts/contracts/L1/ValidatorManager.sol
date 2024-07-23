@@ -159,8 +159,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
     constructor(ConstructorParams memory _constructorParams) {
         if (_constructorParams._minRegisterAmount > _constructorParams._minActivateAmount)
             revert InvalidConstructorParams();
-        if (_constructorParams._minRegisterAmount < _constructorParams._assetManager.BOND_AMOUNT())
-            revert InvalidConstructorParams();
 
         L2_ORACLE = _constructorParams._l2Oracle;
         ASSET_MANAGER = _constructorParams._assetManager;
