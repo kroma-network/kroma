@@ -36,7 +36,6 @@ import { CodeDeployer } from "../libraries/CodeDeployer.sol";
 import { Constants } from "../libraries/Constants.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
-import { IKGHManager } from "../universal/IKGHManager.sol";
 import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
 import { Proxy } from "../universal/Proxy.sol";
@@ -195,18 +194,12 @@ contract MockKgh is ERC721 {
     }
 }
 
-contract MockKghManager is IKGHManager {
-    function totalKroInKgh(uint256 /* tokenId */) external pure override returns (uint128) {
-        return 100e18;
-    }
-}
-
 contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     // Test target
     ValidatorPool pool;
     ValidatorPool poolImpl;
     AssetManager assetMgr;
-    AssetManager assetManImpl;
+    AssetManager assetMgrImpl;
     ValidatorManager valMgr;
     ValidatorManager valMgrImpl;
     L2OutputOracle oracle;
@@ -236,14 +229,14 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     // AssetManager constructor arguments
     MockKro assetToken;
     MockKgh kgh;
-    MockKghManager kghManager;
-    uint256 internal undelegationPeriod = 7 days;
-    uint128 internal slashingRate = 20;
-    uint128 internal minSlashingAmount = 1e18;
+    address internal validatorRewardVault = makeAddr("validatorRewardVault");
+    uint128 internal minDelegationPeriod = 7 days;
+    uint128 internal bondAmount = 10e18;
 
     // ValidatorManager constructor arguments
     uint128 internal commissionChangeDelaySeconds = 7 days;
-    uint128 internal jailPeriodSeconds = 7 days;
+    uint128 internal softJailPeriodSeconds = 3 days;
+    uint128 internal hardJailPeriodSeconds = 7 days;
     uint128 internal jailThreshold = 2;
     uint128 internal maxOutputFinalizations = 10;
     uint128 internal baseReward = 20e18;
@@ -279,10 +272,11 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         assetToken.mint(trusted, minActivateAmount * 10);
         assetToken.mint(asserter, minActivateAmount * 10);
         assetToken.mint(challenger, minActivateAmount * 10);
+        // Set up validatorRewardVault
+        assetToken.mint(validatorRewardVault, baseReward * 1000);
 
-        // Set up KGH and KGHManager
+        // Set up KGH
         kgh = new MockKgh();
-        kghManager = new MockKghManager();
 
         // Give actors some ETH
         vm.deal(trusted, requiredBondAmount * 10);
@@ -298,6 +292,10 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         vm.label(address(valMgr), "ValidatorManager");
         oracle = L2OutputOracle(address(new Proxy(multisig)));
         vm.label(address(oracle), "L2OutputOracle");
+
+        // Allow AssetManager contract can get asset token from validatorRewardVault
+        vm.prank(validatorRewardVault);
+        assetToken.approve(address(assetMgr), baseReward * 1000);
 
         ResourceMetering.ResourceConfig memory config = Constants.DEFAULT_RESOURCE_CONFIG();
         systemConfig = new SystemConfig({
@@ -334,15 +332,14 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         });
 
         // Deploy the AssetManager
-        assetManImpl = new AssetManager({
+        assetMgrImpl = new AssetManager({
             _assetToken: IERC20(assetToken),
             _kgh: IERC721(kgh),
-            _kghManager: IKGHManager(kghManager),
             _securityCouncil: guardian,
+            _validatorRewardVault: validatorRewardVault,
             _validatorManager: valMgr,
-            _undelegationPeriod: uint128(undelegationPeriod),
-            _slashingRate: slashingRate,
-            _minSlashingAmount: minSlashingAmount
+            _minDelegationPeriod: minDelegationPeriod,
+            _bondAmount: bondAmount
         });
 
         // Deploy the ValidatorManager
@@ -352,7 +349,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _trustedValidator: trusted,
             _commissionChangeDelaySeconds: commissionChangeDelaySeconds,
             _roundDurationSeconds: uint128(roundDuration),
-            _jailPeriodSeconds: jailPeriodSeconds,
+            _softJailPeriodSeconds: softJailPeriodSeconds,
+            _hardJailPeriodSeconds: hardJailPeriodSeconds,
             _jailThreshold: jailThreshold,
             _maxOutputFinalizations: maxOutputFinalizations,
             _baseReward: baseReward,
@@ -385,7 +383,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         );
 
         vm.prank(multisig);
-        Proxy(payable(address(assetMgr))).upgradeTo(address(assetManImpl));
+        Proxy(payable(address(assetMgr))).upgradeTo(address(assetMgrImpl));
 
         vm.prank(multisig);
         Proxy(payable(address(valMgr))).upgradeTo(address(valMgrImpl));

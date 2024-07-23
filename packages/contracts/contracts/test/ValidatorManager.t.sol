@@ -8,7 +8,6 @@ import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
-import { IKGHManager } from "../universal/IKGHManager.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
@@ -154,12 +153,11 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         MockAssetManager mockAssetMgrImpl = new MockAssetManager(
             IERC20(assetToken),
             IERC721(kgh),
-            IKGHManager(kghManager),
             guardian,
+            validatorRewardVault,
             valMgr,
-            uint128(undelegationPeriod),
-            slashingRate,
-            minSlashingAmount
+            minDelegationPeriod,
+            bondAmount
         );
         vm.prank(multisig);
         Proxy(payable(assetMgrAddress)).upgradeTo(address(mockAssetMgrImpl));
