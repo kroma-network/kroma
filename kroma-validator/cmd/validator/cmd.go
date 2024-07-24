@@ -19,136 +19,6 @@ import (
 	"github.com/kroma-network/kroma/kroma-validator/flags"
 )
 
-func Deposit(ctx *cli.Context) error {
-	amount := ctx.String("amount")
-
-	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
-	if err != nil {
-		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
-	}
-
-	txData, err := valpoolABI.Pack("deposit")
-	if err != nil {
-		return fmt.Errorf("failed to create deposit transaction data: %w", err)
-	}
-
-	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
-	if err != nil {
-		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
-	}
-
-	txManager, err := newTxManager(ctx)
-	if err != nil {
-		return err
-	}
-
-	if err = sendTransaction(txManager, valpoolAddr, txData, amount); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func Withdraw(ctx *cli.Context) error {
-	amount := ctx.String("amount")
-
-	withdrawAmount, success := new(big.Int).SetString(amount, 10)
-	if !success {
-		return errors.New("failed to parse withdraw amount")
-	}
-
-	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
-	if err != nil {
-		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
-	}
-
-	txData, err := valpoolABI.Pack("withdraw", withdrawAmount)
-	if err != nil {
-		return fmt.Errorf("failed to create withdraw transaction data: %w", err)
-	}
-
-	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
-	if err != nil {
-		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
-	}
-
-	txManager, err := newTxManager(ctx)
-	if err != nil {
-		return err
-	}
-
-	if err = sendTransaction(txManager, valpoolAddr, txData, "0"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func WithdrawTo(ctx *cli.Context) error {
-	address := ctx.String("address")
-	toAddr := common.HexToAddress(address)
-
-	amount := ctx.String("amount")
-	withdrawAmount, success := new(big.Int).SetString(amount, 10)
-	if !success {
-		return errors.New("failed to parse withdraw amount")
-	}
-
-	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
-	if err != nil {
-		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
-	}
-
-	txData, err := valpoolABI.Pack("withdrawTo", toAddr, withdrawAmount)
-	if err != nil {
-		return fmt.Errorf("failed to create withdrawTo transaction data: %w", err)
-	}
-
-	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
-	if err != nil {
-		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
-	}
-
-	txManager, err := newTxManager(ctx)
-	if err != nil {
-		return err
-	}
-
-	if err = sendTransaction(txManager, valpoolAddr, txData, "0"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func Unbond(ctx *cli.Context) error {
-	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
-	if err != nil {
-		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
-	}
-
-	txData, err := valpoolABI.Pack("unbond")
-	if err != nil {
-		return fmt.Errorf("failed to create unbond transaction data: %w", err)
-	}
-
-	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
-	if err != nil {
-		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
-	}
-
-	txManager, err := newTxManager(ctx)
-	if err != nil {
-		return err
-	}
-
-	if err = sendTransaction(txManager, valpoolAddr, txData, "0"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func Register(ctx *cli.Context) error {
 	amount := ctx.String("amount")
 
@@ -314,26 +184,25 @@ func FinalizeCommissionChange(ctx *cli.Context) error {
 	return nil
 }
 
-func Delegate(ctx *cli.Context) error {
+func DepositKro(ctx *cli.Context) error {
 	amount := ctx.String("amount")
 
-	delegateAmount, success := new(big.Int).SetString(amount, 10)
+	depositAmount, success := new(big.Int).SetString(amount, 10)
 	if !success {
-		return fmt.Errorf("failed to parse delegate amount: %s", amount)
+		return fmt.Errorf("failed to parse deposit amount: %s", amount)
 	}
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
 		return err
 	}
-	validatorAddr := txManager.Config.From
 
 	assetManagerAddr, err := opservice.ParseAddress(ctx.String(flags.AssetManagerAddressFlag.Name))
 	if err != nil {
 		return fmt.Errorf("failed to parse AssetManager address: %w", err)
 	}
 
-	if err = approve(ctx, delegateAmount, txManager, assetManagerAddr); err != nil {
+	if err = approve(ctx, depositAmount, txManager, assetManagerAddr); err != nil {
 		return fmt.Errorf("failed to approve assets: %w", err)
 	}
 
@@ -342,9 +211,9 @@ func Delegate(ctx *cli.Context) error {
 		return fmt.Errorf("failed to get AssetManager ABI: %w", err)
 	}
 
-	txData, err := assetManagerAbi.Pack("delegate", validatorAddr, delegateAmount)
+	txData, err := assetManagerAbi.Pack("deposit", depositAmount)
 	if err != nil {
-		return fmt.Errorf("failed to create delegate transaction data: %w", err)
+		return fmt.Errorf("failed to create deposit transaction data: %w", err)
 	}
 
 	if err = sendTransaction(txManager, assetManagerAddr, txData, "0"); err != nil {
@@ -354,102 +223,57 @@ func Delegate(ctx *cli.Context) error {
 	return nil
 }
 
-func InitUndelegate(ctx *cli.Context) error {
+func Deposit(ctx *cli.Context) error {
 	amount := ctx.String("amount")
 
-	undelegateAmount, success := new(big.Int).SetString(amount, 10)
-	if !success {
-		return fmt.Errorf("failed to parse undelegate amount: %s", amount)
+	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
+	if err != nil {
+		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
 	}
 
-	assetManagerAbi, err := bindings.AssetManagerMetaData.GetAbi()
+	txData, err := valpoolABI.Pack("deposit")
 	if err != nil {
-		return fmt.Errorf("failed to get AssetManager ABI: %w", err)
+		return fmt.Errorf("failed to create deposit transaction data: %w", err)
+	}
+
+	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
+	if err != nil {
+		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
 	}
 
 	txManager, err := newTxManager(ctx)
 	if err != nil {
 		return err
 	}
-	validatorAddr := txManager.Config.From
 
-	assetManagerAddr, err := opservice.ParseAddress(ctx.String(flags.AssetManagerAddressFlag.Name))
-	if err != nil {
-		return fmt.Errorf("failed to parse AssetManager address: %w", err)
-	}
-
-	assetManagerContract, err := bindings.NewAssetManagerCaller(assetManagerAddr, txManager.Backend.(*ethclient.Client))
-	if err != nil {
-		return fmt.Errorf("failed to fetch AssetManager contract: %w", err)
-	}
-
-	shares, err := assetManagerContract.PreviewDelegate(optsutils.NewSimpleCallOpts(ctx.Context), validatorAddr, undelegateAmount)
-	if err != nil {
-		return fmt.Errorf("failed to preview delegate: %w", err)
-	}
-
-	txData, err := assetManagerAbi.Pack("initUndelegate", validatorAddr, shares)
-	if err != nil {
-		return fmt.Errorf("failed to create init undelegate transaction data: %w", err)
-	}
-
-	if err = sendTransaction(txManager, assetManagerAddr, txData, "0"); err != nil {
+	if err = sendTransaction(txManager, valpoolAddr, txData, amount); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func FinalizeUndelegate(ctx *cli.Context) error {
-	assetManagerAbi, err := bindings.AssetManagerMetaData.GetAbi()
-	if err != nil {
-		return fmt.Errorf("failed to get AssetManager ABI: %w", err)
-	}
-
-	txManager, err := newTxManager(ctx)
-	if err != nil {
-		return err
-	}
-	validatorAddr := txManager.Config.From
-
-	txData, err := assetManagerAbi.Pack("finalizeUndelegate", validatorAddr)
-	if err != nil {
-		return fmt.Errorf("failed to create finalize undelegate transaction data: %w", err)
-	}
-
-	assetManagerAddr, err := opservice.ParseAddress(ctx.String(flags.AssetManagerAddressFlag.Name))
-	if err != nil {
-		return fmt.Errorf("failed to parse AssetManager address: %w", err)
-	}
-
-	if err = sendTransaction(txManager, assetManagerAddr, txData, "0"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func InitClaimValidatorReward(ctx *cli.Context) error {
+func Withdraw(ctx *cli.Context) error {
 	amount := ctx.String("amount")
 
-	claimAmount, success := new(big.Int).SetString(amount, 10)
+	withdrawAmount, success := new(big.Int).SetString(amount, 10)
 	if !success {
-		return fmt.Errorf("failed to parse claim amount: %s", amount)
+		return errors.New("failed to parse withdraw amount")
 	}
 
-	assetManagerAbi, err := bindings.AssetManagerMetaData.GetAbi()
+	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
 	if err != nil {
-		return fmt.Errorf("failed to get AssetManager ABI: %w", err)
+		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
 	}
 
-	txData, err := assetManagerAbi.Pack("initClaimValidatorReward", claimAmount)
+	txData, err := valpoolABI.Pack("withdraw", withdrawAmount)
 	if err != nil {
-		return fmt.Errorf("failed to create claim validator rewards transaction data: %w", err)
+		return fmt.Errorf("failed to create withdraw transaction data: %w", err)
 	}
 
-	assetManagerAddr, err := opservice.ParseAddress(ctx.String(flags.AssetManagerAddressFlag.Name))
+	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
 	if err != nil {
-		return fmt.Errorf("failed to parse AssetManager address: %w", err)
+		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
 	}
 
 	txManager, err := newTxManager(ctx)
@@ -457,27 +281,36 @@ func InitClaimValidatorReward(ctx *cli.Context) error {
 		return err
 	}
 
-	if err = sendTransaction(txManager, assetManagerAddr, txData, "0"); err != nil {
+	if err = sendTransaction(txManager, valpoolAddr, txData, "0"); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func FinalizeClaimValidatorReward(ctx *cli.Context) error {
-	assetManagerAbi, err := bindings.AssetManagerMetaData.GetAbi()
-	if err != nil {
-		return fmt.Errorf("failed to get AssetManager ABI: %w", err)
+func WithdrawTo(ctx *cli.Context) error {
+	address := ctx.String("address")
+	toAddr := common.HexToAddress(address)
+
+	amount := ctx.String("amount")
+	withdrawAmount, success := new(big.Int).SetString(amount, 10)
+	if !success {
+		return errors.New("failed to parse withdraw amount")
 	}
 
-	txData, err := assetManagerAbi.Pack("finalizeClaimValidatorReward")
+	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
 	if err != nil {
-		return fmt.Errorf("failed to create finalize claim validator rewards transaction data: %w", err)
+		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
 	}
 
-	assetManagerAddr, err := opservice.ParseAddress(ctx.String(flags.AssetManagerAddressFlag.Name))
+	txData, err := valpoolABI.Pack("withdrawTo", toAddr, withdrawAmount)
 	if err != nil {
-		return fmt.Errorf("failed to parse AssetManager address: %w", err)
+		return fmt.Errorf("failed to create withdrawTo transaction data: %w", err)
+	}
+
+	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
+	if err != nil {
+		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
 	}
 
 	txManager, err := newTxManager(ctx)
@@ -485,7 +318,35 @@ func FinalizeClaimValidatorReward(ctx *cli.Context) error {
 		return err
 	}
 
-	if err = sendTransaction(txManager, assetManagerAddr, txData, "0"); err != nil {
+	if err = sendTransaction(txManager, valpoolAddr, txData, "0"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Unbond(ctx *cli.Context) error {
+	valpoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
+	if err != nil {
+		return fmt.Errorf("failed to get ValidatorPool ABI: %w", err)
+	}
+
+	txData, err := valpoolABI.Pack("unbond")
+	if err != nil {
+		return fmt.Errorf("failed to create unbond transaction data: %w", err)
+	}
+
+	valpoolAddr, err := opservice.ParseAddress(ctx.String(flags.ValPoolAddressFlag.Name))
+	if err != nil {
+		return fmt.Errorf("failed to parse ValidatorPool address: %w", err)
+	}
+
+	txManager, err := newTxManager(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err = sendTransaction(txManager, valpoolAddr, txData, "0"); err != nil {
 		return err
 	}
 

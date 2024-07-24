@@ -31,35 +31,8 @@ func main() {
 	app.Action = curryMain(Version)
 	app.Commands = cli.Commands{
 		{
-			Name:        "deposit",
-			Usage:       "Deposit ETH into ValidatorPool to be used as bond",
-			Description: "This command will be deprecated in a future release of validator system V2. Please use the 'register' command to register as a validator.",
-			Flags:       []cli.Flag{cmd.EthAmountFlag},
-			Action:      cmd.Deposit,
-		},
-		{
-			Name:        "withdraw",
-			Usage:       "Withdraw ETH from ValidatorPool",
-			Description: "This command will be deprecated in a future release of validator system V2. You can still use this command to withdraw your asset from the ValidatorPool.",
-			Flags:       []cli.Flag{cmd.EthAmountFlag},
-			Action:      cmd.Withdraw,
-		},
-		{
-			Name:        "withdrawTo",
-			Usage:       "Withdraw ETH from ValidatorPool to specific address",
-			Description: "This command will be deprecated in a future release of validator system V2. You can still use this command to withdraw your asset from the ValidatorPool to specific address.",
-			Flags:       []cli.Flag{cmd.AddressFlag, cmd.EthAmountFlag},
-			Action:      cmd.WithdrawTo,
-		},
-		{
-			Name:        "unbond",
-			Usage:       "Attempt to unbond in ValidatorPool",
-			Description: "This command will be deprecated in a future release of validator system V2. You can still use this command to unbond your asset from the ValidatorPool.",
-			Action:      cmd.Unbond,
-		},
-		{
 			Name:  "register",
-			Usage: "(EXPERIMENTAL) Register as new validator to ValidatorManager",
+			Usage: "Register as new validator to ValidatorManager",
 			Flags: []cli.Flag{
 				cmd.TokenAmountFlag,
 				cmd.CommissionRateFlag,
@@ -69,70 +42,63 @@ func main() {
 		},
 		{
 			Name:   "activate",
-			Usage:  "(EXPERIMENTAL) Activate the validator in ValidatorManager",
+			Usage:  "Activate the validator in ValidatorManager",
 			Action: cmd.Activate,
 		},
 		{
 			Name:   "unjail",
-			Usage:  "(EXPERIMENTAL) Attempt to unjail the validator in ValidatorManager",
+			Usage:  "Attempt to unjail the validator in ValidatorManager",
 			Action: cmd.Unjail,
 		},
 		{
 			Name:  "changeCommissionRate",
-			Usage: "(EXPERIMENTAL) Change the commission rate of the validator in ValidatorManager",
+			Usage: "Change the commission rate of the validator in ValidatorManager",
 			Subcommands: []*cli.Command{
 				{
 					Name:   "init",
-					Usage:  "(EXPERIMENTAL) Initiate the commission rate change",
+					Usage:  "Initiate the commission rate change",
 					Flags:  []cli.Flag{cmd.CommissionRateFlag},
 					Action: cmd.InitCommissionChange,
 				},
 				{
 					Name:   "finalize",
-					Usage:  "(EXPERIMENTAL) Finalize the commission rate change",
+					Usage:  "Finalize the commission rate change",
 					Action: cmd.FinalizeCommissionChange,
 				},
 			},
 		},
 		{
-			Name:   "delegate",
-			Usage:  "(EXPERIMENTAL) Attempt to self-delegate asset tokens to AssetManager",
+			Name:   "depositKro",
+			Usage:  "Attempt to deposit asset tokens to AssetManager to be used as bond",
 			Flags:  []cli.Flag{cmd.TokenAmountFlag},
-			Action: cmd.Delegate,
+			Action: cmd.DepositKro,
 		},
 		{
-			Name:  "undelegate",
-			Usage: "(EXPERIMENTAL) Undelegate asset tokens from AssetManager",
-			Subcommands: []*cli.Command{
-				{
-					Name:   "init",
-					Usage:  "(EXPERIMENTAL) Initiate an undelegation of asset tokens",
-					Flags:  []cli.Flag{cmd.TokenAmountFlag},
-					Action: cmd.InitUndelegate,
-				},
-				{
-					Name:   "finalize",
-					Usage:  "(EXPERIMENTAL) Finalize an undelegation of asset tokens",
-					Action: cmd.FinalizeUndelegate,
-				},
-			},
+			Name:        "deposit",
+			Usage:       "(DEPRECATED) Deposit ETH into ValidatorPool to be used as bond",
+			Description: "This command is deprecated since the release of validator system V2. Please use the 'register' command to register as a validator.",
+			Flags:       []cli.Flag{cmd.EthAmountFlag},
+			Action:      cmd.Deposit,
 		},
 		{
-			Name:  "claim",
-			Usage: "(EXPERIMENTAL) Claim validator rewards from AssetManager",
-			Subcommands: []*cli.Command{
-				{
-					Name:   "init",
-					Usage:  "(EXPERIMENTAL) Initiate a claim of validator rewards",
-					Flags:  []cli.Flag{cmd.TokenAmountFlag},
-					Action: cmd.InitClaimValidatorReward,
-				},
-				{
-					Name:   "finalize",
-					Usage:  "(EXPERIMENTAL) Finalize a claim of validator rewards",
-					Action: cmd.FinalizeClaimValidatorReward,
-				},
-			},
+			Name:        "withdraw",
+			Usage:       "(DEPRECATED) Withdraw ETH from ValidatorPool",
+			Description: "This command is deprecated since the release of validator system V2. You can still use this command to withdraw your asset from the ValidatorPool.",
+			Flags:       []cli.Flag{cmd.EthAmountFlag},
+			Action:      cmd.Withdraw,
+		},
+		{
+			Name:        "withdrawTo",
+			Usage:       "(DEPRECATED) Withdraw ETH from ValidatorPool to specific address",
+			Description: "This command is deprecated since the release of validator system V2. You can still use this command to withdraw your asset from the ValidatorPool to specific address.",
+			Flags:       []cli.Flag{cmd.AddressFlag, cmd.EthAmountFlag},
+			Action:      cmd.WithdrawTo,
+		},
+		{
+			Name:        "unbond",
+			Usage:       "(DEPRECATED) Attempt to unbond in ValidatorPool",
+			Description: "This command is deprecated since the release of validator system V2. You can still use this command to unbond your asset from the ValidatorPool.",
+			Action:      cmd.Unbond,
 		},
 	}
 
