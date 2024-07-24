@@ -255,6 +255,17 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @notice Returns the total amount of validator balance excluding the bond amount.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The total amount of validator balance excluding the bond amount.
+     */
+    function totalValidatorBalance(address validator) external view returns (uint128) {
+        return _vaults[validator].asset.validatorKro - _vaults[validator].asset.validatorKroBonded;
+    }
+
+    /**
      * @notice Returns the reflective weight of given validator.
      *
      * @param validator Address of the validator.
