@@ -55,6 +55,7 @@ type Challenger struct {
 	l2BlockTime               *big.Int
 	checkpoint                *big.Int
 	requiredBondAmount        *big.Int
+	valPoolTerminationIndex   *big.Int
 
 	l2OutputSubmittedSub ethereum.Subscription
 	challengeCreatedSub  ethereum.Subscription
@@ -155,6 +156,19 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
 		c.requiredBondAmount = requiredBondAmount
+
+		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		valPoolTerminationIndex, err := c.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			// If method is not in ValidatorPool, set the termination index to big value to ensure it sticks to validator system V1.
+			if errors.Is(err, ErrMethodNotFound) {
+				valPoolTerminationIndex = big.NewInt(math.MaxUint32)
+			} else {
+				return fmt.Errorf("failed to get valPool termination index: %w", err)
+			}
+		}
+		c.valPoolTerminationIndex = valPoolTerminationIndex
 
 		return nil
 	})
@@ -664,7 +678,7 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 }
 
 func (c *Challenger) IsValPoolTerminated(outputIndex *big.Int) bool {
-	return c.cfg.ValPoolTerminationIndex.Cmp(outputIndex) < 0
+	return c.valPoolTerminationIndex.Cmp(outputIndex) < 0
 }
 
 func (c *Challenger) isInJail(ctx context.Context) (bool, error) {

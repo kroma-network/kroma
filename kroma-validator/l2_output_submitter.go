@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -30,6 +31,7 @@ const (
 )
 
 var PublicRoundAddress = common.HexToAddress(publicRoundHex)
+var ErrMethodNotFound = errors.New("method 'TERMINATION_OUTPUT_INDEX' not found")
 
 // L2OutputSubmitter is responsible for submitting outputs.
 type L2OutputSubmitter struct {
@@ -46,9 +48,10 @@ type L2OutputSubmitter struct {
 	valMgrContract  *bindings.ValidatorManagerCaller
 	valMgrAbi       *abi.ABI
 
-	singleRoundInterval *big.Int
-	l2BlockTime         *big.Int
-	requiredBondAmount  *big.Int
+	singleRoundInterval     *big.Int
+	l2BlockTime             *big.Int
+	requiredBondAmount      *big.Int
+	valPoolTerminationIndex *big.Int
 
 	submitChan chan struct{}
 
@@ -129,6 +132,19 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 			return fmt.Errorf("failed to get required bond amount: %w", err)
 		}
 		l.requiredBondAmount = requiredBondAmount
+
+		cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		valPoolTerminationIndex, err := l.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			// If method is not in ValidatorPool, set the termination index to big value to ensure it sticks to validator system V1.
+			if errors.Is(err, ErrMethodNotFound) {
+				valPoolTerminationIndex = big.NewInt(math.MaxUint32)
+			} else {
+				return fmt.Errorf("failed to get valPool termination index: %w", err)
+			}
+		}
+		l.valPoolTerminationIndex = valPoolTerminationIndex
 
 		return nil
 	})
@@ -377,7 +393,7 @@ func (l *L2OutputSubmitter) FetchCurrentBlockNumber(ctx context.Context) (*big.I
 }
 
 func (l *L2OutputSubmitter) IsValPoolTerminated(outputIndex *big.Int) bool {
-	return l.cfg.ValPoolTerminationIndex.Cmp(outputIndex) < 0
+	return l.valPoolTerminationIndex.Cmp(outputIndex) < 0
 }
 
 func (l *L2OutputSubmitter) GetValidatorStatus(ctx context.Context) (uint8, error) {
