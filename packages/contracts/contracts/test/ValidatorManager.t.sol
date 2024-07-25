@@ -7,6 +7,7 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
 import { Proxy } from "../universal/Proxy.sol";
+import { IAssetManager } from "../L1/interfaces/IAssetManager.sol";
 import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorManager } from "../L1/ValidatorManager.sol";
@@ -68,13 +69,16 @@ contract MockValidatorManager is ValidatorManager {
     function nextPriorityValidator() external view returns (address) {
         return _nextPriorityValidator;
     }
+
+    function getBoostedReward(address validator) external view returns (uint128) {
+        return _getBoostedReward(validator);
+    }
 }
 
 contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     MockL2OutputOracle mockOracle;
     MockValidatorManager mockValMgr;
     MockAssetManager mockAssetMgr;
-    uint128 public VKRO_PER_KGH;
 
     event ValidatorRegistered(
         address indexed validator,
@@ -113,9 +117,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
     event Slashed(uint256 indexed outputIndex, address indexed loser, uint128 amount);
 
-    function _setUpHundredKghDelegation(address validator, uint256 startingTokenId) private {
-        uint256[] memory tokenIds = new uint256[](100);
-        for (uint256 i = startingTokenId; i < 100 + startingTokenId; i++) {
+    function _setUpHundredKghDelegation(
+        address validator,
+        uint256 startingTokenId,
+        uint128 kghCounts
+    ) private {
+        uint256[] memory tokenIds = new uint256[](kghCounts);
+        for (uint256 i = startingTokenId; i < startingTokenId + kghCounts; i++) {
             kgh.mint(validator, i);
             vm.prank(validator);
             kgh.approve(address(assetMgr), i);
@@ -163,8 +171,6 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         Proxy(payable(assetMgrAddress)).upgradeTo(address(mockAssetMgrImpl));
         mockAssetMgr = MockAssetManager(assetMgrAddress);
 
-        VKRO_PER_KGH = assetMgr.VKRO_PER_KGH();
-
         // Submit until terminateOutputIndex and set next output index to be finalized after it
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
@@ -183,7 +189,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMgr.MIN_ACTIVATE_AMOUNT(), minActivateAmount);
         assertEq(valMgr.COMMISSION_CHANGE_DELAY_SECONDS(), commissionChangeDelaySeconds);
         assertEq(valMgr.ROUND_DURATION_SECONDS(), roundDuration);
-        assertEq(valMgr.JAIL_PERIOD_SECONDS(), jailPeriodSeconds);
+        assertEq(valMgr.SOFT_JAIL_PERIOD_SECONDS(), softJailPeriodSeconds);
+        assertEq(valMgr.HARD_JAIL_PERIOD_SECONDS(), hardJailPeriodSeconds);
         assertEq(valMgr.JAIL_THRESHOLD(), jailThreshold);
         assertEq(valMgr.MAX_OUTPUT_FINALIZATIONS(), maxOutputFinalizations);
         assertEq(valMgr.BASE_REWARD(), baseReward);
@@ -212,9 +219,9 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.stopPrank();
 
         assertEq(assetToken.balanceOf(trusted), trustedBalance - assets);
-        assertEq(assetMgr.totalKroAssets(trusted), assets);
+        assertEq(assetMgr.totalValidatorKro(trusted), assets);
         assertEq(valMgr.getCommissionRate(trusted), commissionRate);
-        assertEq(valMgr.getWithdrawAccount(trusted), withdrawAcc);
+        assertEq(assetMgr.getWithdrawAccount(trusted), withdrawAcc);
 
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
         assertEq(valMgr.activatedValidatorCount(), count + 1);
@@ -273,7 +280,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
-        vm.expectRevert(IValidatorManager.ZeroAddress.selector);
+        vm.expectRevert(IAssetManager.ZeroAddress.selector);
         valMgr.registerValidator(assets, 10, address(0));
     }
 
@@ -281,16 +288,16 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint32 count = valMgr.activatedValidatorCount();
 
         _registerValidator(trusted, minActivateAmount - 1);
-        vm.startPrank(asserter);
+        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.REGISTERED);
+        vm.startPrank(trusted);
         assetToken.approve(address(assetMgr), 1);
-        assetMgr.delegate(trusted, 1);
-        vm.stopPrank();
+        assetMgr.deposit(1);
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.READY);
 
-        vm.prank(trusted);
         vm.expectEmit(true, false, false, true, address(valMgr));
         emit ValidatorActivated(trusted, block.timestamp);
         valMgr.activateValidator();
+        vm.stopPrank();
 
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
         assertEq(valMgr.activatedValidatorCount(), count + 1);
@@ -314,11 +321,12 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     }
 
     function test_activateValidator_exited_reverts() external {
-        _registerValidator(trusted, minActivateAmount);
-        uint128 kroShares = assetMgr.getKroTotalShareBalance(trusted, trusted);
-        vm.prank(trusted);
-        assetMgr.initUndelegate(trusted, kroShares);
+        _registerValidator(trusted, minRegisterAmount);
+        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.REGISTERED);
 
+        vm.warp(assetMgr.canWithdrawAt(trusted) + 1);
+        vm.prank(withdrawAcc);
+        assetMgr.withdraw(trusted, 1);
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.EXITED);
 
         vm.prank(trusted);
@@ -329,16 +337,19 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_activateValidator_inJail_reverts() external {
         test_afterSubmitL2Output_tryJail_succeeds();
 
-        // Undelegate all assets of jailed validator
-        uint128 kroShares = assetMgr.getKroTotalShareBalance(asserter, asserter);
-        vm.prank(asserter);
-        assetMgr.initUndelegate(asserter, kroShares);
+        // Withdraw all assets of jailed validator
+        uint128 validatorKro = assetMgr.totalValidatorKro(asserter);
+        vm.warp(assetMgr.canWithdrawAt(asserter) + 1);
+        vm.startPrank(withdrawAcc);
+        assetMgr.withdraw(asserter, validatorKro);
+        assertEq(assetMgr.totalValidatorKro(asserter), 0);
         assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.EXITED);
+        vm.stopPrank();
 
         // Delegate to re-activate validator
         vm.startPrank(asserter);
         assetToken.approve(address(assetMgr), minActivateAmount);
-        assetMgr.delegate(asserter, minActivateAmount);
+        assetMgr.deposit(minActivateAmount);
         vm.stopPrank();
         assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.READY);
 
@@ -359,60 +370,52 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         // Register validator with commission rate 10%
         _registerValidator(trusted, minActivateAmount);
 
-        // Delegate 100 KGHs
-        uint128 kghCounts = 100;
-        _setUpHundredKghDelegation(trusted, 1);
+        // Delegate 1 KGHs
+        uint128 kghCounts = 1;
+        _setUpHundredKghDelegation(trusted, 1, 1);
         assertEq(assetMgr.totalKghNum(trusted), kghCounts);
+
+        // Delegate KRO from 1 delegator
+        uint128 delegateAsset = minActivateAmount;
+        vm.startPrank(delegator);
+        assetToken.approve(address(assetMgr), uint256(delegateAsset));
+        assetMgr.delegate(trusted, delegateAsset);
+        vm.stopPrank();
+
+        assertEq(assetMgr.totalValidatorKro(trusted), minActivateAmount);
+        assertEq(assetMgr.totalKroAssets(trusted), delegateAsset);
 
         // Submit the first output which interacts with ValidatorManager
         _submitL2OutputV2(false);
 
+        // check KRO bonded
+        assertEq(assetMgr.totalValidatorKroBonded(trusted), bondAmount);
+
         // Jump to the finalization time of the first output of ValidatorManager
         vm.warp(oracle.finalizedAt(terminateOutputIndex + 1));
 
-        // Boosted reward with 100 kgh delegation
-        uint128 boostedReward = 6283173600000736769;
-        uint128 validatorReward = (baseReward * 10) / 100 + (boostedReward * 10) / 100;
-        baseReward = (baseReward * 90) / 100;
-        boostedReward = (boostedReward * 90) / 100;
+        vm.startPrank(trusted);
+        _submitL2OutputV2(true); // distribute reward 1 time
 
-        // Submit one more output and distribute reward
-        uint256 outputIndex = oracle.nextOutputIndex();
-        vm.prank(valMgr.nextValidator());
-        mockOracle.addOutput(oracle.nextBlockNumber());
-        vm.prank(address(oracle));
-        vm.expectEmit(true, false, false, true, address(valMgr));
-        emit RewardDistributed(
-            terminateOutputIndex + 1,
-            trusted,
-            validatorReward,
-            baseReward,
-            boostedReward
-        );
-        valMgr.afterSubmitL2Output(outputIndex);
+        uint128 expectedBaseReward = ((baseReward * 90) / 100) / 2; // delegator base reward
+        uint128 boostedReward = mockValMgr.getBoostedReward(trusted);
+        uint128 expectedBoostedReward = (boostedReward * 90) / 100;
+        uint128 expectedValidatorReward = (((baseReward + boostedReward) * 10) / 100) + // commission
+            ((baseReward * 90) / 100) /
+            2;
 
-        uint128 kroReward = assetMgr.totalKroAssets(trusted) -
-            minActivateAmount -
-            kghCounts *
-            VKRO_PER_KGH;
-        vm.prank(trusted);
-        uint128 oneKghReward = mockAssetMgr.convertToKghAssets(trusted, trusted, 1) - VKRO_PER_KGH;
+        assertEq(assetMgr.totalKroAssets(trusted), delegateAsset + expectedBaseReward);
+        assertEq(assetMgr.getKghReward(trusted, trusted), expectedBoostedReward);
+        assertEq(assetMgr.totalValidatorKro(trusted), minActivateAmount + expectedValidatorReward);
 
-        assertEq(kroReward, baseReward);
-        assertEq(oneKghReward, boostedReward / kghCounts);
+        // check KRO bonded
+        assertEq(assetMgr.totalValidatorKroBonded(trusted), bondAmount);
 
         // Check validator tree updated with rewards
         assertEq(
             valMgr.getWeight(trusted),
-            minActivateAmount +
-                kghManager.totalKroInKgh(1) *
-                kghCounts +
-                baseReward +
-                boostedReward +
-                validatorReward
+            minActivateAmount + delegateAsset + expectedBaseReward + expectedValidatorReward
         );
-
-        assertEq(oracle.nextFinalizeOutputIndex(), terminateOutputIndex + 2);
     }
 
     function test_afterSubmitL2Output_updatePriorityValidator_succeeds() external {
@@ -467,7 +470,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_afterSubmitL2Output_tryJail_succeeds() public {
         // Register as a validator
         _registerValidator(asserter, minActivateAmount);
-        _registerValidator(trusted, minActivateAmount);
+        _registerValidator(trusted, 10 * minActivateAmount);
 
         vm.startPrank(trusted);
         for (uint256 i; i < jailThreshold; i++) {
@@ -486,16 +489,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         // Warp to public round
         vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
-        uint256 outputIndex = oracle.nextOutputIndex();
-
-        vm.prank(trusted);
-        mockOracle.addOutput(oracle.nextBlockNumber());
-        vm.prank(address(oracle));
+        vm.startPrank(trusted);
         vm.expectEmit(true, false, false, true, address(valMgr));
-        emit ValidatorJailed(asserter, uint128(block.timestamp) + jailPeriodSeconds);
+        emit ValidatorJailed(asserter, uint128(block.timestamp) + softJailPeriodSeconds);
         vm.expectEmit(true, false, false, true, address(valMgr));
         emit ValidatorStopped(asserter, block.timestamp);
-        valMgr.afterSubmitL2Output(outputIndex);
+        _submitL2OutputV2(true);
+        vm.stopPrank();
 
         assertEq(valMgr.noSubmissionCount(asserter), jailThreshold);
         assertTrue(valMgr.inJail(asserter));
@@ -555,12 +555,14 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_initCommissionChange_exited_reverts() external {
         _registerValidator(trusted, minActivateAmount);
 
-        uint128 kroShares = assetMgr.getKroTotalShareBalance(trusted, trusted);
-        vm.prank(trusted);
-        assetMgr.initUndelegate(trusted, kroShares);
+        uint128 validatorKro = assetMgr.totalValidatorKro(trusted);
+        vm.warp(assetMgr.canWithdrawAt(trusted) + 1);
+        vm.startPrank(withdrawAcc);
+        assetMgr.withdraw(trusted, validatorKro);
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.EXITED);
+        vm.stopPrank();
 
-        vm.prank(asserter);
+        vm.prank(trusted);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
         valMgr.initCommissionChange(15);
     }
@@ -613,12 +615,17 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_finalizeCommissionChange_exited_reverts() external {
         _registerValidator(trusted, minActivateAmount);
 
-        uint128 kroShares = assetMgr.getKroTotalShareBalance(trusted, trusted);
         vm.prank(trusted);
-        assetMgr.initUndelegate(trusted, kroShares);
-        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.EXITED);
+        valMgr.initCommissionChange(15);
 
-        vm.prank(asserter);
+        uint128 validatorKro = assetMgr.totalValidatorKro(trusted);
+        vm.warp(assetMgr.canWithdrawAt(trusted) + 1);
+        vm.startPrank(withdrawAcc);
+        assetMgr.withdraw(trusted, validatorKro);
+        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.EXITED);
+        vm.stopPrank();
+
+        vm.prank(trusted);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
         valMgr.finalizeCommissionChange();
     }
@@ -649,7 +656,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         emit ValidatorUnjailed(asserter);
         vm.expectEmit(true, false, false, true, address(valMgr));
         emit ValidatorActivated(asserter, block.timestamp);
-        valMgr.tryUnjail(asserter, false);
+        valMgr.tryUnjail(asserter);
 
         assertEq(valMgr.noSubmissionCount(asserter), 0);
         assertFalse(valMgr.inJail(asserter));
@@ -659,7 +666,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_tryUnjail_notInJail_reverts() external {
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMgr.tryUnjail(asserter, false);
+        valMgr.tryUnjail(asserter);
     }
 
     function test_tryUnjail_senderNotSelf_reverts() external {
@@ -667,15 +674,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         vm.prank(trusted);
         vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
-        valMgr.tryUnjail(asserter, false);
-    }
-
-    function test_tryUnjail_force_senderNotColosseum_reverts() external {
-        test_afterSubmitL2Output_tryJail_succeeds();
-
-        vm.prank(asserter);
-        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
-        valMgr.tryUnjail(asserter, true);
+        valMgr.tryUnjail(asserter);
     }
 
     function test_tryUnjail_periodNotElapsed_reverts() external {
@@ -683,7 +682,52 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.NotElapsedJailPeriod.selector);
-        valMgr.tryUnjail(asserter, false);
+        valMgr.tryUnjail(asserter);
+    }
+
+    function test_bondValidatorKro_succeeds() external {
+        _registerValidator(trusted, minActivateAmount);
+        assertEq(assetMgr.totalValidatorKroBonded(trusted), 0);
+
+        vm.prank(address(colosseum));
+        valMgr.bondValidatorKro(trusted);
+
+        assertEq(assetMgr.totalValidatorKroBonded(trusted), bondAmount);
+    }
+
+    function test_bondValidatorKro_notColosseum_reverts() external {
+        _registerValidator(trusted, minActivateAmount);
+
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
+        valMgr.bondValidatorKro(trusted);
+    }
+
+    function test_unbondValidatorKro_succeeds() external {
+        _registerValidator(trusted, minActivateAmount);
+
+        vm.prank(trusted);
+        _submitL2OutputV2(false);
+
+        assertEq(assetMgr.totalValidatorKroBonded(trusted), bondAmount);
+
+        vm.prank(address(colosseum));
+        valMgr.unbondValidatorKro(trusted);
+
+        assertEq(assetMgr.totalValidatorKroBonded(trusted), 0);
+    }
+
+    function test_unbondValidatorKro_notColosseum_reverts() external {
+        _registerValidator(trusted, minActivateAmount);
+
+        vm.prank(trusted);
+        _submitL2OutputV2(false);
+
+        assertEq(assetMgr.totalValidatorKroBonded(trusted), bondAmount);
+
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
+        valMgr.unbondValidatorKro(trusted);
     }
 
     function test_slash_succeeds() external {
@@ -694,9 +738,9 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMgr.activatedValidatorCount(), count + 2);
 
         // Delegate KGHs
-        uint128 kghCounts = 100;
-        _setUpHundredKghDelegation(asserter, 1);
-        _setUpHundredKghDelegation(challenger, 1 + kghCounts);
+        uint128 kghCounts = 1;
+        _setUpHundredKghDelegation(asserter, kghCounts, kghCounts);
+        _setUpHundredKghDelegation(challenger, kghCounts + kghCounts, kghCounts);
         assertEq(assetMgr.totalKghNum(asserter), kghCounts);
         assertEq(assetMgr.totalKghNum(challenger), kghCounts);
 
@@ -707,16 +751,17 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint256 challengedOutputIndex = oracle.latestOutputIndex();
 
         // Suppose that the challenge is successful, so the winner is challenger
-        uint128 slashingAmount = (minActivateAmount * slashingRate) /
-            assetMgr.SLASHING_RATE_DENOM();
-        vm.prank(address(colosseum));
+        uint128 slashingAmount = bondAmount;
+        vm.startPrank(address(colosseum));
+        valMgr.bondValidatorKro(challenger); // bond for creating challenge
         vm.expectEmit(true, true, false, true, address(valMgr));
         emit Slashed(challengedOutputIndex, asserter, slashingAmount);
         vm.expectEmit(true, false, false, true, address(valMgr));
-        emit ValidatorJailed(asserter, uint128(block.timestamp) + jailPeriodSeconds);
+        emit ValidatorJailed(asserter, uint128(block.timestamp) + hardJailPeriodSeconds);
         vm.expectEmit(true, false, false, true, address(valMgr));
         emit ValidatorStopped(asserter, block.timestamp);
         valMgr.slash(challengedOutputIndex, challenger, asserter);
+        vm.stopPrank();
 
         // This will be done by the l2 output oracle contract in the real environment
         vm.prank(challenger);
@@ -736,13 +781,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.REGISTERED);
 
         // Asserter asset decreased by slashingAmount
-        uint128 asserterTotalKro = assetMgr.totalKroAssets(asserter) -
-            kghCounts *
-            kghManager.totalKroInKgh(1);
-        assertEq(asserterTotalKro, minActivateAmount - slashingAmount);
-        assertEq(assetMgr.totalValidatorKro(asserter), asserterTotalKro);
-        // Asserter has 0 rewards
-        assertEq(assetMgr.reflectiveWeight(asserter), assetMgr.totalKroAssets(asserter));
+        uint128 asserterTotalValidatorKro = assetMgr.totalValidatorKro(asserter);
+        assertEq(asserterTotalValidatorKro, minActivateAmount - slashingAmount);
 
         // Security council balance of asset token increased by tax
         uint128 taxAmount = (slashingAmount * assetMgr.TAX_NUMERATOR()) /
@@ -750,22 +790,14 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(assetToken.balanceOf(assetMgr.SECURITY_COUNCIL()), taxAmount);
 
         // Challenger asset increased by output reward and challenge reward
-        // Boosted reward with 100 kgh delegation
-        uint128 boostedReward = 6283173600000736769;
+        // Boosted reward with 1 kgh delegation
+        uint128 boostedReward = mockValMgr.getBoostedReward(challenger);
         uint128 challengeReward = slashingAmount - taxAmount;
-        uint128 challengerAsset = assetMgr.reflectiveWeight(challenger);
+        uint128 challengerKro = assetMgr.totalValidatorKro(challenger);
         assertEq(
-            challengerAsset,
-            minActivateAmount +
-                kghCounts *
-                kghManager.totalKroInKgh(1) +
-                baseReward +
-                boostedReward -
-                1 + // Boosted reward is reduced by 1 when distributed to validator and delegators
-                challengeReward -
-                1 // Challenge reward is reduced by 1 when distributed to each assets in validator vault
+            challengerKro,
+            minActivateAmount + baseReward + (boostedReward / 10) + challengeReward
         );
-        assertGt(assetMgr.totalValidatorKro(challenger), minActivateAmount);
     }
 
     function test_slash_notColosseum_reverts() external {
@@ -851,9 +883,9 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         _registerValidator(trusted, minActivateAmount);
         assertEq(valMgr.getWeight(trusted), minActivateAmount);
 
-        uint128 minUndelegateShares = assetMgr.previewDelegate(trusted, 1);
-        vm.prank(trusted);
-        assetMgr.initUndelegate(trusted, minUndelegateShares);
+        vm.warp(assetMgr.canWithdrawAt(trusted) + 1);
+        vm.prank(withdrawAcc);
+        assetMgr.withdraw(trusted, 1);
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.REGISTERED);
         assertEq(valMgr.getWeight(trusted), 0);
     }

@@ -554,10 +554,12 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
             );
         } else {
             Asset storage asset = _vaults[validator].asset;
+            if (asset.totalKgh != 0) {
+                asset.rewardPerKghStored += (boostedReward / asset.totalKgh);
+            }
             unchecked {
                 asset.totalKro += baseReward;
                 asset.validatorKro += validatorReward;
-                asset.rewardPerKghStored += boostedReward / asset.totalKgh;
                 asset.validatorKroBonded -= BOND_AMOUNT;
             }
 
