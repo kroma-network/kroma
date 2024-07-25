@@ -12,7 +12,6 @@ import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
-import { MockAssetManager } from "./AssetManager.t.sol";
 import { ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
 
 contract MockL2OutputOracle is L2OutputOracle {
@@ -330,9 +329,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         // Withdraw all assets of jailed validator
         uint128 validatorKro = assetMgr.totalValidatorKro(asserter);
-        vm.warp(assetMgr.canWithdrawAt(asserter) + 1);
-        vm.startPrank(withdrawAcc);
-        assetMgr.withdraw(asserter, validatorKro);
+        _withdraw(asserter, validatorKro);
         assertEq(assetMgr.totalValidatorKro(asserter), 0);
         assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.EXITED);
         vm.stopPrank();
@@ -841,7 +838,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_revertSlash_notColosseum_reverts() external {
         vm.prank(trusted);
         vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
-        valMgr.revertSlash(uint128(1), trusted);
+        valMgr.revertSlash(1, trusted);
     }
 
     function test_slash_notColosseum_reverts() external {
