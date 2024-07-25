@@ -600,22 +600,17 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 
 			// if challenger
 			if isChallenger && c.cfg.ChallengerEnabled {
-				if isOutputDeleted {
-					// if output has been already deleted, cancel challenge to refund pending bond
-					if status != chal.StatusChallengerTimeout {
-						tx, err := c.CancelChallenge(c.ctx, outputIndex)
-						if err != nil {
-							c.log.Error("failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
-							continue
-						}
-						if err := c.submitChallengeTx(tx); err != nil {
-							c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
-							continue
-						}
+				// if output has been already deleted, cancel challenge to refund challenger's bond
+				if isOutputDeleted && status != chal.StatusChallengerTimeout {
+					tx, err := c.CancelChallenge(c.ctx, outputIndex)
+					if err != nil {
+						c.log.Error("failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
+						continue
 					}
-					// if output has been already deleted, terminate handling
-					c.log.Info("output is already deleted when handling challenge", "outputIndex", outputIndex)
-					return
+					if err := c.submitChallengeTx(tx); err != nil {
+						c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
 				}
 
 				// if output is already finalized, terminate handling
