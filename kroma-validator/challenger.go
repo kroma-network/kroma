@@ -585,7 +585,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 						continue
 					}
 				case chal.StatusChallengerTimeout:
-					// call challenger timeout to increase bond from pending bond
+					// call challenger timeout to take challenger's bond away
 					tx, err := c.ChallengerTimeout(c.ctx, outputIndex, challenger)
 					if err != nil {
 						c.log.Error("failed to create challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
@@ -601,8 +601,8 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 			// if challenger
 			if isChallenger && c.cfg.ChallengerEnabled {
 				if isOutputDeleted {
-					// if output has been already deleted, cancel challenge to refund pending bond in ValidatorPool
-					if !c.IsValPoolTerminated(outputIndex) && status != chal.StatusChallengerTimeout {
+					// if output has been already deleted, cancel challenge to refund pending bond
+					if status != chal.StatusChallengerTimeout {
 						tx, err := c.CancelChallenge(c.ctx, outputIndex)
 						if err != nil {
 							c.log.Error("failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
@@ -663,6 +663,7 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
 	from := c.cfg.TxManager.From()
+
 	var balance, requiredBondAmount *big.Int
 	if c.IsValPoolTerminated(outputIndex) {
 		if isInJail, err := c.isInJail(ctx); err != nil {
@@ -683,7 +684,7 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 			return false, nil
 		}
 
-		balance, err = c.assetMgrContract.TotalValidatorBalance(optsutils.NewSimpleCallOpts(cCtx), from)
+		balance, err = c.assetMgrContract.TotalValidatorKroNotBonded(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch balance: %w", err)
 		}
@@ -697,19 +698,19 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 		requiredBondAmount = c.requiredBondAmountV1
 	}
 
-	c.metr.RecordDepositAmount(balance)
+	c.metr.RecordUnbondedDepositAmount(balance)
 
-	// Check if the deposit amount is less than the required bond amount
+	// Check if the unbonded deposit amount is less than the required bond amount
 	if balance.Cmp(requiredBondAmount) == -1 {
 		c.log.Warn(
-			"deposit is less than bond attempt amount",
+			"unbonded deposit is less than bond attempt amount",
 			"requiredBondAmount", requiredBondAmount,
-			"deposit", balance,
+			"unbonded_deposit", balance,
 		)
 		return false, nil
 	}
 
-	c.log.Info("deposit amount and bond amount", "deposit", balance, "bond", requiredBondAmount)
+	c.log.Info("unbonded deposit amount and bond amount", "unbonded_deposit", balance, "bond", requiredBondAmount)
 
 	return true, nil
 }

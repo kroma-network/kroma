@@ -326,6 +326,7 @@ func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputInd
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
+
 	var balance, requiredBondAmount *big.Int
 	if l.IsValPoolTerminated(outputIndex) {
 		if isInJail, err := l.IsInJail(ctx); err != nil {
@@ -346,7 +347,7 @@ func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputInd
 			return nil
 		}
 
-		balance, err = l.assetMgrContract.TotalValidatorBalance(optsutils.NewSimpleCallOpts(cCtx), from)
+		balance, err = l.assetMgrContract.TotalValidatorKroNotBonded(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
 			return fmt.Errorf("failed to fetch balance: %w", err)
 		}
@@ -360,19 +361,19 @@ func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputInd
 		requiredBondAmount = l.requiredBondAmountV1
 	}
 
-	l.metr.RecordDepositAmount(balance)
+	l.metr.RecordUnbondedDepositAmount(balance)
 
-	// Check if the deposit amount is less than the required bond amount
+	// Check if the unbonded deposit amount is less than the required bond amount
 	if balance.Cmp(requiredBondAmount) == -1 {
 		l.log.Warn(
-			"deposit is less than bond attempt amount",
+			"unbonded deposit is less than bond attempt amount",
 			"requiredBondAmount", requiredBondAmount,
-			"deposit", balance,
+			"unbonded_deposit", balance,
 		)
 		return nil
 	}
 
-	l.log.Info("deposit amount and bond amount", "deposit", balance, "bond", requiredBondAmount)
+	l.log.Info("unbonded deposit amount and bond amount", "unbonded_deposit", balance, "bond", requiredBondAmount)
 
 	return nil
 }

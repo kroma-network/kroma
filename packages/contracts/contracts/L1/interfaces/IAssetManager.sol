@@ -278,6 +278,15 @@ interface IAssetManager {
     function totalValidatorKroBonded(address validator) external view returns (uint128);
 
     /**
+     * @notice Returns the total amount of validator balance excluding the bond amount.
+     *
+     * @param validator Address of the validator.
+     *
+     * @return The total amount of validator balance excluding the bond amount.
+     */
+    function totalValidatorKroNotBonded(address validator) external view returns (uint128);
+
+    /**
      * @notice Returns the total amount of KRO that delegated by the delegators and accumulated as
      *         KRO delegation reward.
      *
