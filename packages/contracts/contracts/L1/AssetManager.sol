@@ -279,7 +279,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 assets,
         address withdrawAccount
     ) external onlyValidatorManager {
-        if (assets == 0) revert NotAllowedZeroInput();
         if (withdrawAccount == address(0)) revert ZeroAddress();
 
         _vaults[validator].withdrawAccount = withdrawAccount;
