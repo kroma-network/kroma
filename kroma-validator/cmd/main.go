@@ -51,7 +51,7 @@ func main() {
 			Action: cmd.Unjail,
 		},
 		{
-			Name:  "changeCommissionRate",
+			Name:  "changeCommission",
 			Usage: "Change the commission rate of the validator in ValidatorManager",
 			Subcommands: []*cli.Command{
 				{
