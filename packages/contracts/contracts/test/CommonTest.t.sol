@@ -248,6 +248,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     address internal asserter = 0x000000000000000000000000000000000000aAaB;
     address internal challenger = 0x000000000000000000000000000000000000AAaC;
     address internal withdrawAcc = 0x000000000000000000000000000000000000AAaE;
+    address internal delegator = 0x000000000000000000000000000000000000AAAF;
     uint256 initL1Time;
 
     event OutputSubmitted(
@@ -272,6 +273,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         assetToken.mint(trusted, minActivateAmount * 10);
         assetToken.mint(asserter, minActivateAmount * 10);
         assetToken.mint(challenger, minActivateAmount * 10);
+        assetToken.mint(delegator, minActivateAmount * 10);
         // Set up validatorRewardVault
         assetToken.mint(validatorRewardVault, baseReward * 1000);
 
