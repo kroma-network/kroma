@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -40,15 +41,17 @@ type L2OutputSubmitter struct {
 	log  log.Logger
 	metr metrics.Metricer
 
-	l2OOContract    *bindings.L2OutputOracleCaller
-	l2OOABI         *abi.ABI
-	valPoolContract *bindings.ValidatorPoolCaller
-	valMgrContract  *bindings.ValidatorManagerCaller
-	valMgrAbi       *abi.ABI
+	l2OOContract     *bindings.L2OutputOracleCaller
+	l2OOABI          *abi.ABI
+	valPoolContract  *bindings.ValidatorPoolCaller
+	valMgrContract   *bindings.ValidatorManagerCaller
+	assetMgrContract *bindings.AssetManagerCaller
 
-	singleRoundInterval *big.Int
-	l2BlockTime         *big.Int
-	requiredBondAmount  *big.Int
+	singleRoundInterval     *big.Int
+	l2BlockTime             *big.Int
+	requiredBondAmountV1    *big.Int
+	requiredBondAmountV2    *big.Int
+	valPoolTerminationIndex *big.Int
 
 	submitChan chan struct{}
 
@@ -67,11 +70,6 @@ func NewL2OutputSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*L2Outp
 		return nil, err
 	}
 
-	parsedValMgrAbi, err := bindings.ValidatorManagerMetaData.GetAbi()
-	if err != nil {
-		return nil, err
-	}
-
 	valPoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
@@ -82,15 +80,20 @@ func NewL2OutputSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*L2Outp
 		return nil, err
 	}
 
+	assetMgrContract, err := bindings.NewAssetManagerCaller(cfg.AssetManagerAddr, cfg.L1Client)
+	if err != nil {
+		return nil, err
+	}
+
 	return &L2OutputSubmitter{
-		cfg:             cfg,
-		log:             l.New("service", "submitter"),
-		metr:            m,
-		l2OOContract:    l2OOContract,
-		l2OOABI:         parsedL2OOAbi,
-		valPoolContract: valPoolContract,
-		valMgrContract:  valMgrContract,
-		valMgrAbi:       parsedValMgrAbi,
+		cfg:              cfg,
+		log:              l.New("service", "submitter"),
+		metr:             m,
+		l2OOContract:     l2OOContract,
+		l2OOABI:          parsedL2OOAbi,
+		valPoolContract:  valPoolContract,
+		valMgrContract:   valMgrContract,
+		assetMgrContract: assetMgrContract,
 	}, nil
 }
 
@@ -124,16 +127,47 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 	err = contractWatcher.WatchUpgraded(l.cfg.ValidatorPoolAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 		defer cCancel()
-		requiredBondAmount, err := l.valPoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+		requiredBondAmountV1, err := l.valPoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get required bond amount: %w", err)
 		}
-		l.requiredBondAmount = requiredBondAmount
+		l.requiredBondAmountV1 = requiredBondAmountV1
+
+		cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		valPoolTerminationIndex, err := l.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			// If method is not in ValidatorPool, set the termination index to big value to ensure it sticks to validator system V1.
+			if errors.Is(err, errors.New("method 'TERMINATION_OUTPUT_INDEX' not found")) {
+				valPoolTerminationIndex = big.NewInt(math.MaxUint32)
+			} else {
+				return fmt.Errorf("failed to get valPool termination index: %w", err)
+			}
+		}
+		l.valPoolTerminationIndex = valPoolTerminationIndex
 
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initiate valPool config: %w", err)
+	}
+
+	err = contractWatcher.WatchUpgraded(l.cfg.AssetManagerAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		requiredBondAmountV2, err := l.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			if errors.Is(err, errors.New("method 'BOND_AMOUNT' not found")) {
+				requiredBondAmountV2 = big.NewInt(0)
+			}
+			return fmt.Errorf("failed to get required bond amount: %w", err)
+		}
+		l.requiredBondAmountV2 = requiredBondAmountV2
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate assetMgr config: %w, err")
 	}
 
 	return nil
@@ -291,6 +325,9 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputIndex *big.Int) error {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
+	from := l.cfg.TxManager.From()
+
+	var balance, requiredBondAmount *big.Int
 	if l.IsValPoolTerminated(outputIndex) {
 		if isInJail, err := l.IsInJail(ctx); err != nil {
 			return err
@@ -309,24 +346,34 @@ func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputInd
 			l.log.Warn("validator is not in the status to submit output", "currentStatus", validatorStatus)
 			return nil
 		}
+
+		balance, err = l.assetMgrContract.TotalValidatorKroNotBonded(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return fmt.Errorf("failed to fetch balance: %w", err)
+		}
+		requiredBondAmount = l.requiredBondAmountV2
 	} else {
-		balance, err := l.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())
+		var err error
+		balance, err = l.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
 			return fmt.Errorf("failed to fetch deposit amount: %w", err)
 		}
-		l.metr.RecordDepositAmount(balance)
-
-		if balance.Cmp(l.requiredBondAmount) == -1 {
-			l.log.Warn(
-				"deposit is less than bond attempt amount",
-				"requiredBondAmount", l.requiredBondAmount,
-				"deposit", balance,
-			)
-			return nil
-		}
-
-		l.log.Info("deposit amount and bond amount", "deposit", balance, "bond", l.requiredBondAmount)
+		requiredBondAmount = l.requiredBondAmountV1
 	}
+
+	l.metr.RecordUnbondedDepositAmount(balance)
+
+	// Check if the unbonded deposit amount is less than the required bond amount
+	if balance.Cmp(requiredBondAmount) == -1 {
+		l.log.Warn(
+			"unbonded deposit is less than bond attempt amount",
+			"requiredBondAmount", requiredBondAmount,
+			"unbonded_deposit", balance,
+		)
+		return nil
+	}
+
+	l.log.Info("unbonded deposit amount and bond amount", "unbonded_deposit", balance, "bond", requiredBondAmount)
 
 	return nil
 }
@@ -377,7 +424,7 @@ func (l *L2OutputSubmitter) FetchCurrentBlockNumber(ctx context.Context) (*big.I
 }
 
 func (l *L2OutputSubmitter) IsValPoolTerminated(outputIndex *big.Int) bool {
-	return l.cfg.ValPoolTerminationIndex.Cmp(outputIndex) < 0
+	return l.valPoolTerminationIndex.Cmp(outputIndex) < 0
 }
 
 func (l *L2OutputSubmitter) GetValidatorStatus(ctx context.Context) (uint8, error) {

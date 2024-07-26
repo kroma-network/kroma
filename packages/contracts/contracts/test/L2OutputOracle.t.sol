@@ -29,6 +29,8 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         assertEq(address(oracle.VALIDATOR_MANAGER()), address(valMgr));
         assertEq(oracle.COLOSSEUM(), address(colosseum));
         assertEq(oracle.SUBMISSION_INTERVAL(), submissionInterval);
+        assertEq(oracle.L2_BLOCK_TIME(), l2BlockTime);
+        assertEq(oracle.FINALIZATION_PERIOD_SECONDS(), finalizationPeriodSeconds);
         assertEq(oracle.latestBlockNumber(), startingBlockNumber);
         assertEq(oracle.startingBlockNumber(), startingBlockNumber);
         assertEq(oracle.startingTimestamp(), startingTimestamp);

@@ -255,6 +255,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @inheritdoc IAssetManager
+     */
+    function totalValidatorKroNotBonded(address validator) external view returns (uint128) {
+        return _vaults[validator].asset.validatorKro - _vaults[validator].asset.validatorKroBonded;
+    }
+
+    /**
      * @notice Returns the reflective weight of given validator.
      *
      * @param validator Address of the validator.
@@ -279,7 +286,6 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         uint128 assets,
         address withdrawAccount
     ) external onlyValidatorManager {
-        if (assets == 0) revert NotAllowedZeroInput();
         if (withdrawAccount == address(0)) revert ZeroAddress();
 
         _vaults[validator].withdrawAccount = withdrawAccount;
@@ -554,12 +560,12 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
             );
         } else {
             Asset storage asset = _vaults[validator].asset;
-            if (asset.totalKgh != 0) {
-                asset.rewardPerKghStored += (boostedReward / asset.totalKgh);
-            }
             unchecked {
                 asset.totalKro += baseReward;
                 asset.validatorKro += validatorReward;
+                if (asset.totalKgh != 0) {
+                    asset.rewardPerKghStored += boostedReward / asset.totalKgh;
+                }
                 asset.validatorKroBonded -= BOND_AMOUNT;
             }
 

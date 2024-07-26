@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	kcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/optsutils"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
@@ -69,16 +68,9 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	rollupConfig, err := rollupCl.RollupConfig(t.Ctx())
 	require.NoError(t, err)
 
-	valPoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, l1)
-	require.NoError(t, err)
-
-	valPoolTerminationIndex, err := valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(t.Ctx()))
-	require.NoError(t, err)
-
 	validatorCfg := validator.Config{
 		L2OutputOracleAddr:              cfg.OutputOracleAddr,
 		ValidatorPoolAddr:               cfg.ValidatorPoolAddr,
-		ValPoolTerminationIndex:         valPoolTerminationIndex,
 		ValidatorManagerAddr:            cfg.ValidatorManagerAddr,
 		AssetManagerAddr:                cfg.AssetManagerAddr,
 		ColosseumAddr:                   cfg.ColosseumAddr,

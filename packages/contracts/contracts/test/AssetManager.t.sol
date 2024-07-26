@@ -1,30 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import { Constants } from "../libraries/Constants.sol";
-import { Predeploys } from "../libraries/Predeploys.sol";
-import { Types } from "../libraries/Types.sol";
-import { Uint128Math } from "../libraries/Uint128Math.sol";
 import { AssetManager } from "../L1/AssetManager.sol";
+import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { IAssetManager } from "../L1/interfaces/IAssetManager.sol";
 import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
 import { MockL2OutputOracle } from "./ValidatorManager.t.sol";
 
-contract MockKro is ERC20 {
-    constructor() ERC20("Kroma", "KRO") {
-        _mint(msg.sender, 1e27);
-    }
-}
-
 contract MockAssetManager is AssetManager {
-    using Uint128Math for uint128;
-
     constructor(
         IERC20 _assetToken,
         IERC721 _kgh,
@@ -45,82 +33,36 @@ contract MockAssetManager is AssetManager {
         )
     {}
 
-    function modifyKghNum(address validator, uint128 amount) external {
-        // We do not consider KROs in the KGH here, since this mock function
-        // is only used for testing the boosted reward calculation.
-        _vaults[validator].asset.totalKghShares += _convertToKghShares(validator) * amount;
-        _vaults[validator].asset.totalKgh += amount;
+    function increaseRewardPerKgh(address validator, uint128 amount) external {
+        _vaults[validator].asset.rewardPerKghStored += amount;
     }
 
-    function getPendingKroReward(
-        uint256 timestamp,
-        address validator,
-        address owner
-    ) external view returns (uint128) {
-        uint128 pendingShare = _vaults[validator].kroDelegators[owner].pendingKroShares[timestamp];
-        uint128 pendingAsset = pendingShare.mulDiv(
-            _vaults[validator].pending.totalPendingAssets,
-            _vaults[validator].pending.totalPendingKroShares
-        );
-        return pendingAsset;
+    function increaseBaseReward(address validator, uint128 amount) external {
+        _vaults[validator].asset.totalKro += amount;
+    }
+}
+
+contract MockValidatorManager is ValidatorManager {
+    constructor(ConstructorParams memory _constructorParams) ValidatorManager(_constructorParams) {}
+
+    function sendToJail(address validator) external {
+        _jail[validator] = uint128(block.timestamp) + HARD_JAIL_PERIOD_SECONDS;
     }
 
-    function getPendingKghReward(
-        uint256 timestamp,
-        address validator,
-        address owner
-    ) external view returns (uint128, uint128) {
-        uint128 pendingKroShare = _vaults[validator]
-            .kghDelegators[owner]
-            .pendingShares[timestamp]
-            .kro;
-        uint128 pendinKghShare = _vaults[validator]
-            .kghDelegators[owner]
-            .pendingShares[timestamp]
-            .kgh;
-        uint128 pendingKroAsset = pendingKroShare.mulDiv(
-            _vaults[validator].pending.totalPendingAssets,
-            _vaults[validator].pending.totalPendingKroShares
-        );
-        uint128 pendingKghAsset = pendinKghShare.mulDiv(
-            _vaults[validator].pending.totalPendingBoostedRewards,
-            _vaults[validator].pending.totalPendingKghShares
-        );
-        return (pendingKroAsset, pendingKghAsset);
-    }
-
-    function totalKghAssets(address validator) external view returns (uint128) {
-        return _totalKghAssets(validator);
-    }
-
-    function convertToKghAssets(
-        address validator,
-        address delegator,
-        uint256 tokenId
-    ) external view returns (uint128) {
-        return _convertToKghAssets(validator, delegator, tokenId);
+    function calculateBoostedReward(address validator) external view returns (uint128) {
+        return _getBoostedReward(validator);
     }
 }
 
 // Tests the implementations of the AssetManager
 contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
-    using Types for *;
-    using Constants for *;
-    using Predeploys for *;
-
-    MockAssetManager public assetManager;
-    MockAssetManager public assetManagerImpl;
-    MockKro public kro;
+    MockAssetManager public mockAssetMgr;
+    MockValidatorManager public mockValMgr;
     MockL2OutputOracle public mockOracle;
     address public validator = trusted;
-    address public delegator = 0x000000000000000000000000000000000000AAAF;
-    uint128 public VKRO_PER_KGH;
 
     function setUp() public override {
         super.setUp();
-
-        assetManager = MockAssetManager(address(new Proxy(multisig)));
-        vm.label(address(assetManager), "AssetManager");
 
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
             pool,
@@ -136,514 +78,775 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         Proxy(payable(address(oracle))).upgradeTo(address(mockOracleImpl));
         mockOracle = MockL2OutputOracle(address(oracle));
 
-        kro = new MockKro();
-        assetManagerImpl = new MockAssetManager(
-            kro,
-            kgh,
-            kghManager,
-            address(guardian),
+        MockAssetManager assetManagerImpl = new MockAssetManager(
+            IERC20(assetToken),
+            IERC721(kgh),
+            guardian,
+            validatorRewardVault,
             valMgr,
-            uint128(undelegationPeriod),
-            slashingRate,
-            minSlashingAmount
+            minDelegationPeriod,
+            bondAmount
         );
-
-        address assetManagerAddr = address(assetMgr);
-
         vm.prank(multisig);
-        Proxy(payable(assetManagerAddr)).upgradeTo(address(assetManagerImpl));
-        assetManager = MockAssetManager(assetManagerAddr);
+        Proxy(payable(address(assetMgr))).upgradeTo(address(assetManagerImpl));
+        mockAssetMgr = MockAssetManager(address(assetMgr));
 
-        VKRO_PER_KGH = assetManager.VKRO_PER_KGH();
-
-        // KRO bridged from L2 Validator Reward Vault
-        kro.transfer(address(assetManager), 1e22);
+        MockValidatorManager mockValMgrImpl = new MockValidatorManager(constructorParams);
+        vm.prank(multisig);
+        Proxy(payable(address(valMgr))).upgradeTo(address(mockValMgrImpl));
+        mockValMgr = MockValidatorManager(address(valMgr));
 
         // Submit until terminateOutputIndex and set next output index to be finalized after it
-        for (uint256 i = mockOracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
+        for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitOutputRoot(pool.nextValidator());
         }
-        vm.warp(mockOracle.finalizedAt(terminateOutputIndex));
+        vm.warp(oracle.finalizedAt(terminateOutputIndex));
         mockOracle.mockSetNextFinalizeOutputIndex(terminateOutputIndex + 1);
     }
 
     function _submitOutputRoot(address _validator) internal {
-        uint256 nextBlockNumber = mockOracle.nextBlockNumber();
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
         warpToSubmitTime();
         vm.prank(_validator);
         mockOracle.addOutput(nextBlockNumber);
     }
 
-    function _setUpKroDelegation(uint128 kroAmount) internal {
-        kro.transfer(address(validator), kroAmount);
-        kro.transfer(address(delegator), kroAmount);
+    function _registerValidator(uint128 amount) internal {
         vm.startPrank(validator);
-        kro.approve(address(assetManager), kroAmount);
-        // deposit
-        valMgr.registerValidator(kroAmount, 0, withdrawAcc);
-        vm.stopPrank();
-
-        vm.startPrank(delegator);
-        kro.approve(address(assetManager), kroAmount);
-        assetManager.delegate(validator, kroAmount);
+        assetToken.approve(address(assetMgr), amount);
+        valMgr.registerValidator(amount, 0, withdrawAcc);
         vm.stopPrank();
     }
 
-    function _setUpKghDelegation(uint256 tokenId) internal returns (uint128, uint128) {
-        kro.transfer(address(validator), 100e18);
-
-        vm.startPrank(validator);
-        kro.approve(address(assetManager), 100e18);
-        // Self delegation
-        valMgr.registerValidator(100e18, 0, withdrawAcc);
+    function _delegate(address _delegator, uint128 amount) internal {
+        vm.startPrank(_delegator);
+        assetToken.approve(address(assetMgr), amount);
+        assetMgr.delegate(validator, amount);
         vm.stopPrank();
-
-        kgh.mint(delegator, tokenId);
-        vm.startPrank(delegator);
-        kgh.approve(address(assetManager), tokenId);
-        (uint128 kroShares, uint128 kghShares) = assetManager.delegateKgh(validator, tokenId);
-        vm.stopPrank();
-        return (kroShares, kghShares);
     }
 
-    function _setUpKghBatchDelegation(uint256 kghCounts) internal returns (uint128, uint128) {
-        kro.transfer(address(validator), 100e18);
-        vm.startPrank(validator);
-        kro.approve(address(assetManager), 100e18);
-        valMgr.registerValidator(100e18, 0, withdrawAcc);
+    function _delegateKgh(address _delegator, uint256 tokenId) internal {
+        kgh.mint(_delegator, tokenId);
+        vm.startPrank(_delegator);
+        kgh.approve(address(assetMgr), tokenId);
+        assetMgr.delegateKgh(validator, tokenId);
         vm.stopPrank();
+    }
 
-        uint256[] memory tokenIds = new uint256[](kghCounts);
-        for (uint256 i = 1; i < kghCounts + 1; i++) {
+    function _delegateKghBatch(uint256 kghCount) internal {
+        uint256[] memory tokenIds = new uint256[](kghCount);
+        for (uint256 i = 1; i < kghCount + 1; i++) {
             kgh.mint(delegator, i);
             vm.prank(delegator);
-            kgh.approve(address(assetManager), i);
+            kgh.approve(address(assetMgr), i);
             tokenIds[i - 1] = i;
         }
 
         vm.prank(delegator);
-        (uint128 kroShares, uint128 kghShares) = assetManager.delegateKghBatch(validator, tokenIds);
-        return (kroShares, kghShares);
+        assetMgr.delegateKghBatch(validator, tokenIds);
+    }
+
+    function _undelegate(address _delegator) internal returns (uint128) {
+        uint128 delegatorKro = assetMgr.getKroAssets(validator, _delegator);
+        vm.warp(assetMgr.canUndelegateKroAt(validator, _delegator));
+        vm.prank(_delegator);
+        assetMgr.undelegate(validator, delegatorKro);
+
+        return delegatorKro;
+    }
+
+    function _undelegateKgh(address _delegator, uint256 tokenId) internal {
+        vm.warp(assetMgr.canUndelegateKghAt(validator, _delegator, tokenId));
+        vm.prank(_delegator);
+        assetMgr.undelegateKgh(validator, tokenId);
+    }
+
+    function _undelegateKghBatch(uint256 kghCount) internal {
+        uint256[] memory tokenIds = new uint256[](kghCount);
+        for (uint256 i = 1; i < kghCount + 1; i++) {
+            tokenIds[i - 1] = i;
+        }
+
+        vm.warp(assetMgr.canUndelegateKghAt(validator, delegator, tokenIds[0]));
+        vm.prank(delegator);
+        assetMgr.undelegateKghBatch(validator, tokenIds);
     }
 
     function test_constructor_succeeds() external {
-        assertEq(address(assetManager.ASSET_TOKEN()), address(kro));
-        assertEq(address(assetManager.KGH()), address(kgh));
-        assertEq(address(assetManager.KGH_MANAGER()), address(kghManager));
-        assertEq(assetManager.SECURITY_COUNCIL(), address(guardian));
-        assertEq(address(assetManager.VALIDATOR_MANAGER()), address(valMgr));
-        assertEq(assetManager.UNDELEGATION_PERIOD(), undelegationPeriod);
-        assertEq(assetManager.SLASHING_RATE(), slashingRate);
-        assertEq(assetManager.MIN_SLASHING_AMOUNT(), minSlashingAmount);
+        assertEq(address(assetMgr.ASSET_TOKEN()), address(assetToken));
+        assertEq(address(assetMgr.KGH()), address(kgh));
+        assertEq(assetMgr.SECURITY_COUNCIL(), guardian);
+        assertEq(address(assetMgr.VALIDATOR_REWARD_VAULT()), validatorRewardVault);
+        assertEq(address(assetMgr.VALIDATOR_MANAGER()), address(valMgr));
+        assertEq(assetMgr.MIN_DELEGATION_PERIOD(), minDelegationPeriod);
+        assertEq(assetMgr.BOND_AMOUNT(), bondAmount);
     }
 
-    function test_constructor_largeSlashingRate_reverts() external {
-        vm.expectRevert(IAssetManager.InvalidConstructorParams.selector);
-        new MockAssetManager(
-            kro,
-            kgh,
-            kghManager,
-            address(guardian),
-            valMgr,
-            uint128(undelegationPeriod),
-            1001,
-            minSlashingAmount
-        );
+    function test_depositToRegister_succeeds() external {
+        uint256 beforeBalance = assetToken.balanceOf(validator);
+
+        vm.prank(validator);
+        assetToken.approve(address(assetMgr), minActivateAmount);
+        vm.prank(address(valMgr));
+        assetMgr.depositToRegister(validator, minActivateAmount, withdrawAcc);
+
+        assertEq(assetMgr.getWithdrawAccount(validator), withdrawAcc);
+        assertEq(assetMgr.totalValidatorKro(validator), minActivateAmount);
+        assertEq(assetMgr.canWithdrawAt(validator), block.timestamp + minDelegationPeriod);
+        assertEq(assetToken.balanceOf(validator), beforeBalance - minActivateAmount);
+        assertEq(assetToken.balanceOf(address(assetMgr)), minActivateAmount);
+    }
+
+    function test_depositToRegister_callerNotValMgr_reverts() external {
+        vm.expectRevert(IAssetManager.NotAllowedCaller.selector);
+        assetMgr.depositToRegister(validator, minActivateAmount, withdrawAcc);
+    }
+
+    function test_depositToRegister_zeroWithdrawAcc_reverts() external {
+        vm.prank(address(valMgr));
+        vm.expectRevert(IAssetManager.ZeroAddress.selector);
+        assetMgr.depositToRegister(validator, minActivateAmount, address(0));
+    }
+
+    function test_deposit_succeeds() external {
+        _registerValidator(minActivateAmount);
+
+        uint120 beforeWeight = valMgr.getWeight(validator);
+        uint256 beforeBalance = assetToken.balanceOf(validator);
+        uint128 beforeValidatorKro = assetMgr.totalValidatorKro(validator);
+
+        vm.startPrank(validator);
+        assetToken.approve(address(assetMgr), bondAmount);
+        assetMgr.deposit(bondAmount);
+
+        assertEq(assetMgr.totalValidatorKro(validator), beforeValidatorKro + bondAmount);
+        assertEq(assetMgr.canWithdrawAt(validator), block.timestamp + minDelegationPeriod);
+        assertEq(valMgr.getWeight(validator), beforeWeight + bondAmount);
+        assertEq(assetToken.balanceOf(validator), beforeBalance - bondAmount);
+    }
+
+    function test_deposit_zeroAsset_reverts() external {
+        vm.expectRevert(IAssetManager.NotAllowedZeroInput.selector);
+        assetMgr.deposit(0);
+    }
+
+    function test_deposit_validatorStatusNone_reverts() external {
+        vm.prank(validator);
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
+        assetMgr.deposit(bondAmount);
+    }
+
+    function test_withdraw_succeeds() public {
+        _registerValidator(minActivateAmount);
+        assertEq(valMgr.getWeight(validator), minActivateAmount);
+        uint256 beforeBalance = assetToken.balanceOf(validator);
+
+        address withdrawAccount = assetMgr.getWithdrawAccount(validator);
+        vm.warp(assetMgr.canWithdrawAt(validator));
+        vm.prank(withdrawAccount);
+        assetMgr.withdraw(validator, minActivateAmount);
+
+        assertEq(assetMgr.totalValidatorKro(validator), 0);
+        assertEq(valMgr.getWeight(validator), 0);
+        assertEq(assetToken.balanceOf(validator), beforeBalance);
+        assertEq(assetToken.balanceOf(withdrawAccount), minActivateAmount);
+    }
+
+    function test_withdraw_notWithdrawAcc_reverts() external {
+        _registerValidator(minActivateAmount);
+
+        vm.prank(validator);
+        vm.expectRevert(IAssetManager.NotAllowedCaller.selector);
+        assetMgr.withdraw(validator, minActivateAmount);
+    }
+
+    function test_withdraw_zeroAsset_reverts() external {
+        _registerValidator(minActivateAmount);
+
+        vm.prank(assetMgr.getWithdrawAccount(validator));
+        vm.expectRevert(IAssetManager.NotAllowedZeroInput.selector);
+        assetMgr.withdraw(validator, 0);
+    }
+
+    function test_withdraw_notElapsedMinDelegationPeriod_reverts() external {
+        _registerValidator(minActivateAmount);
+
+        vm.prank(assetMgr.getWithdrawAccount(validator));
+        vm.expectRevert(IAssetManager.NotElapsedMinDelegationPeriod.selector);
+        assetMgr.withdraw(validator, minActivateAmount);
+    }
+
+    function test_withdraw_insufficientValidatorKro_reverts() external {
+        _registerValidator(minActivateAmount);
+
+        vm.warp(assetMgr.canWithdrawAt(validator));
+        vm.prank(assetMgr.getWithdrawAccount(validator));
+        vm.expectRevert(IAssetManager.InsufficientAsset.selector);
+        assetMgr.withdraw(validator, minActivateAmount + 1);
+    }
+
+    function test_withdraw_validatorKroBonded_reverts() external {
+        _registerValidator(minActivateAmount);
+
+        vm.prank(address(valMgr));
+        assetMgr.bondValidatorKro(validator);
+
+        address withdrawAccount = assetMgr.getWithdrawAccount(validator);
+        vm.warp(assetMgr.canWithdrawAt(validator));
+        vm.startPrank(withdrawAccount);
+        vm.expectRevert(IAssetManager.InsufficientAsset.selector);
+        assetMgr.withdraw(validator, minActivateAmount);
+
+        uint128 validatorKroBonded = assetMgr.totalValidatorKroBonded(validator);
+        assetMgr.withdraw(validator, minActivateAmount - validatorKroBonded);
+
+        assertEq(assetMgr.totalValidatorKro(validator), validatorKroBonded);
+        assertEq(valMgr.getWeight(validator), 0);
+        assertEq(assetToken.balanceOf(withdrawAccount), minActivateAmount - validatorKroBonded);
     }
 
     function test_delegate_succeeds() external {
-        _setUpKroDelegation(100e18);
+        _registerValidator(minActivateAmount);
 
-        assertEq(assetManager.totalKroAssets(validator), 100e18);
-        assertEq(valMgr.getWeight(validator), 200e18);
-        assertEq(assetManager.totalValidatorKro(validator), 100e18);
+        uint128 shares = assetMgr.previewDelegate(validator, bondAmount);
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+        uint120 beforeWeight = valMgr.getWeight(validator);
+
+        _delegate(delegator, bondAmount);
+
+        assertEq(assetToken.balanceOf(delegator), beforeBalance - bondAmount);
+        assertEq(assetMgr.totalKroAssets(validator), bondAmount);
+        assertEq(assetMgr.getKroTotalShareBalance(validator, delegator), shares);
+        assertEq(
+            assetMgr.canUndelegateKroAt(validator, delegator),
+            block.timestamp + minDelegationPeriod
+        );
+        assertEq(valMgr.getWeight(validator), beforeWeight + bondAmount);
     }
 
-    function test_delegate_withoutValidatorDelegation_reverts() external {
+    function test_delegate_validatorStatusNone_reverts() external {
         vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
-        assetManager.delegate(validator, 100e18);
+        assetMgr.delegate(validator, bondAmount);
+    }
+
+    function test_delegate_validatorStatusExited_reverts() external {
+        test_withdraw_succeeds();
+        assertTrue(valMgr.getStatus(validator) == IValidatorManager.ValidatorStatus.EXITED);
+
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
+        assetMgr.delegate(validator, bondAmount);
+    }
+
+    function test_delegate_validatorInJail_reverts() external {
+        _registerValidator(minActivateAmount);
+        mockValMgr.sendToJail(validator);
+        assertTrue(valMgr.inJail(validator));
+
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
+        assetMgr.delegate(validator, bondAmount);
+    }
+
+    function test_delegate_zeroAsset_reverts() external {
+        _registerValidator(minActivateAmount);
+
+        vm.expectRevert(IAssetManager.NotAllowedZeroInput.selector);
+        vm.prank(delegator);
+        assetMgr.delegate(validator, 0);
     }
 
     function test_delegateKgh_succeeds() external {
-        (uint128 kroShares, uint128 kghShares) = _setUpKghDelegation(1);
+        _registerValidator(minActivateAmount);
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
 
-        assertEq(kroShares, 1e26);
-        assertEq(kghShares, 1e26);
-        assertEq(assetManager.totalKghAssets(validator), VKRO_PER_KGH);
-        assertEq(valMgr.getWeight(validator), 100e18 + kghManager.totalKroInKgh(1));
+        uint256 tokenId = 0;
+        _delegateKgh(delegator, tokenId);
+
+        assertEq(assetToken.balanceOf(delegator), beforeBalance);
+        assertEq(assetMgr.getKghReward(validator, delegator), 0);
+        assertEq(kgh.ownerOf(tokenId), address(assetMgr));
+        assertEq(assetMgr.totalKghNum(validator), 1);
+        assertEq(assetMgr.getKghNum(validator, delegator), 1);
+        assertEq(
+            assetMgr.canUndelegateKghAt(validator, delegator, tokenId),
+            block.timestamp + minDelegationPeriod
+        );
     }
 
-    function test_delegateKgh_withoutValidatorDelegation_reverts() external {
-        kgh.mint(delegator, 1);
+    function test_delegateKgh_claimBoostedReward_succeeds() external {
+        _registerValidator(minActivateAmount);
+        _delegateKgh(delegator, 0);
+
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+
+        // Increase boosted reward
+        uint128 boostedReward = mockValMgr.calculateBoostedReward(validator);
+        mockAssetMgr.increaseRewardPerKgh(validator, boostedReward);
+        assertEq(assetMgr.getKghReward(validator, delegator), boostedReward);
+
+        // Delegate one more KGH
+        _delegateKgh(delegator, 1);
+
+        assertEq(assetToken.balanceOf(delegator), beforeBalance + boostedReward);
+    }
+
+    function test_delegateKgh_validatorStatusNone_reverts() external {
         vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
-        vm.prank(delegator);
-        assetManager.delegateKgh(validator, 1);
+        assetMgr.delegateKgh(validator, 0);
+    }
+
+    function test_delegateKgh_validatorStatusExited_reverts() external {
+        test_withdraw_succeeds();
+        assertTrue(valMgr.getStatus(validator) == IValidatorManager.ValidatorStatus.EXITED);
+
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
+        assetMgr.delegateKgh(validator, 0);
+    }
+
+    function test_delegateKgh_validatorInJail_reverts() external {
+        _registerValidator(minActivateAmount);
+        mockValMgr.sendToJail(validator);
+        assertTrue(valMgr.inJail(validator));
+
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
+        assetMgr.delegateKgh(validator, 0);
     }
 
     function test_delegateKghBatch_succeeds() external {
-        uint256 kghCounts = 10;
-        (uint128 kroShares, uint128 kghShares) = _setUpKghBatchDelegation(kghCounts);
+        _registerValidator(minActivateAmount);
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
 
-        assertEq(kroShares, 1e27);
-        assertEq(kghShares, 1e27);
-        assertEq(assetManager.totalKghAssets(validator), VKRO_PER_KGH * kghCounts);
-        assertEq(valMgr.getWeight(validator), 100e18 + kghManager.totalKroInKgh(1) * kghCounts);
-    }
+        uint256 kghCount = 10;
+        _delegateKghBatch(kghCount);
 
-    function test_initUndelegate_succeeds() public {
-        assetManager.modifyKghNum(validator, 100);
-        _setUpKroDelegation(100e18);
-        _submitOutputRoot(validator);
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        vm.startPrank(address(mockOracle));
-        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        // After reward distributed, updated validator weight is including base reward and boosted reward.
-        // Boosted reward with 100 kgh delegation
-        uint128 boostedReward = 6283173600000736769;
-        assertEq(valMgr.getWeight(validator), 200e18 + baseReward + boostedReward);
-
-        // Fully undelegate
-        uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator);
-        vm.prank(delegator);
-        assetManager.initUndelegate(validator, sharesToUndelegate);
-
-        uint128 pendingAssets = assetManager.getPendingKroReward(
-            block.timestamp,
-            validator,
-            delegator
-        );
-
-        assertEq(assetManager.totalKroAssets(validator), 100e18 + baseReward / 2 + 1);
-        assertEq(pendingAssets, 100e18 + baseReward / 2 - 1);
-        assertEq(
-            valMgr.getWeight(validator),
-            assetManager.totalKroAssets(validator) + boostedReward
-        );
-    }
-
-    function test_initUndelegate_self_succeeds() public {
-        _setUpKroDelegation(minActivateAmount);
-        _submitOutputRoot(validator);
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        vm.startPrank(address(mockOracle));
-        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        // After reward distributed, updated validator weight is including base reward.
-        assertEq(valMgr.getWeight(validator), minActivateAmount * 2 + baseReward);
-
-        // Partially undelegate
-        uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, validator);
-        vm.prank(validator);
-        assetManager.initUndelegate(validator, sharesToUndelegate / 2);
-
-        uint128 pendingAssets = assetManager.getPendingKroReward(
-            block.timestamp,
-            validator,
-            validator
-        );
-
-        assertEq(
-            assetManager.totalKroAssets(validator),
-            ((minActivateAmount * 2) * 3) / 4 + (baseReward * 3) / 4 + 1
-        );
-        assertEq(pendingAssets, minActivateAmount / 2 + baseReward / 4 - 1);
-        assertEq(valMgr.getWeight(validator), assetManager.totalKroAssets(validator));
-        assertEq(assetManager.totalValidatorKro(validator), minActivateAmount / 2);
-
-        // Fully undelegate
-        sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, validator);
-        vm.prank(validator);
-        assetManager.initUndelegate(validator, sharesToUndelegate);
-
-        pendingAssets = assetManager.getPendingKroReward(block.timestamp, validator, validator);
-
-        assertEq(assetManager.totalKroAssets(validator), minActivateAmount + baseReward / 2 + 1);
-        assertEq(pendingAssets, minActivateAmount + baseReward / 2 - 1);
-        assertEq(valMgr.getWeight(validator), 0); // removed from tree after fully self-undelegate
-        assertEq(assetManager.totalValidatorKro(validator), 0);
-    }
-
-    function test_initUndelegate_exactAmount_succeeds() external {
-        assetManager.modifyKghNum(validator, 100);
-        _setUpKroDelegation(9_990e18);
-
-        address delegator3 = makeAddr("delegator3");
-        kro.transfer(address(delegator3), 20e18);
-        vm.startPrank(delegator3);
-        kro.approve(address(assetManager), 20e18);
-        assetManager.delegate(validator, 20e18);
-        vm.stopPrank();
-
-        _submitOutputRoot(validator);
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        vm.startPrank(address(mockOracle));
-        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator3);
-        vm.prank(delegator3);
-        assetManager.initUndelegate(validator, sharesToUndelegate);
-
-        uint128 pendingAssets = assetManager.getPendingKroReward(
-            block.timestamp,
-            validator,
-            delegator3
-        );
-
-        // Total KRO was 20,000 and 20 KRO was undelegated. So the reward that delegator3 can take
-        // is 20 * 20 / 20,000 = 0.02.
-        assertEq(assetManager.totalKroAssets(validator), 19999980000000000000001);
-        assertEq(pendingAssets, 20019999999999999999);
-    }
-
-    function test_initUndelegate_exceedsMaxAmount_reverts() external {
-        assetManager.modifyKghNum(validator, 100);
-        _setUpKroDelegation(100e18);
-        _submitOutputRoot(validator);
-
-        vm.startPrank(address(mockOracle));
-        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        uint128 sharesToUndelegate = assetManager.getKroTotalShareBalance(validator, delegator);
-        vm.startPrank(delegator);
-        vm.expectRevert(IAssetManager.InsufficientShare.selector);
-        assetManager.initUndelegate(validator, sharesToUndelegate + 1);
-    }
-
-    function test_initUndelegate_removedFromValidatorTree_succeeds() external {
-        _setUpKroDelegation(minActivateAmount);
-
-        uint128 kroShares = assetManager.getKroTotalShareBalance(validator, delegator);
-        vm.prank(delegator);
-        assetManager.initUndelegate(validator, kroShares);
-
-        uint128 minUndelegateShares = assetManager.previewDelegate(validator, 1);
-        vm.prank(validator);
-        assetManager.initUndelegate(validator, minUndelegateShares);
-
-        assertEq(assetManager.totalKroAssets(validator), minActivateAmount - 1);
-    }
-
-    function test_initUndelegateKgh_succeeds() external {
-        uint128 kghCounts = 100;
-        uint256 tokenId = 100;
-        assetManager.modifyKghNum(validator, kghCounts - 1);
-        _setUpKghDelegation(tokenId);
-
-        _submitOutputRoot(validator);
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        vm.startPrank(address(mockOracle));
-        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        // After reward distributed, updated validator weight is including base reward and boosted reward.
-        // Boosted reward with 100 kgh delegation
-        uint128 boostedReward = 6283173600000736769;
-        assertEq(
-            valMgr.getWeight(validator),
-            100e18 + kghManager.totalKroInKgh(tokenId) + baseReward + boostedReward
-        );
-
-        vm.startPrank(delegator);
-        assetManager.initUndelegateKgh(validator, tokenId);
-        vm.stopPrank();
-
-        (uint128 pendingKroAsset, uint128 pendingKghAsset) = assetManager.getPendingKghReward(
-            block.timestamp,
-            validator,
-            delegator
-        );
-
-        assertEq(assetManager.totalKroAssets(validator), 100e18 + baseReward / 2 + 1);
-        assertEq(pendingKroAsset, baseReward / 2 - 1);
-        assertEq(pendingKghAsset, boostedReward / kghCounts);
-        assertEq(
-            valMgr.getWeight(validator),
-            assetManager.totalKroAssets(validator) + (boostedReward - boostedReward / kghCounts)
-        );
-    }
-
-    function test_initUndelegateKgh_noShares_reverts() external {
-        vm.expectRevert(IAssetManager.ShareNotExists.selector);
-        assetManager.initUndelegateKgh(validator, 1);
-    }
-
-    function test_initUndelegateKghBatch_succeeds() external {
-        uint128 kghCounts = 100;
-        _setUpKghBatchDelegation(kghCounts);
-        _submitOutputRoot(validator);
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        vm.startPrank(address(mockOracle));
-        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        // After reward distributed, updated validator weight is including base reward and boosted reward.
-        // Boosted reward with 100 kgh delegation
-        uint128 boostedReward = 6283173600000736769;
-        assertEq(
-            valMgr.getWeight(validator),
-            100e18 + kghManager.totalKroInKgh(1) * kghCounts + baseReward + boostedReward
-        );
-
-        uint256[] memory tokenIds = new uint256[](kghCounts);
-        for (uint256 i = 0; i < kghCounts; i++) {
-            tokenIds[i] = i + 1;
+        assertEq(assetToken.balanceOf(delegator), beforeBalance);
+        assertEq(assetMgr.getKghReward(validator, delegator), 0);
+        assertEq(assetMgr.totalKghNum(validator), kghCount);
+        assertEq(assetMgr.getKghNum(validator, delegator), kghCount);
+        for (uint256 i = 1; i < kghCount + 1; i++) {
+            assertEq(kgh.ownerOf(i), address(assetMgr));
+            assertEq(
+                assetMgr.canUndelegateKghAt(validator, delegator, i),
+                block.timestamp + minDelegationPeriod
+            );
         }
-        vm.prank(delegator);
-        assetManager.initUndelegateKghBatch(validator, tokenIds);
+    }
 
-        (uint128 pendingKroAsset, uint128 pendingKghAsset) = assetManager.getPendingKghReward(
-            block.timestamp,
-            validator,
-            delegator
+    function test_delegateKghBatch_claimBoostedReward_succeeds() external {
+        _registerValidator(minActivateAmount);
+        _delegateKgh(delegator, 0);
+
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+
+        // Increase boosted reward
+        uint128 boostedReward = mockValMgr.calculateBoostedReward(validator);
+        mockAssetMgr.increaseRewardPerKgh(validator, boostedReward);
+        assertEq(assetMgr.getKghReward(validator, delegator), boostedReward);
+
+        // Delegate two more KGHs
+        _delegateKghBatch(2);
+
+        assertEq(assetToken.balanceOf(delegator), beforeBalance + boostedReward);
+    }
+
+    function test_delegateKghBatch_validatorStatusNone_reverts() external {
+        uint256[] memory tokenIds = new uint256[](0);
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
+        assetMgr.delegateKghBatch(validator, tokenIds);
+    }
+
+    function test_delegateKghBatch_validatorStatusExited_reverts() external {
+        test_withdraw_succeeds();
+        assertTrue(valMgr.getStatus(validator) == IValidatorManager.ValidatorStatus.EXITED);
+
+        uint256[] memory tokenIds = new uint256[](0);
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
+        assetMgr.delegateKghBatch(validator, tokenIds);
+    }
+
+    function test_delegateKghBatch_validatorInJail_reverts() external {
+        _registerValidator(minActivateAmount);
+        mockValMgr.sendToJail(validator);
+        assertTrue(valMgr.inJail(validator));
+
+        uint256[] memory tokenIds = new uint256[](0);
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
+        assetMgr.delegateKghBatch(validator, tokenIds);
+    }
+
+    function test_delegateKghBatch_zeroTokenIds_reverts() external {
+        _registerValidator(minActivateAmount);
+
+        uint256[] memory tokenIds = new uint256[](0);
+        vm.expectRevert(IAssetManager.NotAllowedZeroInput.selector);
+        assetMgr.delegateKghBatch(validator, tokenIds);
+    }
+
+    function test_undelegate_succeeds() external {
+        _registerValidator(minActivateAmount);
+        _delegate(delegator, bondAmount);
+        mockAssetMgr.increaseBaseReward(validator, baseReward);
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+
+        uint128 delegatorKro = _undelegate(delegator);
+
+        assertEq(assetMgr.totalKroAssets(validator), bondAmount + baseReward - delegatorKro);
+        assertEq(
+            valMgr.getWeight(validator),
+            minActivateAmount + bondAmount + baseReward - delegatorKro
         );
-
-        assertEq(assetManager.totalKroAssets(validator), 100e18 + baseReward / (kghCounts + 1) + 1);
-        assertEq(pendingKroAsset, baseReward - (baseReward / (kghCounts + 1) + 1));
-        // After undelegating all the kghs, 69 of boosted reward is remaining because of the offset
-        assertEq(pendingKghAsset, 6283173600000736700);
-        assertEq(valMgr.getWeight(validator), assetManager.totalKroAssets(validator) + 69);
+        assertEq(assetToken.balanceOf(delegator), beforeBalance + delegatorKro);
     }
 
-    function test_initUndelegateKghBatch_noShares_reverts() external {
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = 1;
-        vm.expectRevert(IAssetManager.ShareNotExists.selector);
-        assetManager.initUndelegateKghBatch(validator, tokenIds);
+    function test_undelegate_severalDelegators_succeeds() external {
+        _registerValidator(minActivateAmount);
+        _delegate(delegator, bondAmount);
+        mockAssetMgr.increaseBaseReward(validator, baseReward);
+
+        address delegator2 = makeAddr("delegator2");
+        assetToken.mint(delegator2, bondAmount);
+        _delegate(delegator2, bondAmount);
+        mockAssetMgr.increaseBaseReward(validator, baseReward);
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+
+        uint128 delegatorKro = _undelegate(delegator);
+
+        assertEq(
+            assetMgr.totalKroAssets(validator),
+            bondAmount * 2 + baseReward * 2 - delegatorKro
+        );
+        assertEq(
+            valMgr.getWeight(validator),
+            minActivateAmount + bondAmount * 2 + baseReward * 2 - delegatorKro
+        );
+        assertEq(assetToken.balanceOf(delegator), beforeBalance + delegatorKro);
     }
 
-    function test_initClaimValidatorReward_succeeds() public {
-        _setUpKroDelegation(100e18);
-        _submitOutputRoot(validator);
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        // Set commission rate to 10%
-        vm.startPrank(validator);
-        valMgr.initCommissionChange(10);
-        vm.warp(block.timestamp + commissionChangeDelaySeconds);
-        valMgr.finalizeCommissionChange();
-        vm.stopPrank();
-
-        vm.startPrank(address(mockOracle));
-        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        vm.startPrank(validator);
-        assetManager.initClaimValidatorReward(2e18);
-        vm.stopPrank();
-
-        assertEq(assetManager.totalKroAssets(validator), 218e18);
-
-        // Check validator tree updated except for claimed rewards
-        assertEq(valMgr.getWeight(validator), assetManager.reflectiveWeight(validator));
-    }
-
-    function test_finalizeUndelegate_succeeds() external {
-        test_initUndelegate_succeeds();
-
-        vm.warp(block.timestamp + undelegationPeriod);
-
-        vm.prank(delegator);
-        assetManager.finalizeUndelegate(validator);
-
-        assertEq(assetManager.totalKroAssets(validator), 110000000000000000001);
-        assertEq(assetManager.ASSET_TOKEN().balanceOf(delegator), 109999999999999999999);
-    }
-
-    function test_finalizeUndelegate_zeroRequest_reverts() external {
-        test_initUndelegate_succeeds();
-
-        vm.warp(block.timestamp + undelegationPeriod);
+    function test_undelegate_removedFromValidatorTree_succeeds() external {
+        _registerValidator(minActivateAmount - 1);
+        _delegate(delegator, bondAmount);
 
         vm.prank(validator);
-        vm.expectRevert(IAssetManager.RequestNotExists.selector);
-        assetManager.finalizeUndelegate(validator);
+        valMgr.activateValidator();
+        assertEq(valMgr.getWeight(validator), minActivateAmount - 1 + bondAmount);
+
+        _undelegate(delegator);
+
+        assertEq(valMgr.getWeight(validator), 0);
     }
 
-    function test_finalizeUndelegate_undelegationPeriodNotElapsed_reverts() external {
-        test_initUndelegate_succeeds();
+    function test_undelegate_zeroAsset_reverts() external {
+        vm.expectRevert(IAssetManager.NotAllowedZeroInput.selector);
+        assetMgr.undelegate(validator, 0);
+    }
+
+    function test_undelegate_largeAsset_reverts() external {
+        vm.expectRevert(IAssetManager.InsufficientShare.selector);
+        assetMgr.undelegate(validator, 1);
+    }
+
+    function test_undelegate_notElapsedMinDelegationPeriod_reverts() external {
+        _registerValidator(minActivateAmount);
+        _delegate(delegator, bondAmount);
+
+        vm.expectRevert(IAssetManager.NotElapsedMinDelegationPeriod.selector);
+        vm.prank(delegator);
+        assetMgr.undelegate(validator, bondAmount);
+    }
+
+    function test_undelegateKgh_succeeds() external {
+        _registerValidator(minActivateAmount);
+        uint256 tokenId = 0;
+        _delegateKgh(delegator, tokenId);
+
+        uint128 boostedReward = mockValMgr.calculateBoostedReward(validator);
+        mockAssetMgr.increaseRewardPerKgh(validator, boostedReward);
+
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+        boostedReward = assetMgr.getKghReward(validator, delegator);
+
+        _undelegateKgh(delegator, tokenId);
+
+        assertEq(assetMgr.getKghReward(validator, delegator), 0);
+        assertEq(assetMgr.totalKghNum(validator), 0);
+        assertEq(assetMgr.getKghNum(validator, delegator), 0);
+        assertEq(assetMgr.canUndelegateKghAt(validator, delegator, tokenId), minDelegationPeriod);
+        assertEq(kgh.ownerOf(tokenId), delegator);
+        assertEq(assetToken.balanceOf(delegator), beforeBalance + boostedReward);
+    }
+
+    function test_undelegateKgh_noBoostedReward_succeeds() external {
+        _registerValidator(minActivateAmount);
+        uint256 tokenId = 0;
+        _delegateKgh(delegator, tokenId);
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+
+        _undelegateKgh(delegator, tokenId);
+
+        assertEq(assetToken.balanceOf(delegator), beforeBalance);
+    }
+
+    function test_undelegateKgh_severalDelegators_succeeds() external {
+        _registerValidator(minActivateAmount);
+        _delegateKgh(delegator, 0);
+        uint128 boostedReward = mockValMgr.calculateBoostedReward(validator);
+        mockAssetMgr.increaseRewardPerKgh(validator, boostedReward);
+
+        address delegator2 = makeAddr("delegator2");
+        uint256 tokenId = 1;
+        _delegateKgh(delegator2, tokenId);
+        boostedReward = mockValMgr.calculateBoostedReward(validator);
+        mockAssetMgr.increaseRewardPerKgh(validator, boostedReward);
+
+        uint256 beforeBalance = assetToken.balanceOf(delegator2);
+        boostedReward = assetMgr.getKghReward(validator, delegator2);
+
+        _undelegateKgh(delegator2, tokenId);
+
+        assertEq(assetMgr.getKghReward(validator, delegator2), 0);
+        assertEq(assetMgr.totalKghNum(validator), 1);
+        assertEq(assetMgr.getKghNum(validator, delegator2), 0);
+        assertEq(assetMgr.canUndelegateKghAt(validator, delegator2, tokenId), minDelegationPeriod);
+        assertEq(kgh.ownerOf(tokenId), delegator2);
+        assertEq(assetToken.balanceOf(delegator2), beforeBalance + boostedReward);
+    }
+
+    function test_undelegateKgh_invalidTokenIds_reverts() external {
+        vm.expectRevert(IAssetManager.InvalidTokenIdsInput.selector);
+        assetMgr.undelegateKgh(validator, 0);
+    }
+
+    function test_undelegateKgh_notElapsedMinDelegationPeriod_reverts() external {
+        _registerValidator(minActivateAmount);
+        _delegateKgh(delegator, 0);
+
+        vm.expectRevert(IAssetManager.NotElapsedMinDelegationPeriod.selector);
+        vm.prank(delegator);
+        assetMgr.undelegateKgh(validator, 0);
+    }
+
+    function test_undelegateKghBatch_succeeds() external {
+        _registerValidator(minActivateAmount);
+        uint256 kghCount = 10;
+        _delegateKghBatch(kghCount);
+
+        uint128 boostedReward = mockValMgr.calculateBoostedReward(validator);
+        mockAssetMgr.increaseRewardPerKgh(validator, boostedReward);
+
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+        boostedReward = assetMgr.getKghReward(validator, delegator);
+
+        _undelegateKghBatch(kghCount);
+
+        assertEq(assetMgr.getKghReward(validator, delegator), 0);
+        assertEq(assetMgr.totalKghNum(validator), 0);
+        assertEq(assetMgr.getKghNum(validator, delegator), 0);
+        assertEq(assetToken.balanceOf(delegator), beforeBalance + boostedReward);
+        for (uint256 i = 1; i < kghCount + 1; i++) {
+            assertEq(kgh.ownerOf(i), delegator);
+            assertEq(assetMgr.canUndelegateKghAt(validator, delegator, i), minDelegationPeriod);
+        }
+    }
+
+    function test_undelegateKghBatch_noBoostedReward_succeeds() external {
+        _registerValidator(minActivateAmount);
+        uint256 kghCount = 10;
+        _delegateKghBatch(kghCount);
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+
+        _undelegateKghBatch(kghCount);
+
+        assertEq(assetToken.balanceOf(delegator), beforeBalance);
+    }
+
+    function test_undelegateKghBatch_zeroTokenIds_reverts() external {
+        uint256[] memory tokenIds = new uint256[](0);
+        vm.expectRevert(IAssetManager.NotAllowedZeroInput.selector);
+        assetMgr.undelegateKghBatch(validator, tokenIds);
+    }
+
+    function test_undelegateKghBatch_invalidTokenIds_reverts() external {
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 0;
+        vm.expectRevert(IAssetManager.InvalidTokenIdsInput.selector);
+        assetMgr.undelegateKghBatch(validator, tokenIds);
+    }
+
+    function test_undelegateKghBatch_notElapsedMinDelegationPeriod_reverts() external {
+        _registerValidator(minActivateAmount);
+        _delegateKgh(delegator, 0);
+        vm.warp(assetMgr.canUndelegateKghAt(validator, delegator, 0));
+        _delegateKgh(delegator, 1);
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = 0;
+        tokenIds[1] = 1;
+        vm.expectRevert(IAssetManager.NotElapsedMinDelegationPeriod.selector);
+        vm.prank(delegator);
+        assetMgr.undelegateKghBatch(validator, tokenIds);
+    }
+
+    function test_claimKghReward_succeeds() external {
+        _registerValidator(minActivateAmount);
+        _delegateKgh(delegator, 0);
+        uint128 boostedReward = mockValMgr.calculateBoostedReward(validator);
+        mockAssetMgr.increaseRewardPerKgh(validator, boostedReward);
+        uint256 beforeBalance = assetToken.balanceOf(delegator);
+
+        boostedReward = assetMgr.getKghReward(validator, delegator);
 
         vm.prank(delegator);
-        vm.expectRevert(IAssetManager.FinalizedPendingNotExists.selector);
-        assetManager.finalizeUndelegate(validator);
+        assetMgr.claimKghReward(validator);
+
+        assertEq(assetToken.balanceOf(delegator), beforeBalance + boostedReward);
     }
 
-    function test_finalizeUndelegate_withNoPendingShares_reverts() external {
-        vm.expectRevert(IAssetManager.PendingNotExists.selector);
-        assetManager.finalizeUndelegate(validator);
+    function test_claimKghReward_zeroBoostedReward_reverts() external {
+        _registerValidator(minActivateAmount);
+        _delegateKgh(delegator, 0);
+
+        vm.prank(delegator);
+        vm.expectRevert(IAssetManager.InsufficientAsset.selector);
+        assetMgr.claimKghReward(validator);
     }
 
-    function test_finalizeUndelegateKgh_noReward_succeeds() external {
-        _setUpKghDelegation(1);
-        assertEq(assetManager.totalKghNum(validator), 1);
+    function test_bondValidatorKro_succeeds() public {
+        _registerValidator(minActivateAmount);
 
-        vm.startPrank(delegator);
-        assetManager.initUndelegateKgh(validator, 1);
+        vm.prank(address(valMgr));
+        assetMgr.bondValidatorKro(validator);
 
-        vm.warp(block.timestamp + undelegationPeriod);
-
-        assetManager.finalizeUndelegateKgh(validator);
-        vm.stopPrank();
-
-        assertEq(assetManager.totalKghAssets(validator), 0);
-        assertEq(kgh.balanceOf(delegator), 1);
-        assertEq(assetManager.ASSET_TOKEN().balanceOf(delegator), 0);
+        assertEq(assetMgr.totalValidatorKro(validator), minActivateAmount);
+        assertEq(assetMgr.totalValidatorKroBonded(validator), bondAmount);
     }
 
-    function test_finalizeUndelegateKgh_rewardExists_succeeds() external {
-        _setUpKghDelegation(1);
-        assertEq(assetManager.totalKghNum(validator), 1);
-
-        _submitOutputRoot(validator);
-        vm.warp(mockOracle.finalizedAt(mockOracle.latestOutputIndex()));
-
-        vm.startPrank(address(mockOracle));
-        valMgr.afterSubmitL2Output(mockOracle.latestOutputIndex());
-        vm.stopPrank();
-
-        vm.startPrank(delegator);
-        assetManager.initUndelegateKgh(validator, 1);
-
-        vm.warp(block.timestamp + undelegationPeriod);
-
-        assetManager.finalizeUndelegateKgh(validator);
-        vm.stopPrank();
-
-        assertEq(assetManager.totalKghNum(validator), 0);
-        assertEq(kgh.balanceOf(delegator), 1);
-        assertTrue(assetManager.ASSET_TOKEN().balanceOf(delegator) > 0);
+    function test_bondValidatorKro_callerNotValMgr_reverts() external {
+        vm.expectRevert(IAssetManager.NotAllowedCaller.selector);
+        assetMgr.bondValidatorKro(validator);
     }
 
-    function test_finalizeUndelegateKgh_undelegationPeriodNotElapsed_reverts() external {
-        _setUpKghDelegation(1);
-        assertEq(assetManager.totalKghNum(validator), 1);
-
-        vm.startPrank(delegator);
-        assetManager.initUndelegateKgh(validator, 1);
-
-        vm.expectRevert(IAssetManager.FinalizedPendingNotExists.selector);
-        assetManager.finalizeUndelegateKgh(validator);
+    function test_bondValidatorKro_insufficientAsset_reverts() external {
+        vm.prank(address(valMgr));
+        vm.expectRevert(IAssetManager.InsufficientAsset.selector);
+        assetMgr.bondValidatorKro(validator);
     }
 
-    function test_finalizeClaimValidatorReward_succeeds() external {
-        test_initClaimValidatorReward_succeeds();
+    function test_unbondValidatorKro_succeeds() external {
+        test_bondValidatorKro_succeeds();
 
-        vm.warp(undelegationPeriod + block.timestamp);
+        vm.prank(address(valMgr));
+        assetMgr.unbondValidatorKro(validator);
 
-        vm.startPrank(validator);
-        assetManager.finalizeClaimValidatorReward();
-        vm.stopPrank();
+        assertEq(assetMgr.totalValidatorKro(validator), minActivateAmount);
+        assertEq(assetMgr.totalValidatorKroBonded(validator), 0);
+    }
 
-        assertEq(assetManager.totalKroAssets(validator), 218e18);
-        assertEq(assetManager.ASSET_TOKEN().balanceOf(validator), 2e18);
+    function test_unbondValidatorKro_callerNotValMgr_reverts() external {
+        vm.expectRevert(IAssetManager.NotAllowedCaller.selector);
+        assetMgr.unbondValidatorKro(validator);
+    }
+
+    function test_increaseBalanceWithReward_succeeds() external {
+        test_bondValidatorKro_succeeds();
+        _delegateKgh(delegator, 0);
+
+        uint256 beforeBalance = assetToken.balanceOf(address(assetMgr));
+        uint256 beforeVaultBalance = assetToken.balanceOf(validatorRewardVault);
+
+        uint128 boostedReward = 5e18;
+        uint128 validatorReward = 10e18;
+        uint128 totalReward = baseReward + boostedReward + validatorReward;
+
+        vm.prank(address(valMgr));
+        assetMgr.increaseBalanceWithReward(validator, baseReward, boostedReward, validatorReward);
+
+        assertEq(assetToken.balanceOf(address(assetMgr)), beforeBalance + totalReward);
+        assertEq(assetToken.balanceOf(validatorRewardVault), beforeVaultBalance - totalReward);
+        assertEq(assetMgr.totalKroAssets(validator), baseReward);
+        assertEq(assetMgr.totalValidatorKro(validator), minActivateAmount + validatorReward);
+        assertEq(assetMgr.getKghReward(validator, delegator), boostedReward);
+        assertEq(assetMgr.totalValidatorKroBonded(validator), 0);
+    }
+
+    function test_increaseBalanceWithReward_validatorIsSC_succeeds() external {
+        uint256 beforeBalance = assetToken.balanceOf(address(assetMgr));
+        uint256 beforeSCBalance = assetToken.balanceOf(guardian);
+        uint256 beforeVaultBalance = assetToken.balanceOf(validatorRewardVault);
+
+        uint128 boostedReward = 5e18;
+        uint128 validatorReward = 10e18;
+        uint128 totalReward = baseReward + boostedReward + validatorReward;
+
+        vm.prank(address(valMgr));
+        assetMgr.increaseBalanceWithReward(guardian, baseReward, boostedReward, validatorReward);
+
+        assertEq(assetToken.balanceOf(address(assetMgr)), beforeBalance);
+        assertEq(assetToken.balanceOf(guardian), beforeSCBalance + totalReward);
+        assertEq(assetToken.balanceOf(validatorRewardVault), beforeVaultBalance - totalReward);
+    }
+
+    function test_increaseBalanceWithReward_callerNotValMgr_reverts() external {
+        vm.expectRevert(IAssetManager.NotAllowedCaller.selector);
+        assetMgr.increaseBalanceWithReward(validator, 0, 0, 0);
+    }
+
+    function test_increaseBalanceWithChallenge_succeeds() external {
+        assetToken.mint(address(assetMgr), bondAmount);
+
+        uint256 beforeSCBalance = assetToken.balanceOf(guardian);
+        uint128 tax = (bondAmount * assetMgr.TAX_NUMERATOR()) / assetMgr.TAX_DENOMINATOR();
+
+        vm.prank(address(valMgr));
+        uint128 challengeReward = assetMgr.increaseBalanceWithChallenge(validator, bondAmount);
+
+        assertEq(assetToken.balanceOf(guardian), beforeSCBalance + tax);
+        assertEq(assetMgr.totalValidatorKro(validator), bondAmount - tax);
+        assertEq(challengeReward, bondAmount - tax);
+    }
+
+    function test_increaseBalanceWithChallenge_winnerIsSC_succeeds() external {
+        assetToken.mint(address(assetMgr), bondAmount);
+
+        uint256 beforeSCBalance = assetToken.balanceOf(guardian);
+
+        vm.prank(address(valMgr));
+        uint128 challengeReward = assetMgr.increaseBalanceWithChallenge(guardian, bondAmount);
+
+        assertEq(assetToken.balanceOf(guardian), beforeSCBalance + bondAmount);
+        assertEq(challengeReward, bondAmount);
+    }
+
+    function test_increaseBalanceWithChallenge_callerNotValMgr_reverts() external {
+        vm.expectRevert(IAssetManager.NotAllowedCaller.selector);
+        assetMgr.increaseBalanceWithChallenge(validator, 0);
+    }
+
+    function test_decreaseBalanceWithChallenge_succeeds() external {
+        test_bondValidatorKro_succeeds();
+
+        vm.prank(address(valMgr));
+        uint128 challengeReward = assetMgr.decreaseBalanceWithChallenge(validator);
+
+        assertEq(assetMgr.totalValidatorKro(validator), minActivateAmount - bondAmount);
+        assertEq(assetMgr.totalValidatorKroBonded(validator), 0);
+        assertEq(challengeReward, bondAmount);
+    }
+
+    function test_decreaseBalanceWithChallenge_callerNotValMgr_reverts() external {
+        vm.expectRevert(IAssetManager.NotAllowedCaller.selector);
+        assetMgr.decreaseBalanceWithChallenge(validator);
+    }
+
+    function test_revertDecreaseBalanceWithChallenge_succeeds() external {
+        vm.prank(address(valMgr));
+        uint128 challengeReward = assetMgr.revertDecreaseBalanceWithChallenge(validator);
+
+        assertEq(assetMgr.totalValidatorKro(validator), bondAmount);
+        assertEq(assetMgr.totalValidatorKroBonded(validator), bondAmount);
+        assertEq(challengeReward, bondAmount);
+    }
+
+    function test_revertDecreaseBalanceWithChallenge_callerNotValMgr_reverts() external {
+        vm.expectRevert(IAssetManager.NotAllowedCaller.selector);
+        assetMgr.revertDecreaseBalanceWithChallenge(validator);
     }
 }

@@ -21,11 +21,60 @@ kroma-validator [command] --help
 
 ## Commands
 
-### Commands for Validator System V1
+### Commands for Validator System V2
 
-The following commands are available in Validator System V1. Note that these commands will be **deprecated** and
-removed in the future after the new validator system is introduced. You can still use `withdraw` and `unbond` even
-after the transition to the Validator System V2.
+The following commands are available in Validator System V2:
+
+- `register` - Register as new validator to `ValidatorManager`.
+  - `--amount [value]` - _(Required)_ The amount of tokens to deposit initially (in Wei).
+  - `--commission-rate [value]` - _(Required)_ The initial commission rate of the validator (in %).
+  - `--withdraw-account [value]` - _(Required)_ The address to withdraw deposited asset token.
+
+  ```bash
+  kroma-validator register --amount 100000000 --commission-rate 5 --withdraw-account 0x0000000000000000000000000000000000000001
+  ```
+
+- `activate` - Activate the validator in `ValidatorManager` to be eligible to submit output roots and create challenges.
+
+  ```bash
+  kroma-validator activate
+  ```
+
+- `unjail` - Unjail the validator in `ValidatorManager`.
+
+  ```bash
+  kroma-validator unjail
+  ```
+
+- `changeCommission init` - Initiate the commission rate change of the validator in `ValidatorManager`.
+  - `--commission-rate [value]` - _(Required)_ The new commission rate of the validator (in %).
+
+  ```bash
+  kroma-validator changeCommission init --commission-rate 5
+  ```
+
+- `changeCommission finalize` - Finalize the commission rate change of the validator in `ValidatorManager`.
+
+  ```bash
+  kroma-validator changeCommission finalize
+  ```
+
+- `depositKro` - Deposit asset tokens to the `AssetManager`.
+  - `--amount [value]` - _(Required)_ The amount of tokens to deposit (in Wei).
+
+  ```bash
+  kroma-validator depositKro --amount 100000000
+  ```
+
+Note that withdraw of the deposited asset and reward must be done with the withdraw account that was set during the
+registration. Please make sure that you must keep the private key of the withdraw account safe, since it cannot be
+modified after the registration.
+
+### Commands for Validator System V1 (_DEPRECATED_)
+
+The following commands are available in Validator System V1. Note that these commands are **deprecated** and
+will be removed since the new validator system is introduced. You can still use `withdraw` and `unbond` to withdraw
+and unbond your ETH from the old `ValidatorPool`.
 
 - `deposit` - Deposit ETH to `ValidatorPool`.
   - `--amount [value]` - _(Required)_ The amount of ETH to deposit (in Wei).
@@ -53,77 +102,4 @@ after the transition to the Validator System V2.
 
   ```bash
   kroma-validator unbond
-  ```
-
-### Commands for Validator System V2 (_EXPERIMENTAL_)
-
-The following commands are available in Validator System V2:
-
-- `register` - Register as new validator to `ValidatorManager`.
-  - `--amount [value]` - _(Required)_ The amount of tokens to delegate initially (in Wei).
-  - `--commission-rate [value]` - _(Required)_ The initial commission rate of the validator (in %).
-  - `--withdraw-account [value]` - _(Required)_ The address to withdraw deposited asset token.
-
-  ```bash
-  kroma-validator register --amount 100000000 --commission-rate 5 --withdraw-account 0x0000000000000000000000000000000000000001
-  ```
-
-- `activate` - Activate the validator in `ValidatorManager` to be eligible to submit output roots and create challenges.
-
-  ```bash
-  kroma-validator activate
-  ```
-
-- `unjail` - Unjail the validator in `ValidatorManager`.
-
-  ```bash
-  kroma-validator unjail
-  ```
-
-- `changeCommissionRate init` - Initiate the commission rate change of the validator in `ValidatorManager`.
-  - `--commission-rate [value]` - _(Required)_ The new commission rate of the validator (in %).
-
-  ```bash
-  kroma-validator changeCommissionRate init --commission-rate 5
-  ```
-
-- `changeCommissionRate finalize` - Finalize the commission rate change of the validator in `ValidatorManager`.
-
-  ```bash
-  kroma-validator changeCommissionRate finalize
-  ```
-
-- `delegate` - Self-delegate asset tokens to the `AssetManager`.
-  - `--amount [value]` - _(Required)_ The amount of tokens to delegate (in Wei).
-
-  ```bash
-  kroma-validator delegate --amount 100000000
-  ```
-
-- `undelegate init` - Initiate the undelegation of asset tokens from the `AssetManager`.
-  - `--amount [value]` - _(Required)_ The amount of tokens to undelegate (in Wei).
-
-  ```bash
-  kroma-validator undelegate init --amount 100000000
-  ```
-
-- `undelegate finalize` - Finalize the undelegations of asset tokens from the `AssetManager`.
-  Should be called after 1 week has passed from the `undelegate init` command.
-
-  ```bash
-  kroma-validator undelegate finalize
-  ```
-
-- `claim init` - Initiate the claim of validator reward from the `AssetManager`.
-  - `--amount [value]` - _(Required)_ The amount of tokens to claim (in Wei).
-
-  ```bash
-  kroma-validator claim init --amount 100000000
-  ```
-
-- `claim finalize` - Finalize the claim of validator reward from the `AssetManager`. Should be called after 1 week
-  has passed from the `claim init` command.
-
-  ```bash
-  kroma-validator claim finalize
   ```
