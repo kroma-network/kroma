@@ -780,6 +780,12 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         );
     }
 
+    function test_slash_notColosseum_reverts() external {
+        vm.prank(address(1));
+        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
+        valMgr.slash(1, challenger, asserter);
+    }
+
     function test_revertSlash_succeeds() external {
         uint32 count = valMgr.activatedValidatorCount();
         // Register as a validator
@@ -835,12 +841,6 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.prank(trusted);
         vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
         valMgr.revertSlash(1, trusted);
-    }
-
-    function test_slash_notColosseum_reverts() external {
-        vm.prank(address(1));
-        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
-        valMgr.slash(1, challenger, asserter);
     }
 
     function test_checkSubmissionEligibility_priorityRound_succeeds() external {
