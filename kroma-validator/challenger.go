@@ -49,12 +49,15 @@ type Challenger struct {
 	colosseumABI      *abi.ABI
 	valPoolContract   *bindings.ValidatorPoolCaller
 	valMgrContract    *bindings.ValidatorManagerCaller
+	assetMgrContract  *bindings.AssetManagerCaller
 
 	submissionInterval        *big.Int
 	finalizationPeriodSeconds *big.Int
 	l2BlockTime               *big.Int
 	checkpoint                *big.Int
-	requiredBondAmount        *big.Int
+	requiredBondAmountV1      *big.Int
+	requiredBondAmountV2      *big.Int
+	valPoolTerminationIndex   *big.Int
 
 	l2OutputSubmittedSub ethereum.Subscription
 	challengeCreatedSub  ethereum.Subscription
@@ -96,6 +99,11 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		return nil, err
 	}
 
+	assetMgrContract, err := bindings.NewAssetManagerCaller(cfg.AssetManagerAddr, cfg.L1Client)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Challenger{
 		log:  l.New("service", "challenge"),
 		cfg:  cfg,
@@ -110,6 +118,7 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		colosseumABI:      colosseumABI,
 		valPoolContract:   valPoolContract,
 		valMgrContract:    valMgrContract,
+		assetMgrContract:  assetMgrContract,
 	}, nil
 }
 
@@ -150,16 +159,47 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 	err = contractWatcher.WatchUpgraded(c.cfg.ValidatorPoolAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		requiredBondAmount, err := c.valPoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+		requiredBondAmountV1, err := c.valPoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
-		c.requiredBondAmount = requiredBondAmount
+		c.requiredBondAmountV1 = requiredBondAmountV1
+
+		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		valPoolTerminationIndex, err := c.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			// If method is not in ValidatorPool, set the termination index to big value to ensure it sticks to validator system V1.
+			if errors.Is(err, errors.New("method 'TERMINATION_OUTPUT_INDEX' not found")) {
+				valPoolTerminationIndex = big.NewInt(math.MaxUint32)
+			} else {
+				return fmt.Errorf("failed to get valPool termination index: %w", err)
+			}
+		}
+		c.valPoolTerminationIndex = valPoolTerminationIndex
 
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initiate valPool config: %w", err)
+	}
+
+	err = contractWatcher.WatchUpgraded(c.cfg.AssetManagerAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		requiredBondAmountV2, err := c.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			if errors.Is(err, errors.New("method 'BOND_AMOUNT' not found")) {
+				requiredBondAmountV2 = big.NewInt(0)
+			}
+			return fmt.Errorf("failed to get required bond amount: %w", err)
+		}
+		c.requiredBondAmountV2 = requiredBondAmountV2
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate assetMgr config: %w, err")
 	}
 
 	return nil
@@ -545,7 +585,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 						continue
 					}
 				case chal.StatusChallengerTimeout:
-					// call challenger timeout to increase bond from pending bond
+					// call challenger timeout to take challenger's bond away
 					tx, err := c.ChallengerTimeout(c.ctx, outputIndex, challenger)
 					if err != nil {
 						c.log.Error("failed to create challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
@@ -560,22 +600,17 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 
 			// if challenger
 			if isChallenger && c.cfg.ChallengerEnabled {
-				if isOutputDeleted {
-					// if output has been already deleted, cancel challenge to refund pending bond in ValidatorPool
-					if !c.IsValPoolTerminated(outputIndex) && status != chal.StatusChallengerTimeout {
-						tx, err := c.CancelChallenge(c.ctx, outputIndex)
-						if err != nil {
-							c.log.Error("failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
-							continue
-						}
-						if err := c.submitChallengeTx(tx); err != nil {
-							c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
-							continue
-						}
+				// if output has been already deleted, cancel challenge to refund challenger's bond
+				if isOutputDeleted && status != chal.StatusChallengerTimeout {
+					tx, err := c.CancelChallenge(c.ctx, outputIndex)
+					if err != nil {
+						c.log.Error("failed to create cancel challenge tx", "err", err, "outputIndex", outputIndex)
+						continue
 					}
-					// if output has been already deleted, terminate handling
-					c.log.Info("output is already deleted when handling challenge", "outputIndex", outputIndex)
-					return
+					if err := c.submitChallengeTx(tx); err != nil {
+						c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
 				}
 
 				// if output is already finalized, terminate handling
@@ -623,6 +658,8 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
 	from := c.cfg.TxManager.From()
+
+	var balance, requiredBondAmount *big.Int
 	if c.IsValPoolTerminated(outputIndex) {
 		if isInJail, err := c.isInJail(ctx); err != nil {
 			return false, err
@@ -641,30 +678,40 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 			c.log.Warn("validator is not in the status that can create a challenge", "status", validatorStatus)
 			return false, nil
 		}
+
+		balance, err = c.assetMgrContract.TotalValidatorKroNotBonded(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch balance: %w", err)
+		}
+		requiredBondAmount = c.requiredBondAmountV2
 	} else {
-		balance, err := c.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
+		var err error
+		balance, err = c.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
 			return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 		}
-		c.metr.RecordDepositAmount(balance)
-
-		if balance.Cmp(c.requiredBondAmount) == -1 {
-			c.log.Warn(
-				"deposit is less than bond attempt amount",
-				"requiredBondAmount", c.requiredBondAmount,
-				"deposit", balance,
-			)
-			return false, nil
-		}
-
-		c.log.Info("deposit amount and bond amount", "deposit", balance, "bond", c.requiredBondAmount)
+		requiredBondAmount = c.requiredBondAmountV1
 	}
+
+	c.metr.RecordUnbondedDepositAmount(balance)
+
+	// Check if the unbonded deposit amount is less than the required bond amount
+	if balance.Cmp(requiredBondAmount) == -1 {
+		c.log.Warn(
+			"unbonded deposit is less than bond attempt amount",
+			"requiredBondAmount", requiredBondAmount,
+			"unbonded_deposit", balance,
+		)
+		return false, nil
+	}
+
+	c.log.Info("unbonded deposit amount and bond amount", "unbonded_deposit", balance, "bond", requiredBondAmount)
 
 	return true, nil
 }
 
 func (c *Challenger) IsValPoolTerminated(outputIndex *big.Int) bool {
-	return c.cfg.ValPoolTerminationIndex.Cmp(outputIndex) < 0
+	return c.valPoolTerminationIndex.Cmp(outputIndex) < 0
 }
 
 func (c *Challenger) isInJail(ctx context.Context) (bool, error) {

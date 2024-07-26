@@ -255,6 +255,13 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     }
 
     /**
+     * @inheritdoc IAssetManager
+     */
+    function totalValidatorKroNotBonded(address validator) external view returns (uint128) {
+        return _vaults[validator].asset.validatorKro - _vaults[validator].asset.validatorKroBonded;
+    }
+
+    /**
      * @notice Returns the reflective weight of given validator.
      *
      * @param validator Address of the validator.

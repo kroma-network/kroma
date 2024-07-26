@@ -30,7 +30,7 @@ type Metricer interface {
 	txmetrics.TxMetricer
 
 	RecordL2OutputSubmitted(l2ref eth.L2BlockRef)
-	RecordDepositAmount(amount *big.Int)
+	RecordUnbondedDepositAmount(amount *big.Int)
 	RecordValidatorStatus(status uint8)
 	RecordNextValidator(address common.Address)
 	RecordChallengeCheckpoint(outputIndex *big.Int)
@@ -45,12 +45,12 @@ type Metrics struct {
 	txmetrics.TxMetrics
 	opmetrics.RPCMetrics
 
-	Info                prometheus.GaugeVec
-	Up                  prometheus.Gauge
-	DepositAmount       prometheus.Gauge
-	ValidatorStatus     prometheus.Gauge
-	NextValidator       prometheus.GaugeVec
-	ChallengeCheckpoint prometheus.Gauge
+	Info                  prometheus.GaugeVec
+	Up                    prometheus.Gauge
+	UnbondedDepositAmount prometheus.Gauge
+	ValidatorStatus       prometheus.Gauge
+	NextValidator         prometheus.GaugeVec
+	ChallengeCheckpoint   prometheus.Gauge
 }
 
 var _ Metricer = (*Metrics)(nil)
@@ -85,10 +85,10 @@ func NewMetrics(procName string) *Metrics {
 			Name:      "up",
 			Help:      "1 if the kroma-validator has finished starting up",
 		}),
-		DepositAmount: factory.NewGauge(prometheus.GaugeOpts{
+		UnbondedDepositAmount: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
-			Name:      "deposit_amount",
-			Help:      "The amount deposited into the ValidatorPool contract",
+			Name:      "unbonded_deposit_amount",
+			Help:      "The amount of Validator balance excluding the bonded amount",
 		}),
 		ValidatorStatus: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
@@ -142,9 +142,9 @@ func (m *Metrics) RecordL2OutputSubmitted(l2ref eth.L2BlockRef) {
 	m.RecordL2Ref(L2OutputSubmitted, l2ref)
 }
 
-// RecordDepositAmount sets the amount deposited into the ValidatorPool contract.
-func (m *Metrics) RecordDepositAmount(amount *big.Int) {
-	m.DepositAmount.Set(opmetrics.WeiToEther(amount))
+// RecordUnbondedDepositAmount sets the amount deposited into the ValidatorPool contract.
+func (m *Metrics) RecordUnbondedDepositAmount(amount *big.Int) {
+	m.UnbondedDepositAmount.Set(opmetrics.WeiToEther(amount))
 }
 
 // RecordValidatorStatus sets the status of validator in the ValidatorManager contract.
