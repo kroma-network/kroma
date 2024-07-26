@@ -60,7 +60,6 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
     MockValidatorManager public mockValMgr;
     MockL2OutputOracle public mockOracle;
     address public validator = trusted;
-    address public delegator = asserter;
 
     function setUp() public override {
         super.setUp();
