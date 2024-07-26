@@ -1047,7 +1047,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         return arr;
     }
 
-    function _firstSegments() private view returns (bytes32[] memory) {
+    function _getFirstSegments() private view returns (bytes32[] memory) {
         Types.CheckpointOutput memory targetOutput = oracle.getL2Output(targetOutputIndex);
         uint256 end = targetOutput.l2BlockNumber;
         uint256 start = end - oracle.SUBMISSION_INTERVAL();
@@ -1125,7 +1125,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
     }
 
     function test_createChallenge_callValidatorManager_succeeds() public {
-        bytes32[] memory segments = _firstSegments();
+        bytes32[] memory segments = _getFirstSegments();
 
         vm.expectCall(
             address(valMgr),
@@ -1138,7 +1138,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
     }
 
     function test_createChallenge_notSatisfyCondition_reverts() external {
-        bytes32[] memory segments = _firstSegments();
+        bytes32[] memory segments = _getFirstSegments();
 
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
         vm.prank(makeAddr("other challenger"));
@@ -1256,7 +1256,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         address otherChallenger = asserter;
         _registerValidator(asserter, minActivateAmount);
 
-        bytes32[] memory segments = _firstSegments();
+        bytes32[] memory segments = _getFirstSegments();
         vm.prank(otherChallenger);
         colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
 
