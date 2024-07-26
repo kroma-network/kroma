@@ -23,12 +23,11 @@ const deployFn: DeployFunction = async (hre) => {
     args: [
       l1GovernanceTokenProxyAddress,
       hre.deployConfig.assetManagerKgh,
-      hre.deployConfig.assetManagerKghManager,
       scProxyAddress,
+      hre.deployConfig.assetManagerVault,
       valMgrProxyAddress,
-      hre.deployConfig.assetManagerUndelegationPeriod,
-      hre.deployConfig.assetManagerSlashingRate,
-      hre.deployConfig.assetManagerMinSlashingAmount,
+      hre.deployConfig.assetManagerMinDelegationPeriod,
+      hre.deployConfig.assetManagerBondAmount,
     ],
     isProxyImpl: true,
     postDeployAction: async (contract) => {
@@ -42,12 +41,12 @@ const deployFn: DeployFunction = async (hre) => {
         'KGH',
         hre.deployConfig.assetManagerKgh
       )
+      await assertContractVariable(contract, 'SECURITY_COUNCIL', scProxyAddress)
       await assertContractVariable(
         contract,
-        'KGH_MANAGER',
-        hre.deployConfig.assetManagerKghManager
+        'VALIDATOR_REWARD_VAULT',
+        hre.deployConfig.assetManagerVault
       )
-      await assertContractVariable(contract, 'SECURITY_COUNCIL', scProxyAddress)
       await assertContractVariable(
         contract,
         'VALIDATOR_MANAGER',
@@ -55,18 +54,13 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'UNDELEGATION_PERIOD',
-        hre.deployConfig.assetManagerUndelegationPeriod
+        'MIN_DELEGATION_PERIOD',
+        hre.deployConfig.assetManagerMinDelegationPeriod
       )
       await assertContractVariable(
         contract,
-        'SLASHING_RATE',
-        hre.deployConfig.assetManagerSlashingRate
-      )
-      await assertContractVariable(
-        contract,
-        'MIN_SLASHING_AMOUNT',
-        hre.deployConfig.assetManagerMinSlashingAmount
+        'BOND_AMOUNT',
+        hre.deployConfig.assetManagerBondAmount
       )
     },
   })

@@ -287,8 +287,10 @@ type DeployConfig struct {
 	ValidatorManagerCommissionChangeDelaySeconds uint64 `json:"validatorManagerCommissionChangeDelaySeconds"`
 	// ValidatorManagerRoundDurationSeconds is the duration of one submission round in seconds.
 	ValidatorManagerRoundDurationSeconds uint64 `json:"validatorManagerRoundDurationSeconds"`
-	// ValidatorManagerJailPeriodSeconds is the duration of jail period in seconds.
-	ValidatorManagerJailPeriodSeconds uint64 `json:"validatorManagerJailPeriodSeconds"`
+	// ValidatorManagerSoftJailPeriodSeconds is the duration of jail period in seconds in output non-submissions penalty.
+	ValidatorManagerSoftJailPeriodSeconds uint64 `json:"validatorManagerSoftJailPeriodSeconds"`
+	// ValidatorManagerHardJailPeriodSeconds is the duration of jail period in seconds in slashing penalty.
+	ValidatorManagerHardJailPeriodSeconds uint64 `json:"validatorManagerHardJailPeriodSeconds"`
 	// ValidatorManagerJailThreshold is the threshold of output non-submission to be jailed.
 	ValidatorManagerJailThreshold uint64 `json:"validatorManagerJailThreshold"`
 	// ValidatorManagerMaxFinalizations is the max number of output finalizations when distributing
@@ -299,14 +301,12 @@ type DeployConfig struct {
 
 	// AssetManagerKgh represents the address of the KGH NFT contract.
 	AssetManagerKgh common.Address `json:"assetManagerKgh"`
-	// AssetManagerKghManager represents the address of the KGH manager contract.
-	AssetManagerKghManager common.Address `json:"assetManagerKghManager"`
-	// AssetManagerUndelegationPeriod is the duration of undelegation period in seconds.
-	AssetManagerUndelegationPeriod uint64 `json:"assetManagerUndelegationPeriod"`
-	// AssetManagerSlashingRate is the slashing rate of challenge loser's total asset.
-	AssetManagerSlashingRate uint64 `json:"assetManagerSlashingRate"`
-	// AssetManagerMinSlashingAmount is the amount of the minimum slashing amount.
-	AssetManagerMinSlashingAmount *hexutil.Big `json:"assetManagerMinSlashingAmount"`
+	// AssetManagerVault represents the address of the validator reward vault.
+	AssetManagerVault common.Address `json:"assetManagerVault"`
+	// AssetManagerMinDelegationPeriod is the duration of minimum delegation period in seconds.
+	AssetManagerMinDelegationPeriod uint64 `json:"assetManagerMinDelegationPeriod"`
+	// AssetManagerBondAmount is the bond amount.
+	AssetManagerBondAmount *hexutil.Big `json:"assetManagerBondAmount"`
 
 	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
 	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`
@@ -555,8 +555,11 @@ func (d *DeployConfig) Check() error {
 	if d.ValidatorManagerRoundDurationSeconds == 0 {
 		return fmt.Errorf("%w: ValidatorManagerRoundDurationSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.ValidatorManagerJailPeriodSeconds == 0 {
-		return fmt.Errorf("%w: ValidatorManagerJailPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	if d.ValidatorManagerSoftJailPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerSoftJailPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerHardJailPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerHardJailPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.ValidatorManagerJailThreshold == 0 {
 		return fmt.Errorf("%w: ValidatorManagerJailThreshold cannot be 0", ErrInvalidDeployConfig)
@@ -570,17 +573,14 @@ func (d *DeployConfig) Check() error {
 	if d.AssetManagerKgh == (common.Address{}) {
 		return fmt.Errorf("%w: AssetManagerKgh cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.AssetManagerKghManager == (common.Address{}) {
-		return fmt.Errorf("%w: AssetManagerKghManager cannot be address(0)", ErrInvalidDeployConfig)
+	if d.AssetManagerVault == (common.Address{}) {
+		return fmt.Errorf("%w: AssetManagerVault cannot be address(0)", ErrInvalidDeployConfig)
 	}
-	if d.AssetManagerUndelegationPeriod == 0 {
-		return fmt.Errorf("%w: AssetManagerUndelegationPeriod cannot be 0", ErrInvalidDeployConfig)
+	if d.AssetManagerMinDelegationPeriod == 0 {
+		return fmt.Errorf("%w: AssetManagerMinDelegationPeriod cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.AssetManagerSlashingRate == 0 {
-		return fmt.Errorf("%w: AssetManagerSlashingRate cannot be 0", ErrInvalidDeployConfig)
-	}
-	if d.AssetManagerMinSlashingAmount == nil {
-		return fmt.Errorf("%w: AssetManagerMinSlashingAmount cannot be nil", ErrInvalidDeployConfig)
+	if d.AssetManagerBondAmount == nil {
+		return fmt.Errorf("%w: AssetManagerBondAmount cannot be nil", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorManagerRoundDurationSeconds*2 {
 		return fmt.Errorf("%w: double of ValidatorManagerRoundDurationSeconds must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)

@@ -122,9 +122,14 @@ interface RequiredDeployConfig {
   validatorManagerRoundDurationSeconds: number
 
   /**
-   * The duration of jail period in seconds.
+   * The duration of jail period in seconds in output non-submissions penalty.
    */
-  validatorManagerJailPeriodSeconds: number
+  validatorManagerSoftJailPeriodSeconds: number
+
+  /**
+   * The duration of jail period in seconds in slashing penalty.
+   */
+  validatorManagerHardJailPeriodSeconds: number
 
   /**
    * The threshold of output non-submission to be jailed.
@@ -147,24 +152,19 @@ interface RequiredDeployConfig {
   assetManagerKgh: string
 
   /**
-   * Address of the KGH manager contract.
+   * Address of the validator reward vault.
    */
-  assetManagerKghManager: string
+  assetManagerVault: string
 
   /**
-   * The duration of undelegation period in seconds.
+   * The duration of minimum delegation period in seconds.
    */
-  assetManagerUndelegationPeriod: number
+  assetManagerMinDelegationPeriod: number
 
   /**
-   * The slashing rate of challenge loser's total asset.
+   * Amount of the bond amount in hex value.
    */
-  assetManagerSlashingRate: number
-
-  /**
-   * Amount of the minimum slashing amount in hex value.
-   */
-  assetManagerMinSlashingAmount: string
+  assetManagerBondAmount: string
 
   /**
    * Output Oracle submission interval in L2 blocks.
@@ -418,7 +418,10 @@ export const deployConfigSpec: {
   validatorManagerRoundDurationSeconds: {
     type: 'number',
   },
-  validatorManagerJailPeriodSeconds: {
+  validatorManagerSoftJailPeriodSeconds: {
+    type: 'number',
+  },
+  validatorManagerHardJailPeriodSeconds: {
     type: 'number',
   },
   validatorManagerJailThreshold: {
@@ -433,16 +436,13 @@ export const deployConfigSpec: {
   assetManagerKgh: {
     type: 'address',
   },
-  assetManagerKghManager: {
+  assetManagerVault: {
     type: 'address',
   },
-  assetManagerUndelegationPeriod: {
+  assetManagerMinDelegationPeriod: {
     type: 'number',
   },
-  assetManagerSlashingRate: {
-    type: 'number',
-  },
-  assetManagerMinSlashingAmount: {
+  assetManagerBondAmount: {
     type: 'string', // uint128
   },
   l2OutputOracleSubmissionInterval: {

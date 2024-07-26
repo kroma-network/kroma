@@ -25,7 +25,7 @@ var DefaultMnemonicConfig = &MnemonicConfig{
 	Alice:            "m/44'/60'/0'/0/4",
 	SequencerP2P:     "m/44'/60'/0'/0/5",
 	Bob:              "m/44'/60'/0'/0/7",
-	Mallory:          "m/44'/60'/0'/0/8",
+	Mallory:          "m/44'/60'/0'/0/8", // 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f
 	SysCfgOwner:      "m/44'/60'/0'/0/0",
 
 	// [Kroma: START],
