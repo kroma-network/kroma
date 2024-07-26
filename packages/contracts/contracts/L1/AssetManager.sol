@@ -563,7 +563,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
             unchecked {
                 asset.totalKro += baseReward;
                 asset.validatorKro += validatorReward;
-                if (boostedReward > 0) {
+                if (asset.totalKgh != 0) {
                     asset.rewardPerKghStored += boostedReward / asset.totalKgh;
                 }
                 asset.validatorKroBonded -= BOND_AMOUNT;
