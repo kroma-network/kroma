@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-
 import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
 import { Proxy } from "../universal/Proxy.sol";
@@ -332,7 +329,6 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         _withdraw(asserter, validatorKro);
         assertEq(assetMgr.totalValidatorKro(asserter), 0);
         assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.EXITED);
-        vm.stopPrank();
 
         // Delegate to re-activate validator
         vm.startPrank(asserter);
