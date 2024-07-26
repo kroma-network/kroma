@@ -360,12 +360,6 @@
         } catch {}
         
 
-        let IKGHManager
-        try {
-          IKGHManager = require('../artifacts/contracts/universal/IKGHManager.sol/IKGHManager.json')
-        } catch {}
-        
-
         let IKromaMintableERC20
         try {
           IKromaMintableERC20 = require('../artifacts/contracts/universal/IKromaMintableERC20.sol/IKromaMintableERC20.json')
@@ -517,7 +511,6 @@ Uint128Math,
 ColosseumTestData,
 CrossDomainMessenger,
 ERC721Bridge,
-IKGHManager,
 IKromaMintableERC20,
 IKromaMintableERC721,
 ISemver,
