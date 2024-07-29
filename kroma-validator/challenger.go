@@ -191,15 +191,16 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 		if err != nil {
 			if errors.Is(err, errors.New("method 'BOND_AMOUNT' not found")) {
 				requiredBondAmountV2 = big.NewInt(0)
+			} else {
+				return fmt.Errorf("failed to get required bond amount: %w", err)
 			}
-			return fmt.Errorf("failed to get required bond amount: %w", err)
 		}
 		c.requiredBondAmountV2 = requiredBondAmountV2
 
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initiate assetMgr config: %w, err")
+		return fmt.Errorf("failed to initiate assetMgr config: %w", err)
 	}
 
 	return nil

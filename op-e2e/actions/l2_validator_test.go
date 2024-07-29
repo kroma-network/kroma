@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
 
@@ -56,8 +55,7 @@ func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	rt := defaultRuntime(gt, setupSequencerTest, deltaTimeOffset)
 
 	// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test
-	newTerminationIndex := common.Big2
-	rt.assertRedeployValPoolToTerminate(newTerminationIndex)
+	rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
 
 	rt.setupHonestValidator(false)
 
@@ -69,7 +67,7 @@ func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	rt.depositToValPool(rt.validator)
 
 	// Submit outputs to ValidatorPool until newTerminationIndex
-	for i := uint64(0); new(big.Int).SetUint64(i).Cmp(newTerminationIndex) <= 0; i++ {
+	for i := uint64(0); new(big.Int).SetUint64(i).Cmp(defaultValPoolTerminationIndex) <= 0; i++ {
 		rt.submitL2Output()
 	}
 

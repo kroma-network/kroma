@@ -85,6 +85,17 @@ func (h *Helper) UnbondValPool(priv *ecdsa.PrivateKey) bool {
 	return receipt.Status == types.ReceiptStatusSuccessful
 }
 
+func (h *Helper) ApproveAssetToken(priv *ecdsa.PrivateKey, spender common.Address, amount *big.Int) {
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(priv, h.l1ChainID)
+	require.NoError(h.t, err)
+
+	tx, err := h.AssetTokenContract.Approve(transactOpts, spender, amount)
+	require.NoError(h.t, err)
+
+	_, err = wait.ForReceiptOK(context.Background(), h.l1Client, tx.Hash())
+	require.NoError(h.t, err)
+}
+
 func (h *Helper) RegisterToValMgr(priv *ecdsa.PrivateKey, amount *big.Int, withdrawAddr common.Address) {
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(priv, h.l1ChainID)
 	require.NoError(h.t, err)

@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"net"
 	"os"
@@ -843,7 +844,11 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 	if cfg.ValidatorVersion == valhelper.ValidatorV2 {
 		// register to ValidatorManager to be a validator
-		validatorHelper.RegisterToValMgr(cfg.Secrets.TrustedValidator, cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt(), cfg.Secrets.Addresses().TrustedValidator)
+		depositAmount := new(big.Int).Mul(cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt(), common.Big256)
+		validatorHelper.RegisterToValMgr(cfg.Secrets.TrustedValidator, depositAmount, cfg.Secrets.Addresses().TrustedValidator)
+
+		// set up ValidatorRewardVault(Mallory) to be able to provide asset tokens to AssetManager
+		validatorHelper.ApproveAssetToken(cfg.Secrets.Mallory, cfg.L1Deployments.AssetManagerProxy, new(big.Int).SetUint64(math.MaxUint64))
 
 		func() {
 			// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test

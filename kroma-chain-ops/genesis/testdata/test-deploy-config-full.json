@@ -71,7 +71,7 @@
   "validatorManagerMaxFinalizations": 10,
   "validatorManagerBaseReward": "0x1",
   "assetManagerKgh": "0xff000000000000000000000000000000000000ff",
-  "assetManagerVault": "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955",
+  "assetManagerVault": "0x14dc79964da2c08b23698b3d3cc7ca32193d9955",
   "assetManagerMinDelegationPeriod": 2,
   "assetManagerBondAmount": "0xa",
   "securityCouncilOwners": [
