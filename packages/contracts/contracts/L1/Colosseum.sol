@@ -417,7 +417,21 @@ contract Colosseum is Initializable, ISemver {
      * @notice Initializer.
      */
     function initialize(uint256[] memory _segmentsLengths) public initializer {
-        _setSegmentsLengths(_segmentsLengths);
+        // _segmentsLengths length should be an even number in order to let challenger submit
+        // invalidity proof at the last turn.
+        if (_segmentsLengths.length % 2 != 0) revert InvalidSegmentsLength();
+
+        uint256 sum = 1;
+        for (uint256 i = 0; i < _segmentsLengths.length; ) {
+            segmentsLengths[i] = _segmentsLengths[i];
+            sum = sum * (_segmentsLengths[i] - 1);
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (sum != L2_ORACLE_SUBMISSION_INTERVAL) revert InvalidSegmentsLength();
     }
 
     /**
@@ -446,8 +460,8 @@ contract Colosseum is Initializable, ISemver {
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
 
         if (challenge.turn >= TURN_INIT) {
-            ChallengeStatus status = _challengeStatus(challenge);
-            if (status != ChallengeStatus.CHALLENGER_TIMEOUT) revert ImproperChallengeStatus();
+            if (_challengeStatus(challenge) != ChallengeStatus.CHALLENGER_TIMEOUT)
+                revert ImproperChallengeStatus();
 
             _challengerTimeout(_outputIndex, msg.sender);
         }
@@ -658,10 +672,10 @@ contract Colosseum is Initializable, ISemver {
      * @param _challenger  Address of the challenger.
      */
     function challengerTimeout(uint256 _outputIndex, address _challenger) external {
-        Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
-        ChallengeStatus status = _challengeStatus(challenge);
-
-        if (status != ChallengeStatus.CHALLENGER_TIMEOUT) revert ImproperChallengeStatus();
+        if (
+            _challengeStatus(challenges[_outputIndex][_challenger]) !=
+            ChallengeStatus.CHALLENGER_TIMEOUT
+        ) revert ImproperChallengeStatus();
 
         _challengerTimeout(_outputIndex, _challenger);
     }
@@ -674,10 +688,10 @@ contract Colosseum is Initializable, ISemver {
      */
     function cancelChallenge(uint256 _outputIndex) external {
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
-        ChallengeStatus status = _challengeStatus(challenge);
 
-        if (!_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status))
-            revert CannotCancelChallenge();
+        if (
+            !_cancelIfOutputDeleted(_outputIndex, challenge.challenger, _challengeStatus(challenge))
+        ) revert CannotCancelChallenge();
     }
 
     /**
@@ -795,29 +809,6 @@ contract Colosseum is Initializable, ISemver {
     }
 
     /**
-     * @notice Validates and updates the lengths of segments.
-     *
-     * @param _segmentsLengths Lengths of segments.
-     */
-    function _setSegmentsLengths(uint256[] memory _segmentsLengths) private {
-        // _segmentsLengths length should be an even number in order to let challenger submit
-        // invalidity proof at the last turn.
-        if (_segmentsLengths.length % 2 != 0) revert InvalidSegmentsLength();
-
-        uint256 sum = 1;
-        for (uint256 i = 0; i < _segmentsLengths.length; ) {
-            segmentsLengths[i] = _segmentsLengths[i];
-            sum = sum * (_segmentsLengths[i] - 1);
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        if (sum != L2_ORACLE_SUBMISSION_INTERVAL) revert InvalidSegmentsLength();
-    }
-
-    /**
      * @notice Checks if the L2ToL1MesagePasser account is included in the given state root.
      *
      * @param _merkleProof                 Merkle proof of L2ToL1MessagePasser account against the state root.
@@ -924,8 +915,7 @@ contract Colosseum is Initializable, ISemver {
         address _challenger,
         ChallengeStatus _status
     ) private returns (bool) {
-        bytes32 outputRoot = L2_ORACLE.getL2Output(_outputIndex).outputRoot;
-        if (outputRoot != DELETED_OUTPUT_ROOT) {
+        if (L2_ORACLE.getL2Output(_outputIndex).outputRoot != DELETED_OUTPUT_ROOT) {
             return false;
         }
 
@@ -961,15 +951,21 @@ contract Colosseum is Initializable, ISemver {
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
-            address submitter = L2_ORACLE.getSubmitter(_outputIndex);
-            L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, submitter, _challenger);
+            L2_ORACLE.VALIDATOR_MANAGER().slash(
+                _outputIndex,
+                L2_ORACLE.getSubmitter(_outputIndex),
+                _challenger
+            );
             return;
         }
 
         // After output is finalized, the challenger's bond is included in the balance of output submitter.
         if (L2_ORACLE.isFinalized(_outputIndex)) {
-            address submitter = L2_ORACLE.getSubmitter(_outputIndex);
-            L2_ORACLE.VALIDATOR_POOL().releasePendingBond(_outputIndex, _challenger, submitter);
+            L2_ORACLE.VALIDATOR_POOL().releasePendingBond(
+                _outputIndex,
+                _challenger,
+                L2_ORACLE.getSubmitter(_outputIndex)
+            );
         } else {
             // Because the challenger lost, the challenger's bond is included in the bond for that output.
             L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, _challenger);
@@ -1013,8 +1009,7 @@ contract Colosseum is Initializable, ISemver {
      * @return The number of L2 blocks for the next turn.
      */
     function _nextSegSize(Types.Challenge storage _challenge) private view returns (uint256) {
-        uint8 turn = _challenge.turn;
-        return _challenge.segSize / (getSegmentsLength(turn) - 1);
+        return _challenge.segSize / (getSegmentsLength(_challenge.turn) - 1);
     }
 
     /**
@@ -1040,20 +1035,6 @@ contract Colosseum is Initializable, ISemver {
     }
 
     /**
-     * @notice Determines if the next turn is the challenger's turn.
-     *         Note that challenger turns are odd numbers and asserter turns are even numbers.
-     *
-     * @param _turn The current turn.
-     *
-     * @return Whether the next turn is the challenger's turn.
-     */
-    function _isNextForChallenger(uint8 _turn) private pure returns (bool) {
-        // If the _turn value is even, it means that the asserter has completed its turn,
-        // so the next turn will be the challenger's turn.
-        return _turn % 2 == 0;
-    }
-
-    /**
      * @notice Returns status of a given challenge.
      *
      * @param _challenge The challenge data.
@@ -1067,7 +1048,9 @@ contract Colosseum is Initializable, ISemver {
             return ChallengeStatus.NONE;
         }
 
-        bool isChallengerTurn = _isNextForChallenger(_challenge.turn);
+        // If the turn is even, it means that the asserter has completed its turn,
+        // so the next turn will be the challenger's turn.
+        bool isChallengerTurn = _challenge.turn % 2 == 0;
 
         // Check if it's a timed out challenge.
         if (_isPast(_challenge.timeoutAt)) {
@@ -1121,8 +1104,7 @@ contract Colosseum is Initializable, ISemver {
         uint256 _outputIndex,
         address _challenger
     ) external view returns (ChallengeStatus) {
-        Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
-        return _challengeStatus(challenge);
+        return _challengeStatus(challenges[_outputIndex][_challenger]);
     }
 
     /**
@@ -1147,8 +1129,7 @@ contract Colosseum is Initializable, ISemver {
      * @return Whether bisection is possible.
      */
     function isAbleToBisect(uint256 _outputIndex, address _challenger) public view returns (bool) {
-        Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
-        return _isAbleToBisect(challenge);
+        return _isAbleToBisect(challenges[_outputIndex][_challenger]);
     }
 
     /**
@@ -1159,7 +1140,8 @@ contract Colosseum is Initializable, ISemver {
      * @return Whether current timestamp is in challenge creation period.
      */
     function isInCreationPeriod(uint256 _outputIndex) external view returns (bool) {
-        Types.CheckpointOutput memory targetOutput = L2_ORACLE.getL2Output(_outputIndex);
-        return targetOutput.timestamp + CREATION_PERIOD_SECONDS >= block.timestamp;
+        return
+            L2_ORACLE.getL2Output(_outputIndex).timestamp + CREATION_PERIOD_SECONDS >=
+            block.timestamp;
     }
 }

@@ -292,7 +292,6 @@ def devnet_deploy(paths):
     run_command(['docker', 'compose', 'exec', 'kroma-validator',
                  'kroma-validator', 'deposit', '--amount', '1000000000'], cwd=paths.ops_bedrock_dir)
 
-    # TODO(seolaoh): set termination index of ValidatorPool to a smaller value when V2 goes live
     log.info("Register to ValidatorManager contract to be a validator...")
     run_command(
         [

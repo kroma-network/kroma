@@ -37,7 +37,10 @@ const deployFn: DeployFunction = async (hre) => {
           hre.deployConfig.validatorManagerCommissionChangeDelaySeconds,
         _roundDurationSeconds:
           hre.deployConfig.validatorManagerRoundDurationSeconds,
-        _jailPeriodSeconds: hre.deployConfig.validatorManagerJailPeriodSeconds,
+        _softJailPeriodSeconds:
+          hre.deployConfig.validatorManagerSoftJailPeriodSeconds,
+        _hardJailPeriodSeconds:
+          hre.deployConfig.validatorManagerHardJailPeriodSeconds,
         _jailThreshold: hre.deployConfig.validatorManagerJailThreshold,
         _maxOutputFinalizations:
           hre.deployConfig.validatorManagerMaxFinalizations,
@@ -85,8 +88,13 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'JAIL_PERIOD_SECONDS',
-        hre.deployConfig.validatorManagerJailPeriodSeconds
+        'SOFT_JAIL_PERIOD_SECONDS',
+        hre.deployConfig.validatorManagerSoftJailPeriodSeconds
+      )
+      await assertContractVariable(
+        contract,
+        'HARD_JAIL_PERIOD_SECONDS',
+        hre.deployConfig.validatorManagerHardJailPeriodSeconds
       )
       await assertContractVariable(
         contract,
