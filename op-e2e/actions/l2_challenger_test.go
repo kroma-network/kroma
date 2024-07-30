@@ -82,11 +82,9 @@ func ChallengeBasic(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
 
-	var beforeAsset *big.Int
-	var slashingAmount *big.Int
-	var taxAmount *big.Int
+	var beforeAsset, beforeAssetBonded *big.Int
 	if version == valhelper.ValidatorV2 {
-		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
+		_, _, beforeAsset, beforeAssetBonded, _ = rt.fetchValidatorStatus(rt.validator)
 	}
 
 interaction:
@@ -143,22 +141,11 @@ interaction:
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 	} else if version == valhelper.ValidatorV2 {
 		// check asserter has been slashed
-		valStatus, err := rt.validator.getValidatorStatus(rt.t)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, val.StatusRegistered, valStatus)
-
-		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.validator.address)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
-
-		inJail, err := rt.validator.isInJail(rt.t)
-		require.NoError(rt.t, err)
+		valStatus, inJail, afterAsset, afterAssetBonded, slashingAmount := rt.fetchValidatorStatus(rt.validator)
+		require.Equal(rt.t, val.StatusReady, valStatus)
 		require.True(rt.t, inJail)
-
-		// check security council has received tax
-		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
-		require.NoError(rt.t, err)
-		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
+		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
+		require.Equal(rt.t, beforeAssetBonded.Uint64()-slashingAmount.Uint64(), afterAssetBonded.Uint64())
 	}
 }
 
@@ -183,11 +170,9 @@ func ChallengeAsserterBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint6
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
 
-	var beforeAsset *big.Int
-	var slashingAmount *big.Int
-	var taxAmount *big.Int
+	var beforeAsset, beforeAssetBonded *big.Int
 	if version == valhelper.ValidatorV2 {
-		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
+		_, _, beforeAsset, beforeAssetBonded, _ = rt.fetchValidatorStatus(rt.validator)
 	}
 
 interaction:
@@ -239,22 +224,11 @@ interaction:
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 	} else if version == valhelper.ValidatorV2 {
 		// check asserter has been slashed
-		valStatus, err := rt.validator.getValidatorStatus(rt.t)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, val.StatusRegistered, valStatus)
-
-		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.validator.address)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
-
-		inJail, err := rt.validator.isInJail(rt.t)
-		require.NoError(rt.t, err)
+		valStatus, inJail, afterAsset, afterAssetBonded, slashingAmount := rt.fetchValidatorStatus(rt.validator)
+		require.Equal(rt.t, val.StatusReady, valStatus)
 		require.True(rt.t, inJail)
-
-		// check security council has received tax
-		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
-		require.NoError(rt.t, err)
-		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
+		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
+		require.Equal(rt.t, beforeAssetBonded.Uint64()-slashingAmount.Uint64(), afterAssetBonded.Uint64())
 	}
 }
 
@@ -278,11 +252,9 @@ func ChallengeChallengerBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uin
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
 
-	var beforeAsset *big.Int
-	var slashingAmount *big.Int
-	var taxAmount *big.Int
+	var beforeAsset, beforeAssetBonded *big.Int
 	if version == valhelper.ValidatorV2 {
-		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.challenger1.address)
+		_, _, beforeAsset, beforeAssetBonded, _ = rt.fetchValidatorStatus(rt.challenger1)
 	}
 
 interaction:
@@ -333,22 +305,11 @@ interaction:
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 	} else if version == valhelper.ValidatorV2 {
 		// check challenger has been slashed
-		valStatus, err := rt.challenger1.getValidatorStatus(rt.t)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, val.StatusRegistered, valStatus)
-
-		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.challenger1.address)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
-
-		inJail, err := rt.challenger1.isInJail(rt.t)
-		require.NoError(rt.t, err)
+		valStatus, inJail, afterAsset, afterAssetBonded, slashingAmount := rt.fetchValidatorStatus(rt.challenger1)
+		require.Equal(rt.t, val.StatusReady, valStatus)
 		require.True(rt.t, inJail)
-
-		// check security council has received tax
-		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
-		require.NoError(rt.t, err)
-		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
+		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
+		require.Equal(rt.t, beforeAssetBonded.Uint64()-slashingAmount.Uint64(), afterAssetBonded.Uint64())
 	}
 }
 
@@ -372,11 +333,9 @@ func ChallengeChallengerProvingTimeout(t *testing.T, deltaTimeOffset *hexutil.Ui
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
 
-	var beforeAsset *big.Int
-	var slashingAmount *big.Int
-	var taxAmount *big.Int
+	var beforeAsset, beforeAssetBonded *big.Int
 	if version == valhelper.ValidatorV2 {
-		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.challenger1.address)
+		_, _, beforeAsset, beforeAssetBonded, _ = rt.fetchValidatorStatus(rt.challenger1)
 	}
 
 interaction:
@@ -431,22 +390,11 @@ interaction:
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 	} else if version == valhelper.ValidatorV2 {
 		// check challenger has been slashed
-		valStatus, err := rt.challenger1.getValidatorStatus(rt.t)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, val.StatusRegistered, valStatus)
-
-		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.challenger1.address)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
-
-		inJail, err := rt.challenger1.isInJail(rt.t)
-		require.NoError(rt.t, err)
+		valStatus, inJail, afterAsset, afterAssetBonded, slashingAmount := rt.fetchValidatorStatus(rt.challenger1)
+		require.Equal(rt.t, val.StatusReady, valStatus)
 		require.True(rt.t, inJail)
-
-		// check security council has received tax
-		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
-		require.NoError(rt.t, err)
-		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
+		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
+		require.Equal(rt.t, beforeAssetBonded.Uint64()-slashingAmount.Uint64(), afterAssetBonded.Uint64())
 	}
 }
 
@@ -471,11 +419,10 @@ func ChallengeInvalidProofFail(t *testing.T, deltaTimeOffset *hexutil.Uint64, ve
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
 
-	var taxAmount *big.Int
+	var beforeAssetChal, beforeAssetVal, beforeAssetBondedChal, beforeAssetBondedVal *big.Int
 	if version == valhelper.ValidatorV2 {
-		// if the challenger proves fault with invalid proof, asserter will be slashed
-		// after security council dismisses the challenge, the slashed asset should be handled manually
-		_, _, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
+		_, _, beforeAssetChal, beforeAssetBondedChal, _ = rt.fetchValidatorStatus(rt.challenger1)
+		_, _, beforeAssetVal, beforeAssetBondedVal, _ = rt.fetchValidatorStatus(rt.validator)
 	}
 
 interaction:
@@ -551,15 +498,19 @@ interaction:
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 	} else if version == valhelper.ValidatorV2 {
-		// check asserter has been unjailed by guardian
-		inJail, err := rt.validator.isInJail(rt.t)
-		require.NoError(rt.t, err)
-		require.False(rt.t, inJail)
+		// check challenger has been slashed
+		valStatus, inJail, afterAsset, afterAssetBonded, slashingAmount := rt.fetchValidatorStatus(rt.challenger1)
+		require.Equal(rt.t, val.StatusReady, valStatus)
+		require.True(rt.t, inJail)
+		require.Equal(rt.t, beforeAssetChal.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
+		require.Equal(rt.t, beforeAssetBondedChal.Uint64()-slashingAmount.Uint64(), afterAssetBonded.Uint64())
 
-		// check security council has received tax
-		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
-		require.NoError(rt.t, err)
-		require.Equal(t, taxAmount.Uint64(), bal.Uint64())
+		// check asserter has been reverted slash by guardian
+		valStatus, inJail, afterAsset, afterAssetBonded, slashingAmount = rt.fetchValidatorStatus(rt.validator)
+		require.Equal(rt.t, val.StatusActive, valStatus)
+		require.False(rt.t, inJail)
+		require.Equal(rt.t, beforeAssetVal.Uint64(), afterAsset.Uint64())
+		require.Equal(rt.t, beforeAssetBondedVal.Uint64(), afterAssetBonded.Uint64())
 	}
 }
 
@@ -584,11 +535,9 @@ func ChallengeForceDeleteOutputBySecurityCouncil(t *testing.T, deltaTimeOffset *
 	// create challenge
 	rt.setupChallenge(rt.challenger1, version)
 
-	var beforeAsset *big.Int
-	var slashingAmount *big.Int
-	var taxAmount *big.Int
+	var beforeAsset, beforeAssetBonded *big.Int
 	if version == valhelper.ValidatorV2 {
-		beforeAsset, slashingAmount, taxAmount = rt.fetchChallengeAssets(rt.validator.address)
+		_, _, beforeAsset, beforeAssetBonded, _ = rt.fetchValidatorStatus(rt.validator)
 	}
 
 interaction:
@@ -651,22 +600,11 @@ interaction:
 		require.Equal(rt.t, big.NewInt(2*rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64()), bond.Amount)
 	} else if version == valhelper.ValidatorV2 {
 		// check asserter has been slashed
-		valStatus, err := rt.validator.getValidatorStatus(rt.t)
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, val.StatusRegistered, valStatus)
-
-		inJail, err := rt.validator.isInJail(rt.t)
-		require.NoError(rt.t, err)
+		valStatus, inJail, afterAsset, afterAssetBonded, slashingAmount := rt.fetchValidatorStatus(rt.validator)
+		require.Equal(rt.t, val.StatusReady, valStatus)
 		require.True(rt.t, inJail)
-
-		afterAsset, err := rt.assetMgrContract.TotalKroAssets(nil, rt.validator.address)
-		require.NoError(rt.t, err)
 		require.Equal(rt.t, beforeAsset.Uint64()-slashingAmount.Uint64(), afterAsset.Uint64())
-
-		// check security council has received tax (in this case, tax is double: challenger timeout and force delete output)
-		bal, err := rt.assetTokenContract.BalanceOf(nil, rt.sd.DeploymentsL1.SecurityCouncilProxy)
-		require.NoError(rt.t, err)
-		require.Equal(t, taxAmount.Uint64()*2, bal.Uint64())
+		require.Equal(rt.t, beforeAssetBonded.Uint64()-slashingAmount.Uint64(), afterAssetBonded.Uint64())
 	}
 }
 
@@ -741,6 +679,10 @@ interaction1:
 		balance, err := rt.valPoolContract.BalanceOf(nil, rt.challenger2.address)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, balance.Int64(), defaultDepositAmount-rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt().Int64())
+	} else if version == valhelper.ValidatorV2 {
+		// check bond amount before challenge is canceled
+		_, _, _, bond, slashingAmount := rt.fetchValidatorStatus(rt.challenger2)
+		require.Equal(t, slashingAmount.Uint64(), bond.Uint64())
 	}
 
 	// progress challenge by challenger 2
@@ -777,5 +719,9 @@ interaction2:
 		balance, err := rt.valPoolContract.BalanceOf(nil, rt.challenger2.address)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, balance.Int64(), int64(defaultDepositAmount))
+	} else if version == valhelper.ValidatorV2 {
+		// check bond amount released after challenge canceled
+		_, _, _, bond, _ := rt.fetchValidatorStatus(rt.challenger2)
+		require.Equal(t, uint64(0), bond.Uint64())
 	}
 }

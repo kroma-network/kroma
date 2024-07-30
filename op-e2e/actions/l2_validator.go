@@ -135,6 +135,10 @@ func (v *L2Validator) CalculateWaitTime(t Testing) time.Duration {
 	outputIndex, err := v.l2os.FetchNextOutputIndex(t.Ctx())
 	require.NoError(t, err)
 
+	canSubmitOutput, err := v.l2os.CanSubmitOutput(t.Ctx(), outputIndex)
+	require.NoError(t, err)
+	require.True(t, canSubmitOutput)
+
 	calculatedWaitTime := v.l2os.CalculateWaitTime(t.Ctx(), nextBlockNumber, outputIndex)
 	return calculatedWaitTime
 }
@@ -208,18 +212,18 @@ func (v *L2Validator) isValPoolTerminated(t Testing) bool {
 	return v.l2os.IsValPoolTerminated(outputIndex)
 }
 
-func (v *L2Validator) getValidatorStatus(t Testing) (uint8, error) {
+func (v *L2Validator) getValidatorStatus(t Testing) uint8 {
 	validatorStatus, err := v.l2os.GetValidatorStatus(t.Ctx())
 	require.NoError(t, err)
 
-	return validatorStatus, err
+	return validatorStatus
 }
 
-func (v *L2Validator) isInJail(t Testing) (bool, error) {
+func (v *L2Validator) isInJail(t Testing) bool {
 	inJail, err := v.l2os.IsInJail(t.Ctx())
 	require.NoError(t, err)
 
-	return inJail, err
+	return inJail
 }
 
 // sendTx reimplements creating & sending transactions because we need to do the final send as async in

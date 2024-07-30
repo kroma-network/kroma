@@ -31,8 +31,8 @@ func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common
 	}, "challenge is already in progress")
 
 	canCreateChallenge, err := v.challenger.CanCreateChallenge(t.Ctx(), outputIndex)
-	require.NoError(t, err, "unable to check if challenger is in the status that can create challenge")
-	require.True(t, canCreateChallenge, "challenger is not in the status that can create challenge")
+	require.NoError(t, err, "unable to check if challenger can create challenge")
+	require.True(t, canCreateChallenge, "challenger cannot create challenge")
 
 	tx, err := v.challenger.CreateChallenge(t.Ctx(), outputRange)
 	require.NoError(t, err, "unable to create create challenge tx")

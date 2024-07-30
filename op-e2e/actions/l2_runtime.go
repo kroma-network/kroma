@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
@@ -260,6 +259,11 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 		require.Equal(rt.t, rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt(), bond.Amount)
 	} else if version == valhelper.ValidatorV2 {
 		rt.registerToValMgr(challenger)
+
+		// check bond amount before create challenge
+		bond, err := rt.assetMgrContract.TotalValidatorKroBonded(nil, challenger.address)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, uint64(0), bond.Uint64())
 	}
 
 	// submit create challenge tx
@@ -288,6 +292,11 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 		cBal, err := rt.valPoolContract.BalanceOf(nil, challenger.address)
 		require.NoError(rt.t, err)
 		require.Equal(rt.t, new(big.Int).Sub(new(big.Int).SetInt64(defaultDepositAmount), rt.dp.DeployConfig.ValidatorPoolRequiredBondAmount.ToInt()), cBal)
+	} else if version == valhelper.ValidatorV2 {
+		// check bond amount after create challenge
+		bond, err := rt.assetMgrContract.TotalValidatorKroBonded(nil, challenger.address)
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, rt.dp.DeployConfig.AssetManagerBondAmount.ToInt().Uint64(), bond.Uint64())
 	}
 }
 
@@ -304,6 +313,7 @@ func (rt *Runtime) depositToValPool(validator *L2Validator) {
 
 func (rt *Runtime) registerToValMgr(validator *L2Validator) {
 	minActivateAmount := rt.dp.DeployConfig.ValidatorManagerMinActivateAmount.ToInt()
+	minActivateAmount = new(big.Int).Mul(minActivateAmount, common.Big256)
 
 	// approve governance token
 	validator.ActApprove(rt.t, minActivateAmount)
@@ -314,8 +324,7 @@ func (rt *Runtime) registerToValMgr(validator *L2Validator) {
 	rt.includeL1BlockBySender(validator.address)
 
 	// check validator status is active
-	status, err := validator.getValidatorStatus(rt.t)
-	require.NoError(rt.t, err)
+	status := validator.getValidatorStatus(rt.t)
 	require.Equal(rt.t, val.StatusActive, status)
 }
 
@@ -354,25 +363,17 @@ func (rt *Runtime) submitL2Output() {
 	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "submission failed")
 }
 
-func (rt *Runtime) fetchChallengeAssets(loser common.Address) (*big.Int, *big.Int, *big.Int) {
-	slashingRate, err := rt.assetMgrContract.SLASHINGRATE(nil)
+func (rt *Runtime) fetchValidatorStatus(validator *L2Validator) (uint8, bool, *big.Int, *big.Int, *big.Int) {
+	valStatus := validator.getValidatorStatus(rt.t)
+	inJail := validator.isInJail(rt.t)
+	slashingAmount, err := rt.assetMgrContract.BONDAMOUNT(nil)
 	require.NoError(rt.t, err)
-	slashingRateDenom, err := rt.assetMgrContract.SLASHINGRATEDENOM(nil)
+	validatorAsset, err := rt.assetMgrContract.TotalValidatorKro(nil, validator.address)
 	require.NoError(rt.t, err)
-	taxRate, err := rt.assetMgrContract.TAXNUMERATOR(nil)
-	require.NoError(rt.t, err)
-	taxDenom, err := rt.assetMgrContract.TAXDENOMINATOR(nil)
-	require.NoError(rt.t, err)
-	minSlashingAmount, err := rt.assetMgrContract.MINSLASHINGAMOUNT(nil)
-	require.NoError(rt.t, err)
-	totalAsset, err := rt.assetMgrContract.TotalKroAssets(nil, loser)
+	validatorAssetBonded, err := rt.assetMgrContract.TotalValidatorKroBonded(nil, validator.address)
 	require.NoError(rt.t, err)
 
-	slashingAmount := new(big.Int).Div(new(big.Int).Mul(totalAsset, slashingRate), slashingRateDenom)
-	slashingAmount = math.BigMax(slashingAmount, minSlashingAmount)
-	taxAmount := new(big.Int).Div(new(big.Int).Mul(slashingAmount, taxRate), taxDenom)
-
-	return totalAsset, slashingAmount, taxAmount
+	return valStatus, inJail, validatorAsset, validatorAssetBonded, slashingAmount
 }
 
 func (rt *Runtime) includeL1BlockBySender(from common.Address) {

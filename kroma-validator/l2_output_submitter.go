@@ -159,15 +159,16 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 		if err != nil {
 			if errors.Is(err, errors.New("method 'BOND_AMOUNT' not found")) {
 				requiredBondAmountV2 = big.NewInt(0)
+			} else {
+				return fmt.Errorf("failed to get required bond amount: %w", err)
 			}
-			return fmt.Errorf("failed to get required bond amount: %w", err)
 		}
 		l.requiredBondAmountV2 = requiredBondAmountV2
 
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initiate assetMgr config: %w, err")
+		return fmt.Errorf("failed to initiate assetMgr config: %w", err)
 	}
 
 	return nil
@@ -230,14 +231,16 @@ func (l *L2OutputSubmitter) repeatSubmitL2Output(ctx context.Context) {
 // If it needs to wait, it will calculate how long the validator should wait and
 // try again after the delay.
 func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) (time.Duration, error) {
+	defaultWaitTime := l.cfg.OutputSubmitterRetryInterval
+
 	nextBlockNumber, err := l.FetchNextBlockNumber(ctx)
 	if err != nil {
-		return l.cfg.OutputSubmitterRetryInterval, err
+		return defaultWaitTime, err
 	}
 
 	outputIndex, err := l.FetchNextOutputIndex(ctx)
 	if err != nil {
-		return l.cfg.OutputSubmitterRetryInterval, err
+		return defaultWaitTime, err
 	}
 
 	calculatedWaitTime := l.CalculateWaitTime(ctx, nextBlockNumber, outputIndex)
@@ -245,8 +248,13 @@ func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) (time.Duratio
 		return calculatedWaitTime, nil
 	}
 
+	canSubmitOutput, err := l.CanSubmitOutput(ctx, outputIndex)
+	if err != nil || !canSubmitOutput {
+		return defaultWaitTime, err
+	}
+
 	if err = l.doSubmitL2Output(ctx, nextBlockNumber, outputIndex); err != nil {
-		return l.cfg.OutputSubmitterRetryInterval, err
+		return defaultWaitTime, err
 	}
 
 	// successfully submitted. start next loop immediately.
@@ -286,7 +294,7 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 		return defaultWaitTime
 	}
 
-	if err = l.assertCanSubmitOutput(ctx, outputIndex); err != nil {
+	if _, err = l.CanSubmitOutput(ctx, outputIndex); err != nil {
 		l.log.Error("failed to check the validator can submit output", "err", err)
 		return defaultWaitTime
 	}
@@ -321,8 +329,8 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 	return 0
 }
 
-// assertCanSubmitOutput asserts that the validator satisfies the condition to submit L2Output.
-func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputIndex *big.Int) error {
+// CanSubmitOutput checks that the validator satisfies the condition to submit L2Output.
+func (l *L2OutputSubmitter) CanSubmitOutput(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
@@ -330,37 +338,36 @@ func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputInd
 	var balance, requiredBondAmount *big.Int
 	if l.IsValPoolTerminated(outputIndex) {
 		if isInJail, err := l.IsInJail(ctx); err != nil {
-			return err
+			return false, err
 		} else if isInJail {
 			l.log.Warn("validator is in jail")
-			return nil
+			return false, nil
 		}
 
 		validatorStatus, err := l.GetValidatorStatus(ctx)
 		if err != nil {
-			return err
+			return false, err
 		}
 		l.metr.RecordValidatorStatus(validatorStatus)
 
 		if validatorStatus != StatusActive {
 			l.log.Warn("validator is not in the status to submit output", "currentStatus", validatorStatus)
-			return nil
+			return false, nil
 		}
 
 		balance, err = l.assetMgrContract.TotalValidatorKroNotBonded(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
-			return fmt.Errorf("failed to fetch balance: %w", err)
+			return false, fmt.Errorf("failed to fetch balance: %w", err)
 		}
 		requiredBondAmount = l.requiredBondAmountV2
 	} else {
 		var err error
 		balance, err = l.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
 		if err != nil {
-			return fmt.Errorf("failed to fetch deposit amount: %w", err)
+			return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
 		}
 		requiredBondAmount = l.requiredBondAmountV1
 	}
-
 	l.metr.RecordUnbondedDepositAmount(balance)
 
 	// Check if the unbonded deposit amount is less than the required bond amount
@@ -370,12 +377,11 @@ func (l *L2OutputSubmitter) assertCanSubmitOutput(ctx context.Context, outputInd
 			"requiredBondAmount", requiredBondAmount,
 			"unbonded_deposit", balance,
 		)
-		return nil
+		return false, nil
 	}
 
 	l.log.Info("unbonded deposit amount and bond amount", "unbonded_deposit", balance, "bond", requiredBondAmount)
-
-	return nil
+	return true, nil
 }
 
 func (l *L2OutputSubmitter) FetchNextOutputIndex(ctx context.Context) (*big.Int, error) {

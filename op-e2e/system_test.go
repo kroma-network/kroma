@@ -318,10 +318,10 @@ func TestValidatorSystemUpgradeToV2(t *testing.T) {
 	validatorHelper.Delegate(cfg.Secrets.Challenger1, validatorAddr, cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt())
 
 	// Capture initial asset amount and validator weight
-	beforeAmount, err := validatorHelper.AssetMgrContract.TotalKroAssets(&bind.CallOpts{}, validatorAddr)
+	beforeDelegateAmount, err := validatorHelper.AssetMgrContract.TotalKroAssets(&bind.CallOpts{}, validatorAddr)
 	require.NoError(t, err)
 
-	beforeWeight, err := validatorHelper.AssetMgrContract.ReflectiveWeight(&bind.CallOpts{}, validatorAddr)
+	beforeDepositAmount, err := validatorHelper.AssetMgrContract.TotalValidatorKro(&bind.CallOpts{}, validatorAddr)
 	require.NoError(t, err)
 
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
@@ -360,17 +360,19 @@ func TestValidatorSystemUpgradeToV2(t *testing.T) {
 			baseReward := new(big.Int).Mul(evt.BaseReward, finalizedOutputNum)
 			validatorReward := new(big.Int).Mul(evt.ValidatorReward, finalizedOutputNum)
 
-			afterAmount, err := validatorHelper.AssetMgrContract.TotalKroAssets(&bind.CallOpts{}, validatorAddr)
+			afterDelegateAmount, err := validatorHelper.AssetMgrContract.TotalKroAssets(&bind.CallOpts{}, validatorAddr)
 			require.NoError(t, err)
-			require.Equal(t, new(big.Int).Add(beforeAmount, baseReward), afterAmount)
+			require.Equal(t, new(big.Int).Add(beforeDelegateAmount, baseReward), afterDelegateAmount)
 
-			afterWeight, err := validatorHelper.AssetMgrContract.ReflectiveWeight(&bind.CallOpts{}, validatorAddr)
+			afterDepositAmount, err := validatorHelper.AssetMgrContract.TotalValidatorKro(&bind.CallOpts{}, validatorAddr)
 			require.NoError(t, err)
-			require.Equal(t, new(big.Int).Add(beforeWeight, new(big.Int).Add(baseReward, validatorReward)), afterWeight)
+			require.Equal(t, new(big.Int).Add(beforeDepositAmount, validatorReward), afterDepositAmount)
 
+			reflectiveWeight, err := validatorHelper.AssetMgrContract.ReflectiveWeight(&bind.CallOpts{}, validatorAddr)
+			require.NoError(t, err)
 			actualWeight, err := validatorHelper.ValMgrContract.GetWeight(&bind.CallOpts{}, validatorAddr)
 			require.NoError(t, err)
-			require.Equal(t, afterWeight, actualWeight)
+			require.Equal(t, reflectiveWeight, actualWeight)
 
 			return
 		default:
@@ -1762,8 +1764,8 @@ func TestChallengeV2(t *testing.T) {
 	validatorHelper := sys.ValidatorHelper()
 
 	// Register to ValidatorManager to be a challenger
-	beforeAmount := cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt()
-	validatorHelper.RegisterToValMgr(cfg.Secrets.Challenger1, beforeAmount, cfg.Secrets.Addresses().Challenger1)
+	validatorHelper.RegisterToValMgr(cfg.Secrets.Challenger1,
+		cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt(), cfg.Secrets.Addresses().Challenger1)
 
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
 	require.NoError(t, err)
@@ -1777,6 +1779,7 @@ func TestChallengeV2(t *testing.T) {
 	targetOutputOracleIndex := uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval)))
 	challengerAddr := cfg.Secrets.Addresses().Challenger1
 	validatorAddr := cfg.Secrets.Addresses().TrustedValidator
+	beforeAmount, err := validatorHelper.AssetMgrContract.TotalValidatorKro(&bind.CallOpts{}, validatorAddr)
 
 	// Subscribe slash event in ValidatorManager
 	slashedCh := make(chan *bindings.ValidatorManagerSlashed, 1)
@@ -1800,19 +1803,13 @@ func TestChallengeV2(t *testing.T) {
 			require.Equal(t, targetOutputOracleIndex, evt.OutputIndex.Uint64())
 
 			slashedAmount := evt.Amount
-			afterAmount, err := validatorHelper.AssetMgrContract.TotalKroAssets(&bind.CallOpts{}, validatorAddr)
+			afterAmount, err := validatorHelper.AssetMgrContract.TotalValidatorKro(&bind.CallOpts{}, validatorAddr)
 			require.NoError(t, err)
 			require.Equal(t, new(big.Int).Sub(beforeAmount, slashedAmount).Uint64(), afterAmount.Uint64())
 
-			taxNum, err := validatorHelper.AssetMgrContract.TAXNUMERATOR(&bind.CallOpts{})
+			inJail, err := validatorHelper.ValMgrContract.InJail(&bind.CallOpts{}, validatorAddr)
 			require.NoError(t, err)
-			taxDenom, err := validatorHelper.AssetMgrContract.TAXDENOMINATOR(&bind.CallOpts{})
-			require.NoError(t, err)
-			taxAmount := new(big.Int).Div(new(big.Int).Mul(slashedAmount, taxNum), taxDenom)
-
-			scBalance, err := validatorHelper.AssetTokenContract.BalanceOf(&bind.CallOpts{}, cfg.L1Deployments.SecurityCouncilProxy)
-			require.NoError(t, err)
-			require.Equal(t, taxAmount.Uint64(), scBalance.Uint64())
+			require.True(t, inJail)
 
 			slashed = true
 		default:
@@ -1821,6 +1818,10 @@ func TestChallengeV2(t *testing.T) {
 
 			if challengeStatus == chal.StatusReadyToProve {
 				challengeCreated = true
+
+				bond, err := validatorHelper.AssetMgrContract.TotalValidatorKroBonded(&bind.CallOpts{}, challengerAddr)
+				require.NoError(t, err)
+				require.Equal(t, cfg.DeployConfig.AssetManagerBondAmount.ToInt().Uint64(), bond.Uint64())
 			}
 			if !challengeCreated {
 				continue
