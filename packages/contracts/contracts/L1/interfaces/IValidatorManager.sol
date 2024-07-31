@@ -241,6 +241,11 @@ interface IValidatorManager {
     error SameCommissionRate();
 
     /**
+     * @notice Reverts when the commission rate change has not been initiated.
+     */
+    error NotInitiatedCommissionChange();
+
+    /**
      * @notice Reverts when the delay of commission rate change finalization has not elapsed.
      */
     error NotElapsedCommissionChangeDelay();
@@ -275,6 +280,15 @@ interface IValidatorManager {
      *         the validator should be activated.
      */
     function activateValidator() external;
+
+    /**
+     * @notice Tries to activate a validator and adds the validator to validator tree. To submit
+     *         outputs, the validator should be activated. This function can only be called by
+     *         AssetManager.
+     *
+     * @param validator Address of the validator.
+     */
+    function tryActivateValidator(address validator) external;
 
     /**
      * @notice Handles some essential actions such as reward distribution, jail handling, next

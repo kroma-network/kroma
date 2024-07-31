@@ -146,6 +146,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
+     * @notice A modifier that only allows AssetManager contract to call.
+     */
+    modifier onlyAssetManager() {
+        if (msg.sender != address(ASSET_MANAGER)) revert NotAllowedCaller();
+        _;
+    }
+
+    /**
      * @notice Semantic version.
      * @custom:semver 1.0.0
      */
@@ -216,6 +224,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
+    function tryActivateValidator(address validator) external onlyAssetManager {
+        if (getStatus(validator) == ValidatorStatus.READY && !inJail(validator))
+            _activateValidator(validator);
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
     function afterSubmitL2Output(uint256 outputIndex) external onlyL2OutputOracle {
         _distributeReward();
 
@@ -262,8 +278,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (getStatus(msg.sender) < ValidatorStatus.REGISTERED || inJail(msg.sender))
             revert ImproperValidatorStatus();
 
-        if (block.timestamp < canFinalizeCommissionChangeAt(msg.sender))
-            revert NotElapsedCommissionChangeDelay();
+        uint128 canFinalizeAt = canFinalizeCommissionChangeAt(msg.sender);
+        if (canFinalizeAt == COMMISSION_CHANGE_DELAY_SECONDS) revert NotInitiatedCommissionChange();
+        if (block.timestamp < canFinalizeAt) revert NotElapsedCommissionChangeDelay();
 
         Validator storage validatorInfo = _validatorInfo[msg.sender];
         uint8 oldCommissionRate = validatorInfo.commissionRate;

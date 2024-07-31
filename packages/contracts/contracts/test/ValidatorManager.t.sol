@@ -273,26 +273,6 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         valMgr.registerValidator(assets, 10, address(0));
     }
 
-    function test_activateValidator_succeeds() external {
-        uint32 count = valMgr.activatedValidatorCount();
-
-        _registerValidator(trusted, minActivateAmount - 1);
-        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.REGISTERED);
-        vm.startPrank(trusted);
-        assetToken.approve(address(assetMgr), 1);
-        assetMgr.deposit(1);
-        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.READY);
-
-        vm.expectEmit(true, false, false, true, address(valMgr));
-        emit ValidatorActivated(trusted, block.timestamp);
-        valMgr.activateValidator();
-        vm.stopPrank();
-
-        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
-        assertEq(valMgr.activatedValidatorCount(), count + 1);
-        assertEq(valMgr.getWeight(trusted), minActivateAmount);
-    }
-
     function test_activateValidator_notValidator_reverts() external {
         assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.NONE);
 
@@ -348,6 +328,24 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.prank(trusted);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
         valMgr.activateValidator();
+    }
+
+    function test_tryActivateValidator_succeeds() external {
+        uint32 count = valMgr.activatedValidatorCount();
+
+        _registerValidator(trusted, minActivateAmount - 1);
+        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.REGISTERED);
+
+        vm.startPrank(trusted);
+        assetToken.approve(address(assetMgr), 1);
+        vm.expectEmit(true, false, false, true, address(valMgr));
+        emit ValidatorActivated(trusted, block.timestamp);
+        assetMgr.deposit(1);
+        vm.stopPrank();
+
+        assertTrue(valMgr.getStatus(trusted) == IValidatorManager.ValidatorStatus.ACTIVE);
+        assertEq(valMgr.activatedValidatorCount(), count + 1);
+        assertEq(valMgr.getWeight(trusted), minActivateAmount);
     }
 
     function test_afterSubmitL2Output_distributeReward_succeeds() external {
@@ -621,6 +619,14 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.NotElapsedCommissionChangeDelay.selector);
+        valMgr.finalizeCommissionChange();
+    }
+
+    function test_finalizeCommissionChange_notInitiated_reverts() external {
+        _registerValidator(trusted, minActivateAmount);
+
+        vm.prank(trusted);
+        vm.expectRevert(IValidatorManager.NotInitiatedCommissionChange.selector);
         valMgr.finalizeCommissionChange();
     }
 

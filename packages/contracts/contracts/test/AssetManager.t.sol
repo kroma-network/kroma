@@ -225,6 +225,42 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(assetToken.balanceOf(validator), beforeBalance - bondAmount);
     }
 
+    function test_deposit_activate_succeeds() external {
+        _registerValidator(minActivateAmount - 1);
+        assertEq(valMgr.getWeight(validator), 0);
+
+        vm.startPrank(validator);
+        assetToken.approve(address(assetMgr), 1);
+        assetMgr.deposit(1);
+
+        assertEq(valMgr.getWeight(validator), minActivateAmount);
+    }
+
+    function test_deposit_notActivate_succeeds() external {
+        _registerValidator(minActivateAmount - 2);
+        assertEq(valMgr.getWeight(validator), 0);
+
+        vm.startPrank(validator);
+        assetToken.approve(address(assetMgr), 1);
+        assetMgr.deposit(1);
+
+        assertEq(valMgr.getWeight(validator), 0);
+    }
+
+    function test_deposit_inJailNotActivate_succeeds() external {
+        _registerValidator(minActivateAmount - 1);
+        assertEq(valMgr.getWeight(validator), 0);
+
+        mockValMgr.sendToJail(validator);
+        assertTrue(valMgr.inJail(validator));
+
+        vm.startPrank(validator);
+        assetToken.approve(address(assetMgr), 1);
+        assetMgr.deposit(1);
+
+        assertEq(valMgr.getWeight(validator), 0);
+    }
+
     function test_deposit_zeroAsset_reverts() external {
         vm.expectRevert(IAssetManager.NotAllowedZeroInput.selector);
         assetMgr.deposit(0);
