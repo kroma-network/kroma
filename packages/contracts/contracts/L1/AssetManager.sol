@@ -303,6 +303,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
 
         _deposit(msg.sender, assets, true);
         emit Deposited(msg.sender, assets);
+
+        VALIDATOR_MANAGER.tryActivateValidator(msg.sender);
     }
 
     /**
