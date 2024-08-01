@@ -697,7 +697,8 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 		return false, nil
 	}
 
-	c.log.Info("unbonded deposit amount and bond amount", "unbonded_deposit", balance, "bond", requiredBondAmount)
+	c.log.Info("unbonded deposit amount and required bond amount",
+		"unbonded_deposit", balance, "required_bond", requiredBondAmount)
 
 	return true, nil
 }

@@ -370,7 +370,9 @@ func (l *L2OutputSubmitter) CanSubmitOutput(ctx context.Context, outputIndex *bi
 		return false, nil
 	}
 
-	l.log.Info("unbonded deposit amount and bond amount", "unbonded_deposit", balance, "bond", requiredBondAmount)
+	l.log.Info("unbonded deposit amount and required bond amount",
+		"unbonded_deposit", balance, "required_bond", requiredBondAmount)
+
 	return true, nil
 }
 
