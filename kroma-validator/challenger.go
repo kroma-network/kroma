@@ -169,9 +169,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 		defer cCancel()
 		valPoolTerminationIndex, err := c.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
-			// If method is not in ValidatorPool, set the termination index to big value to ensure it sticks to validator system V1.
-			c.log.Error("failed to get validator pool termination index", "err", err)
-			valPoolTerminationIndex = maxValPoolTerminationIndex
+			return fmt.Errorf("failed to get valPool termination index: %w", err)
 		}
 		c.valPoolTerminationIndex = valPoolTerminationIndex
 
@@ -181,22 +179,19 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 		return fmt.Errorf("failed to initiate valPool config: %w", err)
 	}
 
-	// Init asset manager config only when termination index is set properly
-	if c.valPoolTerminationIndex.Cmp(maxValPoolTerminationIndex) == -1 {
-		err = contractWatcher.WatchUpgraded(c.cfg.AssetManagerAddr, func() error {
-			cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-			defer cCancel()
-			requiredBondAmountV2, err := c.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
-			if err != nil {
-				return fmt.Errorf("failed to get required bond amount: %w", err)
-			}
-			c.requiredBondAmountV2 = requiredBondAmountV2
-
-			return nil
-		})
+	err = contractWatcher.WatchUpgraded(c.cfg.AssetManagerAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		requiredBondAmountV2, err := c.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
-			return fmt.Errorf("failed to initiate assetMgr config: %w", err)
+			return fmt.Errorf("failed to get required bond amount of assetMgr: %w", err)
 		}
+		c.requiredBondAmountV2 = requiredBondAmountV2
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate assetMgr config: %w", err)
 	}
 
 	return nil

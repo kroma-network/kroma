@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -31,8 +30,6 @@ const (
 )
 
 var PublicRoundAddress = common.HexToAddress(publicRoundHex)
-
-var maxValPoolTerminationIndex = big.NewInt(math.MaxUint32)
 
 // L2OutputSubmitter is responsible for submitting outputs.
 type L2OutputSubmitter struct {
@@ -139,9 +136,7 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 		defer cCancel()
 		valPoolTerminationIndex, err := l.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
-			// If method is not in ValidatorPool, set the termination index to big value to ensure it sticks to validator system V1.
-			l.log.Error("failed to get validator pool termination index", "err", err)
-			valPoolTerminationIndex = maxValPoolTerminationIndex
+			return fmt.Errorf("failed to get valPool termination index: %w", err)
 		}
 		l.valPoolTerminationIndex = valPoolTerminationIndex
 
@@ -151,22 +146,19 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 		return fmt.Errorf("failed to initiate valPool config: %w", err)
 	}
 
-	// Init asset manager config only when termination index is set properly
-	if l.valPoolTerminationIndex.Cmp(maxValPoolTerminationIndex) == -1 {
-		err = contractWatcher.WatchUpgraded(l.cfg.AssetManagerAddr, func() error {
-			cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
-			defer cCancel()
-			requiredBondAmountV2, err := l.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
-			if err != nil {
-				return fmt.Errorf("failed to get required bond amount: %w", err)
-			}
-			l.requiredBondAmountV2 = requiredBondAmountV2
-
-			return nil
-		})
+	err = contractWatcher.WatchUpgraded(l.cfg.AssetManagerAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		requiredBondAmountV2, err := l.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
-			return fmt.Errorf("failed to initiate assetMgr config: %w", err)
+			return fmt.Errorf("failed to get required bond amount of assetMgr: %w", err)
 		}
+		l.requiredBondAmountV2 = requiredBondAmountV2
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate assetMgr config: %w", err)
 	}
 
 	return nil
