@@ -640,7 +640,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         emit ValidatorUnjailed(asserter);
         vm.expectEmit(true, false, false, true, address(valMgr));
         emit ValidatorActivated(asserter, block.timestamp);
-        valMgr.tryUnjail(asserter);
+        valMgr.tryUnjail();
 
         assertEq(valMgr.noSubmissionCount(asserter), 0);
         assertFalse(valMgr.inJail(asserter));
@@ -650,15 +650,15 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_tryUnjail_notInJail_reverts() external {
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
-        valMgr.tryUnjail(asserter);
+        valMgr.tryUnjail();
     }
 
     function test_tryUnjail_senderNotSelf_reverts() external {
         test_afterSubmitL2Output_tryJail_succeeds();
 
         vm.prank(trusted);
-        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
-        valMgr.tryUnjail(asserter);
+        vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
+        valMgr.tryUnjail();
     }
 
     function test_tryUnjail_periodNotElapsed_reverts() external {
@@ -666,7 +666,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         vm.prank(asserter);
         vm.expectRevert(IValidatorManager.NotElapsedJailPeriod.selector);
-        valMgr.tryUnjail(asserter);
+        valMgr.tryUnjail();
     }
 
     function test_bondValidatorKro_succeeds() external {
