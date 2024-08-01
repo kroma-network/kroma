@@ -32,6 +32,8 @@ const (
 
 var PublicRoundAddress = common.HexToAddress(publicRoundHex)
 
+var maxValPoolTerminationIndex = big.NewInt(math.MaxUint32)
+
 // L2OutputSubmitter is responsible for submitting outputs.
 type L2OutputSubmitter struct {
 	ctx    context.Context
@@ -138,11 +140,8 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 		valPoolTerminationIndex, err := l.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			// If method is not in ValidatorPool, set the termination index to big value to ensure it sticks to validator system V1.
-			if errors.Is(err, errors.New("method 'TERMINATION_OUTPUT_INDEX' not found")) {
-				valPoolTerminationIndex = big.NewInt(math.MaxUint32)
-			} else {
-				return fmt.Errorf("failed to get valPool termination index: %w", err)
-			}
+			l.log.Error("failed to get validator pool termination index", "err", err)
+			valPoolTerminationIndex = maxValPoolTerminationIndex
 		}
 		l.valPoolTerminationIndex = valPoolTerminationIndex
 
@@ -152,23 +151,22 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 		return fmt.Errorf("failed to initiate valPool config: %w", err)
 	}
 
-	err = contractWatcher.WatchUpgraded(l.cfg.AssetManagerAddr, func() error {
-		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
-		defer cCancel()
-		requiredBondAmountV2, err := l.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
-		if err != nil {
-			if errors.Is(err, errors.New("method 'BOND_AMOUNT' not found")) {
-				requiredBondAmountV2 = big.NewInt(0)
-			} else {
+	// Init asset manager config only when termination index is set properly
+	if l.valPoolTerminationIndex.Cmp(maxValPoolTerminationIndex) == -1 {
+		err = contractWatcher.WatchUpgraded(l.cfg.AssetManagerAddr, func() error {
+			cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+			defer cCancel()
+			requiredBondAmountV2, err := l.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+			if err != nil {
 				return fmt.Errorf("failed to get required bond amount: %w", err)
 			}
-		}
-		l.requiredBondAmountV2 = requiredBondAmountV2
+			l.requiredBondAmountV2 = requiredBondAmountV2
 
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to initiate assetMgr config: %w", err)
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to initiate assetMgr config: %w", err)
+		}
 	}
 
 	return nil

@@ -170,11 +170,8 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 		valPoolTerminationIndex, err := c.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			// If method is not in ValidatorPool, set the termination index to big value to ensure it sticks to validator system V1.
-			if errors.Is(err, errors.New("method 'TERMINATION_OUTPUT_INDEX' not found")) {
-				valPoolTerminationIndex = big.NewInt(math.MaxUint32)
-			} else {
-				return fmt.Errorf("failed to get valPool termination index: %w", err)
-			}
+			c.log.Error("failed to get validator pool termination index", "err", err)
+			valPoolTerminationIndex = maxValPoolTerminationIndex
 		}
 		c.valPoolTerminationIndex = valPoolTerminationIndex
 
@@ -184,23 +181,22 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 		return fmt.Errorf("failed to initiate valPool config: %w", err)
 	}
 
-	err = contractWatcher.WatchUpgraded(c.cfg.AssetManagerAddr, func() error {
-		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-		defer cCancel()
-		requiredBondAmountV2, err := c.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
-		if err != nil {
-			if errors.Is(err, errors.New("method 'BOND_AMOUNT' not found")) {
-				requiredBondAmountV2 = big.NewInt(0)
-			} else {
+	// Init asset manager config only when termination index is set properly
+	if c.valPoolTerminationIndex.Cmp(maxValPoolTerminationIndex) == -1 {
+		err = contractWatcher.WatchUpgraded(c.cfg.AssetManagerAddr, func() error {
+			cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+			defer cCancel()
+			requiredBondAmountV2, err := c.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+			if err != nil {
 				return fmt.Errorf("failed to get required bond amount: %w", err)
 			}
-		}
-		c.requiredBondAmountV2 = requiredBondAmountV2
+			c.requiredBondAmountV2 = requiredBondAmountV2
 
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to initiate assetMgr config: %w", err)
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to initiate assetMgr config: %w", err)
+		}
 	}
 
 	return nil
