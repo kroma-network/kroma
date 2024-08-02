@@ -45,8 +45,8 @@ contract MockL2OutputOracle is L2OutputOracle {
         );
     }
 
-    function replaceOutput(uint256 outputIndex) external {
-        l2Outputs[outputIndex].submitter = msg.sender;
+    function replaceOutput(address validator, uint256 outputIndex) external {
+        l2Outputs[outputIndex].submitter = validator;
         l2Outputs[outputIndex].outputRoot = bytes32(0);
     }
 
@@ -400,6 +400,27 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         );
     }
 
+    function test_afterSubmitL2Output_distributeRewardToSC_succeeds() external {
+        // Register validator with commission rate 10%
+        _registerValidator(trusted, minActivateAmount);
+
+        // Submit the first output which interacts with ValidatorManager
+        _submitL2OutputV2(false);
+
+        // Change the output submitter to SC
+        uint256 firstOutputIndex = terminateOutputIndex + 1;
+        mockOracle.replaceOutput(assetMgr.SECURITY_COUNCIL(), firstOutputIndex);
+
+        // Jump to the finalization time of the first output of ValidatorManager
+        vm.warp(oracle.finalizedAt(firstOutputIndex));
+
+        vm.startPrank(trusted);
+        _submitL2OutputV2(true); // distribute reward 1 time
+
+        // Check if the reward is transferred to SC directly
+        assertEq(assetToken.balanceOf(assetMgr.SECURITY_COUNCIL()), baseReward);
+    }
+
     function test_afterSubmitL2Output_updatePriorityValidator_succeeds() external {
         // Register as a validator
         _registerValidator(asserter, minActivateAmount);
@@ -750,7 +771,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         // This will be done by the l2 output oracle contract in the real environment
         vm.prank(challenger);
-        mockOracle.replaceOutput(challengedOutputIndex);
+        mockOracle.replaceOutput(challenger, challengedOutputIndex);
 
         // Jump to the finalization time of the challenged output
         vm.warp(oracle.finalizedAt(challengedOutputIndex));
