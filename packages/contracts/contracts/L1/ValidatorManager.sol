@@ -620,6 +620,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @return The amount of reward from commission and base reward for the validator.
      */
     function _calculateReward(address validator) internal view returns (uint128, uint128, uint128) {
+        if (validator == ASSET_MANAGER.SECURITY_COUNCIL()) {
+            return (0, 0, BASE_REWARD);
+        }
+
         uint128 commissionRate = _validatorInfo[validator].commissionRate;
         uint128 boostedReward = _getBoostedReward(validator);
         uint128 baseReward;

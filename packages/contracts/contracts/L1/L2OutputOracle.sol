@@ -88,9 +88,14 @@ contract L2OutputOracle is Initializable, ISemver {
      * @notice Emitted when an output is replaced.
      *
      * @param outputIndex   Replaced L2 output index.
+     * @param newSubmitter  Output submitter after replacement.
      * @param newOutputRoot L2 output root after replacement.
      */
-    event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
+    event OutputReplaced(
+        uint256 indexed outputIndex,
+        address indexed newSubmitter,
+        bytes32 newOutputRoot
+    );
 
     /**
      * @notice Semantic version.
@@ -191,7 +196,7 @@ contract L2OutputOracle is Initializable, ISemver {
         output.outputRoot = _newOutputRoot;
         output.submitter = _submitter;
 
-        emit OutputReplaced(_l2OutputIndex, _newOutputRoot);
+        emit OutputReplaced(_l2OutputIndex, _submitter, _newOutputRoot);
     }
 
     /**

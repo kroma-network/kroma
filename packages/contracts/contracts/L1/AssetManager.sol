@@ -315,6 +315,8 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
         if (canWithdrawAt(validator) > block.timestamp) {
             revert NotElapsedMinDelegationPeriod();
         }
+        if (VALIDATOR_MANAGER.jailExpiresAt(validator) > block.timestamp)
+            revert ImproperValidatorStatus();
 
         _withdraw(validator, assets);
 
