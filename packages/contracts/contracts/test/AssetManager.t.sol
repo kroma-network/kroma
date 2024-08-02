@@ -312,6 +312,21 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         assetMgr.withdraw(validator, minActivateAmount);
     }
 
+    function test_withdraw_notExpiredJailPeriod_reverts() external {
+        _registerValidator(minActivateAmount);
+
+        vm.warp(assetMgr.canWithdrawAt(validator));
+        mockValMgr.sendToJail(validator);
+
+        vm.prank(assetMgr.getWithdrawAccount(validator));
+        vm.expectRevert(IAssetManager.ImproperValidatorStatus.selector);
+        assetMgr.withdraw(validator, minActivateAmount);
+
+        vm.warp(valMgr.jailExpiresAt(validator));
+        vm.prank(assetMgr.getWithdrawAccount(validator));
+        assetMgr.withdraw(validator, minActivateAmount);
+    }
+
     function test_withdraw_insufficientValidatorKro_reverts() external {
         _registerValidator(minActivateAmount);
 
