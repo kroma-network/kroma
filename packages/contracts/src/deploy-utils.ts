@@ -43,7 +43,10 @@ export const deploy = async (
   name: string,
   opts: DeployOptions = {}
 ): Promise<Contract | null> => {
-  const created = await deployImpl(hre, name, opts)
+  const [created, newlyDeployed] = await deployImpl(hre, name, opts)
+  if (!newlyDeployed) {
+    return created
+  }
 
   if (opts.isProxyImpl) {
     const { deployer } = await hre.getNamedAccounts()
@@ -107,7 +110,10 @@ export const deployAndUpgradeByDeployer = async (
   name: string,
   opts: DeployOptions = {}
 ): Promise<Contract | null> => {
-  const created = await deployImpl(hre, name, opts)
+  const [created, newlyDeployed] = await deployImpl(hre, name, opts)
+  if (!newlyDeployed) {
+    return created
+  }
 
   const { deployer } = await hre.getNamedAccounts()
   const proxyName = name + 'Proxy'
@@ -158,12 +164,13 @@ export const deployAndUpgradeByDeployer = async (
  * @param opts.args Arguments to pass to the contract constructor.
  * @param opts.postDeployAction Action to perform after the contract is deployed.
  * @returns A deployed contract object.
+ * @returns If the contract is newly deployed or not.
  */
 const deployImpl = async (
   hre: HardhatRuntimeEnvironment,
   name: string,
   opts: DeployOptions = {}
-): Promise<Contract | null> => {
+): Promise<[Contract | null, boolean]> => {
   const { deployer } = await hre.getNamedAccounts()
 
   // Wrap in a try/catch in case there is not a deployConfig for the current network.
@@ -194,7 +201,7 @@ const deployImpl = async (
 
   // If the contract is not newly deployed, do not proceed further.
   if (!result.newlyDeployed) {
-    return created
+    return [created, false]
   }
 
   // Always wait for the transaction to be mined, just in case.
@@ -211,7 +218,7 @@ const deployImpl = async (
     await opts.postDeployAction(created)
   }
 
-  return created
+  return [created, true]
 }
 
 /**
