@@ -258,7 +258,11 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         uint256 l1Timestamp
     );
 
-    event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
+    event OutputReplaced(
+        uint256 indexed outputIndex,
+        address indexed newSubmitter,
+        bytes32 newOutputRoot
+    );
 
     // Advance the evm's time to meet the L2OutputOracle's requirements for submitL2Output
     function warpToSubmitTime() public {

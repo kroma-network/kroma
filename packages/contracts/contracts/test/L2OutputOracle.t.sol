@@ -365,7 +365,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
 
         vm.prank(address(colosseum));
         vm.expectEmit(true, true, false, false);
-        emit OutputReplaced(outputIndex, newOutputRoot);
+        emit OutputReplaced(outputIndex, challenger, newOutputRoot);
         oracle.replaceL2Output(outputIndex, newOutputRoot, challenger);
 
         // validate that the output root is replaced
