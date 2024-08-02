@@ -317,10 +317,8 @@ interface IValidatorManager {
     /**
      * @notice Attempts to unjail a validator. Only the validator who wants to unjail can call
      *         itself.
-     *
-     * @param validator Address of the validator.
      */
-    function tryUnjail(address validator) external;
+    function tryUnjail() external;
 
     /**
      * @notice Call ASSET_MANAGER.bondValidatorKro(). This function is only called by the Colosseum

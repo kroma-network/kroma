@@ -296,18 +296,17 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
-    function tryUnjail(address validator) external {
-        if (!inJail(validator)) revert ImproperValidatorStatus();
-        if (msg.sender != validator) revert NotAllowedCaller();
-        if (_jail[validator] > block.timestamp) revert NotElapsedJailPeriod();
+    function tryUnjail() external {
+        if (!inJail(msg.sender)) revert ImproperValidatorStatus();
+        if (_jail[msg.sender] > block.timestamp) revert NotElapsedJailPeriod();
 
-        _resetNoSubmissionCount(validator);
-        delete _jail[validator];
+        _resetNoSubmissionCount(msg.sender);
+        delete _jail[msg.sender];
 
-        emit ValidatorUnjailed(validator);
+        emit ValidatorUnjailed(msg.sender);
 
-        if (getStatus(validator) == ValidatorStatus.READY) {
-            _activateValidator(validator);
+        if (getStatus(msg.sender) == ValidatorStatus.READY) {
+            _activateValidator(msg.sender);
         }
     }
 

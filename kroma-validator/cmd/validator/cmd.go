@@ -107,9 +107,8 @@ func Unjail(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	validatorAddr := txManager.Config.From
 
-	txData, err := valMgrAbi.Pack("tryUnjail", validatorAddr, false)
+	txData, err := valMgrAbi.Pack("tryUnjail")
 	if err != nil {
 		return fmt.Errorf("failed to create try unjail transaction data: %w", err)
 	}
