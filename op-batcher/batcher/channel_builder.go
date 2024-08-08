@@ -68,7 +68,7 @@ type ChannelBuilder struct {
 	blocks []*types.Block
 	// latestL1Origin is the latest L1 origin of all the L2 blocks that have been added to the channel
 	latestL1Origin eth.BlockID
-	// frames data queue, to be send as txs
+	// frames data queue, to be sent as txs
 	frames []frameData
 	// total frames counter
 	numFrames int
