@@ -32,7 +32,7 @@ func TestChannelTimeout(t *testing.T) {
 	}, &rollup.Config{})
 	m.Clear(eth.BlockID{})
 
-	// Pending channel is nil so is cannot be timed out
+	// Pending channel is nil so it cannot be timed out
 	require.Nil(t, m.currentChannel)
 
 	// Set the pending channel
