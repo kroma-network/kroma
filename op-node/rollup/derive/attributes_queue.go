@@ -77,9 +77,10 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 // to the attributes transaction list
 func (aq *AttributesQueue) createNextAttributes(ctx context.Context, batch *SingularBatch, l2SafeHead eth.L2BlockRef) (*eth.PayloadAttributes, error) {
 	// sanity check parent hash
-	if batch.ParentHash != l2SafeHead.Hash {
-		return nil, NewResetError(fmt.Errorf("valid batch has bad parent hash %s, expected %s", batch.ParentHash, l2SafeHead.Hash))
-	}
+	// [Kroma: DISABLE]
+	// if batch.ParentHash != l2SafeHead.Hash {
+	// 	return nil, NewResetError(fmt.Errorf("valid batch has bad parent hash %s, expected %s", batch.ParentHash, l2SafeHead.Hash))
+	// }
 	// sanity check timestamp
 	if expected := l2SafeHead.Time + aq.config.BlockTime; expected != batch.Timestamp {
 		return nil, NewResetError(fmt.Errorf("valid batch has bad timestamp %d, expected %d", batch.Timestamp, expected))

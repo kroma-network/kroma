@@ -124,6 +124,9 @@ type Config struct {
 
 	// UsePlasma is activated when the chain is in plasma mode.
 	UsePlasma bool `json:"use_plasma"`
+
+	// [Kroma: TEMP]
+	RemoteRPC string `json:"remote_rpc"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.

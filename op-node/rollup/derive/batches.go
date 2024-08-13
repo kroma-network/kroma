@@ -3,11 +3,19 @@ package derive
 import (
 	"bytes"
 	"context"
+	"errors"
+	"math/big"
+	"time"
+
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 type BatchWithL1InclusionBlock struct {
@@ -54,6 +62,43 @@ func CheckBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1Block
 	}
 }
 
+func checkRemoteBlockHash(cfg *rollup.Config, hash common.Hash) bool {
+	cl, err := rpc.DialHTTP(cfg.RemoteRPC)
+	if err != nil {
+		panic(err)
+	}
+	rpcCl := ethclient.NewClient(cl)
+	defer rpcCl.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	h, err := rpcCl.HeaderByHash(ctx, hash)
+	if err != nil {
+		if errors.Is(err, ethereum.NotFound) {
+			return false
+		}
+		panic(err)
+	}
+	log.Info("Remote block header by hash", "number", h.Number, "hash", h.Hash())
+	return true
+}
+
+func fetchRemoteBlockHashByNumber(cfg *rollup.Config, number uint64) common.Hash {
+	cl, err := rpc.DialHTTP(cfg.RemoteRPC)
+	if err != nil {
+		panic(err)
+	}
+	rpcCl := ethclient.NewClient(cl)
+	defer rpcCl.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	h, err := rpcCl.HeaderByNumber(ctx, new(big.Int).SetUint64(number))
+	if err != nil {
+		panic(err)
+	}
+	log.Info("Remote block header by number", "number", h.Number, "hash", h.Hash())
+	return h.Hash()
+}
+
 // checkSingularBatch implements SingularBatch validation rule.
 func checkSingularBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1BlockRef, l2SafeHead eth.L2BlockRef, batch *SingularBatch, l1InclusionBlock eth.L1BlockRef) BatchValidity {
 	// add details to the log
@@ -77,7 +122,9 @@ func checkSingularBatch(cfg *rollup.Config, log log.Logger, l1Blocks []eth.L1Blo
 	}
 
 	// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
-	if batch.ParentHash != l2SafeHead.Hash {
+	// [Kroma: TEMP]
+	// if batch.ParentHash != l2SafeHead.Hash {
+	if !checkRemoteBlockHash(cfg, batch.ParentHash) {
 		log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", l2SafeHead.Hash)
 		return BatchDrop
 	}
@@ -225,8 +272,10 @@ func checkSpanBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l1B
 			return BatchUndecided
 		}
 	}
-	if !batch.CheckParentHash(parentBlock.Hash) {
-		log.Warn("ignoring batch with mismatching parent hash", "parent_block", parentBlock.Hash)
+	// [Kroma: TEMP]
+	parentBlockHash := fetchRemoteBlockHashByNumber(cfg, parentBlock.Number)
+	if !batch.CheckParentHash(parentBlockHash) {
+		log.Warn("ignoring batch with mismatching parent hash", "parent_block", parentBlockHash)
 		return BatchDrop
 	}
 
