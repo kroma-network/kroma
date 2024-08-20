@@ -66,7 +66,7 @@ contract AssetManager is ISemver, IERC721Receiver, IAssetManager {
     uint128 public immutable MIN_DELEGATION_PERIOD;
 
     /**
-     * @notice The amount to bond. Can be updated via upgrade.
+     * @notice The amount to bond.
      */
     uint128 public immutable BOND_AMOUNT;
 
