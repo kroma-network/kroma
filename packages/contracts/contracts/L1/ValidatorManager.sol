@@ -249,9 +249,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         }
 
         // Select the next priority validator.
-        unchecked {
-            _updatePriorityValidator();
-        }
+        _updatePriorityValidator();
     }
 
     /**
