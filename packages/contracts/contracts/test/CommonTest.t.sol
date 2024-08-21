@@ -774,8 +774,7 @@ contract Colosseum_Initializer is Portal_Initializer {
         segmentsLengths.push(10);
         segmentsLengths.push(6);
 
-        Proxy proxy = new Proxy(multisig);
-        colosseum = Colosseum(payable(address(proxy)));
+        colosseum = Colosseum(payable(address(new Proxy(multisig))));
 
         // Init L2OutputOracle after Colosseum contract deployment
         super.setUp();
@@ -803,9 +802,9 @@ contract Colosseum_Initializer is Portal_Initializer {
             _zkMerkleTrie: address(zkMerkleTrie)
         });
         vm.prank(multisig);
-        proxy.upgradeToAndCall(
+        toProxy(address(colosseum)).upgradeToAndCall(
             address(colosseumImpl),
-            abi.encodeCall(Colosseum.initialize, (segmentsLengths))
+            abi.encodeCall(Colosseum.initialize, segmentsLengths)
         );
     }
 }
