@@ -407,7 +407,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     }
 
     function _registerValidator(address validator, uint128 assets) internal {
-        vm.startPrank(validator);
+        vm.startPrank(validator, validator);
         assetToken.approve(address(assetMgr), uint256(assets));
         valMgr.registerValidator(assets, 10, withdrawAcc);
         vm.stopPrank();

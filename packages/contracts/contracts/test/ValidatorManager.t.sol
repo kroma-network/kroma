@@ -198,7 +198,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint128 assets = minActivateAmount;
         uint8 commissionRate = 10;
 
-        vm.startPrank(trusted);
+        vm.startPrank(trusted, trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectEmit(true, false, false, true, address(valMgr));
         emit ValidatorActivated(trusted, block.timestamp);
@@ -223,7 +223,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint128 assets = minActivateAmount - 1;
         uint8 commissionRate = 10;
 
-        vm.startPrank(trusted);
+        vm.startPrank(trusted, trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectEmit(true, true, false, true, address(valMgr));
         emit ValidatorRegistered(trusted, false, commissionRate, assets);
@@ -235,12 +235,24 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMgr.getWeight(trusted), 0);
     }
 
+    function test_registerValidator_fromContract_reverts() external {
+        vm.prank(address(oracle), address(oracle));
+        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
+        valMgr.registerValidator(minActivateAmount, 10, withdrawAcc);
+    }
+
+    function test_registerValidator_differentOrigin_reverts() external {
+        vm.prank(trusted, asserter);
+        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
+        valMgr.registerValidator(minActivateAmount, 10, withdrawAcc);
+    }
+
     function test_registerValidator_alreadyInitiated_reverts() external {
         uint128 assets = minActivateAmount;
 
         _registerValidator(trusted, assets);
 
-        vm.startPrank(trusted);
+        vm.startPrank(trusted, trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.ImproperValidatorStatus.selector);
         valMgr.registerValidator(assets, 10, withdrawAcc);
@@ -249,7 +261,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_registerValidator_smallAsset_reverts() external {
         uint128 assets = minRegisterAmount - 1;
 
-        vm.startPrank(trusted);
+        vm.startPrank(trusted, trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.InsufficientAsset.selector);
         valMgr.registerValidator(assets, 10, withdrawAcc);
@@ -258,7 +270,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_registerValidator_largeCommissionRate_reverts() external {
         uint128 assets = minRegisterAmount;
 
-        vm.startPrank(trusted);
+        vm.startPrank(trusted, trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IValidatorManager.MaxCommissionRateExceeded.selector);
         valMgr.registerValidator(assets, 101, withdrawAcc);
@@ -267,7 +279,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
     function test_registerValidator_withdrawZeroAddr_reverts() external {
         uint128 assets = minRegisterAmount;
 
-        vm.startPrank(trusted);
+        vm.startPrank(trusted, trusted);
         assetToken.approve(address(assetMgr), uint256(assets));
         vm.expectRevert(IAssetManager.ZeroAddress.selector);
         valMgr.registerValidator(assets, 10, address(0));

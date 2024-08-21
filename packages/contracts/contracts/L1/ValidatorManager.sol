@@ -191,6 +191,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
         uint8 commissionRate,
         address withdrawAccount
     ) external {
+        if (msg.sender != tx.origin) revert NotAllowedCaller();
+        if (msg.sender.code.length > 0) revert NotAllowedCaller();
+
         if (getStatus(msg.sender) != ValidatorStatus.NONE) revert ImproperValidatorStatus();
 
         if (assets < MIN_REGISTER_AMOUNT) revert InsufficientAsset();
