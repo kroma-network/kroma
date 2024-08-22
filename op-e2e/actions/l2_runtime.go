@@ -278,7 +278,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 	require.Equal(rt.t, types.ReceiptStatusSuccessful, rt.receipt.Status, "failed to create challenge")
 
 	// check challenge created
-	challenge, err := rt.colosseumContract.GetChallenge(nil, rt.outputIndex, challenger.address)
+	challenge, err := rt.colosseumContract.Challenges(nil, rt.outputIndex, challenger.address)
 	require.NoError(rt.t, err)
 	require.NotNil(rt.t, challenge, "challenge not found")
 

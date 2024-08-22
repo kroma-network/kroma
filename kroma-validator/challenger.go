@@ -734,7 +734,26 @@ func (c *Challenger) IsOutputFinalized(ctx context.Context, outputIndex *big.Int
 func (c *Challenger) GetChallenge(ctx context.Context, outputIndex *big.Int, challenger common.Address) (bindings.TypesChallenge, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	return c.colosseumContract.GetChallenge(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
+
+	challenge, err := c.colosseumContract.Challenges(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
+	if err != nil {
+		return bindings.TypesChallenge{}, fmt.Errorf("failed to fetch challenge data: %w", err)
+	}
+
+	segments, err := c.colosseumContract.GetSegments(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
+	if err != nil {
+		return bindings.TypesChallenge{}, fmt.Errorf("failed to fetch challenge segments data: %w", err)
+	}
+
+	return bindings.TypesChallenge{
+		Turn:       challenge.Turn,
+		TimeoutAt:  challenge.TimeoutAt,
+		Asserter:   challenge.Asserter,
+		Challenger: challenge.Challenger,
+		Segments:   segments,
+		SegSize:    challenge.SegSize,
+		SegStart:   challenge.SegStart,
+	}, nil
 }
 
 func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
@@ -863,7 +882,8 @@ func (c *Challenger) GetChallengeStatus(ctx context.Context, outputIndex *big.In
 func (c *Challenger) BuildSegments(ctx context.Context, turn uint8, segStart, segSize uint64) (*chal.Segments, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	sections, err := c.colosseumContract.GetSegmentsLength(optsutils.NewSimpleCallOpts(cCtx), turn)
+
+	sections, err := c.colosseumContract.SegmentsLengths(optsutils.NewSimpleCallOpts(cCtx), big.NewInt(int64(turn-1)))
 	if err != nil {
 		return nil, fmt.Errorf("unable to get segments length of turn %d: %w", turn, err)
 	}
