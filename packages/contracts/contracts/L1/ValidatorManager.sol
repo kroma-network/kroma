@@ -191,10 +191,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
         uint8 commissionRate,
         address withdrawAccount
     ) external {
+        if (msg.sender.code.length > 0 || msg.sender != tx.origin) revert NotAllowedCaller();
         if (getStatus(msg.sender) != ValidatorStatus.NONE) revert ImproperValidatorStatus();
-
         if (assets < MIN_REGISTER_AMOUNT) revert InsufficientAsset();
-
         if (commissionRate > COMMISSION_RATE_DENOM) revert MaxCommissionRateExceeded();
 
         Validator storage validatorInfo = _validatorInfo[msg.sender];
@@ -246,9 +245,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         }
 
         // Select the next priority validator.
-        unchecked {
-            _updatePriorityValidator();
-        }
+        _updatePriorityValidator();
     }
 
     /**
@@ -258,10 +255,9 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (getStatus(msg.sender) < ValidatorStatus.REGISTERED || inJail(msg.sender))
             revert ImproperValidatorStatus();
 
-        Validator storage validatorInfo = _validatorInfo[msg.sender];
-
         if (newCommissionRate > COMMISSION_RATE_DENOM) revert MaxCommissionRateExceeded();
 
+        Validator storage validatorInfo = _validatorInfo[msg.sender];
         uint8 oldCommissionRate = validatorInfo.commissionRate;
         if (newCommissionRate == oldCommissionRate) revert SameCommissionRate();
 

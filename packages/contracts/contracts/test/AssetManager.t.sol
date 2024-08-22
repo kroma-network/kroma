@@ -112,7 +112,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
     }
 
     function _registerValidator(uint128 amount) internal {
-        vm.startPrank(validator);
+        vm.startPrank(validator, validator);
         assetToken.approve(address(assetMgr), amount);
         valMgr.registerValidator(amount, 0, withdrawAcc);
         vm.stopPrank();

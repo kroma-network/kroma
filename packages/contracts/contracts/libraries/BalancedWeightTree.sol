@@ -50,14 +50,15 @@ library BalancedWeightTree {
 
     /**
      * @notice Inserts new node with the specified address and weight inside the tree.
-     *         Note that the uniqueness of _addr is not being checked. Adding 2 entries with the
-     *         same address causes an unexpected behavior.
      *
      * @param _tree   The tree to insert the new node.
      * @param _addr   The address that owns the new node.
      * @param _weight The weight of the new node.
      */
     function insert(Tree storage _tree, address _addr, uint120 _weight) internal {
+        require(_addr != address(0), "BalancedWeightTree: zero address not allowed");
+        require(_tree.nodeMap[_addr] == 0, "BalancedWeightTree: node already existing");
+
         Node memory newNode = Node({
             addr: _addr,
             weight: _weight,
@@ -347,6 +348,7 @@ library BalancedWeightTree {
     function _pullUp(Tree storage _tree, uint32 _index) private {
         while (true) {
             Node storage node = _tree.nodes[_index];
+            require(node.addr != address(0), "BalancedWeightTree: node not exists");
 
             if (node.leftChild == 0) {
                 if (node.rightChild == 0) {

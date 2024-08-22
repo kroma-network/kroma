@@ -24,11 +24,14 @@ contract BalancedWeightTree_Test is Test {
     }
 
     function testFuzz_insert_succeeds(address _addr, uint120 _weight) external {
-        uint32 counter = tree.counter;
+        vm.assume(_addr != address(0));
+        uint32 index = tree.nodeMap[_addr];
+        vm.assume(index == 0);
 
+        uint32 counter = tree.counter;
         BalancedWeightTree.insert(tree, _addr, _weight);
 
-        uint32 index = tree.nodeMap[_addr];
+        index = tree.nodeMap[_addr];
         assertEq(tree.counter, counter + 1);
         assertEq(tree.nodes[index].addr, _addr);
         assertEq(tree.nodes[index].weight, _weight);

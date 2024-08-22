@@ -1740,7 +1740,6 @@ func TestChallenge(t *testing.T) {
 				return
 			}
 		}
-
 	}
 }
 

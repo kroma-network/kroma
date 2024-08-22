@@ -13,6 +13,7 @@
 | segmentsLengths      | mapping(uint256 => uint256)                                    | 1    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 | challenges           | mapping(uint256 => mapping(address => struct Types.Challenge)) | 2    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 | verifiedPublicInputs | mapping(bytes32 => bool)                                       | 3    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| deletedOutputs       | mapping(uint256 => struct Types.CheckpointOutput)              | 4    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 
 =======================
 ➡ contracts/L1/SecurityCouncil.sol:SecurityCouncil
