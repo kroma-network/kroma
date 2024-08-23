@@ -272,6 +272,10 @@ def devnet_deploy(paths):
     log.info(f'Using Colosseum {colosseum}')
     validator_pool = addresses['ValidatorPoolProxy']
     log.info(f'Using ValidatorPool {validator_pool}')
+    validator_manager = addresses['ValidatorManagerProxy']
+    log.info(f'Using ValidatorManager {validator_manager}')
+    asset_manager = addresses['AssetManagerProxy']
+    log.info(f'Using AssetManager {asset_manager}')
 
     log.info('Bringing up `kroma-node`, `kroma-batcher` and `kroma-validator`.')
     run_command(['docker', 'compose', 'up', '-d', 'kroma-node', 'kroma-batcher', 'kroma-validator'], cwd=paths.ops_bedrock_dir, env={
@@ -279,12 +283,33 @@ def devnet_deploy(paths):
         'L2OO_ADDRESS': l2_output_oracle,
         'COLOSSEUM_ADDRESS': colosseum,
         'VALPOOL_ADDRESS': validator_pool,
+        'VALMGR_ADDRESS': validator_manager,
+        'ASSETMANAGER_ADDRESS': asset_manager,
         'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address
     })
 
     log.info("Deposit ETH into ValidatorPool contract to be a validator...")
     run_command(['docker', 'compose', 'exec', 'kroma-validator',
                  'kroma-validator', 'deposit', '--amount', '1000000000'], cwd=paths.ops_bedrock_dir)
+
+    log.info("Register to ValidatorManager contract to be a validator...")
+    run_command(
+        [
+            'docker',
+            'compose',
+            'exec',
+            'kroma-validator',
+            'kroma-validator',
+            'register',
+            '--amount',
+            '100',
+            '--commission-rate',
+            '5',
+            '--withdraw-account',
+            '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        ],
+        cwd=paths.ops_bedrock_dir,
+    )
     # [Kroma: END]
 
     log.info('Bringing up `artifact-server`')

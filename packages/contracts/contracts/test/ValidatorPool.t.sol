@@ -3,18 +3,36 @@ pragma solidity 0.8.15;
 
 import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
+import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
-import { ZKMerkleTrie } from "../L1/ZKMerkleTrie.sol";
 import { ValidatorRewardVault } from "../L2/ValidatorRewardVault.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { Proxy } from "../universal/Proxy.sol";
-import { L2OutputOracle_Initializer } from "./CommonTest.t.sol";
+import { L2OutputOracle_Initializer, ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
 
 contract MockL2OutputOracle is L2OutputOracle {
-    constructor(ValidatorPool _validatorPool, address _colosseum)
-        L2OutputOracle(_validatorPool, _colosseum, 1800, 2, 0, 0, 7 days)
+    constructor(
+        ValidatorPool _validatorPool,
+        IValidatorManager _validatorManager,
+        address _colosseum,
+        uint256 _submissionInterval,
+        uint256 _l2BlockTime,
+        uint256 _startingBlockNumber,
+        uint256 _startingTimestamp,
+        uint256 _finalizationPeriodSeconds
+    )
+        L2OutputOracle(
+            _validatorPool,
+            _validatorManager,
+            _colosseum,
+            _submissionInterval,
+            _l2BlockTime,
+            _startingBlockNumber,
+            _startingTimestamp,
+            _finalizationPeriodSeconds
+        )
     {}
 
     function addOutput(bytes32 _outputRoot, uint256 _l2BlockNumber) external payable {
@@ -38,12 +56,37 @@ contract MockL2OutputOracle is L2OutputOracle {
     }
 }
 
+contract MockValidatorPool is ValidatorPool {
+    constructor(
+        L2OutputOracle _l2OutputOracle,
+        KromaPortal _portal,
+        address _securityCouncil,
+        address _trustedValidator,
+        uint256 _requiredBondAmount,
+        uint256 _maxUnbond,
+        uint256 _roundDuration,
+        uint256 _terminateOutputIndex
+    )
+        ValidatorPool(
+            _l2OutputOracle,
+            _portal,
+            _securityCouncil,
+            _trustedValidator,
+            _requiredBondAmount,
+            _maxUnbond,
+            _roundDuration,
+            _terminateOutputIndex
+        )
+    {}
+
+    function getNextPriorityValidator() external view returns (address) {
+        return nextPriorityValidator;
+    }
+}
+
 // Test the implementations of the ValidatorPool
 contract ValidatorPoolTest is L2OutputOracle_Initializer {
     MockL2OutputOracle mockOracle;
-    KromaPortal portal;
-
-    uint256 internal finalizationPeriodSeconds;
 
     event Bonded(
         address indexed submitter,
@@ -65,15 +108,20 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
     function setUp() public override {
         super.setUp();
 
-        finalizationPeriodSeconds = oracle.FINALIZATION_PERIOD_SECONDS();
-
         address oracleAddress = address(oracle);
-        MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(pool, address(challenger));
+        MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
+            pool,
+            valMgr,
+            address(colosseum),
+            submissionInterval,
+            l2BlockTime,
+            startingBlockNumber,
+            startingTimestamp,
+            finalizationPeriodSeconds
+        );
         vm.prank(multisig);
         Proxy(payable(oracleAddress)).upgradeTo(address(mockOracleImpl));
         mockOracle = MockL2OutputOracle(oracleAddress);
-
-        portal = pool.PORTAL();
     }
 
     function test_constructor_succeeds() external {
@@ -81,6 +129,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         assertEq(pool.TRUSTED_VALIDATOR(), trusted);
         assertEq(pool.REQUIRED_BOND_AMOUNT(), requiredBondAmount);
         assertEq(pool.MAX_UNBOND(), maxUnbond);
+        assertEq(pool.TERMINATE_OUTPUT_INDEX(), terminateOutputIndex);
         assertEq(pool.ROUND_DURATION(), roundDuration);
     }
 
@@ -218,7 +267,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
         address validator = pool.nextValidator();
 
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
 
         vm.prank(validator);
         mockOracle.addOutput(outputRoot, nextBlockNumber);
@@ -260,6 +309,10 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         vm.prank(address(oracle));
         vm.expectEmit(true, true, false, true, address(pool));
         emit Unbonded(0, firstOutput.submitter, uint128(firstBond.amount));
+        vm.expectCall(
+            address(oracle),
+            abi.encodeWithSelector(L2OutputOracle.setNextFinalizeOutputIndex.selector, 1)
+        );
         pool.createBond(nextOutputIndex, expiresAt);
         assertEq(pool.balanceOf(firstOutput.submitter), requiredBondAmount);
 
@@ -299,7 +352,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
         address validator = pool.nextValidator();
 
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
 
         vm.prank(validator);
         mockOracle.addOutput(outputRoot, nextBlockNumber);
@@ -310,7 +363,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         pool.createBond(nextOutputIndex, expiresAt);
     }
 
-    function test_unbond_succeeds() public {
+    function test_unbond_succeeds() external {
         test_createBond_succeeds();
 
         uint256 outputIndex = oracle.latestOutputIndex();
@@ -335,12 +388,19 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
                 )
             )
         );
+        vm.expectCall(
+            address(oracle),
+            abi.encodeWithSelector(
+                L2OutputOracle.setNextFinalizeOutputIndex.selector,
+                outputIndex + 1
+            )
+        );
         vm.prank(trusted);
         pool.unbond();
         assertEq(pool.balanceOf(output.submitter), uint256(bond.amount));
     }
 
-    function test_unbond_multipleBonds_succeeds() public {
+    function test_unbond_multipleBonds_succeeds() external {
         uint256 tries = 2;
         uint256 deposit = requiredBondAmount * tries;
         vm.prank(trusted);
@@ -351,7 +411,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint128 expiresAt = 0;
         for (uint256 i = 0; i < tries; i++) {
             blockNumber = oracle.nextBlockNumber();
-            warpToSubmitTime(blockNumber);
+            warpToSubmitTime();
             expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
             assertEq(pool.nextValidator(), trusted);
             vm.prank(trusted);
@@ -402,6 +462,13 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
                 )
             )
         );
+        vm.expectCall(
+            address(oracle),
+            abi.encodeWithSelector(
+                L2OutputOracle.setNextFinalizeOutputIndex.selector,
+                secondOutputIndex + 1
+            )
+        );
         vm.prank(trusted);
         pool.unbond();
 
@@ -413,7 +480,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         assertEq(pool.balanceOf(trusted), deposit);
     }
 
-    function test_unbond_maxUnbond_succeeds() public {
+    function test_unbond_maxUnbond_succeeds() external {
         uint256 tries = maxUnbond + 1;
         uint256 deposit = requiredBondAmount * tries;
         vm.prank(trusted);
@@ -424,7 +491,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint128 expiresAt = 0;
         for (uint256 i = 0; i < tries; i++) {
             blockNumber = oracle.nextBlockNumber();
-            warpToSubmitTime(blockNumber);
+            warpToSubmitTime();
             expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
             assertEq(pool.nextValidator(), trusted);
             vm.prank(trusted);
@@ -450,6 +517,9 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         }
         bond = pool.getBond(tries - 1);
         assertEq(bond.amount, requiredBondAmount);
+
+        // check if next finalize output index is set correctly
+        assertEq(oracle.nextFinalizeOutputIndex(), outputIndex);
     }
 
     function test_unbond_notExpired_reverts() external {
@@ -507,7 +577,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         uint256 outputIndex = oracle.latestOutputIndex();
         Types.Bond memory prevBond = pool.getBond(outputIndex);
         uint128 pendingBond = pool.getPendingBond(outputIndex, challenger);
-        uint128 tax = pendingBond * 20 / 100; // 20% tax
+        uint128 tax = (pendingBond * 20) / 100; // 20% tax
         uint128 increased = pendingBond - tax;
 
         vm.prank(oracle.COLOSSEUM());
@@ -628,7 +698,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         for (uint256 i = 0; i < tries; i++) {
             outputIndex = oracle.nextOutputIndex();
             blockNumber = oracle.nextBlockNumber();
-            warpToSubmitTime(blockNumber);
+            warpToSubmitTime();
             expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
             vm.prank(pool.nextValidator());
             mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
@@ -637,7 +707,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         }
 
         // warp to first finalization time and submit new output
-        warpToSubmitTime(oracle.nextBlockNumber());
+        warpToSubmitTime();
         outputIndex = oracle.nextOutputIndex();
         blockNumber = (expiresAt / oracle.L2_BLOCK_TIME()) - 1;
         vm.warp(expiresAt);
@@ -659,7 +729,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
             // submit next output and finalize prev output
             outputIndex = oracle.nextOutputIndex();
             blockNumber = oracle.nextBlockNumber();
-            warpToSubmitTime(blockNumber);
+            warpToSubmitTime();
             expiresAt = uint128(block.timestamp + finalizationPeriodSeconds);
             vm.prank(pool.nextValidator());
             mockOracle.addOutput(keccak256(abi.encode(blockNumber)), blockNumber);
@@ -670,7 +740,7 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         assertTrue(changed, "the next validator has not changed");
 
         // warp to public round
-        uint256 l2Timestamp = oracle.computeL2Timestamp(oracle.nextBlockNumber() + 1);
+        uint256 l2Timestamp = oracle.nextOutputMinL2Timestamp();
         vm.warp(l2Timestamp + roundDuration + 1);
         assertEq(pool.nextValidator(), Constants.VALIDATOR_PUBLIC_ROUND_ADDRESS);
     }
@@ -681,8 +751,79 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
         vm.deal(sc, depositAmount + 1 ether);
 
         vm.prank(sc);
-        pool.deposit{value: depositAmount}();
+        pool.deposit{ value: depositAmount }();
         assertEq(pool.balanceOf(sc), depositAmount);
         assertFalse(pool.isValidator(sc));
+    }
+}
+
+contract ValidatorPool_SystemUpgrade_Test is ValidatorSystemUpgrade_Initializer {
+    MockL2OutputOracle mockOracle;
+    MockValidatorPool mockPool;
+
+    function setUp() public override {
+        super.setUp();
+
+        address oracleAddress = address(oracle);
+        MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
+            pool,
+            valMgr,
+            address(colosseum),
+            submissionInterval,
+            l2BlockTime,
+            startingBlockNumber,
+            startingTimestamp,
+            finalizationPeriodSeconds
+        );
+        vm.prank(multisig);
+        Proxy(payable(oracleAddress)).upgradeTo(address(mockOracleImpl));
+        mockOracle = MockL2OutputOracle(oracleAddress);
+
+        address poolAddress = address(pool);
+        MockValidatorPool mockPoolImpl = new MockValidatorPool(
+            oracle,
+            mockPortal,
+            guardian,
+            trusted,
+            requiredBondAmount,
+            maxUnbond,
+            roundDuration,
+            terminateOutputIndex
+        );
+        vm.prank(multisig);
+        Proxy(payable(poolAddress)).upgradeTo(address(mockPoolImpl));
+        mockPool = MockValidatorPool(poolAddress);
+    }
+
+    function test_deposit_afterSystemUpgrade_reverts() external {
+        test_isTerminated_succeeds();
+
+        vm.deal(trusted, requiredBondAmount);
+
+        vm.prank(trusted);
+        vm.expectRevert("ValidatorPool: only can deposit to ValidatorPool before terminated");
+        pool.deposit{ value: requiredBondAmount }();
+    }
+
+    function test_isTerminated_succeeds() public {
+        vm.prank(trusted);
+        pool.deposit{ value: trusted.balance }();
+
+        bool poolTerminated;
+        for (uint256 i; i <= terminateOutputIndex + 1; i++) {
+            uint256 nextOutputIndex = oracle.nextOutputIndex();
+            poolTerminated = pool.isTerminated(nextOutputIndex);
+            if (nextOutputIndex <= terminateOutputIndex) {
+                assertFalse(poolTerminated);
+            } else {
+                assertTrue(poolTerminated);
+            }
+
+            warpToSubmitTime();
+            uint256 nextBlockNumber = oracle.nextBlockNumber();
+            bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
+            vm.prank(pool.nextValidator());
+            mockOracle.addOutput(outputRoot, nextBlockNumber);
+        }
     }
 }

@@ -28,6 +28,8 @@ const L1_ORDERED_NAMES = [
   'L1GovernanceTokenProxy',
   'L1MintManager',
   'L1GovernanceToken',
+  'AssetManager',
+  'ValidatorManager',
 ]
 const L2_ORDERED_NAMES = [
   'L1Block',

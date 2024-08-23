@@ -165,8 +165,8 @@ type DeployConfig struct {
 	GovernanceTokenOwner common.Address `json:"governanceTokenOwner"`
 	[Kroma: END] */
 	// [Kroma: START]
-	// GovernanceTokenAddress represents GovernanceToken address on L2.
-	GovernanceTokenAddress common.Address `json:"governanceTokenAddress,omitempty"`
+	// GovernanceTokenNotUseCreate2 is used to determine whether not to use CREATE2 to deploy GovernanceTokenProxy.
+	GovernanceTokenNotUseCreate2 bool `json:"governanceTokenNotUseCreate2,omitempty"`
 	// GovernanceTokenProxySalt is used to determine GovernanceTokenProxy address on L1 and L2.
 	GovernanceTokenProxySalt common.Hash `json:"governanceTokenProxySalt"`
 	// MintManagerOwner represents the owner of the MintManager on L1 and L2. Has the ability to mint initially.
@@ -273,6 +273,40 @@ type DeployConfig struct {
 	ValidatorPoolRequiredBondAmount *hexutil.Big   `json:"validatorPoolRequiredBondAmount"`
 	ValidatorPoolMaxUnbond          uint64         `json:"validatorPoolMaxUnbond"`
 	ValidatorPoolRoundDuration      uint64         `json:"validatorPoolRoundDuration"`
+	// ValidatorPoolTerminateOutputIndex is the output index where ValidatorPool is terminated after
+	// in hex value.
+	ValidatorPoolTerminateOutputIndex *hexutil.Big `json:"validatorPoolTerminateOutputIndex"`
+
+	// ValidatorManagerTrustedValidator represents the address of the trusted validator.
+	ValidatorManagerTrustedValidator common.Address `json:"validatorManagerTrustedValidator"`
+	// ValidatorManagerMinRegisterAmount is the amount of the minimum register amount.
+	ValidatorManagerMinRegisterAmount *hexutil.Big `json:"validatorManagerMinRegisterAmount"`
+	// ValidatorManagerMinActivateAmount is the amount of the minimum activation amount.
+	ValidatorManagerMinActivateAmount *hexutil.Big `json:"validatorManagerMinActivateAmount"`
+	// ValidatorManagerCommissionChangeDelaySeconds is the delay to finalize the commission rate change in seconds.
+	ValidatorManagerCommissionChangeDelaySeconds uint64 `json:"validatorManagerCommissionChangeDelaySeconds"`
+	// ValidatorManagerRoundDurationSeconds is the duration of one submission round in seconds.
+	ValidatorManagerRoundDurationSeconds uint64 `json:"validatorManagerRoundDurationSeconds"`
+	// ValidatorManagerSoftJailPeriodSeconds is the duration of jail period in seconds in output non-submissions penalty.
+	ValidatorManagerSoftJailPeriodSeconds uint64 `json:"validatorManagerSoftJailPeriodSeconds"`
+	// ValidatorManagerHardJailPeriodSeconds is the duration of jail period in seconds in slashing penalty.
+	ValidatorManagerHardJailPeriodSeconds uint64 `json:"validatorManagerHardJailPeriodSeconds"`
+	// ValidatorManagerJailThreshold is the threshold of output non-submission to be jailed.
+	ValidatorManagerJailThreshold uint64 `json:"validatorManagerJailThreshold"`
+	// ValidatorManagerMaxFinalizations is the max number of output finalizations when distributing
+	// reward.
+	ValidatorManagerMaxFinalizations uint64 `json:"validatorManagerMaxFinalizations"`
+	// ValidatorManagerBaseReward is the amount of the base reward in hex value.
+	ValidatorManagerBaseReward *hexutil.Big `json:"validatorManagerBaseReward"`
+
+	// AssetManagerKgh represents the address of the KGH NFT contract.
+	AssetManagerKgh common.Address `json:"assetManagerKgh"`
+	// AssetManagerVault represents the address of the validator reward vault.
+	AssetManagerVault common.Address `json:"assetManagerVault"`
+	// AssetManagerMinDelegationPeriod is the duration of minimum delegation period in seconds.
+	AssetManagerMinDelegationPeriod uint64 `json:"assetManagerMinDelegationPeriod"`
+	// AssetManagerBondAmount is the bond amount.
+	AssetManagerBondAmount *hexutil.Big `json:"assetManagerBondAmount"`
 
 	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
 	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`
@@ -408,6 +442,9 @@ func (d *DeployConfig) Check() error {
 		}
 		[Kroma: END] */
 		// [Kroma: START]
+		if d.GovernanceTokenProxySalt == (common.Hash{}) {
+			return fmt.Errorf("%w: GovernanceTokenProxySalt cannot be empty hash", ErrInvalidDeployConfig)
+		}
 		if d.MintManagerOwner == (common.Address{}) {
 			return fmt.Errorf("%w: MintManagerOwner cannot be address(0)", ErrInvalidDeployConfig)
 		}
@@ -499,6 +536,54 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.ValidatorPoolRoundDuration == 0 {
 		return fmt.Errorf("%w: ValidatorPoolRoundDuration cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerTrustedValidator == (common.Address{}) {
+		return fmt.Errorf("%w: ValidatorManagerTrustedValidator cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMinRegisterAmount == nil {
+		return fmt.Errorf("%w: ValidatorManagerMinRegisterAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMinActivateAmount == nil {
+		return fmt.Errorf("%w: ValidatorManagerMinActivateAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMinActivateAmount.ToInt().Cmp(d.ValidatorManagerMinRegisterAmount.ToInt()) < 0 {
+		return fmt.Errorf("%w: ValidatorManagerMinActivateAmount must equal or more than ValidatorManagerMinRegisterAmount", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerCommissionChangeDelaySeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerCommissionChangeDelaySeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerRoundDurationSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerRoundDurationSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerSoftJailPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerSoftJailPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerHardJailPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerHardJailPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerJailThreshold == 0 {
+		return fmt.Errorf("%w: ValidatorManagerJailThreshold cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMaxFinalizations == 0 {
+		return fmt.Errorf("%w: ValidatorManagerMaxFinalizations cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerBaseReward == nil {
+		return fmt.Errorf("%w: ValidatorManagerBaseReward cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerKgh == (common.Address{}) {
+		return fmt.Errorf("%w: AssetManagerKgh cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerVault == (common.Address{}) {
+		return fmt.Errorf("%w: AssetManagerVault cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerMinDelegationPeriod == 0 {
+		return fmt.Errorf("%w: AssetManagerMinDelegationPeriod cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerBondAmount == nil {
+		return fmt.Errorf("%w: AssetManagerBondAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorManagerRoundDurationSeconds*2 {
+		return fmt.Errorf("%w: double of ValidatorManagerRoundDurationSeconds must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
 	}
 	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorPoolRoundDuration*2 {
 		return fmt.Errorf("%w: double of ValidatorPoolRoundDuration must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
@@ -759,7 +844,9 @@ type L1Deployments struct {
 	// [Kroma: START]
 	Colosseum                 common.Address `json:"Colosseum"`
 	ColosseumProxy            common.Address `json:"ColosseumProxy"`
+	L1GovernanceToken         common.Address `json:"L1GovernanceToken"`
 	L1GovernanceTokenProxy    common.Address `json:"L1GovernanceTokenProxy"`
+	L1MintManager             common.Address `json:"L1MintManager"`
 	Poseidon2                 common.Address `json:"Poseidon2"`
 	SecurityCouncil           common.Address `json:"SecurityCouncil"`
 	SecurityCouncilProxy      common.Address `json:"SecurityCouncilProxy"`
@@ -771,6 +858,10 @@ type L1Deployments struct {
 	UpgradeGovernorProxy      common.Address `json:"UpgradeGovernorProxy"`
 	ValidatorPool             common.Address `json:"ValidatorPool"`
 	ValidatorPoolProxy        common.Address `json:"ValidatorPoolProxy"`
+	AssetManager              common.Address `json:"AssetManager"`
+	AssetManagerProxy         common.Address `json:"AssetManagerProxy"`
+	ValidatorManager          common.Address `json:"ValidatorManager"`
+	ValidatorManagerProxy     common.Address `json:"ValidatorManagerProxy"`
 	ZKMerkleTrie              common.Address `json:"ZKMerkleTrie"`
 	ZKVerifier                common.Address `json:"ZKVerifier"`
 	ZKVerifierProxy           common.Address `json:"ZKVerifierProxy"`
@@ -810,12 +901,6 @@ func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 				name == "DataAvailabilityChallengeProxy") {
 			continue
 		}
-		// [Kroma: START]
-		// Skip contract that will be deployed later in setup
-		if name == "L1GovernanceTokenProxy" {
-			continue
-		}
-		// [Kroma: END]
 		if val.Field(i).Interface().(common.Address) == (common.Address{}) {
 			return fmt.Errorf("%s is not set", name)
 		}

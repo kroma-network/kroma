@@ -8,18 +8,18 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	opCrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
@@ -72,7 +72,6 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	// genesisTimeOffset := hexutil.Uint64(0)
 	deployConfig.L2GenesisDeltaTimeOffset = nil
 	deployConfig.L2GenesisEcotoneTimeOffset = nil
-	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
 	ApplyDeployConfigForks(deployConfig)
 
@@ -80,6 +79,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	require.Equal(t, addresses.Batcher, deployConfig.BatchSenderAddress)
 	require.Equal(t, addresses.SequencerP2P, deployConfig.P2PSequencerAddress)
 	require.Equal(t, addresses.TrustedValidator, deployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, addresses.TrustedValidator, deployConfig.ValidatorManagerTrustedValidator)
 
 	return &DeployParams{
 		DeployConfig:   deployConfig,
@@ -119,6 +119,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	deployConf.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	// [Kroma: START]
 	deployConf.ValidatorPoolRoundDuration = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
+	deployConf.ValidatorManagerRoundDurationSeconds = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
 	// [Kroma: END]
 	require.NoError(t, deployConf.Check())
 
@@ -129,9 +130,22 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.NoError(t, err, "failed to create l1 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
-			l1Genesis.Alloc[addr] = core.GenesisAccount{
-				Balance: Ether(1e12),
+			// [Kroma: START]
+			// If address already exists in allocs, do not modify other fields except for balance
+			amount := Ether(1e12)
+			if existing, ok := l1Genesis.Alloc[addr]; ok {
+				l1Genesis.Alloc[addr] = core.GenesisAccount{
+					Code:    existing.Code,
+					Storage: existing.Storage,
+					Balance: amount,
+					Nonce:   existing.Nonce,
+				}
+			} else {
+				l1Genesis.Alloc[addr] = core.GenesisAccount{
+					Balance: amount,
+				}
 			}
+			// [Kroma: END]
 		}
 	}
 	for addr, val := range alloc.L1Alloc {
@@ -144,9 +158,22 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.NoError(t, err, "failed to create l2 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
-			l2Genesis.Alloc[addr] = core.GenesisAccount{
-				Balance: Ether(1e12),
+			// [Kroma: START]
+			// If address already exists in allocs, do not modify other fields except for balance
+			amount := Ether(1e12)
+			if existing, ok := l2Genesis.Alloc[addr]; ok {
+				l2Genesis.Alloc[addr] = core.GenesisAccount{
+					Code:    existing.Code,
+					Storage: existing.Storage,
+					Balance: amount,
+					Nonce:   existing.Nonce,
+				}
+			} else {
+				l2Genesis.Alloc[addr] = core.GenesisAccount{
+					Balance: amount,
+				}
 			}
+			// [Kroma: END]
 		}
 	}
 	for addr, val := range alloc.L2Alloc {
@@ -193,6 +220,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.Equal(t, deployParams.Secrets.Addresses().Batcher, deployParams.DeployConfig.BatchSenderAddress)
 	require.Equal(t, deployParams.Secrets.Addresses().SequencerP2P, deployParams.DeployConfig.P2PSequencerAddress)
 	require.Equal(t, deployParams.Secrets.Addresses().TrustedValidator, deployParams.DeployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, deployParams.Secrets.Addresses().TrustedValidator, deployParams.DeployConfig.ValidatorManagerTrustedValidator)
 
 	return &SetupData{
 		L1Cfg:         l1Genesis,
@@ -240,109 +268,51 @@ func UsePlasma() bool {
 
 // [Kroma: START]
 
-// SetUpGovernanceTokenOnL1 deploys GovernanceToken and MintManager on L1, and mints and distributes GovernanceToken to each recipient.
-func SetUpGovernanceTokenOnL1(t require.TestingT, ctx context.Context, l1Client *ethclient.Client, l2Client *ethclient.Client,
-	deployConfig *genesis.DeployConfig, l1Deployments *genesis.L1Deployments, secrets *Secrets, l1ChainID *big.Int, l2ChainID *big.Int,
-) {
-	l1Opts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l1ChainID)
-	require.NoError(t, err)
-	l2Opts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l2ChainID)
-	require.NoError(t, err)
-
-	// Deploy L1GovernanceToken on L1 as a proxy
-	l1GovTokenProxyAddr, tx, l1GovTokenProxy, err := bindings.DeployProxy(l1Opts, l1Client, secrets.Addresses().SysCfgOwner)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-	l1Deployments.L1GovernanceTokenProxy = l1GovTokenProxyAddr
-
-	// Deploy GovernanceToken on L2
-	govTokenAddr, tx, _, err := bindings.DeployGovernanceToken(l2Opts, l2Client, predeploys.L2StandardBridgeAddr, l1GovTokenProxyAddr)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l2Client, tx.Hash())
-	require.NoError(t, err)
-	deployConfig.GovernanceTokenAddress = govTokenAddr
-
-	// Deploy GovernanceToken on L1
-	l1GovTokenAddr, tx, _, err := bindings.DeployGovernanceToken(l1Opts, l1Client, l1Deployments.L1StandardBridgeProxy, govTokenAddr)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-
-	// Deploy L1MintManager
-	l1MintManagerShares := make([]*big.Int, len(deployConfig.L1MintManagerShares))
-	for i, v := range deployConfig.L1MintManagerShares {
-		l1MintManagerShares[i] = new(big.Int).SetUint64(v)
+// RedeployValPoolToTerminate redeploys ValidatorPool and upgrades proxy to set the termination index to the given value.
+func RedeployValPoolToTerminate(
+	ctx context.Context,
+	terminationIndex *big.Int,
+	l1Client *ethclient.Client,
+	secrets *Secrets,
+	l1ChainID *big.Int,
+	l1Deployments *genesis.L1Deployments,
+	deployConfig *genesis.DeployConfig,
+) (*types.Transaction, *types.Transaction, error) {
+	signerFn := opCrypto.PrivateKeySignerFn(secrets.SysCfgOwner, l1ChainID)
+	txOpts := &bind.TransactOpts{
+		Context: ctx,
+		From:    secrets.Addresses().SysCfgOwner,
+		Signer:  signerFn,
 	}
 
-	l1MintManagerAddr, tx, l1MintManager, err := bindings.DeployMintManager(l1Opts, l1Client, l1GovTokenProxyAddr,
-		deployConfig.MintManagerOwner, deployConfig.L1MintManagerRecipients, l1MintManagerShares)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-
-	// Accept ownership of L1MintManager (sysCfgOwner as owner)
-	tx, err = l1MintManager.AcceptOwnership(l1Opts)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-
-	// Upgrade proxy and initialize L1GovernanceToken
-	govTokenABI, err := bindings.GovernanceTokenMetaData.GetAbi()
-	require.NoError(t, err)
-	data, err := govTokenABI.Pack("initialize", l1MintManagerAddr)
-	require.NoError(t, err)
-
-	tx, err = l1GovTokenProxy.UpgradeToAndCall(l1Opts, l1GovTokenAddr, data)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-
-	// Accept ownership of L1GovernanceToken (L1MintManager as owner)
-	tx, err = l1MintManager.AcceptOwnershipOfToken(l1Opts)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-
-	// Ensure that the GovernanceToken is not distributed yet
-	l1GovToken, err := bindings.NewGovernanceTokenCaller(l1GovTokenProxyAddr, l1Client)
-	require.NoError(t, err)
-
-	for _, recipient := range deployConfig.L1MintManagerRecipients {
-		balance, err := l1GovToken.BalanceOf(nil, recipient)
-		require.NoError(t, err)
-		require.Equal(t, "0", balance.String())
+	// Deploy a ValidatorPool implementation
+	implAddr, deployTx, _, err := bindings.DeployValidatorPool(
+		txOpts,
+		l1Client,
+		l1Deployments.L2OutputOracleProxy,
+		l1Deployments.KromaPortalProxy,
+		l1Deployments.SecurityCouncilProxy,
+		secrets.Addresses().TrustedValidator,
+		deployConfig.ValidatorPoolRequiredBondAmount.ToInt(),
+		new(big.Int).SetUint64(deployConfig.ValidatorPoolMaxUnbond),
+		new(big.Int).SetUint64(deployConfig.ValidatorPoolRoundDuration),
+		terminationIndex,
+	)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	// Mint and distribute GovernanceToken
-	tx, err = l1MintManager.Mint(l1Opts)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-
-	tx, err = l1MintManager.Distribute(l1Opts)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-
-	tx, err = l1MintManager.RenounceOwnershipOfToken(l1Opts)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-
-	// Check if the GovernanceToken distributed correctly
-	mintCap, err := l1MintManager.MINTCAP(nil)
-	require.NoError(t, err)
-	mintCap.Mul(mintCap, big.NewInt(1e18))
-	shareDenom, err := l1MintManager.SHAREDENOMINATOR(nil)
-	require.NoError(t, err)
-
-	for i, recipient := range deployConfig.L1MintManagerRecipients {
-		amount := new(big.Int).Div(new(big.Int).Mul(mintCap, l1MintManagerShares[i]), shareDenom)
-		balance, err := l1GovToken.BalanceOf(nil, recipient)
-		require.NoError(t, err)
-		require.Equal(t, amount.String(), balance.String())
+	// Upgrade ValidatorPoolProxy to the deployed implementation address
+	proxyAdmin, err := bindings.NewProxyAdminTransactor(l1Deployments.ProxyAdmin, l1Client)
+	if err != nil {
+		return nil, nil, err
 	}
+	upgradeTx, err := proxyAdmin.Upgrade(txOpts, l1Deployments.ValidatorPoolProxy, implAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return deployTx, upgradeTx, nil
 }
 
 // [Kroma: END]

@@ -16,8 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-const timeoutMultiplier = 10
-
 var (
 	// errTimeout represents a timeout
 	errTimeout = errors.New("timeout")
@@ -81,12 +79,6 @@ func WaitForTransaction(hash common.Hash, client *ethclient.Client, timeout time
 		case <-ticker.C:
 		}
 	}
-}
-
-func WaitForL2Transaction(hash common.Hash, client *ethclient.Client, timeout time.Duration) (*types.Receipt, error) {
-	// NOTE(pangssu): The operation speed seems to have been slowed down by changing to Poseidon hash.
-	//	              Therefore, we have increased the timeout, which should be improved later.
-	return WaitForTransaction(hash, client, timeout*timeoutMultiplier)
 }
 
 func WaitForBlock(number *big.Int, client *ethclient.Client, timeout time.Duration) (*types.Block, error) {

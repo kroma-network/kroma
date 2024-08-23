@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
+	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,10 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/optsutils"
-	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/kroma-validator/challenge"
 )
 
 // Guardian is responsible for validating outputs.
@@ -43,9 +44,11 @@ type Guardian struct {
 
 	validationRequestedSub ethereum.Subscription
 	deletionRequestedSub   ethereum.Subscription
+	challengeCreatedSub    ethereum.Subscription
 
 	validationRequestedChan chan *bindings.SecurityCouncilValidationRequested
 	deletionRequestedChan   chan *bindings.SecurityCouncilDeletionRequested
+	challengeCreatedChan    chan *bindings.ColosseumChallengeCreated
 
 	checkpoint *big.Int
 }
@@ -136,7 +139,10 @@ func (g *Guardian) Start(ctx context.Context) error {
 	g.initSub()
 
 	g.wg.Add(1)
-	go g.confirmationLoop()
+	go g.scanPrevChallenges()
+
+	g.wg.Add(1)
+	go g.subscriptionLoop()
 
 	g.wg.Add(1)
 	go g.inspectorLoop()
@@ -145,19 +151,16 @@ func (g *Guardian) Start(ctx context.Context) error {
 }
 
 func (g *Guardian) Stop() error {
-	if g.validationRequestedSub != nil {
-		g.validationRequestedSub.Unsubscribe()
-	}
-
-	if g.deletionRequestedSub != nil {
-		g.deletionRequestedSub.Unsubscribe()
-	}
+	g.validationRequestedSub.Unsubscribe()
+	g.deletionRequestedSub.Unsubscribe()
+	g.challengeCreatedSub.Unsubscribe()
 
 	g.cancel()
 	g.wg.Wait()
 
 	close(g.validationRequestedChan)
 	close(g.deletionRequestedChan)
+	close(g.challengeCreatedChan)
 
 	return nil
 }
@@ -180,6 +183,71 @@ func (g *Guardian) initSub() {
 		}
 		return g.securityCouncilContract.WatchDeletionRequested(opts, g.deletionRequestedChan, nil, nil)
 	})
+
+	g.challengeCreatedChan = make(chan *bindings.ColosseumChallengeCreated)
+	g.challengeCreatedSub = event.ResubscribeErr(time.Second*10, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			g.log.Warn("resubscribing after failed ChallengeCreated event", "err", err)
+		}
+		return g.colosseumContract.WatchChallengeCreated(opts, g.challengeCreatedChan, nil, nil, nil)
+	})
+}
+
+// scanPrevChallenges scans all the previous challenges before current L1 head within the finalization window to handle challenger timeout.
+func (g *Guardian) scanPrevChallenges() {
+	ticker := time.NewTicker(g.cfg.GuardianPollInterval)
+	defer func() {
+		ticker.Stop()
+		g.wg.Done()
+	}()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-g.ctx.Done():
+			return
+		default:
+			status, err := g.cfg.RollupClient.SyncStatus(g.ctx)
+			if err != nil {
+				g.log.Error("failed to get sync status", "err", err)
+				continue
+			}
+
+			toBlock := new(big.Int).SetUint64(status.HeadL1.Number)
+			finalizationStartL1Block := new(big.Int).Sub(toBlock, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
+			// The fromBlock is the maximum value of either genesis block(1) or the first block of the finalization window
+			fromBlock := math.BigMax(common.Big1, finalizationStartL1Block)
+
+			challengeCreatedEvent := g.colosseumABI.Events[KeyEventChallengeCreated]
+
+			addresses := []common.Address{g.cfg.ColosseumAddr}
+			topics := []common.Hash{challengeCreatedEvent.ID}
+
+			query := ethereum.FilterQuery{
+				FromBlock: fromBlock,
+				ToBlock:   toBlock,
+				Addresses: addresses,
+				Topics:    [][]common.Hash{topics},
+			}
+
+			logs, err := g.cfg.L1Client.FilterLogs(g.ctx, query)
+			if err != nil {
+				g.log.Error("failed to get event logs related to challenge creation", "err", err)
+				continue
+			}
+
+			for _, vLog := range logs {
+				ev, err := NewChallengeCreatedEvent(vLog)
+				if err != nil {
+					g.log.Error("failed to parse challenge created event", "err", err)
+					continue
+				}
+				g.wg.Add(1)
+				go g.processChallengerTimeout(ev)
+			}
+
+			return
+		}
+	}
 }
 
 // inspectorLoop finds and deletes outputs whose zk fault proving has failed due to an undeniable bug
@@ -187,7 +255,7 @@ func (g *Guardian) initSub() {
 func (g *Guardian) inspectorLoop() {
 	defer g.wg.Done()
 
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(g.cfg.GuardianPollInterval)
 	defer ticker.Stop()
 
 	for ; ; <-ticker.C {
@@ -208,14 +276,14 @@ func (g *Guardian) inspectorLoop() {
 				currentL2 = new(big.Int).SetUint64(status.FinalizedL2.Number)
 			}
 
-			// currentL1 and finalizedL1 are used for searching events of ReadyToProve in L1 blocks
-			currentL1 := new(big.Int).SetUint64(status.CurrentL1.Number)
-			finalizedL1 := new(big.Int).Sub(currentL1, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
+			// headL1 and finalizedL1 are used for searching events of ReadyToProve in L1 blocks
+			headL1 := new(big.Int).SetUint64(status.HeadL1.Number)
+			finalizedL1 := new(big.Int).Sub(headL1, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
 			finalizedL1 = math.BigMax(common.Big1, finalizedL1)
 
 			creationPeriodL2 := new(big.Int).Div(g.creationPeriodSeconds, g.l2BlockTime)
 			if currentL2.Cmp(creationPeriodL2) != 1 {
-				g.log.Warn("there is no output when the creation period is over yet", "currentL1", currentL1, "currentL2", currentL2, "creationPeriodL2", creationPeriodL2)
+				g.log.Warn("there is no output when the creation period is over yet", "headL1", headL1, "currentL2", currentL2, "creationPeriodL2", creationPeriodL2)
 				continue
 			}
 
@@ -245,7 +313,7 @@ func (g *Guardian) inspectorLoop() {
 
 					for i := startOutputIndex; i.Cmp(endOutputIndex) < 0; i.Add(i, common.Big1) {
 						g.wg.Add(1)
-						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(currentL1))
+						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(headL1))
 					}
 
 					g.checkpoint = endOutputIndex.Sub(endOutputIndex, common.Big1)
@@ -262,7 +330,7 @@ func (g *Guardian) inspectorLoop() {
 
 					for i := new(big.Int).Add(g.checkpoint, common.Big1); i.Cmp(outputIndex) < 0; i.Add(i, common.Big1) {
 						g.wg.Add(1)
-						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(currentL1))
+						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(headL1))
 					}
 
 					g.checkpoint = outputIndex.Sub(outputIndex, common.Big1)
@@ -277,7 +345,7 @@ func (g *Guardian) inspectOutput(outputIndex, fromBlock, toBlock *big.Int) {
 	g.log.Info("inspect output if there is an undeniable bug", "outputIndex", outputIndex)
 	defer g.wg.Done()
 
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(g.cfg.GuardianPollInterval)
 	defer ticker.Stop()
 
 	for ; ; <-ticker.C {
@@ -285,67 +353,47 @@ func (g *Guardian) inspectOutput(outputIndex, fromBlock, toBlock *big.Int) {
 		case <-g.ctx.Done():
 			return
 		default:
-			retry := func() bool {
-				isFinalized, err := g.isOutputFinalized(g.ctx, outputIndex)
-				if err != nil {
-					g.log.Error("unable to check if the output is finalized or not", "err", err, "outputIndex", outputIndex)
-					return true
-				}
-
-				// outputs that have been finalized are not target.
-				if isFinalized {
-					g.log.Info("the output is finalized", "outputIndex", outputIndex, "isFinalized", isFinalized)
-					return false
-				}
-
-				cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
-				defer cCancel()
-				isInCreationPeriod, err := g.colosseumContract.IsInCreationPeriod(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
-				if err != nil {
-					g.log.Error("unable to check if the output is in challenge creation period or not", "err", err, "outputIndex", outputIndex)
-					return true
-				}
-
-				if isInCreationPeriod {
-					g.log.Info("the creation period of output is not passed. try again", "outputIndex", outputIndex, "isInCreationPeriod", isInCreationPeriod)
-					return true
-				}
-
-				shouldBeDeleted, err := g.shouldBeDeleted(outputIndex, fromBlock, toBlock)
-				if err != nil {
-					g.log.Error("unable to inspect the output for force deletion", "err", err, "outputIndex", outputIndex)
-					return true
-				}
-
-				if !shouldBeDeleted {
-					g.log.Info("no need to delete output forcefully", "outputIndex", outputIndex)
-					return false
-				}
-
-				tx, err := g.RequestDeletion(g.ctx, outputIndex)
-				if err != nil {
-					g.log.Error("failed to create tx for output deletion", "err", err, "outputIndex", outputIndex)
-					return true
-				}
-
-				if txResponse := g.cfg.TxManager.SendTransaction(g.ctx, tx); txResponse.Err != nil {
-					g.log.Error("failed to send deletion request tx", "err", txResponse.Err, "outputIndex", outputIndex)
-					return true
-				}
-
-				return false
-			}()
-
-			if retry {
+			inGuardianPeriod, retry, err := g.isInGuardianPeriod(outputIndex)
+			if err != nil {
+				g.log.Error("unable to fetch if output is in guardian period", "err", err, "outputIndex", outputIndex)
 				continue
 			}
+			if !inGuardianPeriod {
+				if retry {
+					continue
+				} else {
+					return
+				}
+			}
+
+			shouldBeDeleted, err := g.shouldBeDeleted(outputIndex, fromBlock, toBlock)
+			if err != nil {
+				g.log.Error("unable to inspect the output for force deletion", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+			if !shouldBeDeleted {
+				g.log.Info("no need to delete output forcefully", "outputIndex", outputIndex)
+				return
+			}
+
+			tx, err := g.RequestDeletion(g.ctx, outputIndex)
+			if err != nil {
+				g.log.Error("failed to create tx for output deletion", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+
+			if txResponse := g.cfg.TxManager.SendTransaction(g.ctx, tx); txResponse.Err != nil {
+				g.log.Error("failed to send deletion request tx", "err", txResponse.Err, "outputIndex", outputIndex)
+				continue
+			}
+
 			return
 		}
 	}
 }
 
-// confirmationLoop validates and sends confirm txs when multi sig tx that requires confirmation is created.
-func (g *Guardian) confirmationLoop() {
+// subscriptionLoop handles event subscriptions.
+func (g *Guardian) subscriptionLoop() {
 	defer g.wg.Done()
 
 	for {
@@ -356,12 +404,16 @@ func (g *Guardian) confirmationLoop() {
 		case ev := <-g.deletionRequestedChan:
 			g.wg.Add(1)
 			go g.processOutputDeletion(ev)
+		case ev := <-g.challengeCreatedChan:
+			g.wg.Add(1)
+			go g.processChallengerTimeout(ev)
 		case <-g.ctx.Done():
 			return
 		}
 	}
 }
 
+// processOutputValidation validates the deleted output and sends confirm tx when multi sig tx that requires confirmation is created.
 func (g *Guardian) processOutputValidation(event *bindings.SecurityCouncilValidationRequested) {
 	g.log.Info("processing validation of the deleted output", "l2BlockNumber", event.L2BlockNumber, "outputRoot", event.OutputRoot, "transactionId", event.TransactionId)
 
@@ -385,6 +437,7 @@ func (g *Guardian) processOutputValidation(event *bindings.SecurityCouncilValida
 	}
 }
 
+// processOutputDeletion validates the requested output deletion and sends confirm tx when multi sig tx that requires confirmation is created.
 func (g *Guardian) processOutputDeletion(event *bindings.SecurityCouncilDeletionRequested) {
 	g.log.Info("processing validation of the output to be deleted", "outputIndex", event.OutputIndex, "transactionId", event.TransactionId)
 
@@ -404,6 +457,49 @@ func (g *Guardian) processOutputDeletion(event *bindings.SecurityCouncilDeletion
 				continue
 			}
 			return
+		}
+	}
+}
+
+// processChallengerTimeout tracks created challenges and sends challenger timeout txs when challenger timed out.
+func (g *Guardian) processChallengerTimeout(event *bindings.ColosseumChallengeCreated) {
+	outputIndex, challenger := event.OutputIndex, event.Challenger
+	g.log.Info("processing challenge to call challenger timeout", "outputIndex", outputIndex, "asserter", event.Asserter, "challenger", challenger)
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer func() {
+		ticker.Stop()
+		g.wg.Done()
+	}()
+
+	for ; ; <-ticker.C {
+		select {
+		case <-g.ctx.Done():
+			return
+		default:
+			inGuardianPeriod, retry, err := g.isInGuardianPeriod(outputIndex)
+			if err != nil {
+				g.log.Error("unable to fetch if output in guardian period", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+			if !inGuardianPeriod {
+				if retry {
+					continue
+				} else {
+					return
+				}
+			}
+
+			retry, err = g.tryChallengerTimeoutTx(outputIndex, challenger)
+			if err != nil {
+				g.log.Error("failed to try challenge timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
+				continue
+			}
+			if retry {
+				continue
+			} else {
+				return
+			}
 		}
 	}
 }
@@ -517,6 +613,58 @@ func (g *Guardian) CheckConfirmCondition(ctx context.Context, transactionId *big
 	return true, nil
 }
 
+func (g *Guardian) isInGuardianPeriod(outputIndex *big.Int) (inGuardianPeriod bool, retry bool, err error) {
+	isFinalized, err := g.isOutputFinalized(g.ctx, outputIndex)
+	if err != nil {
+		return false, true, fmt.Errorf("unable to check if the output is finalized or not: %w", err)
+	}
+	// outputs that have been finalized are not target
+	if isFinalized {
+		g.log.Info("the output is finalized, no need to handle", "outputIndex", outputIndex)
+		return false, false, nil
+	}
+
+	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+	defer cCancel()
+	isInCreationPeriod, err := g.colosseumContract.IsInCreationPeriod(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
+	if err != nil {
+		return false, true, fmt.Errorf("unable to check if the output is in challenge creation period or not: %w", err)
+	}
+	if isInCreationPeriod {
+		g.log.Info("the creation period of output is not passed. try again", "outputIndex", outputIndex)
+		return false, true, nil
+	}
+
+	return true, false, nil
+}
+
+func (g *Guardian) tryChallengerTimeoutTx(outputIndex *big.Int, challenger common.Address) (retry bool, err error) {
+	status, err := g.getChallengeStatus(outputIndex, challenger)
+	if err != nil {
+		return true, fmt.Errorf("unable to fetch challenge status: %w", err)
+	}
+
+	if status == challenge.StatusNone {
+		g.log.Info("challenge status is None, no need to call challenger timeout", "outputIndex", outputIndex, "challenger", challenger)
+		return false, nil
+	} else if status == challenge.StatusChallengerTimeout {
+		g.log.Info("challenge status is ChallengerTimout, call challenger timeout", "outputIndex", outputIndex, "challenger", challenger)
+
+		tx, err := g.challengerTimeout(g.ctx, outputIndex, challenger)
+		if err != nil {
+			return true, fmt.Errorf("failed to create challenger timeout tx: %w", err)
+		}
+
+		if txResponse := g.cfg.TxManager.SendTransaction(g.ctx, tx); txResponse.Err != nil {
+			return true, fmt.Errorf("failed to send challenger timeout tx: %w", txResponse.Err)
+		}
+
+		return false, nil
+	} else {
+		return true, nil
+	}
+}
+
 // shouldBeDeleted checks the output should have been deleted or not.
 // It finds the output of the challenge that triggered the ReadyToProve event
 // and compares it to the local output of the guardian.
@@ -584,6 +732,12 @@ func (g *Guardian) RequestDeletion(ctx context.Context, outputIndex *big.Int) (*
 	return g.securityCouncilContract.RequestDeletion(txOpts, outputIndex, false)
 }
 
+func (g *Guardian) challengerTimeout(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
+	g.log.Info("crafting challenger timeout tx", "outputIndex", outputIndex, "challenger", challenger)
+	txOpts := optsutils.NewSimpleTxOpts(ctx, g.cfg.TxManager.From(), g.cfg.TxManager.Signer)
+	return g.colosseumContract.ChallengerTimeout(txOpts, outputIndex, challenger)
+}
+
 func (g *Guardian) OutputRootAtBlock(ctx context.Context, l2BlockNumber uint64) (eth.Bytes32, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
@@ -610,4 +764,10 @@ func (g *Guardian) isTransactionConfirmed(ctx context.Context, transactionId *bi
 	cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	return g.securityCouncilContract.IsConfirmed(optsutils.NewSimpleCallOpts(cCtx), transactionId)
+}
+
+func (g *Guardian) getChallengeStatus(outputIndex *big.Int, challenger common.Address) (uint8, error) {
+	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
+	defer cCancel()
+	return g.colosseumContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
 }

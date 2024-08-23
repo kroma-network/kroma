@@ -6,24 +6,31 @@ import { stdError } from "forge-std/Test.sol";
 import { Types } from "../libraries/Types.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
+import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { Proxy } from "../universal/Proxy.sol";
-import { L2OutputOracle_Initializer, NextImpl } from "./CommonTest.t.sol";
+import {
+    L2OutputOracle_Initializer,
+    ValidatorSystemUpgrade_Initializer,
+    NextImpl
+} from "./CommonTest.t.sol";
 
 contract L2OutputOracleTest is L2OutputOracle_Initializer {
     bytes32 submittedOutput1 = keccak256(abi.encode(1));
 
-    function setUp() public virtual override {
+    function setUp() public override {
         super.setUp();
 
-        vm.deal(trusted, requiredBondAmount * 100);
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
     }
 
     function test_constructor_succeeds() external {
         assertEq(address(oracle.VALIDATOR_POOL()), address(pool));
+        assertEq(address(oracle.VALIDATOR_MANAGER()), address(valMgr));
         assertEq(oracle.COLOSSEUM(), address(colosseum));
         assertEq(oracle.SUBMISSION_INTERVAL(), submissionInterval);
+        assertEq(oracle.L2_BLOCK_TIME(), l2BlockTime);
+        assertEq(oracle.FINALIZATION_PERIOD_SECONDS(), finalizationPeriodSeconds);
         assertEq(oracle.latestBlockNumber(), startingBlockNumber);
         assertEq(oracle.startingBlockNumber(), startingBlockNumber);
         assertEq(oracle.startingTimestamp(), startingTimestamp);
@@ -33,12 +40,13 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         vm.expectRevert("L2OutputOracle: starting L2 timestamp must be less than current time");
         new L2OutputOracle({
             _validatorPool: pool,
+            _validatorManager: valMgr,
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: block.timestamp + 1,
-            _finalizationPeriodSeconds: 7 days
+            _finalizationPeriodSeconds: finalizationPeriodSeconds
         });
     }
 
@@ -46,12 +54,13 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         vm.expectRevert("L2OutputOracle: L2 block time must be greater than 0");
         new L2OutputOracle({
             _validatorPool: pool,
+            _validatorManager: valMgr,
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: 0,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: block.timestamp,
-            _finalizationPeriodSeconds: 7 days
+            _finalizationPeriodSeconds: finalizationPeriodSeconds
         });
     }
 
@@ -59,12 +68,13 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         vm.expectRevert("L2OutputOracle: submission interval must be greater than 0");
         new L2OutputOracle({
             _validatorPool: pool,
+            _validatorManager: valMgr,
             _colosseum: address(colosseum),
             _submissionInterval: 0,
             _l2BlockTime: l2BlockTime,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: block.timestamp,
-            _finalizationPeriodSeconds: 7 days
+            _finalizationPeriodSeconds: finalizationPeriodSeconds
         });
     }
 
@@ -77,7 +87,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 submittedNumber = oracle.nextBlockNumber();
 
         // Roll to after the block number we'll submit
-        warpToSubmitTime(submittedNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(submittedOutput1, submittedNumber, 0, 0);
         assertEq(oracle.latestBlockNumber(), submittedNumber);
@@ -87,7 +97,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_getL2Output_succeeds() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         uint256 nextOutputIndex = oracle.nextOutputIndex();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(submittedOutput1, nextBlockNumber, 0, 0);
 
@@ -104,7 +114,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_getL2OutputIndexAfter_sameBlock_succeeds() external {
         bytes32 output1 = keccak256(abi.encode(1));
         uint256 nextBlockNumber1 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber1);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output1, nextBlockNumber1, 0, 0);
 
@@ -117,7 +127,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_getL2OutputIndexAfter_previousBlock_succeeds() external {
         bytes32 output1 = keccak256(abi.encode(1));
         uint256 nextBlockNumber1 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber1);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output1, nextBlockNumber1, 0, 0);
 
@@ -130,25 +140,25 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_getL2OutputIndexAfter_multipleOutputsExist_succeeds() external {
         bytes32 output1 = keccak256(abi.encode(1));
         uint256 nextBlockNumber1 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber1);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output1, nextBlockNumber1, 0, 0);
 
         bytes32 output2 = keccak256(abi.encode(2));
         uint256 nextBlockNumber2 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber2);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output2, nextBlockNumber2, 0, 0);
 
         bytes32 output3 = keccak256(abi.encode(3));
         uint256 nextBlockNumber3 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber3);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output3, nextBlockNumber3, 0, 0);
 
         bytes32 output4 = keccak256(abi.encode(4));
         uint256 nextBlockNumber4 = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber4);
+        warpToSubmitTime();
         vm.prank(trusted);
         oracle.submitL2Output(output4, nextBlockNumber4, 0, 0);
 
@@ -206,6 +216,13 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         );
     }
 
+    function test_nextOutputMinL2Timestamp_succeeds() external {
+        assertEq(
+            oracle.nextOutputMinL2Timestamp(),
+            oracle.computeL2Timestamp(oracle.nextBlockNumber() + 1)
+        );
+    }
+
     /*****************************
      * Submit Tests - Happy Path *
      *****************************/
@@ -217,7 +234,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         bytes32 submittedOutput2 = keccak256(abi.encode());
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         uint256 nextOutputIndex = oracle.nextOutputIndex();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         uint256 submittedNumber = oracle.latestBlockNumber();
 
         // Ensure the submissionInterval is enforced
@@ -232,11 +249,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint128 finalizedAt = uint128(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
         vm.expectCall(
             address(oracle.VALIDATOR_POOL()),
-            abi.encodeWithSelector(
-                ValidatorPool.createBond.selector,
-                nextOutputIndex,
-                finalizedAt
-            )
+            abi.encodeWithSelector(ValidatorPool.createBond.selector, nextOutputIndex, finalizedAt)
         );
         vm.expectEmit(true, true, true, true);
         emit OutputSubmitted(submittedOutput2, nextOutputIndex, nextBlockNumber, block.timestamp);
@@ -251,15 +264,10 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 prevL1BlockNumber = block.number - 1;
         bytes32 prevL1BlockHash = blockhash(prevL1BlockNumber);
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
 
         vm.prank(trusted);
-        oracle.submitL2Output(
-            nonZeroHash,
-            nextBlockNumber,
-            prevL1BlockHash,
-            prevL1BlockNumber
-        );
+        oracle.submitL2Output(nonZeroHash, nextBlockNumber, prevL1BlockHash, prevL1BlockNumber);
     }
 
     /***************************
@@ -269,7 +277,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     // Test: submitL2Output fails if called by a party that is not the validator.
     function test_submitL2Output_notValidator_reverts() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
 
         vm.prank(address(128));
         vm.expectRevert("L2OutputOracle: only the next selected validator can submit output");
@@ -280,7 +288,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_submitL2Output_emptyOutput_reverts() external {
         bytes32 outputToSubmit = bytes32(0);
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         vm.expectRevert("L2OutputOracle: L2 checkpoint output cannot be the zero hash");
         oracle.submitL2Output(outputToSubmit, nextBlockNumber, 0, 0);
@@ -289,7 +297,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     // Test: submitL2Output fails if the block number doesn't match the next expected number.
     function test_submitL2Output_unexpectedBlockNumber_reverts() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         vm.expectRevert("L2OutputOracle: block number must be equal to next expected block number");
         oracle.submitL2Output(nonZeroHash, nextBlockNumber - 1, 0, 0);
@@ -298,8 +306,8 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     // Test: submitL2Output fails if it would have a timestamp in the future.
     function test_submitL2Output_futureTimetamp_reverts() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        uint256 nextTimestamp = oracle.computeL2Timestamp(nextBlockNumber);
-        vm.warp(nextTimestamp);
+        uint256 nextTimestamp = oracle.nextOutputMinL2Timestamp();
+        vm.warp(nextTimestamp - 1);
         vm.prank(trusted);
         vm.expectRevert("L2OutputOracle: cannot submit L2 output in the future");
         oracle.submitL2Output(nonZeroHash, nextBlockNumber, 0, 0);
@@ -309,7 +317,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     // protection.
     function test_submitL2Output_wrongFork_reverts() external {
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
         vm.expectRevert(
             "L2OutputOracle: block hash does not match the hash at the expected height"
@@ -333,19 +341,14 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         bytes32 l1BlockHash = blockhash(l1BlockNumber);
 
         uint256 nextBlockNumber = oracle.nextBlockNumber();
-        warpToSubmitTime(nextBlockNumber);
+        warpToSubmitTime();
         vm.prank(trusted);
 
         // This will fail when foundry no longer returns zerod block hashes
         vm.expectRevert(
             "L2OutputOracle: block hash does not match the hash at the expected height"
         );
-        oracle.submitL2Output(
-            nonZeroHash,
-            nextBlockNumber,
-            l1BlockHash,
-            l1BlockNumber - 1
-        );
+        oracle.submitL2Output(nonZeroHash, nextBlockNumber, l1BlockHash, l1BlockNumber - 1);
     }
 
     /*****************************
@@ -362,7 +365,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
 
         vm.prank(address(colosseum));
         vm.expectEmit(true, true, false, false);
-        emit OutputReplaced(outputIndex, newOutputRoot);
+        emit OutputReplaced(outputIndex, challenger, newOutputRoot);
         oracle.replaceL2Output(outputIndex, newOutputRoot, challenger);
 
         // validate that the output root is replaced
@@ -419,6 +422,101 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     }
 }
 
+contract L2OutputOracle_ValidatorSystemUpgrade_Test is ValidatorSystemUpgrade_Initializer {
+    function setUp() public override {
+        super.setUp();
+
+        vm.prank(trusted);
+        pool.deposit{ value: trusted.balance }();
+        _registerValidator(trusted, minActivateAmount);
+
+        // Submit outputs to leave 1 output before ValidatorPool is terminated
+        for (uint256 i; i <= terminateOutputIndex - 1; i++) {
+            _submitL2OutputV1();
+        }
+    }
+
+    function test_submitL2Output_upgradeValidatorSystem_succeeds() external {
+        // Assert terminateOutputIndex still interacts with ValidatorPool
+        warpToSubmitTime();
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
+
+        assertFalse(pool.isTerminated(oracle.nextOutputIndex()));
+        assertEq(pool.nextValidator(), trusted);
+
+        uint128 finalizedAt = uint128(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS());
+        vm.expectCall(
+            address(oracle.VALIDATOR_POOL()),
+            abi.encodeWithSelector(ValidatorPool.nextValidator.selector)
+        );
+        vm.expectCall(
+            address(oracle.VALIDATOR_POOL()),
+            abi.encodeWithSelector(
+                ValidatorPool.createBond.selector,
+                oracle.nextOutputIndex(),
+                finalizedAt
+            )
+        );
+        vm.prank(trusted);
+        oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
+
+        // Assert terminateOutputIndex + 1 interacts with ValidatorManager
+        warpToSubmitTime();
+        nextBlockNumber = oracle.nextBlockNumber();
+        outputRoot = keccak256(abi.encode(nextBlockNumber));
+
+        assertTrue(pool.isTerminated(oracle.nextOutputIndex()));
+        assertEq(valMgr.nextValidator(), trusted);
+
+        vm.expectCall(
+            address(oracle.VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(IValidatorManager.checkSubmissionEligibility.selector, trusted)
+        );
+        vm.expectCall(
+            address(oracle.VALIDATOR_MANAGER()),
+            abi.encodeWithSelector(
+                IValidatorManager.afterSubmitL2Output.selector,
+                oracle.nextOutputIndex()
+            )
+        );
+        vm.prank(trusted);
+        oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
+    }
+
+    function test_setNextFinalizeOutputIndex_succeeds() external {
+        // Only ValidatorPool can set finalized output before upgrade
+        vm.prank(address(pool));
+        oracle.setNextFinalizeOutputIndex(1);
+        assertEq(oracle.nextFinalizeOutputIndex(), 1);
+
+        vm.prank(address(pool));
+        oracle.setNextFinalizeOutputIndex(terminateOutputIndex + 1);
+        assertEq(oracle.nextFinalizeOutputIndex(), terminateOutputIndex + 1);
+
+        // Now only ValidatorManager can set finalized output after upgrade
+        vm.prank(address(valMgr));
+        oracle.setNextFinalizeOutputIndex(terminateOutputIndex + 2);
+        assertEq(oracle.nextFinalizeOutputIndex(), terminateOutputIndex + 2);
+    }
+
+    function test_setNextFinalizeOutputIndex_wrongCaller_reverts() external {
+        // Only ValidatorPool can set finalized output before upgrade
+        vm.prank(address(valMgr));
+        vm.expectRevert(
+            "L2OutputOracle: only the validator pool contract can set next finalize output index"
+        );
+        oracle.setNextFinalizeOutputIndex(1);
+
+        // Now only ValidatorManager can set finalized output after upgrade
+        vm.prank(address(pool));
+        vm.expectRevert(
+            "L2OutputOracle: only the validator manager contract can set next finalize output index"
+        );
+        oracle.setNextFinalizeOutputIndex(terminateOutputIndex + 2);
+    }
+}
+
 contract L2OutputOracleUpgradeable_Test is L2OutputOracle_Initializer {
     Proxy internal proxy;
 
@@ -434,6 +532,7 @@ contract L2OutputOracleUpgradeable_Test is L2OutputOracle_Initializer {
         assertEq(startingTimestamp, oracleImpl.startingTimestamp());
 
         assertEq(address(oracle.VALIDATOR_POOL()), address(pool));
+        assertEq(address(oracle.VALIDATOR_MANAGER()), address(valMgr));
         assertEq(address(colosseum), oracleImpl.COLOSSEUM());
     }
 
