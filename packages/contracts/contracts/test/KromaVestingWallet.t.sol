@@ -76,6 +76,18 @@ contract KromaVestingWalletTest is CommonTest {
         assertEq(vestingWallet.duration(), durationSec);
     }
 
+    function test_initialize_durationNotMultiple_reverts() external {
+        vestingWallet = KromaVestingWallet(payable(address(new Proxy(multisig))));
+        KromaVestingWallet vestingWalletImpl = new KromaVestingWallet(cliffDivider, vestingCycle);
+
+        vm.prank(multisig);
+        vm.expectRevert("Proxy: delegatecall to new implementation contract failed");
+        toProxy(address(vestingWallet)).upgradeToAndCall(
+            address(vestingWalletImpl),
+            abi.encodeCall(vestingWallet.initialize, (beneficiary, startTime, durationSec + 1))
+        );
+    }
+
     function test_release_token_succeeds() external {
         // Ensure test env is set properly
         assertEq(token.balanceOf(beneficiary), 0);
