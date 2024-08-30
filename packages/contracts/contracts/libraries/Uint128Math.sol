@@ -8,6 +8,13 @@ pragma solidity 0.8.15;
  */
 library Uint128Math {
     /**
+     * @dev Returns the largest of two numbers.
+     */
+    function max(uint128 a, uint128 b) internal pure returns (uint128) {
+        return a > b ? a : b;
+    }
+
+    /**
      * @notice Calculates floor(x * y / denominator) with full precision. Throws if result overflows a uint128 or denominator == 0
      * @dev Original credit to Remco Bloemen under MIT license (https://xn--2-umb.com/21/muldiv)
      * with further edits by Uniswap Labs and Openzeppelin also under MIT license.
