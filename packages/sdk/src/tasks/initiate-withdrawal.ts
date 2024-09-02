@@ -3,6 +3,7 @@ import { promises as fs } from 'fs'
 import '@nomiclabs/hardhat-ethers'
 import { Wallet, providers, utils } from 'ethers'
 import { task, types } from 'hardhat/config'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
 
 import {
@@ -35,7 +36,7 @@ task('initiate-withdrawal', 'Initiate a withdrawal.')
     '',
     types.string
   )
-  .setAction(async (args, hre) => {
+  .setAction(async (args, hre: HardhatRuntimeEnvironment) => {
     const signers = await hre.ethers.getSigners()
     assert(signers.length > 0, 'No configured signers')
     // Use the first configured signer for simplicity
