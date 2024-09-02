@@ -652,9 +652,10 @@ contract SecurityCouncil_Initializer is UpgradeGovernor_Initializer {
 
 contract FFIInterface is Test {
     function getProveWithdrawalTransactionInputs(
-        Types.WithdrawalTransaction memory _tx
+        Types.WithdrawalTransaction memory _tx,
+        bool zktrie
     ) external returns (bytes32, bytes32, bytes32, bytes32, bytes[] memory) {
-        string[] memory cmds = new string[](9);
+        string[] memory cmds = new string[](10);
         cmds[0] = "scripts/go-ffi/go-ffi";
         cmds[1] = "diff";
         cmds[2] = "getProveWithdrawalTransactionInputs";
@@ -664,6 +665,7 @@ contract FFIInterface is Test {
         cmds[6] = vm.toString(_tx.value);
         cmds[7] = vm.toString(_tx.gasLimit);
         cmds[8] = vm.toString(_tx.data);
+        cmds[9] = vm.toString(zktrie);
 
         bytes memory result = vm.ffi(cmds);
         (

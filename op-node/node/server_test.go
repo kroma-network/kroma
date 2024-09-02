@@ -102,58 +102,71 @@ func TestOutputAtBlock(t *testing.T) {
 		ListenAddr: "localhost",
 		ListenPort: 0,
 	}
-	rollupCfg := &rollup.Config{
-		// ignore other rollup config info in this test
+
+	runTestOutputAtBlock := func(t *testing.T, rollupCfg *rollup.Config, expectOutputRoot string) {
+		l2Client := &testutils.MockL2Client{}
+		info := testutils.NewMockBlockInfoWithHeader(&header)
+		ref := eth.L2BlockRef{
+			Hash:           header.Hash(),
+			Number:         header.Number.Uint64(),
+			ParentHash:     header.ParentHash,
+			Time:           header.Time,
+			L1Origin:       eth.BlockID{},
+			SequenceNumber: 0,
+		}
+		nextRef := eth.L2BlockRef{
+			Hash:           nextHeader.Hash(),
+			Number:         nextHeader.Number.Uint64(),
+			ParentHash:     nextHeader.ParentHash,
+			Time:           nextHeader.Time,
+			L1Origin:       eth.BlockID{},
+			SequenceNumber: 0,
+		}
+		l2Client.ExpectInfoByHash(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), &info, nil)
+		l2Client.ExpectGetProof(predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, "0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524", &result, nil)
+
+		drClient := &mockDriverClient{}
+		safeReader := &mockSafeDBReader{}
+		status := randomSyncStatus(rand.New(rand.NewSource(123)))
+		drClient.ExpectBlockRefsWithStatus(0xdcdc89, ref, nextRef, status, nil)
+
+		server, err := newRPCServer(rpcCfg, rollupCfg, l2Client, drClient, safeReader, log, "0.0", metrics.NoopMetrics)
+		require.NoError(t, err)
+		require.NoError(t, server.Start())
+		defer func() {
+			require.NoError(t, server.Stop(context.Background()))
+		}()
+
+		client, err := rpcclient.NewRPC(context.Background(), log, "http://"+server.Addr().String(), rpcclient.WithDialBackoff(3))
+		require.NoError(t, err)
+
+		var out *eth.OutputResponse
+		err = client.CallContext(context.Background(), &out, "optimism_outputAtBlock", "0xdcdc89")
+		require.NoError(t, err)
+
+		require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000000", out.Version.String())
+		require.Equal(t, expectOutputRoot, out.OutputRoot.String())
+		require.Equal(t, "0xb46d4bcb0e471e1b8506031a1f34ebc6f200253cbaba56246dd2320e8e2c8f13", out.StateRoot.String())
+		require.Equal(t, "0xc1917a80cb25ccc50d0d1921525a44fb619b4601194ca726ae32312f08a799f8", out.WithdrawalStorageRoot.String())
+		require.Equal(t, *status, *out.Status)
+		l2Client.Mock.AssertExpectations(t)
+		drClient.Mock.AssertExpectations(t)
+		safeReader.Mock.AssertExpectations(t)
 	}
 
-	l2Client := &testutils.MockL2Client{}
-	info := testutils.NewMockBlockInfoWithHeader(&header)
-	ref := eth.L2BlockRef{
-		Hash:           header.Hash(),
-		Number:         header.Number.Uint64(),
-		ParentHash:     header.ParentHash,
-		Time:           header.Time,
-		L1Origin:       eth.BlockID{},
-		SequenceNumber: 0,
-	}
-	nextRef := eth.L2BlockRef{
-		Hash:           nextHeader.Hash(),
-		Number:         nextHeader.Number.Uint64(),
-		ParentHash:     nextHeader.ParentHash,
-		Time:           nextHeader.Time,
-		L1Origin:       eth.BlockID{},
-		SequenceNumber: 0,
-	}
-	l2Client.ExpectInfoByHash(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), &info, nil)
-	l2Client.ExpectGetProof(predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, "0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524", &result, nil)
+	t.Run("before kroma mpt time", func(t *testing.T) {
+		rollupCfg := &rollup.Config{
+			// ignore other rollup config info in this test
+		}
+		runTestOutputAtBlock(t, rollupCfg, "0x3c476dc6a9c558c68e3d3811436181daafceb445bde053beb07702967a613c0c")
+	})
 
-	drClient := &mockDriverClient{}
-	safeReader := &mockSafeDBReader{}
-	status := randomSyncStatus(rand.New(rand.NewSource(123)))
-	drClient.ExpectBlockRefsWithStatus(0xdcdc89, ref, nextRef, status, nil)
-
-	server, err := newRPCServer(rpcCfg, rollupCfg, l2Client, drClient, safeReader, log, "0.0", metrics.NoopMetrics)
-	require.NoError(t, err)
-	require.NoError(t, server.Start())
-	defer func() {
-		require.NoError(t, server.Stop(context.Background()))
-	}()
-
-	client, err := rpcclient.NewRPC(context.Background(), log, "http://"+server.Addr().String(), rpcclient.WithDialBackoff(3))
-	require.NoError(t, err)
-
-	var out *eth.OutputResponse
-	err = client.CallContext(context.Background(), &out, "optimism_outputAtBlock", "0xdcdc89")
-	require.NoError(t, err)
-
-	require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000000", out.Version.String())
-	require.Equal(t, "0x3c476dc6a9c558c68e3d3811436181daafceb445bde053beb07702967a613c0c", out.OutputRoot.String())
-	require.Equal(t, "0xb46d4bcb0e471e1b8506031a1f34ebc6f200253cbaba56246dd2320e8e2c8f13", out.StateRoot.String())
-	require.Equal(t, "0xc1917a80cb25ccc50d0d1921525a44fb619b4601194ca726ae32312f08a799f8", out.WithdrawalStorageRoot.String())
-	require.Equal(t, *status, *out.Status)
-	l2Client.Mock.AssertExpectations(t)
-	drClient.Mock.AssertExpectations(t)
-	safeReader.Mock.AssertExpectations(t)
+	t.Run("after kroma mpt time", func(t *testing.T) {
+		rollupCfg := &rollup.Config{
+			KromaMptTime: &header.Time,
+		}
+		runTestOutputAtBlock(t, rollupCfg, "0xc861dbdc5bf1d8bbbc0bca7cd876ab6a70748c50b2054a46e8f30e99002170ab")
+	})
 }
 
 func TestVersion(t *testing.T) {

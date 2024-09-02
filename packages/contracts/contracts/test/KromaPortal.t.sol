@@ -381,7 +381,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         });
         // Get withdrawal proof data we can use for testing.
         (_stateRoot, _storageRoot, _outputRoot, _withdrawalHash, _withdrawalProof) = ffi
-            .getProveWithdrawalTransactionInputs(_defaultTx);
+            .getProveWithdrawalTransactionInputs(_defaultTx, false);
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({
@@ -872,7 +872,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
 
         // Get updated proof inputs.
         (bytes32 stateRoot, bytes32 storageRoot, , , bytes[] memory withdrawalProof) = ffi
-            .getProveWithdrawalTransactionInputs(insufficientGasTx);
+            .getProveWithdrawalTransactionInputs(insufficientGasTx, false);
         Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
             version: bytes32(uint256(0)),
             stateRoot: stateRoot,
@@ -924,7 +924,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             bytes32 outputRoot,
             bytes32 withdrawalHash,
             bytes[] memory withdrawalProof
-        ) = ffi.getProveWithdrawalTransactionInputs(_testTx);
+        ) = ffi.getProveWithdrawalTransactionInputs(_testTx, false);
         Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
             version: bytes32(uint256(0)),
             stateRoot: stateRoot,
@@ -1003,7 +1003,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             bytes32 outputRoot,
             bytes32 withdrawalHash,
             bytes[] memory withdrawalProof
-        ) = ffi.getProveWithdrawalTransactionInputs(_tx);
+        ) = ffi.getProveWithdrawalTransactionInputs(_tx, false);
 
         // Create the output root proof
         Types.OutputRootProof memory proof = Types.OutputRootProof({

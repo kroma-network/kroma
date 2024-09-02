@@ -8,8 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-chain-ops/crossdomain"
 )
@@ -69,13 +71,24 @@ func hashWithdrawal(nonce *big.Int, sender common.Address, target common.Address
 // [Kroma: START]
 // hashOutputRootProof hashes an output root proof.
 func hashOutputRootProof(version common.Hash, stateRoot common.Hash, messagePasserStorageRoot common.Hash, latestBlockHash common.Hash, nextBlockHash common.Hash) (common.Hash, error) {
-	hash, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
-		Version:                  version,
-		StateRoot:                stateRoot,
-		MessagePasserStorageRoot: messagePasserStorageRoot,
-		BlockHash:                latestBlockHash,
-		NextBlockHash:            nextBlockHash,
-	})
+	var hash eth.Bytes32
+	var err error
+	if nextBlockHash == (common.Hash{}) {
+		hash, err = rollup.ComputeL2OutputRoot(&opbindings.TypesOutputRootProof{
+			Version:                  version,
+			StateRoot:                stateRoot,
+			MessagePasserStorageRoot: messagePasserStorageRoot,
+			LatestBlockhash:          latestBlockHash,
+		})
+	} else {
+		hash, err = rollup.ComputeKromaL2Output(&bindings.TypesOutputRootProof{
+			Version:                  version,
+			StateRoot:                stateRoot,
+			MessagePasserStorageRoot: messagePasserStorageRoot,
+			BlockHash:                latestBlockHash,
+			NextBlockHash:            nextBlockHash,
+		})
+	}
 	if err != nil {
 		return common.Hash{}, err
 	}

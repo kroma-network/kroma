@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -19,6 +20,7 @@ import (
 )
 
 var MessagePassedTopic = crypto.Keccak256Hash([]byte("MessagePassed(uint256,address,address,uint256,uint256,bytes,bytes32)"))
+var magicSMTHex = common.Bytes2Hex([]byte("THIS IS SOME MAGIC BYTES FOR SMT m1rRXgP2xpDI"))
 
 type ProofClient interface {
 	GetProof(context.Context, common.Address, []string, *big.Int) (*gethclient.AccountResult, error)
@@ -108,6 +110,14 @@ func ProveWithdrawalParametersForBlock(
 		return ProvenWithdrawalParameters{}, errors.New("invalid amount of storage proofs")
 	}
 
+	// [Kroma: START]
+	nextBlockHash := common.Hash{}
+	storageProof := p.StorageProof[0].Proof
+	if strings.TrimPrefix(storageProof[len(storageProof)-1], "0x") == magicSMTHex {
+		nextBlockHash = nextL2Block.Hash()
+	}
+	// [Kroma: END]
+
 	err = VerifyProof(l2Block.Root(), p)
 	if err != nil {
 		return ProvenWithdrawalParameters{}, err
@@ -132,7 +142,7 @@ func ProveWithdrawalParametersForBlock(
 			StateRoot:                l2Block.Root(),
 			MessagePasserStorageRoot: p.StorageHash,
 			BlockHash:                l2Block.Hash(),
-			NextBlockHash:            nextL2Block.Hash(),
+			NextBlockHash:            nextBlockHash,
 		},
 		WithdrawalProof: trieNodes,
 	}, nil

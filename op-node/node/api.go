@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/version"
@@ -231,13 +232,24 @@ func (n *nodeAPI) fetchOutputAtBlock(ctx context.Context, number hexutil.Uint64)
 	}
 
 	l2OutputRootVersion := eth.OutputVersionV0 // current version is 0
-	l2OutputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
-		Version:                  l2OutputRootVersion,
-		StateRoot:                head.Root(),
-		MessagePasserStorageRoot: proof.StorageHash,
-		BlockHash:                head.Hash(),
-		NextBlockHash:            nextRef.Hash,
-	})
+
+	var l2OutputRoot eth.Bytes32
+	if n.config.IsKromaMPT(ref.Time) {
+		l2OutputRoot, err = rollup.ComputeL2OutputRoot(&opbindings.TypesOutputRootProof{
+			Version:                  l2OutputRootVersion,
+			StateRoot:                head.Root(),
+			MessagePasserStorageRoot: proof.StorageHash,
+			LatestBlockhash:          head.Hash(),
+		})
+	} else {
+		l2OutputRoot, err = rollup.ComputeKromaL2Output(&bindings.TypesOutputRootProof{
+			Version:                  l2OutputRootVersion,
+			StateRoot:                head.Root(),
+			MessagePasserStorageRoot: proof.StorageHash,
+			BlockHash:                head.Hash(),
+			NextBlockHash:            nextRef.Hash,
+		})
+	}
 	if err != nil {
 		n.log.Error("Error computing L2 output root, nil ptr passed to hashing function")
 		return nil, err

@@ -60,7 +60,7 @@ var (
 )
 
 func SetPrevOutputResponse(s **eth.OutputResponse) error {
-	outputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
+	outputRoot, err := rollup.ComputeKromaL2Output(&bindings.TypesOutputRootProof{
 		Version:                  eth.OutputVersionV0,
 		StateRoot:                common.HexToHash("0x263975548df46f3ffc739f602b503f32b4c522026c8c93204929ddd5b65ad202"),
 		MessagePasserStorageRoot: common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127"),
@@ -102,7 +102,7 @@ func SetPrevOutputResponse(s **eth.OutputResponse) error {
 }
 
 func SetTargetOutputResponse(s **eth.OutputResponse) error {
-	outputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
+	outputRoot, err := rollup.ComputeKromaL2Output(&bindings.TypesOutputRootProof{
 		Version:                  eth.OutputVersionV0,
 		StateRoot:                common.HexToHash("0x0475b3d38492c9e58190616eaad4ab033942aa55747d49c5a614b9e751998d5e"),
 		MessagePasserStorageRoot: common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127"),

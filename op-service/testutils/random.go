@@ -6,12 +6,13 @@ import (
 	"math/big"
 	"math/rand"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
+
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 func RandomBool(rng *rand.Rand) bool {
@@ -338,6 +339,5 @@ func RandomOutputV0(rng *rand.Rand) *eth.OutputV0 {
 		StateRoot:                eth.Bytes32(RandomHash(rng)),
 		MessagePasserStorageRoot: eth.Bytes32(RandomHash(rng)),
 		BlockHash:                RandomHash(rng),
-		NextBlockHash:            RandomHash(rng),
 	}
 }

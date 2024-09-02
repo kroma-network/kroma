@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 
-	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 )
 
 var (
@@ -26,8 +26,7 @@ func ComputeL2OutputRoot(proofElements *bindings.TypesOutputRootProof) (eth.Byte
 	l2Output := eth.OutputV0{
 		StateRoot:                eth.Bytes32(proofElements.StateRoot),
 		MessagePasserStorageRoot: proofElements.MessagePasserStorageRoot,
-		BlockHash:                proofElements.BlockHash,
-		NextBlockHash:            proofElements.NextBlockHash,
+		BlockHash:                proofElements.LatestBlockhash,
 	}
 	return eth.OutputRoot(&l2Output), nil
 }
@@ -44,8 +43,7 @@ func computeL2OutputRootV0(proofElements *bindings.TypesOutputRootProof) (eth.By
 	l2Output := eth.OutputV0{
 		StateRoot:                eth.Bytes32(proofElements.StateRoot),
 		MessagePasserStorageRoot: proofElements.MessagePasserStorageRoot,
-		BlockHash:                proofElements.BlockHash,
-		NextBlockHash:            proofElements.NextBlockHash,
+		BlockHash:                proofElements.LatestBlockhash,
 	}
 	return eth.OutputRoot(&l2Output), nil
 }

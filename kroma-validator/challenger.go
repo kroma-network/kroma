@@ -680,8 +680,8 @@ func (c *Challenger) PublicInputProof(ctx context.Context, blockNumber uint64) (
 	}
 
 	return bindings.TypesPublicInputProof{
-		SrcOutputRootProof:          srcOutput.ToOutputRootProof(),
-		DstOutputRootProof:          dstOutput.ToOutputRootProof(),
+		SrcOutputRootProof:          srcOutput.ToKromaOutputRootProof(),
+		DstOutputRootProof:          dstOutput.ToKromaOutputRootProof(),
 		PublicInput:                 publicInput,
 		Rlps:                        rlp,
 		L2ToL1MessagePasserBalance:  balance,

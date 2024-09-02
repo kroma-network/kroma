@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/poseidon"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/ethereum/go-ethereum/trie/triedb/hashdb"
 	zkt "github.com/kroma-network/zktrie/types"
 
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
@@ -258,6 +259,7 @@ func DiffTestUtils() {
 		gasLimit, ok := new(big.Int).SetString(args[5], 10)
 		checkOk(ok)
 		data := common.FromHex(args[6])
+		isZktrie := args[7] == "true"
 
 		wdHash, err := hashWithdrawal(nonce, sender, target, value, gasLimit, data)
 		checkErr(err, "Error hashing withdrawal")
@@ -276,65 +278,112 @@ func DiffTestUtils() {
 		// Compute the storage slot the withdrawalHash will be stored in
 		hash := crypto.Keccak256Hash(packed)
 
-		// [Kroma: START]
-		// Create a zk trie for state
-		state, err := trie.NewZkTrie(
-			types.GetEmptyRootHash(true),
-			trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
-		)
-		checkErr(err, "Error creating zk trie")
-		// [Kroma: END]
-
-		// Put a "true" bool in the storage slot
-		err = state.UpdateStorage(common.Address{}, hash.Bytes(), []byte{0x01})
-		checkErr(err, "Error updating storage")
-
-		// [Kroma: START]
-		// Create a zk trie for the world state
-		world, err := trie.NewZkTrie(
-			types.GetEmptyRootHash(true),
-			trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
-		)
-		checkErr(err, "Error creating zk trie")
-		// [Kroma: END]
-
-		// Put the put the rlp encoded account in the world trie
-		account := types.StateAccount{
-			Nonce:   0,
-			Balance: big.NewInt(0),
-			Root:    state.Hash(),
-		}
-		writer := new(bytes.Buffer)
-		checkErr(account.EncodeRLP(writer), "Error encoding account")
-		err = world.UpdateStorage(common.Address{}, predeploys.L2ToL1MessagePasserAddr.Bytes(), writer.Bytes())
-		checkErr(err, "Error updating storage")
-
-		// Get the proof
-		var proof proofList
-		// [Kroma: START]
-		key_s, err := zkt.ToSecureKeyBytes(hash.Bytes())
-		checkErr(err, "Error computing secure key bytes")
-		checkErr(state.Prove(key_s.Bytes(), &proof), "Error getting proof")
-		// [Kroma: END]
-
-		// Get the output root
-		outputRoot, err := hashOutputRootProof(common.Hash{}, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
-		checkErr(err, "Error hashing output root proof")
-
-		// Pack the output
-		output := struct {
+		var output struct {
 			WorldRoot      common.Hash
 			StateRoot      common.Hash
 			OutputRoot     common.Hash
 			WithdrawalHash common.Hash
 			Proof          proofList
-		}{
-			WorldRoot:      world.Hash(),
-			StateRoot:      state.Hash(),
-			OutputRoot:     outputRoot,
-			WithdrawalHash: wdHash,
-			Proof:          proof,
 		}
+
+		if isZktrie {
+			// [Kroma: START]
+			// Create a zk trie for state
+			state, err := trie.NewZkTrie(
+				types.GetEmptyRootHash(true),
+				trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
+			)
+			checkErr(err, "Error creating zk trie")
+			// [Kroma: END]
+
+			// Put a "true" bool in the storage slot
+			err = state.UpdateStorage(common.Address{}, hash.Bytes(), []byte{0x01})
+			checkErr(err, "Error updating storage")
+
+			// [Kroma: START]
+			// Create a zk trie for the world state
+			world, err := trie.NewZkTrie(
+				types.GetEmptyRootHash(true),
+				trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
+			)
+			checkErr(err, "Error creating zk trie")
+			// [Kroma: END]
+
+			// Put the put the rlp encoded account in the world trie
+			account := types.StateAccount{
+				Nonce:   0,
+				Balance: big.NewInt(0),
+				Root:    state.Hash(),
+			}
+			writer := new(bytes.Buffer)
+			checkErr(account.EncodeRLP(writer), "Error encoding account")
+			err = world.UpdateStorage(common.Address{}, predeploys.L2ToL1MessagePasserAddr.Bytes(), writer.Bytes())
+			checkErr(err, "Error updating storage")
+
+			// Get the proof
+			var proof proofList
+			// [Kroma: START]
+			key_s, err := zkt.ToSecureKeyBytes(hash.Bytes())
+			checkErr(err, "Error computing secure key bytes")
+			checkErr(state.Prove(key_s.Bytes(), &proof), "Error getting proof")
+			// [Kroma: END]
+
+			// Get the output root
+			outputRoot, err := hashOutputRootProof(common.Hash{}, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
+			checkErr(err, "Error hashing output root proof")
+
+			// Pack the output
+			output.WorldRoot = world.Hash()
+			output.StateRoot = state.Hash()
+			output.OutputRoot = outputRoot
+			output.WithdrawalHash = wdHash
+			output.Proof = proof
+		} else {
+			// Create a secure trie for state
+			state, err := trie.NewStateTrie(
+				trie.TrieID(types.EmptyRootHash),
+				trie.NewDatabase(rawdb.NewMemoryDatabase(), &trie.Config{HashDB: hashdb.Defaults}),
+			)
+			checkErr(err, "Error creating secure trie")
+
+			// Put a "true" bool in the storage slot
+			err = state.UpdateStorage(common.Address{}, hash.Bytes(), []byte{0x01})
+			checkErr(err, "Error updating storage")
+
+			// Create a secure trie for the world state
+			world, err := trie.NewStateTrie(
+				trie.TrieID(types.EmptyRootHash),
+				trie.NewDatabase(rawdb.NewMemoryDatabase(), &trie.Config{HashDB: hashdb.Defaults}),
+			)
+			checkErr(err, "Error creating secure trie")
+
+			// Put the put the rlp encoded account in the world trie
+			account := types.StateAccount{
+				Nonce:   0,
+				Balance: common.Big0,
+				Root:    state.Hash(),
+			}
+			writer := new(bytes.Buffer)
+			checkErr(account.EncodeRLP(writer), "Error encoding account")
+			err = world.UpdateStorage(common.Address{}, predeploys.L2ToL1MessagePasserAddr.Bytes(), writer.Bytes())
+			checkErr(err, "Error updating storage")
+
+			// Get the proof
+			var proof proofList
+			checkErr(state.Prove(predeploys.L2ToL1MessagePasserAddr.Bytes(), &proof), "Error getting proof")
+
+			// Get the output root
+			outputRoot, err := hashOutputRootProof(common.Hash{}, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
+			checkErr(err, "Error hashing output root proof")
+
+			// Pack the output
+			output.WorldRoot = world.Hash()
+			output.StateRoot = state.Hash()
+			output.OutputRoot = outputRoot
+			output.WithdrawalHash = wdHash
+			output.Proof = proof
+		}
+
 		packed, err = proveWithdrawalInputsArgs.Pack(&output)
 		checkErr(err, "Error encoding output")
 

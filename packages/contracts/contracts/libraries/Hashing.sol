@@ -150,14 +150,26 @@ library Hashing {
     function hashOutputRootProofV0(
         Types.OutputRootProof memory _outputRootProof
     ) internal pure returns (bytes32) {
+        // For Kroma (before MPT time)
+        if (uint256(_outputRootProof.nextBlockHash) != 0) {
+            return
+                keccak256(
+                    abi.encode(
+                        _outputRootProof.version,
+                        _outputRootProof.stateRoot,
+                        _outputRootProof.messagePasserStorageRoot,
+                        _outputRootProof.blockHash,
+                        _outputRootProof.nextBlockHash
+                    )
+                );
+        }
         return
             keccak256(
                 abi.encode(
                     _outputRootProof.version,
                     _outputRootProof.stateRoot,
                     _outputRootProof.messagePasserStorageRoot,
-                    _outputRootProof.blockHash,
-                    _outputRootProof.nextBlockHash
+                    _outputRootProof.blockHash
                 )
             );
     }

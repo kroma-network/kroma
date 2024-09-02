@@ -282,6 +282,18 @@
         } catch {}
         
 
+        let RLPErrors
+        try {
+          RLPErrors = require('../artifacts/contracts/libraries/rlp/RLPErrors.sol/RLPErrors.json')
+        } catch {}
+        
+
+        let RLPReader
+        try {
+          RLPReader = require('../artifacts/contracts/libraries/rlp/RLPReader.sol/RLPReader.json')
+        } catch {}
+        
+
         let RLPWriter
         try {
           RLPWriter = require('../artifacts/contracts/libraries/rlp/RLPWriter.sol/RLPWriter.json')
@@ -291,6 +303,18 @@
         let SafeCall
         try {
           SafeCall = require('../artifacts/contracts/libraries/SafeCall.sol/SafeCall.json')
+        } catch {}
+        
+
+        let MerkleTrie
+        try {
+          MerkleTrie = require('../artifacts/contracts/libraries/trie/MerkleTrie.sol/MerkleTrie.json')
+        } catch {}
+        
+
+        let SecureMerkleTrie
+        try {
+          SecureMerkleTrie = require('../artifacts/contracts/libraries/trie/SecureMerkleTrie.sol/SecureMerkleTrie.json')
         } catch {}
         
 
@@ -456,8 +480,12 @@ Encoding,
 Hashing,
 NodeReader,
 Predeploys,
+RLPErrors,
+RLPReader,
 RLPWriter,
 SafeCall,
+MerkleTrie,
+SecureMerkleTrie,
 Types,
 ColosseumTestData,
 CrossDomainMessenger,
