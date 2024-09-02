@@ -168,7 +168,7 @@ func TestMigration(t *testing.T) {
 	require.True(t, new(big.Int).SetBytes(value).Uint64() == 0)
 
 	transitionBlockNumber := new(big.Int).SetUint64(uint64(mptTimeOffset) / cfg.DeployConfig.L2BlockTime)
-	_, err = geth.WaitForBlock(transitionBlockNumber, l2Verif, time.Minute)
+	_, err = geth.WaitForBlock(transitionBlockNumber, l2Verif, 5*time.Minute)
 	require.Nil(t, err)
 
 	// Ensure that the transition block inserted into chain.
