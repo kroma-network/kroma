@@ -62,6 +62,10 @@ contract MockValidatorManager is ValidatorManager {
         _nextPriorityValidator = validator;
     }
 
+    function setJailExpiresAt(address validator, uint128 expiresAt) external {
+        _jail[validator] = expiresAt;
+    }
+
     function nextPriorityValidator() external view returns (address) {
         return _nextPriorityValidator;
     }
@@ -819,6 +823,27 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         );
     }
 
+    function test_slash_alreadyInJail_succeeds() external {
+        _registerValidator(asserter, minActivateAmount);
+
+        // Submit the first output which interacts with ValidatorManager
+        mockValMgr.updatePriorityValidator(asserter);
+        warpToSubmitTime();
+        _submitL2OutputV2(false);
+        uint256 challengedOutputIndex = oracle.latestOutputIndex();
+
+        // Before slashed, send to jail
+        uint128 firstJailExpiresAt = uint128(block.timestamp) + softJailPeriodSeconds;
+        mockValMgr.setJailExpiresAt(asserter, firstJailExpiresAt);
+
+        // After jail expired, slash
+        vm.warp(firstJailExpiresAt + 1);
+        vm.prank(address(colosseum));
+        valMgr.slash(challengedOutputIndex, challenger, asserter);
+
+        assertEq(valMgr.jailExpiresAt(asserter), firstJailExpiresAt + 1 + hardJailPeriodSeconds);
+    }
+
     function test_slash_notColosseum_reverts() external {
         vm.prank(address(1));
         vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
@@ -874,6 +899,32 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(assetMgr.totalValidatorKroBonded(asserter), bondAmount);
         assertFalse(valMgr.inJail(asserter));
         assertTrue(valMgr.getStatus(asserter) == IValidatorManager.ValidatorStatus.ACTIVE);
+    }
+
+    function test_revertSlash_stillInJail_succeeds() external {
+        _registerValidator(asserter, minActivateAmount);
+
+        // Submit the first output which interacts with ValidatorManager
+        mockValMgr.updatePriorityValidator(asserter);
+        warpToSubmitTime();
+        _submitL2OutputV2(false);
+        uint256 challengedOutputIndex = oracle.latestOutputIndex();
+
+        // Before slashed, send to jail
+        uint128 firstJailExpiresAt = uint128(block.timestamp) + softJailPeriodSeconds;
+        mockValMgr.setJailExpiresAt(asserter, firstJailExpiresAt);
+
+        // Before jail expired, slash
+        vm.prank(address(colosseum));
+        valMgr.slash(challengedOutputIndex, challenger, asserter);
+
+        assertEq(valMgr.jailExpiresAt(asserter), firstJailExpiresAt + hardJailPeriodSeconds);
+
+        // Revert slash
+        vm.prank(address(colosseum));
+        valMgr.revertSlash(challengedOutputIndex, asserter);
+
+        assertEq(valMgr.jailExpiresAt(asserter), firstJailExpiresAt);
     }
 
     function test_revertSlash_notColosseum_reverts() external {

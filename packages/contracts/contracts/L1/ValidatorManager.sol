@@ -355,13 +355,22 @@ contract ValidatorManager is ISemver, IValidatorManager {
 
         emit SlashReverted(outputIndex, loser, challengeReward);
 
-        // Unjail the original loser.
-        delete _jail[loser];
+        if (inJail(loser)) {
+            // Revert jail expiration timestamp of the original loser.
+            uint128 expiresAt = _jail[loser] - HARD_JAIL_PERIOD_SECONDS;
+            if (block.timestamp < expiresAt) {
+                _jail[loser] = expiresAt;
 
-        emit ValidatorUnjailed(loser);
+                emit ValidatorJailed(loser, expiresAt);
+            } else {
+                delete _jail[loser];
 
-        if (getStatus(loser) == ValidatorStatus.READY) {
-            _activateValidator(loser);
+                emit ValidatorUnjailed(loser);
+
+                if (getStatus(loser) == ValidatorStatus.READY) {
+                    _activateValidator(loser);
+                }
+            }
         }
     }
 
@@ -709,9 +718,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function _sendToJail(address validator, bool isSoft) private {
         uint128 jailSeconds = isSoft ? SOFT_JAIL_PERIOD_SECONDS : HARD_JAIL_PERIOD_SECONDS;
-        uint128 expiresAt = inJail(validator)
-            ? _jail[validator] + jailSeconds
-            : uint128(block.timestamp) + jailSeconds;
+        uint128 expiresAt = _jail[validator].max(uint128(block.timestamp)) + jailSeconds;
         _jail[validator] = expiresAt;
 
         emit ValidatorJailed(validator, expiresAt);
