@@ -1,7 +1,7 @@
-import '@nomiclabs/hardhat-ethers'
-import '@nomiclabs/hardhat-waffle'
 import dotenv from 'dotenv'
 import { HardhatUserConfig } from 'hardhat/types'
+
+import '@nomiclabs/hardhat-ethers'
 import 'hardhat-deploy'
 
 import './src/tasks'
@@ -14,7 +14,7 @@ const config: HardhatUserConfig = {
     version: '0.8.15',
   },
   paths: {
-    sources: './test/contracts',
+    sources: './src',
   },
   networks: {
     sepolia: {

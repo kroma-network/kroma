@@ -3,6 +3,7 @@ import { promises as fs } from 'fs'
 import '@nomiclabs/hardhat-ethers'
 import { providers, utils } from 'ethers'
 import { task, types } from 'hardhat/config'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat-deploy'
 
 import {
@@ -48,7 +49,7 @@ task('deposit-eth', 'Deposits ether to L2.')
     'checkBalanceMismatch',
     'Whether to check balance after deposit and withdrawal'
   )
-  .setAction(async (args, hre) => {
+  .setAction(async (args, hre: HardhatRuntimeEnvironment) => {
     const signers = await hre.ethers.getSigners()
     assert(signers.length > 0, 'No configured signers')
     // Use the first configured signer for simplicity

@@ -400,6 +400,9 @@ importers:
       chai-as-promised:
         specifier: ^7.1.1
         version: 7.1.2(chai@4.4.1)
+      dotenv:
+        specifier: ^16.0.0
+        version: 16.4.5
       ethereum-waffle:
         specifier: ^3.4.0
         version: 3.4.4(bufferutil@4.0.8)(encoding@0.1.13)(typescript@5.5.2)(utf-8-validate@5.0.10)
