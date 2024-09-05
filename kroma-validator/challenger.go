@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/optsutils"
+	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,9 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/optsutils"
-	"github.com/ethereum-optimism/optimism/op-service/watcher"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
@@ -43,17 +43,21 @@ type Challenger struct {
 	l1Client *ethclient.Client
 	l2Client *ethclient.Client
 
-	l2ooContract      *bindings.L2OutputOracle
-	l2ooABI           *abi.ABI
+	l2OOContract      *bindings.L2OutputOracle
+	l2OOABI           *abi.ABI
 	colosseumContract *bindings.Colosseum
 	colosseumABI      *abi.ABI
-	valpoolContract   *bindings.ValidatorPoolCaller
+	valPoolContract   *bindings.ValidatorPoolCaller
+	valMgrContract    *bindings.ValidatorManagerCaller
+	assetMgrContract  *bindings.AssetManagerCaller
 
 	submissionInterval        *big.Int
 	finalizationPeriodSeconds *big.Int
 	l2BlockTime               *big.Int
 	checkpoint                *big.Int
-	requiredBondAmount        *big.Int
+	requiredBondAmountV1      *big.Int
+	requiredBondAmountV2      *big.Int
+	valPoolTerminationIndex   *big.Int
 
 	l2OutputSubmittedSub ethereum.Subscription
 	challengeCreatedSub  ethereum.Subscription
@@ -75,17 +79,27 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		return nil, err
 	}
 
-	l2ooContract, err := bindings.NewL2OutputOracle(cfg.L2OutputOracleAddr, cfg.L1Client)
+	l2OOContract, err := bindings.NewL2OutputOracle(cfg.L2OutputOracleAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	l2ooABI, err := bindings.L2OutputOracleMetaData.GetAbi()
+	l2OOABI, err := bindings.L2OutputOracleMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
 
-	valpoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, cfg.L1Client)
+	valPoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, cfg.L1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	valMgrContract, err := bindings.NewValidatorManagerCaller(cfg.ValidatorManagerAddr, cfg.L1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	assetMgrContract, err := bindings.NewAssetManagerCaller(cfg.AssetManagerAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
@@ -98,11 +112,13 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		l1Client: cfg.L1Client,
 		l2Client: cfg.L2Client,
 
-		l2ooContract:      l2ooContract,
-		l2ooABI:           l2ooABI,
+		l2OOContract:      l2OOContract,
+		l2OOABI:           l2OOABI,
 		colosseumContract: colosseumContract,
 		colosseumABI:      colosseumABI,
-		valpoolContract:   valpoolContract,
+		valPoolContract:   valPoolContract,
+		valMgrContract:    valMgrContract,
+		assetMgrContract:  assetMgrContract,
 	}, nil
 }
 
@@ -112,7 +128,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 	err := contractWatcher.WatchUpgraded(c.cfg.L2OutputOracleAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		submissionInterval, err := c.l2ooContract.SUBMISSIONINTERVAL(optsutils.NewSimpleCallOpts(cCtx))
+		submissionInterval, err := c.l2OOContract.SUBMISSIONINTERVAL(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
@@ -120,7 +136,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 
 		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		l2BlockTime, err := c.l2ooContract.L2BLOCKTIME(optsutils.NewSimpleCallOpts(cCtx))
+		l2BlockTime, err := c.l2OOContract.L2BLOCKTIME(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get l2 block time: %w", err)
 		}
@@ -128,7 +144,7 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 
 		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		finalizationPeriodSeconds, err := c.l2ooContract.FINALIZATIONPERIODSECONDS(optsutils.NewSimpleCallOpts(cCtx))
+		finalizationPeriodSeconds, err := c.l2OOContract.FINALIZATIONPERIODSECONDS(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get finalization period seconds: %w", err)
 		}
@@ -137,22 +153,45 @@ func (c *Challenger) InitConfig(ctx context.Context) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initiate l2oo config: %w", err)
+		return fmt.Errorf("failed to initiate l2OO config: %w", err)
 	}
 
 	err = contractWatcher.WatchUpgraded(c.cfg.ValidatorPoolAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 		defer cCancel()
-		requiredBondAmount, err := c.valpoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+		requiredBondAmountV1, err := c.valPoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
-		c.requiredBondAmount = requiredBondAmount
+		c.requiredBondAmountV1 = requiredBondAmountV1
+
+		cCtx, cCancel = context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		valPoolTerminationIndex, err := c.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get valPool termination index: %w", err)
+		}
+		c.valPoolTerminationIndex = valPoolTerminationIndex
 
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initiate valpool config: %w", err)
+		return fmt.Errorf("failed to initiate valPool config: %w", err)
+	}
+
+	err = contractWatcher.WatchUpgraded(c.cfg.AssetManagerAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		requiredBondAmountV2, err := c.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get required bond amount of assetMgr: %w", err)
+		}
+		c.requiredBondAmountV2 = requiredBondAmountV2
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate assetMgr config: %w", err)
 	}
 
 	return nil
@@ -168,7 +207,7 @@ func (c *Challenger) initSub() {
 			if err != nil {
 				c.log.Warn("resubscribing after failed OutputSubmitted event", "err", err)
 			}
-			return c.l2ooContract.WatchOutputSubmitted(opts, c.l2OutputSubmittedEventChan, nil, nil, nil)
+			return c.l2OOContract.WatchOutputSubmitted(opts, c.l2OutputSubmittedEventChan, nil, nil, nil)
 		})
 	}
 
@@ -255,7 +294,7 @@ func (c *Challenger) loop() {
 func (c *Challenger) updateCheckpoint() error {
 	cCtx, cCancel := context.WithTimeout(c.ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	nextOutputIndex, err := c.l2ooContract.NextOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
+	nextOutputIndex, err := c.l2OOContract.NextOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		return fmt.Errorf("failed to get the latest output index: %w", err)
 	}
@@ -279,13 +318,13 @@ func (c *Challenger) scanPrevOutputs() error {
 		return fmt.Errorf("failed to get sync status: %w", err)
 	}
 
-	toBlock := new(big.Int).SetUint64(status.CurrentL1.Number)
+	toBlock := new(big.Int).SetUint64(status.HeadL1.Number)
 	// TODO(0xHansLee): add L1BlockTime to rollup config and change to use it
 	finalizationStartL1Block := new(big.Int).Sub(toBlock, new(big.Int).Div(c.finalizationPeriodSeconds, big.NewInt(12)))
 	// The fromBlock is the maximum value of either genesis block(1) or the first block of the finalization window
 	fromBlock := math.BigMax(common.Big1, finalizationStartL1Block)
 
-	outputSubmittedEvent := c.l2ooABI.Events[KeyEventOutputSubmitted]
+	outputSubmittedEvent := c.l2OOABI.Events[KeyEventOutputSubmitted]
 	challengeCreatedEvent := c.colosseumABI.Events[KeyEventChallengeCreated]
 
 	addresses := []common.Address{c.cfg.ColosseumAddr}
@@ -313,13 +352,21 @@ func (c *Challenger) scanPrevOutputs() error {
 		switch vLog.Address {
 		// for OutputSubmitted event
 		case c.cfg.L2OutputOracleAddr:
-			ev := NewOutputSubmittedEvent(vLog)
+			ev, err := NewOutputSubmittedEvent(vLog)
+			if err != nil {
+				c.log.Error("failed to parse output submitted event", "err", err)
+				continue
+			}
 			// handle output
 			c.wg.Add(1)
-			go c.handleOutput(ev.OutputIndex)
+			go c.handleOutput(ev.L2OutputIndex)
 		// for ChallengeCreated event
 		case c.cfg.ColosseumAddr:
-			ev := NewChallengeCreatedEvent(vLog)
+			ev, err := NewChallengeCreatedEvent(vLog)
+			if err != nil {
+				c.log.Error("failed to parse challenge created event", "err", err)
+				continue
+			}
 			if ev.OutputIndex.Sign() == 1 && c.isRelatedChallenge(ev.Asserter, ev.Challenger) {
 				c.wg.Add(1)
 				go c.handleChallenge(ev.OutputIndex, ev.Asserter, ev.Challenger)
@@ -438,12 +485,12 @@ func (c *Challenger) handleOutput(outputIndex *big.Int) {
 				return
 			}
 
-			hasEnoughDeposit, err := c.HasEnoughDeposit(c.ctx)
+			canCreateChallenge, err := c.CanCreateChallenge(c.ctx, outputIndex)
 			if err != nil {
 				c.log.Error(err.Error())
 				continue
 			}
-			if !hasEnoughDeposit {
+			if !canCreateChallenge {
 				continue
 			}
 
@@ -530,7 +577,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 						continue
 					}
 				case chal.StatusChallengerTimeout:
-					// call challenger timeout to increase bond from pending bond
+					// call challenger timeout to take challenger's bond away
 					tx, err := c.ChallengerTimeout(c.ctx, outputIndex, challenger)
 					if err != nil {
 						c.log.Error("failed to create challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
@@ -545,7 +592,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 
 			// if challenger
 			if isChallenger && c.cfg.ChallengerEnabled {
-				// if output has been already deleted, cancel challenge to refund pending bond
+				// if output has been already deleted, cancel challenge to refund challenger's bond
 				if isOutputDeleted && status != chal.StatusChallengerTimeout {
 					tx, err := c.CancelChallenge(c.ctx, outputIndex)
 					if err != nil {
@@ -598,23 +645,78 @@ func (c *Challenger) submitChallengeTx(tx *types.Transaction) error {
 	return c.cfg.TxManager.SendTransaction(c.ctx, tx).Err
 }
 
-// HasEnoughDeposit checks if challenger has enough deposit to bond when creating challenge.
-func (c *Challenger) HasEnoughDeposit(ctx context.Context) (bool, error) {
+// CanCreateChallenge checks if challenger is in the status that can create challenge.
+func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	balance, err := c.valpoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), c.cfg.TxManager.From())
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
-	}
-	c.metr.RecordDepositAmount(balance)
+	from := c.cfg.TxManager.From()
 
-	if balance.Cmp(c.requiredBondAmount) == -1 {
-		c.log.Warn("deposit is less than bond amount", "required", c.requiredBondAmount, "deposit", balance)
+	var balance, requiredBondAmount *big.Int
+	if c.IsValPoolTerminated(outputIndex) {
+		if isInJail, err := c.isInJail(ctx); err != nil {
+			return false, err
+		} else if isInJail {
+			c.log.Warn("validator is in jail")
+			return false, nil
+		}
+
+		validatorStatus, err := c.valMgrContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch the validator status: %w", err)
+		}
+		c.metr.RecordValidatorStatus(validatorStatus)
+
+		if validatorStatus != StatusActive {
+			c.log.Warn("validator is not in the status that can create a challenge", "status", validatorStatus)
+			return false, nil
+		}
+
+		balance, err = c.assetMgrContract.TotalValidatorKroNotBonded(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch balance: %w", err)
+		}
+		requiredBondAmount = c.requiredBondAmountV2
+	} else {
+		var err error
+		balance, err = c.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
+		}
+		requiredBondAmount = c.requiredBondAmountV1
+	}
+
+	c.metr.RecordUnbondedDepositAmount(balance)
+
+	// Check if the unbonded deposit amount is less than the required bond amount
+	if balance.Cmp(requiredBondAmount) == -1 {
+		c.log.Warn(
+			"unbonded deposit is less than bond attempt amount",
+			"requiredBondAmount", requiredBondAmount,
+			"unbonded_deposit", balance,
+		)
 		return false, nil
 	}
-	c.log.Info("deposit amount and bond amount", "deposit", balance, "bond", c.requiredBondAmount)
+
+	c.log.Info("unbonded deposit amount and required bond amount",
+		"unbonded_deposit", balance, "required_bond", requiredBondAmount)
 
 	return true, nil
+}
+
+func (c *Challenger) IsValPoolTerminated(outputIndex *big.Int) bool {
+	return c.valPoolTerminationIndex.Cmp(outputIndex) < 0
+}
+
+func (c *Challenger) isInJail(ctx context.Context) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	from := c.cfg.TxManager.From()
+	isInJail, err := c.valMgrContract.InJail(optsutils.NewSimpleCallOpts(cCtx), from)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch the jail status: %w", err)
+	}
+
+	return isInJail, nil
 }
 
 func (c *Challenger) IsInChallengeCreationPeriod(ctx context.Context, outputIndex *big.Int) (bool, error) {
@@ -626,13 +728,32 @@ func (c *Challenger) IsInChallengeCreationPeriod(ctx context.Context, outputInde
 func (c *Challenger) IsOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	return c.l2ooContract.IsFinalized(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
+	return c.l2OOContract.IsFinalized(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 }
 
 func (c *Challenger) GetChallenge(ctx context.Context, outputIndex *big.Int, challenger common.Address) (bindings.TypesChallenge, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	return c.colosseumContract.GetChallenge(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
+
+	challenge, err := c.colosseumContract.Challenges(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
+	if err != nil {
+		return bindings.TypesChallenge{}, fmt.Errorf("failed to fetch challenge data: %w", err)
+	}
+
+	segments, err := c.colosseumContract.GetSegments(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
+	if err != nil {
+		return bindings.TypesChallenge{}, fmt.Errorf("failed to fetch challenge segments data: %w", err)
+	}
+
+	return bindings.TypesChallenge{
+		Turn:       challenge.Turn,
+		TimeoutAt:  challenge.TimeoutAt,
+		Asserter:   challenge.Asserter,
+		Challenger: challenge.Challenger,
+		Segments:   segments,
+		SegSize:    challenge.SegSize,
+		SegStart:   challenge.SegStart,
+	}, nil
 }
 
 func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
@@ -698,7 +819,7 @@ type Outputs struct {
 func (c *Challenger) OutputsAtIndex(ctx context.Context, outputIndex *big.Int) (*Outputs, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	RemoteOutput, err := c.l2ooContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
+	RemoteOutput, err := c.l2OOContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -761,7 +882,8 @@ func (c *Challenger) GetChallengeStatus(ctx context.Context, outputIndex *big.In
 func (c *Challenger) BuildSegments(ctx context.Context, turn uint8, segStart, segSize uint64) (*chal.Segments, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	sections, err := c.colosseumContract.GetSegmentsLength(optsutils.NewSimpleCallOpts(cCtx), turn)
+
+	sections, err := c.colosseumContract.SegmentsLengths(optsutils.NewSimpleCallOpts(cCtx), big.NewInt(int64(turn-1)))
 	if err != nil {
 		return nil, fmt.Errorf("unable to get segments length of turn %d: %w", turn, err)
 	}

@@ -40,13 +40,17 @@ type L2OutputSubmitter struct {
 	log  log.Logger
 	metr metrics.Metricer
 
-	l2ooContract    *bindings.L2OutputOracleCaller
-	l2ooABI         *abi.ABI
-	valpoolContract *bindings.ValidatorPoolCaller
+	l2OOContract     *bindings.L2OutputOracleCaller
+	l2OOABI          *abi.ABI
+	valPoolContract  *bindings.ValidatorPoolCaller
+	valMgrContract   *bindings.ValidatorManagerCaller
+	assetMgrContract *bindings.AssetManagerCaller
 
-	singleRoundInterval *big.Int
-	l2BlockTime         *big.Int
-	requiredBondAmount  *big.Int
+	singleRoundInterval     *big.Int
+	l2BlockTime             *big.Int
+	requiredBondAmountV1    *big.Int
+	requiredBondAmountV2    *big.Int
+	valPoolTerminationIndex *big.Int
 
 	submitChan chan struct{}
 
@@ -55,28 +59,40 @@ type L2OutputSubmitter struct {
 
 // NewL2OutputSubmitter creates a new L2OutputSubmitter.
 func NewL2OutputSubmitter(cfg Config, l log.Logger, m metrics.Metricer) (*L2OutputSubmitter, error) {
-	l2ooContract, err := bindings.NewL2OutputOracleCaller(cfg.L2OutputOracleAddr, cfg.L1Client)
+	l2OOContract, err := bindings.NewL2OutputOracleCaller(cfg.L2OutputOracleAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	parsed, err := bindings.L2OutputOracleMetaData.GetAbi()
+	parsedL2OOAbi, err := bindings.L2OutputOracleMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
 
-	valpoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, cfg.L1Client)
+	valPoolContract, err := bindings.NewValidatorPoolCaller(cfg.ValidatorPoolAddr, cfg.L1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	valMgrContract, err := bindings.NewValidatorManagerCaller(cfg.ValidatorManagerAddr, cfg.L1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	assetMgrContract, err := bindings.NewAssetManagerCaller(cfg.AssetManagerAddr, cfg.L1Client)
 	if err != nil {
 		return nil, err
 	}
 
 	return &L2OutputSubmitter{
-		cfg:             cfg,
-		log:             l.New("service", "submitter"),
-		metr:            m,
-		l2ooContract:    l2ooContract,
-		l2ooABI:         parsed,
-		valpoolContract: valpoolContract,
+		cfg:              cfg,
+		log:              l.New("service", "submitter"),
+		metr:             m,
+		l2OOContract:     l2OOContract,
+		l2OOABI:          parsedL2OOAbi,
+		valPoolContract:  valPoolContract,
+		valMgrContract:   valMgrContract,
+		assetMgrContract: assetMgrContract,
 	}, nil
 }
 
@@ -86,7 +102,7 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 	err := contractWatcher.WatchUpgraded(l.cfg.L2OutputOracleAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 		defer cCancel()
-		l2BlockTime, err := l.l2ooContract.L2BLOCKTIME(optsutils.NewSimpleCallOpts(cCtx))
+		l2BlockTime, err := l.l2OOContract.L2BLOCKTIME(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get l2 block time: %w", err)
 		}
@@ -94,7 +110,7 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 
 		cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 		defer cCancel()
-		submissionInterval, err := l.l2ooContract.SUBMISSIONINTERVAL(optsutils.NewSimpleCallOpts(cCtx))
+		submissionInterval, err := l.l2OOContract.SUBMISSIONINTERVAL(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get submission interval: %w", err)
 		}
@@ -104,22 +120,45 @@ func (l *L2OutputSubmitter) InitConfig(ctx context.Context) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initiate l2oo config: %w", err)
+		return fmt.Errorf("failed to initiate l2OO config: %w", err)
 	}
 
 	err = contractWatcher.WatchUpgraded(l.cfg.ValidatorPoolAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 		defer cCancel()
-		requiredBondAmount, err := l.valpoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+		requiredBondAmountV1, err := l.valPoolContract.REQUIREDBONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get required bond amount: %w", err)
 		}
-		l.requiredBondAmount = requiredBondAmount
+		l.requiredBondAmountV1 = requiredBondAmountV1
+
+		cCtx, cCancel = context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		valPoolTerminationIndex, err := l.valPoolContract.TERMINATEOUTPUTINDEX(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get valPool termination index: %w", err)
+		}
+		l.valPoolTerminationIndex = valPoolTerminationIndex
 
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initiate valpool config: %w", err)
+		return fmt.Errorf("failed to initiate valPool config: %w", err)
+	}
+
+	err = contractWatcher.WatchUpgraded(l.cfg.AssetManagerAddr, func() error {
+		cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+		defer cCancel()
+		requiredBondAmountV2, err := l.assetMgrContract.BONDAMOUNT(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get required bond amount of assetMgr: %w", err)
+		}
+		l.requiredBondAmountV2 = requiredBondAmountV2
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate assetMgr config: %w", err)
 	}
 
 	return nil
@@ -142,6 +181,7 @@ func (l *L2OutputSubmitter) Start(ctx context.Context) error {
 func (l *L2OutputSubmitter) Stop() error {
 	l.cancel()
 	l.wg.Wait()
+
 	close(l.submitChan)
 
 	return nil
@@ -181,18 +221,30 @@ func (l *L2OutputSubmitter) repeatSubmitL2Output(ctx context.Context) {
 // If it needs to wait, it will calculate how long the validator should wait and
 // try again after the delay.
 func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) (time.Duration, error) {
+	defaultWaitTime := l.cfg.OutputSubmitterRetryInterval
+
 	nextBlockNumber, err := l.FetchNextBlockNumber(ctx)
 	if err != nil {
-		return l.cfg.OutputSubmitterRetryInterval, err
+		return defaultWaitTime, err
 	}
 
-	calculatedWaitTime := l.CalculateWaitTime(ctx, nextBlockNumber)
+	outputIndex, err := l.FetchNextOutputIndex(ctx)
+	if err != nil {
+		return defaultWaitTime, err
+	}
+
+	calculatedWaitTime := l.CalculateWaitTime(ctx, nextBlockNumber, outputIndex)
 	if calculatedWaitTime > 0 {
 		return calculatedWaitTime, nil
 	}
 
-	if err = l.doSubmitL2Output(ctx, nextBlockNumber); err != nil {
-		return l.cfg.OutputSubmitterRetryInterval, err
+	canSubmitOutput, err := l.CanSubmitOutput(ctx, outputIndex)
+	if err != nil || !canSubmitOutput {
+		return defaultWaitTime, err
+	}
+
+	if err = l.doSubmitL2Output(ctx, nextBlockNumber, outputIndex); err != nil {
+		return defaultWaitTime, err
 	}
 
 	// successfully submitted. start next loop immediately.
@@ -200,18 +252,18 @@ func (l *L2OutputSubmitter) trySubmitL2Output(ctx context.Context) (time.Duratio
 }
 
 // doSubmitL2Output submits l2 Output submission transaction.
-func (l *L2OutputSubmitter) doSubmitL2Output(ctx context.Context, nextBlockNumber *big.Int) error {
+func (l *L2OutputSubmitter) doSubmitL2Output(ctx context.Context, nextBlockNumber *big.Int, outputIndex *big.Int) error {
 	output, err := l.FetchOutput(ctx, nextBlockNumber)
 	if err != nil {
 		return err
 	}
 
-	data, err := SubmitL2OutputTxData(l.l2ooABI, output)
+	data, err := SubmitL2OutputTxData(l.l2OOABI, output)
 	if err != nil {
 		return fmt.Errorf("failed to create submit l2 output transaction data: %w", err)
 	}
 
-	if txResponse := l.submitL2OutputTx(data); txResponse.Err != nil {
+	if txResponse := l.submitL2OutputTx(data, outputIndex); txResponse.Err != nil {
 		return txResponse.Err
 	}
 
@@ -224,7 +276,7 @@ func (l *L2OutputSubmitter) doSubmitL2Output(ctx context.Context, nextBlockNumbe
 
 // CalculateWaitTime checks the conditions for submitting L2Output and calculates the required latency.
 // Returns time 0 if the conditions are such that submission is possible immediately.
-func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumber *big.Int) time.Duration {
+func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumber *big.Int, outputIndex *big.Int) time.Duration {
 	defaultWaitTime := l.cfg.OutputSubmitterRetryInterval
 
 	currentBlockNumber, err := l.FetchCurrentBlockNumber(ctx)
@@ -232,8 +284,8 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 		return defaultWaitTime
 	}
 
-	err = l.assertEnoughDeposit(ctx)
-	if err != nil {
+	if _, err = l.CanSubmitOutput(ctx, outputIndex); err != nil {
+		l.log.Error("failed to check the validator can submit output", "err", err)
 		return defaultWaitTime
 	}
 
@@ -245,11 +297,12 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 	roundBuffer := new(big.Int).SetUint64(l.cfg.OutputSubmitterRoundBuffer)
 	if currentBlockNumber.Cmp(nextBlockNumberToWait) < 0 {
 		nextBlockNumberToWait = new(big.Int).Sub(nextBlockNumber, roundBuffer)
+		l.log.Info("submission interval has not elapsed", "currentBlockNumber", currentBlockNumber, "nextBlockNumberToWait", nextBlockNumberToWait)
 		return l.getLeftTimeForL2Blocks(currentBlockNumber, nextBlockNumberToWait)
 	}
 
 	// Check if it's a public round, or selected for priority validator
-	roundInfo, err := l.fetchCurrentRound(ctx)
+	roundInfo, err := l.fetchCurrentRound(ctx, outputIndex)
 	if err != nil {
 		return defaultWaitTime
 	}
@@ -258,6 +311,7 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 		// wait for L2 blocks proceeding until public round when not selected for priority validator
 		roundIntervalToWait := new(big.Int).Sub(l.singleRoundInterval, roundBuffer)
 		nextBlockNumberToWait = new(big.Int).Add(nextBlockNumber, roundIntervalToWait)
+		l.log.Info("wait for next submission chance", "currentBlockNumber", currentBlockNumber, "nextBlockNumberToWait", nextBlockNumberToWait)
 		return l.getLeftTimeForL2Blocks(currentBlockNumber, nextBlockNumberToWait)
 	}
 
@@ -265,34 +319,79 @@ func (l *L2OutputSubmitter) CalculateWaitTime(ctx context.Context, nextBlockNumb
 	return 0
 }
 
-// assertEnoughDeposit asserts that validator has enough deposit to bond when trying output submission.
-func (l *L2OutputSubmitter) assertEnoughDeposit(ctx context.Context) error {
+// CanSubmitOutput checks that the validator satisfies the condition to submit L2Output.
+func (l *L2OutputSubmitter) CanSubmitOutput(ctx context.Context, outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	from := l.cfg.TxManager.From()
-	balance, err := l.valpoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
-	if err != nil {
-		return fmt.Errorf("failed to fetch deposit amount: %w", err)
-	}
-	l.metr.RecordDepositAmount(balance)
 
-	if balance.Cmp(l.requiredBondAmount) == -1 {
+	var balance, requiredBondAmount *big.Int
+	if l.IsValPoolTerminated(outputIndex) {
+		if isInJail, err := l.IsInJail(ctx); err != nil {
+			return false, err
+		} else if isInJail {
+			l.log.Warn("validator is in jail")
+			return false, nil
+		}
+
+		validatorStatus, err := l.GetValidatorStatus(ctx)
+		if err != nil {
+			return false, err
+		}
+		l.metr.RecordValidatorStatus(validatorStatus)
+
+		if validatorStatus != StatusActive {
+			l.log.Warn("validator is not in the status to submit output", "currentStatus", validatorStatus)
+			return false, nil
+		}
+
+		balance, err = l.assetMgrContract.TotalValidatorKroNotBonded(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch balance: %w", err)
+		}
+		requiredBondAmount = l.requiredBondAmountV2
+	} else {
+		var err error
+		balance, err = l.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
+		}
+		requiredBondAmount = l.requiredBondAmountV1
+	}
+	l.metr.RecordUnbondedDepositAmount(balance)
+
+	// Check if the unbonded deposit amount is less than the required bond amount
+	if balance.Cmp(requiredBondAmount) == -1 {
 		l.log.Warn(
-			"deposit is less than bond attempt amount",
-			"requiredBondAmount", l.requiredBondAmount,
-			"deposit", balance,
+			"unbonded deposit is less than bond attempt amount",
+			"requiredBondAmount", requiredBondAmount,
+			"unbonded_deposit", balance,
 		)
-		return nil
+		return false, nil
 	}
-	l.log.Info("deposit amount", "deposit", balance)
 
-	return nil
+	l.log.Info("unbonded deposit amount and required bond amount",
+		"unbonded_deposit", balance, "required_bond", requiredBondAmount)
+
+	return true, nil
+}
+
+func (l *L2OutputSubmitter) FetchNextOutputIndex(ctx context.Context) (*big.Int, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cCancel()
+
+	outputIndex, err := l.l2OOContract.NextOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch next output index: %w", err)
+	}
+
+	return outputIndex, nil
 }
 
 func (l *L2OutputSubmitter) FetchNextBlockNumber(ctx context.Context) (*big.Int, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
-	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(optsutils.NewSimpleCallOpts(cCtx))
+	nextBlockNumber, err := l.l2OOContract.NextBlockNumber(optsutils.NewSimpleCallOpts(cCtx))
 	if err != nil {
 		l.log.Error("unable to get next block number", "err", err)
 		return nil, err
@@ -322,8 +421,32 @@ func (l *L2OutputSubmitter) FetchCurrentBlockNumber(ctx context.Context) (*big.I
 	return currentBlockNumber, nil
 }
 
+func (l *L2OutputSubmitter) IsValPoolTerminated(outputIndex *big.Int) bool {
+	return l.valPoolTerminationIndex.Cmp(outputIndex) < 0
+}
+
+func (l *L2OutputSubmitter) GetValidatorStatus(ctx context.Context) (uint8, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cCancel()
+	validatorStatus, err := l.valMgrContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch the validator status: %w", err)
+	}
+	return validatorStatus, nil
+}
+
+func (l *L2OutputSubmitter) IsInJail(ctx context.Context) (bool, error) {
+	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
+	defer cCancel()
+	isInJail, err := l.valMgrContract.InJail(optsutils.NewSimpleCallOpts(cCtx), l.cfg.TxManager.From())
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch the jail status: %w", err)
+	}
+
+	return isInJail, nil
+}
+
 func (l *L2OutputSubmitter) getLeftTimeForL2Blocks(currentBlockNumber *big.Int, targetBlockNumber *big.Int) time.Duration {
-	l.log.Info("submission interval has not elapsed", "currentBlockNumber", currentBlockNumber, "targetBlockNumber", targetBlockNumber)
 	waitBlockNum := new(big.Int).Sub(targetBlockNumber, currentBlockNumber)
 
 	var waitDuration time.Duration
@@ -349,13 +472,14 @@ func (r *roundInfo) canJoinRound() bool {
 	return joinPriority || joinPublic
 }
 
-// fetchCurrentRound fetches next validator address from ValidatorPool contract.
+// fetchCurrentRound fetches next validator address from ValidatorPool or ValidatorManager contract.
 // It returns if current round is public round, and if selected for priority validator if it's a priority round.
-func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, error) {
+func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context, outputIndex *big.Int) (roundInfo, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, l.cfg.NetworkTimeout)
 	defer cCancel()
 	ri := roundInfo{canJoinPublicRound: l.cfg.OutputSubmitterAllowPublicRound}
-	nextValidator, err := l.valpoolContract.NextValidator(optsutils.NewSimpleCallOpts(cCtx))
+
+	nextValidator, err := l.getNextValidatorAddress(cCtx, outputIndex)
 	if err != nil {
 		l.log.Error("unable to get next validator address", "err", err)
 		ri.isPublicRound = false
@@ -383,6 +507,15 @@ func (l *L2OutputSubmitter) fetchCurrentRound(ctx context.Context) (roundInfo, e
 	ri.isPublicRound = false
 	ri.isPriorityValidator = false
 	return ri, nil
+}
+
+// getNextValidatorAddress selects the appropriate contract and retrieves the next validator address.
+func (l *L2OutputSubmitter) getNextValidatorAddress(ctx context.Context, outputIndex *big.Int) (common.Address, error) {
+	opts := optsutils.NewSimpleCallOpts(ctx)
+	if l.IsValPoolTerminated(outputIndex) {
+		return l.valMgrContract.NextValidator(opts)
+	}
+	return l.valPoolContract.NextValidator(opts)
 }
 
 // FetchOutput gets the output information to the corresponding block number.
@@ -419,8 +552,18 @@ func SubmitL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse) ([]byte, err
 }
 
 // submitL2OutputTx creates l2 output submit tx candidate and sends it to txCandidates channel to process validator's tx candidates in order.
-func (l *L2OutputSubmitter) submitL2OutputTx(data []byte) *txmgr.TxResponse {
-	layout, err := bindings.GetStorageLayout("ValidatorPool")
+func (l *L2OutputSubmitter) submitL2OutputTx(data []byte, outputIndex *big.Int) *txmgr.TxResponse {
+	var name string
+	var accessListAddr common.Address
+	if l.IsValPoolTerminated(outputIndex) {
+		name = "ValidatorManager"
+		accessListAddr = l.cfg.ValidatorManagerAddr
+	} else {
+		name = "ValidatorPool"
+		accessListAddr = l.cfg.ValidatorPoolAddr
+	}
+
+	layout, err := bindings.GetStorageLayout(name)
 	if err != nil {
 		return &txmgr.TxResponse{
 			Receipt: nil,
@@ -431,19 +574,28 @@ func (l *L2OutputSubmitter) submitL2OutputTx(data []byte) *txmgr.TxResponse {
 	var outputIndexSlot, priorityValidatorSlot common.Hash
 	for _, entry := range layout.Storage {
 		switch entry.Label {
+		// ValidatorPool
 		case "nextUnbondOutputIndex":
 			outputIndexSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
 		case "nextPriorityValidator":
 			priorityValidatorSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
+		// ValidatorManager
+		case "_nextPriorityValidator":
+			priorityValidatorSlot = common.BigToHash(big.NewInt(int64(entry.Slot)))
 		}
 	}
 
-	storageKeys := []common.Hash{outputIndexSlot, priorityValidatorSlot}
+	var storageKeys []common.Hash
+	if l.IsValPoolTerminated(outputIndex) {
+		storageKeys = []common.Hash{priorityValidatorSlot}
+	} else {
+		storageKeys = []common.Hash{outputIndexSlot, priorityValidatorSlot}
+	}
 
 	// If provide accessList that is not actually accessed, the transaction may not be executed due to exceeding the estimated gas limit
 	accessList := types.AccessList{
 		types.AccessTuple{
-			Address:     l.cfg.ValidatorPoolAddr,
+			Address:     accessListAddr,
 			StorageKeys: storageKeys,
 		},
 	}
@@ -481,6 +633,6 @@ func (l *L2OutputSubmitter) submitL2OutputTx(data []byte) *txmgr.TxResponse {
 	})
 }
 
-func (l *L2OutputSubmitter) L2ooAbi() *abi.ABI {
-	return l.l2ooABI
+func (l *L2OutputSubmitter) L2OOAbi() *abi.ABI {
+	return l.l2OOABI
 }

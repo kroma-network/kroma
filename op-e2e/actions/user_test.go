@@ -5,13 +5,12 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
 type hardforkScheduledTest struct {
@@ -132,18 +131,21 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 
 	require.Equal(t, dp.Secrets.Addresses().Batcher, dp.DeployConfig.BatchSenderAddress)
 	require.Equal(t, dp.Secrets.Addresses().TrustedValidator, dp.DeployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, dp.Secrets.Addresses().TrustedValidator, dp.DeployConfig.ValidatorManagerTrustedValidator)
 
 	miner, seqEngine, seq := setupSequencerTest(t, sd, log)
 	batcher := NewL2Batcher(log, sd.RollupCfg, DefaultBatcherCfg(dp),
 		seq.RollupClient(), miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
 
 	validator := NewL2Validator(t, log, &ValidatorCfg{
-		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorPoolAddr:   sd.DeploymentsL1.ValidatorPoolProxy,
-		ColosseumAddr:       sd.DeploymentsL1.ColosseumProxy,
-		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
-		ValidatorKey:        dp.Secrets.TrustedValidator,
-		AllowNonFinalized:   true,
+		OutputOracleAddr:     sd.DeploymentsL1.L2OutputOracleProxy,
+		ValidatorPoolAddr:    sd.DeploymentsL1.ValidatorPoolProxy,
+		ValidatorManagerAddr: sd.DeploymentsL1.ValidatorManagerProxy,
+		AssetManagerAddr:     sd.DeploymentsL1.AssetManagerProxy,
+		ColosseumAddr:        sd.DeploymentsL1.ColosseumProxy,
+		SecurityCouncilAddr:  sd.DeploymentsL1.SecurityCouncilProxy,
+		ValidatorKey:         dp.Secrets.TrustedValidator,
+		AllowNonFinalized:    true,
 	}, miner.EthClient(), seqEngine.EthClient(), seq.RollupClient())
 
 	// need to start derivation before we can make L2 blocks
@@ -258,7 +260,7 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 	seq.ActL2PipelineFull(t)
 
 	validator.ActDeposit(t, 1000)
-	miner.includeL1Block(t, dp.Addresses.TrustedValidator, 12)
+	miner.includeL1BlockBySender(t, dp.Addresses.TrustedValidator, 12)
 
 	// create l2 output submission transactions until there is nothing left to submit
 	for {
@@ -269,8 +271,7 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 		// submit it to L1
 		validator.ActSubmitL2Output(t)
 		// include output on L1
-		miner.includeL1Block(t, dp.Addresses.TrustedValidator, 12)
-		miner.ActEmptyBlock(t)
+		miner.includeL1BlockBySender(t, dp.Addresses.TrustedValidator, 12)
 		// Check submission was successful
 		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
 		require.NoError(t, err)

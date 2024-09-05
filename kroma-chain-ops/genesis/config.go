@@ -11,6 +11,9 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gstate "github.com/ethereum/go-ethereum/core/state"
@@ -18,9 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/immutables"
 )
@@ -155,6 +155,7 @@ type DeployConfig struct {
 	GasPriceOracleScalar uint64 `json:"gasPriceOracleScalar"`
 	// EnableGovernance configures whether or not include governance token predeploy.
 	EnableGovernance bool `json:"enableGovernance"`
+	/* [Kroma: START]
 	// GovernanceTokenSymbol represents the  ERC20 symbol of the GovernanceToken.
 	GovernanceTokenSymbol string `json:"governanceTokenSymbol"`
 	// GovernanceTokenName represents the ERC20 name of the GovernanceToken
@@ -162,6 +163,23 @@ type DeployConfig struct {
 	// GovernanceTokenOwner represents the owner of the GovernanceToken. Has the ability
 	// to mint and burn tokens.
 	GovernanceTokenOwner common.Address `json:"governanceTokenOwner"`
+	[Kroma: END] */
+	// [Kroma: START]
+	// GovernanceTokenNotUseCreate2 is used to determine whether not to use CREATE2 to deploy GovernanceTokenProxy.
+	GovernanceTokenNotUseCreate2 bool `json:"governanceTokenNotUseCreate2,omitempty"`
+	// GovernanceTokenProxySalt is used to determine GovernanceTokenProxy address on L1 and L2.
+	GovernanceTokenProxySalt common.Hash `json:"governanceTokenProxySalt"`
+	// MintManagerOwner represents the owner of the MintManager on L1 and L2. Has the ability to mint initially.
+	MintManagerOwner common.Address `json:"mintManagerOwner"`
+	// L1MintManagerRecipients is an array of recipient addresses to receive the minted governance tokens on L1.
+	L1MintManagerRecipients []common.Address `json:"l1MintManagerRecipients"`
+	// L1MintManagerShares is an array of each recipient's share of total minted tokens on L1.
+	L1MintManagerShares []uint64 `json:"l1MintManagerShares"`
+	// L2MintManagerRecipients is an array of recipient addresses to receive the minted governance tokens on L2.
+	L2MintManagerRecipients []common.Address `json:"l2MintManagerRecipients"`
+	// L2MintManagerShares is an array of each recipient's share of total minted tokens on L2.
+	L2MintManagerShares []uint64 `json:"l2MintManagerShares"`
+	// [Kroma: END]
 	// DeploymentWaitConfirmations is the number of confirmations to wait during
 	// deployment. This is DEPRECATED and should be removed in a future PR.
 	DeploymentWaitConfirmations int `json:"deploymentWaitConfirmations"`
@@ -255,6 +273,40 @@ type DeployConfig struct {
 	ValidatorPoolRequiredBondAmount *hexutil.Big   `json:"validatorPoolRequiredBondAmount"`
 	ValidatorPoolMaxUnbond          uint64         `json:"validatorPoolMaxUnbond"`
 	ValidatorPoolRoundDuration      uint64         `json:"validatorPoolRoundDuration"`
+	// ValidatorPoolTerminateOutputIndex is the output index where ValidatorPool is terminated after
+	// in hex value.
+	ValidatorPoolTerminateOutputIndex *hexutil.Big `json:"validatorPoolTerminateOutputIndex"`
+
+	// ValidatorManagerTrustedValidator represents the address of the trusted validator.
+	ValidatorManagerTrustedValidator common.Address `json:"validatorManagerTrustedValidator"`
+	// ValidatorManagerMinRegisterAmount is the amount of the minimum register amount.
+	ValidatorManagerMinRegisterAmount *hexutil.Big `json:"validatorManagerMinRegisterAmount"`
+	// ValidatorManagerMinActivateAmount is the amount of the minimum activation amount.
+	ValidatorManagerMinActivateAmount *hexutil.Big `json:"validatorManagerMinActivateAmount"`
+	// ValidatorManagerCommissionChangeDelaySeconds is the delay to finalize the commission rate change in seconds.
+	ValidatorManagerCommissionChangeDelaySeconds uint64 `json:"validatorManagerCommissionChangeDelaySeconds"`
+	// ValidatorManagerRoundDurationSeconds is the duration of one submission round in seconds.
+	ValidatorManagerRoundDurationSeconds uint64 `json:"validatorManagerRoundDurationSeconds"`
+	// ValidatorManagerSoftJailPeriodSeconds is the duration of jail period in seconds in output non-submissions penalty.
+	ValidatorManagerSoftJailPeriodSeconds uint64 `json:"validatorManagerSoftJailPeriodSeconds"`
+	// ValidatorManagerHardJailPeriodSeconds is the duration of jail period in seconds in slashing penalty.
+	ValidatorManagerHardJailPeriodSeconds uint64 `json:"validatorManagerHardJailPeriodSeconds"`
+	// ValidatorManagerJailThreshold is the threshold of output non-submission to be jailed.
+	ValidatorManagerJailThreshold uint64 `json:"validatorManagerJailThreshold"`
+	// ValidatorManagerMaxFinalizations is the max number of output finalizations when distributing
+	// reward.
+	ValidatorManagerMaxFinalizations uint64 `json:"validatorManagerMaxFinalizations"`
+	// ValidatorManagerBaseReward is the amount of the base reward in hex value.
+	ValidatorManagerBaseReward *hexutil.Big `json:"validatorManagerBaseReward"`
+
+	// AssetManagerKgh represents the address of the KGH NFT contract.
+	AssetManagerKgh common.Address `json:"assetManagerKgh"`
+	// AssetManagerVault represents the address of the validator reward vault.
+	AssetManagerVault common.Address `json:"assetManagerVault"`
+	// AssetManagerMinDelegationPeriod is the duration of minimum delegation period in seconds.
+	AssetManagerMinDelegationPeriod uint64 `json:"assetManagerMinDelegationPeriod"`
+	// AssetManagerBondAmount is the bond amount.
+	AssetManagerBondAmount *hexutil.Big `json:"assetManagerBondAmount"`
 
 	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
 	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`
@@ -283,9 +335,6 @@ type DeployConfig struct {
 	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
-
-	// L1GovernanceTokenProxy represents the address of the L1GovernanceTokenProxy on L1.
-	L1GovernanceTokenProxy common.Address `json:"l1GovernanceTokenProxy"`
 	// [Kroma: END]
 }
 
@@ -381,16 +430,36 @@ func (d *DeployConfig) Check() error {
 		return fmt.Errorf("%w: L2 genesis block base fee per gas cannot be nil", ErrInvalidDeployConfig)
 	}
 	if d.EnableGovernance {
+		/* [Kroma: START]
 		if d.GovernanceTokenName == "" {
 			return fmt.Errorf("%w: GovernanceToken.name cannot be empty", ErrInvalidDeployConfig)
 		}
 		if d.GovernanceTokenSymbol == "" {
 			return fmt.Errorf("%w: GovernanceToken.symbol cannot be empty", ErrInvalidDeployConfig)
 		}
+		if d.GovernanceTokenOwner == (common.Address{}) {
+			return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
+		}
+		[Kroma: END] */
 		// [Kroma: START]
-		// if d.GovernanceTokenOwner == (common.Address{}) {
-		// 	return fmt.Errorf("%w: GovernanceToken owner cannot be address(0)", ErrInvalidDeployConfig)
-		// }
+		if d.GovernanceTokenProxySalt == (common.Hash{}) {
+			return fmt.Errorf("%w: GovernanceTokenProxySalt cannot be empty hash", ErrInvalidDeployConfig)
+		}
+		if d.MintManagerOwner == (common.Address{}) {
+			return fmt.Errorf("%w: MintManagerOwner cannot be address(0)", ErrInvalidDeployConfig)
+		}
+		if len(d.L1MintManagerRecipients) == 0 {
+			return fmt.Errorf("%w: L1MintManagerRecipients array cannot be empty", ErrInvalidDeployConfig)
+		}
+		if len(d.L1MintManagerRecipients) != len(d.L1MintManagerShares) {
+			return fmt.Errorf("%w: L1MintManagerRecipients and L1MintManagerShares must be the same length", ErrInvalidDeployConfig)
+		}
+		if len(d.L2MintManagerRecipients) == 0 {
+			return fmt.Errorf("%w: L2MintManagerRecipients array cannot be empty", ErrInvalidDeployConfig)
+		}
+		if len(d.L2MintManagerRecipients) != len(d.L2MintManagerShares) {
+			return fmt.Errorf("%w: L2MintManagerRecipients and L2MintManagerShares must be the same length", ErrInvalidDeployConfig)
+		}
 		// [Kroma: END]
 	}
 	// L2 block time must always be smaller than L1 block time
@@ -468,6 +537,54 @@ func (d *DeployConfig) Check() error {
 	if d.ValidatorPoolRoundDuration == 0 {
 		return fmt.Errorf("%w: ValidatorPoolRoundDuration cannot be 0", ErrInvalidDeployConfig)
 	}
+	if d.ValidatorManagerTrustedValidator == (common.Address{}) {
+		return fmt.Errorf("%w: ValidatorManagerTrustedValidator cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMinRegisterAmount == nil {
+		return fmt.Errorf("%w: ValidatorManagerMinRegisterAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMinActivateAmount == nil {
+		return fmt.Errorf("%w: ValidatorManagerMinActivateAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMinActivateAmount.ToInt().Cmp(d.ValidatorManagerMinRegisterAmount.ToInt()) < 0 {
+		return fmt.Errorf("%w: ValidatorManagerMinActivateAmount must equal or more than ValidatorManagerMinRegisterAmount", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerCommissionChangeDelaySeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerCommissionChangeDelaySeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerRoundDurationSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerRoundDurationSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerSoftJailPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerSoftJailPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerHardJailPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ValidatorManagerHardJailPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerJailThreshold == 0 {
+		return fmt.Errorf("%w: ValidatorManagerJailThreshold cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMaxFinalizations == 0 {
+		return fmt.Errorf("%w: ValidatorManagerMaxFinalizations cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerBaseReward == nil {
+		return fmt.Errorf("%w: ValidatorManagerBaseReward cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerKgh == (common.Address{}) {
+		return fmt.Errorf("%w: AssetManagerKgh cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerVault == (common.Address{}) {
+		return fmt.Errorf("%w: AssetManagerVault cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerMinDelegationPeriod == 0 {
+		return fmt.Errorf("%w: AssetManagerMinDelegationPeriod cannot be 0", ErrInvalidDeployConfig)
+	}
+	if d.AssetManagerBondAmount == nil {
+		return fmt.Errorf("%w: AssetManagerBondAmount cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorManagerRoundDurationSeconds*2 {
+		return fmt.Errorf("%w: double of ValidatorManagerRoundDurationSeconds must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
+	}
 	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorPoolRoundDuration*2 {
 		return fmt.Errorf("%w: double of ValidatorPoolRoundDuration must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
 	}
@@ -532,12 +649,6 @@ func (d *DeployConfig) CheckAddresses() error {
 	if d.KromaPortalProxy == (common.Address{}) {
 		return fmt.Errorf("%w: KromaPortalProxy cannot be address(0)", ErrInvalidDeployConfig)
 	}
-
-	// [Kroma: START]
-	if d.L1GovernanceTokenProxy == (common.Address{}) {
-		return fmt.Errorf("%w: L1GovernanceTokenProxy cannot be address(0)", ErrInvalidDeployConfig)
-	}
-	// [Kroma: END]
 	return nil
 }
 
@@ -551,7 +662,6 @@ func (d *DeployConfig) SetDeployments(deployments *L1Deployments) {
 
 	// [Kroma: START]
 	d.ValidatorPoolProxy = deployments.ValidatorPoolProxy
-	d.L1GovernanceTokenProxy = deployments.L1GovernanceTokenProxy
 	// [Kroma: END]
 }
 
@@ -736,6 +846,7 @@ type L1Deployments struct {
 	ColosseumProxy            common.Address `json:"ColosseumProxy"`
 	L1GovernanceToken         common.Address `json:"L1GovernanceToken"`
 	L1GovernanceTokenProxy    common.Address `json:"L1GovernanceTokenProxy"`
+	L1MintManager             common.Address `json:"L1MintManager"`
 	Poseidon2                 common.Address `json:"Poseidon2"`
 	SecurityCouncil           common.Address `json:"SecurityCouncil"`
 	SecurityCouncilProxy      common.Address `json:"SecurityCouncilProxy"`
@@ -747,6 +858,10 @@ type L1Deployments struct {
 	UpgradeGovernorProxy      common.Address `json:"UpgradeGovernorProxy"`
 	ValidatorPool             common.Address `json:"ValidatorPool"`
 	ValidatorPoolProxy        common.Address `json:"ValidatorPoolProxy"`
+	AssetManager              common.Address `json:"AssetManager"`
+	AssetManagerProxy         common.Address `json:"AssetManagerProxy"`
+	ValidatorManager          common.Address `json:"ValidatorManager"`
+	ValidatorManagerProxy     common.Address `json:"ValidatorManagerProxy"`
 	ZKMerkleTrie              common.Address `json:"ZKMerkleTrie"`
 	ZKVerifier                common.Address `json:"ZKVerifier"`
 	ZKVerifierProxy           common.Address `json:"ZKVerifierProxy"`
@@ -942,17 +1057,9 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		GasPriceOracle: struct{}{},
 		L1Block:        struct{}{},
 		/* [Kroma: START]
+		GovernanceToken: struct{}{},
 		LegacyMessagePasser: struct{}{},
-		[Kroma: END] */
-		// [Kroma: START]
-		GovernanceToken: struct {
-			Bridge      common.Address
-			RemoteToken common.Address
-		}{
-			Bridge:      predeploys.L2StandardBridgeAddr,
-			RemoteToken: config.L1GovernanceTokenProxy,
-		},
-		// [Kroma: END]
+		[Kroma: END]*/
 		L2ERC721Bridge: struct {
 			OtherBridge common.Address
 			Messenger   common.Address
@@ -973,6 +1080,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 			Bridge: predeploys.L2StandardBridgeAddr,
 		},
 		ProxyAdmin: struct{}{},
+		// [Kroma: START]
 		ProtocolVault: struct {
 			Recipient common.Address
 		}{
@@ -1062,13 +1170,15 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"symbol":   "WETH",
 		"decimals": 18,
 	}
+	/* [Kroma: START]
 	if config.EnableGovernance {
 		storage["GovernanceToken"] = state.StorageValues{
 			"_name":   config.GovernanceTokenName,
 			"_symbol": config.GovernanceTokenSymbol,
-			// "_owner":  config.GovernanceTokenOwner,
+			"_owner":  config.GovernanceTokenOwner,
 		}
 	}
+	[Kroma: END] */
 	storage["ProxyAdmin"] = state.StorageValues{
 		"_owner": config.ProxyAdminOwner,
 	}

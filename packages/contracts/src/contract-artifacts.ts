@@ -54,6 +54,12 @@
         } catch {}
         
 
+        let MintManager
+        try {
+          MintManager = require('../artifacts/contracts/governance/MintManager.sol/MintManager.json')
+        } catch {}
+        
+
         let SecurityCouncilToken
         try {
           SecurityCouncilToken = require('../artifacts/contracts/governance/SecurityCouncilToken.sol/SecurityCouncilToken.json')
@@ -72,15 +78,33 @@
         } catch {}
         
 
+        let AssetManager
+        try {
+          AssetManager = require('../artifacts/contracts/L1/AssetManager.sol/AssetManager.json')
+        } catch {}
+        
+
         let Colosseum
         try {
           Colosseum = require('../artifacts/contracts/L1/Colosseum.sol/Colosseum.json')
         } catch {}
         
 
+        let IAssetManager
+        try {
+          IAssetManager = require('../artifacts/contracts/L1/interfaces/IAssetManager.sol/IAssetManager.json')
+        } catch {}
+        
+
+        let IValidatorManager
+        try {
+          IValidatorManager = require('../artifacts/contracts/L1/interfaces/IValidatorManager.sol/IValidatorManager.json')
+        } catch {}
+        
+
         let IZKMerkleTrie
         try {
-          IZKMerkleTrie = require('../artifacts/contracts/L1/IZKMerkleTrie.sol/IZKMerkleTrie.json')
+          IZKMerkleTrie = require('../artifacts/contracts/L1/interfaces/IZKMerkleTrie.sol/IZKMerkleTrie.json')
         } catch {}
         
 
@@ -129,6 +153,12 @@
         let SystemConfig
         try {
           SystemConfig = require('../artifacts/contracts/L1/SystemConfig.sol/SystemConfig.json')
+        } catch {}
+        
+
+        let ValidatorManager
+        try {
+          ValidatorManager = require('../artifacts/contracts/L1/ValidatorManager.sol/ValidatorManager.json')
         } catch {}
         
 
@@ -222,6 +252,18 @@
         } catch {}
         
 
+        let Atan2
+        try {
+          Atan2 = require('../artifacts/contracts/libraries/Atan2.sol/Atan2.json')
+        } catch {}
+        
+
+        let BalancedWeightTree
+        try {
+          BalancedWeightTree = require('../artifacts/contracts/libraries/BalancedWeightTree.sol/BalancedWeightTree.json')
+        } catch {}
+        
+
         let Burn
         try {
           Burn = require('../artifacts/contracts/libraries/Burn.sol/Burn.json')
@@ -291,6 +333,12 @@
         let Types
         try {
           Types = require('../artifacts/contracts/libraries/Types.sol/Types.json')
+        } catch {}
+        
+
+        let Uint128Math
+        try {
+          Uint128Math = require('../artifacts/contracts/libraries/Uint128Math.sol/Uint128Math.json')
         } catch {}
         
 
@@ -412,10 +460,14 @@ EchidnaFuzzHashing,
 EchidnaFuzzKromaPortal,
 EchidnaFuzzResourceMetering,
 GovernanceToken,
+MintManager,
 SecurityCouncilToken,
 TimeLock,
 UpgradeGovernor,
+AssetManager,
 Colosseum,
+IAssetManager,
+IValidatorManager,
 IZKMerkleTrie,
 KromaPortal,
 L1CrossDomainMessenger,
@@ -425,6 +477,7 @@ L2OutputOracle,
 ResourceMetering,
 SecurityCouncil,
 SystemConfig,
+ValidatorManager,
 ValidatorPool,
 ZKMerkleTrie,
 IPoseidon2,
@@ -440,6 +493,8 @@ L2ERC721Bridge,
 L2StandardBridge,
 L2ToL1MessagePasser,
 Arithmetic,
+Atan2,
+BalancedWeightTree,
 Burn,
 Bytes,
 Bytes32,
@@ -452,6 +507,7 @@ Predeploys,
 RLPWriter,
 SafeCall,
 Types,
+Uint128Math,
 ColosseumTestData,
 CrossDomainMessenger,
 ERC721Bridge,

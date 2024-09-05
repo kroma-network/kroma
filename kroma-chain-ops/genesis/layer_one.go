@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
@@ -13,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
@@ -101,6 +101,8 @@ func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployme
 	return memDB.Genesis(), nil
 }
 
+// [Kroma: START]
+
 // PostProcessL1DeveloperGenesis will apply post processing to the L1 genesis
 // state. This is required to handle edge cases in the genesis generation.
 // `block.number` is used during deployment and without specifically setting
@@ -119,7 +121,6 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 		return fmt.Errorf("portal proxy doesn't exist at %s", deployments.KromaPortalProxy)
 	}
 
-	// [Kroma: START]
 	slot, err := getStorageSlot("KromaPortal", "params")
 	if err != nil {
 		return err
@@ -192,6 +193,31 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 	//setup beacon deposit contract
 	log.Info("Set BeaconDepositContractCode")
 	stateDB.SetCode(predeploys.BeaconDepositContractAddr, predeploys.BeaconDepositContractCode)
+
+	//setup governance token balances on L1
+	log.Info("Set GovernanceToken balance on L1")
+	if !stateDB.Exist(deployments.L1GovernanceTokenProxy) {
+		return fmt.Errorf("l1GovernanceToken proxy doesn't exist at %s", deployments.L1GovernanceTokenProxy)
+	}
+
+	slot, err = getStorageSlot("GovernanceToken", "_balances")
+	if err != nil {
+		return err
+	}
+
+	bigVal, success := new(big.Int).SetString("1000000000000000000000000", 10)
+	if !success {
+		return fmt.Errorf("failed to set governance token balance")
+	}
+	val = common.BigToHash(bigVal)
+	for _, account := range DevAccounts {
+		addrToBytes := append(make([]byte, 12), account.Bytes()...)
+		addrSlot := crypto.Keccak256Hash(append(addrToBytes, slot.Bytes()...))
+		stateDB.SetState(deployments.L1GovernanceTokenProxy, addrSlot, val)
+
+		log.Info("Post process update", "name", "GovernanceToken", "address", deployments.L1GovernanceTokenProxy, "slot", addrSlot.Hex(), "afterVal", val.Hex())
+	}
+
 	return nil
 }
 

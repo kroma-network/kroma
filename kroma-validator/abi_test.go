@@ -33,6 +33,7 @@ func setupL2OutputOracle() (common.Address, *bind.TransactOpts, *backends.Simula
 		opts,
 		backend,
 		common.Address{0xdd},
+		common.Address{0xcc},
 		common.Address{0xee},
 		big.NewInt(10),
 		big.NewInt(2),

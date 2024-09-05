@@ -92,6 +92,81 @@ interface RequiredDeployConfig {
   validatorPoolRoundDuration: number
 
   /**
+   * The output index where ValidatorPool is terminated after in hex value.
+   */
+  validatorPoolTerminateOutputIndex: string
+
+  /**
+   * Address of the trusted validator.
+   */
+  validatorManagerTrustedValidator: string
+
+  /**
+   * Amount of the minimum register amount in hex value.
+   */
+  validatorManagerMinRegisterAmount: string
+
+  /**
+   * Amount of the minimum activation amount in hex value.
+   */
+  validatorManagerMinActivateAmount: string
+
+  /**
+   * The delay to finalize the commission rate change in seconds.
+   */
+  validatorManagerCommissionChangeDelaySeconds: number
+
+  /**
+   * The duration of one submission round in seconds.
+   */
+  validatorManagerRoundDurationSeconds: number
+
+  /**
+   * The duration of jail period in seconds in output non-submissions penalty.
+   */
+  validatorManagerSoftJailPeriodSeconds: number
+
+  /**
+   * The duration of jail period in seconds in slashing penalty.
+   */
+  validatorManagerHardJailPeriodSeconds: number
+
+  /**
+   * The threshold of output non-submission to be jailed.
+   */
+  validatorManagerJailThreshold: number
+
+  /**
+   * Max number of output finalizations when distributing reward.
+   */
+  validatorManagerMaxFinalizations: number
+
+  /**
+   * Amount of the base reward in hex value.
+   */
+  validatorManagerBaseReward: string
+
+  /**
+   * Address of the KGH NFT contract.
+   */
+  assetManagerKgh: string
+
+  /**
+   * Address of the validator reward vault.
+   */
+  assetManagerVault: string
+
+  /**
+   * The duration of minimum delegation period in seconds.
+   */
+  assetManagerMinDelegationPeriod: number
+
+  /**
+   * Amount of the bond amount in hex value.
+   */
+  assetManagerBondAmount: string
+
+  /**
    * Output Oracle submission interval in L2 blocks.
    */
   l2OutputOracleSubmissionInterval: number
@@ -209,6 +284,16 @@ interface RequiredDeployConfig {
    * L2 : Governor voting period in block.
    */
   l2GovernorVotingPeriodBlocks: number
+
+  /**
+   * The salt to determine GovernanceTokenProxy address on L1 and L2.
+   */
+  governanceTokenProxySalt: string
+
+  /**
+   * The owner of MintManager on L1 and L2.
+   */
+  mintManagerOwner: string
 }
 
 /**
@@ -226,6 +311,9 @@ interface OptionalL1DeployConfig {
   l1GenesisBlockGasUsed: string
   l1GenesisBlockParentHash: string
   l1GenesisBlockBaseFeePerGas: string
+  governanceTokenNotUseCreate2: boolean
+  l1MintManagerRecipients: string[]
+  l1MintManagerShares: string[]
 }
 
 /**
@@ -246,6 +334,8 @@ interface OptionalL2DeployConfig {
   gasPriceOracleOverhead: number
   gasPriceOracleScalar: number
   validatorRewardScalar: number
+  l2MintManagerRecipients: string[]
+  l2MintManagerShares: string[]
 }
 
 /**
@@ -309,6 +399,51 @@ export const deployConfigSpec: {
   },
   validatorPoolRoundDuration: {
     type: 'number',
+  },
+  validatorPoolTerminateOutputIndex: {
+    type: 'string', // uint256
+  },
+  validatorManagerTrustedValidator: {
+    type: 'address',
+  },
+  validatorManagerMinRegisterAmount: {
+    type: 'string', // uint128
+  },
+  validatorManagerMinActivateAmount: {
+    type: 'string', // uint128
+  },
+  validatorManagerCommissionChangeDelaySeconds: {
+    type: 'number',
+  },
+  validatorManagerRoundDurationSeconds: {
+    type: 'number',
+  },
+  validatorManagerSoftJailPeriodSeconds: {
+    type: 'number',
+  },
+  validatorManagerHardJailPeriodSeconds: {
+    type: 'number',
+  },
+  validatorManagerJailThreshold: {
+    type: 'number',
+  },
+  validatorManagerMaxFinalizations: {
+    type: 'number',
+  },
+  validatorManagerBaseReward: {
+    type: 'string', // uint128
+  },
+  assetManagerKgh: {
+    type: 'address',
+  },
+  assetManagerVault: {
+    type: 'address',
+  },
+  assetManagerMinDelegationPeriod: {
+    type: 'number',
+  },
+  assetManagerBondAmount: {
+    type: 'string', // uint128
   },
   l2OutputOracleSubmissionInterval: {
     type: 'number',
@@ -472,5 +607,16 @@ export const deployConfigSpec: {
   },
   l2TimeLockMinDelaySeconds: {
     type: 'number',
+  },
+  governanceTokenNotUseCreate2: {
+    type: 'boolean',
+    default: false,
+  },
+  governanceTokenProxySalt: {
+    type: 'string', // bytes32
+    default: ethers.constants.HashZero,
+  },
+  mintManagerOwner: {
+    type: 'address',
   },
 }

@@ -10,15 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/exp/slog"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/log"
-
 	"github.com/ethereum-optimism/optimism/op-e2e/external"
 	op_service "github.com/ethereum-optimism/optimism/op-service"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/log"
+	"golang.org/x/exp/slog"
+
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
@@ -128,6 +127,7 @@ func init() {
 	DeployConfig.L2BlockTime = 1
 	// [Kroma: START]
 	DeployConfig.ValidatorPoolRoundDuration = DeployConfig.L2OutputOracleSubmissionInterval * DeployConfig.L2BlockTime / 2
+	DeployConfig.ValidatorManagerRoundDurationSeconds = DeployConfig.L2OutputOracleSubmissionInterval * DeployConfig.L2BlockTime / 2
 	// [Kroma: END]
 
 	if L1Deployments != nil {

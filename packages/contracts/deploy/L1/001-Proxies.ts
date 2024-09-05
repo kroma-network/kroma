@@ -17,7 +17,8 @@ const PROXY_NAMES = [
   'SecurityCouncilTokenProxy',
   'TimeLockProxy',
   'UpgradeGovernorProxy',
-  'L1GovernanceTokenProxy',
+  'AssetManagerProxy',
+  'ValidatorManagerProxy',
 ]
 
 const deployFn: DeployFunction = async (hre) => {

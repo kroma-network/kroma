@@ -5,11 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
-
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
@@ -19,6 +14,11 @@ import (
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
+
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
@@ -31,6 +31,8 @@ type Config struct {
 	ColosseumAddr                   common.Address
 	SecurityCouncilAddr             common.Address
 	ValidatorPoolAddr               common.Address
+	ValidatorManagerAddr            common.Address
+	AssetManagerAddr                common.Address
 	ChallengerPollInterval          time.Duration
 	NetworkTimeout                  time.Duration
 	TxManager                       *txmgr.BufferedTxManager
@@ -45,6 +47,7 @@ type Config struct {
 	OutputSubmitterRoundBuffer      uint64
 	ChallengerEnabled               bool
 	GuardianEnabled                 bool
+	GuardianPollInterval            time.Duration
 	ProofFetcher                    ProofFetcher
 }
 
@@ -81,6 +84,12 @@ type CLIConfig struct {
 	// ValPoolAddress is the ValidatorPool contract address.
 	ValPoolAddress string
 
+	// ValMgrAddress is the ValidatorManager contract address.
+	ValMgrAddress string
+
+	// AssetManagerAddress is the AssetManager contract address.
+	AssetManagerAddress string
+
 	// ChallengerPollInterval is how frequently to poll L2 for new finalized outputs.
 	ChallengerPollInterval time.Duration
 
@@ -104,6 +113,9 @@ type CLIConfig struct {
 	ChallengerEnabled bool
 
 	GuardianEnabled bool
+
+	// GuardianPollInterval is how frequently to poll L1 for inspection.
+	GuardianPollInterval time.Duration
 
 	FetchingProofTimeout time.Duration
 
@@ -146,6 +158,8 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		L2OOAddress:            ctx.String(flags.L2OOAddressFlag.Name),
 		ColosseumAddress:       ctx.String(flags.ColosseumAddressFlag.Name),
 		ValPoolAddress:         ctx.String(flags.ValPoolAddressFlag.Name),
+		ValMgrAddress:          ctx.String(flags.ValMgrAddressFlag.Name),
+		AssetManagerAddress:    ctx.String(flags.AssetManagerAddressFlag.Name),
 		OutputSubmitterEnabled: ctx.Bool(flags.OutputSubmitterEnabledFlag.Name),
 		ChallengerEnabled:      ctx.Bool(flags.ChallengerEnabledFlag.Name),
 		ChallengerPollInterval: ctx.Duration(flags.ChallengerPollIntervalFlag.Name),
@@ -159,6 +173,7 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		SecurityCouncilAddress:          ctx.String(flags.SecurityCouncilAddressFlag.Name),
 		ProverRPC:                       ctx.String(flags.ProverRPCFlag.Name),
 		GuardianEnabled:                 ctx.Bool(flags.GuardianEnabledFlag.Name),
+		GuardianPollInterval:            ctx.Duration(flags.GuardianPollIntervalFlag.Name),
 		FetchingProofTimeout:            ctx.Duration(flags.FetchingProofTimeoutFlag.Name),
 		RPCConfig:                       oprpc.ReadCLIConfig(ctx),
 		LogConfig:                       oplog.ReadCLIConfig(ctx),
@@ -169,7 +184,7 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 
 // NewValidatorConfig creates a validator config with given the CLIConfig
 func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Config, error) {
-	l2ooAddress, err := opservice.ParseAddress(cfg.L2OOAddress)
+	l2OOAddress, err := opservice.ParseAddress(cfg.L2OOAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -188,6 +203,16 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	valPoolAddress, err := opservice.ParseAddress(cfg.ValPoolAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	valMgrAddress, err := opservice.ParseAddress(cfg.ValMgrAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	assetManagerAddress, err := opservice.ParseAddress(cfg.AssetManagerAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -232,11 +257,14 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	return &Config{
-		L2OutputOracleAddr:              l2ooAddress,
+		L2OutputOracleAddr:              l2OOAddress,
 		ColosseumAddr:                   colosseumAddress,
 		SecurityCouncilAddr:             securityCouncilAddress,
 		ValidatorPoolAddr:               valPoolAddress,
+		ValidatorManagerAddr:            valMgrAddress,
+		AssetManagerAddr:                assetManagerAddress,
 		ChallengerPollInterval:          cfg.ChallengerPollInterval,
+		GuardianPollInterval:            cfg.GuardianPollInterval,
 		NetworkTimeout:                  cfg.TxMgrConfig.NetworkTimeout,
 		TxManager:                       txManager,
 		L1Client:                        l1Client,

@@ -12,6 +12,8 @@ fi
 contracts=(
   contracts/L1/Colosseum.sol:Colosseum
   contracts/L1/SecurityCouncil.sol:SecurityCouncil
+  contracts/L1/AssetManager.sol:AssetManager
+  contracts/L1/ValidatorManager.sol:ValidatorManager
   contracts/L1/ValidatorPool.sol:ValidatorPool
   contracts/L1/L1CrossDomainMessenger.sol:L1CrossDomainMessenger
   contracts/L1/L1StandardBridge.sol:L1StandardBridge
@@ -30,10 +32,12 @@ contracts=(
   contracts/universal/Proxy.sol:Proxy
   contracts/universal/KromaMintableERC20.sol:KromaMintableERC20
   contracts/universal/KromaMintableERC20Factory.sol:KromaMintableERC20Factory
+  contracts/universal/KromaVestingWallet.sol:KromaVestingWallet
   contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken
   contracts/governance/TimeLock.sol:TimeLock
   contracts/governance/UpgradeGovernor.sol:UpgradeGovernor
   contracts/governance/GovernanceToken.sol:GovernanceToken
+  contracts/governance/MintManager.sol:MintManager
 )
 
 dir=$(dirname "$0")

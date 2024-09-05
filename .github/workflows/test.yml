@@ -28,7 +28,7 @@ jobs:
       - uses: pnpm/action-setup@v2
         name: Install pnpm
         with:
-          version: 8
+          version: 9
           run_install: false
 
       - name: Get pnpm store directory
@@ -60,6 +60,5 @@ jobs:
 
       - name: Run tests
         env:
-          OP_E2E_DISABLE_PARALLEL: true
-          OP_E2E_USE_CANYON: true
+          OP_E2E_DISABLE_PARALLEL: false
         run: make test

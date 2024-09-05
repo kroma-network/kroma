@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum-optimism/optimism/op-service/cliapp"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/ethereum-optimism/optimism/op-service/cliapp"
-	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/kroma-network/kroma/kroma-validator"
-	"github.com/kroma-network/kroma/kroma-validator/cmd/balance"
+	cmd "github.com/kroma-network/kroma/kroma-validator/cmd/validator"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
 )
 
@@ -31,33 +31,74 @@ func main() {
 	app.Action = curryMain(Version)
 	app.Commands = cli.Commands{
 		{
-			Name:  "deposit",
-			Usage: "Deposit ETH into ValidatorPool to be used as bond",
+			Name:  "register",
+			Usage: "Register as new validator to ValidatorManager",
 			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:     "amount",
-					Usage:    "Amount to deposit into ValidatorPool (in wei)",
-					Required: true,
-				},
+				cmd.TokenAmountFlag,
+				cmd.CommissionRateFlag,
+				cmd.WithdrawAccountFlag,
 			},
-			Action: balance.Deposit,
+			Action: cmd.Register,
 		},
 		{
-			Name:  "withdraw",
-			Usage: "Withdraw ETH from ValidatorPool",
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:     "amount",
-					Usage:    "Amount to withdraw from ValidatorPool (in wei)",
-					Required: true,
-				},
-			},
-			Action: balance.Withdraw,
+			Name:   "activate",
+			Usage:  "Activate the validator in ValidatorManager",
+			Action: cmd.Activate,
 		},
 		{
-			Name:   "unbond",
-			Usage:  "Attempt to unbond in ValidatorPool",
-			Action: balance.Unbond,
+			Name:   "unjail",
+			Usage:  "Attempt to unjail the validator in ValidatorManager",
+			Action: cmd.Unjail,
+		},
+		{
+			Name:  "changeCommission",
+			Usage: "Change the commission rate of the validator in ValidatorManager",
+			Subcommands: []*cli.Command{
+				{
+					Name:   "init",
+					Usage:  "Initiate the commission rate change",
+					Flags:  []cli.Flag{cmd.CommissionRateFlag},
+					Action: cmd.InitCommissionChange,
+				},
+				{
+					Name:   "finalize",
+					Usage:  "Finalize the commission rate change",
+					Action: cmd.FinalizeCommissionChange,
+				},
+			},
+		},
+		{
+			Name:   "depositKro",
+			Usage:  "Attempt to deposit asset tokens to AssetManager to be used as bond",
+			Flags:  []cli.Flag{cmd.TokenAmountFlag},
+			Action: cmd.DepositKro,
+		},
+		{
+			Name:        "deposit",
+			Usage:       "(DEPRECATED) Deposit ETH into ValidatorPool to be used as bond",
+			Description: "This command is deprecated since the release of validator system V2. Please use the 'register' command to register as a validator.",
+			Flags:       []cli.Flag{cmd.EthAmountFlag},
+			Action:      cmd.Deposit,
+		},
+		{
+			Name:        "withdraw",
+			Usage:       "(DEPRECATED) Withdraw ETH from ValidatorPool",
+			Description: "This command is deprecated since the release of validator system V2. You can still use this command to withdraw your asset from the ValidatorPool.",
+			Flags:       []cli.Flag{cmd.EthAmountFlag},
+			Action:      cmd.Withdraw,
+		},
+		{
+			Name:        "withdrawTo",
+			Usage:       "(DEPRECATED) Withdraw ETH from ValidatorPool to specific address",
+			Description: "This command is deprecated since the release of validator system V2. You can still use this command to withdraw your asset from the ValidatorPool to specific address.",
+			Flags:       []cli.Flag{cmd.AddressFlag, cmd.EthAmountFlag},
+			Action:      cmd.WithdrawTo,
+		},
+		{
+			Name:        "unbond",
+			Usage:       "(DEPRECATED) Attempt to unbond in ValidatorPool",
+			Description: "This command is deprecated since the release of validator system V2. You can still use this command to unbond your asset from the ValidatorPool.",
+			Action:      cmd.Unbond,
 		},
 	}
 

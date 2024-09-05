@@ -1,20 +1,25 @@
 package e2eutils
 
 import (
+	"context"
 	"math/big"
 	"os"
 	"path"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	opCrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 )
 
@@ -24,7 +29,7 @@ var testingJWTSecret = [32]byte{123}
 func WriteDefaultJWT(t TestingBase) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")
-	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0600); err != nil {
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(testingJWTSecret[:])), 0o600); err != nil {
 		t.Fatalf("failed to prepare jwt file for geth: %v", err)
 	}
 	return jwtPath
@@ -64,10 +69,9 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	deployConfig.L1BlockTime = tp.L1BlockTime
 	deployConfig.UsePlasma = tp.UsePlasma
 	// [Kroma: START]
-	//genesisTimeOffset := hexutil.Uint64(0)
+	// genesisTimeOffset := hexutil.Uint64(0)
 	deployConfig.L2GenesisDeltaTimeOffset = nil
 	deployConfig.L2GenesisEcotoneTimeOffset = nil
-	deployConfig.ValidatorPoolRoundDuration = deployConfig.L2OutputOracleSubmissionInterval * deployConfig.L2BlockTime / 2
 	// [Kroma: END]
 	ApplyDeployConfigForks(deployConfig)
 
@@ -75,6 +79,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	require.Equal(t, addresses.Batcher, deployConfig.BatchSenderAddress)
 	require.Equal(t, addresses.SequencerP2P, deployConfig.P2PSequencerAddress)
 	require.Equal(t, addresses.TrustedValidator, deployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, addresses.TrustedValidator, deployConfig.ValidatorManagerTrustedValidator)
 
 	return &DeployParams{
 		DeployConfig:   deployConfig,
@@ -114,6 +119,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	deployConf.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	// [Kroma: START]
 	deployConf.ValidatorPoolRoundDuration = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
+	deployConf.ValidatorManagerRoundDurationSeconds = deployConf.L2OutputOracleSubmissionInterval * deployConf.L2BlockTime / 2
 	// [Kroma: END]
 	require.NoError(t, deployConf.Check())
 
@@ -124,9 +130,22 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.NoError(t, err, "failed to create l1 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
-			l1Genesis.Alloc[addr] = core.GenesisAccount{
-				Balance: Ether(1e12),
+			// [Kroma: START]
+			// If address already exists in allocs, do not modify other fields except for balance
+			amount := Ether(1e12)
+			if existing, ok := l1Genesis.Alloc[addr]; ok {
+				l1Genesis.Alloc[addr] = core.GenesisAccount{
+					Code:    existing.Code,
+					Storage: existing.Storage,
+					Balance: amount,
+					Nonce:   existing.Nonce,
+				}
+			} else {
+				l1Genesis.Alloc[addr] = core.GenesisAccount{
+					Balance: amount,
+				}
 			}
+			// [Kroma: END]
 		}
 	}
 	for addr, val := range alloc.L1Alloc {
@@ -139,9 +158,22 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.NoError(t, err, "failed to create l2 genesis")
 	if alloc.PrefundTestUsers {
 		for _, addr := range deployParams.Addresses.All() {
-			l2Genesis.Alloc[addr] = core.GenesisAccount{
-				Balance: Ether(1e12),
+			// [Kroma: START]
+			// If address already exists in allocs, do not modify other fields except for balance
+			amount := Ether(1e12)
+			if existing, ok := l2Genesis.Alloc[addr]; ok {
+				l2Genesis.Alloc[addr] = core.GenesisAccount{
+					Code:    existing.Code,
+					Storage: existing.Storage,
+					Balance: amount,
+					Nonce:   existing.Nonce,
+				}
+			} else {
+				l2Genesis.Alloc[addr] = core.GenesisAccount{
+					Balance: amount,
+				}
 			}
+			// [Kroma: END]
 		}
 	}
 	for addr, val := range alloc.L2Alloc {
@@ -188,6 +220,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 	require.Equal(t, deployParams.Secrets.Addresses().Batcher, deployParams.DeployConfig.BatchSenderAddress)
 	require.Equal(t, deployParams.Secrets.Addresses().SequencerP2P, deployParams.DeployConfig.P2PSequencerAddress)
 	require.Equal(t, deployParams.Secrets.Addresses().TrustedValidator, deployParams.DeployConfig.ValidatorPoolTrustedValidator)
+	require.Equal(t, deployParams.Secrets.Addresses().TrustedValidator, deployParams.DeployConfig.ValidatorManagerTrustedValidator)
 
 	return &SetupData{
 		L1Cfg:         l1Genesis,
@@ -232,3 +265,54 @@ func UseFPAC() bool {
 func UsePlasma() bool {
 	return os.Getenv("OP_E2E_USE_PLASMA") == "true"
 }
+
+// [Kroma: START]
+
+// RedeployValPoolToTerminate redeploys ValidatorPool and upgrades proxy to set the termination index to the given value.
+func RedeployValPoolToTerminate(
+	ctx context.Context,
+	terminationIndex *big.Int,
+	l1Client *ethclient.Client,
+	secrets *Secrets,
+	l1ChainID *big.Int,
+	l1Deployments *genesis.L1Deployments,
+	deployConfig *genesis.DeployConfig,
+) (*types.Transaction, *types.Transaction, error) {
+	signerFn := opCrypto.PrivateKeySignerFn(secrets.SysCfgOwner, l1ChainID)
+	txOpts := &bind.TransactOpts{
+		Context: ctx,
+		From:    secrets.Addresses().SysCfgOwner,
+		Signer:  signerFn,
+	}
+
+	// Deploy a ValidatorPool implementation
+	implAddr, deployTx, _, err := bindings.DeployValidatorPool(
+		txOpts,
+		l1Client,
+		l1Deployments.L2OutputOracleProxy,
+		l1Deployments.KromaPortalProxy,
+		l1Deployments.SecurityCouncilProxy,
+		secrets.Addresses().TrustedValidator,
+		deployConfig.ValidatorPoolRequiredBondAmount.ToInt(),
+		new(big.Int).SetUint64(deployConfig.ValidatorPoolMaxUnbond),
+		new(big.Int).SetUint64(deployConfig.ValidatorPoolRoundDuration),
+		terminationIndex,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Upgrade ValidatorPoolProxy to the deployed implementation address
+	proxyAdmin, err := bindings.NewProxyAdminTransactor(l1Deployments.ProxyAdmin, l1Client)
+	if err != nil {
+		return nil, nil, err
+	}
+	upgradeTx, err := proxyAdmin.Upgrade(txOpts, l1Deployments.ValidatorPoolProxy, implAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return deployTx, upgradeTx, nil
+}
+
+// [Kroma: END]

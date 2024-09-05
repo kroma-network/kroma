@@ -1,18 +1,16 @@
 package actions
 
 import (
+	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
+	"github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
 )
 
 // TestValidatorBatchType run each validator-related test case in singular batch mode and span batch mode.
@@ -21,7 +19,8 @@ func TestValidatorBatchType(t *testing.T) {
 		name string
 		f    func(gt *testing.T, deltaTimeOffset *hexutil.Uint64)
 	}{
-		{"RunValidatorTest", RunValidatorTest},
+		{"RunValidatorPoolTest", RunValidatorPoolTest},
+		{"RunValidatorManagerTest", RunValidatorManagerTest},
 	}
 	for _, test := range tests {
 		test := test
@@ -39,75 +38,64 @@ func TestValidatorBatchType(t *testing.T) {
 	}
 }
 
-func RunValidatorTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
-	t := NewDefaultTesting(gt)
-	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
-	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
-	sd := e2eutils.Setup(t, dp, defaultAlloc)
-	log := testlog.Logger(t, log.LevelDebug)
-	miner, seqEngine, sequencer := setupSequencerTest(t, sd, log)
+func RunValidatorPoolTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
+	rt := defaultRuntime(gt, setupSequencerTest, deltaTimeOffset)
+	rt.setupHonestValidator(false)
 
-	rollupSeqCl := sequencer.RollupClient()
-	batcher := NewL2Batcher(log, sd.RollupCfg, DefaultBatcherCfg(dp),
-		rollupSeqCl, miner.EthClient(), seqEngine.EthClient(), seqEngine.EngineClient(t, sd.RollupCfg))
+	// bind contracts
+	rt.bindContracts()
 
-	validator := NewL2Validator(t, log, &ValidatorCfg{
-		OutputOracleAddr:    sd.DeploymentsL1.L2OutputOracleProxy,
-		ValidatorPoolAddr:   sd.DeploymentsL1.ValidatorPoolProxy,
-		ColosseumAddr:       sd.DeploymentsL1.ColosseumProxy,
-		SecurityCouncilAddr: sd.DeploymentsL1.SecurityCouncilProxy,
-		ValidatorKey:        dp.Secrets.TrustedValidator,
-		AllowNonFinalized:   false,
-	}, miner.EthClient(), seqEngine.EthClient(), sequencer.RollupClient())
+	// submit outputs
+	rt.setupOutputSubmitted(validator.ValidatorV1)
 
-	// L1 block
-	miner.ActEmptyBlock(t)
-	// L2 block
-	sequencer.ActL1HeadSignal(t)
-	sequencer.ActL2PipelineFull(t)
-	sequencer.ActBuildToL1Head(t)
-	// submit and include in L1
-	batcher.ActSubmitAll(t)
-	miner.includeL1Block(t, dp.Addresses.Batcher, 12)
-	// finalize the first and second L1 blocks, including the batch
-	miner.ActL1SafeNext(t)
-	miner.ActL1SafeNext(t)
-	miner.ActL1FinalizeNext(t)
-	miner.ActL1FinalizeNext(t)
-	// derive and see the L2 chain fully finalize
-	sequencer.ActL2PipelineFull(t)
-	sequencer.ActL1SafeSignal(t)
-	sequencer.ActL1FinalizedSignal(t)
+	checkRightOutputSubmitted(rt.t, rt.outputOracleContract, rt.sequencer, rt.seqEngine)
+}
 
-	// deposit bond for validator
-	validator.ActDeposit(t, 1_000)
-	miner.includeL1Block(t, validator.address, 12)
+func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
+	rt := defaultRuntime(gt, setupSequencerTest, deltaTimeOffset)
 
-	require.Equal(t, sequencer.SyncStatus().UnsafeL2, sequencer.SyncStatus().FinalizedL2)
+	// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test
+	rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
+
+	rt.setupHonestValidator(false)
+
+	// bind contracts
+	rt.bindContracts()
+
+	rt.proceedWithBlocks(6)
+
+	rt.depositToValPool(rt.validator)
+
+	// Submit outputs to ValidatorPool until newTerminationIndex
+	for i := uint64(0); new(big.Int).SetUint64(i).Cmp(defaultValPoolTerminationIndex) <= 0; i++ {
+		rt.submitL2Output()
+	}
+
+	// assert if the ValidatorPool is terminated
+	isValPoolTerminated := rt.validator.isValPoolTerminated(rt.t)
+	require.True(rt.t, isValPoolTerminated, "ValPool should be terminated")
+
+	rt.registerToValMgr(rt.validator)
+
 	// create l2 output submission transactions until there is nothing left to submit
+	submitAfterTransition := false
 	for {
-		waitTime := validator.CalculateWaitTime(t)
+		waitTime := rt.validator.CalculateWaitTime(rt.t)
 		if waitTime > 0 {
 			break
 		}
-		// and submit it to L1
-		validator.ActSubmitL2Output(t)
-		// include output on L1
-		miner.includeL1Block(t, validator.address, 12)
-		miner.ActEmptyBlock(t)
-		// Check submission was successful
-		receipt, err := miner.EthClient().TransactionReceipt(t.Ctx(), validator.LastSubmitL2OutputTx())
-		require.NoError(t, err)
-		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "submission failed")
+		rt.submitL2Output()
+		submitAfterTransition = true
 	}
 
-	// check that L1 stored the expected output root
-	outputOracleContract, err := bindings.NewL2OutputOracle(sd.DeploymentsL1.L2OutputOracleProxy, miner.EthClient())
-	require.NoError(t, err)
-	// NOTE(chokobole): Comment these 2 lines because of the reason above.
-	// If Proto Dank Sharding is introduced, the below code fix may be restored.
-	// block := sequencer.SyncStatus().FinalizedL2
-	// outputOnL1, err := outputOracleContract.GetL2OutputAfter(nil, new(big.Int).SetUint64(block.Number))
+	// Assert validator submitted at least one output after transition
+	require.True(rt.t, submitAfterTransition)
+
+	checkRightOutputSubmitted(rt.t, rt.outputOracleContract, rt.sequencer, rt.seqEngine)
+}
+
+// checkRightOutputSubmitted checks that L1 stored the expected output root
+func checkRightOutputSubmitted(t StatefulTesting, outputOracleContract *bindings.L2OutputOracle, sequencer *L2Sequencer, seqEngine *L2Engine) {
 	blockNum, err := outputOracleContract.LatestBlockNumber(&bind.CallOpts{})
 	require.NoError(t, err)
 	outputOnL1, err := outputOracleContract.GetL2OutputAfter(&bind.CallOpts{}, blockNum)

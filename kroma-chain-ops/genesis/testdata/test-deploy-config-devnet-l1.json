@@ -28,9 +28,6 @@
   "fundDevAccounts": true,
 
   "enableGovernance": true,
-  "governanceTokenSymbol": "KRO",
-  "governanceTokenName": "Kroma",
-  "governanceTokenOwner": "0x0000000000000000000000000000000000000333",
 
   "l2GenesisRegolithTimeOffset": "0x0",
   "l2GenesisCanyonTimeOffset": "0x0",

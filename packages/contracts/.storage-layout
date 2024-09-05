@@ -13,6 +13,7 @@
 | segmentsLengths      | mapping(uint256 => uint256)                                    | 1    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 | challenges           | mapping(uint256 => mapping(address => struct Types.Challenge)) | 2    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 | verifiedPublicInputs | mapping(bytes32 => bool)                                       | 3    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| deletedOutputs       | mapping(uint256 => struct Types.CheckpointOutput)              | 4    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 
 =======================
 ➡ contracts/L1/SecurityCouncil.sol:SecurityCouncil
@@ -29,6 +30,26 @@
 | spacer_53_0_96         | uint256[3]                                            | 53   | 0      | 96    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
 | transactionCount       | uint256                                               | 56   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
 | outputsDeleteRequested | mapping(uint256 => bool)                              | 57   | 0      | 32    | contracts/L1/SecurityCouncil.sol:SecurityCouncil |
+
+=======================
+➡ contracts/L1/AssetManager.sol:AssetManager
+=======================
+
+| Name    | Type                                           | Slot | Offset | Bytes | Contract                                   |
+|---------|------------------------------------------------|------|--------|-------|--------------------------------------------|
+| _vaults | mapping(address => struct IAssetManager.Vault) | 0    | 0      | 32    | contracts/L1/AssetManager.sol:AssetManager |
+
+=======================
+➡ contracts/L1/ValidatorManager.sol:ValidatorManager
+=======================
+
+| Name                    | Type                                                   | Slot | Offset | Bytes | Contract                                           |
+|-------------------------|--------------------------------------------------------|------|--------|-------|----------------------------------------------------|
+| _nextPriorityValidator  | address                                                | 0    | 0      | 20    | contracts/L1/ValidatorManager.sol:ValidatorManager |
+| _validatorTree          | struct BalancedWeightTree.Tree                         | 1    | 0      | 96    | contracts/L1/ValidatorManager.sol:ValidatorManager |
+| _validatorInfo          | mapping(address => struct IValidatorManager.Validator) | 4    | 0      | 32    | contracts/L1/ValidatorManager.sol:ValidatorManager |
+| _jail                   | mapping(address => uint128)                            | 5    | 0      | 32    | contracts/L1/ValidatorManager.sol:ValidatorManager |
+| _pendingChallengeReward | mapping(uint256 => uint128)                            | 6    | 0      | 32    | contracts/L1/ValidatorManager.sol:ValidatorManager |
 
 =======================
 ➡ contracts/L1/ValidatorPool.sol:ValidatorPool
@@ -78,13 +99,14 @@
 ➡ contracts/L1/L2OutputOracle.sol:L2OutputOracle
 =======================
 
-| Name                | Type                            | Slot | Offset | Bytes | Contract                                       |
-|---------------------|---------------------------------|------|--------|-------|------------------------------------------------|
-| _initialized        | uint8                           | 0    | 0      | 1     | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
-| _initializing       | bool                            | 0    | 1      | 1     | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
-| startingBlockNumber | uint256                         | 1    | 0      | 32    | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
-| startingTimestamp   | uint256                         | 2    | 0      | 32    | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
-| l2Outputs           | struct Types.CheckpointOutput[] | 3    | 0      | 32    | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
+| Name                    | Type                            | Slot | Offset | Bytes | Contract                                       |
+|-------------------------|---------------------------------|------|--------|-------|------------------------------------------------|
+| _initialized            | uint8                           | 0    | 0      | 1     | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
+| _initializing           | bool                            | 0    | 1      | 1     | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
+| startingBlockNumber     | uint256                         | 1    | 0      | 32    | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
+| startingTimestamp       | uint256                         | 2    | 0      | 32    | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
+| l2Outputs               | struct Types.CheckpointOutput[] | 3    | 0      | 32    | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
+| nextFinalizeOutputIndex | uint256                         | 4    | 0      | 32    | contracts/L1/L2OutputOracle.sol:L2OutputOracle |
 
 =======================
 ➡ contracts/L1/KromaPortal.sol:KromaPortal
@@ -247,6 +269,22 @@
 |------|------|------|--------|-------|----------|
 
 =======================
+➡ contracts/universal/KromaVestingWallet.sol:KromaVestingWallet
+=======================
+
+| Name           | Type                        | Slot | Offset | Bytes | Contract                                                      |
+|----------------|-----------------------------|------|--------|-------|---------------------------------------------------------------|
+| _initialized   | uint8                       | 0    | 0      | 1     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _initializing  | bool                        | 0    | 1      | 1     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| __gap          | uint256[50]                 | 1    | 0      | 1600  | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _released      | uint256                     | 51   | 0      | 32    | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _erc20Released | mapping(address => uint256) | 52   | 0      | 32    | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _beneficiary   | address                     | 53   | 0      | 20    | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _start         | uint64                      | 53   | 20     | 8     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| _duration      | uint64                      | 54   | 0      | 8     | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+| __gap          | uint256[48]                 | 55   | 0      | 1536  | contracts/universal/KromaVestingWallet.sol:KromaVestingWallet |
+
+=======================
 ➡ contracts/governance/SecurityCouncilToken.sol:SecurityCouncilToken
 =======================
 
@@ -358,3 +396,22 @@
 | _delegates                       | mapping(address => address)                        | 9    | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
 | _checkpoints                     | mapping(address => struct ERC20Votes.Checkpoint[]) | 10   | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
 | _totalSupplyCheckpoints          | struct ERC20Votes.Checkpoint[]                     | 11   | 0      | 32    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _initialized                     | uint8                                              | 12   | 0      | 1     | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _initializing                    | bool                                               | 12   | 1      | 1     | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| __gap                            | uint256[50]                                        | 13   | 0      | 1600  | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _owner                           | address                                            | 63   | 0      | 20    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| __gap                            | uint256[49]                                        | 64   | 0      | 1568  | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| _pendingOwner                    | address                                            | 113  | 0      | 20    | contracts/governance/GovernanceToken.sol:GovernanceToken |
+| __gap                            | uint256[49]                                        | 114  | 0      | 1568  | contracts/governance/GovernanceToken.sol:GovernanceToken |
+
+=======================
+➡ contracts/governance/MintManager.sol:MintManager
+=======================
+
+| Name          | Type                        | Slot | Offset | Bytes | Contract                                         |
+|---------------|-----------------------------|------|--------|-------|--------------------------------------------------|
+| _owner        | address                     | 0    | 0      | 20    | contracts/governance/MintManager.sol:MintManager |
+| _pendingOwner | address                     | 1    | 0      | 20    | contracts/governance/MintManager.sol:MintManager |
+| minted        | bool                        | 1    | 20     | 1     | contracts/governance/MintManager.sol:MintManager |
+| recipients    | address[]                   | 2    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |
+| shareOf       | mapping(address => uint256) | 3    | 0      | 32    | contracts/governance/MintManager.sol:MintManager |

@@ -6,7 +6,13 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	kcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -15,37 +21,36 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	kcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
-	"github.com/kroma-network/kroma/kroma-validator"
+	validator "github.com/kroma-network/kroma/kroma-validator"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
 type ValidatorCfg struct {
-	OutputOracleAddr    common.Address
-	ColosseumAddr       common.Address
-	SecurityCouncilAddr common.Address
-	ValidatorPoolAddr   common.Address
-	ValidatorKey        *ecdsa.PrivateKey
-	AllowNonFinalized   bool
+	OutputOracleAddr     common.Address
+	ColosseumAddr        common.Address
+	SecurityCouncilAddr  common.Address
+	ValidatorPoolAddr    common.Address
+	ValidatorManagerAddr common.Address
+	AssetManagerAddr     common.Address
+	ValidatorKey         *ecdsa.PrivateKey
+	AllowNonFinalized    bool
 }
 
 type L2Validator struct {
-	log                 log.Logger
-	l1                  *ethclient.Client
-	l2os                *validator.L2OutputSubmitter
-	challenger          *validator.Challenger
-	guardian            *validator.Guardian
-	address             common.Address
-	privKey             *ecdsa.PrivateKey
-	l2ooContractAddr    common.Address
-	valPoolContractAddr common.Address
-	lastTx              common.Hash
-	cfg                 *validator.Config
+	log                      log.Logger
+	l1                       *ethclient.Client
+	l2os                     *validator.L2OutputSubmitter
+	challenger               *validator.Challenger
+	guardian                 *validator.Guardian
+	address                  common.Address
+	privKey                  *ecdsa.PrivateKey
+	l2ooContractAddr         common.Address
+	valPoolContractAddr      common.Address
+	valMgrContractAddr       common.Address
+	assetManagerContractAddr common.Address
+	lastTx                   common.Hash
+	cfg                      *validator.Config
 }
 
 func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.Client, l2 *ethclient.Client, rollupCl *sources.RollupClient) *L2Validator {
@@ -66,6 +71,8 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	validatorCfg := validator.Config{
 		L2OutputOracleAddr:              cfg.OutputOracleAddr,
 		ValidatorPoolAddr:               cfg.ValidatorPoolAddr,
+		ValidatorManagerAddr:            cfg.ValidatorManagerAddr,
+		AssetManagerAddr:                cfg.AssetManagerAddr,
 		ColosseumAddr:                   cfg.ColosseumAddr,
 		SecurityCouncilAddr:             cfg.SecurityCouncilAddr,
 		ChallengerPollInterval:          time.Second,
@@ -106,17 +113,117 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 	require.NoError(t, err)
 
 	return &L2Validator{
-		log:                 log,
-		l1:                  l1,
-		l2os:                l2os,
-		challenger:          challenger,
-		guardian:            guardian,
-		address:             from,
-		privKey:             cfg.ValidatorKey,
-		l2ooContractAddr:    cfg.OutputOracleAddr,
-		valPoolContractAddr: cfg.ValidatorPoolAddr,
-		cfg:                 &validatorCfg,
+		log:                      log,
+		l1:                       l1,
+		l2os:                     l2os,
+		challenger:               challenger,
+		guardian:                 guardian,
+		address:                  from,
+		privKey:                  cfg.ValidatorKey,
+		l2ooContractAddr:         cfg.OutputOracleAddr,
+		valPoolContractAddr:      cfg.ValidatorPoolAddr,
+		valMgrContractAddr:       cfg.ValidatorManagerAddr,
+		assetManagerContractAddr: cfg.AssetManagerAddr,
+		cfg:                      &validatorCfg,
 	}
+}
+
+func (v *L2Validator) CalculateWaitTime(t Testing) time.Duration {
+	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
+	require.NoError(t, err)
+
+	outputIndex, err := v.l2os.FetchNextOutputIndex(t.Ctx())
+	require.NoError(t, err)
+
+	canSubmitOutput, err := v.l2os.CanSubmitOutput(t.Ctx(), outputIndex)
+	require.NoError(t, err)
+	require.True(t, canSubmitOutput)
+
+	calculatedWaitTime := v.l2os.CalculateWaitTime(t.Ctx(), nextBlockNumber, outputIndex)
+	return calculatedWaitTime
+}
+
+func (v *L2Validator) ActSubmitL2Output(t Testing) {
+	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
+	require.NoError(t, err)
+
+	output, err := v.l2os.FetchOutput(t.Ctx(), nextBlockNumber)
+	require.NoError(t, err)
+
+	txData, err := validator.SubmitL2OutputTxData(v.l2os.L2OOAbi(), output)
+	require.NoError(t, err)
+
+	// Note: Use L1 instead of the output submitter's transaction manager because
+	// this is non-blocking while the txmgr is blocking & deadlocks the tests.
+	// Also set gasLimitMultiplier above 1 because finalization process sets state variables from 0 to value.
+	v.sendTx(t, &v.l2ooContractAddr, common.Big0, txData, 2)
+}
+
+func (v *L2Validator) ActDeposit(t Testing, depositAmount uint64) {
+	valPoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
+	require.NoError(t, err)
+
+	txData, err := valPoolABI.Pack("deposit")
+	require.NoError(t, err)
+
+	v.sendTx(t, &v.valPoolContractAddr, new(big.Int).SetUint64(depositAmount), txData, 1)
+}
+
+func (v *L2Validator) ActRegisterValidator(t Testing, assets *big.Int) {
+	valMgrABI, err := bindings.ValidatorManagerMetaData.GetAbi()
+	require.NoError(t, err)
+
+	txData, err := valMgrABI.Pack(
+		"registerValidator",
+		assets,
+		uint8(10),
+		v.address,
+	)
+	require.NoError(t, err)
+
+	v.sendTx(t, &v.valMgrContractAddr, common.Big0, txData, 1)
+}
+
+func (v *L2Validator) ActApprove(t Testing, assets *big.Int) {
+	assetManagerContract, err := bindings.NewAssetManagerCaller(v.assetManagerContractAddr, v.cfg.L1Client)
+	tokenAddr, err := assetManagerContract.ASSETTOKEN(&bind.CallOpts{})
+	require.NoError(t, err)
+
+	governanceTokenABI, err := bindings.GovernanceTokenMetaData.GetAbi()
+	require.NoError(t, err)
+
+	txData, err := governanceTokenABI.Pack("approve", &v.assetManagerContractAddr, assets)
+	require.NoError(t, err)
+
+	v.sendTx(t, &tokenAddr, common.Big0, txData, 1)
+}
+
+func (v *L2Validator) fetchOutput(t Testing, blockNumber *big.Int) *eth.OutputResponse {
+	output, err := v.l2os.FetchOutput(t.Ctx(), blockNumber)
+	require.NoError(t, err)
+
+	return output
+}
+
+func (v *L2Validator) isValPoolTerminated(t Testing) bool {
+	outputIndex, err := v.l2os.FetchNextOutputIndex(t.Ctx())
+	require.NoError(t, err)
+
+	return v.l2os.IsValPoolTerminated(outputIndex)
+}
+
+func (v *L2Validator) getValidatorStatus(t Testing) uint8 {
+	validatorStatus, err := v.l2os.GetValidatorStatus(t.Ctx())
+	require.NoError(t, err)
+
+	return validatorStatus
+}
+
+func (v *L2Validator) isInJail(t Testing) bool {
+	inJail, err := v.l2os.IsInJail(t.Ctx())
+	require.NoError(t, err)
+
+	return inJail
 }
 
 // sendTx reimplements creating & sending transactions because we need to do the final send as async in
@@ -161,45 +268,6 @@ func (v *L2Validator) sendTx(t Testing, toAddr *common.Address, txValue *big.Int
 	v.lastTx = tx.Hash()
 }
 
-func (v *L2Validator) CalculateWaitTime(t Testing) time.Duration {
-	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
-	require.NoError(t, err)
-	calculatedWaitTime := v.l2os.CalculateWaitTime(t.Ctx(), nextBlockNumber)
-	return calculatedWaitTime
-}
-
-func (v *L2Validator) ActSubmitL2Output(t Testing) {
-	nextBlockNumber, err := v.l2os.FetchNextBlockNumber(t.Ctx())
-	require.NoError(t, err)
-
-	output, err := v.l2os.FetchOutput(t.Ctx(), nextBlockNumber)
-	require.NoError(t, err)
-
-	txData, err := validator.SubmitL2OutputTxData(v.l2os.L2ooAbi(), output)
-	require.NoError(t, err)
-
-	// Note: Use L1 instead of the output submitter's transaction manager because
-	// this is non-blocking while the txmgr is blocking & deadlocks the tests
-	v.sendTx(t, &v.l2ooContractAddr, common.Big0, txData, 1.5)
-}
-
 func (v *L2Validator) LastSubmitL2OutputTx() common.Hash {
 	return v.lastTx
-}
-
-func (v *L2Validator) ActDeposit(t Testing, depositAmount uint64) {
-	valPoolABI, err := bindings.ValidatorPoolMetaData.GetAbi()
-	require.NoError(t, err)
-
-	txData, err := valPoolABI.Pack("deposit")
-	require.NoError(t, err)
-
-	v.sendTx(t, &v.valPoolContractAddr, new(big.Int).SetUint64(depositAmount), txData, 1)
-}
-
-func (v *L2Validator) fetchOutput(t Testing, blockNumber *big.Int) *eth.OutputResponse {
-	output, err := v.l2os.FetchOutput(t.Ctx(), blockNumber)
-	require.NoError(t, err)
-
-	return output
 }

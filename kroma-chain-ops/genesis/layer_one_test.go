@@ -8,19 +8,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ethereum-optimism/optimism/op-chain-ops/deployer"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
-	"github.com/stretchr/testify/require"
 )
 
 // TestBuildL1DeveloperGenesis tests that the L1 genesis block can be built
@@ -60,6 +60,10 @@ func TestBuildL1DeveloperGenesis(t *testing.T) {
 	valPoolAddr, err := oracle.VALIDATORPOOL(callOpts)
 	require.NoError(t, err)
 	require.Equal(t, deployments.ValidatorPoolProxy, valPoolAddr)
+
+	valMgrAddr, err := oracle.VALIDATORMANAGER(callOpts)
+	require.NoError(t, err)
+	require.Equal(t, deployments.ValidatorManagerProxy, valMgrAddr)
 
 	colosseumAddr, err := oracle.COLOSSEUM(callOpts)
 	require.NoError(t, err)

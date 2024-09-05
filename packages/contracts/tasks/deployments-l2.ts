@@ -37,6 +37,10 @@ task(
   const proxyAbi = JSON.parse(proxy.interface.format('json') as string)
 
   for (const [name, proxyAddr] of Object.entries(predeploys)) {
+    if (name === 'Create2Deployer') {
+      continue
+    }
+
     const proxyName = name + 'Proxy'
 
     const proxyDepExists = await hre.deployments.getOrNull(proxyName)

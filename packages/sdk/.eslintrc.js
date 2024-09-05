@@ -1,7 +1,6 @@
 // eslint-disable-next-line no-undef
 module.exports = {
   extends: '../../.eslintrc.js',
-  ignorePatterns: ['hardhat.config.ts'],
   overrides: [
     {
       files: ['src/**/*.ts'],

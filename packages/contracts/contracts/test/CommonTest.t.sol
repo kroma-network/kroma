@@ -4,13 +4,18 @@ pragma solidity 0.8.15;
 /* Testing utilities */
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { Test, StdUtils } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
 import { SecurityCouncilToken } from "../governance/SecurityCouncilToken.sol";
 import { TimeLock } from "../governance/TimeLock.sol";
 import { UpgradeGovernor } from "../governance/UpgradeGovernor.sol";
+import { AssetManager } from "../L1/AssetManager.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
+import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L1CrossDomainMessenger } from "../L1/L1CrossDomainMessenger.sol";
 import { L1ERC721Bridge } from "../L1/L1ERC721Bridge.sol";
@@ -18,6 +23,7 @@ import { L1StandardBridge } from "../L1/L1StandardBridge.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { SecurityCouncil } from "../L1/SecurityCouncil.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
+import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { SystemConfig } from "../L1/SystemConfig.sol";
 import { ZKMerkleTrie } from "../L1/ZKMerkleTrie.sol";
@@ -32,9 +38,7 @@ import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
 import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
-import { KromaMintableERC721Factory } from "../universal/KromaMintableERC721Factory.sol";
 import { Proxy } from "../universal/Proxy.sol";
-import { ProxyAdmin } from "../universal/ProxyAdmin.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 
 contract CommonTest is Test {
@@ -101,7 +105,6 @@ contract CommonTest is Test {
 }
 
 contract UpgradeGovernor_Initializer is CommonTest {
-    address superAdmin = makeAddr("superAdmin");
     address owner = makeAddr("owner");
 
     // Constructor arguments
@@ -175,14 +178,35 @@ contract UpgradeGovernor_Initializer is CommonTest {
     }
 }
 
+contract MockKro is ERC20 {
+    constructor() ERC20("Kroma", "KRO") {}
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+}
+
+contract MockKgh is ERC721 {
+    constructor() ERC721("Test", "TST") {}
+
+    function mint(address to, uint256 tokenId) external {
+        _mint(to, tokenId);
+    }
+}
+
 contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     // Test target
     ValidatorPool pool;
     ValidatorPool poolImpl;
+    AssetManager assetMgr;
+    AssetManager assetMgrImpl;
+    ValidatorManager valMgr;
+    ValidatorManager valMgrImpl;
     L2OutputOracle oracle;
     L2OutputOracle oracleImpl;
     Colosseum colosseum;
     SystemConfig systemConfig;
+    KromaPortal mockPortal;
 
     L2ToL1MessagePasser messagePasser =
         L2ToL1MessagePasser(payable(Predeploys.L2_TO_L1_MESSAGE_PASSER));
@@ -192,6 +216,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint256 internal l2BlockTime = 2;
     uint256 internal startingBlockNumber = 10;
     uint256 internal startingTimestamp = 1000;
+    uint256 internal finalizationPeriodSeconds = 7 days;
     address internal guardian = 0x000000000000000000000000000000000000AaaD;
 
     // ValidatorPool constructor arguments
@@ -199,10 +224,31 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint256 internal requiredBondAmount = 0.1 ether;
     uint256 internal maxUnbond = 2;
     uint256 internal roundDuration = (submissionInterval * l2BlockTime) / 2;
+    uint256 internal terminateOutputIndex = 300; // just large enough value, set again in upgrade test
+
+    // AssetManager constructor arguments
+    MockKro assetToken;
+    MockKgh kgh;
+    address internal validatorRewardVault = makeAddr("validatorRewardVault");
+    uint128 internal minDelegationPeriod = 7 days;
+    uint128 internal bondAmount = 10e18;
+
+    // ValidatorManager constructor arguments
+    uint128 internal commissionChangeDelaySeconds = 7 days;
+    uint128 internal softJailPeriodSeconds = 3 days;
+    uint128 internal hardJailPeriodSeconds = 7 days;
+    uint128 internal jailThreshold = 2;
+    uint128 internal maxOutputFinalizations = 10;
+    uint128 internal baseReward = 20e18;
+    uint128 internal minRegisterAmount = 10e18;
+    uint128 internal minActivateAmount = 100e18;
+    IValidatorManager.ConstructorParams constructorParams;
 
     // Test data
     address internal asserter = 0x000000000000000000000000000000000000aAaB;
     address internal challenger = 0x000000000000000000000000000000000000AAaC;
+    address internal withdrawAcc = 0x000000000000000000000000000000000000AAaE;
+    address internal delegator = 0x000000000000000000000000000000000000AAAF;
     uint256 initL1Time;
 
     event OutputSubmitted(
@@ -212,16 +258,33 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         uint256 l1Timestamp
     );
 
-    event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
+    event OutputReplaced(
+        uint256 indexed outputIndex,
+        address indexed newSubmitter,
+        bytes32 newOutputRoot
+    );
 
     // Advance the evm's time to meet the L2OutputOracle's requirements for submitL2Output
-    function warpToSubmitTime(uint256 _nextBlockNumber) public {
-        vm.warp(oracle.computeL2Timestamp(_nextBlockNumber + 1));
+    function warpToSubmitTime() public {
+        vm.warp(oracle.nextOutputMinL2Timestamp());
     }
 
     function setUp() public virtual override {
         super.setUp();
 
+        // Set up asset token and give actors some amount
+        assetToken = new MockKro();
+        assetToken.mint(trusted, minActivateAmount * 10);
+        assetToken.mint(asserter, minActivateAmount * 10);
+        assetToken.mint(challenger, minActivateAmount * 10);
+        assetToken.mint(delegator, minActivateAmount * 10);
+        // Set up validatorRewardVault
+        assetToken.mint(validatorRewardVault, baseReward * 1000);
+
+        // Set up KGH
+        kgh = new MockKgh();
+
+        // Give actors some ETH
         vm.deal(trusted, requiredBondAmount * 10);
         vm.deal(asserter, requiredBondAmount * 10);
         vm.deal(challenger, requiredBondAmount * 10);
@@ -229,8 +292,16 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         // Deploy proxies
         pool = ValidatorPool(address(new Proxy(multisig)));
         vm.label(address(pool), "ValidatorPool");
+        assetMgr = AssetManager(address(new Proxy(multisig)));
+        vm.label(address(assetMgr), "AssetManager");
+        valMgr = ValidatorManager(address(new Proxy(multisig)));
+        vm.label(address(valMgr), "ValidatorManager");
         oracle = L2OutputOracle(address(new Proxy(multisig)));
         vm.label(address(oracle), "L2OutputOracle");
+
+        // Allow AssetManager contract can get asset token from validatorRewardVault
+        vm.prank(validatorRewardVault);
+        assetToken.approve(address(assetMgr), baseReward * 1000);
 
         ResourceMetering.ResourceConfig memory config = Constants.DEFAULT_RESOURCE_CONFIG();
         systemConfig = new SystemConfig({
@@ -245,7 +316,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         });
 
         // Mock KromaPortal
-        KromaPortal mockPortal = new KromaPortal({
+        mockPortal = new KromaPortal({
             _l2Oracle: oracle,
             _validatorPool: address(pool),
             _guardian: guardian,
@@ -262,8 +333,37 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _trustedValidator: trusted,
             _requiredBondAmount: requiredBondAmount,
             _maxUnbond: maxUnbond,
-            _roundDuration: roundDuration
+            _roundDuration: roundDuration,
+            _terminateOutputIndex: terminateOutputIndex
         });
+
+        // Deploy the AssetManager
+        assetMgrImpl = new AssetManager({
+            _assetToken: IERC20(assetToken),
+            _kgh: IERC721(kgh),
+            _securityCouncil: guardian,
+            _validatorRewardVault: validatorRewardVault,
+            _validatorManager: valMgr,
+            _minDelegationPeriod: minDelegationPeriod,
+            _bondAmount: bondAmount
+        });
+
+        // Deploy the ValidatorManager
+        constructorParams = IValidatorManager.ConstructorParams({
+            _l2Oracle: oracle,
+            _assetManager: assetMgr,
+            _trustedValidator: trusted,
+            _commissionChangeDelaySeconds: commissionChangeDelaySeconds,
+            _roundDurationSeconds: uint128(roundDuration),
+            _softJailPeriodSeconds: softJailPeriodSeconds,
+            _hardJailPeriodSeconds: hardJailPeriodSeconds,
+            _jailThreshold: jailThreshold,
+            _maxOutputFinalizations: maxOutputFinalizations,
+            _baseReward: baseReward,
+            _minRegisterAmount: minRegisterAmount,
+            _minActivateAmount: minActivateAmount
+        });
+        valMgrImpl = new ValidatorManager({ _constructorParams: constructorParams });
 
         // By default the first block has timestamp and number zero, which will cause underflows in
         // the tests, so we'll move forward to these block values.
@@ -273,19 +373,26 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         // Deploy the L2OutputOracle
         oracleImpl = new L2OutputOracle({
             _validatorPool: pool,
+            _validatorManager: valMgr,
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
             _startingBlockNumber: startingBlockNumber,
             _startingTimestamp: startingTimestamp,
-            _finalizationPeriodSeconds: 7 days
+            _finalizationPeriodSeconds: finalizationPeriodSeconds
         });
 
         vm.prank(multisig);
         Proxy(payable(address(pool))).upgradeToAndCall(
             address(poolImpl),
-            abi.encodeWithSelector(ValidatorPool.initialize.selector, false)
+            abi.encodeWithSelector(ValidatorPool.initialize.selector)
         );
+
+        vm.prank(multisig);
+        Proxy(payable(address(assetMgr))).upgradeTo(address(assetMgrImpl));
+
+        vm.prank(multisig);
+        Proxy(payable(address(valMgr))).upgradeTo(address(valMgrImpl));
 
         vm.prank(multisig);
         Proxy(payable(address(oracle))).upgradeToAndCall(
@@ -297,6 +404,68 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         vm.etch(Predeploys.L2_TO_L1_MESSAGE_PASSER, address(new L2ToL1MessagePasser()).code);
 
         vm.label(Predeploys.L2_TO_L1_MESSAGE_PASSER, "L2ToL1MessagePasser");
+    }
+
+    function _registerValidator(address validator, uint128 assets) internal {
+        vm.startPrank(validator, validator);
+        assetToken.approve(address(assetMgr), uint256(assets));
+        valMgr.registerValidator(assets, 10, withdrawAcc);
+        vm.stopPrank();
+    }
+
+    function _submitL2OutputV1() internal {
+        warpToSubmitTime();
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
+        vm.prank(pool.nextValidator());
+        oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
+    }
+
+    function _submitL2OutputV2(bool isPublicRound) internal {
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
+        if (!isPublicRound) {
+            vm.prank(valMgr.nextValidator());
+        }
+        oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
+    }
+}
+
+contract ValidatorSystemUpgrade_Initializer is L2OutputOracle_Initializer {
+    function setUp() public virtual override {
+        super.setUp();
+
+        // The last output index of ValidatorPool is 3, first output index of ValidatorManager is 4
+        terminateOutputIndex = 3;
+        finalizationPeriodSeconds = 2 hours;
+
+        // Deploy L2OutputOracle with new arguments
+        oracleImpl = new L2OutputOracle({
+            _validatorPool: pool,
+            _validatorManager: valMgr,
+            _colosseum: address(colosseum),
+            _submissionInterval: submissionInterval,
+            _l2BlockTime: l2BlockTime,
+            _startingBlockNumber: startingBlockNumber,
+            _startingTimestamp: startingTimestamp,
+            _finalizationPeriodSeconds: finalizationPeriodSeconds
+        });
+        vm.prank(multisig);
+        Proxy(payable(address(oracle))).upgradeTo(address(oracleImpl));
+
+        // Deploy ValidatorPool with new arguments
+        poolImpl = new ValidatorPool({
+            _l2OutputOracle: oracle,
+            _portal: mockPortal,
+            _securityCouncil: guardian,
+            _trustedValidator: trusted,
+            _requiredBondAmount: requiredBondAmount,
+            _maxUnbond: maxUnbond,
+            _roundDuration: roundDuration,
+            _terminateOutputIndex: terminateOutputIndex
+        });
+        vm.prank(multisig);
+        Proxy(payable(address(pool))).upgradeTo(address(poolImpl));
     }
 }
 
@@ -581,6 +750,11 @@ contract Colosseum_Initializer is Portal_Initializer {
 
     uint256[] segmentsLengths;
 
+    // Constructor arguments
+    uint256 internal creationPeriodSeconds = finalizationPeriodSeconds - 1 days;
+    uint256 internal bisectionTimeout = 30 minutes;
+    uint256 internal provingTimeout = 1 hours;
+
     function setUp() public virtual override {
         // Deploy the ZKVerifier
         // Chain ID 901
@@ -600,8 +774,7 @@ contract Colosseum_Initializer is Portal_Initializer {
         segmentsLengths.push(10);
         segmentsLengths.push(6);
 
-        Proxy proxy = new Proxy(multisig);
-        colosseum = Colosseum(payable(address(proxy)));
+        colosseum = Colosseum(payable(address(new Proxy(multisig))));
 
         // Init L2OutputOracle after Colosseum contract deployment
         super.setUp();
@@ -619,9 +792,9 @@ contract Colosseum_Initializer is Portal_Initializer {
             _l2Oracle: oracle,
             _zkVerifier: zkVerifier,
             _submissionInterval: submissionInterval,
-            _creationPeriodSeconds: 6 days,
-            _bisectionTimeout: 30 minutes,
-            _provingTimeout: 1 hours,
+            _creationPeriodSeconds: creationPeriodSeconds,
+            _bisectionTimeout: bisectionTimeout,
+            _provingTimeout: provingTimeout,
             _dummyHash: DUMMY_HASH,
             _maxTxs: MAX_TXS,
             _segmentsLengths: segmentsLengths,
@@ -629,9 +802,9 @@ contract Colosseum_Initializer is Portal_Initializer {
             _zkMerkleTrie: address(zkMerkleTrie)
         });
         vm.prank(multisig);
-        proxy.upgradeToAndCall(
+        toProxy(address(colosseum)).upgradeToAndCall(
             address(colosseumImpl),
-            abi.encodeCall(Colosseum.initialize, (segmentsLengths))
+            abi.encodeCall(Colosseum.initialize, segmentsLengths)
         );
     }
 }

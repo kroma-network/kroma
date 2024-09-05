@@ -6,6 +6,7 @@ import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable
 import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
 import { ISemver } from "../universal/ISemver.sol";
+import { IValidatorManager } from "./interfaces/IValidatorManager.sol";
 import { ValidatorPool } from "./ValidatorPool.sol";
 
 /**
@@ -20,6 +21,11 @@ contract L2OutputOracle is Initializable, ISemver {
      * @notice The address of the validator pool contract. Can be updated via upgrade.
      */
     ValidatorPool public immutable VALIDATOR_POOL;
+
+    /**
+     * @notice The address of the validator manager contract. Can be updated via upgrade.
+     */
+    IValidatorManager public immutable VALIDATOR_MANAGER;
 
     /**
      * @notice The address of the colosseum contract. Can be updated via upgrade.
@@ -59,6 +65,11 @@ contract L2OutputOracle is Initializable, ISemver {
     Types.CheckpointOutput[] internal l2Outputs;
 
     /**
+     * @notice The output index of the next finalization target output.
+     */
+    uint256 public nextFinalizeOutputIndex;
+
+    /**
      * @notice Emitted when an output is submitted.
      *
      * @param outputRoot    The output root.
@@ -77,20 +88,26 @@ contract L2OutputOracle is Initializable, ISemver {
      * @notice Emitted when an output is replaced.
      *
      * @param outputIndex   Replaced L2 output index.
+     * @param newSubmitter  Output submitter after replacement.
      * @param newOutputRoot L2 output root after replacement.
      */
-    event OutputReplaced(uint256 indexed outputIndex, bytes32 newOutputRoot);
+    event OutputReplaced(
+        uint256 indexed outputIndex,
+        address indexed newSubmitter,
+        bytes32 newOutputRoot
+    );
 
     /**
      * @notice Semantic version.
-     * @custom:semver 1.0.0
+     * @custom:semver 1.1.0
      */
-    string public constant version = "1.0.0";
+    string public constant version = "1.1.0";
 
     /**
      * @notice Constructs the L2OutputOracle contract.
      *
      * @param _validatorPool             The address of the ValidatorPool contract.
+     * @param _validatorManager          The address of the ValidatorManager contract.
      * @param _colosseum                 The address of the Colosseum contract.
      * @param _submissionInterval        Interval in blocks at which checkpoints must be submitted.
      * @param _l2BlockTime               The time per L2 block, in seconds.
@@ -100,6 +117,7 @@ contract L2OutputOracle is Initializable, ISemver {
      */
     constructor(
         ValidatorPool _validatorPool,
+        IValidatorManager _validatorManager,
         address _colosseum,
         uint256 _submissionInterval,
         uint256 _l2BlockTime,
@@ -114,6 +132,7 @@ contract L2OutputOracle is Initializable, ISemver {
         );
 
         VALIDATOR_POOL = _validatorPool;
+        VALIDATOR_MANAGER = _validatorManager;
         COLOSSEUM = _colosseum;
         SUBMISSION_INTERVAL = _submissionInterval;
         L2_BLOCK_TIME = _l2BlockTime;
@@ -128,10 +147,10 @@ contract L2OutputOracle is Initializable, ISemver {
      * @param _startingBlockNumber Block number for the first recorded L2 block.
      * @param _startingTimestamp   Timestamp for the first recorded L2 block.
      */
-    function initialize(uint256 _startingBlockNumber, uint256 _startingTimestamp)
-        public
-        initializer
-    {
+    function initialize(
+        uint256 _startingBlockNumber,
+        uint256 _startingTimestamp
+    ) public initializer {
         require(
             _startingTimestamp <= block.timestamp,
             "L2OutputOracle: starting L2 timestamp must be less than current time"
@@ -177,7 +196,7 @@ contract L2OutputOracle is Initializable, ISemver {
         output.outputRoot = _newOutputRoot;
         output.submitter = _submitter;
 
-        emit OutputReplaced(_l2OutputIndex, _newOutputRoot);
+        emit OutputReplaced(_l2OutputIndex, _submitter, _newOutputRoot);
     }
 
     /**
@@ -196,9 +215,21 @@ contract L2OutputOracle is Initializable, ISemver {
         bytes32 _l1BlockHash,
         uint256 _l1BlockNumber
     ) external payable {
-        address nextValidator = VALIDATOR_POOL.nextValidator();
+        uint256 outputIndex = nextOutputIndex();
+
+        // Upgrade validator system after validator pool contract is terminated.
+        bool isValidatorPoolTerminated = VALIDATOR_POOL.isTerminated(outputIndex);
+        address nextValidator;
+        if (isValidatorPoolTerminated) {
+            VALIDATOR_MANAGER.checkSubmissionEligibility(msg.sender);
+        } else {
+            nextValidator = VALIDATOR_POOL.nextValidator();
+        }
+
         // If it's not a public round, only selected validators can submit output.
-        if (nextValidator != Constants.VALIDATOR_PUBLIC_ROUND_ADDRESS) {
+        if (
+            !isValidatorPoolTerminated && nextValidator != Constants.VALIDATOR_PUBLIC_ROUND_ADDRESS
+        ) {
             require(
                 msg.sender == nextValidator,
                 "L2OutputOracle: only the next selected validator can submit output"
@@ -211,7 +242,7 @@ contract L2OutputOracle is Initializable, ISemver {
         );
 
         require(
-            computeL2Timestamp(_l2BlockNumber) < block.timestamp,
+            nextOutputMinL2Timestamp() <= block.timestamp,
             "L2OutputOracle: cannot submit L2 output in the future"
         );
 
@@ -231,8 +262,6 @@ contract L2OutputOracle is Initializable, ISemver {
             );
         }
 
-        uint256 outputIndex = nextOutputIndex();
-
         l2Outputs.push(
             Types.CheckpointOutput({
                 submitter: msg.sender,
@@ -244,10 +273,37 @@ contract L2OutputOracle is Initializable, ISemver {
 
         emit OutputSubmitted(_outputRoot, outputIndex, _l2BlockNumber, block.timestamp);
 
-        VALIDATOR_POOL.createBond(
-            outputIndex,
-            uint128(block.timestamp + FINALIZATION_PERIOD_SECONDS)
-        );
+        if (isValidatorPoolTerminated) {
+            VALIDATOR_MANAGER.afterSubmitL2Output(outputIndex);
+        } else {
+            VALIDATOR_POOL.createBond(
+                outputIndex,
+                uint128(block.timestamp + FINALIZATION_PERIOD_SECONDS)
+            );
+        }
+    }
+
+    /**
+     * @notice Updates the next output index to be finalized. This function may only be called by
+     *         the validator pool contract before terminated, after that by the validator manager
+     *         contract.
+     *
+     * @param _outputIndex Index of the next output to be finalized.
+     */
+    function setNextFinalizeOutputIndex(uint256 _outputIndex) external {
+        if (VALIDATOR_POOL.isTerminated(_outputIndex - 1)) {
+            require(
+                msg.sender == address(VALIDATOR_MANAGER),
+                "L2OutputOracle: only the validator manager contract can set next finalize output index"
+            );
+        } else {
+            require(
+                msg.sender == address(VALIDATOR_POOL),
+                "L2OutputOracle: only the validator pool contract can set next finalize output index"
+            );
+        }
+
+        nextFinalizeOutputIndex = _outputIndex;
     }
 
     /**
@@ -257,11 +313,9 @@ contract L2OutputOracle is Initializable, ISemver {
      *
      * @return The output at the given index.
      */
-    function getL2Output(uint256 _l2OutputIndex)
-        external
-        view
-        returns (Types.CheckpointOutput memory)
-    {
+    function getL2Output(
+        uint256 _l2OutputIndex
+    ) external view returns (Types.CheckpointOutput memory) {
         return l2Outputs[_l2OutputIndex];
     }
 
@@ -308,11 +362,9 @@ contract L2OutputOracle is Initializable, ISemver {
      *
      * @return First checkpoint that commits to the given L2 block number.
      */
-    function getL2OutputAfter(uint256 _l2BlockNumber)
-        external
-        view
-        returns (Types.CheckpointOutput memory)
-    {
+    function getL2OutputAfter(
+        uint256 _l2BlockNumber
+    ) external view returns (Types.CheckpointOutput memory) {
         return l2Outputs[getL2OutputIndexAfter(_l2BlockNumber)];
     }
 
@@ -372,6 +424,17 @@ contract L2OutputOracle is Initializable, ISemver {
     }
 
     /**
+     * @notice Returns the L2 timestamp corresponding to the right next block of the block that
+     *         needs to be checkpointed.
+     *         Note that the added one is because of the existence of next block hash in the output.
+     *
+     * @return L2 timestamp of the right next block of the block that needs to be checkpointed.
+     */
+    function nextOutputMinL2Timestamp() public view returns (uint256) {
+        return computeL2Timestamp(nextBlockNumber() + 1);
+    }
+
+    /**
      * @notice Returns the address of the L2 output submitter.
      *
      * @param _outputIndex Index of an output.
@@ -390,7 +453,7 @@ contract L2OutputOracle is Initializable, ISemver {
      * @return If the given output is finalized or not.
      */
     function isFinalized(uint256 _outputIndex) external view returns (bool) {
-        return l2Outputs[_outputIndex].timestamp + FINALIZATION_PERIOD_SECONDS < block.timestamp;
+        return finalizedAt(_outputIndex) <= block.timestamp;
     }
 
     /**
@@ -400,7 +463,7 @@ contract L2OutputOracle is Initializable, ISemver {
      *
      * @return The finalization time of given output index.
      */
-    function finalizedAt(uint256 _outputIndex) external view returns (uint256) {
+    function finalizedAt(uint256 _outputIndex) public view returns (uint256) {
         return l2Outputs[_outputIndex].timestamp + FINALIZATION_PERIOD_SECONDS;
     }
 }
