@@ -1,0 +1,1918 @@
+{
+  "address": "0xb8FA3cFFD48eC4505C7fBc0a2a14095AcB2feCE5",
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "_assetToken",
+          "type": "address",
+          "internalType": "contract IERC20"
+        },
+        {
+          "name": "_kgh",
+          "type": "address",
+          "internalType": "contract IERC721"
+        },
+        {
+          "name": "_securityCouncil",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_validatorRewardVault",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_validatorManager",
+          "type": "address",
+          "internalType": "contract IValidatorManager"
+        },
+        {
+          "name": "_minDelegationPeriod",
+          "type": "uint128",
+          "internalType": "uint128"
+        },
+        {
+          "name": "_bondAmount",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "ASSET_TOKEN",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract IERC20"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "BOND_AMOUNT",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "DECIMAL_OFFSET",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "KGH",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract IERC721"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MIN_DELEGATION_PERIOD",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "SECURITY_COUNCIL",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "TAX_DENOMINATOR",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "TAX_NUMERATOR",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "VALIDATOR_MANAGER",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract IValidatorManager"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "VALIDATOR_REWARD_VAULT",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "bondValidatorKro",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "canUndelegateKghAt",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "canUndelegateKroAt",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "canWithdrawAt",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "claimKghReward",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "decreaseBalanceWithChallenge",
+      "inputs": [
+        {
+          "name": "loser",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "delegate",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "assets",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "delegateKgh",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "delegateKghBatch",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "tokenIds",
+          "type": "uint256[]",
+          "internalType": "uint256[]"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "deposit",
+      "inputs": [
+        {
+          "name": "assets",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "depositToRegister",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "assets",
+          "type": "uint128",
+          "internalType": "uint128"
+        },
+        {
+          "name": "withdrawAccount",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "getKghNum",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getKghReward",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getKroAssets",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getKroTotalShareBalance",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getWithdrawAccount",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "increaseBalanceWithChallenge",
+      "inputs": [
+        {
+          "name": "winner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "challengeReward",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "increaseBalanceWithReward",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "baseReward",
+          "type": "uint128",
+          "internalType": "uint128"
+        },
+        {
+          "name": "boostedReward",
+          "type": "uint128",
+          "internalType": "uint128"
+        },
+        {
+          "name": "validatorReward",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "onERC721Received",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes4",
+          "internalType": "bytes4"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "type": "function",
+      "name": "previewDelegate",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "assets",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "previewUndelegate",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "shares",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "reflectiveWeight",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "revertDecreaseBalanceWithChallenge",
+      "inputs": [
+        {
+          "name": "loser",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "totalKghNum",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "totalKroAssets",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "totalValidatorKro",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "totalValidatorKroBonded",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "totalValidatorKroNotBonded",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "unbondValidatorKro",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "undelegate",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "assets",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "undelegateKgh",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "undelegateKghBatch",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "tokenIds",
+          "type": "uint256[]",
+          "internalType": "uint256[]"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "version",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "withdraw",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "assets",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "event",
+      "name": "Deposited",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "KghBatchDelegated",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "tokenIds",
+          "type": "uint256[]",
+          "indexed": false,
+          "internalType": "uint256[]"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "KghBatchUndelegated",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "tokenIds",
+          "type": "uint256[]",
+          "indexed": false,
+          "internalType": "uint256[]"
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "KghDelegated",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "KghRewardClaimed",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "KghUndelegated",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "KroDelegated",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        },
+        {
+          "name": "shares",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "KroUndelegated",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "delegator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        },
+        {
+          "name": "shares",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ValidatorKroBonded",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        },
+        {
+          "name": "remainder",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ValidatorKroUnbonded",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        },
+        {
+          "name": "remainder",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "Withdrawn",
+      "inputs": [
+        {
+          "name": "validator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "ImproperValidatorStatus",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InsufficientAsset",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InsufficientShare",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidTokenIdsInput",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotAllowedCaller",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotAllowedZeroInput",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotElapsedMinDelegationPeriod",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ZeroAddress",
+      "inputs": []
+    }
+  ],
+  "transactionHash": "0x58b3f44d0389c55bc3525f331cc8d4dd34396bc32a18cd98ea8900868ae6a75b",
+  "receipt": {
+    "to": null,
+    "from": "0x4935E310f69695c9A6e96d3992028CAbF082f686",
+    "contractAddress": "0xb8FA3cFFD48eC4505C7fBc0a2a14095AcB2feCE5",
+    "transactionIndex": 89,
+    "gasUsed": "3444348",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x3b88be07bb3cbb7651bc63adf01a6a3215999cedb35d6889fda804363c103b42",
+    "transactionHash": "0x58b3f44d0389c55bc3525f331cc8d4dd34396bc32a18cd98ea8900868ae6a75b",
+    "logs": [],
+    "blockNumber": 6641366,
+    "cumulativeGasUsed": "15454804",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    "0x25500000d700bbE27104577CCcce8eAbCC96c8ad",
+    "0x04d9D4908e59441b82d0bfA24a0461ea80B7D816",
+    "0x7F0DECbef4FdD0193b7d5c8Cc918C1A69d3eF78C",
+    "0x944a6edDfd0d18c4D913b2B90f2Ee923B1bcd622",
+    "0x18189f55FD29759CE51F13DCF0A9cCC1E41dFCC7",
+    21600,
+    "0x2B5E3AF16B1880000"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "6271f6f40156b835b824d3aeb153efe1",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.15+commit.e14f2714\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"contract IERC20\",\"name\":\"_assetToken\",\"type\":\"address\"},{\"internalType\":\"contract IERC721\",\"name\":\"_kgh\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_securityCouncil\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_validatorRewardVault\",\"type\":\"address\"},{\"internalType\":\"contract IValidatorManager\",\"name\":\"_validatorManager\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"_minDelegationPeriod\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"_bondAmount\",\"type\":\"uint128\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ImproperValidatorStatus\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientAsset\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientShare\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTokenIdsInput\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotAllowedCaller\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotAllowedZeroInput\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotElapsedMinDelegationPeriod\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"}],\"name\":\"Deposited\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"}],\"name\":\"KghBatchDelegated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"}],\"name\":\"KghBatchUndelegated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"KghDelegated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"}],\"name\":\"KghRewardClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"}],\"name\":\"KghUndelegated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"shares\",\"type\":\"uint128\"}],\"name\":\"KroDelegated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"shares\",\"type\":\"uint128\"}],\"name\":\"KroUndelegated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"remainder\",\"type\":\"uint128\"}],\"name\":\"ValidatorKroBonded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"remainder\",\"type\":\"uint128\"}],\"name\":\"ValidatorKroUnbonded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint128\",\"name\":\"amount\",\"type\":\"uint128\"}],\"name\":\"Withdrawn\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"ASSET_TOKEN\",\"outputs\":[{\"internalType\":\"contract IERC20\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"BOND_AMOUNT\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"DECIMAL_OFFSET\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"KGH\",\"outputs\":[{\"internalType\":\"contract IERC721\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MIN_DELEGATION_PERIOD\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SECURITY_COUNCIL\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"TAX_DENOMINATOR\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"TAX_NUMERATOR\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"VALIDATOR_MANAGER\",\"outputs\":[{\"internalType\":\"contract IValidatorManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"VALIDATOR_REWARD_VAULT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"bondValidatorKro\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"canUndelegateKghAt\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"}],\"name\":\"canUndelegateKroAt\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"canWithdrawAt\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"claimKghReward\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"loser\",\"type\":\"address\"}],\"name\":\"decreaseBalanceWithChallenge\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"assets\",\"type\":\"uint128\"}],\"name\":\"delegate\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"delegateKgh\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"}],\"name\":\"delegateKghBatch\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint128\",\"name\":\"assets\",\"type\":\"uint128\"}],\"name\":\"deposit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"assets\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"withdrawAccount\",\"type\":\"address\"}],\"name\":\"depositToRegister\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"}],\"name\":\"getKghNum\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"}],\"name\":\"getKghReward\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"}],\"name\":\"getKroAssets\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"}],\"name\":\"getKroTotalShareBalance\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"getWithdrawAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"winner\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"challengeReward\",\"type\":\"uint128\"}],\"name\":\"increaseBalanceWithChallenge\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"baseReward\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"boostedReward\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"validatorReward\",\"type\":\"uint128\"}],\"name\":\"increaseBalanceWithReward\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"onERC721Received\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"assets\",\"type\":\"uint128\"}],\"name\":\"previewDelegate\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"shares\",\"type\":\"uint128\"}],\"name\":\"previewUndelegate\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"reflectiveWeight\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"loser\",\"type\":\"address\"}],\"name\":\"revertDecreaseBalanceWithChallenge\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"totalKghNum\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"totalKroAssets\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"totalValidatorKro\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"totalValidatorKroBonded\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"totalValidatorKroNotBonded\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"name\":\"unbondValidatorKro\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"assets\",\"type\":\"uint128\"}],\"name\":\"undelegate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"undelegateKgh\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"}],\"name\":\"undelegateKghBatch\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"assets\",\"type\":\"uint128\"}],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{\"bondValidatorKro(address)\":{\"params\":{\"validator\":\"Address of the validator.\"}},\"canUndelegateKghAt(address,address,uint256)\":{\"params\":{\"delegator\":\"Address of the KGH delegator.\",\"tokenId\":\"The token id of KGH to undelegate.\",\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"When the KGH delegators can undelegate KGH for the given token id.\"}},\"canUndelegateKroAt(address,address)\":{\"params\":{\"delegator\":\"Address of the KRO delegator.\",\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"When the KRO delegators can undelegate KRO.\"}},\"canWithdrawAt(address)\":{\"params\":{\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"When the validator can withdraw KRO.\"}},\"claimKghReward(address)\":{\"params\":{\"validator\":\"Address of the validator.\"}},\"constructor\":{\"params\":{\"_assetToken\":\"Address of the KRO token.\",\"_bondAmount\":\"Amount to bond.\",\"_kgh\":\"Address of the KGH token.\",\"_minDelegationPeriod\":\"Minimum delegation period.\",\"_securityCouncil\":\"Address of the SecurityCouncil contract.\",\"_validatorManager\":\"Address of the ValidatorManager contract.\",\"_validatorRewardVault\":\"Address of the Validator Reward Vault.\"}},\"decreaseBalanceWithChallenge(address)\":{\"params\":{\"loser\":\"Address of the challenge loser.\"},\"returns\":{\"_0\":\"The challenge reward slashed from loser's asset.\"}},\"delegate(address,uint128)\":{\"params\":{\"assets\":\"The amount of KRO to delegate.\",\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The amount of shares that the Vault would exchange for the amount of assets provided.\"}},\"delegateKgh(address,uint256)\":{\"params\":{\"tokenId\":\"The token id of KGH to delegate.\",\"validator\":\"Address of the validator.\"}},\"delegateKghBatch(address,uint256[])\":{\"params\":{\"tokenIds\":\"The token ids of KGHs to delegate.\",\"validator\":\"Address of the validator.\"}},\"deposit(uint128)\":{\"params\":{\"assets\":\"The amount of KRO to deposit.\"}},\"depositToRegister(address,uint128,address)\":{\"params\":{\"assets\":\"The amount of KRO to deposit.\",\"validator\":\"Address of the validator.\",\"withdrawAccount\":\"An account where assets can be withdrawn to. Only this account can                        withdraw the assets.\"}},\"getKghNum(address,address)\":{\"params\":{\"delegator\":\"Address of the delegator.\",\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The number of KGH delegated by the given delegator.\"}},\"getKghReward(address,address)\":{\"params\":{\"delegator\":\"The address of the delegator.\",\"validator\":\"The address of the validator.\"},\"returns\":{\"_0\":\"The amount of claimable reward of KGH delegation.\"}},\"getKroAssets(address,address)\":{\"params\":{\"delegator\":\"Address of the delegator.\",\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The amount of KRO assets that the delegator delegated to the validator.\"}},\"getKroTotalShareBalance(address,address)\":{\"params\":{\"delegator\":\"Address of the delegator.\",\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The amount of KRO shares that the KRO delegator has.\"}},\"getWithdrawAccount(address)\":{\"params\":{\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The address of withdraw account of given validator.\"}},\"increaseBalanceWithChallenge(address,uint128)\":{\"params\":{\"challengeReward\":\"The challenge reward to be added to the winner's asset after excluding                        tax.\",\"winner\":\"Address of the challenge winner.\"},\"returns\":{\"_0\":\"The challenge reward added to winner's asset.\"}},\"increaseBalanceWithReward(address,uint128,uint128,uint128)\":{\"params\":{\"baseReward\":\"The base reward to distribute.\",\"boostedReward\":\"The boosted reward to distribute.\",\"validator\":\"Address of the validator.\",\"validatorReward\":\"The validator reward to distribute.\"}},\"onERC721Received(address,address,uint256,bytes)\":{\"details\":\"Whenever an {IERC721} `tokenId` token is transferred to this contract via {IERC721-safeTransferFrom} by `operator` from `from`, this function is called. It must return its Solidity selector to confirm the token transfer. If any other value is returned or the interface is not implemented by the recipient, the transfer will be reverted. The selector can be obtained in Solidity with `IERC721Receiver.onERC721Received.selector`.\"},\"previewDelegate(address,uint128)\":{\"params\":{\"assets\":\"The amount of assets to delegate.\",\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The amount of shares that the Vault would exchange for the amount of assets provided.\"}},\"previewUndelegate(address,uint128)\":{\"params\":{\"shares\":\"The amount of shares to undelegate.\",\"validator\":\"The address of the validator.\"},\"returns\":{\"_0\":\"The amount of assets that the Vault would exchange for the amount of shares provided.\"}},\"reflectiveWeight(address)\":{\"params\":{\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The reflective weight of given validator.\"}},\"revertDecreaseBalanceWithChallenge(address)\":{\"params\":{\"loser\":\"Address of the challenge original loser.\"},\"returns\":{\"_0\":\"The challenge reward refunded to loser's asset.\"}},\"totalKghNum(address)\":{\"params\":{\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The total number of KGHs held by the vault.\"}},\"totalKroAssets(address)\":{\"params\":{\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The total amount of KRO that delegated by the delegators and accumulated as KRO         delegation reward.\"}},\"totalValidatorKro(address)\":{\"params\":{\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The total amount of KRO a validator has deposited and been rewarded.\"}},\"totalValidatorKroBonded(address)\":{\"params\":{\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The total amount of validator KRO bonded.\"}},\"totalValidatorKroNotBonded(address)\":{\"params\":{\"validator\":\"Address of the validator.\"},\"returns\":{\"_0\":\"The total amount of validator balance excluding the bond amount.\"}},\"unbondValidatorKro(address)\":{\"params\":{\"validator\":\"Address of the validator.\"}},\"undelegate(address,uint128)\":{\"params\":{\"assets\":\"The amount of assets to undelegate.\",\"validator\":\"Address of the validator.\"}},\"undelegateKgh(address,uint256)\":{\"params\":{\"tokenId\":\"Token id of KGH to undelegate.\",\"validator\":\"Address of the validator.\"}},\"undelegateKghBatch(address,uint256[])\":{\"params\":{\"tokenIds\":\"Array of token ids of KGHs to undelegate.\",\"validator\":\"Address of the validator.\"}},\"withdraw(address,uint128)\":{\"params\":{\"assets\":\"The amount of KRO to withdraw.\",\"validator\":\"Address of the validator.\"}}},\"stateVariables\":{\"version\":{\"custom:semver\":\"1.0.0\"}},\"title\":\"AssetManager\",\"version\":1},\"userdoc\":{\"errors\":{\"ImproperValidatorStatus()\":[{\"notice\":\"Reverts when the status of validator is improper.\"}],\"InsufficientAsset()\":[{\"notice\":\"Reverts when the asset is insufficient.\"}],\"InsufficientShare()\":[{\"notice\":\"Reverts when the share is insufficient.\"}],\"InvalidTokenIdsInput()\":[{\"notice\":\"Reverts when the given token ids are invalid.\"}],\"NotAllowedCaller()\":[{\"notice\":\"Reverts when caller is not allowed.\"}],\"NotAllowedZeroInput()\":[{\"notice\":\"Reverts when try to input zero.\"}],\"NotElapsedMinDelegationPeriod()\":[{\"notice\":\"Reverts when the minimum delegation period is not elapsed.\"}],\"ZeroAddress()\":[{\"notice\":\"Reverts when the address is zero address.\"}]},\"events\":{\"Deposited(address,uint128)\":{\"notice\":\"Emitted when validator deposited KROs.\"},\"KghBatchDelegated(address,address,uint256[])\":{\"notice\":\"Emitted when KGHs are delegated in batch.\"},\"KghBatchUndelegated(address,address,uint256[],uint128)\":{\"notice\":\"Emitted when KGHs are undelegated in batch.\"},\"KghDelegated(address,address,uint256)\":{\"notice\":\"Emitted when a KGH is delegated.\"},\"KghRewardClaimed(address,address,uint128)\":{\"notice\":\"Emitted when accumulated rewards of KGH delegation are claimed.\"},\"KghUndelegated(address,address,uint256,uint128)\":{\"notice\":\"Emitted when KGH is undelegated.\"},\"KroDelegated(address,address,uint128,uint128)\":{\"notice\":\"Emitted when KROs are delegated.\"},\"KroUndelegated(address,address,uint128,uint128)\":{\"notice\":\"Emitted when KRO is undelegated.\"},\"ValidatorKroBonded(address,uint128,uint128)\":{\"notice\":\"Emitted when validator KRO is bonded during output submission or challenge creation.\"},\"ValidatorKroUnbonded(address,uint128,uint128)\":{\"notice\":\"Emitted when validator KRO is unbonded during output finalization or slashing.\"},\"Withdrawn(address,uint128)\":{\"notice\":\"Emitted when validator withdrew KRO.\"}},\"kind\":\"user\",\"methods\":{\"ASSET_TOKEN()\":{\"notice\":\"Address of the KRO token contract.\"},\"BOND_AMOUNT()\":{\"notice\":\"The amount to bond.\"},\"DECIMAL_OFFSET()\":{\"notice\":\"Decimals offset for the KRO shares.\"},\"KGH()\":{\"notice\":\"Address of the KGH token contract.\"},\"MIN_DELEGATION_PERIOD()\":{\"notice\":\"Minimum delegation period. Can be updated via upgrade.\"},\"SECURITY_COUNCIL()\":{\"notice\":\"The address of the SecurityCouncil contract. Can be updated via upgrade.\"},\"TAX_DENOMINATOR()\":{\"notice\":\"The denominator of the tax.\"},\"TAX_NUMERATOR()\":{\"notice\":\"The numerator of the tax.\"},\"VALIDATOR_MANAGER()\":{\"notice\":\"Address of ValidatorManager contract. Can be updated via upgrade.\"},\"VALIDATOR_REWARD_VAULT()\":{\"notice\":\"The address of Validator Reward Vault. Can be updated via upgrade.\"},\"bondValidatorKro(address)\":{\"notice\":\"Bond KRO from validator KRO during output submission or challenge creation. This         function is only called by the ValidatorManager contract.\"},\"canUndelegateKghAt(address,address,uint256)\":{\"notice\":\"Returns when the KGH delegators can undelegate KGH. The delegators can undelegate KGH         for the given token id after MIN_DELEGATION_PERIOD elapsed from delegation         timestamp.\"},\"canUndelegateKroAt(address,address)\":{\"notice\":\"Returns when the KRO delegators can undelegate KRO. The delegators can undelegate         after MIN_DELEGATION_PERIOD elapsed from lastDelegatedAt.\"},\"canWithdrawAt(address)\":{\"notice\":\"Returns when the validator can withdraw KRO. The validator can withdraw after         MIN_DELEGATION_PERIOD elapsed from lastDepositedAt.\"},\"claimKghReward(address)\":{\"notice\":\"Claim the boosted reward of the KGH delegator from the given validator vault.\"},\"constructor\":{\"notice\":\"Constructs the AssetManager contract.\"},\"decreaseBalanceWithChallenge(address)\":{\"notice\":\"Update the vault of challenge loser with the challenge reward. This function is only         called by the ValidatorManager contract.\"},\"delegate(address,uint128)\":{\"notice\":\"Delegate KRO to the validator and returns the amount of shares that the vault would         exchange.\"},\"delegateKgh(address,uint256)\":{\"notice\":\"Delegate KGH to the validator.\"},\"delegateKghBatch(address,uint256[])\":{\"notice\":\"Delegate KGHs to the validator.\"},\"deposit(uint128)\":{\"notice\":\"Deposit KRO. To deposit KRO, the validator should be initiated.\"},\"depositToRegister(address,uint128,address)\":{\"notice\":\"Deposit KRO to register as a validator. This function is only called by the         ValidatorManager contract.\"},\"getKghNum(address,address)\":{\"notice\":\"Returns the number of KGH delegated by the given delegator.\"},\"getKghReward(address,address)\":{\"notice\":\"Returns the claimable reward of KGH delegation.\"},\"getKroAssets(address,address)\":{\"notice\":\"Returns the amount of KRO assets delegated to the given validator by the delegator.\"},\"getKroTotalShareBalance(address,address)\":{\"notice\":\"Returns the amount of KRO shares that the KRO delegator has.\"},\"getWithdrawAccount(address)\":{\"notice\":\"Returns the address of withdraw account of given validator.\"},\"increaseBalanceWithChallenge(address,uint128)\":{\"notice\":\"Update the vault of challenge winner with the challenge reward. This function is only         called by the ValidatorManager contract.\"},\"increaseBalanceWithReward(address,uint128,uint128,uint128)\":{\"notice\":\"Update the vault of validator with the distributed reward. This function is only         called by the ValidatorManager contract.\"},\"previewDelegate(address,uint128)\":{\"notice\":\"Allows an on-chain or off-chain user to simulate the effects of their KRO delegation         at the current block.\"},\"previewUndelegate(address,uint128)\":{\"notice\":\"Allows an on-chain or off-chain user to simulate the effects of their KRO         undelegation at the current block.\"},\"reflectiveWeight(address)\":{\"notice\":\"Returns the reflective weight of given validator.\"},\"revertDecreaseBalanceWithChallenge(address)\":{\"notice\":\"Revert the changes of decreaseBalanceWithChallenge. This function is only called by         the ValidatorManager contract.\"},\"totalKghNum(address)\":{\"notice\":\"Returns the total number of KGHs held by the vault.\"},\"totalKroAssets(address)\":{\"notice\":\"Returns the total amount of KRO that delegated by the delegators and accumulated as         KRO delegation reward.\"},\"totalValidatorKro(address)\":{\"notice\":\"Returns the total amount of KRO a validator has deposited and been rewarded.\"},\"totalValidatorKroBonded(address)\":{\"notice\":\"Returns the total amount of validator KRO that bonded during output submission or         challenge creation.\"},\"totalValidatorKroNotBonded(address)\":{\"notice\":\"Returns the total amount of validator balance excluding the bond amount.\"},\"unbondValidatorKro(address)\":{\"notice\":\"Unbond KRO from validator KRO during output finalization or challenge slashing. This         function is only called by the ValidatorManager contract.\"},\"undelegate(address,uint128)\":{\"notice\":\"Undelegate the KRO of given assets for the given validator.\"},\"undelegateKgh(address,uint256)\":{\"notice\":\"Undelegate KGH for given validator and tokenId.\"},\"undelegateKghBatch(address,uint256[])\":{\"notice\":\"Undelegate KGHs for given validator and token ids.\"},\"version()\":{\"notice\":\"Semantic version.\"},\"withdraw(address,uint128)\":{\"notice\":\"Withdraw KRO. To withdraw KRO, the validator should be initiated and MIN_DELEGATION_PERIOD         should be passed after the last deposit time. Only withdrawAccount of the validator can call         this function.\"}},\"notice\":\"AssetManager is a contract that handles (un)delegations of KRO and KGH, and the         distribution of rewards to the delegators and the validator.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/L1/AssetManager.sol\":\"AssetManager\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"enabled\":true,\"runs\":10000},\"remappings\":[\":@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/\",\":@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/\",\":@rari-capital/solmate/=node_modules/@rari-capital/solmate/\",\":ds-test/=node_modules/ds-test/src/\",\":forge-std/=node_modules/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/L1/AssetManager.sol\":{\"keccak256\":\"0x7675c464bdf1babb86d0611c3f716cec3fcd45b4bb5e617cb76b640ff5890eea\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://7996273d7022621be2f4e026290ac3c604dee1b7f0a71bf2085fb5dba7c86d81\",\"dweb:/ipfs/QmXStoqurS1JSMZe8UT4WbfQN9JUGYCQ2fEP83u7EKxofV\"]},\"contracts/L1/KromaPortal.sol\":{\"keccak256\":\"0x83129322b378176f0135b825b471363c214961990ab1b6ef9e0140f800ee2d4d\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://1ce79f809b7334293fae5b17cc8fea4ddd027d95ceb2010648ff19faa02ff2e6\",\"dweb:/ipfs/QmZUBW5E4dpuSCBDZRBAaU7UJLPhhz64oZBppFA9YBTXRE\"]},\"contracts/L1/L2OutputOracle.sol\":{\"keccak256\":\"0x02d9e01b80965c9acb005c6553e9eb7b8f74ff495642114766c072726f4e8665\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://d1b958b6dcd13d3e5ce848a1bdde3709c61aa410d572eda17e4af91fdabdac55\",\"dweb:/ipfs/QmZZjiXoKtBV4fNPu4Fpg1XskLwHeNfKN33LPysVavc5Cw\"]},\"contracts/L1/ResourceMetering.sol\":{\"keccak256\":\"0xbc18cbf0e4fa8c9a17e04be6bf8e59bf5db5e71622f15fc15eb359db598abc59\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://29aa63d99de92760ebf0adfed473d2c6d6a52e4727e29f6fbfedd35c6c2e7100\",\"dweb:/ipfs/QmSVRRqcfhgbMvPztPdNvEhc7nakz5qBdKLddpXNvMRWjL\"]},\"contracts/L1/SystemConfig.sol\":{\"keccak256\":\"0xbc8487f1e9b96364a01bad8c5eb0e0d89cfe258e7b895ea73202bc8accc987cd\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://bf50a6c5b2baa5057d6a620c8c8bf12b2319903435eb98a0933ea4a3b04b2bed\",\"dweb:/ipfs/QmTPSHVNEazbNC1apc2faqFELDzRFdfefYPNAuWtX4FrZj\"]},\"contracts/L1/ValidatorPool.sol\":{\"keccak256\":\"0xc2b61c092cb5dab0a224d7d2b130b74d954612f02fcaee1f51b9a416f59343a4\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://d2efe5e2d7baad0a21da587e2ec6d2058a9e8800d654d5340f3d14d2adea4ef8\",\"dweb:/ipfs/QmdChQDXBNzF66Ha2zV5E6Myj1bWEHFkQ6bEMeiNNq9eZm\"]},\"contracts/L1/ZKMerkleTrie.sol\":{\"keccak256\":\"0xdf0d2f0f92fdb2a62677aa60a170f38b5d365f50ea7851d19c67f6f4a6beff3c\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://6c5d075de32d93092e05cd439a2423a716713e867f5ec2c0f1059d42fa23c6b4\",\"dweb:/ipfs/QmNZCC7XdgUckHWhSCkBBqwHkWyKagb329vSMMSHSfN4Sp\"]},\"contracts/L1/ZKTrieHasher.sol\":{\"keccak256\":\"0x8376cd6c3222d753cc9df6b412e7d0eeb2704cc3a47c3d55886bb4eca18893a1\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://e3900f900582bcb5ff17d65887a38776412e27838b62ade1389d727f859cbaf0\",\"dweb:/ipfs/QmYL7V3Ta6cJiQTcziMYwdurcUKhwbqK7Az21H19Vs6W41\"]},\"contracts/L1/interfaces/IAssetManager.sol\":{\"keccak256\":\"0x5d866f7158d4668f2160b567a2192082a59afd99af18188d94fe5fcc21a7d958\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://bdb696499860f00ab1a3c23a6f12e826b9523190bff4037ae2754bddd8a1e7c0\",\"dweb:/ipfs/QmSQ2dHwzEAaDwkk7nthxYehDdXJqsDj5vJ9aU98QKHciX\"]},\"contracts/L1/interfaces/IValidatorManager.sol\":{\"keccak256\":\"0x1ff005df8cea19cb57662bf3e52487efc00cd7249a998cecbc381058d6f738eb\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://53af6de075e22e7f6dc6cecfb89b38ab3db2cd2ccede7de76e5a6f6fab96e3dc\",\"dweb:/ipfs/Qmaw2KDCLgVQLXHpYc2m5wY1rCtKvcJ2TFE9hFe1mSHLhB\"]},\"contracts/L1/interfaces/IZKMerkleTrie.sol\":{\"keccak256\":\"0xc0db9a82935f3ae1e0137e8752be690244fdf939f6adc262b82a9daa76ef3c91\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://26b5651a98c1a679ba8c945ba595c94a9b8ed758a2e8bb2baaeb571967f0820f\",\"dweb:/ipfs/Qmc42qGNY69oMmSdT6CxCtYsjmHHUmBnnuqgZfh9QmYMAv\"]},\"contracts/L2/L2StandardBridge.sol\":{\"keccak256\":\"0xe3ddda01f4ac1361aa47034ddf4a5b1edf18dd7fc620e850be0c52d438fd98e3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://1a968bb7673855ac0c6fb7982e13e6a9c803f4cad3bf603daaf76f368d82d1c5\",\"dweb:/ipfs/QmTW3SK6D9pwj1QR8jKhWQawYto448pme5PP8u8Z2EW6qq\"]},\"contracts/L2/ValidatorRewardVault.sol\":{\"keccak256\":\"0x31cdaec7c22f4a7ca697b6b854f76832a2b71e5dfdad5fadb64942ce25355fca\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://50c15c50493b0a9aa3f471aa56bc376e2882be135a7fc4cf3058f6ac1fe871f2\",\"dweb:/ipfs/QmcR1NoZSaj4GAUfbycy2MsSkCjaVjZbPL9QayvN5mA2o8\"]},\"contracts/libraries/Arithmetic.sol\":{\"keccak256\":\"0x268a178c83f88adac015bb02ea58e40d63187830bcdd7063a945804607b55570\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://fb3fd08e062e074ba49f596a82417997ef46c29e7dd9cb53ddb3192ac4ce4e0d\",\"dweb:/ipfs/QmZMRCQocGuLEkZeKLXWbp6zran3kYXzJQr6fPZF2xRcbx\"]},\"contracts/libraries/Burn.sol\":{\"keccak256\":\"0x9af535d46ec803e48cf7978cf9af29f259b39f56f929574ca4fcb292e0397ed7\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://f8aca0112f1d20d62d154fa3304d511d51a2a4b86c5a28c69c932263f6a90a11\",\"dweb:/ipfs/QmPhZDd9sLqcoauJ8DA7R5V2gD8qFXsn1gmg63skBV9ZVn\"]},\"contracts/libraries/Bytes.sol\":{\"keccak256\":\"0x6c1cfe3d09a093f5946a87a9a60e469d4510e0749e218c4247b214fc09900b33\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://adf1fe4dd501f443a4a253b3940f0931732fc5074b57c8c9a5ca33a76e09de74\",\"dweb:/ipfs/QmQca2QpGggadP85yJyWC1teJxPxmKiKwdnA75Rrr7jygz\"]},\"contracts/libraries/Bytes32.sol\":{\"keccak256\":\"0x049480281697fdb3e7cd108523813a5d5d3b25fdfbad5a5007d9b9590e64d956\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://89eebd28a45c4987226a10f023ddf2413e58c7593fe6fcc71cebbf18cc915a2f\",\"dweb:/ipfs/QmX9FEyvhXsxnxc1wdPGjA4kNGQvM4MN99krqEF7o5JGqc\"]},\"contracts/libraries/Constants.sol\":{\"keccak256\":\"0x992c2b37ecaf845c4e068e8de2bd5124712ed9dda77ee561d05c94ce4d4914fe\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://cd6846a4c6615c997546ec8260c77cf2ba3bf0a30fd92d8f76ed1c4940eea90c\",\"dweb:/ipfs/QmR86PTdT25HTj78Ja58UUmgLvMYrNX71zauNz46DArwxz\"]},\"contracts/libraries/Encoding.sol\":{\"keccak256\":\"0xfbe13067f2ba84d04e3bcffba5eedfc2743f49691ce91205aa31d2586e8e94bf\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://0a4bfd77f76a46a33e769370d4cd616f5e933c863745f48d332560199a2fd1df\",\"dweb:/ipfs/QmX8vVMzHQDDUjeuowBjRZ3M9NrTL3WeQJUdGoQwGHXESd\"]},\"contracts/libraries/Hashing.sol\":{\"keccak256\":\"0xa34c3bf3f5bf9d8322966d45cddc85dde8672673f45a31d928078e985d46f25a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://9e2b8f87ff33589e3e12d5a11cc2c9ef843e7a60036acf11150b5ef2109432e2\",\"dweb:/ipfs/QmdT8DHuJ8oVm4DLP9ZgwwiquHgmdWtorjiyNZ645KryHE\"]},\"contracts/libraries/NodeReader.sol\":{\"keccak256\":\"0x3f2345546b715479dd41ea0f999c801c8aefc057b14f8c57ee35cce78e139b44\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://3d15781b5c038b153f42237eddf2cd0d9e67536b8cd3a14e56297893b711e6af\",\"dweb:/ipfs/QmRroSVS6fRmk3bxkWuvNrEB8JqH2MCgmZQxJkhTFE3eds\"]},\"contracts/libraries/Predeploys.sol\":{\"keccak256\":\"0xfeeafa253dba978cab979afc2d7506eeb5aaf89f0256b048c972a84902b139ee\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://96e108a95cb5b043f02f4d6bc50f5ac98bd75da4292c615784ba78fba25718a2\",\"dweb:/ipfs/QmXXNWwdyaNx9MXbQRHViAMmzN8mrd2Y3Xd3DBPE23Wz3J\"]},\"contracts/libraries/SafeCall.sol\":{\"keccak256\":\"0x9c9e20b64d509725e222e6973a9ce26ff68756098070a770e5e0c43d0f899a22\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://e9e198e00b17ac6bf2ad41f5a16242f458649eea089e591d88dbaba2a5d133b3\",\"dweb:/ipfs/QmeHvHgAGWjRseSQUrj5BrvHKHFjEg3buvkGkCLDd5aQMm\"]},\"contracts/libraries/Types.sol\":{\"keccak256\":\"0xb1bc913026dacd5396a4cd56fd27781254df68e28f8f9264c8564a357deccf37\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://d9a708c5c0c978b86cd7a44ba6102443ce7b495bab320d2b1d1b3316f1b0b987\",\"dweb:/ipfs/QmfM43Lu7gSqGzhRHsGq4dJoV4SXg6B4pRzVPe5oQWm3sj\"]},\"contracts/libraries/Uint128Math.sol\":{\"keccak256\":\"0x534899421d4fef152e82af9867f5c9af7d38903fcb32aa3f6b36451becfc0ba1\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://6dc06897d28a9d51c514d84a888a09fd7913b0f6ba1fe66d5e8b47e4012e9c67\",\"dweb:/ipfs/QmQMSbRzdnMQs42g8QNrBLj2juzz8huxWgJhdSGpXHuNPu\"]},\"contracts/libraries/rlp/RLPWriter.sol\":{\"keccak256\":\"0x5aa9d21c5b41c9786f23153f819d561ae809a1d55c7b0d423dfeafdfbacedc78\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://921c44e6a0982b9a4011900fda1bda2c06b7a85894967de98b407a83fe9f90c0\",\"dweb:/ipfs/QmSsHLKDUQ82kpKdqB6VntVGKuPDb4W9VdotsubuqWBzio\"]},\"contracts/universal/CrossDomainMessenger.sol\":{\"keccak256\":\"0xa50cdacf266549170d36cc35000c075f177e426f4e1c26b4338b9b75d5656ef3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://073c44a92c7b6ddda3144412dbeee0e86435866fec2a05f6493c95d94dd09c35\",\"dweb:/ipfs/QmcM7hTxmdyUxHFYBCXvd9WFZdmNwpNemAvmspaEJu2DqM\"]},\"contracts/universal/FeeVault.sol\":{\"keccak256\":\"0x7fba013982f8380fd8ca97f54a63cbccf6f166a9503892e10a48f1eb1cfb01b2\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b9add1aa8c613f73c1564e40d3d40196e1eca381ca28696ecf1712ba888da6fa\",\"dweb:/ipfs/Qmebc6v7ff4sWxTR1i93WXQRcXwsmDzH8S4wxv1bqVZEiW\"]},\"contracts/universal/IKromaMintableERC20.sol\":{\"keccak256\":\"0x1a95268117456ddb1e0a16eb2ba773b9540c7b8b9520e66d4d167ddc6ace6fcb\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://f93d2e6f5121a3dfe272e399d6774e0584d59a20c4f63db78e5a0b644d92fa59\",\"dweb:/ipfs/QmbwM7kCpmwZs348jCeNwF86H8SDBURsGCGCUCyoSS1ffy\"]},\"contracts/universal/ISemver.sol\":{\"keccak256\":\"0xba34562a8026f59886d2e07d1d58d90b9691d00e0788c6263cef6c22740cab44\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://0826f998632f83c103c3085bf2e872db79a69022b6d2e0444c83a64ca5283c2a\",\"dweb:/ipfs/QmcJ7PNqkAfKqbjFGRordtAg1v9DvcBSKvdTkVvciLyvQR\"]},\"contracts/universal/KromaMintableERC20.sol\":{\"keccak256\":\"0x30dccac5fe2d7c75bbe1411004ad03c40afe6dce8c7d22a89abb783f74bd2674\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://de3f8062e170498d71069529cb83681b0acaeb41643892c092111b07df2895f6\",\"dweb:/ipfs/QmNsZa5vHYQ8eG3dQ7PjkfweXzxKc6nbDj9P455Mp1Waxx\"]},\"contracts/universal/StandardBridge.sol\":{\"keccak256\":\"0x97b07e61f135b77d6b5a7f27174cee21bb6a958408a773929eeee18501387d9b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://e75747e512e56f85205822d3d9972e9a9a8e7213eae18f3e958409bf72f60e28\",\"dweb:/ipfs/QmSeF6sWzS8pQCWPiTuDLUXSWFELpohbdtrcbjCLnF5hEG\"]},\"contracts/vendor/AddressAliasHelper.sol\":{\"keccak256\":\"0x6ecb83b4ec80fbe49c22f4f95d90482de64660ef5d422a19f4d4b04df31c1237\",\"license\":\"Apache-2.0\",\"urls\":[\"bzz-raw://1d0885be6e473962f9a0622176a22300165ac0cc1a1d7f2e22b11c3d656ace88\",\"dweb:/ipfs/QmPRa3KmRpXW5P9ykveKRDgYN5zYo4cYLAYSnoqHX3KnXR\"]},\"node_modules/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol\":{\"keccak256\":\"0x4075622496acc77fd6d4de4cc30a8577a744d5c75afad33fdeacf1704d6eda98\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://99c8cb3cd19a44bbfb6612605affb7d8b06cee1f6aa9362a37a8672b4f7eeaf8\",\"dweb:/ipfs/QmasyxFDBUp7k5KFgfDWEzM8PYSKEq7GVznzMJ1VxVRF4B\"]},\"node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol\":{\"keccak256\":\"0x89be10e757d242e9b18d5a32c9fbe2019f6d63052bbe46397a430a1d60d7f794\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://f103ee2e4aecd37aac6ceefe670709cdd7613dee25fa2d4d9feaf7fc0aaa155e\",\"dweb:/ipfs/QmRiNZLoJk5k3HPMYGPGjZFd2ke1ZxjhJZkM45Ec9GH9hv\"]},\"node_modules/@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol\":{\"keccak256\":\"0x40c636b4572ff5f1dc50cf22097e93c0723ee14eff87e99ac2b02636eeca1250\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://9c7d1f5e15633ab912b74c2f57e24559e66b03232300d4b27ff0f25bc452ecad\",\"dweb:/ipfs/QmYTJkc1cntYkKQ1Tu11nBcJLakiy93Tjytc4XHELo4GmR\"]},\"node_modules/@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol\":{\"keccak256\":\"0xb82ef33f43b6b96109687d91b39c94573fdccaaa423fe28e8ba0977b31c023e0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ec9c629f63e66379f9c868a74f971064701cc6e30583872aa653f8b932518025\",\"dweb:/ipfs/QmY4MnZF2VMFwJkAwpdQwxEWA3KcGbNBKEmAVYePMVQWUR\"]},\"node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol\":{\"keccak256\":\"0x9c80f545915582e63fe206c6ce27cbe85a86fc10b9cd2a0e8c9488fb7c2ee422\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://310136ad60820af4177a11a61d77a3686faf5fca4942b600e08fc940db38396b\",\"dweb:/ipfs/QmbCzMNSTL7Zi7M4UCSqBrkHtp4jjxUnGbkneCZKdR1qeq\"]},\"node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol\":{\"keccak256\":\"0x963ea7f0b48b032eef72fe3a7582edf78408d6f834115b9feadd673a4d5bd149\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://d6520943ea55fdf5f0bafb39ed909f64de17051bc954ff3e88c9e5621412c79c\",\"dweb:/ipfs/QmWZ4rAKTQbNG2HxGs46AcTXShsVytKeLs7CUCdCSv5N7a\"]},\"node_modules/@openzeppelin/contracts/access/Ownable.sol\":{\"keccak256\":\"0xba43b97fba0d32eb4254f6a5a297b39a19a247082a02d6e69349e071e2946218\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://fc980984badf3984b6303b377711220e067722bbd6a135b24669ff5069ef9f32\",\"dweb:/ipfs/QmPHXMSXj99XjSVM21YsY6aNtLLjLVXDbyN76J5HQYvvrz\"]},\"node_modules/@openzeppelin/contracts/proxy/utils/Initializable.sol\":{\"keccak256\":\"0x3d6069be9b4c01fb81840fb9c2c4dc58dd6a6a4aafaa2c6837de8699574d84c6\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://720d6bb56ea0c4ef781c0bd65c5bd0541f5a46100163b2587170f97658d2deed\",\"dweb:/ipfs/QmTS2biLVPrv8CeeXCaKmkFxonMiRvc1LxiYBRYDAJHQUS\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xa56ca923f70c1748830700250b19c61b70db9a683516dc5e216694a50445d99c\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://cac938788bc4be12101e59d45588b4e059579f4e61062e1cda8d6b06c0191b15\",\"dweb:/ipfs/QmV2JKCyjTVH3rkWNrfdJRhAT7tZ3usAN2XcnD4h53Mvih\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x287b55befed2961a7eabd7d7b1b2839cbca8a5b80ef8dcbb25ed3d4c2002c305\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://bd39944e8fc06be6dbe2dd1d8449b5336e23c6a7ba3e8e9ae5ae0f37f35283f5\",\"dweb:/ipfs/QmPV3FGYjVwvKSgAXKUN3r9T9GwniZz83CxBpM7vyj2G53\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol\":{\"keccak256\":\"0x8de418a5503946cabe331f35fe242d3201a73f67f77aaeb7110acb1f30423aca\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://5a376d3dda2cb70536c0a45c208b29b34ac560c4cb4f513a42079f96ba47d2dd\",\"dweb:/ipfs/QmZQg6gn1sUpM8wHzwNvSnihumUCAhxD119MpXeKp8B9s8\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol\":{\"keccak256\":\"0xec63854014a5b4f2b3290ab9103a21bdf902a508d0f41a8573fea49e98bf571a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://bc5b5dc12fbc4002f282eaa7a5f06d8310ed62c1c77c5770f6283e058454c39a\",\"dweb:/ipfs/Qme9rE2wS3yBuyJq9GgbmzbsBQsW2M2sVFqYYLw7bosGrv\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\":{\"keccak256\":\"0xabefac93435967b4d36a4fabcbdbb918d1f0b7ae3c3d85bc30923b326c927ed1\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://9d213d3befca47da33f6db0310826bcdb148299805c10d77175ecfe1d06a9a68\",\"dweb:/ipfs/QmRgCn6SP1hbBkExUADFuDo8xkT4UU47yjNF5FhCeRbQmS\"]},\"node_modules/@openzeppelin/contracts/token/ERC721/IERC721.sol\":{\"keccak256\":\"0x5bce51e11f7d194b79ea59fe00c9e8de9fa2c5530124960f29a24d4c740a3266\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://7e66dfde185df46104c11bc89d08fa0760737aa59a2b8546a656473d810a8ea4\",\"dweb:/ipfs/QmXvyqtXPaPss2PD7eqPoSao5Szm2n6UMoiG8TZZDjmChR\"]},\"node_modules/@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol\":{\"keccak256\":\"0xa82b58eca1ee256be466e536706850163d2ec7821945abd6b4778cfb3bee37da\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://6e75cf83beb757b8855791088546b8337e9d4684e169400c20d44a515353b708\",\"dweb:/ipfs/QmYvPafLfoquiDMEj7CKHtvbgHu7TJNPSVPSCjrtjV8HjV\"]},\"node_modules/@openzeppelin/contracts/utils/Address.sol\":{\"keccak256\":\"0x006dd67219697fe68d7fbfdea512e7c4cb64a43565ed86171d67e844982da6fa\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://2455248c8ddd9cc6a7af76a13973cddf222072427e7b0e2a7d1aff345145e931\",\"dweb:/ipfs/QmfYjnjRbWqYpuxurqveE6HtzsY1Xx323J428AKQgtBJZm\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0xe2e337e6dde9ef6b680e07338c493ebea1b5fd09b43424112868e9cc1706bca7\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://6df0ddf21ce9f58271bdfaa85cde98b200ef242a05a3f85c2bc10a8294800a92\",\"dweb:/ipfs/QmRK2Y5Yc6BK7tGKkgsgn3aJEQGi5aakeSPZvS65PV8Xp3\"]},\"node_modules/@openzeppelin/contracts/utils/introspection/ERC165Checker.sol\":{\"keccak256\":\"0x5a08ad61f4e82b8a3323562661a86fb10b10190848073fdc13d4ac43710ffba5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://6f7bb74cf88fd88daa34e118bc6e363381d05044f34f391d39a10c0c9dac3ebd\",\"dweb:/ipfs/QmNbQ3v8v4zuDtg7VeLAbdhAm3tCzUodNoDZZ8ekmCHWZX\"]},\"node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol\":{\"keccak256\":\"0x447a5f3ddc18419d41ff92b3773fb86471b1db25773e07f877f548918a185bf1\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://be161e54f24e5c6fae81a12db1a8ae87bc5ae1b0ddc805d82a1440a68455088f\",\"dweb:/ipfs/QmP7C3CHdY9urF4dEMb9wmsp1wMxHF6nhA2yQE5SKiPAdy\"]},\"node_modules/@openzeppelin/contracts/utils/math/Math.sol\":{\"keccak256\":\"0xe4455ac1eb7fc497bb7402579e7b4d64d928b846fce7d2b6fde06d366f21c2b3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://cc8841b3cd48ad125e2f46323c8bad3aa0e88e399ec62acb9e57efa7e7c8058c\",\"dweb:/ipfs/QmSqE4mXHA2BXW58deDbXE8MTcsL5JSKNDbm23sVQxRLPS\"]},\"node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol\":{\"keccak256\":\"0xf92515413956f529d95977adc9b0567d583c6203fc31ab1c23824c35187e3ddc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://c50fcc459e49a9858b6d8ad5f911295cb7c9ab57567845a250bf0153f84a95c7\",\"dweb:/ipfs/QmcEW85JRzvDkQggxiBBLVAasXWdkhEysqypj9EaB6H2g6\"]},\"node_modules/@rari-capital/solmate/src/utils/FixedPointMathLib.sol\":{\"keccak256\":\"0x622fcd8a49e132df5ec7651cc6ae3aaf0cf59bdcd67a9a804a1b9e2485113b7d\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://af77088eb606427d4c55e578984a615779c86bc30646a20f7bb27299ba390f7c\",\"dweb:/ipfs/QmZGQdhdQDtHc7gZXWrKXgA3govc74X8U63BiWhPQK3mK8\"]}},\"version\":1}",
+  "bytecode": "0x6101606040523480156200001257600080fd5b50604051620040e5380380620040e58339810160408190526200003591620000ac565b6001600160a01b0396871660805294861660a05292851660c05290841660e052909216610100526001600160801b039182166101205216610140526200014f565b6001600160a01b03811681146200008c57600080fd5b50565b80516001600160801b0381168114620000a757600080fd5b919050565b600080600080600080600060e0888a031215620000c857600080fd5b8751620000d58162000076565b6020890151909750620000e88162000076565b6040890151909650620000fb8162000076565b60608901519095506200010e8162000076565b6080890151909450620001218162000076565b92506200013160a089016200008f565b91506200014160c089016200008f565b905092959891949750929550565b60805160a05160c05160e051610100516101205161014051613dcf620003166000396000818161078b01528181611cd801528181611fc1015281816121ed0152818161226d015281816123cf0152612a4601526000818161085c015281816120dc015281816123200152612b5a01526000818161072b0152818161099b01528181610a9201528181610b98015281816110990152818161115401528181611532015281816115ed01528181611c4f01528181611da301528181611ed601528181611f4a0152818161215601528181612359015281816124ab01528181612566015281816127510152818161281001528181612d9701528181612e9401526132d10152600081816107b2015261286c01526000818161040b015281816128de0152818161291a01528181612f0a01528181612f5f0152612fdf0152600081816104df01528181610ee8015281816112d50152818161179e0152611b4701526000818161082b01528181610b0e01528181610fd8015281816112200152818161147a015281816116f401528181611bc701528181612658015281816128ab0152818161295801528181612e0001528181612f3d01528181612fbd015261321d0152613dcf6000f3fe608060405234801561001057600080fd5b50600436106102f45760003560e01c80638abf0af011610191578063b172597e116100e3578063c2d9b68411610097578063d706200511610071578063d706200514610826578063de7d4d6a1461084d578063fdbb3fd21461085757600080fd5b8063c2d9b684146107d4578063c42996d614610800578063c7ab2c071461081357600080fd5b8063b744d2f9116100c8578063b744d2f914610773578063bcacc70a14610786578063c0a63a79146107ad57600080fd5b8063b172597e1461074d578063b55cd78e1461076057600080fd5b8063a51c9ace11610145578063a85120e41161011f578063a85120e414610700578063ad42945114610713578063ae9483e01461072657600080fd5b8063a51c9ace146106d2578063a63b8d14146106da578063a8387172146106ed57600080fd5b8063913f1a9f11610176578063913f1a9f14610655578063960a08931461068a578063981cee531461069d57600080fd5b80638abf0af01461062f5780638c1516c71461064257600080fd5b806354469aea1161024a5780636b9ffeac116101fe578063833a333b116101d8578063833a333b146105c5578063842d0d3b146105d857806386d18a941461061c57600080fd5b80636b9ffeac1461053d5780637db41f971461057257806382dae3aa146105bd57600080fd5b80635636aabd1161022f5780635636aabd146104c757806356576b5b146104da5780635959b7651461050157600080fd5b806354469aea1461046b57806354fd4d501461047e57600080fd5b8063209a9694116102ac5780633608641711610286578063360864171461040657806340ce01f114610445578063536afae41461045857600080fd5b8063209a9694146103b5578063270a1644146103e057806331d8e007146103f357600080fd5b806319412a20116102dd57806319412a201461037c5780631e5d81781461038f5780631f86f4f1146103a257600080fd5b806308fab167146102f9578063150b7a021461030e575b600080fd5b61030c61030736600461382c565b61087e565b005b61034661031c366004613863565b7f150b7a020000000000000000000000000000000000000000000000000000000095945050505050565b6040517fffffffff0000000000000000000000000000000000000000000000000000000090911681526020015b60405180910390f35b61030c61038a3660046138fe565b610b8d565b61030c61039d366004613943565b610cc7565b61030c6103b03660046139c9565b61105e565b6103c86103c336600461382c565b611407565b6040516001600160801b039091168152602001610373565b61030c6103ee3660046139f3565b61141c565b61030c610401366004613943565b6114f7565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b039091168152602001610373565b61030c6104533660046139c9565b611989565b6103c86104663660046139f3565b611c42565b61030c610479366004613a0e565b611d30565b6104ba6040518060400160405280600581526020017f312e302e3000000000000000000000000000000000000000000000000000000081525081565b6040516103739190613a5e565b6103c86104d53660046139f3565b611f3d565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b6103c861050f3660046139f3565b6001600160a01b0316600090815260208190526040902060020154600160801b90046001600160801b031690565b6103c861054b3660046139f3565b6001600160a01b03166000908152602081905260409020600301546001600160801b031690565b6103c8610580366004613aaf565b6001600160a01b0391821660009081526020818152604080832093909416825260069092019091522054600160801b90046001600160801b031690565b6103c8601481565b6103c86105d3366004613aaf565b612028565b6103c86105e6366004613aaf565b6001600160a01b03918216600090815260208181526040808320939094168252600590920190915220546001600160801b031690565b6103c861062a366004613ae2565b6120a1565b6103c861063d3660046139f3565b612112565b61030c6106503660046139f3565b61214b565b6103c86106633660046139f3565b6001600160a01b03166000908152602081905260409020600401546001600160801b031690565b6103c861069836600461382c565b6122f2565b6103c86106ab3660046139f3565b6001600160a01b03166000908152602081905260409020600201546001600160801b031690565b6103c8606481565b6103c86106e83660046139f3565b6122fe565b61030c6106fb3660046139f3565b61234e565b6103c861070e36600461382c565b61246e565b61030c610721366004613b1e565b612805565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b6103c861075b3660046139f3565b612af2565b6103c861076e366004613aaf565b612b2a565b61030c61078136600461382c565b612b8f565b6103c87f000000000000000000000000000000000000000000000000000000000000000081565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b61042d6107e23660046139f3565b6001600160a01b039081166000908152602081905260409020541690565b6103c861080e36600461382c565b612e87565b6103c8610821366004613aaf565b613040565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b6103c8620f424081565b6103c87f000000000000000000000000000000000000000000000000000000000000000081565b6001600160a01b0382811660009081526020819052604090205483911633146108d3576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b816001600160801b0316600003610916576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b42610920846122fe565b6001600160801b03161115610961576040517f285d5a9200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6040517f970531c10000000000000000000000000000000000000000000000000000000081526001600160a01b03848116600483015242917f00000000000000000000000000000000000000000000000000000000000000009091169063970531c190602401602060405180830381865afa1580156109e4573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610a089190613b78565b6001600160801b03161115610a49576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b610a53838361307e565b6040517f5bab847f0000000000000000000000000000000000000000000000000000000081526001600160a01b038481166004830152600160248301527f00000000000000000000000000000000000000000000000000000000000000001690635bab847f90604401600060405180830381600087803b158015610ad657600080fd5b505af1158015610aea573d6000803e3d6000fd5b5050506001600160a01b03808516600090815260208190526040902054610b4092507f0000000000000000000000000000000000000000000000000000000000000000821691166001600160801b038516613131565b6040516001600160801b03831681526001600160a01b038416907fab48b3d59a240196dc5bdd7f7a638fca310f8194c7d350c3dd7765861311ddf8906020015b60405180910390a2505050565b336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614610bef576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b038116610c2f576040517fd92e233d00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b03838116600090815260208190526040812080547fffffffffffffffffffffffff00000000000000000000000000000000000000001692841692909217909155610c8390849084906131fd565b6040516001600160801b03831681526001600160a01b038416907fadb1a06aea2cd2ff20eac971640a5eb7d687df3e3a897be2f334836494958a4790602001610b80565b6000819003610d02576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b0383166000908152602081815260408083203384526006019091528120905b82811015610e5a57816001016000858584818110610d4857610d48613b95565b602090810292909201358352508101919091526040016000908120546001600160801b03169003610da5576040517fe77a0da400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b42610dc98633878786818110610dbd57610dbd613b95565b905060200201356120a1565b6001600160801b03161115610e0a576040517f285d5a9200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b816001016000858584818110610e2257610e22613b95565b6020908102929092013583525081019190915260400160002080546fffffffffffffffffffffffffffffffff19169055600101610d28565b506000610e678533613333565b6001600160a01b0386166000908152602081815260408083206004810180546fffffffffffffffffffffffffffffffff1981166001600160801b039182168b900382161790915533855260069091019092529091208054808316600160801b91829004841688900390931602919091179055905060005b83811015610fbb577f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03166342842e0e3033888886818110610f2957610f29613b95565b6040517fffffffff0000000000000000000000000000000000000000000000000000000060e088901b1681526001600160a01b03958616600482015294909316602485015250602090910201356044820152606401600060405180830381600087803b158015610f9857600080fd5b505af1158015610fac573d6000803e3d6000fd5b50505050806001019050610ede565b506001600160801b03811615611008576110086001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b336001600160a01b0316856001600160a01b03167f6fcfb0c3a157955b6809f57bb114c142779ab9b7dd686a1b28ec0f2c9edfb94386868560405161104f93929190613c13565b60405180910390a35050505050565b8160026040517f30ccebb50000000000000000000000000000000000000000000000000000000081526001600160a01b0383811660048301527f000000000000000000000000000000000000000000000000000000000000000016906330ccebb590602401602060405180830381865afa1580156110e0573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906111049190613c6f565b600581111561111557611115613c40565b10806111bf57506040517f56b65e970000000000000000000000000000000000000000000000000000000081526001600160a01b0382811660048301527f000000000000000000000000000000000000000000000000000000000000000016906356b65e9790602401602060405180830381865afa15801561119b573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906111bf9190613c90565b156111f6576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006112028433613333565b90506001600160801b0381161561129a576112506001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b6040516001600160801b038216815233906001600160a01b038616907ff31a7084636b55317cfeed458343e6f580e12d52ba89be9f1faae91731fcce429060200160405180910390a35b6040517f42842e0e000000000000000000000000000000000000000000000000000000008152336004820152306024820152604481018490527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316906342842e0e90606401600060405180830381600087803b15801561132157600080fd5b505af1158015611335573d6000803e3d6000fd5b505050506001600160a01b038416600090815260208181526040808320338452600681018352818420600490910180546001600160801b03808216600190810182166fffffffffffffffffffffffffffffffff19938416179093558354600160801b808204831685018316029082161784558987529190920190935292208054429092169190921617905560405183815233906001600160a01b038616907f7a9043ba5086cf56c416db64f7608d06eae96d08a7e35a101ad4f42aab23585d906020015b60405180910390a350505050565b600061141383836133d2565b90505b92915050565b60006114288233613333565b9050806001600160801b031660000361146d576040517f24f21b1500000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6114aa6001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b6040516001600160801b038216815233906001600160a01b038416907ff31a7084636b55317cfeed458343e6f580e12d52ba89be9f1faae91731fcce429060200160405180910390a35050565b8260026040517f30ccebb50000000000000000000000000000000000000000000000000000000081526001600160a01b0383811660048301527f000000000000000000000000000000000000000000000000000000000000000016906330ccebb590602401602060405180830381865afa158015611579573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061159d9190613c6f565b60058111156115ae576115ae613c40565b108061165857506040517f56b65e970000000000000000000000000000000000000000000000000000000081526001600160a01b0382811660048301527f000000000000000000000000000000000000000000000000000000000000000016906356b65e9790602401602060405180830381865afa158015611634573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906116589190613c90565b1561168f576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008290036116ca576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006116d68533613333565b90506001600160801b0381161561176e576117246001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b6040516001600160801b038216815233906001600160a01b038716907ff31a7084636b55317cfeed458343e6f580e12d52ba89be9f1faae91731fcce429060200160405180910390a35b6001600160a01b0385166000908152602081815260408083203384526006019091528120905b848110156118c3577f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03166342842e0e33308989868181106117df576117df613b95565b6040517fffffffff0000000000000000000000000000000000000000000000000000000060e088901b1681526001600160a01b03958616600482015294909316602485015250602090910201356044820152606401600060405180830381600087803b15801561184e57600080fd5b505af1158015611862573d6000803e3d6000fd5b505050504282600101600088888581811061187f5761187f613b95565b90506020020135815260200190815260200160002060006101000a8154816001600160801b0302191690836001600160801b03160217905550806001019050611794565b506001600160a01b0386166000908152602081815260408083206004810180546fffffffffffffffffffffffffffffffff1981166001600160801b039182168b0182161790915533855260069091019092529091208054808316600160801b918290048416880190931602919091179055336001600160a01b0316866001600160a01b03167fafdb227ea10128ee703397dbff24db1f7c90303e6fff8068a2712a1b10c935f18787604051611979929190613cb2565b60405180910390a3505050505050565b6001600160a01b03821660009081526020818152604080832033845260060182528083208484526001810190925282205490916001600160801b0390911690036119ff576040517fe77a0da400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b42611a0b8433856120a1565b6001600160801b03161115611a4c576040517f285d5a9200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000611a588433613333565b9050611b0c8433856001600160a01b03928316600090815260208181526040808320949095168252600684018152848220600490940180547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6001600160801b03808316820181166fffffffffffffffffffffffffffffffff19938416179093558654600160801b808204851690920184169091029216919091178555928252600190930190925291902080549091169055565b6040517f42842e0e000000000000000000000000000000000000000000000000000000008152306004820152336024820152604481018490527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316906342842e0e90606401600060405180830381600087803b158015611b9357600080fd5b505af1158015611ba7573d6000803e3d6000fd5b505050506001600160801b03811615611bf757611bf76001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b604080518481526001600160801b038316602082015233916001600160a01b038716917fd1343dccf52a899cdc8aaa99714d930d2871b21c218512c779ca3f7c7fddab4191016113f9565b6000336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614611ca6576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b506001600160a01b038116600090815260208190526040902060020180546fffffffffffffffffffffffffffffffff197f0000000000000000000000000000000000000000000000000000000000000000600160801b8084046001600160801b0390811683018116909102928316938116928116929092178101909116919091179091555b919050565b806001600160801b0316600003611d73576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006040517f30ccebb50000000000000000000000000000000000000000000000000000000081523360048201527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316906330ccebb590602401602060405180830381865afa158015611df2573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190611e169190613c6f565b6005811115611e2757611e27613c40565b03611e5e576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b611e6a338260016131fd565b6040516001600160801b038216815233907fadb1a06aea2cd2ff20eac971640a5eb7d687df3e3a897be2f334836494958a479060200160405180910390a26040517fe428c2f40000000000000000000000000000000000000000000000000000000081523360048201527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03169063e428c2f490602401600060405180830381600087803b158015611f2257600080fd5b505af1158015611f36573d6000803e3d6000fd5b5050505050565b6000336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614611fa1576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b506001600160a01b038116600090815260208190526040902060020180547f00000000000000000000000000000000000000000000000000000000000000006001600160801b03600160801b808404821683900382160280821693821693909317829003166fffffffffffffffffffffffffffffffff199290921691909117909155919050565b6001600160a01b038083166000908152602081815260408083209385168352600684019091528120600483015481549293926001600160801b03600160801b909204821691859161207a911683613cf5565b83546120969190600160801b90046001600160801b0316613d1d565b979650505050505050565b6001600160a01b0380841660009081526020818152604080832093861683526006909301815282822084835260010190529081205461210a907f0000000000000000000000000000000000000000000000000000000000000000906001600160801b0316613d4c565b949350505050565b6001600160a01b03811660009081526020819052604081206002810154600390910154611416916001600160801b039081169116613d4c565b336001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016146121ad576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b038116600090815260208190526040812060020180549091906121e9906001600160801b03600160801b820481169116613cf5565b90507f00000000000000000000000000000000000000000000000000000000000000006001600160801b0316816001600160801b03161015612257576040517f24f21b1500000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b81546001600160801b03600160801b80830482167f00000000000000000000000000000000000000000000000000000000000000009081018316909102919092161783556001600160a01b038416907f7ad6f32675ff7ed77c34b45d23cd987ea6a62560f390baac683de0bc6b24fb7e906122d28185613cf5565b604080516001600160801b03938416815292909116602083015201610b80565b60006114138383613452565b6001600160a01b038116600090815260208190526040812060010154611416907f0000000000000000000000000000000000000000000000000000000000000000906001600160801b0316613d4c565b336001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016146123b0576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b038116600081815260208190526040902060020180547f00000000000000000000000000000000000000000000000000000000000000006001600160801b03600160801b8084048216839003821681029382168481178087559596957fc8d4f2228d78be7d0ca97344025aae4f9bc2c87ece32295d72791a4d39f2a71a9561244794939091048316921617613cf5565b604080516001600160801b0393841681529290911660208301520160405180910390a25050565b60008260026040517f30ccebb50000000000000000000000000000000000000000000000000000000081526001600160a01b0383811660048301527f000000000000000000000000000000000000000000000000000000000000000016906330ccebb590602401602060405180830381865afa1580156124f2573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906125169190613c6f565b600581111561252757612527613c40565b10806125d157506040517f56b65e970000000000000000000000000000000000000000000000000000000081526001600160a01b0382811660048301527f000000000000000000000000000000000000000000000000000000000000000016906356b65e9790602401602060405180830381865afa1580156125ad573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906125d19190613c90565b15612608576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b826001600160801b031660000361264b576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6126896001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001633306001600160801b0387166134c1565b60006126958585613452565b6001600160a01b038616600090815260208181526040808320600381018054600160801b6fffffffffffffffffffffffffffffffff1982166001600160801b039283168d0183169081178290048316890183168202179092553386526005909201909352922080548316840183164290931690910291909117905590506040517f5bab847f0000000000000000000000000000000000000000000000000000000081526001600160a01b038681166004830152600060248301527f00000000000000000000000000000000000000000000000000000000000000001690635bab847f90604401600060405180830381600087803b15801561279557600080fd5b505af11580156127a9573d6000803e3d6000fd5b5050604080516001600160801b038089168252851660208201523393506001600160a01b03891692507f334cabe84b7338f2bdd62070c02f24ffbcc7735e46f425fa401db349717e1328910160405180910390a3949350505050565b336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614612867576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6128dc7f000000000000000000000000000000000000000000000000000000000000000030836128978688613d4c565b6128a19190613d4c565b6001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000169291906001600160801b03166134c1565b7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316846001600160a01b03160361298d576129887f0000000000000000000000000000000000000000000000000000000000000000826129448587613d4c565b61294e9190613d4c565b6001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001691906001600160801b0316613131565b612aec565b6001600160a01b03841660009081526020819052604090206003810180546001600160801b03808216870181166fffffffffffffffffffffffffffffffff19928316179092556002830180548084168601841692169190911781556004909201541615612a425760028101546001600160801b0390811690841681612a1457612a14613d77565b6002830180546001600160801b0380821694909304600160801b918290048416019092169091029190911790555b80547f00000000000000000000000000000000000000000000000000000000000000006001600160801b03600160801b8084048216839003821681029382168481178087556001600160a01b038b16957fc8d4f2228d78be7d0ca97344025aae4f9bc2c87ece32295d72791a4d39f2a71a9594612ac794909204821692911617613cf5565b604080516001600160801b0393841681529290911660208301520160405180910390a2505b50505050565b6001600160a01b038116600090815260208190526040812060020154611416906001600160801b03600160801b820481169116613cf5565b6001600160a01b0382811660009081526020818152604080832093851683526005909301905290812054611413907f000000000000000000000000000000000000000000000000000000000000000090600160801b90046001600160801b0316613d4c565b806001600160801b0316600003612bd2576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000612bde8383613452565b9050806001600160801b0316600003612c23576040517fab32f25400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b0383166000908152602081815260408083203384526005019091529020546001600160801b039081169082161115612c8e576040517fab32f25400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b42612c998433612b2a565b6001600160801b03161115612cda576040517f285d5a9200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b0383166000908152602081815260408083206003810180546001600160801b03600160801b80830482168990038216028082169282169290921789900381166fffffffffffffffffffffffffffffffff1992831617909255338652600590920190935292208054808316859003909216919092161790556040517f5bab847f0000000000000000000000000000000000000000000000000000000081526001600160a01b038481166004830152600160248301527f00000000000000000000000000000000000000000000000000000000000000001690635bab847f90604401600060405180830381600087803b158015612ddb57600080fd5b505af1158015612def573d6000803e3d6000fd5b50612e329250506001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000169050336001600160801b038516613131565b604080516001600160801b0380851682528316602082015233916001600160a01b038616917f6acf5e34cb1562e3a0785bb4565e0761928cda3dd258168c73bca09621c669e9910160405180910390a3505050565b6000336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614612eeb576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b038084166000818152602081905260409020600201917f0000000000000000000000000000000000000000000000000000000000000000169003612f9657612f8d6001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000167f00000000000000000000000000000000000000000000000000000000000000006001600160801b038616613131565b82915050611416565b6000612fae6001600160801b03851660146064613512565b905061300d6001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000167f00000000000000000000000000000000000000000000000000000000000000006001600160801b038416613131565b81546fffffffffffffffffffffffffffffffff198116919094036001600160801b03948516810190941617905550919050565b6001600160a01b03808316600090815260208181526040808320938516835260059093019052908120546114139084906001600160801b03166133d2565b6001600160a01b038216600090815260208190526040902060020180546130b7906001600160801b03600160801b820481169116613cf5565b6001600160801b0316826001600160801b03161115613102576040517f24f21b1500000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b80546fffffffffffffffffffffffffffffffff1981166001600160801b03918216939093031691909117905550565b6040516001600160a01b0383166024820152604481018290526131f89084907fa9059cbb00000000000000000000000000000000000000000000000000000000906064015b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe08184030181529190526020810180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff167fffffffff00000000000000000000000000000000000000000000000000000000909316929092179091526135b4565b505050565b6001600160a01b0380841660009081526020819052604090209061324e907f00000000000000000000000000000000000000000000000000000000000000001685306001600160801b0387166134c1565b6002810180546fffffffffffffffffffffffffffffffff198082166001600160801b039283168701831617909255600183018054909216429091161790558115612aec576040517f5bab847f0000000000000000000000000000000000000000000000000000000081526001600160a01b038581166004830152600060248301527f00000000000000000000000000000000000000000000000000000000000000001690635bab847f90604401600060405180830381600087803b15801561331557600080fd5b505af1158015613329573d6000803e3d6000fd5b5050505050505050565b6001600160a01b038083166000908152602081815260408083209385168352600684019091528120600483015481549293926001600160801b03600160801b9092048216918591613385911683613cf5565b83546133a19190600160801b90046001600160801b0316613d1d565b83546fffffffffffffffffffffffffffffffff19166001600160801b03939093169290921790925595945050505050565b6001600160a01b038216600090815260208190526040812060030154611413906001600160801b0316613406906001613d4c565b6001600160a01b038516600090815260208190526040902060030154620f424090600160801b90046001600160801b03166134419190613d4c565b6001600160801b0385169190613512565b6001600160a01b03821660009081526020819052604081206003015461141390620f424090600160801b90046001600160801b03166134919190613d4c565b6001600160a01b0385166000908152602081905260409020600301546001600160801b0316613441906001613d4c565b6040516001600160a01b0380851660248301528316604482015260648101829052612aec9085907f23b872dd0000000000000000000000000000000000000000000000000000000090608401613176565b6000838302608081901c6001600160801b03841611613592576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601c60248201527f55696e743132384d6174683a206d756c446976206f766572666c6f770000000060448201526064015b60405180910390fd5b826001600160801b031681816135aa576135aa613d77565b0495945050505050565b6000613609826040518060400160405280602081526020017f5361666545524332303a206c6f772d6c6576656c2063616c6c206661696c6564815250856001600160a01b03166136b69092919063ffffffff16565b905080516000148061362a57508080602001905181019061362a9190613c90565b6131f8576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602a60248201527f5361666545524332303a204552433230206f7065726174696f6e20646964206e60448201527f6f742073756363656564000000000000000000000000000000000000000000006064820152608401613589565b606061210a848460008585600080866001600160a01b031685876040516136dd9190613da6565b60006040518083038185875af1925050503d806000811461371a576040519150601f19603f3d011682016040523d82523d6000602084013e61371f565b606091505b509150915061209687838387606083156137b45782516000036137ad576001600160a01b0385163b6137ad576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601d60248201527f416464726573733a2063616c6c20746f206e6f6e2d636f6e74726163740000006044820152606401613589565b508161210a565b61210a83838151156137c95781518083602001fd5b806040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016135899190613a5e565b80356001600160a01b0381168114611d2b57600080fd5b6001600160801b038116811461382957600080fd5b50565b6000806040838503121561383f57600080fd5b613848836137fd565b9150602083013561385881613814565b809150509250929050565b60008060008060006080868803121561387b57600080fd5b613884866137fd565b9450613892602087016137fd565b935060408601359250606086013567ffffffffffffffff808211156138b657600080fd5b818801915088601f8301126138ca57600080fd5b8135818111156138d957600080fd5b8960208285010111156138eb57600080fd5b9699959850939650602001949392505050565b60008060006060848603121561391357600080fd5b61391c846137fd565b9250602084013561392c81613814565b915061393a604085016137fd565b90509250925092565b60008060006040848603121561395857600080fd5b613961846137fd565b9250602084013567ffffffffffffffff8082111561397e57600080fd5b818601915086601f83011261399257600080fd5b8135818111156139a157600080fd5b8760208260051b85010111156139b657600080fd5b6020830194508093505050509250925092565b600080604083850312156139dc57600080fd5b6139e5836137fd565b946020939093013593505050565b600060208284031215613a0557600080fd5b611413826137fd565b600060208284031215613a2057600080fd5b8135613a2b81613814565b9392505050565b60005b83811015613a4d578181015183820152602001613a35565b83811115612aec5750506000910152565b6020815260008251806020840152613a7d816040850160208701613a32565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169190910160400192915050565b60008060408385031215613ac257600080fd5b613acb836137fd565b9150613ad9602084016137fd565b90509250929050565b600080600060608486031215613af757600080fd5b613b00846137fd565b9250613b0e602085016137fd565b9150604084013590509250925092565b60008060008060808587031215613b3457600080fd5b613b3d856137fd565b93506020850135613b4d81613814565b92506040850135613b5d81613814565b91506060850135613b6d81613814565b939692955090935050565b600060208284031215613b8a57600080fd5b8151613a2b81613814565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b81835260007f07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff831115613bf657600080fd5b8260051b8083602087013760009401602001938452509192915050565b604081526000613c27604083018587613bc4565b90506001600160801b0383166020830152949350505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b600060208284031215613c8157600080fd5b815160068110613a2b57600080fd5b600060208284031215613ca257600080fd5b81518015158114613a2b57600080fd5b60208152600061210a602083018486613bc4565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006001600160801b0383811690831681811015613d1557613d15613cc6565b039392505050565b60006001600160801b0380831681851681830481118215151615613d4357613d43613cc6565b02949350505050565b60006001600160801b03808316818516808303821115613d6e57613d6e613cc6565b01949350505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b60008251613db8818460208701613a32565b919091019291505056fea164736f6c634300080f000a",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b50600436106102f45760003560e01c80638abf0af011610191578063b172597e116100e3578063c2d9b68411610097578063d706200511610071578063d706200514610826578063de7d4d6a1461084d578063fdbb3fd21461085757600080fd5b8063c2d9b684146107d4578063c42996d614610800578063c7ab2c071461081357600080fd5b8063b744d2f9116100c8578063b744d2f914610773578063bcacc70a14610786578063c0a63a79146107ad57600080fd5b8063b172597e1461074d578063b55cd78e1461076057600080fd5b8063a51c9ace11610145578063a85120e41161011f578063a85120e414610700578063ad42945114610713578063ae9483e01461072657600080fd5b8063a51c9ace146106d2578063a63b8d14146106da578063a8387172146106ed57600080fd5b8063913f1a9f11610176578063913f1a9f14610655578063960a08931461068a578063981cee531461069d57600080fd5b80638abf0af01461062f5780638c1516c71461064257600080fd5b806354469aea1161024a5780636b9ffeac116101fe578063833a333b116101d8578063833a333b146105c5578063842d0d3b146105d857806386d18a941461061c57600080fd5b80636b9ffeac1461053d5780637db41f971461057257806382dae3aa146105bd57600080fd5b80635636aabd1161022f5780635636aabd146104c757806356576b5b146104da5780635959b7651461050157600080fd5b806354469aea1461046b57806354fd4d501461047e57600080fd5b8063209a9694116102ac5780633608641711610286578063360864171461040657806340ce01f114610445578063536afae41461045857600080fd5b8063209a9694146103b5578063270a1644146103e057806331d8e007146103f357600080fd5b806319412a20116102dd57806319412a201461037c5780631e5d81781461038f5780631f86f4f1146103a257600080fd5b806308fab167146102f9578063150b7a021461030e575b600080fd5b61030c61030736600461382c565b61087e565b005b61034661031c366004613863565b7f150b7a020000000000000000000000000000000000000000000000000000000095945050505050565b6040517fffffffff0000000000000000000000000000000000000000000000000000000090911681526020015b60405180910390f35b61030c61038a3660046138fe565b610b8d565b61030c61039d366004613943565b610cc7565b61030c6103b03660046139c9565b61105e565b6103c86103c336600461382c565b611407565b6040516001600160801b039091168152602001610373565b61030c6103ee3660046139f3565b61141c565b61030c610401366004613943565b6114f7565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b039091168152602001610373565b61030c6104533660046139c9565b611989565b6103c86104663660046139f3565b611c42565b61030c610479366004613a0e565b611d30565b6104ba6040518060400160405280600581526020017f312e302e3000000000000000000000000000000000000000000000000000000081525081565b6040516103739190613a5e565b6103c86104d53660046139f3565b611f3d565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b6103c861050f3660046139f3565b6001600160a01b0316600090815260208190526040902060020154600160801b90046001600160801b031690565b6103c861054b3660046139f3565b6001600160a01b03166000908152602081905260409020600301546001600160801b031690565b6103c8610580366004613aaf565b6001600160a01b0391821660009081526020818152604080832093909416825260069092019091522054600160801b90046001600160801b031690565b6103c8601481565b6103c86105d3366004613aaf565b612028565b6103c86105e6366004613aaf565b6001600160a01b03918216600090815260208181526040808320939094168252600590920190915220546001600160801b031690565b6103c861062a366004613ae2565b6120a1565b6103c861063d3660046139f3565b612112565b61030c6106503660046139f3565b61214b565b6103c86106633660046139f3565b6001600160a01b03166000908152602081905260409020600401546001600160801b031690565b6103c861069836600461382c565b6122f2565b6103c86106ab3660046139f3565b6001600160a01b03166000908152602081905260409020600201546001600160801b031690565b6103c8606481565b6103c86106e83660046139f3565b6122fe565b61030c6106fb3660046139f3565b61234e565b6103c861070e36600461382c565b61246e565b61030c610721366004613b1e565b612805565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b6103c861075b3660046139f3565b612af2565b6103c861076e366004613aaf565b612b2a565b61030c61078136600461382c565b612b8f565b6103c87f000000000000000000000000000000000000000000000000000000000000000081565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b61042d6107e23660046139f3565b6001600160a01b039081166000908152602081905260409020541690565b6103c861080e36600461382c565b612e87565b6103c8610821366004613aaf565b613040565b61042d7f000000000000000000000000000000000000000000000000000000000000000081565b6103c8620f424081565b6103c87f000000000000000000000000000000000000000000000000000000000000000081565b6001600160a01b0382811660009081526020819052604090205483911633146108d3576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b816001600160801b0316600003610916576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b42610920846122fe565b6001600160801b03161115610961576040517f285d5a9200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6040517f970531c10000000000000000000000000000000000000000000000000000000081526001600160a01b03848116600483015242917f00000000000000000000000000000000000000000000000000000000000000009091169063970531c190602401602060405180830381865afa1580156109e4573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610a089190613b78565b6001600160801b03161115610a49576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b610a53838361307e565b6040517f5bab847f0000000000000000000000000000000000000000000000000000000081526001600160a01b038481166004830152600160248301527f00000000000000000000000000000000000000000000000000000000000000001690635bab847f90604401600060405180830381600087803b158015610ad657600080fd5b505af1158015610aea573d6000803e3d6000fd5b5050506001600160a01b03808516600090815260208190526040902054610b4092507f0000000000000000000000000000000000000000000000000000000000000000821691166001600160801b038516613131565b6040516001600160801b03831681526001600160a01b038416907fab48b3d59a240196dc5bdd7f7a638fca310f8194c7d350c3dd7765861311ddf8906020015b60405180910390a2505050565b336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614610bef576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b038116610c2f576040517fd92e233d00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b03838116600090815260208190526040812080547fffffffffffffffffffffffff00000000000000000000000000000000000000001692841692909217909155610c8390849084906131fd565b6040516001600160801b03831681526001600160a01b038416907fadb1a06aea2cd2ff20eac971640a5eb7d687df3e3a897be2f334836494958a4790602001610b80565b6000819003610d02576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b0383166000908152602081815260408083203384526006019091528120905b82811015610e5a57816001016000858584818110610d4857610d48613b95565b602090810292909201358352508101919091526040016000908120546001600160801b03169003610da5576040517fe77a0da400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b42610dc98633878786818110610dbd57610dbd613b95565b905060200201356120a1565b6001600160801b03161115610e0a576040517f285d5a9200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b816001016000858584818110610e2257610e22613b95565b6020908102929092013583525081019190915260400160002080546fffffffffffffffffffffffffffffffff19169055600101610d28565b506000610e678533613333565b6001600160a01b0386166000908152602081815260408083206004810180546fffffffffffffffffffffffffffffffff1981166001600160801b039182168b900382161790915533855260069091019092529091208054808316600160801b91829004841688900390931602919091179055905060005b83811015610fbb577f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03166342842e0e3033888886818110610f2957610f29613b95565b6040517fffffffff0000000000000000000000000000000000000000000000000000000060e088901b1681526001600160a01b03958616600482015294909316602485015250602090910201356044820152606401600060405180830381600087803b158015610f9857600080fd5b505af1158015610fac573d6000803e3d6000fd5b50505050806001019050610ede565b506001600160801b03811615611008576110086001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b336001600160a01b0316856001600160a01b03167f6fcfb0c3a157955b6809f57bb114c142779ab9b7dd686a1b28ec0f2c9edfb94386868560405161104f93929190613c13565b60405180910390a35050505050565b8160026040517f30ccebb50000000000000000000000000000000000000000000000000000000081526001600160a01b0383811660048301527f000000000000000000000000000000000000000000000000000000000000000016906330ccebb590602401602060405180830381865afa1580156110e0573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906111049190613c6f565b600581111561111557611115613c40565b10806111bf57506040517f56b65e970000000000000000000000000000000000000000000000000000000081526001600160a01b0382811660048301527f000000000000000000000000000000000000000000000000000000000000000016906356b65e9790602401602060405180830381865afa15801561119b573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906111bf9190613c90565b156111f6576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006112028433613333565b90506001600160801b0381161561129a576112506001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b6040516001600160801b038216815233906001600160a01b038616907ff31a7084636b55317cfeed458343e6f580e12d52ba89be9f1faae91731fcce429060200160405180910390a35b6040517f42842e0e000000000000000000000000000000000000000000000000000000008152336004820152306024820152604481018490527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316906342842e0e90606401600060405180830381600087803b15801561132157600080fd5b505af1158015611335573d6000803e3d6000fd5b505050506001600160a01b038416600090815260208181526040808320338452600681018352818420600490910180546001600160801b03808216600190810182166fffffffffffffffffffffffffffffffff19938416179093558354600160801b808204831685018316029082161784558987529190920190935292208054429092169190921617905560405183815233906001600160a01b038616907f7a9043ba5086cf56c416db64f7608d06eae96d08a7e35a101ad4f42aab23585d906020015b60405180910390a350505050565b600061141383836133d2565b90505b92915050565b60006114288233613333565b9050806001600160801b031660000361146d576040517f24f21b1500000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6114aa6001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b6040516001600160801b038216815233906001600160a01b038416907ff31a7084636b55317cfeed458343e6f580e12d52ba89be9f1faae91731fcce429060200160405180910390a35050565b8260026040517f30ccebb50000000000000000000000000000000000000000000000000000000081526001600160a01b0383811660048301527f000000000000000000000000000000000000000000000000000000000000000016906330ccebb590602401602060405180830381865afa158015611579573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061159d9190613c6f565b60058111156115ae576115ae613c40565b108061165857506040517f56b65e970000000000000000000000000000000000000000000000000000000081526001600160a01b0382811660048301527f000000000000000000000000000000000000000000000000000000000000000016906356b65e9790602401602060405180830381865afa158015611634573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906116589190613c90565b1561168f576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60008290036116ca576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006116d68533613333565b90506001600160801b0381161561176e576117246001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b6040516001600160801b038216815233906001600160a01b038716907ff31a7084636b55317cfeed458343e6f580e12d52ba89be9f1faae91731fcce429060200160405180910390a35b6001600160a01b0385166000908152602081815260408083203384526006019091528120905b848110156118c3577f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03166342842e0e33308989868181106117df576117df613b95565b6040517fffffffff0000000000000000000000000000000000000000000000000000000060e088901b1681526001600160a01b03958616600482015294909316602485015250602090910201356044820152606401600060405180830381600087803b15801561184e57600080fd5b505af1158015611862573d6000803e3d6000fd5b505050504282600101600088888581811061187f5761187f613b95565b90506020020135815260200190815260200160002060006101000a8154816001600160801b0302191690836001600160801b03160217905550806001019050611794565b506001600160a01b0386166000908152602081815260408083206004810180546fffffffffffffffffffffffffffffffff1981166001600160801b039182168b0182161790915533855260069091019092529091208054808316600160801b918290048416880190931602919091179055336001600160a01b0316866001600160a01b03167fafdb227ea10128ee703397dbff24db1f7c90303e6fff8068a2712a1b10c935f18787604051611979929190613cb2565b60405180910390a3505050505050565b6001600160a01b03821660009081526020818152604080832033845260060182528083208484526001810190925282205490916001600160801b0390911690036119ff576040517fe77a0da400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b42611a0b8433856120a1565b6001600160801b03161115611a4c576040517f285d5a9200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000611a588433613333565b9050611b0c8433856001600160a01b03928316600090815260208181526040808320949095168252600684018152848220600490940180547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6001600160801b03808316820181166fffffffffffffffffffffffffffffffff19938416179093558654600160801b808204851690920184169091029216919091178555928252600190930190925291902080549091169055565b6040517f42842e0e000000000000000000000000000000000000000000000000000000008152306004820152336024820152604481018490527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316906342842e0e90606401600060405180830381600087803b158015611b9357600080fd5b505af1158015611ba7573d6000803e3d6000fd5b505050506001600160801b03811615611bf757611bf76001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016336001600160801b038416613131565b604080518481526001600160801b038316602082015233916001600160a01b038716917fd1343dccf52a899cdc8aaa99714d930d2871b21c218512c779ca3f7c7fddab4191016113f9565b6000336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614611ca6576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b506001600160a01b038116600090815260208190526040902060020180546fffffffffffffffffffffffffffffffff197f0000000000000000000000000000000000000000000000000000000000000000600160801b8084046001600160801b0390811683018116909102928316938116928116929092178101909116919091179091555b919050565b806001600160801b0316600003611d73576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006040517f30ccebb50000000000000000000000000000000000000000000000000000000081523360048201527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316906330ccebb590602401602060405180830381865afa158015611df2573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190611e169190613c6f565b6005811115611e2757611e27613c40565b03611e5e576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b611e6a338260016131fd565b6040516001600160801b038216815233907fadb1a06aea2cd2ff20eac971640a5eb7d687df3e3a897be2f334836494958a479060200160405180910390a26040517fe428c2f40000000000000000000000000000000000000000000000000000000081523360048201527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03169063e428c2f490602401600060405180830381600087803b158015611f2257600080fd5b505af1158015611f36573d6000803e3d6000fd5b5050505050565b6000336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614611fa1576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b506001600160a01b038116600090815260208190526040902060020180547f00000000000000000000000000000000000000000000000000000000000000006001600160801b03600160801b808404821683900382160280821693821693909317829003166fffffffffffffffffffffffffffffffff199290921691909117909155919050565b6001600160a01b038083166000908152602081815260408083209385168352600684019091528120600483015481549293926001600160801b03600160801b909204821691859161207a911683613cf5565b83546120969190600160801b90046001600160801b0316613d1d565b979650505050505050565b6001600160a01b0380841660009081526020818152604080832093861683526006909301815282822084835260010190529081205461210a907f0000000000000000000000000000000000000000000000000000000000000000906001600160801b0316613d4c565b949350505050565b6001600160a01b03811660009081526020819052604081206002810154600390910154611416916001600160801b039081169116613d4c565b336001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016146121ad576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b038116600090815260208190526040812060020180549091906121e9906001600160801b03600160801b820481169116613cf5565b90507f00000000000000000000000000000000000000000000000000000000000000006001600160801b0316816001600160801b03161015612257576040517f24f21b1500000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b81546001600160801b03600160801b80830482167f00000000000000000000000000000000000000000000000000000000000000009081018316909102919092161783556001600160a01b038416907f7ad6f32675ff7ed77c34b45d23cd987ea6a62560f390baac683de0bc6b24fb7e906122d28185613cf5565b604080516001600160801b03938416815292909116602083015201610b80565b60006114138383613452565b6001600160a01b038116600090815260208190526040812060010154611416907f0000000000000000000000000000000000000000000000000000000000000000906001600160801b0316613d4c565b336001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016146123b0576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b038116600081815260208190526040902060020180547f00000000000000000000000000000000000000000000000000000000000000006001600160801b03600160801b8084048216839003821681029382168481178087559596957fc8d4f2228d78be7d0ca97344025aae4f9bc2c87ece32295d72791a4d39f2a71a9561244794939091048316921617613cf5565b604080516001600160801b0393841681529290911660208301520160405180910390a25050565b60008260026040517f30ccebb50000000000000000000000000000000000000000000000000000000081526001600160a01b0383811660048301527f000000000000000000000000000000000000000000000000000000000000000016906330ccebb590602401602060405180830381865afa1580156124f2573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906125169190613c6f565b600581111561252757612527613c40565b10806125d157506040517f56b65e970000000000000000000000000000000000000000000000000000000081526001600160a01b0382811660048301527f000000000000000000000000000000000000000000000000000000000000000016906356b65e9790602401602060405180830381865afa1580156125ad573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906125d19190613c90565b15612608576040517f197299a000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b826001600160801b031660000361264b576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6126896001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001633306001600160801b0387166134c1565b60006126958585613452565b6001600160a01b038616600090815260208181526040808320600381018054600160801b6fffffffffffffffffffffffffffffffff1982166001600160801b039283168d0183169081178290048316890183168202179092553386526005909201909352922080548316840183164290931690910291909117905590506040517f5bab847f0000000000000000000000000000000000000000000000000000000081526001600160a01b038681166004830152600060248301527f00000000000000000000000000000000000000000000000000000000000000001690635bab847f90604401600060405180830381600087803b15801561279557600080fd5b505af11580156127a9573d6000803e3d6000fd5b5050604080516001600160801b038089168252851660208201523393506001600160a01b03891692507f334cabe84b7338f2bdd62070c02f24ffbcc7735e46f425fa401db349717e1328910160405180910390a3949350505050565b336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614612867576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6128dc7f000000000000000000000000000000000000000000000000000000000000000030836128978688613d4c565b6128a19190613d4c565b6001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000169291906001600160801b03166134c1565b7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316846001600160a01b03160361298d576129887f0000000000000000000000000000000000000000000000000000000000000000826129448587613d4c565b61294e9190613d4c565b6001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001691906001600160801b0316613131565b612aec565b6001600160a01b03841660009081526020819052604090206003810180546001600160801b03808216870181166fffffffffffffffffffffffffffffffff19928316179092556002830180548084168601841692169190911781556004909201541615612a425760028101546001600160801b0390811690841681612a1457612a14613d77565b6002830180546001600160801b0380821694909304600160801b918290048416019092169091029190911790555b80547f00000000000000000000000000000000000000000000000000000000000000006001600160801b03600160801b8084048216839003821681029382168481178087556001600160a01b038b16957fc8d4f2228d78be7d0ca97344025aae4f9bc2c87ece32295d72791a4d39f2a71a9594612ac794909204821692911617613cf5565b604080516001600160801b0393841681529290911660208301520160405180910390a2505b50505050565b6001600160a01b038116600090815260208190526040812060020154611416906001600160801b03600160801b820481169116613cf5565b6001600160a01b0382811660009081526020818152604080832093851683526005909301905290812054611413907f000000000000000000000000000000000000000000000000000000000000000090600160801b90046001600160801b0316613d4c565b806001600160801b0316600003612bd2576040517f69646ab000000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000612bde8383613452565b9050806001600160801b0316600003612c23576040517fab32f25400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b0383166000908152602081815260408083203384526005019091529020546001600160801b039081169082161115612c8e576040517fab32f25400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b42612c998433612b2a565b6001600160801b03161115612cda576040517f285d5a9200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b0383166000908152602081815260408083206003810180546001600160801b03600160801b80830482168990038216028082169282169290921789900381166fffffffffffffffffffffffffffffffff1992831617909255338652600590920190935292208054808316859003909216919092161790556040517f5bab847f0000000000000000000000000000000000000000000000000000000081526001600160a01b038481166004830152600160248301527f00000000000000000000000000000000000000000000000000000000000000001690635bab847f90604401600060405180830381600087803b158015612ddb57600080fd5b505af1158015612def573d6000803e3d6000fd5b50612e329250506001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000169050336001600160801b038516613131565b604080516001600160801b0380851682528316602082015233916001600160a01b038616917f6acf5e34cb1562e3a0785bb4565e0761928cda3dd258168c73bca09621c669e9910160405180910390a3505050565b6000336001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001614612eeb576040517f9d02a7c200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001600160a01b038084166000818152602081905260409020600201917f0000000000000000000000000000000000000000000000000000000000000000169003612f9657612f8d6001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000167f00000000000000000000000000000000000000000000000000000000000000006001600160801b038616613131565b82915050611416565b6000612fae6001600160801b03851660146064613512565b905061300d6001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000167f00000000000000000000000000000000000000000000000000000000000000006001600160801b038416613131565b81546fffffffffffffffffffffffffffffffff198116919094036001600160801b03948516810190941617905550919050565b6001600160a01b03808316600090815260208181526040808320938516835260059093019052908120546114139084906001600160801b03166133d2565b6001600160a01b038216600090815260208190526040902060020180546130b7906001600160801b03600160801b820481169116613cf5565b6001600160801b0316826001600160801b03161115613102576040517f24f21b1500000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b80546fffffffffffffffffffffffffffffffff1981166001600160801b03918216939093031691909117905550565b6040516001600160a01b0383166024820152604481018290526131f89084907fa9059cbb00000000000000000000000000000000000000000000000000000000906064015b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe08184030181529190526020810180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff167fffffffff00000000000000000000000000000000000000000000000000000000909316929092179091526135b4565b505050565b6001600160a01b0380841660009081526020819052604090209061324e907f00000000000000000000000000000000000000000000000000000000000000001685306001600160801b0387166134c1565b6002810180546fffffffffffffffffffffffffffffffff198082166001600160801b039283168701831617909255600183018054909216429091161790558115612aec576040517f5bab847f0000000000000000000000000000000000000000000000000000000081526001600160a01b038581166004830152600060248301527f00000000000000000000000000000000000000000000000000000000000000001690635bab847f90604401600060405180830381600087803b15801561331557600080fd5b505af1158015613329573d6000803e3d6000fd5b5050505050505050565b6001600160a01b038083166000908152602081815260408083209385168352600684019091528120600483015481549293926001600160801b03600160801b9092048216918591613385911683613cf5565b83546133a19190600160801b90046001600160801b0316613d1d565b83546fffffffffffffffffffffffffffffffff19166001600160801b03939093169290921790925595945050505050565b6001600160a01b038216600090815260208190526040812060030154611413906001600160801b0316613406906001613d4c565b6001600160a01b038516600090815260208190526040902060030154620f424090600160801b90046001600160801b03166134419190613d4c565b6001600160801b0385169190613512565b6001600160a01b03821660009081526020819052604081206003015461141390620f424090600160801b90046001600160801b03166134919190613d4c565b6001600160a01b0385166000908152602081905260409020600301546001600160801b0316613441906001613d4c565b6040516001600160a01b0380851660248301528316604482015260648101829052612aec9085907f23b872dd0000000000000000000000000000000000000000000000000000000090608401613176565b6000838302608081901c6001600160801b03841611613592576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601c60248201527f55696e743132384d6174683a206d756c446976206f766572666c6f770000000060448201526064015b60405180910390fd5b826001600160801b031681816135aa576135aa613d77565b0495945050505050565b6000613609826040518060400160405280602081526020017f5361666545524332303a206c6f772d6c6576656c2063616c6c206661696c6564815250856001600160a01b03166136b69092919063ffffffff16565b905080516000148061362a57508080602001905181019061362a9190613c90565b6131f8576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602a60248201527f5361666545524332303a204552433230206f7065726174696f6e20646964206e60448201527f6f742073756363656564000000000000000000000000000000000000000000006064820152608401613589565b606061210a848460008585600080866001600160a01b031685876040516136dd9190613da6565b60006040518083038185875af1925050503d806000811461371a576040519150601f19603f3d011682016040523d82523d6000602084013e61371f565b606091505b509150915061209687838387606083156137b45782516000036137ad576001600160a01b0385163b6137ad576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601d60248201527f416464726573733a2063616c6c20746f206e6f6e2d636f6e74726163740000006044820152606401613589565b508161210a565b61210a83838151156137c95781518083602001fd5b806040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016135899190613a5e565b80356001600160a01b0381168114611d2b57600080fd5b6001600160801b038116811461382957600080fd5b50565b6000806040838503121561383f57600080fd5b613848836137fd565b9150602083013561385881613814565b809150509250929050565b60008060008060006080868803121561387b57600080fd5b613884866137fd565b9450613892602087016137fd565b935060408601359250606086013567ffffffffffffffff808211156138b657600080fd5b818801915088601f8301126138ca57600080fd5b8135818111156138d957600080fd5b8960208285010111156138eb57600080fd5b9699959850939650602001949392505050565b60008060006060848603121561391357600080fd5b61391c846137fd565b9250602084013561392c81613814565b915061393a604085016137fd565b90509250925092565b60008060006040848603121561395857600080fd5b613961846137fd565b9250602084013567ffffffffffffffff8082111561397e57600080fd5b818601915086601f83011261399257600080fd5b8135818111156139a157600080fd5b8760208260051b85010111156139b657600080fd5b6020830194508093505050509250925092565b600080604083850312156139dc57600080fd5b6139e5836137fd565b946020939093013593505050565b600060208284031215613a0557600080fd5b611413826137fd565b600060208284031215613a2057600080fd5b8135613a2b81613814565b9392505050565b60005b83811015613a4d578181015183820152602001613a35565b83811115612aec5750506000910152565b6020815260008251806020840152613a7d816040850160208701613a32565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169190910160400192915050565b60008060408385031215613ac257600080fd5b613acb836137fd565b9150613ad9602084016137fd565b90509250929050565b600080600060608486031215613af757600080fd5b613b00846137fd565b9250613b0e602085016137fd565b9150604084013590509250925092565b60008060008060808587031215613b3457600080fd5b613b3d856137fd565b93506020850135613b4d81613814565b92506040850135613b5d81613814565b91506060850135613b6d81613814565b939692955090935050565b600060208284031215613b8a57600080fd5b8151613a2b81613814565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b81835260007f07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff831115613bf657600080fd5b8260051b8083602087013760009401602001938452509192915050565b604081526000613c27604083018587613bc4565b90506001600160801b0383166020830152949350505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b600060208284031215613c8157600080fd5b815160068110613a2b57600080fd5b600060208284031215613ca257600080fd5b81518015158114613a2b57600080fd5b60208152600061210a602083018486613bc4565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006001600160801b0383811690831681811015613d1557613d15613cc6565b039392505050565b60006001600160801b0380831681851681830481118215151615613d4357613d43613cc6565b02949350505050565b60006001600160801b03808316818516808303821115613d6e57613d6e613cc6565b01949350505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b60008251613db8818460208701613a32565b919091019291505056fea164736f6c634300080f000a",
+  "devdoc": {
+    "version": 1,
+    "kind": "dev",
+    "methods": {
+      "bondValidatorKro(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        }
+      },
+      "canUndelegateKghAt(address,address,uint256)": {
+        "params": {
+          "delegator": "Address of the KGH delegator.",
+          "tokenId": "The token id of KGH to undelegate.",
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "When the KGH delegators can undelegate KGH for the given token id."
+        }
+      },
+      "canUndelegateKroAt(address,address)": {
+        "params": {
+          "delegator": "Address of the KRO delegator.",
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "When the KRO delegators can undelegate KRO."
+        }
+      },
+      "canWithdrawAt(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "When the validator can withdraw KRO."
+        }
+      },
+      "claimKghReward(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        }
+      },
+      "constructor": {
+        "params": {
+          "_assetToken": "Address of the KRO token.",
+          "_bondAmount": "Amount to bond.",
+          "_kgh": "Address of the KGH token.",
+          "_minDelegationPeriod": "Minimum delegation period.",
+          "_securityCouncil": "Address of the SecurityCouncil contract.",
+          "_validatorManager": "Address of the ValidatorManager contract.",
+          "_validatorRewardVault": "Address of the Validator Reward Vault."
+        }
+      },
+      "decreaseBalanceWithChallenge(address)": {
+        "params": {
+          "loser": "Address of the challenge loser."
+        },
+        "returns": {
+          "_0": "The challenge reward slashed from loser's asset."
+        }
+      },
+      "delegate(address,uint128)": {
+        "params": {
+          "assets": "The amount of KRO to delegate.",
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The amount of shares that the Vault would exchange for the amount of assets provided."
+        }
+      },
+      "delegateKgh(address,uint256)": {
+        "params": {
+          "tokenId": "The token id of KGH to delegate.",
+          "validator": "Address of the validator."
+        }
+      },
+      "delegateKghBatch(address,uint256[])": {
+        "params": {
+          "tokenIds": "The token ids of KGHs to delegate.",
+          "validator": "Address of the validator."
+        }
+      },
+      "deposit(uint128)": {
+        "params": {
+          "assets": "The amount of KRO to deposit."
+        }
+      },
+      "depositToRegister(address,uint128,address)": {
+        "params": {
+          "assets": "The amount of KRO to deposit.",
+          "validator": "Address of the validator.",
+          "withdrawAccount": "An account where assets can be withdrawn to. Only this account can                        withdraw the assets."
+        }
+      },
+      "getKghNum(address,address)": {
+        "params": {
+          "delegator": "Address of the delegator.",
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The number of KGH delegated by the given delegator."
+        }
+      },
+      "getKghReward(address,address)": {
+        "params": {
+          "delegator": "The address of the delegator.",
+          "validator": "The address of the validator."
+        },
+        "returns": {
+          "_0": "The amount of claimable reward of KGH delegation."
+        }
+      },
+      "getKroAssets(address,address)": {
+        "params": {
+          "delegator": "Address of the delegator.",
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The amount of KRO assets that the delegator delegated to the validator."
+        }
+      },
+      "getKroTotalShareBalance(address,address)": {
+        "params": {
+          "delegator": "Address of the delegator.",
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The amount of KRO shares that the KRO delegator has."
+        }
+      },
+      "getWithdrawAccount(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The address of withdraw account of given validator."
+        }
+      },
+      "increaseBalanceWithChallenge(address,uint128)": {
+        "params": {
+          "challengeReward": "The challenge reward to be added to the winner's asset after excluding                        tax.",
+          "winner": "Address of the challenge winner."
+        },
+        "returns": {
+          "_0": "The challenge reward added to winner's asset."
+        }
+      },
+      "increaseBalanceWithReward(address,uint128,uint128,uint128)": {
+        "params": {
+          "baseReward": "The base reward to distribute.",
+          "boostedReward": "The boosted reward to distribute.",
+          "validator": "Address of the validator.",
+          "validatorReward": "The validator reward to distribute."
+        }
+      },
+      "onERC721Received(address,address,uint256,bytes)": {
+        "details": "Whenever an {IERC721} `tokenId` token is transferred to this contract via {IERC721-safeTransferFrom} by `operator` from `from`, this function is called. It must return its Solidity selector to confirm the token transfer. If any other value is returned or the interface is not implemented by the recipient, the transfer will be reverted. The selector can be obtained in Solidity with `IERC721Receiver.onERC721Received.selector`."
+      },
+      "previewDelegate(address,uint128)": {
+        "params": {
+          "assets": "The amount of assets to delegate.",
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The amount of shares that the Vault would exchange for the amount of assets provided."
+        }
+      },
+      "previewUndelegate(address,uint128)": {
+        "params": {
+          "shares": "The amount of shares to undelegate.",
+          "validator": "The address of the validator."
+        },
+        "returns": {
+          "_0": "The amount of assets that the Vault would exchange for the amount of shares provided."
+        }
+      },
+      "reflectiveWeight(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The reflective weight of given validator."
+        }
+      },
+      "revertDecreaseBalanceWithChallenge(address)": {
+        "params": {
+          "loser": "Address of the challenge original loser."
+        },
+        "returns": {
+          "_0": "The challenge reward refunded to loser's asset."
+        }
+      },
+      "totalKghNum(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The total number of KGHs held by the vault."
+        }
+      },
+      "totalKroAssets(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The total amount of KRO that delegated by the delegators and accumulated as KRO         delegation reward."
+        }
+      },
+      "totalValidatorKro(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The total amount of KRO a validator has deposited and been rewarded."
+        }
+      },
+      "totalValidatorKroBonded(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The total amount of validator KRO bonded."
+        }
+      },
+      "totalValidatorKroNotBonded(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        },
+        "returns": {
+          "_0": "The total amount of validator balance excluding the bond amount."
+        }
+      },
+      "unbondValidatorKro(address)": {
+        "params": {
+          "validator": "Address of the validator."
+        }
+      },
+      "undelegate(address,uint128)": {
+        "params": {
+          "assets": "The amount of assets to undelegate.",
+          "validator": "Address of the validator."
+        }
+      },
+      "undelegateKgh(address,uint256)": {
+        "params": {
+          "tokenId": "Token id of KGH to undelegate.",
+          "validator": "Address of the validator."
+        }
+      },
+      "undelegateKghBatch(address,uint256[])": {
+        "params": {
+          "tokenIds": "Array of token ids of KGHs to undelegate.",
+          "validator": "Address of the validator."
+        }
+      },
+      "withdraw(address,uint128)": {
+        "params": {
+          "assets": "The amount of KRO to withdraw.",
+          "validator": "Address of the validator."
+        }
+      }
+    },
+    "title": "AssetManager"
+  },
+  "userdoc": {
+    "version": 1,
+    "kind": "user",
+    "methods": {
+      "ASSET_TOKEN()": {
+        "notice": "Address of the KRO token contract."
+      },
+      "BOND_AMOUNT()": {
+        "notice": "The amount to bond."
+      },
+      "DECIMAL_OFFSET()": {
+        "notice": "Decimals offset for the KRO shares."
+      },
+      "KGH()": {
+        "notice": "Address of the KGH token contract."
+      },
+      "MIN_DELEGATION_PERIOD()": {
+        "notice": "Minimum delegation period. Can be updated via upgrade."
+      },
+      "SECURITY_COUNCIL()": {
+        "notice": "The address of the SecurityCouncil contract. Can be updated via upgrade."
+      },
+      "TAX_DENOMINATOR()": {
+        "notice": "The denominator of the tax."
+      },
+      "TAX_NUMERATOR()": {
+        "notice": "The numerator of the tax."
+      },
+      "VALIDATOR_MANAGER()": {
+        "notice": "Address of ValidatorManager contract. Can be updated via upgrade."
+      },
+      "VALIDATOR_REWARD_VAULT()": {
+        "notice": "The address of Validator Reward Vault. Can be updated via upgrade."
+      },
+      "bondValidatorKro(address)": {
+        "notice": "Bond KRO from validator KRO during output submission or challenge creation. This         function is only called by the ValidatorManager contract."
+      },
+      "canUndelegateKghAt(address,address,uint256)": {
+        "notice": "Returns when the KGH delegators can undelegate KGH. The delegators can undelegate KGH         for the given token id after MIN_DELEGATION_PERIOD elapsed from delegation         timestamp."
+      },
+      "canUndelegateKroAt(address,address)": {
+        "notice": "Returns when the KRO delegators can undelegate KRO. The delegators can undelegate         after MIN_DELEGATION_PERIOD elapsed from lastDelegatedAt."
+      },
+      "canWithdrawAt(address)": {
+        "notice": "Returns when the validator can withdraw KRO. The validator can withdraw after         MIN_DELEGATION_PERIOD elapsed from lastDepositedAt."
+      },
+      "claimKghReward(address)": {
+        "notice": "Claim the boosted reward of the KGH delegator from the given validator vault."
+      },
+      "constructor": {
+        "notice": "Constructs the AssetManager contract."
+      },
+      "decreaseBalanceWithChallenge(address)": {
+        "notice": "Update the vault of challenge loser with the challenge reward. This function is only         called by the ValidatorManager contract."
+      },
+      "delegate(address,uint128)": {
+        "notice": "Delegate KRO to the validator and returns the amount of shares that the vault would         exchange."
+      },
+      "delegateKgh(address,uint256)": {
+        "notice": "Delegate KGH to the validator."
+      },
+      "delegateKghBatch(address,uint256[])": {
+        "notice": "Delegate KGHs to the validator."
+      },
+      "deposit(uint128)": {
+        "notice": "Deposit KRO. To deposit KRO, the validator should be initiated."
+      },
+      "depositToRegister(address,uint128,address)": {
+        "notice": "Deposit KRO to register as a validator. This function is only called by the         ValidatorManager contract."
+      },
+      "getKghNum(address,address)": {
+        "notice": "Returns the number of KGH delegated by the given delegator."
+      },
+      "getKghReward(address,address)": {
+        "notice": "Returns the claimable reward of KGH delegation."
+      },
+      "getKroAssets(address,address)": {
+        "notice": "Returns the amount of KRO assets delegated to the given validator by the delegator."
+      },
+      "getKroTotalShareBalance(address,address)": {
+        "notice": "Returns the amount of KRO shares that the KRO delegator has."
+      },
+      "getWithdrawAccount(address)": {
+        "notice": "Returns the address of withdraw account of given validator."
+      },
+      "increaseBalanceWithChallenge(address,uint128)": {
+        "notice": "Update the vault of challenge winner with the challenge reward. This function is only         called by the ValidatorManager contract."
+      },
+      "increaseBalanceWithReward(address,uint128,uint128,uint128)": {
+        "notice": "Update the vault of validator with the distributed reward. This function is only         called by the ValidatorManager contract."
+      },
+      "previewDelegate(address,uint128)": {
+        "notice": "Allows an on-chain or off-chain user to simulate the effects of their KRO delegation         at the current block."
+      },
+      "previewUndelegate(address,uint128)": {
+        "notice": "Allows an on-chain or off-chain user to simulate the effects of their KRO         undelegation at the current block."
+      },
+      "reflectiveWeight(address)": {
+        "notice": "Returns the reflective weight of given validator."
+      },
+      "revertDecreaseBalanceWithChallenge(address)": {
+        "notice": "Revert the changes of decreaseBalanceWithChallenge. This function is only called by         the ValidatorManager contract."
+      },
+      "totalKghNum(address)": {
+        "notice": "Returns the total number of KGHs held by the vault."
+      },
+      "totalKroAssets(address)": {
+        "notice": "Returns the total amount of KRO that delegated by the delegators and accumulated as         KRO delegation reward."
+      },
+      "totalValidatorKro(address)": {
+        "notice": "Returns the total amount of KRO a validator has deposited and been rewarded."
+      },
+      "totalValidatorKroBonded(address)": {
+        "notice": "Returns the total amount of validator KRO that bonded during output submission or         challenge creation."
+      },
+      "totalValidatorKroNotBonded(address)": {
+        "notice": "Returns the total amount of validator balance excluding the bond amount."
+      },
+      "unbondValidatorKro(address)": {
+        "notice": "Unbond KRO from validator KRO during output finalization or challenge slashing. This         function is only called by the ValidatorManager contract."
+      },
+      "undelegate(address,uint128)": {
+        "notice": "Undelegate the KRO of given assets for the given validator."
+      },
+      "undelegateKgh(address,uint256)": {
+        "notice": "Undelegate KGH for given validator and tokenId."
+      },
+      "undelegateKghBatch(address,uint256[])": {
+        "notice": "Undelegate KGHs for given validator and token ids."
+      },
+      "version()": {
+        "notice": "Semantic version."
+      },
+      "withdraw(address,uint128)": {
+        "notice": "Withdraw KRO. To withdraw KRO, the validator should be initiated and MIN_DELEGATION_PERIOD         should be passed after the last deposit time. Only withdrawAccount of the validator can call         this function."
+      }
+    },
+    "events": {
+      "Deposited(address,uint128)": {
+        "notice": "Emitted when validator deposited KROs."
+      },
+      "KghBatchDelegated(address,address,uint256[])": {
+        "notice": "Emitted when KGHs are delegated in batch."
+      },
+      "KghBatchUndelegated(address,address,uint256[],uint128)": {
+        "notice": "Emitted when KGHs are undelegated in batch."
+      },
+      "KghDelegated(address,address,uint256)": {
+        "notice": "Emitted when a KGH is delegated."
+      },
+      "KghRewardClaimed(address,address,uint128)": {
+        "notice": "Emitted when accumulated rewards of KGH delegation are claimed."
+      },
+      "KghUndelegated(address,address,uint256,uint128)": {
+        "notice": "Emitted when KGH is undelegated."
+      },
+      "KroDelegated(address,address,uint128,uint128)": {
+        "notice": "Emitted when KROs are delegated."
+      },
+      "KroUndelegated(address,address,uint128,uint128)": {
+        "notice": "Emitted when KRO is undelegated."
+      },
+      "ValidatorKroBonded(address,uint128,uint128)": {
+        "notice": "Emitted when validator KRO is bonded during output submission or challenge creation."
+      },
+      "ValidatorKroUnbonded(address,uint128,uint128)": {
+        "notice": "Emitted when validator KRO is unbonded during output finalization or slashing."
+      },
+      "Withdrawn(address,uint128)": {
+        "notice": "Emitted when validator withdrew KRO."
+      }
+    },
+    "errors": {
+      "ImproperValidatorStatus()": [
+        {
+          "notice": "Reverts when the status of validator is improper."
+        }
+      ],
+      "InsufficientAsset()": [
+        {
+          "notice": "Reverts when the asset is insufficient."
+        }
+      ],
+      "InsufficientShare()": [
+        {
+          "notice": "Reverts when the share is insufficient."
+        }
+      ],
+      "InvalidTokenIdsInput()": [
+        {
+          "notice": "Reverts when the given token ids are invalid."
+        }
+      ],
+      "NotAllowedCaller()": [
+        {
+          "notice": "Reverts when caller is not allowed."
+        }
+      ],
+      "NotAllowedZeroInput()": [
+        {
+          "notice": "Reverts when try to input zero."
+        }
+      ],
+      "NotElapsedMinDelegationPeriod()": [
+        {
+          "notice": "Reverts when the minimum delegation period is not elapsed."
+        }
+      ],
+      "ZeroAddress()": [
+        {
+          "notice": "Reverts when the address is zero address."
+        }
+      ]
+    },
+    "notice": "AssetManager is a contract that handles (un)delegations of KRO and KGH, and the         distribution of rewards to the delegators and the validator."
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 75,
+        "contract": "contracts/L1/AssetManager.sol:AssetManager",
+        "label": "_vaults",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_mapping(t_address,t_struct(Vault)17070_storage)"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_mapping(t_address,t_struct(KghDelegator)17052_storage)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => struct IAssetManager.KghDelegator)",
+        "numberOfBytes": "32",
+        "value": "t_struct(KghDelegator)17052_storage"
+      },
+      "t_mapping(t_address,t_struct(KroDelegator)17043_storage)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => struct IAssetManager.KroDelegator)",
+        "numberOfBytes": "32",
+        "value": "t_struct(KroDelegator)17043_storage"
+      },
+      "t_mapping(t_address,t_struct(Vault)17070_storage)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => struct IAssetManager.Vault)",
+        "numberOfBytes": "32",
+        "value": "t_struct(Vault)17070_storage"
+      },
+      "t_mapping(t_uint256,t_uint128)": {
+        "encoding": "mapping",
+        "key": "t_uint256",
+        "label": "mapping(uint256 => uint128)",
+        "numberOfBytes": "32",
+        "value": "t_uint128"
+      },
+      "t_struct(Asset)17038_storage": {
+        "encoding": "inplace",
+        "label": "struct IAssetManager.Asset",
+        "numberOfBytes": "96",
+        "members": [
+          {
+            "astId": 17027,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "validatorKro",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint128"
+          },
+          {
+            "astId": 17029,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "validatorKroBonded",
+            "offset": 16,
+            "slot": "0",
+            "type": "t_uint128"
+          },
+          {
+            "astId": 17031,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "totalKro",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint128"
+          },
+          {
+            "astId": 17033,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "totalKroShares",
+            "offset": 16,
+            "slot": "1",
+            "type": "t_uint128"
+          },
+          {
+            "astId": 17035,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "totalKgh",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint128"
+          },
+          {
+            "astId": 17037,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "rewardPerKghStored",
+            "offset": 16,
+            "slot": "2",
+            "type": "t_uint128"
+          }
+        ]
+      },
+      "t_struct(KghDelegator)17052_storage": {
+        "encoding": "inplace",
+        "label": "struct IAssetManager.KghDelegator",
+        "numberOfBytes": "64",
+        "members": [
+          {
+            "astId": 17045,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "rewardPerKghPaid",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint128"
+          },
+          {
+            "astId": 17047,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "kghNum",
+            "offset": 16,
+            "slot": "0",
+            "type": "t_uint128"
+          },
+          {
+            "astId": 17051,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "delegatedAt",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_uint256,t_uint128)"
+          }
+        ]
+      },
+      "t_struct(KroDelegator)17043_storage": {
+        "encoding": "inplace",
+        "label": "struct IAssetManager.KroDelegator",
+        "numberOfBytes": "32",
+        "members": [
+          {
+            "astId": 17040,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "shares",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint128"
+          },
+          {
+            "astId": 17042,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "lastDelegatedAt",
+            "offset": 16,
+            "slot": "0",
+            "type": "t_uint128"
+          }
+        ]
+      },
+      "t_struct(Vault)17070_storage": {
+        "encoding": "inplace",
+        "label": "struct IAssetManager.Vault",
+        "numberOfBytes": "224",
+        "members": [
+          {
+            "astId": 17054,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "withdrawAccount",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_address"
+          },
+          {
+            "astId": 17056,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "lastDepositedAt",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint128"
+          },
+          {
+            "astId": 17059,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "asset",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_struct(Asset)17038_storage"
+          },
+          {
+            "astId": 17064,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "kroDelegators",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_address,t_struct(KroDelegator)17043_storage)"
+          },
+          {
+            "astId": 17069,
+            "contract": "contracts/L1/AssetManager.sol:AssetManager",
+            "label": "kghDelegators",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_address,t_struct(KghDelegator)17052_storage)"
+          }
+        ]
+      },
+      "t_uint128": {
+        "encoding": "inplace",
+        "label": "uint128",
+        "numberOfBytes": "16"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    }
+  }
+}
