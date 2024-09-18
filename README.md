@@ -29,7 +29,7 @@ For more detailed information about Kroma, check [Kroma docs](https://docs.kroma
 - Specs: [Kroma Specs](https://specs.kroma.network)
 - Blog: [Kroma Medium](https://medium.com/@kroma-network)
 - Discord: [Kroma Discord](https://discord.gg/kroma)
-- X formerly (Twitter): [Kroma X](https://x.com/kroma_network)
+- X (formerly Twitter): [Kroma X](https://x.com/kroma_network)
 
 ## Contributing
 
