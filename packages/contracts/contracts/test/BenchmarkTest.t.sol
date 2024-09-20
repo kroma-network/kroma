@@ -54,7 +54,7 @@ contract GasBenchMark_KromaPortal is Portal_Initializer {
         bytes32 _storageRoot;
         bytes32 _stateRoot;
         (_stateRoot, _storageRoot, _outputRoot, , _withdrawalProof) = ffi
-            .getProveWithdrawalTransactionInputs(_defaultTx);
+            .getProveWithdrawalTransactionInputs(_defaultTx, true);
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({

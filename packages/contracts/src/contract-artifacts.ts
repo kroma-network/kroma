@@ -318,6 +318,12 @@
         } catch {}
         
 
+        let RLPReader
+        try {
+          RLPReader = require('../artifacts/contracts/libraries/rlp/RLPReader.sol/RLPReader.json')
+        } catch {}
+        
+
         let RLPWriter
         try {
           RLPWriter = require('../artifacts/contracts/libraries/rlp/RLPWriter.sol/RLPWriter.json')
@@ -330,6 +336,18 @@
         } catch {}
         
 
+        let MerkleTrie
+        try {
+          MerkleTrie = require('../artifacts/contracts/libraries/trie/MerkleTrie.sol/MerkleTrie.json')
+        } catch {}
+        
+
+        let SecureMerkleTrie
+        try {
+          SecureMerkleTrie = require('../artifacts/contracts/libraries/trie/SecureMerkleTrie.sol/SecureMerkleTrie.json')
+        } catch {}
+        
+
         let Types
         try {
           Types = require('../artifacts/contracts/libraries/Types.sol/Types.json')
@@ -339,6 +357,12 @@
         let Uint128Math
         try {
           Uint128Math = require('../artifacts/contracts/libraries/Uint128Math.sol/Uint128Math.json')
+        } catch {}
+        
+
+        let FFIInterface
+        try {
+          FFIInterface = require('../artifacts/contracts/test/setup/FFIInterface.sol/FFIInterface.json')
         } catch {}
         
 
@@ -504,10 +528,14 @@ Encoding,
 Hashing,
 NodeReader,
 Predeploys,
+RLPReader,
 RLPWriter,
 SafeCall,
+MerkleTrie,
+SecureMerkleTrie,
 Types,
 Uint128Math,
+FFIInterface,
 ColosseumTestData,
 CrossDomainMessenger,
 ERC721Bridge,
