@@ -7,6 +7,7 @@ import { Constants } from "../libraries/Constants.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { SafeCall } from "../libraries/SafeCall.sol";
 import { Types } from "../libraries/Types.sol";
+import { SecureMerkleTrie } from "../libraries/trie/SecureMerkleTrie.sol";
 import { ISemver } from "../universal/ISemver.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
@@ -72,9 +73,9 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
     ZKMerkleTrie public immutable ZK_MERKLE_TRIE;
 
     /**
-     * @notice Address of the L2 account which initiated a withdrawal in this transaction. If the
-     *         of this variable is the default L2 sender address, then we are NOT inside of a call
-     *         to finalizeWithdrawalTransaction.
+     * @notice Address of the L2 account which initiated a withdrawal in this transaction.
+     *         If the of this variable is the default L2 sender address, then we are NOT inside of
+     *         a call to finalizeWithdrawalTransaction.
      */
     address public l2Sender;
 
@@ -95,8 +96,9 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
     bool public paused;
 
     /**
-     * @notice Emitted when a transaction is deposited from L1 to L2. The parameters of this event
-     *         are read by the rollup node and used to derive deposit transactions on L2.
+     * @notice Emitted when a transaction is deposited from L1 to L2.
+     *         The parameters of this event are read by the rollup node and used to derive deposit
+     *         transactions on L2.
      *
      * @param from       Address that triggered the deposit transaction.
      * @param to         Address that the deposit transaction is directed to.
@@ -114,6 +116,8 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
      * @notice Emitted when a withdrawal transaction is proven.
      *
      * @param withdrawalHash Hash of the withdrawal transaction.
+     * @param from           Address that triggered the withdrawal transaction.
+     * @param to             Address that the withdrawal transaction is directed to.
      */
     event WithdrawalProven(
         bytes32 indexed withdrawalHash,
@@ -153,19 +157,19 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
 
     /**
      * @notice Semantic version.
-     * @custom:semver 1.0.0
+     * @custom:semver 2.0.0
      */
-    string public constant version = "1.0.0";
+    string public constant version = "2.0.0";
 
     /**
      * @notice Constructs the KromaPortal contract.
      *
-     * @param _l2Oracle                  Address of the L2OutputOracle contract.
-     * @param _validatorPool             Address of the ValidatorPool contract.
-     * @param _guardian                  MultiSig wallet address that can pause deposits and withdrawals.
-     * @param _paused                    Sets the contract's pausability state.
-     * @param _config                    Address of the SystemConfig contract.
-     * @param _zkMerkleTrie              Address of the ZKMerkleTrie contract.
+     * @param _l2Oracle      Address of the L2OutputOracle contract.
+     * @param _validatorPool Address of the ValidatorPool contract.
+     * @param _guardian      MultiSig wallet address that can pause deposits and withdrawals.
+     * @param _paused        Sets the contract's pausability state.
+     * @param _config        Address of the SystemConfig contract.
+     * @param _zkMerkleTrie  Address of the ZKMerkleTrie contract.
      */
     constructor(
         L2OutputOracle _l2Oracle,
@@ -185,6 +189,8 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
 
     /**
      * @notice Initializer.
+     *
+     * @param _paused Sets the contract's pausability state.
      */
     function initialize(bool _paused) public initializer {
         l2Sender = Constants.DEFAULT_L2_SENDER;
@@ -216,16 +222,16 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
      *         function for EOAs. Contracts should call the depositTransaction() function directly
      *         otherwise any deposited funds will be lost due to address aliasing.
      */
-    // solhint-disable-next-line ordering
     receive() external payable {
         depositTransaction(msg.sender, msg.value, RECEIVE_DEFAULT_GAS_LIMIT, false, bytes(""));
     }
 
     /**
-     * @notice Getter for the resource config. Used internally by the ResourceMetering
-     *         contract. The SystemConfig is the source of truth for the resource config.
+     * @notice Getter for the resource config.
+     *         Used internally by the ResourceMetering contract.
+     *         The SystemConfig is the source of truth for the resource config.
      *
-     * @return ResourceMetering.ResourceConfig
+     * @return ResourceMetering ResourceConfig
      */
     function _resourceConfig()
         internal
@@ -296,18 +302,32 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
         );
 
         // Verify that the hash of this withdrawal was stored in the L2toL1MessagePasser contract
-        // on L2. If this is true, under the assumption that the ZKMerkleTrie contract does not have
+        // on L2. If this is true, under the assumption that the MerkleTrie does not have
         // bugs, then we know that this withdrawal was actually triggered on L2 and can therefore
         // be relayed on L1.
-        require(
-            ZK_MERKLE_TRIE.verifyInclusionProof(
-                storageKey,
-                hex"0000000000000000000000000000000000000000000000000000000000000001",
-                _withdrawalProof,
-                _outputRootProof.messagePasserStorageRoot
-            ),
-            "KromaPortal: invalid withdrawal inclusion proof"
-        );
+        // Note that MerkleTrie is ZKMerkleTrie when output has nextBlockHash (KromaOutputV0),
+        // otherwise SecureMerkleTrie (OutputV0).
+        if (_outputRootProof.nextBlockHash == bytes32(0)) {
+            require(
+                SecureMerkleTrie.verifyInclusionProof(
+                    abi.encode(storageKey),
+                    hex"01",
+                    _withdrawalProof,
+                    _outputRootProof.messagePasserStorageRoot
+                ),
+                "KromaPortal: invalid withdrawal inclusion proof"
+            );
+        } else {
+            require(
+                ZK_MERKLE_TRIE.verifyInclusionProof(
+                    storageKey,
+                    hex"0000000000000000000000000000000000000000000000000000000000000001",
+                    _withdrawalProof,
+                    _outputRootProof.messagePasserStorageRoot
+                ),
+                "KromaPortal: invalid withdrawal inclusion proof"
+            );
+        }
 
         // Designate the withdrawalHash as proven by storing the `outputRoot`, `timestamp`, and
         // `l2OutputIndex` in the `provenWithdrawals` mapping. A `withdrawalHash` can only be
@@ -327,10 +347,9 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
      *
      * @param _tx Withdrawal transaction to finalize.
      */
-    function finalizeWithdrawalTransaction(Types.WithdrawalTransaction memory _tx)
-        external
-        whenNotPaused
-    {
+    function finalizeWithdrawalTransaction(
+        Types.WithdrawalTransaction memory _tx
+    ) external whenNotPaused {
         // Make sure that the l2Sender has not yet been set. The l2Sender is set to a value other
         // than the default value when a withdrawal transaction is being finalized. This check is
         // a defacto reentrancy guard.
@@ -478,9 +497,9 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
      * @notice Accepts deposits of data from ValidatorPool contract, and emits a TransactionDeposited event for use in
      *         deriving deposit transactions on L2.
      *
-     * @param _to         Target address on L2.
-     * @param _gasLimit   Minimum L2 gas limit (can be greater than or equal to this value).
-     * @param _data       Data to trigger the recipient with.
+     * @param _to       Target address on L2.
+     * @param _gasLimit Minimum L2 gas limit (can be greater than or equal to this value).
+     * @param _data     Data to trigger the recipient with.
      */
     function depositTransactionByValidatorPool(
         address _to,
@@ -504,8 +523,9 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
     }
 
     /**
-     * @notice Determines if the output at the given index is finalized. Reverts if the call to
-     *         L2_ORACLE.getL2Output reverts. Returns a boolean otherwise.
+     * @notice Determine if a given output is finalized.
+     *         Reverts if the call to L2_ORACLE.getL2Output reverts.
+     *         Returns a boolean otherwise.
      *
      * @param _l2OutputIndex Index of the L2 output to check.
      *
@@ -516,7 +536,8 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
     }
 
     /**
-     * @notice Determines whether the finalization period has elapsed w/r/t a given timestamp.
+     * @notice Determines whether the finalization period has elapsed with respect to
+     *         the provided block timestamp.
      *
      * @param _timestamp Timestamp to check.
      *
