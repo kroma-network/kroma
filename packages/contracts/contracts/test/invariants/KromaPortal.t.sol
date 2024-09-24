@@ -29,7 +29,7 @@ contract KromaPortal_Invariant_Harness is Portal_Initializer {
         });
         // Get withdrawal proof data we can use for testing.
         (_stateRoot, _storageRoot, _outputRoot, _withdrawalHash, _withdrawalProof) = ffi
-            .getProveWithdrawalTransactionInputs(_defaultTx);
+            .getProveWithdrawalTransactionInputs(_defaultTx, true);
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({

@@ -6,7 +6,6 @@ import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { SystemConfig } from "../L1/SystemConfig.sol";
 import { ZKMerkleTrie } from "../L1/ZKMerkleTrie.sol";
 import { Constants } from "../libraries/Constants.sol";
-import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 
 contract EchidnaFuzzKromaPortal {
     KromaPortal internal portal;
