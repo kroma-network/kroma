@@ -38,7 +38,7 @@ type TypesOutputRootProof struct {
 	Version                  [32]byte
 	StateRoot                [32]byte
 	MessagePasserStorageRoot [32]byte
-	BlockHash                [32]byte
+	LatestBlockhash          [32]byte
 	NextBlockHash            [32]byte
 }
 

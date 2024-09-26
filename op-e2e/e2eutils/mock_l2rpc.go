@@ -2,16 +2,16 @@ package e2eutils
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
-
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 type MaliciousL2RPC struct {
@@ -37,24 +37,41 @@ func (m *MaliciousL2RPC) Close() {
 
 func (m *MaliciousL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	if method == "optimism_outputAtBlock" || method == "kroma_outputWithProofAtBlock" {
-		blockNumber := args[0].(hexutil.Uint64)
-
-		err := m.rpc.CallContext(ctx, &result, method, blockNumber)
+		err := m.rpc.CallContext(ctx, result, method, args...)
 		if err != nil {
 			return err
 		}
+
+		blockNumber := args[0].(hexutil.Uint64)
 		if m.targetBlockNumber != nil && *m.targetBlockNumber-1 == blockNumber {
-			return testdata.SetPrevOutputResponse(result.(**eth.OutputResponse))
+			if method == "optimism_outputAtBlock" {
+				if o, ok := result.(**eth.OutputResponse); ok {
+					return testdata.SetPrevOutputResponse(*o)
+				} else {
+					return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+				}
+			}
+
+			if o, ok := result.(**eth.OutputWithProofResponse); ok {
+				return testdata.SetPrevOutputWithProofResponse(*o)
+			} else {
+				return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+			}
 		} else if m.targetBlockNumber != nil && *m.targetBlockNumber <= blockNumber {
 			rng := rand.New(rand.NewSource(int64(blockNumber)))
 
-			s := result.(**eth.OutputResponse)
-			(*s).OutputRoot = eth.Bytes32(testutils.RandomHash(rng))
-			(*s).WithdrawalStorageRoot = testutils.RandomHash(rng)
-			(*s).StateRoot = testutils.RandomHash(rng)
+			if o, ok := result.(**eth.OutputResponse); ok {
+				(**o).OutputRoot = eth.Bytes32(testutils.RandomHash(rng))
+				(**o).WithdrawalStorageRoot = testutils.RandomHash(rng)
+				(**o).StateRoot = testutils.RandomHash(rng)
 
-			return nil
+				return nil
+			} else {
+				return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+			}
 		}
+
+		return nil
 	}
 
 	return m.rpc.CallContext(ctx, result, method, args...)
@@ -91,17 +108,43 @@ func (m *HonestL2RPC) Close() {
 
 func (m *HonestL2RPC) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	if method == "optimism_outputAtBlock" || method == "kroma_outputWithProofAtBlock" {
-		blockNumber := args[0].(hexutil.Uint64)
-
-		err := m.rpc.CallContext(ctx, &result, method, blockNumber)
+		err := m.rpc.CallContext(ctx, result, method, args...)
 		if err != nil {
 			return err
 		}
+
+		blockNumber := args[0].(hexutil.Uint64)
 		if m.targetBlockNumber != nil && *m.targetBlockNumber-1 == blockNumber {
-			return testdata.SetPrevOutputResponse(result.(**eth.OutputResponse))
+			if method == "optimism_outputAtBlock" {
+				if o, ok := result.(**eth.OutputResponse); ok {
+					return testdata.SetPrevOutputResponse(*o)
+				} else {
+					return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+				}
+			}
+
+			if o, ok := result.(**eth.OutputWithProofResponse); ok {
+				return testdata.SetPrevOutputWithProofResponse(*o)
+			} else {
+				return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+			}
 		} else if m.targetBlockNumber != nil && *m.targetBlockNumber == blockNumber {
-			return testdata.SetTargetOutputResponse(result.(**eth.OutputResponse))
+			if method == "optimism_outputAtBlock" {
+				if o, ok := result.(**eth.OutputResponse); ok {
+					return testdata.SetTargetOutputResponse(*o)
+				} else {
+					return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+				}
+			}
+
+			if o, ok := result.(**eth.OutputWithProofResponse); ok {
+				return testdata.SetTargetOutputWithProofResponse(*o)
+			} else {
+				return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+			}
 		}
+
+		return nil
 	}
 
 	return m.rpc.CallContext(ctx, result, method, args...)

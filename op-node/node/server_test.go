@@ -21,10 +21,29 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
+// [Kroma: START]
 func TestOutputAtBlock(t *testing.T) {
+	t.Run("pre-mpt", func(t *testing.T) {
+		rollupCfg := &rollup.Config{
+			// ignore other rollup config info in this test
+		}
+		testOutputAtBlock(t, rollupCfg, "0x3c476dc6a9c558c68e3d3811436181daafceb445bde053beb07702967a613c0c")
+	})
+
+	t.Run("mpt", func(t *testing.T) {
+		zero := uint64(0)
+		rollupCfg := &rollup.Config{
+			KromaMPTTime: &zero,
+		}
+		testOutputAtBlock(t, rollupCfg, "0xc861dbdc5bf1d8bbbc0bca7cd876ab6a70748c50b2054a46e8f30e99002170ab")
+	})
+}
+
+func testOutputAtBlock(t *testing.T, rollupCfg *rollup.Config, expectedOutputRoot string) {
 	log := testlog.Logger(t, log.LevelError)
 
 	// Test data for Merkle Patricia Trie: proof the eth2 deposit contract account contents (mainnet).
@@ -102,9 +121,6 @@ func TestOutputAtBlock(t *testing.T) {
 		ListenAddr: "localhost",
 		ListenPort: 0,
 	}
-	rollupCfg := &rollup.Config{
-		// ignore other rollup config info in this test
-	}
 
 	l2Client := &testutils.MockL2Client{}
 	info := testutils.NewMockBlockInfoWithHeader(&header)
@@ -124,13 +140,27 @@ func TestOutputAtBlock(t *testing.T) {
 		L1Origin:       eth.BlockID{},
 		SequenceNumber: 0,
 	}
-	l2Client.ExpectInfoByHash(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), &info, nil)
-	l2Client.ExpectGetProof(predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, "0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524", &result, nil)
+	output := &eth.OutputV0{
+		StateRoot:                eth.Bytes32(header.Root),
+		BlockHash:                ref.Hash,
+		MessagePasserStorageRoot: eth.Bytes32(result.StorageHash),
+	}
+
+	isKromaMPT := rollupCfg.IsKromaMPT(header.Time)
+	if isKromaMPT {
+		l2Client.ExpectOutputV0AtBlock(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), output, nil)
+	} else {
+		l2Client.ExpectInfoByHash(common.HexToHash("0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524"), &info, nil)
+		l2Client.ExpectGetProof(predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, "0x8512bee03061475e4b069171f7b406097184f16b22c3f5c97c0abfc49591c524", &result, nil)
+	}
 
 	drClient := &mockDriverClient{}
 	safeReader := &mockSafeDBReader{}
 	status := randomSyncStatus(rand.New(rand.NewSource(123)))
-	drClient.ExpectBlockRefsWithStatus(0xdcdc89, ref, nextRef, status, nil)
+	drClient.ExpectBlockRefWithStatus(0xdcdc89, ref, status, nil)
+	if !isKromaMPT {
+		drClient.ExpectBlockRefsWithStatus(0xdcdc89, ref, nextRef, status, nil)
+	}
 
 	server, err := newRPCServer(rpcCfg, rollupCfg, l2Client, drClient, safeReader, log, "0.0", metrics.NoopMetrics)
 	require.NoError(t, err)
@@ -147,7 +177,7 @@ func TestOutputAtBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000000", out.Version.String())
-	require.Equal(t, "0x3c476dc6a9c558c68e3d3811436181daafceb445bde053beb07702967a613c0c", out.OutputRoot.String())
+	require.Equal(t, expectedOutputRoot, out.OutputRoot.String())
 	require.Equal(t, "0xb46d4bcb0e471e1b8506031a1f34ebc6f200253cbaba56246dd2320e8e2c8f13", out.StateRoot.String())
 	require.Equal(t, "0xc1917a80cb25ccc50d0d1921525a44fb619b4601194ca726ae32312f08a799f8", out.WithdrawalStorageRoot.String())
 	require.Equal(t, *status, *out.Status)
@@ -155,6 +185,8 @@ func TestOutputAtBlock(t *testing.T) {
 	drClient.Mock.AssertExpectations(t)
 	safeReader.Mock.AssertExpectations(t)
 }
+
+// [Kroma: END]
 
 func TestVersion(t *testing.T) {
 	log := testlog.Logger(t, log.LevelError)
@@ -280,18 +312,26 @@ type mockDriverClient struct {
 	mock.Mock
 }
 
-func (c *mockDriverClient) ExpectBlockRefsWithStatus(num uint64, ref, nextRef eth.L2BlockRef, status *eth.SyncStatus, err error) {
-	c.Mock.On("BlockRefsWithStatus", num).Return(ref, nextRef, status, &err)
+func (c *mockDriverClient) ExpectBlockRefWithStatus(num uint64, ref eth.L2BlockRef, status *eth.SyncStatus, err error) {
+	c.Mock.On("BlockRefWithStatus", num).Return(ref, status, &err)
 }
+
 func (c *mockDriverClient) BlockRefWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, *eth.SyncStatus, error) {
 	m := c.Mock.MethodCalled("BlockRefWithStatus", num)
 	return m[0].(eth.L2BlockRef), m[1].(*eth.SyncStatus), *m[2].(*error)
+}
+
+// [Kroma: START]
+func (c *mockDriverClient) ExpectBlockRefsWithStatus(num uint64, ref, nextRef eth.L2BlockRef, status *eth.SyncStatus, err error) {
+	c.Mock.On("BlockRefsWithStatus", num).Return(ref, nextRef, status, &err)
 }
 
 func (c *mockDriverClient) BlockRefsWithStatus(ctx context.Context, num uint64) (eth.L2BlockRef, eth.L2BlockRef, *eth.SyncStatus, error) {
 	m := c.Mock.MethodCalled("BlockRefsWithStatus", num)
 	return m[0].(eth.L2BlockRef), m[1].(eth.L2BlockRef), m[2].(*eth.SyncStatus), *m[3].(*error)
 }
+
+// [Kroma: END]
 
 func (c *mockDriverClient) SyncStatus(ctx context.Context) (*eth.SyncStatus, error) {
 	return c.Mock.MethodCalled("SyncStatus").Get(0).(*eth.SyncStatus), nil

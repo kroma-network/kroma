@@ -4,18 +4,33 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 )
 
 var (
-	TargetBlockNumber           = uint64(21)
-	CoinbaseAddr                = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	TargetBlockNumber = uint64(21)
+	coinbaseAddr      = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	zeroUint64        = hexutil.MustDecodeUint64("0x0")
+	zeroBloom         = types.BytesToBloom(hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"))
+	emptyExtraData    = hexutil.MustDecode("0x")
+
+	// for prev block
+	prevBlockhash             = common.HexToHash("0x3392758b5bca8b8319df6180c145ca28152f1b6a3af977bc48ec67d2259dbcd2")
+	prevStateRoot             = common.HexToHash("0x263975548df46f3ffc739f602b503f32b4c522026c8c93204929ddd5b65ad202")
+	prevWithdrawalStorageRoot = common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127")
+
+	// for target block
+	targetBlockhash             = common.HexToHash("0x4ecf76378ef03e3a417ac169cb052a879424345c59765aca05fe1fb6259375a9")
+	targetStateRoot             = common.HexToHash("0x0475b3d38492c9e58190616eaad4ab033942aa55747d49c5a614b9e751998d5e")
+	targetWithdrawalStorageRoot = common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127")
+
+	// for public input proof
 	l2toL1MesasgePasserBalance  = common.Big0
 	l2toL1MesasgePasserCodeHash = common.HexToHash("0x1f958654ab06a152993e7a0ae7b6dbb0d4b19265cc9337b8789fe1353bd9dc35")
 	merkleProof                 = []hexutil.Bytes{
@@ -33,23 +48,54 @@ var (
 		hexutil.MustDecode("0x012de4ca10cb48fa7ae483633127295fecab2f03da9355f4ca12ca0c820096f9c304040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001f958654ab06a152993e7a0ae7b6dbb0d4b19265cc9337b8789fe1353bd9dc3524f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127204200000000000000000000000000000000000003000000000000000000000000"),
 		hexutil.MustDecode("0x5448495320495320534f4d45204d4147494320425954455320464f5220534d54206d3172525867503278704449"),
 	}
+)
 
-	zeroUint64       = hexutil.MustDecodeUint64("0x0")
-	parentBeaconRoot = common.HexToHash("0x3eeb016384502029f0dc9cc6188d4e5ca8b6547f755b7cfa3749d7512f98c41b")
+func SetPrevOutputResponse(o *eth.OutputResponse) error {
+	outputRoot, err := rollup.ComputeKromaL2OutputRoot(&bindings.TypesOutputRootProof{
+		Version:                  eth.OutputVersionV0,
+		StateRoot:                prevStateRoot,
+		MessagePasserStorageRoot: prevWithdrawalStorageRoot,
+		LatestBlockhash:          prevBlockhash,
+		NextBlockHash:            targetBlockhash,
+	})
+	if err != nil {
+		return fmt.Errorf("mocking error: %w", err)
+	}
 
-	NextHeader = &types.Header{
-		ParentHash:       common.HexToHash("0x3392758b5bca8b8319df6180c145ca28152f1b6a3af977bc48ec67d2259dbcd2"),
-		Coinbase:         CoinbaseAddr,
+	o.OutputRoot = outputRoot
+	o.WithdrawalStorageRoot = prevWithdrawalStorageRoot
+	o.StateRoot = prevStateRoot
+	o.BlockRef = eth.L2BlockRef{
+		Number:     TargetBlockNumber - 1,
+		Hash:       prevBlockhash,
+		ParentHash: common.HexToHash("0x6fd96c96f5ca016848315ed6b2358ba125472019106a4f78ca92745b17f84c34"),
+	}
+	o.NextBlockRef = eth.L2BlockRef{Hash: targetBlockhash}
+
+	return nil
+}
+
+func SetPrevOutputWithProofResponse(o *eth.OutputWithProofResponse) error {
+	err := SetPrevOutputResponse(&o.OutputResponse)
+	if err != nil {
+		return err
+	}
+
+	o.PublicInputProof = &eth.PublicInputProof{}
+	parentBeaconRoot := common.HexToHash("0x3eeb016384502029f0dc9cc6188d4e5ca8b6547f755b7cfa3749d7512f98c41b")
+	o.PublicInputProof.NextBlock = &types.Header{
+		ParentHash:       prevBlockhash,
+		Coinbase:         coinbaseAddr,
 		Difficulty:       common.Big0,
-		Root:             common.HexToHash("0x0475b3d38492c9e58190616eaad4ab033942aa55747d49c5a614b9e751998d5e"),
+		Root:             targetStateRoot,
 		TxHash:           common.HexToHash("0xb01bdd77e9685c8341733f345113daa34c25a63a37cb76b81de492b36b0cc806"),
 		ReceiptHash:      common.HexToHash("0x886c02379eee108cab1ada4055c4f82b048b7e3bbce0d82bf532c95409d8ad81"),
-		Bloom:            types.BytesToBloom(hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")),
+		Bloom:            zeroBloom,
 		Number:           big.NewInt(int64(TargetBlockNumber)),
 		GasLimit:         hexutil.MustDecodeUint64("0x1c9c380"),
 		GasUsed:          hexutil.MustDecodeUint64("0xc9f4"),
 		Time:             hexutil.MustDecodeUint64("0x66471e21"),
-		Extra:            hexutil.MustDecode("0x"),
+		Extra:            emptyExtraData,
 		MixDigest:        common.HexToHash("0x8bb2786563ea29f638e4e9758d9886e8a1af5b4f7688f4ee6622a6b53df87742"),
 		BaseFee:          big.NewInt(int64(hexutil.MustDecodeUint64("0x1"))),
 		WithdrawalsHash:  &types.EmptyWithdrawalsHash,
@@ -57,33 +103,8 @@ var (
 		ExcessBlobGas:    &zeroUint64,
 		ParentBeaconRoot: &parentBeaconRoot,
 	}
-)
-
-func SetPrevOutputResponse(s **eth.OutputResponse) error {
-	outputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
-		Version:                  eth.OutputVersionV0,
-		StateRoot:                common.HexToHash("0x263975548df46f3ffc739f602b503f32b4c522026c8c93204929ddd5b65ad202"),
-		MessagePasserStorageRoot: common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127"),
-		BlockHash:                common.HexToHash("0x3392758b5bca8b8319df6180c145ca28152f1b6a3af977bc48ec67d2259dbcd2"),
-		NextBlockHash:            common.HexToHash("0x4ecf76378ef03e3a417ac169cb052a879424345c59765aca05fe1fb6259375a9"),
-	})
-	if err != nil {
-		return fmt.Errorf("mocking error: %w", err)
-	}
-
-	(*s).OutputRoot = outputRoot
-	(*s).WithdrawalStorageRoot = common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127")
-	(*s).StateRoot = common.HexToHash("0x263975548df46f3ffc739f602b503f32b4c522026c8c93204929ddd5b65ad202")
-	(*s).BlockRef = eth.L2BlockRef{
-		Number:     TargetBlockNumber - 1,
-		Hash:       common.HexToHash("0x3392758b5bca8b8319df6180c145ca28152f1b6a3af977bc48ec67d2259dbcd2"),
-		ParentHash: common.HexToHash("0x6fd96c96f5ca016848315ed6b2358ba125472019106a4f78ca92745b17f84c34"),
-	}
-	(*s).NextBlockRef = eth.L2BlockRef{Hash: common.HexToHash("0x4ecf76378ef03e3a417ac169cb052a879424345c59765aca05fe1fb6259375a9")}
-	(*s).PublicInputProof = &eth.PublicInputProof{}
-	(*s).PublicInputProof.NextBlock = NextHeader
 	toAddr := common.HexToAddress("0x4200000000000000000000000000000000000002")
-	(*s).PublicInputProof.NextTransactions = types.Transactions{
+	o.PublicInputProof.NextTransactions = types.Transactions{
 		types.NewTx(&types.DepositTx{
 			SourceHash: common.HexToHash("0x81e84a0b340571d1b0ef61008afa413d4dc9b50884003177f02294cb961b7503"),
 			From:       common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001"),
@@ -94,53 +115,64 @@ func SetPrevOutputResponse(s **eth.OutputResponse) error {
 			Data:       hexutil.MustDecode("0x440a5e20000f42400000000000000000000000000000000066471e1e000000000000000d000000000000000000000000000000000000000000000000000000000a83a7d000000000000000000000000000000000000000000000000000000000000000011b075cc318f7c80c85e6aee0d9da5d63dfb91d915d7be13aa2f23ec6b0c380500000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000000000000000001388"),
 		}),
 	}
-	(*s).PublicInputProof.L2ToL1MessagePasserBalance = l2toL1MesasgePasserBalance
-	(*s).PublicInputProof.L2ToL1MessagePasserCodeHash = l2toL1MesasgePasserCodeHash
-	(*s).PublicInputProof.MerkleProof = merkleProof
+	o.PublicInputProof.L2ToL1MessagePasserBalance = l2toL1MesasgePasserBalance
+	o.PublicInputProof.L2ToL1MessagePasserCodeHash = l2toL1MesasgePasserCodeHash
+	o.PublicInputProof.MerkleProof = merkleProof
 
 	return nil
 }
 
-func SetTargetOutputResponse(s **eth.OutputResponse) error {
-	outputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
+func SetTargetOutputResponse(o *eth.OutputResponse) error {
+	nextBlockhash := common.HexToHash("0x6c4e19b1fc27f6a075c67f35bd15b21c40025a892e32cdb8d9b5f5d5ec60093a")
+	outputRoot, err := rollup.ComputeKromaL2OutputRoot(&bindings.TypesOutputRootProof{
 		Version:                  eth.OutputVersionV0,
-		StateRoot:                common.HexToHash("0x0475b3d38492c9e58190616eaad4ab033942aa55747d49c5a614b9e751998d5e"),
-		MessagePasserStorageRoot: common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127"),
-		BlockHash:                common.HexToHash("0x4ecf76378ef03e3a417ac169cb052a879424345c59765aca05fe1fb6259375a9"),
-		NextBlockHash:            common.HexToHash("0x6c4e19b1fc27f6a075c67f35bd15b21c40025a892e32cdb8d9b5f5d5ec60093a"),
+		StateRoot:                targetStateRoot,
+		MessagePasserStorageRoot: targetWithdrawalStorageRoot,
+		LatestBlockhash:          targetBlockhash,
+		NextBlockHash:            nextBlockhash,
 	})
 	if err != nil {
 		return fmt.Errorf("mocking error: %w", err)
 	}
 
-	(*s).OutputRoot = outputRoot
-	(*s).WithdrawalStorageRoot = common.HexToHash("0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127")
-	(*s).StateRoot = common.HexToHash("0x0475b3d38492c9e58190616eaad4ab033942aa55747d49c5a614b9e751998d5e")
-	(*s).BlockRef = eth.L2BlockRef{
+	o.OutputRoot = outputRoot
+	o.WithdrawalStorageRoot = targetWithdrawalStorageRoot
+	o.StateRoot = targetStateRoot
+	o.BlockRef = eth.L2BlockRef{
 		Number:     TargetBlockNumber,
-		Hash:       common.HexToHash("0x4ecf76378ef03e3a417ac169cb052a879424345c59765aca05fe1fb6259375a9"),
-		ParentHash: common.HexToHash("0x3392758b5bca8b8319df6180c145ca28152f1b6a3af977bc48ec67d2259dbcd2"),
+		Hash:       targetBlockhash,
+		ParentHash: prevBlockhash,
 	}
-	(*s).NextBlockRef = eth.L2BlockRef{Hash: common.HexToHash("0x6c4e19b1fc27f6a075c67f35bd15b21c40025a892e32cdb8d9b5f5d5ec60093a")}
-	(*s).PublicInputProof = &eth.PublicInputProof{}
-	(*s).PublicInputProof.NextBlock = &types.Header{
-		ParentHash:  common.HexToHash("0x4ecf76378ef03e3a417ac169cb052a879424345c59765aca05fe1fb6259375a9"),
-		Coinbase:    CoinbaseAddr,
+	o.NextBlockRef = eth.L2BlockRef{Hash: nextBlockhash}
+
+	return nil
+}
+
+func SetTargetOutputWithProofResponse(o *eth.OutputWithProofResponse) error {
+	err := SetTargetOutputResponse(&o.OutputResponse)
+	if err != nil {
+		return err
+	}
+
+	o.PublicInputProof = &eth.PublicInputProof{}
+	o.PublicInputProof.NextBlock = &types.Header{
+		ParentHash:  targetBlockhash,
+		Coinbase:    coinbaseAddr,
 		Difficulty:  common.Big0,
 		Root:        common.HexToHash("0x1f5234e71e92fda7263874df353f6445195d58af33cb15bcaa6a37b0df779e4f"),
 		TxHash:      common.HexToHash("0x51a7beddaa794ab6fec8312267345c5fc694d13a72b509d30765aadc13475cde"),
 		ReceiptHash: common.HexToHash("0xc8d04bf464c80f34cb0083628e8d15b89cf93fe4515276a7af8b2b043bd3f6b9"),
-		Bloom:       types.BytesToBloom(hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")),
+		Bloom:       zeroBloom,
 		Number:      big.NewInt(int64(TargetBlockNumber + 1)),
 		GasLimit:    hexutil.MustDecodeUint64("0x1c9c380"),
 		GasUsed:     hexutil.MustDecodeUint64("0xb420"),
 		Time:        hexutil.MustDecodeUint64("0x66471e23"),
-		Extra:       hexutil.MustDecode("0x"),
+		Extra:       emptyExtraData,
 		MixDigest:   common.HexToHash("0x8bb2786563ea29f638e4e9758d9886e8a1af5b4f7688f4ee6622a6b53df87742"),
 		BaseFee:     big.NewInt(int64(hexutil.MustDecodeUint64("0x1"))),
 	}
 	toAddr := common.HexToAddress("0x4200000000000000000000000000000000000002")
-	(*s).PublicInputProof.NextTransactions = types.Transactions{
+	o.PublicInputProof.NextTransactions = types.Transactions{
 		types.NewTx(&types.DepositTx{
 			SourceHash: common.HexToHash("0x40bcbd870b6c68f66e727762654cf39e1491b20be579a13d231a6a6d21f204ce"),
 			From:       common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001"),
@@ -151,9 +183,9 @@ func SetTargetOutputResponse(s **eth.OutputResponse) error {
 			Data:       hexutil.MustDecode("0x440a5e20000f42400000000000000000000000010000000066471e1e000000000000000d000000000000000000000000000000000000000000000000000000000a83a7d000000000000000000000000000000000000000000000000000000000000000011b075cc318f7c80c85e6aee0d9da5d63dfb91d915d7be13aa2f23ec6b0c380500000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc0000000000000000000000000000000000000000000000000000000000001388"),
 		}),
 	}
-	(*s).PublicInputProof.L2ToL1MessagePasserBalance = l2toL1MesasgePasserBalance
-	(*s).PublicInputProof.L2ToL1MessagePasserCodeHash = l2toL1MesasgePasserCodeHash
-	(*s).PublicInputProof.MerkleProof = merkleProof
+	o.PublicInputProof.L2ToL1MessagePasserBalance = l2toL1MesasgePasserBalance
+	o.PublicInputProof.L2ToL1MessagePasserCodeHash = l2toL1MesasgePasserCodeHash
+	o.PublicInputProof.MerkleProof = merkleProof
 
 	return nil
 }

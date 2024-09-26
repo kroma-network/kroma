@@ -36,7 +36,7 @@ contract KromaPortal_Invariant_Harness is Portal_Initializer {
             version: bytes32(uint256(0)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
         _submittedBlockNumber = oracle.nextBlockNumber();

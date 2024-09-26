@@ -388,7 +388,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             version: bytes32(uint256(0)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
         _submittedBlockNumber = oracle.nextBlockNumber();
@@ -453,9 +453,9 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
 
     // Test: proveWithdrawalTransaction reverts if the outputRootProof does not match the output root
     function test_proveWithdrawalTransaction_onInvalidOutputRootProof_reverts() external {
-        // Modify the version to invalidate the withdrawal proof.
-        _outputRootProof.version = bytes32(uint256(MAX_OUTPUT_ROOT_PROOF_VERSION + 1));
-        vm.expectRevert("Hashing: unknown output root proof version");
+        // Modify the version to invalidate the output root proof.
+        _outputRootProof.version = bytes32(uint256(1));
+        vm.expectRevert("KromaPortal: invalid output root proof");
         portal.proveWithdrawalTransaction(
             _defaultTx,
             _submittedOutputIndex,
@@ -613,7 +613,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             version: bytes32(uint256(0)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(1))
         });
 
@@ -908,7 +908,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
 
@@ -960,7 +960,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
 
@@ -1041,7 +1041,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
 
