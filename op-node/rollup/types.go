@@ -88,6 +88,10 @@ type Config struct {
 	// Active if EcotoneTime != nil && L2 block timestamp >= *EcotoneTime, inactive otherwise.
 	EcotoneTime *uint64 `json:"ecotone_time,omitempty"`
 
+	// KromaMPTTime sets the activation time of the Kroma MPT network upgrade.
+	// Active if KromaMPTTime != nil && L2 block timestamp >= *KromaMPTTime, inactive otherwise.
+	KromaMPTTime *uint64 `json:"kroma_mpt_time,omitempty"`
+
 	// FjordTime sets the activation time of the Fjord network upgrade.
 	// Active if FjordTime != nil && L2 block timestamp >= *FjordTime, inactive otherwise.
 	FjordTime *uint64 `json:"fjord_time,omitempty"`
@@ -301,9 +305,14 @@ func (cfg *Config) Check() error {
 	if err := checkFork(cfg.DeltaTime, cfg.EcotoneTime, "delta", "ecotone"); err != nil {
 		return err
 	}
-	if err := checkFork(cfg.EcotoneTime, cfg.FjordTime, "ecotone", "fjord"); err != nil {
+	// [Kroma: START]
+	if err := checkFork(cfg.EcotoneTime, cfg.KromaMPTTime, "ecotone", "mpt"); err != nil {
 		return err
 	}
+	if err := checkFork(cfg.KromaMPTTime, cfg.FjordTime, "mpt", "fjord"); err != nil {
+		return err
+	}
+	// [Kroma: END]
 
 	return nil
 }
@@ -355,6 +364,11 @@ func (c *Config) IsEcotoneActivationBlock(l2BlockTime uint64) bool {
 	return c.IsEcotone(l2BlockTime) &&
 		l2BlockTime >= c.BlockTime &&
 		!c.IsEcotone(l2BlockTime-c.BlockTime)
+}
+
+// IsKromaMPT returns true if the Kroma MPT hardfork is active at or past the given timestamp.
+func (c *Config) IsKromaMPT(timestamp uint64) bool {
+	return c.KromaMPTTime != nil && timestamp >= *c.KromaMPTTime
 }
 
 // IsFjord returns true if the Fjord hardfork is active at or past the given timestamp.
@@ -466,6 +480,7 @@ func (c *Config) Description(l2Chains map[string]string) string {
 	banner += fmt.Sprintf("  - Canyon: %s\n", fmtForkTimeOrUnset(c.CanyonTime))
 	banner += fmt.Sprintf("  - Delta: %s\n", fmtForkTimeOrUnset(c.DeltaTime))
 	banner += fmt.Sprintf("  - Ecotone: %s\n", fmtForkTimeOrUnset(c.EcotoneTime))
+	banner += fmt.Sprintf("  - Kroma MPT: %s\n", fmtForkTimeOrUnset(c.KromaMPTTime))
 	banner += fmt.Sprintf("  - Fjord: %s\n", fmtForkTimeOrUnset(c.FjordTime))
 	banner += fmt.Sprintf("  - Interop: %s\n", fmtForkTimeOrUnset(c.InteropTime))
 	/* [Kroma: START]
@@ -498,6 +513,7 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 		"canyon_time", fmtForkTimeOrUnset(c.CanyonTime),
 		"delta_time", fmtForkTimeOrUnset(c.DeltaTime),
 		"ecotone_time", fmtForkTimeOrUnset(c.EcotoneTime),
+		"kroma_mpt_time", fmtForkTimeOrUnset(c.KromaMPTTime),
 		"fjord_time", fmtForkTimeOrUnset(c.FjordTime),
 		"interop_time", fmtForkTimeOrUnset(c.InteropTime),
 	)
