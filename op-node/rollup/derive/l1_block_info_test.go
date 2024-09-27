@@ -117,7 +117,9 @@ func TestParseL1InfoDepositTxData(t *testing.T) {
 		}
 		depTx, err := L1InfoDeposit(&rollupCfg, randomL1Cfg(rng, info), randomSeqNr(rng), info, 0)
 		require.NoError(t, err)
+		/* [Kroma: START]
 		require.False(t, depTx.IsSystemTransaction)
+		[Kroma: END] */
 		require.Equal(t, depTx.Gas, uint64(RegolithSystemTxGas))
 	})
 	t.Run("ecotone", func(t *testing.T) {
@@ -130,7 +132,9 @@ func TestParseL1InfoDepositTxData(t *testing.T) {
 		}
 		depTx, err := L1InfoDeposit(&rollupCfg, randomL1Cfg(rng, info), randomSeqNr(rng), info, 1)
 		require.NoError(t, err)
+		/* [Kroma: START]
 		require.False(t, depTx.IsSystemTransaction)
+		[Kroma: END] */
 		require.Equal(t, depTx.Gas, uint64(RegolithSystemTxGas))
 		require.Equal(t, L1InfoEcotoneLen, len(depTx.Data))
 	})
@@ -145,7 +149,9 @@ func TestParseL1InfoDepositTxData(t *testing.T) {
 		}
 		depTx, err := L1InfoDeposit(&rollupCfg, randomL1Cfg(rng, info), randomSeqNr(rng), info, 2)
 		require.NoError(t, err)
+		/* [Kroma: START]
 		require.False(t, depTx.IsSystemTransaction)
+		[Kroma: END] */
 		require.Equal(t, depTx.Gas, uint64(RegolithSystemTxGas))
 		require.Equal(t, L1InfoBedrockLen, len(depTx.Data))
 	})
@@ -160,7 +166,9 @@ func TestParseL1InfoDepositTxData(t *testing.T) {
 		}
 		depTx, err := L1InfoDeposit(&rollupCfg, randomL1Cfg(rng, info), randomSeqNr(rng), info, 0)
 		require.NoError(t, err)
+		/* [Kroma: START]
 		require.False(t, depTx.IsSystemTransaction)
+		[Kroma: END] */
 		require.Equal(t, depTx.Gas, uint64(RegolithSystemTxGas))
 		require.Equal(t, L1InfoEcotoneLen, len(depTx.Data))
 	})

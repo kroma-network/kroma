@@ -99,6 +99,7 @@ type LocalEngineControl interface {
 // The safe head may advance by more than one block in a single update
 // The l1Block specified is the first L1 block that includes sufficient information to derive the new safe head
 type SafeHeadListener interface {
+
 	// Enabled reports if this safe head listener is actively using the posted data. This allows the engine queue to
 	// optionally skip making calls that may be expensive to prepare.
 	// Callbacks may still be made if Enabled returns false but are not guaranteed.

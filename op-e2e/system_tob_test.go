@@ -139,14 +139,13 @@ func TestL2SequencerRPCDepositTx(t *testing.T) {
 
 	// Create a deposit tx to send over RPC.
 	tx := types.NewTx(&types.DepositTx{
-		SourceHash:          common.Hash{},
-		From:                crypto.PubkeyToAddress(txSigningKey.PublicKey),
-		To:                  &common.Address{0xff, 0xff},
-		Mint:                big.NewInt(1000),
-		Value:               big.NewInt(1000),
-		Gas:                 0,
-		IsSystemTransaction: false,
-		Data:                nil,
+		SourceHash: common.Hash{},
+		From:       crypto.PubkeyToAddress(txSigningKey.PublicKey),
+		To:         &common.Address{0xff, 0xff},
+		Mint:       big.NewInt(1000),
+		Value:      big.NewInt(1000),
+		Gas:        0,
+		Data:       nil,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

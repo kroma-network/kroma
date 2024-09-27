@@ -53,8 +53,8 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		Data:       l1BlockDeploymentBytecode,
 		// [Kroma: START]
 		Gas: 500_000,
+		// IsSystemTransaction: false,
 		// [Kroma: END]
-		IsSystemTransaction: false,
 	}).MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -63,14 +63,16 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 	upgradeTxns = append(upgradeTxns, deployL1BlockTransaction)
 
 	deployGasPriceOracle, err := types.NewTx(&types.DepositTx{
-		SourceHash:          deployGasPriceOracleSource.SourceHash(),
-		From:                GasPriceOracleDeployerAddress,
-		To:                  nil,
-		Mint:                big.NewInt(0),
-		Value:               big.NewInt(0),
-		Gas:                 1_000_000,
+		SourceHash: deployGasPriceOracleSource.SourceHash(),
+		From:       GasPriceOracleDeployerAddress,
+		To:         nil,
+		Mint:       big.NewInt(0),
+		Value:      big.NewInt(0),
+		Gas:        1_000_000,
+		/* [Kroma: START]
 		IsSystemTransaction: false,
-		Data:                gasPriceOracleDeploymentBytecode,
+		[Kroma: END] */
+		Data: gasPriceOracleDeploymentBytecode,
 	}).MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -79,14 +81,16 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 	upgradeTxns = append(upgradeTxns, deployGasPriceOracle)
 
 	updateL1BlockProxy, err := types.NewTx(&types.DepositTx{
-		SourceHash:          updateL1BlockProxySource.SourceHash(),
-		From:                common.Address{},
-		To:                  &predeploys.L1BlockAddr,
-		Mint:                big.NewInt(0),
-		Value:               big.NewInt(0),
-		Gas:                 50_000,
+		SourceHash: updateL1BlockProxySource.SourceHash(),
+		From:       common.Address{},
+		To:         &predeploys.L1BlockAddr,
+		Mint:       big.NewInt(0),
+		Value:      big.NewInt(0),
+		Gas:        50_000,
+		/* [Kroma: START]
 		IsSystemTransaction: false,
-		Data:                upgradeToCalldata(newL1BlockAddress),
+		[Kroma: END] */
+		Data: upgradeToCalldata(newL1BlockAddress),
 	}).MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -95,14 +99,16 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 	upgradeTxns = append(upgradeTxns, updateL1BlockProxy)
 
 	updateGasPriceOracleProxy, err := types.NewTx(&types.DepositTx{
-		SourceHash:          updateGasPriceOracleSource.SourceHash(),
-		From:                common.Address{},
-		To:                  &predeploys.GasPriceOracleAddr,
-		Mint:                big.NewInt(0),
-		Value:               big.NewInt(0),
-		Gas:                 50_000,
+		SourceHash: updateGasPriceOracleSource.SourceHash(),
+		From:       common.Address{},
+		To:         &predeploys.GasPriceOracleAddr,
+		Mint:       big.NewInt(0),
+		Value:      big.NewInt(0),
+		Gas:        50_000,
+		/* [Kroma: START]
 		IsSystemTransaction: false,
-		Data:                upgradeToCalldata(newGasPriceOracleAddress),
+		[Kroma: END] */
+		Data: upgradeToCalldata(newGasPriceOracleAddress),
 	}).MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -111,14 +117,16 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 	upgradeTxns = append(upgradeTxns, updateGasPriceOracleProxy)
 
 	enableEcotone, err := types.NewTx(&types.DepositTx{
-		SourceHash:          enableEcotoneSource.SourceHash(),
-		From:                L1InfoDepositerAddress,
-		To:                  &predeploys.GasPriceOracleAddr,
-		Mint:                big.NewInt(0),
-		Value:               big.NewInt(0),
-		Gas:                 80_000,
+		SourceHash: enableEcotoneSource.SourceHash(),
+		From:       L1InfoDepositerAddress,
+		To:         &predeploys.GasPriceOracleAddr,
+		Mint:       big.NewInt(0),
+		Value:      big.NewInt(0),
+		Gas:        80_000,
+		/* [Kroma: START]
 		IsSystemTransaction: false,
-		Data:                enableEcotoneInput,
+		[Kroma: END] */
+		Data: enableEcotoneInput,
 	}).MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -126,14 +134,16 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 	upgradeTxns = append(upgradeTxns, enableEcotone)
 
 	deployEIP4788, err := types.NewTx(&types.DepositTx{
-		From:                EIP4788From,
-		To:                  nil, // contract-deployment tx
-		Mint:                big.NewInt(0),
-		Value:               big.NewInt(0),
-		Gas:                 0x3d090, // hex constant, as defined in EIP-4788
-		Data:                eip4788CreationData,
+		From:  EIP4788From,
+		To:    nil, // contract-deployment tx
+		Mint:  big.NewInt(0),
+		Value: big.NewInt(0),
+		Gas:   0x3d090, // hex constant, as defined in EIP-4788
+		Data:  eip4788CreationData,
+		/* [Kroma: START]
 		IsSystemTransaction: false,
-		SourceHash:          beaconRootsSource.SourceHash(),
+		[Kroma: END] */
+		SourceHash: beaconRootsSource.SourceHash(),
 	}).MarshalBinary()
 	if err != nil {
 		return nil, err

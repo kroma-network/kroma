@@ -41,18 +41,7 @@ func AttributesMatchBlock(rollupCfg *rollup.Config, attrs *eth.PayloadAttributes
 		return fmt.Errorf("transaction count does not match. expected: %d. got: %d", len(attrs.Transactions), len(block.Transactions))
 	}
 	for i, otx := range attrs.Transactions {
-		// [Kroma: START]
-		// DepositTx in the RPC response does not come as KromaDepositTx, so it is converted to KromaDepositTx.
-		expect := block.Transactions[i]
-		if expect[0] == types.DepositTxType && !rollupCfg.IsKromaMPT(uint64(attrs.Timestamp)) {
-			var err error
-			expect, err = ToKromaDepositBytes(expect)
-			if err != nil {
-				return err
-			}
-		}
-		// [Kroma: END]
-		if !bytes.Equal(otx, expect) {
+		if expect := block.Transactions[i]; !bytes.Equal(otx, expect) {
 			if i == 0 {
 				logL1InfoTxns(rollupCfg, l, uint64(block.BlockNumber), uint64(block.Timestamp), otx, block.Transactions[i])
 			}

@@ -117,24 +117,6 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	txs = append(txs, depositTxs...)
 	txs = append(txs, upgradeTxs...)
 
-	// [Kroma: START]
-	// In Kroma, the IsSystemTransaction field was deleted from DepositTx.
-	// After transitioning to MPT, we bring back the IsSystemTransaction field for compatibility with OP.
-	// Therefore, before MPT time, use KromaDepositTx struct to create deposit transactions without that field.
-	if !ba.rollupCfg.IsKromaMPT(nextL2Time) {
-		for i, otx := range txs {
-			if otx[0] != types.DepositTxType {
-				continue
-			}
-			tx, err := ToKromaDepositBytes(otx)
-			if err != nil {
-				return nil, NewCriticalError(err)
-			}
-			txs[i] = tx
-		}
-	}
-	// [Kroma: END]
-
 	var withdrawals *types.Withdrawals
 	if ba.rollupCfg.IsCanyon(nextL2Time) {
 		withdrawals = &types.Withdrawals{}
@@ -158,19 +140,4 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		Withdrawals:           withdrawals,
 		ParentBeaconBlockRoot: parentBeaconRoot,
 	}, nil
-}
-
-func ToKromaDepositBytes(input hexutil.Bytes) (hexutil.Bytes, error) {
-	if input[0] != types.DepositTxType {
-		return nil, fmt.Errorf("unexpected transaction type: %d", input[0])
-	}
-	if types.IsKromaDepositTx(input[1:]) {
-		return input, nil
-	}
-	var tx types.Transaction
-	if err := tx.UnmarshalBinary(input); err != nil {
-		return nil, fmt.Errorf("failed to decode deposit tx: %w", err)
-	}
-	kromaDepTx := tx.ToKromaDepositTx()
-	return kromaDepTx.MarshalBinary()
 }

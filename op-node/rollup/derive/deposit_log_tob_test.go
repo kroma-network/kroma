@@ -61,14 +61,16 @@ func fuzzReceipts(typeProvider *fuzz.Fuzzer, blockHash common.Hash, depositContr
 
 				// Create our deposit transaction
 				dep := &types.DepositTx{
-					SourceHash:          source.SourceHash(),
-					From:                *fuzzedDepositInfo.FromAddr,
-					To:                  fuzzedDepositInfo.ToAddr,
-					Value:               fuzzedDepositInfo.Value,
-					Gas:                 fuzzedDepositInfo.Gas,
-					Data:                fuzzedDepositInfo.Data,
-					Mint:                fuzzedDepositInfo.Mint,
+					SourceHash: source.SourceHash(),
+					From:       *fuzzedDepositInfo.FromAddr,
+					To:         fuzzedDepositInfo.ToAddr,
+					Value:      fuzzedDepositInfo.Value,
+					Gas:        fuzzedDepositInfo.Gas,
+					Data:       fuzzedDepositInfo.Data,
+					Mint:       fuzzedDepositInfo.Mint,
+					/* [Kroma: START]
 					IsSystemTransaction: false,
+					[Kroma: END] */
 				}
 
 				// Marshal our actual log event
