@@ -280,13 +280,6 @@ func (s *L2Verifier) ActL2PipelineFull(t Testing) {
 // ActL2UnsafeGossipReceive creates an action that can receive an unsafe execution payload, like gossipsub
 func (s *L2Verifier) ActL2UnsafeGossipReceive(payload *eth.ExecutionPayloadEnvelope) Action {
 	return func(t Testing) {
-		// [Kroma: START] Use KromaDepositTx instead of DepositTx
-		for i, otx := range payload.ExecutionPayload.Transactions {
-			var err error
-			payload.ExecutionPayload.Transactions[i], err = derive.ToKromaDepositBytes(otx)
-			require.NoError(t, err)
-		}
-		// [Kroma: END]
 		s.derivation.AddUnsafePayload(payload)
 	}
 }
@@ -294,13 +287,6 @@ func (s *L2Verifier) ActL2UnsafeGossipReceive(payload *eth.ExecutionPayloadEnvel
 // ActL2InsertUnsafePayload creates an action that can insert an unsafe execution payload
 func (s *L2Verifier) ActL2InsertUnsafePayload(payload *eth.ExecutionPayloadEnvelope) Action {
 	return func(t Testing) {
-		// [Kroma: START] Use KromaDepositTx instead of DepositTx
-		for i, otx := range payload.ExecutionPayload.Transactions {
-			var err error
-			payload.ExecutionPayload.Transactions[i], err = derive.ToKromaDepositBytes(otx)
-			require.NoError(t, err)
-		}
-		// [Kroma: END]
 		ref, err := derive.PayloadToBlockRef(s.rollupCfg, payload.ExecutionPayload)
 		require.NoError(t, err)
 		err = s.engine.InsertUnsafePayload(t.Ctx(), payload, ref)

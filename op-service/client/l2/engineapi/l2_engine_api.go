@@ -316,7 +316,7 @@ func (ea *L2EngineAPI) getPayload(_ context.Context, payloadId eth.PayloadID) (*
 		return nil, engine.UnknownPayload
 	}
 
-	return eth.BlockAsPayloadEnv(bl, ea.config().CanyonTime, ea.config().KromaMptTime)
+	return eth.BlockAsPayloadEnv(bl, ea.config().CanyonTime)
 }
 
 func (ea *L2EngineAPI) forkchoiceUpdated(_ context.Context, state *eth.ForkchoiceState, attr *eth.PayloadAttributes) (*eth.ForkchoiceUpdatedResult, error) {

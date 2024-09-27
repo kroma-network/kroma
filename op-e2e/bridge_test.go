@@ -98,10 +98,7 @@ func TestERC20BridgeDeposits(t *testing.T) {
 
 	depositTx, err := derive.UnmarshalDepositLogEvent(&depositEvent.Raw)
 	require.NoError(t, err)
-	// [Kroma: START] Use KromaDepositTx instead of DepositTx
-	kromaDepTx := types.NewTx(depositTx).ToKromaDepositTx()
-	_, err = wait.ForReceiptOK(context.Background(), l2Client, kromaDepTx.Hash())
-	// [Kroma: END]
+	_, err = wait.ForReceiptOK(context.Background(), l2Client, types.NewTx(depositTx).Hash())
 	require.NoError(t, err)
 
 	// Ensure that the deposit went through

@@ -50,9 +50,6 @@ func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l
 	reconstructedDep, err := derive.UnmarshalDepositLogEvent(l1Receipt.Logs[0])
 	require.NoError(t, err, "Could not reconstruct L2 Deposit")
 	tx = types.NewTx(reconstructedDep)
-	// [Kroma: START] Use KromaDepositTx instead of DepositTx
-	tx = tx.ToKromaDepositTx()
-	// [Kroma: END]
 	l2Receipt, err := wait.ForReceipt(ctx, l2Client, tx.Hash(), l2Opts.ExpectedStatus)
 	require.NoError(t, err, "Waiting for deposit tx on L2")
 	return l2Receipt
