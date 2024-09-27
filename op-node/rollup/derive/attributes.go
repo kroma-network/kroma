@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 // L1ReceiptsFetcher fetches L1 header info and receipts for the payload attributes derivation (the info tx and deposits)
@@ -149,15 +148,10 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		}
 	}
 
-	suggestedFeeRecipient := common.Address{}
-	if ba.rollupCfg.IsKromaMPT(nextL2Time) {
-		suggestedFeeRecipient = predeploys.ProtocolVaultAddr
-	}
-
 	return &eth.PayloadAttributes{
 		Timestamp:             hexutil.Uint64(nextL2Time),
 		PrevRandao:            eth.Bytes32(l1Info.MixDigest()),
-		SuggestedFeeRecipient: suggestedFeeRecipient,
+		SuggestedFeeRecipient: common.Address{},
 		Transactions:          txs,
 		NoTxPool:              true,
 		GasLimit:              (*eth.Uint64Quantity)(&sysConfig.GasLimit),
