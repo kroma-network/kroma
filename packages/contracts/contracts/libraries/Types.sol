@@ -155,6 +155,7 @@ library Types {
      * @custom:field segments   Array of the segment.
      * @custom:field segStart   The L2 block number of the first segment.
      * @custom:field segSize    The number of L2 blocks.
+     * @custom:field l1Head     Parent L1 block hash at the challenge creation time.
      */
     struct Challenge {
         uint8 turn;
@@ -164,6 +165,7 @@ library Types {
         bytes32[] segments;
         uint256 segSize;
         uint256 segStart;
+        bytes32 l1Head;
     }
 
     /**

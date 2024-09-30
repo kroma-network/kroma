@@ -216,6 +216,7 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(challenge.segStart, start);
         assertEq(challenge.segSize, end - start);
         assertEq(challenge.turn, 1);
+        assertEq(challenge.l1Head, blockhash(block.number - 1));
     }
 
     function _bisect(uint256 _outputIndex, address _challenger, address _sender) private {

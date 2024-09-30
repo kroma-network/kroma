@@ -498,6 +498,7 @@ contract Colosseum is Initializable, ISemver {
         challenge.turn = TURN_INIT;
         challenge.asserter = targetOutput.submitter;
         challenge.challenger = msg.sender;
+        challenge.l1Head = blockhash(block.number - 1);
         _updateTimeout(challenge);
 
         emit ChallengeCreated(_outputIndex, targetOutput.submitter, msg.sender, block.timestamp);
