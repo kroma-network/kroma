@@ -259,6 +259,10 @@ func applyOverrides(ctx *cli.Context, rollupConfig *rollup.Config) {
 		ecotone := ctx.Uint64(opflags.EcotoneOverrideFlagName)
 		rollupConfig.EcotoneTime = &ecotone
 	}
+	if ctx.IsSet(opflags.KromaMPTOverrideFlagName) {
+		kromaMPT := ctx.Uint64(opflags.KromaMPTOverrideFlagName)
+		rollupConfig.KromaMPTTime = &kromaMPT
+	}
 }
 
 func NewSnapshotLogger(ctx *cli.Context) (log.Logger, error) {

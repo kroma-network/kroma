@@ -99,7 +99,7 @@ contract FFIInterface {
         bytes32 _version,
         bytes32 _stateRoot,
         bytes32 _messagePasserStorageRoot,
-        bytes32 _blockhash,
+        bytes32 _latestBlockhash,
         bytes32 _nextBlockhash
     )
         external
@@ -112,7 +112,7 @@ contract FFIInterface {
         cmds[3] = Strings.toHexString(uint256(_version));
         cmds[4] = Strings.toHexString(uint256(_stateRoot));
         cmds[5] = Strings.toHexString(uint256(_messagePasserStorageRoot));
-        cmds[6] = Strings.toHexString(uint256(_blockhash));
+        cmds[6] = Strings.toHexString(uint256(_latestBlockhash));
         cmds[7] = Strings.toHexString(uint256(_nextBlockhash));
 
         bytes memory result = vm.ffi(cmds);

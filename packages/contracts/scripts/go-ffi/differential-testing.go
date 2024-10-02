@@ -242,11 +242,11 @@ func DiffTestUtils() {
 		stateRoot := common.HexToHash(args[2])
 		messagePasserStorageRoot := common.HexToHash(args[3])
 		// [Kroma: START]
-		blockHash := common.HexToHash(args[4])
+		latestBlockHash := common.HexToHash(args[4])
 		nextBlockHash := common.HexToHash(args[5])
 
 		// Hash the output root proof
-		hash, err := hashOutputRootProof(version, stateRoot, messagePasserStorageRoot, blockHash, nextBlockHash)
+		hash, err := hashOutputRootProof(version, stateRoot, messagePasserStorageRoot, latestBlockHash, nextBlockHash)
 		// [Kroma: END]
 		checkErr(err, "Error hashing output root proof")
 

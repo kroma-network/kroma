@@ -55,8 +55,6 @@ contract CommonTest is Test {
     bytes32 nonZeroHash = keccak256(abi.encode("NON_ZERO"));
     bytes NON_ZERO_DATA = hex"0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000";
 
-    uint256 constant MAX_OUTPUT_ROOT_PROOF_VERSION = 0;
-
     event TransactionDeposited(
         address indexed from,
         address indexed to,

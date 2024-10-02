@@ -594,12 +594,7 @@ contract Colosseum is Initializable, ISemver {
             _proof.srcOutputRootProof,
             _proof.dstOutputRootProof
         );
-        _validatePublicInput(
-            _proof.srcOutputRootProof,
-            _proof.dstOutputRootProof,
-            _proof.publicInput,
-            _proof.rlps
-        );
+        _validatePublicInput(_proof.dstOutputRootProof, _proof.publicInput, _proof.rlps);
         _validateWithdrawalStorageRoot(
             _proof.merkleProof,
             _proof.l2ToL1MessagePasserBalance,
@@ -886,21 +881,24 @@ contract Colosseum is Initializable, ISemver {
             if (_challenge.segments[_pos + 1] == _dstOutputRoot) revert LastSegmentMatched();
         }
 
-        if (_srcOutputRootProof.nextBlockHash != _dstOutputRootProof.blockHash)
-            revert BlockHashMismatchedBtwSrcAndDst();
+        // Note that the connectivity between outputs is verified using nextBlockHash only when output has nextBlockHash
+        // (KromaOutputV0).
+        if (_srcOutputRootProof.nextBlockHash != bytes32(0)) {
+            if (_srcOutputRootProof.nextBlockHash != _dstOutputRootProof.latestBlockhash)
+                revert BlockHashMismatchedBtwSrcAndDst();
+        }
     }
 
     /**
      * @notice Checks if the public input is valid.
      *         Reverts if public input is invalid.
      *
-     * @param _srcOutputRootProof Proof of the source output root.
      * @param _dstOutputRootProof Proof of the destination output root.
      * @param _publicInput        Ingredients to compute the public input used by ZK proof verification.
-     * @param _rlps               Pre-encoded RLPs to compute the next block hash of the source output root proof.
+     * @param _rlps               Pre-encoded RLPs to compute the latest block hash of the destination output root
+     *                            proof.
      */
     function _validatePublicInput(
-        Types.OutputRootProof calldata _srcOutputRootProof,
         Types.OutputRootProof calldata _dstOutputRootProof,
         Types.PublicInput calldata _publicInput,
         Types.BlockHeaderRLP calldata _rlps
@@ -913,7 +911,7 @@ contract Colosseum is Initializable, ISemver {
             ? Hashing.hashBlockHeaderCancun(_publicInput, _rlps)
             : Hashing.hashBlockHeaderShanghai(_publicInput, _rlps);
 
-        if (_srcOutputRootProof.nextBlockHash != blockHash) revert BlockHashMismatched();
+        if (_dstOutputRootProof.latestBlockhash != blockHash) revert BlockHashMismatched();
     }
 
     /**

@@ -13,7 +13,9 @@ import {
   OutputData,
   encodeCrossDomainMessageV0,
   hashCrossDomainMessage,
+  hexStringEquals,
   sleep,
+  toHexString,
   toRpcHexString,
 } from '@kroma/core-utils'
 import {
@@ -951,12 +953,24 @@ export class CrossChainMessenger {
       false,
     ])
 
-    const nextBlock = await (
-      this.l2Provider as ethers.providers.JsonRpcProvider
-    ).send('eth_getBlockByNumber', [
-      toRpcHexString(output.l2BlockNumber + 1),
-      false,
-    ])
+    // Include nextBlockHash in outputRootProof only when withdrawalProof is zk trie version.
+    let nextBlockHash = ''
+    const ZK_TRIE_MAGIC_SMT = 'THIS IS SOME MAGIC BYTES FOR SMT m1rRXgP2xpDI'
+    const withdrawalProof = stateTrieProof.storageProof
+    if (
+      hexStringEquals(
+        withdrawalProof[withdrawalProof.length - 1],
+        toHexString(ZK_TRIE_MAGIC_SMT)
+      )
+    ) {
+      const nextBlock = await (
+        this.l2Provider as ethers.providers.JsonRpcProvider
+      ).send('eth_getBlockByNumber', [
+        toRpcHexString(output.l2BlockNumber + 1),
+        false,
+      ])
+      nextBlockHash = nextBlock.hash
+    }
 
     return {
       outputRootProof: {
@@ -964,9 +978,9 @@ export class CrossChainMessenger {
         stateRoot: block.stateRoot,
         messagePasserStorageRoot: stateTrieProof.storageRoot,
         blockHash: block.hash,
-        nextBlockHash: nextBlock.hash,
+        nextBlockHash,
       },
-      withdrawalProof: stateTrieProof.storageProof,
+      withdrawalProof,
       l2OutputIndex: output.l2OutputIndex,
     }
   }

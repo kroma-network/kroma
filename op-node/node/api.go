@@ -5,18 +5,19 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/version"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/metrics"
 	"github.com/ethereum-optimism/optimism/op-service/rpc"
+
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
@@ -127,12 +128,34 @@ func (n *nodeAPI) OutputAtBlock(ctx context.Context, number hexutil.Uint64) (*et
 	recordDur := n.m.RecordRPCServerRequest("optimism_outputAtBlock")
 	defer recordDur()
 
-	output, err := n.fetchOutputAtBlock(ctx, number)
+	ref, status, err := n.dr.BlockRefWithStatus(ctx, uint64(number))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get L2 block ref with sync status: %w", err)
 	}
 
-	return output, nil
+	// [Kroma: START]
+	if n.config.IsKromaMPT(ref.Time) {
+		output, err := n.client.OutputV0AtBlock(ctx, ref.Hash)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get L2 output at block %s: %w", ref, err)
+		}
+		return &eth.OutputResponse{
+			Version:               output.Version(),
+			OutputRoot:            eth.OutputRoot(output),
+			BlockRef:              ref,
+			WithdrawalStorageRoot: common.Hash(output.MessagePasserStorageRoot),
+			StateRoot:             common.Hash(output.StateRoot),
+			Status:                status,
+		}, nil
+	} else {
+		output, err := n.fetchKromaOutputAtBlock(ctx, number)
+		if err != nil {
+			return nil, err
+		}
+
+		return output, nil
+	}
+	// [Kroma: END]
 }
 
 func (n *nodeAPI) SafeHeadAtL1Block(ctx context.Context, number hexutil.Uint64) (*eth.SafeHeadResponse, error) {
@@ -168,11 +191,12 @@ func (n *nodeAPI) Version(ctx context.Context) (string, error) {
 	return version.Version + "-" + version.Meta, nil
 }
 
-func (n *nodeAPI) OutputWithProofAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
+// [Kroma: START]
+func (n *nodeAPI) OutputWithProofAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputWithProofResponse, error) {
 	recordDur := n.m.RecordRPCServerRequest("kroma_outputWithProofAtBlock")
 	defer recordDur()
 
-	output, err := n.fetchOutputAtBlock(ctx, number)
+	output, err := n.fetchKromaOutputAtBlock(ctx, number)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +207,7 @@ func (n *nodeAPI) OutputWithProofAtBlock(ctx context.Context, number hexutil.Uin
 	}
 	nextBlock := nextHead.Header()
 
-	// TODO(seolaoh): reuse the proof fetched in `fetchOutputAtBlock` function
+	// TODO(seolaoh): reuse the proof fetched in `fetchKromaOutputAtBlock` function
 	accountResult, err := n.client.GetProof(ctx, predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, output.BlockRef.Hash.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get proof of L2ToL1MessagePasser by hash %s: %w", output.BlockRef.Hash.String(), err)
@@ -192,21 +216,22 @@ func (n *nodeAPI) OutputWithProofAtBlock(ctx context.Context, number hexutil.Uin
 	l2ToL1MessagePasserCodeHash := accountResult.CodeHash
 	merkleProof := accountResult.AccountProof
 
-	output.PublicInputProof = &eth.PublicInputProof{
-		NextBlock:                   nextBlock,
-		NextTransactions:            nextTxs,
-		L2ToL1MessagePasserBalance:  l2ToL1MessagePasserBalance,
-		L2ToL1MessagePasserCodeHash: l2ToL1MessagePasserCodeHash,
-		MerkleProof:                 merkleProof,
-	}
-
-	return output, nil
+	return &eth.OutputWithProofResponse{
+		OutputResponse: *output,
+		PublicInputProof: &eth.PublicInputProof{
+			NextBlock:                   nextBlock,
+			NextTransactions:            nextTxs,
+			L2ToL1MessagePasserBalance:  l2ToL1MessagePasserBalance,
+			L2ToL1MessagePasserCodeHash: l2ToL1MessagePasserCodeHash,
+			MerkleProof:                 merkleProof,
+		},
+	}, nil
 }
 
-func (n *nodeAPI) fetchOutputAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
+func (n *nodeAPI) fetchKromaOutputAtBlock(ctx context.Context, number hexutil.Uint64) (*eth.OutputResponse, error) {
 	ref, nextRef, status, err := n.dr.BlockRefsWithStatus(ctx, uint64(number))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get L2 block ref with sync status: %w", err)
+		return nil, fmt.Errorf("failed to get L2 block refs with sync status: %w", err)
 	}
 
 	head, err := n.client.InfoByHash(ctx, ref.Hash)
@@ -231,11 +256,11 @@ func (n *nodeAPI) fetchOutputAtBlock(ctx context.Context, number hexutil.Uint64)
 	}
 
 	l2OutputRootVersion := eth.OutputVersionV0 // current version is 0
-	l2OutputRoot, err := rollup.ComputeL2OutputRoot(&bindings.TypesOutputRootProof{
+	l2OutputRoot, err := rollup.ComputeKromaL2OutputRoot(&bindings.TypesOutputRootProof{
 		Version:                  l2OutputRootVersion,
 		StateRoot:                head.Root(),
 		MessagePasserStorageRoot: proof.StorageHash,
-		BlockHash:                head.Hash(),
+		LatestBlockhash:          head.Hash(),
 		NextBlockHash:            nextRef.Hash,
 	})
 	if err != nil {
@@ -247,9 +272,11 @@ func (n *nodeAPI) fetchOutputAtBlock(ctx context.Context, number hexutil.Uint64)
 		Version:               l2OutputRootVersion,
 		OutputRoot:            l2OutputRoot,
 		BlockRef:              ref,
-		NextBlockRef:          nextRef,
 		WithdrawalStorageRoot: proof.StorageHash,
 		StateRoot:             head.Root(),
 		Status:                status,
+		NextBlockRef:          nextRef,
 	}, nil
 }
+
+// [Kroma: END]
