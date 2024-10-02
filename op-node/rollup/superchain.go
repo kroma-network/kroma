@@ -91,16 +91,18 @@ func LoadOPStackRollupConfig(chainID uint64) (*Config, error) {
 		// but since none of the superchain chains differ, it's not represented in the superchain-registry yet.
 		// This restriction on superchain-chains may change in the future.
 		// Test/Alt configurations can still load custom rollup-configs when necessary.
-		BlockTime:              2,
-		MaxSequencerDrift:      600,
-		SeqWindowSize:          3600,
-		ChannelTimeout:         300,
-		L1ChainID:              new(big.Int).SetUint64(superChain.Config.L1.ChainID),
-		L2ChainID:              new(big.Int).SetUint64(chConfig.ChainID),
-		RegolithTime:           &regolithTime,
-		CanyonTime:             chConfig.CanyonTime,
-		DeltaTime:              chConfig.DeltaTime,
-		EcotoneTime:            chConfig.EcotoneTime,
+		BlockTime:         2,
+		MaxSequencerDrift: 600,
+		SeqWindowSize:     3600,
+		ChannelTimeout:    300,
+		L1ChainID:         new(big.Int).SetUint64(superChain.Config.L1.ChainID),
+		L2ChainID:         new(big.Int).SetUint64(chConfig.ChainID),
+		RegolithTime:      &regolithTime,
+		CanyonTime:        chConfig.CanyonTime,
+		DeltaTime:         chConfig.DeltaTime,
+		EcotoneTime:       chConfig.EcotoneTime,
+		// TODO(seolaoh): uncomment this when geth updated
+		// KromaMPTTime:           chConfig.KromaMPTTime,
 		FjordTime:              chConfig.FjordTime,
 		BatchInboxAddress:      common.Address(chConfig.BatchInboxAddr),
 		DepositContractAddress: common.Address(addrs.OptimismPortalProxy),

@@ -21,7 +21,7 @@ export interface OutputRootProof {
   version: string
   stateRoot: string
   messagePasserStorageRoot: string
-  blockHash: string
+  latestBlockhash: string
   nextBlockHash: string
 }
 
@@ -134,50 +134,30 @@ export const hashWithdrawal = (
  * @param proof OutputRootProof
  */
 export const hashOutputRootProof = (proof: OutputRootProof): string => {
-  const version = parseInt(proof.version, 10)
-  if (version === 0) {
-    return hashOutputRootProofV0(proof)
-  } else if (version === 1) {
-    return hashOutputRootProofV1(proof)
+  if (proof.nextBlockHash === '') {
+    return keccak256(
+      defaultAbiCoder.encode(
+        ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
+        [
+          proof.version,
+          proof.stateRoot,
+          proof.messagePasserStorageRoot,
+          proof.latestBlockhash,
+        ]
+      )
+    )
+  } else {
+    return keccak256(
+      defaultAbiCoder.encode(
+        ['bytes32', 'bytes32', 'bytes32', 'bytes32', 'bytes32'],
+        [
+          proof.version,
+          proof.stateRoot,
+          proof.messagePasserStorageRoot,
+          proof.latestBlockhash,
+          proof.nextBlockHash,
+        ]
+      )
+    )
   }
-  throw new Error(`unknown version ${version.toString()}`)
-}
-
-/**
- * Hashes a V0 output root proof
- *
- * @param proof OutputRootProof
- */
-export const hashOutputRootProofV0 = (proof: OutputRootProof): string => {
-  return keccak256(
-    defaultAbiCoder.encode(
-      ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
-      [
-        proof.version,
-        proof.stateRoot,
-        proof.messagePasserStorageRoot,
-        proof.blockHash,
-      ]
-    )
-  )
-}
-
-/**
- * Hashes a V1 output root proof
- *
- * @param proof OutputRootProof
- */
-export const hashOutputRootProofV1 = (proof: OutputRootProof): string => {
-  return keccak256(
-    defaultAbiCoder.encode(
-      ['bytes32', 'bytes32', 'bytes32', 'bytes32', 'bytes32'],
-      [
-        proof.version,
-        proof.stateRoot,
-        proof.messagePasserStorageRoot,
-        proof.blockHash,
-        proof.nextBlockHash,
-      ]
-    )
-  )
 }

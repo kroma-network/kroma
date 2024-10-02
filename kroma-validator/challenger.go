@@ -762,7 +762,7 @@ func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64) 
 	return c.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber)
 }
 
-func (c *Challenger) OutputWithProofAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
+func (c *Challenger) OutputWithProofAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputWithProofResponse, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
 	return c.cfg.RollupClient.OutputWithProofAtBlock(cCtx, blockNumber)
