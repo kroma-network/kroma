@@ -3,14 +3,11 @@ pragma solidity 0.8.15;
 
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-import { Hashing } from "../libraries/Hashing.sol";
-import { Predeploys } from "../libraries/Predeploys.sol";
 import { Types } from "../libraries/Types.sol";
 import { ISemver } from "../universal/ISemver.sol";
-import { IZKMerkleTrie } from "./interfaces/IZKMerkleTrie.sol";
 import { L2OutputOracle } from "./L2OutputOracle.sol";
 import { SecurityCouncil } from "./SecurityCouncil.sol";
-import { ZKVerifier } from "./ZKVerifier.sol";
+import { ZKProofVerifier } from "./ZKProofVerifier.sol";
 
 contract Colosseum is Initializable, ISemver {
     /**
@@ -58,9 +55,9 @@ contract Colosseum is Initializable, ISemver {
     L2OutputOracle public immutable L2_ORACLE;
 
     /**
-     * @notice Address of the ZKVerifier.
+     * @notice Address of the ZKProofVerifier.
      */
-    ZKVerifier public immutable ZK_VERIFIER;
+    ZKProofVerifier public immutable ZK_PROOF_VERIFIER;
 
     /**
      * @notice The period seconds for which challenges can be created per each output.
@@ -84,39 +81,9 @@ contract Colosseum is Initializable, ISemver {
     uint256 public immutable L2_ORACLE_SUBMISSION_INTERVAL;
 
     /**
-     * @notice The dummy transaction hash. This is used to pad if the
-     *         number of transactions is less than MAX_TXS. This is same as:
-     *         unsignedTx = {
-     *           nonce: 0,
-     *           gasLimit: 0,
-     *           gasPrice: 0,
-     *           to: address(0),
-     *           value: 0,
-     *           data: '0x',
-     *           chainId: CHAIN_ID,
-     *         }
-     *         signature = sign(unsignedTx, 0x1)
-     *         dummyHash = keccak256(rlp({
-     *           ...unsignedTx,
-     *           signature,
-     *         }))
-     */
-    bytes32 public immutable DUMMY_HASH;
-
-    /**
-     * @notice The maximum number of transactions
-     */
-    uint256 public immutable MAX_TXS;
-
-    /**
      * @notice Address that has the ability to approve the challenge.
      */
     address public immutable SECURITY_COUNCIL;
-
-    /**
-     * @notice Address that has the ability to verify the merkle proof.
-     */
-    address public immutable ZK_MERKLE_TRIE;
 
     /**
      * @notice Length of segment array for each turn.
@@ -303,21 +270,6 @@ contract Colosseum is Initializable, ISemver {
     error L1Reorged();
 
     /**
-     * @notice Reverts when the public input is invalid.
-     */
-    error InvalidPublicInput();
-
-    /**
-     * @notice Reverts when the ZK proof is invalid.
-     */
-    error InvalidZKProof();
-
-    /**
-     * @notice Reverts when the inclusion proof is invalid.
-     */
-    error InvalidInclusionProof();
-
-    /**
      * @notice Reverts when segments length is invalid.
      */
     error InvalidSegmentsLength();
@@ -333,20 +285,14 @@ contract Colosseum is Initializable, ISemver {
     error LastSegmentMatched();
 
     /**
-     * @notice Reverts when the block hash is mismatched between source and destination output root
-     *         proof.
+     * @notice Reverts when the public input is already verified.
      */
-    error BlockHashMismatchedBtwSrcAndDst();
+    error AlreadyVerifiedPublicInput();
 
     /**
-     * @notice Reverts when the block hash is mismatched.
+     * @notice Reverts when the public input hash is invalid.
      */
-    error BlockHashMismatched();
-
-    /**
-     * @notice Reverts when the state root is mismatched.
-     */
-    error StateRootMismatched();
+    error InvalidPublicInputHash();
 
     /**
      * @notice Reverts when turn is invalid.
@@ -360,48 +306,39 @@ contract Colosseum is Initializable, ISemver {
 
     /**
      * @notice Semantic version.
-     * @custom:semver 1.1.0
+     * @custom:semver 2.0.0
      */
-    string public constant version = "1.1.0";
+    string public constant version = "2.0.0";
 
     /**
      * @notice Constructs the Colosseum contract.
      *
      * @param _l2Oracle              Address of the L2OutputOracle contract.
-     * @param _zkVerifier            Address of the ZKVerifier contract.
+     * @param _zkProofVerifier       Address of the ZKProofVerifier contract.
      * @param _submissionInterval    Interval in blocks at which checkpoints must be submitted.
      * @param _creationPeriodSeconds Seconds The period seconds for which challenges can be created per each output.
      * @param _bisectionTimeout      Timeout seconds for the bisection.
      * @param _provingTimeout        Timeout seconds for the proving.
-     * @param _dummyHash             Dummy hash.
-     * @param _maxTxs                Number of max transactions per block.
      * @param _segmentsLengths       Lengths of segments.
      * @param _securityCouncil       Address of security council.
-     * @param _zkMerkleTrie          Address of zk merkle trie.
      */
     constructor(
         L2OutputOracle _l2Oracle,
-        ZKVerifier _zkVerifier,
+        ZKProofVerifier _zkProofVerifier,
         uint256 _submissionInterval,
         uint256 _creationPeriodSeconds,
         uint256 _bisectionTimeout,
         uint256 _provingTimeout,
-        bytes32 _dummyHash,
-        uint256 _maxTxs,
         uint256[] memory _segmentsLengths,
-        address _securityCouncil,
-        address _zkMerkleTrie
+        address _securityCouncil
     ) {
         L2_ORACLE = _l2Oracle;
-        ZK_VERIFIER = _zkVerifier;
+        ZK_PROOF_VERIFIER = _zkProofVerifier;
         CREATION_PERIOD_SECONDS = _creationPeriodSeconds;
         BISECTION_TIMEOUT = _bisectionTimeout;
         PROVING_TIMEOUT = _provingTimeout;
         L2_ORACLE_SUBMISSION_INTERVAL = _submissionInterval;
-        DUMMY_HASH = _dummyHash;
-        MAX_TXS = _maxTxs;
         SECURITY_COUNCIL = _securityCouncil;
-        ZK_MERKLE_TRIE = _zkMerkleTrie;
         initialize(_segmentsLengths);
     }
 
@@ -560,20 +497,18 @@ contract Colosseum is Initializable, ISemver {
     /**
      * @notice Proves that a specific output is invalid using ZKP.
      *         This function can only be called in the READY_TO_PROVE and ASSERTER_TIMEOUT states.
+     *         Note that if zkEVM proof is given, proveFault is verified based on zkEVM, otherwise zkVM.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      * @param _pos         Position of the last valid segment.
-     * @param _proof       Proof for public input validation.
-     * @param _zkproof     Halo2 proofs composed of points and scalars.
-     *                     See https://zcash.github.io/halo2/design/implementation/proofs.html.
-     * @param _pair        Aggregated multi-opening proofs and public inputs. (Currently only 2 public inputs)
+     * @param _zkEVMProof  The public input and proof using zkEVM.
+     * @param _zkVMProof   The public input and proof using zkVM.
      */
     function proveFault(
         uint256 _outputIndex,
         uint256 _pos,
-        Types.PublicInputProof calldata _proof,
-        uint256[] calldata _zkproof,
-        uint256[] calldata _pair
+        Types.ZKEVMProof calldata _zkEVMProof,
+        Types.ZKVMProof calldata _zkVMProof
     ) external {
         _checkOutputNotFinalized(_outputIndex);
 
@@ -587,31 +522,30 @@ contract Colosseum is Initializable, ISemver {
         if (status != ChallengeStatus.READY_TO_PROVE && status != ChallengeStatus.ASSERTER_TIMEOUT)
             revert ImproperChallengeStatus();
 
-        _validateOutputRootProof(
-            _pos,
-            challenge,
-            Hashing.hashOutputRootProof(_proof.srcOutputRootProof),
-            Hashing.hashOutputRootProof(_proof.dstOutputRootProof),
-            _proof.srcOutputRootProof,
-            _proof.dstOutputRootProof
-        );
-        _validatePublicInput(_proof.dstOutputRootProof, _proof.publicInput, _proof.rlps);
-        _validateWithdrawalStorageRoot(
-            _proof.merkleProof,
-            _proof.l2ToL1MessagePasserBalance,
-            _proof.l2ToL1MessagePasserCodeHash,
-            _proof.dstOutputRootProof.messagePasserStorageRoot,
-            _proof.dstOutputRootProof.stateRoot
-        );
+        bytes32 srcSegment = challenge.segments[_pos];
+        // If asserter timeout, the bisection of segments may not have ended.
+        // Therefore, segment validation only proceeds when bisection is not possible.
+        bytes32 dstSegment;
+        if (!_isAbleToBisect(challenge)) dstSegment = challenge.segments[_pos + 1];
 
-        bytes32 publicInputHash = _hashPublicInput(
-            _proof.srcOutputRootProof.stateRoot,
-            _proof.publicInput
-        );
+        // Verify ZK proof according to the given proof type.
+        bytes32 publicInputHash;
+        if (_zkEVMProof.proof.length == 0) {
+            publicInputHash = ZK_PROOF_VERIFIER.verifyZKVMProof(
+                _zkVMProof,
+                srcSegment,
+                dstSegment,
+                challenge.l1Head
+            );
+        } else {
+            publicInputHash = ZK_PROOF_VERIFIER.verifyZKEVMProof(
+                _zkEVMProof,
+                srcSegment,
+                dstSegment
+            );
+        }
+        if (verifiedPublicInputs[publicInputHash]) revert AlreadyVerifiedPublicInput();
 
-        if (verifiedPublicInputs[publicInputHash]) revert InvalidPublicInput();
-
-        if (!ZK_VERIFIER.verify(_zkproof, _pair, publicInputHash)) revert InvalidZKProof();
         emit Proven(_outputIndex, msg.sender, block.timestamp);
 
         // Scope to call the security council, to avoid stack too deep.
@@ -710,7 +644,7 @@ contract Colosseum is Initializable, ISemver {
             _challenger != L2_ORACLE.getSubmitter(_outputIndex) ||
             _asserter != deletedOutputs[_outputIndex].submitter
         ) revert InvalidAddressGiven();
-        if (!verifiedPublicInputs[_publicInputHash]) revert InvalidPublicInput();
+        if (!verifiedPublicInputs[_publicInputHash]) revert InvalidPublicInputHash();
 
         verifiedPublicInputs[_publicInputHash] = false;
         delete deletedOutputs[_outputIndex];
@@ -823,99 +757,6 @@ contract Colosseum is Initializable, ISemver {
     }
 
     /**
-     * @notice Checks if the L2ToL1MesagePasser account is included in the given state root.
-     *
-     * @param _merkleProof                 Merkle proof of L2ToL1MessagePasser account against the state root.
-     * @param _l2ToL1MessagePasserBalance  Balance of the L2ToL1MessagePasser account.
-     * @param _l2ToL1MessagePasserCodeHash Codehash of the L2ToL1MessagePasser account.
-     * @param _messagePasserStorageRoot    Storage root of the L2ToL1MessagePasser account.
-     * @param _stateRoot                   State root.
-     */
-    function _validateWithdrawalStorageRoot(
-        bytes[] calldata _merkleProof,
-        bytes32 _l2ToL1MessagePasserBalance,
-        bytes32 _l2ToL1MessagePasserCodeHash,
-        bytes32 _messagePasserStorageRoot,
-        bytes32 _stateRoot
-    ) internal view {
-        // TODO(chokobole): Can we fix the codeHash?
-        bytes memory l2ToL1MessagePasserAccount = abi.encodePacked(
-            uint256(0), // nonce
-            _l2ToL1MessagePasserBalance, // balance,
-            _l2ToL1MessagePasserCodeHash, // codeHash,
-            _messagePasserStorageRoot // storage root
-        );
-
-        if (
-            !IZKMerkleTrie(ZK_MERKLE_TRIE).verifyInclusionProof(
-                bytes32(bytes20(Predeploys.L2_TO_L1_MESSAGE_PASSER)),
-                l2ToL1MessagePasserAccount,
-                _merkleProof,
-                _stateRoot
-            )
-        ) revert InvalidInclusionProof();
-    }
-
-    /**
-     * @notice Validates the output root proofs.
-     *
-     * @param _pos                Position of the last valid segment.
-     * @param _challenge          The challenge data.
-     * @param _srcOutputRoot      The source output root.
-     * @param _dstOutputRoot      The destination output root.
-     * @param _srcOutputRootProof Proof of the source output root.
-     * @param _dstOutputRootProof Proof of the destination output root.
-     */
-    function _validateOutputRootProof(
-        uint256 _pos,
-        Types.Challenge storage _challenge,
-        bytes32 _srcOutputRoot,
-        bytes32 _dstOutputRoot,
-        Types.OutputRootProof calldata _srcOutputRootProof,
-        Types.OutputRootProof calldata _dstOutputRootProof
-    ) internal view {
-        if (_challenge.segments[_pos] != _srcOutputRoot) revert FirstSegmentMismatched();
-
-        // If asserter timeout, the bisection of segments may not have ended.
-        // Therefore, segment validation only proceeds when bisection is not possible.
-        if (!_isAbleToBisect(_challenge)) {
-            if (_challenge.segments[_pos + 1] == _dstOutputRoot) revert LastSegmentMatched();
-        }
-
-        // Note that the connectivity between outputs is verified using nextBlockHash only when output has nextBlockHash
-        // (KromaOutputV0).
-        if (_srcOutputRootProof.nextBlockHash != bytes32(0)) {
-            if (_srcOutputRootProof.nextBlockHash != _dstOutputRootProof.latestBlockhash)
-                revert BlockHashMismatchedBtwSrcAndDst();
-        }
-    }
-
-    /**
-     * @notice Checks if the public input is valid.
-     *         Reverts if public input is invalid.
-     *
-     * @param _dstOutputRootProof Proof of the destination output root.
-     * @param _publicInput        Ingredients to compute the public input used by ZK proof verification.
-     * @param _rlps               Pre-encoded RLPs to compute the latest block hash of the destination output root
-     *                            proof.
-     */
-    function _validatePublicInput(
-        Types.OutputRootProof calldata _dstOutputRootProof,
-        Types.PublicInput calldata _publicInput,
-        Types.BlockHeaderRLP calldata _rlps
-    ) internal pure {
-        // TODO(chokobole): check withdrawal storage root of _dstOutputRootProof against state root of _dstOutputRootProof.
-        if (_publicInput.stateRoot != _dstOutputRootProof.stateRoot) revert StateRootMismatched();
-
-        // parentBeaconRoot is non-zero for Cancun block
-        bytes32 blockHash = _publicInput.parentBeaconRoot != bytes32(0)
-            ? Hashing.hashBlockHeaderCancun(_publicInput, _rlps)
-            : Hashing.hashBlockHeaderShanghai(_publicInput, _rlps);
-
-        if (_dstOutputRootProof.latestBlockhash != blockHash) revert BlockHashMismatched();
-    }
-
-    /**
      * @notice Cancels the challenge if the output root to be challenged has already been deleted.
      *         If the output root has been deleted, delete the challenge. Note that before validator
      *         system upgrade, also refund the challenger's pending bond in validator pool.
@@ -987,35 +828,6 @@ contract Colosseum is Initializable, ISemver {
             // Because the challenger lost, the challenger's bond is included in the bond for that output.
             L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, _challenger);
         }
-    }
-
-    /**
-     * @notice Hashes the public input with padding dummy transactions.
-     *
-     * @param _prevStateRoot Previous state root.
-     * @param _publicInput   Ingredients to compute the public input used by ZK proof verification.
-     *
-     * @return Hash of public input.
-     */
-    function _hashPublicInput(
-        bytes32 _prevStateRoot,
-        Types.PublicInput calldata _publicInput
-    ) internal view returns (bytes32) {
-        bytes32[] memory dummyHashes;
-        if (_publicInput.txHashes.length < MAX_TXS) {
-            dummyHashes = Hashing.generateDummyHashes(
-                DUMMY_HASH,
-                MAX_TXS - _publicInput.txHashes.length
-            );
-        }
-
-        // NOTE(chokobole): We cannot calculate the Ethereum transaction root solely
-        // based on transaction hashes. It is necessary to have access to the original
-        // transactions. Considering the imposed constraints and the difficulty
-        // of providing a preimage that would generate the desired public input hash
-        // from an attacker's perspective, we have decided to omit the verification
-        // using the transaction root.
-        return Hashing.hashPublicInput(_prevStateRoot, _publicInput, dummyHashes);
     }
 
     /**

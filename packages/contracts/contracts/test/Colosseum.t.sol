@@ -2,12 +2,13 @@
 pragma solidity 0.8.15;
 
 import { Types } from "../libraries/Types.sol";
+import { ISP1Verifier } from "../vendor/ISP1Verifier.sol";
 import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
+import { ZKProofVerifier } from "../L1/ZKProofVerifier.sol";
 import { ZKVerifier } from "../L1/ZKVerifier.sol";
-import { Hashing } from "../libraries/Hashing.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { ColosseumTestData } from "./testdata/ColosseumTestData.sol";
 import { Colosseum_Initializer } from "./CommonTest.t.sol";
@@ -16,29 +17,23 @@ import { MockL2OutputOracle } from "./ValidatorManager.t.sol";
 contract MockColosseum is Colosseum {
     constructor(
         L2OutputOracle _l2Oracle,
-        ZKVerifier _zkVerifier,
+        ZKProofVerifier _zkProofVerifier,
         uint256 _submissionInterval,
         uint256 _creationPeriodSeconds,
         uint256 _bisectionTimeout,
         uint256 _provingTimeout,
-        bytes32 _dummyHash,
-        uint256 _maxTxs,
         uint256[] memory _segmentsLengths,
-        address _securityCouncil,
-        address _zkMerkleTrie
+        address _securityCouncil
     )
         Colosseum(
             _l2Oracle,
-            _zkVerifier,
+            _zkProofVerifier,
             _submissionInterval,
             _creationPeriodSeconds,
             _bisectionTimeout,
             _provingTimeout,
-            _dummyHash,
-            _maxTxs,
             _segmentsLengths,
-            _securityCouncil,
-            _zkMerkleTrie
+            _securityCouncil
         )
     {}
 
@@ -55,17 +50,38 @@ contract MockColosseum is Colosseum {
     ) external view returns (bool) {
         return _isAbleToBisect(challenges[_outputIndex][_challenger]);
     }
+}
 
-    function hashPublicInput(
+contract MockZKProofVerifier is ZKProofVerifier {
+    constructor(
+        ZKVerifier _zkVerifier,
+        bytes32 _dummyHash,
+        uint256 _maxTxs,
+        address _zkMerkleTrie,
+        ISP1Verifier _sp1Verifier,
+        bytes32 _zkVMProgramVKey
+    )
+        ZKProofVerifier(
+            _zkVerifier,
+            _dummyHash,
+            _maxTxs,
+            _zkMerkleTrie,
+            _sp1Verifier,
+            _zkVMProgramVKey
+        )
+    {}
+
+    function hashZKEVMPublicInput(
         Types.PublicInputProof calldata _proof
     ) external view returns (bytes32) {
-        return _hashPublicInput(_proof.srcOutputRootProof.stateRoot, _proof.publicInput);
+        return _hashZKEVMPublicInput(_proof.srcOutputRootProof.stateRoot, _proof.publicInput);
     }
 }
 
 // Test the implementations of the Colosseum
 contract ColosseumTest is Colosseum_Initializer {
     MockColosseum mockColosseum;
+    MockZKProofVerifier mockZKProofVerifier;
     uint256 internal targetOutputIndex;
     mapping(address => bool) internal isChallenger;
 
@@ -80,20 +96,29 @@ contract ColosseumTest is Colosseum_Initializer {
 
         MockColosseum mockColosseumImpl = new MockColosseum(
             oracle,
-            zkVerifier,
+            zkProofVerifier,
             submissionInterval,
             creationPeriodSeconds,
             bisectionTimeout,
             provingTimeout,
-            DUMMY_HASH,
-            MAX_TXS,
             segmentsLengths,
-            address(securityCouncil),
-            address(zkMerkleTrie)
+            address(securityCouncil)
         );
         vm.prank(multisig);
         Proxy(payable(address(colosseum))).upgradeTo(address(mockColosseumImpl));
         mockColosseum = MockColosseum(address(colosseum));
+
+        MockZKProofVerifier mockVerifierImpl = new MockZKProofVerifier({
+            _zkVerifier: zkVerifier,
+            _dummyHash: DUMMY_HASH,
+            _maxTxs: MAX_TXS,
+            _zkMerkleTrie: address(zkMerkleTrie),
+            _sp1Verifier: sp1Verifier,
+            _zkVMProgramVKey: ZKVM_PROGRAM_V_KEY
+        });
+        vm.prank(multisig);
+        Proxy(payable(address(zkProofVerifier))).upgradeTo(address(mockVerifierImpl));
+        mockZKProofVerifier = MockZKProofVerifier(address(zkProofVerifier));
 
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
@@ -295,10 +320,18 @@ contract ColosseumTest is Colosseum_Initializer {
             merkleProof: merkleProof
         });
 
-        vm.prank(_challenger);
-        colosseum.proveFault(_outputIndex, _position, proof, pp.proof, pp.pair);
+        Types.ZKEVMProof memory zkEVMProof = Types.ZKEVMProof({
+            publicInputProof: proof,
+            proof: pp.proof,
+            pair: pp.pair
+        });
+        // TODO(seolaoh): add zkVM proof test case
+        Types.ZKVMProof memory zkVMProof;
 
-        return mockColosseum.hashPublicInput(proof);
+        vm.prank(_challenger);
+        colosseum.proveFault(_outputIndex, _position, zkEVMProof, zkVMProof);
+
+        return mockZKProofVerifier.hashZKEVMPublicInput(proof);
     }
 
     function _dismissChallenge(uint256 txId) private {
@@ -313,18 +346,15 @@ contract ColosseumTest is Colosseum_Initializer {
     function test_constructor_succeeds() external {
         assertEq(address(colosseum.L2_ORACLE()), address(oracle), "oracle address not matched");
         assertEq(
-            address(colosseum.ZK_VERIFIER()),
-            address(zkVerifier),
-            "zk verifier address not matched"
+            address(colosseum.ZK_PROOF_VERIFIER()),
+            address(zkProofVerifier),
+            "zk proof verifier address not matched"
         );
         assertEq(colosseum.CREATION_PERIOD_SECONDS(), creationPeriodSeconds);
         assertEq(colosseum.BISECTION_TIMEOUT(), bisectionTimeout);
         assertEq(colosseum.PROVING_TIMEOUT(), provingTimeout);
         assertEq(colosseum.L2_ORACLE_SUBMISSION_INTERVAL(), submissionInterval);
-        assertEq(colosseum.DUMMY_HASH(), DUMMY_HASH);
-        assertEq(colosseum.MAX_TXS(), MAX_TXS);
         assertEq(colosseum.SECURITY_COUNCIL(), address(securityCouncil));
-        assertEq(colosseum.ZK_MERKLE_TRIE(), address(zkMerkleTrie));
     }
 
     function test_initialize_succeeds() external {
@@ -769,10 +799,11 @@ contract ColosseumTest is Colosseum_Initializer {
 
         uint256 prevDeposit = pool.balanceOf(otherChallenger);
         uint256 pendingBond = pool.getPendingBond(outputIndex, otherChallenger);
-        Types.PublicInputProof memory _emptyProof;
+        Types.ZKEVMProof memory emptyZKEVMProof;
+        Types.ZKVMProof memory emptyZKVMProof;
 
         vm.prank(otherChallenger);
-        colosseum.proveFault(outputIndex, 0, _emptyProof, new uint256[](0), new uint256[](0));
+        colosseum.proveFault(outputIndex, 0, emptyZKEVMProof, emptyZKVMProof);
 
         // Ensure that the challenge has been deleted.
         assertEq(
@@ -898,7 +929,7 @@ contract ColosseumTest is Colosseum_Initializer {
         Types.CheckpointOutput memory newOutput = oracle.getL2Output(outputIndex);
 
         vm.prank(address(securityCouncil));
-        vm.expectRevert(Colosseum.InvalidPublicInput.selector);
+        vm.expectRevert(Colosseum.InvalidPublicInputHash.selector);
         colosseum.dismissChallenge(
             outputIndex,
             newOutput.submitter,
@@ -1107,6 +1138,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
 contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
     MockColosseum mockColosseum;
+    MockZKProofVerifier mockZKProofVerifier;
     MockL2OutputOracle mockOracle;
     uint256 internal targetOutputIndex;
 
@@ -1115,20 +1147,29 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
 
         MockColosseum mockColosseumImpl = new MockColosseum(
             oracle,
-            zkVerifier,
+            zkProofVerifier,
             submissionInterval,
             creationPeriodSeconds,
             bisectionTimeout,
             provingTimeout,
-            DUMMY_HASH,
-            MAX_TXS,
             segmentsLengths,
-            address(securityCouncil),
-            address(zkMerkleTrie)
+            address(securityCouncil)
         );
         vm.prank(multisig);
         Proxy(payable(address(colosseum))).upgradeTo(address(mockColosseumImpl));
         mockColosseum = MockColosseum(address(colosseum));
+
+        MockZKProofVerifier mockVerifierImpl = new MockZKProofVerifier({
+            _zkVerifier: zkVerifier,
+            _dummyHash: DUMMY_HASH,
+            _maxTxs: MAX_TXS,
+            _zkMerkleTrie: address(zkMerkleTrie),
+            _sp1Verifier: sp1Verifier,
+            _zkVMProgramVKey: ZKVM_PROGRAM_V_KEY
+        });
+        vm.prank(multisig);
+        Proxy(payable(address(zkProofVerifier))).upgradeTo(address(mockVerifierImpl));
+        mockZKProofVerifier = MockZKProofVerifier(address(zkProofVerifier));
 
         address oracleAddress = address(oracle);
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
@@ -1343,6 +1384,12 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         }
 
         (ColosseumTestData.ProofPair memory pp, Types.PublicInputProof memory proof) = _getProof();
+        Types.ZKEVMProof memory zkEVMProof = Types.ZKEVMProof({
+            publicInputProof: proof,
+            proof: pp.proof,
+            pair: pp.pair
+        });
+        Types.ZKVMProof memory zkVMProof;
 
         uint256 position = _detectFault(challenge, challenge.challenger);
 
@@ -1356,9 +1403,9 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
             )
         );
         vm.prank(challenger);
-        colosseum.proveFault(targetOutputIndex, position, proof, pp.proof, pp.pair);
+        colosseum.proveFault(targetOutputIndex, position, zkEVMProof, zkVMProof);
 
-        publicInputHash = mockColosseum.hashPublicInput(proof);
+        publicInputHash = mockZKProofVerifier.hashZKEVMPublicInput(proof);
 
         assertEq(assetMgr.totalValidatorKro(challenge.asserter), beforeAsserterKro - bondAmount);
         assertEq(assetMgr.totalValidatorKro(challenger), minActivateAmount);
