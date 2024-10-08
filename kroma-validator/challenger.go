@@ -1006,27 +1006,45 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 		blockNumber = new(big.Int).Add(blockNumber, position)
 	}
 
-	proof, err := c.PublicInputProof(ctx, blockNumber.Uint64())
+	header, err := c.l2Client.HeaderByNumber(ctx, blockNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get public input proof(fault position blockNumber: %d): %w", blockNumber.Uint64(), err)
+		return nil, fmt.Errorf("failed to get block header(fault position blockNumber: %d): %w", blockNumber.Uint64(), err)
 	}
 
-	targetBlockNumber := new(big.Int).Add(blockNumber, common.Big1)
-	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-	defer cCancel()
-	trace, err := c.l2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
-	}
+	// if the src block time is after Kroma MPT time, generate zkVM proof otherwise zkEVM proof
+	zkEVMProof := bindings.TypesZKEVMProof{}
+	zkVMProof := bindings.TypesZKVMProof{}
+	if c.cfg.RollupConfig.IsKromaMPT(header.Time) {
+		// TODO(seolaoh): add fetching zkVM preimages and proof
+	} else {
+		proof, err := c.PublicInputProof(ctx, blockNumber.Uint64())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get public input proof(fault position blockNumber: %d): %w", blockNumber.Uint64(), err)
+		}
 
-	traceBz, err := json.Marshal(trace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
-	}
+		targetBlockNumber := new(big.Int).Add(blockNumber, common.Big1)
+		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		trace, err := c.l2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		}
 
-	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(ctx, string(traceBz))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		traceBz, err := json.Marshal(trace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		}
+
+		fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(ctx, string(traceBz))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		}
+
+		zkEVMProof.PublicInputProof = proof
+		zkEVMProof.Proof = fetchResult.Proof
+		// NOTE(0xHansLee): the hash of public input (pair[4], pair[5]) is not needed in proving fault.
+		// It can be calculated using public input sent to colosseum contract.
+		zkEVMProof.Pair = fetchResult.Pair[:4]
 	}
 
 	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
@@ -1034,11 +1052,8 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 		txOpts,
 		outputIndex,
 		position,
-		proof,
-		fetchResult.Proof,
-		// NOTE(0xHansLee): the hash of public input (pair[4], pair[5]) is not needed in proving fault.
-		// It can be calculated using public input sent to colosseum contract.
-		fetchResult.Pair[:4],
+		zkEVMProof,
+		zkVMProof,
 	)
 }
 
