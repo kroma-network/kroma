@@ -182,15 +182,15 @@ contract ZKProofVerifier is ISemver {
 
     /// @notice Verifies zkVM public inputs and proof.
     /// @param _zkVMProof The public input and proof using zkVM.
-    /// @param _storedL1Head The stored L1 block hash.
     /// @param _storedSrcOutput The stored source output root.
     /// @param _storedDstOutput The stored destination output root. It will only be used for fault proving.
+    /// @param _storedL1Head The stored L1 block hash.
     /// @return publicInputHash_ Hash of public input.
     function verifyZKVMProof(
         Types.ZKVMProof calldata _zkVMProof,
-        bytes32 _storedL1Head,
         bytes32 _storedSrcOutput,
-        bytes32 _storedDstOutput
+        bytes32 _storedDstOutput,
+        bytes32 _storedL1Head
     ) external view returns (bytes32 publicInputHash_) {
         _validatePublicInputOutput(
             _storedSrcOutput,
