@@ -529,100 +529,6 @@ contract Colosseum is Initializable, ISemver {
     }
 
     /**
-     * @notice Proves that a specific output is invalid using ZKP.
-     *         Note that if _isZKVM is true, _proveFault is verified based on zkVM, otherwise zkEVM.
-     *
-     * @param _outputIndex Index of the L2 checkpoint output.
-     * @param _pos         Position of the last valid segment.
-     * @param _isZKVM      If zkEVM proof is given or not.
-     * @param _zkEVMProof  The public input and proof using zkEVM.
-     * @param _zkVMProof   The public input and proof using zkVM.
-     */
-    function _proveFault(
-        uint256 _outputIndex,
-        uint256 _pos,
-        bool _isZKVM,
-        Types.ZKEVMProof memory _zkEVMProof,
-        Types.ZKVMProof memory _zkVMProof
-    ) private {
-        _checkOutputNotFinalized(_outputIndex);
-
-        Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
-        ChallengeStatus status = _challengeStatus(challenge);
-
-        if (_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status)) {
-            return;
-        }
-
-        if (status != ChallengeStatus.READY_TO_PROVE && status != ChallengeStatus.ASSERTER_TIMEOUT)
-            revert ImproperChallengeStatus();
-
-        bytes32 srcSegment = challenge.segments[_pos];
-        // If asserter timeout, the bisection of segments may not have ended.
-        // Therefore, segment validation only proceeds when bisection is not possible.
-        bytes32 dstSegment;
-        if (!_isAbleToBisect(challenge)) dstSegment = challenge.segments[_pos + 1];
-
-        // Verify ZK proof according to the given proof type.
-        bytes32 publicInputHash;
-        if (_isZKVM) {
-            publicInputHash = ZK_PROOF_VERIFIER.verifyZKVMProof(
-                _zkVMProof,
-                srcSegment,
-                dstSegment,
-                challenge.l1Head
-            );
-        } else {
-            publicInputHash = ZK_PROOF_VERIFIER.verifyZKEVMProof(
-                _zkEVMProof,
-                srcSegment,
-                dstSegment
-            );
-        }
-        if (verifiedPublicInputs[publicInputHash]) revert AlreadyVerifiedPublicInput();
-
-        emit Proven(_outputIndex, msg.sender, block.timestamp);
-
-        // Scope to call the security council, to avoid stack too deep.
-        {
-            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(_outputIndex);
-
-            bytes memory callbackData = abi.encodeWithSelector(
-                this.dismissChallenge.selector,
-                _outputIndex,
-                msg.sender,
-                challenge.asserter,
-                output.outputRoot,
-                publicInputHash
-            );
-
-            // Request outputRoot validation to security council
-            SecurityCouncil(SECURITY_COUNCIL).requestValidation(
-                output.outputRoot,
-                output.l2BlockNumber,
-                callbackData
-            );
-
-            deletedOutputs[_outputIndex] = output;
-        }
-
-        // Switch validator system after validator pool contract terminated.
-        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
-            // Slash the asseter's asset and move it to pending challenge reward for the output.
-            L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, msg.sender, challenge.asserter);
-        } else {
-            // The challenger's bond is also included in the bond for that output.
-            L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, msg.sender);
-        }
-
-        verifiedPublicInputs[publicInputHash] = true;
-        delete challenges[_outputIndex][msg.sender];
-
-        // Delete output root.
-        L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, msg.sender);
-    }
-
-    /**
      * @notice Calls a private function that deletes the challenge because the challenger has timed out.
      *         Reverts if the challenger hasn't timed out.
      *
@@ -789,6 +695,100 @@ contract Colosseum is Initializable, ISemver {
         } else {
             _challenge.timeoutAt = uint64(block.timestamp + BISECTION_TIMEOUT);
         }
+    }
+
+    /**
+     * @notice Proves that a specific output is invalid using ZKP.
+     *         Note that if _isZKVM is true, _proveFault is verified based on zkVM, otherwise zkEVM.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _pos         Position of the last valid segment.
+     * @param _isZKVM      If zkEVM proof is given or not.
+     * @param _zkEVMProof  The public input and proof using zkEVM.
+     * @param _zkVMProof   The public input and proof using zkVM.
+     */
+    function _proveFault(
+        uint256 _outputIndex,
+        uint256 _pos,
+        bool _isZKVM,
+        Types.ZKEVMProof memory _zkEVMProof,
+        Types.ZKVMProof memory _zkVMProof
+    ) private {
+        _checkOutputNotFinalized(_outputIndex);
+
+        Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
+        ChallengeStatus status = _challengeStatus(challenge);
+
+        if (_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status)) {
+            return;
+        }
+
+        if (status != ChallengeStatus.READY_TO_PROVE && status != ChallengeStatus.ASSERTER_TIMEOUT)
+            revert ImproperChallengeStatus();
+
+        bytes32 srcSegment = challenge.segments[_pos];
+        // If asserter timeout, the bisection of segments may not have ended.
+        // Therefore, segment validation only proceeds when bisection is not possible.
+        bytes32 dstSegment;
+        if (!_isAbleToBisect(challenge)) dstSegment = challenge.segments[_pos + 1];
+
+        // Verify ZK proof according to the given proof type.
+        bytes32 publicInputHash;
+        if (_isZKVM) {
+            publicInputHash = ZK_PROOF_VERIFIER.verifyZKVMProof(
+                _zkVMProof,
+                srcSegment,
+                dstSegment,
+                challenge.l1Head
+            );
+        } else {
+            publicInputHash = ZK_PROOF_VERIFIER.verifyZKEVMProof(
+                _zkEVMProof,
+                srcSegment,
+                dstSegment
+            );
+        }
+        if (verifiedPublicInputs[publicInputHash]) revert AlreadyVerifiedPublicInput();
+
+        emit Proven(_outputIndex, msg.sender, block.timestamp);
+
+        // Scope to call the security council, to avoid stack too deep.
+        {
+            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(_outputIndex);
+
+            bytes memory callbackData = abi.encodeWithSelector(
+                this.dismissChallenge.selector,
+                _outputIndex,
+                msg.sender,
+                challenge.asserter,
+                output.outputRoot,
+                publicInputHash
+            );
+
+            // Request outputRoot validation to security council
+            SecurityCouncil(SECURITY_COUNCIL).requestValidation(
+                output.outputRoot,
+                output.l2BlockNumber,
+                callbackData
+            );
+
+            deletedOutputs[_outputIndex] = output;
+        }
+
+        // Switch validator system after validator pool contract terminated.
+        if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
+            // Slash the asseter's asset and move it to pending challenge reward for the output.
+            L2_ORACLE.VALIDATOR_MANAGER().slash(_outputIndex, msg.sender, challenge.asserter);
+        } else {
+            // The challenger's bond is also included in the bond for that output.
+            L2_ORACLE.VALIDATOR_POOL().increaseBond(_outputIndex, msg.sender);
+        }
+
+        verifiedPublicInputs[publicInputHash] = true;
+        delete challenges[_outputIndex][msg.sender];
+
+        // Delete output root.
+        L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, msg.sender);
     }
 
     /**
