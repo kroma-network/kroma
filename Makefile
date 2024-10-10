@@ -87,6 +87,11 @@ devnet-up: pre-devnet
 	PYTHONPATH=./kroma-devnet $(PYTHON) ./kroma-devnet/main.py --monorepo-dir=.
 .PHONY: devnet-up
 
+devnet-up-migration: pre-devnet
+	./ops/scripts/newer-file.sh .devnet/allocs-l1.json ./packages/contracts || make devnet-allocs-migration
+	PYTHONPATH=./kroma-devnet-migration $(PYTHON) ./kroma-devnet-migration/main.py --monorepo-dir=.
+.PHONY: devnet-up-migration
+
 # alias for devnet-up
 devnet-up-deploy: devnet-up
 
@@ -98,6 +103,10 @@ devnet-down:
 	@(cd ./ops-devnet && GENESIS_TIMESTAMP=$(shell date +%s) docker compose stop)
 .PHONY: devnet-down
 
+devnet-down-migration:
+	@(cd ./ops-devnet-migration && GENESIS_TIMESTAMP=$(shell date +%s) docker compose stop)
+.PHONY: devnet-down-migration
+
 devnet-clean:
 	rm -rf ./packages/contracts/deployments/devnetL1
 	rm -rf ./.devnet
@@ -106,8 +115,19 @@ devnet-clean:
 	docker volume ls --filter name=ops-devnet --format='{{.Name}}' | xargs -r docker volume rm
 .PHONY: devnet-clean
 
+devnet-clean-migration:
+	rm -rf ./packages/contracts/deployments/devnetL1
+	rm -rf ./.devnet
+	cd ./ops-devnet-migration && docker compose down
+	docker image ls 'ops-devnet*' --format='{{.Repository}}' | xargs -r docker rmi
+	docker volume ls --filter name=ops-devnet --format='{{.Name}}' | xargs -r docker volume rm
+.PHONY: devnet-clean-migration
+
 devnet-allocs: pre-devnet
 	PYTHONPATH=./kroma-devnet $(PYTHON) ./kroma-devnet/main.py --monorepo-dir=. --allocs
+
+devnet-allocs-migration: pre-devnet
+  PYTHONPATH=./kroma-devnet-migration $(PYTHON) ./kroma-devnet-migration/main.py --monorepo-dir=. --allocs
 
 devnet-logs:
 	@(cd ./ops-devnet && docker compose logs -f)
