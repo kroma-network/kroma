@@ -174,6 +174,12 @@
         } catch {}
         
 
+        let ZKProofVerifier
+        try {
+          ZKProofVerifier = require('../artifacts/contracts/L1/ZKProofVerifier.sol/ZKProofVerifier.json')
+        } catch {}
+        
+
         let IPoseidon2
         try {
           IPoseidon2 = require('../artifacts/contracts/L1/ZKTrieHasher.sol/IPoseidon2.json')
@@ -468,6 +474,12 @@
         } catch {}
         
 
+        let ISP1Verifier
+        try {
+          ISP1Verifier = require('../artifacts/contracts/vendor/ISP1Verifier.sol/ISP1Verifier.json')
+        } catch {}
+        
+
         let WETH9
         try {
           WETH9 = require('../artifacts/contracts/vendor/WETH9.sol/WETH9.json')
@@ -504,6 +516,7 @@ SystemConfig,
 ValidatorManager,
 ValidatorPool,
 ZKMerkleTrie,
+ZKProofVerifier,
 IPoseidon2,
 ZKTrieHasher,
 ZKVerifier,
@@ -553,6 +566,7 @@ IStaticERC1967Proxy,
 ProxyAdmin,
 StandardBridge,
 AddressAliasHelper,
+ISP1Verifier,
 WETH9
       }[name]
     }

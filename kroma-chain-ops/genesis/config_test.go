@@ -121,6 +121,8 @@ func TestL1Deployments(t *testing.T) {
 	require.NotEqual(t, deployments.ZKMerkleTrie, common.Address{})
 	require.NotEqual(t, deployments.ZKVerifier, common.Address{})
 	require.NotEqual(t, deployments.ZKVerifierProxy, common.Address{})
+	require.NotEqual(t, deployments.ZKProofVerifier, common.Address{})
+	require.NotEqual(t, deployments.ZKProofVerifierProxy, common.Address{})
 	// [Kroma: END]
 
 	// require.Equal(t, "AddressManager", deployments.GetName(deployments.AddressManager))

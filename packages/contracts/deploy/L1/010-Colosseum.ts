@@ -8,9 +8,9 @@ import {
 } from '../../src/deploy-utils'
 
 const deployFn: DeployFunction = async (hre) => {
-  const zkVerifierProxyAddress = await getDeploymentAddress(
+  const zkProofVerifierProxyAddress = await getDeploymentAddress(
     hre,
-    'ZKVerifierProxy'
+    'ZKProofVerifierProxy'
   )
   const l2OutputOracleProxyAddress = await getDeploymentAddress(
     hre,
@@ -20,21 +20,17 @@ const deployFn: DeployFunction = async (hre) => {
     hre,
     'SecurityCouncilProxy'
   )
-  const zkMerkleTrieAddress = await getDeploymentAddress(hre, 'ZKMerkleTrie')
 
   await deploy(hre, 'Colosseum', {
     args: [
       l2OutputOracleProxyAddress,
-      zkVerifierProxyAddress,
+      zkProofVerifierProxyAddress,
       hre.deployConfig.l2OutputOracleSubmissionInterval,
       hre.deployConfig.colosseumCreationPeriodSeconds,
       hre.deployConfig.colosseumBisectionTimeout,
       hre.deployConfig.colosseumProvingTimeout,
-      hre.deployConfig.colosseumDummyHash,
-      hre.deployConfig.colosseumMaxTxs,
       hre.deployConfig.colosseumSegmentsLengths.split(','),
       securityCouncilProxyAddress,
-      zkMerkleTrieAddress,
     ],
     isProxyImpl: true,
     initArgs: [hre.deployConfig.colosseumSegmentsLengths.split(',')],
@@ -46,8 +42,8 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'ZK_VERIFIER',
-        zkVerifierProxyAddress
+        'ZK_PROOF_VERIFIER',
+        zkProofVerifierProxyAddress
       )
       await assertContractVariable(
         contract,
@@ -71,28 +67,13 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'DUMMY_HASH',
-        hre.deployConfig.colosseumDummyHash
-      )
-      await assertContractVariable(
-        contract,
-        'MAX_TXS',
-        hre.deployConfig.colosseumMaxTxs
-      )
-      await assertContractVariable(
-        contract,
         'SECURITY_COUNCIL',
         securityCouncilProxyAddress
-      )
-      await assertContractVariable(
-        contract,
-        'ZK_MERKLE_TRIE',
-        zkMerkleTrieAddress
       )
     },
   })
 }
 
-deployFn.tags = ['Colosseum', 'setup', 'l1', 'validatorSystemUpgrade']
+deployFn.tags = ['Colosseum', 'setup', 'l1', 'validatorSystemUpgrade', 'mpt']
 
 export default deployFn

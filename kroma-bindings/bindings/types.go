@@ -93,3 +93,16 @@ type TypesBond struct {
 	Amount    *big.Int
 	ExpiresAt *big.Int
 }
+// TypesZKEVMProof is an auto generated low-level Go binding around an user-defined struct.
+type TypesZKEVMProof struct {
+	PublicInputProof TypesPublicInputProof
+	Proof            []*big.Int
+	Pair             []*big.Int
+}
+
+// TypesZKVMProof is an auto generated low-level Go binding around an user-defined struct.
+type TypesZKVMProof struct {
+	PublicValues []byte
+	ProofBytes   []byte
+}
+

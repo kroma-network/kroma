@@ -37,5 +37,6 @@
   "WETH9",
   "ZKMerkleTrie",
   "ZKTrieHasher",
-  "ZKVerifier"
+  "ZKVerifier",
+  "ZKProofVerifier"
 ]
