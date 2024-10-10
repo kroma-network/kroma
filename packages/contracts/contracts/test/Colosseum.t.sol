@@ -270,7 +270,8 @@ contract ColosseumTest is Colosseum_Initializer {
 
     function _proveFault(
         uint256 _outputIndex,
-        address _challenger
+        address _challenger,
+        bool _isZKVM
     ) private returns (bytes32 publicInputHash) {
         // get previous snapshot
         Types.CheckpointOutput memory prevOutput = oracle.getL2Output(_outputIndex);
@@ -278,7 +279,7 @@ contract ColosseumTest is Colosseum_Initializer {
         Types.Challenge memory challenge = mockColosseum.getChallenge(_outputIndex, _challenger);
 
         uint256 position = _detectFault(challenge, challenge.challenger);
-        publicInputHash = _doProveFault(challenge.challenger, _outputIndex, position);
+        publicInputHash = _doProveFault(challenge.challenger, _outputIndex, position, _isZKVM);
 
         assertEq(
             uint256(colosseum.getStatus(_outputIndex, challenge.challenger)),
@@ -296,42 +297,48 @@ contract ColosseumTest is Colosseum_Initializer {
     function _doProveFault(
         address _challenger,
         uint256 _outputIndex,
-        uint256 _position
+        uint256 _position,
+        bool _isZKVM
     ) private returns (bytes32) {
-        (
-            Types.OutputRootProof memory srcOutputRootProof,
-            Types.OutputRootProof memory dstOutputRootProof
-        ) = ColosseumTestData.outputRootProof();
-        Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
-        Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
+        if (_isZKVM) {
+            // TODO(seolaoh): add zkVM proof test case
+            return bytes32(0);
+        } else {
+            (
+                Types.OutputRootProof memory srcOutputRootProof,
+                Types.OutputRootProof memory dstOutputRootProof
+            ) = ColosseumTestData.outputRootProof();
+            Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
+            Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
 
-        ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
+            ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
 
-        (ColosseumTestData.Account memory account, bytes[] memory merkleProof) = ColosseumTestData
-            .merkleProof();
+            (
+                ColosseumTestData.Account memory account,
+                bytes[] memory merkleProof
+            ) = ColosseumTestData.merkleProof();
 
-        Types.PublicInputProof memory proof = Types.PublicInputProof({
-            srcOutputRootProof: srcOutputRootProof,
-            dstOutputRootProof: dstOutputRootProof,
-            publicInput: publicInput,
-            rlps: rlps,
-            l2ToL1MessagePasserBalance: bytes32(account.balance),
-            l2ToL1MessagePasserCodeHash: account.codeHash,
-            merkleProof: merkleProof
-        });
+            Types.PublicInputProof memory proof = Types.PublicInputProof({
+                srcOutputRootProof: srcOutputRootProof,
+                dstOutputRootProof: dstOutputRootProof,
+                publicInput: publicInput,
+                rlps: rlps,
+                l2ToL1MessagePasserBalance: bytes32(account.balance),
+                l2ToL1MessagePasserCodeHash: account.codeHash,
+                merkleProof: merkleProof
+            });
 
-        Types.ZKEVMProof memory zkEVMProof = Types.ZKEVMProof({
-            publicInputProof: proof,
-            proof: pp.proof,
-            pair: pp.pair
-        });
-        // TODO(seolaoh): add zkVM proof test case
-        Types.ZKVMProof memory zkVMProof;
+            Types.ZKEVMProof memory zkEVMProof = Types.ZKEVMProof({
+                publicInputProof: proof,
+                proof: pp.proof,
+                pair: pp.pair
+            });
 
-        vm.prank(_challenger);
-        colosseum.proveFault(_outputIndex, _position, zkEVMProof, zkVMProof);
+            vm.prank(_challenger);
+            colosseum.zkEVMProveFault(_outputIndex, _position, zkEVMProof);
 
-        return mockZKProofVerifier.hashZKEVMPublicInput(proof);
+            return mockZKProofVerifier.hashZKEVMPublicInput(proof);
+        }
     }
 
     function _dismissChallenge(uint256 txId) private {
@@ -468,7 +475,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
     function test_createChallenge_afterChallengeProven_reverts() external {
         uint256 outputIndex = targetOutputIndex;
-        test_proveFault_succeeds();
+        test_zkEVMProveFault_succeeds();
 
         assertEq(
             uint256(colosseum.getStatus(outputIndex, challenger)),
@@ -677,7 +684,7 @@ contract ColosseumTest is Colosseum_Initializer {
         _bisect(outputIndex, otherChallenger, challenge.asserter);
 
         // The output root of the target output index was replaced by another challenge.
-        test_proveFault_succeeds();
+        test_zkEVMProveFault_succeeds();
 
         uint256 prevDeposit = pool.balanceOf(otherChallenger);
         uint256 pendingBond = pool.getPendingBond(outputIndex, otherChallenger);
@@ -706,14 +713,14 @@ contract ColosseumTest is Colosseum_Initializer {
         _bisect(outputIndex, otherChallenger, challenge.asserter);
 
         // The output root of the target output index was replaced by another challenge.
-        test_proveFault_succeeds();
+        test_zkEVMProveFault_succeeds();
 
         vm.prank(challenger);
         vm.expectRevert(Colosseum.OnlyChallengerCanCancel.selector);
         colosseum.bisect(outputIndex, otherChallenger, 0, new bytes32[](0));
     }
 
-    function test_proveFault_succeeds() public returns (bytes32 publicInputHash) {
+    function test_zkEVMProveFault_succeeds() public returns (bytes32 publicInputHash) {
         uint256 outputIndex = targetOutputIndex;
         Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
 
@@ -730,7 +737,7 @@ contract ColosseumTest is Colosseum_Initializer {
             uint256(Colosseum.ChallengeStatus.READY_TO_PROVE)
         );
 
-        publicInputHash = _proveFault(outputIndex, challenge.challenger);
+        publicInputHash = _proveFault(outputIndex, challenge.challenger, false);
 
         (, bytes32 outputRoot, , ) = colosseum.deletedOutputs(outputIndex);
         assertEq(outputRoot, targetOutput.outputRoot);
@@ -760,7 +767,7 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.warp(targetOutput.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
 
         vm.expectRevert(Colosseum.OutputAlreadyFinalized.selector);
-        _doProveFault(challenger, outputIndex, 0);
+        _doProveFault(challenger, outputIndex, 0, false);
     }
 
     // TODO(pangssu): Testing is impossible in the current state. It must be fixed without fail.
@@ -780,7 +787,7 @@ contract ColosseumTest is Colosseum_Initializer {
     //         uint256(Colosseum.ChallengeStatus.ASSERTER_TIMEOUT)
     //     );
     //
-    //     _proveFault(outputIndex, challenge.challenger);
+    //     _proveFault(outputIndex, challenge.challenger, false);
     // }
 
     function test_proveFault_cancelChallenge_succeeds() external {
@@ -795,15 +802,14 @@ contract ColosseumTest is Colosseum_Initializer {
         }
 
         // The output root of the target output index was replaced by another challenge.
-        test_proveFault_succeeds();
+        test_zkEVMProveFault_succeeds();
 
         uint256 prevDeposit = pool.balanceOf(otherChallenger);
         uint256 pendingBond = pool.getPendingBond(outputIndex, otherChallenger);
         Types.ZKEVMProof memory emptyZKEVMProof;
-        Types.ZKVMProof memory emptyZKVMProof;
 
         vm.prank(otherChallenger);
-        colosseum.proveFault(outputIndex, 0, emptyZKEVMProof, emptyZKVMProof);
+        colosseum.zkEVMProveFault(outputIndex, 0, emptyZKEVMProof);
 
         // Ensure that the challenge has been deleted.
         assertEq(
@@ -820,7 +826,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 outputIndex = targetOutputIndex;
         Types.CheckpointOutput memory output = oracle.getL2Output(outputIndex);
 
-        bytes32 publicInputHash = test_proveFault_succeeds();
+        bytes32 publicInputHash = test_zkEVMProveFault_succeeds();
         Types.CheckpointOutput memory newOutput = oracle.getL2Output(outputIndex);
 
         vm.prank(address(securityCouncil));
@@ -838,7 +844,7 @@ contract ColosseumTest is Colosseum_Initializer {
     }
 
     function test_dismissChallenge_notSecurityCouncil_reverts() external {
-        test_proveFault_succeeds();
+        test_zkEVMProveFault_succeeds();
 
         vm.prank(makeAddr("not_security_council"));
         vm.expectRevert(Colosseum.NotAllowedCaller.selector);
@@ -879,7 +885,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 outputIndex = targetOutputIndex;
         Types.CheckpointOutput memory output = oracle.getL2Output(outputIndex);
 
-        bytes32 publicInputHash = test_proveFault_succeeds();
+        bytes32 publicInputHash = test_zkEVMProveFault_succeeds();
         Types.CheckpointOutput memory newOutput = oracle.getL2Output(outputIndex);
 
         vm.prank(address(securityCouncil));
@@ -897,7 +903,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 outputIndex = targetOutputIndex;
         Types.CheckpointOutput memory output = oracle.getL2Output(outputIndex);
 
-        bytes32 publicInputHash = test_proveFault_succeeds();
+        bytes32 publicInputHash = test_zkEVMProveFault_succeeds();
         Types.CheckpointOutput memory newOutput = oracle.getL2Output(outputIndex);
 
         vm.prank(address(securityCouncil));
@@ -925,7 +931,7 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 outputIndex = targetOutputIndex;
         Types.CheckpointOutput memory output = oracle.getL2Output(outputIndex);
 
-        test_proveFault_succeeds();
+        test_zkEVMProveFault_succeeds();
         Types.CheckpointOutput memory newOutput = oracle.getL2Output(outputIndex);
 
         vm.prank(address(securityCouncil));
@@ -996,7 +1002,7 @@ contract ColosseumTest is Colosseum_Initializer {
         );
 
         // The output root of the target output index was replaced by another challenge.
-        test_proveFault_succeeds();
+        test_zkEVMProveFault_succeeds();
 
         assertEq(
             uint256(colosseum.getStatus(outputIndex, otherChallenger)),
@@ -1037,7 +1043,7 @@ contract ColosseumTest is Colosseum_Initializer {
         _createChallenge(outputIndex, otherChallenger);
 
         // The output root of the target output index was replaced by another challenge.
-        test_proveFault_succeeds();
+        test_zkEVMProveFault_succeeds();
 
         vm.prank(challenger);
         vm.expectRevert(Colosseum.OnlyChallengerCanCancel.selector);
@@ -1054,7 +1060,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(challenge.timeoutAt + 1);
         // The output root of the target output index was replaced by another challenge.
-        test_proveFault_succeeds();
+        test_zkEVMProveFault_succeeds();
 
         vm.prank(otherChallenger);
         vm.expectRevert(Colosseum.ImproperChallengeStatusToCancel.selector);
@@ -1317,7 +1323,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         revert("failed to select faulty position");
     }
 
-    function _getProof()
+    function _getZKEVMProof()
         private
         pure
         returns (ColosseumTestData.ProofPair memory, Types.PublicInputProof memory)
@@ -1366,7 +1372,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
     }
 
-    function test_proveFault_callValidatorManager_succeeds()
+    function test_zkEVMProveFault_callValidatorManager_succeeds()
         public
         returns (bytes32 publicInputHash)
     {
@@ -1383,13 +1389,15 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
             challenge = mockColosseum.getChallenge(targetOutputIndex, challenger);
         }
 
-        (ColosseumTestData.ProofPair memory pp, Types.PublicInputProof memory proof) = _getProof();
+        (
+            ColosseumTestData.ProofPair memory pp,
+            Types.PublicInputProof memory proof
+        ) = _getZKEVMProof();
         Types.ZKEVMProof memory zkEVMProof = Types.ZKEVMProof({
             publicInputProof: proof,
             proof: pp.proof,
             pair: pp.pair
         });
-        Types.ZKVMProof memory zkVMProof;
 
         uint256 position = _detectFault(challenge, challenge.challenger);
 
@@ -1403,7 +1411,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
             )
         );
         vm.prank(challenger);
-        colosseum.proveFault(targetOutputIndex, position, zkEVMProof, zkVMProof);
+        colosseum.zkEVMProveFault(targetOutputIndex, position, zkEVMProof);
 
         publicInputHash = mockZKProofVerifier.hashZKEVMPublicInput(proof);
 
@@ -1415,7 +1423,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         Types.CheckpointOutput memory output = oracle.getL2Output(targetOutputIndex);
         uint128 beforeAsserterKro = assetMgr.totalValidatorKro(output.submitter);
 
-        bytes32 publicInputHash = test_proveFault_callValidatorManager_succeeds();
+        bytes32 publicInputHash = test_zkEVMProveFault_callValidatorManager_succeeds();
 
         vm.expectCall(
             address(valMgr),
@@ -1498,7 +1506,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         vm.prank(otherChallenger);
         colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
 
-        test_proveFault_callValidatorManager_succeeds();
+        test_zkEVMProveFault_callValidatorManager_succeeds();
 
         vm.expectCall(
             address(valMgr),

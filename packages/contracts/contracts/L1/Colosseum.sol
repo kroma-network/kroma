@@ -495,21 +495,56 @@ contract Colosseum is Initializable, ISemver {
     }
 
     /**
-     * @notice Proves that a specific output is invalid using ZKP.
-     *         This function can only be called in the READY_TO_PROVE and ASSERTER_TIMEOUT states.
-     *         Note that if zkEVM proof is given, proveFault is verified based on zkEVM, otherwise zkVM.
+     * @notice Proves that a specific output is invalid using zkEVM proof.
+     *         This function can only be called in the READY_TO_PROVE and ASSERTER_TIMEOUT statuses.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      * @param _pos         Position of the last valid segment.
      * @param _zkEVMProof  The public input and proof using zkEVM.
-     * @param _zkVMProof   The public input and proof using zkVM.
      */
-    function proveFault(
+    function zkEVMProveFault(
         uint256 _outputIndex,
         uint256 _pos,
-        Types.ZKEVMProof calldata _zkEVMProof,
+        Types.ZKEVMProof calldata _zkEVMProof
+    ) external {
+        Types.ZKVMProof memory emptyZKVMProof;
+        _proveFault(_outputIndex, _pos, false, _zkEVMProof, emptyZKVMProof);
+    }
+
+    /**
+     * @notice Proves that a specific output is invalid using zkVM proof.
+     *         This function can only be called in the READY_TO_PROVE and ASSERTER_TIMEOUT statuses.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _pos         Position of the last valid segment.
+     * @param _zkVMProof   The public input and proof using zkVM.
+     */
+    function zkVMProveFault(
+        uint256 _outputIndex,
+        uint256 _pos,
         Types.ZKVMProof calldata _zkVMProof
     ) external {
+        Types.ZKEVMProof memory emptyZKEVMProof;
+        _proveFault(_outputIndex, _pos, true, emptyZKEVMProof, _zkVMProof);
+    }
+
+    /**
+     * @notice Proves that a specific output is invalid using ZKP.
+     *         Note that if _isZKVM is true, _proveFault is verified based on zkVM, otherwise zkEVM.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     * @param _pos         Position of the last valid segment.
+     * @param _isZKVM      If zkEVM proof is given or not.
+     * @param _zkEVMProof  The public input and proof using zkEVM.
+     * @param _zkVMProof   The public input and proof using zkVM.
+     */
+    function _proveFault(
+        uint256 _outputIndex,
+        uint256 _pos,
+        bool _isZKVM,
+        Types.ZKEVMProof memory _zkEVMProof,
+        Types.ZKVMProof memory _zkVMProof
+    ) private {
         _checkOutputNotFinalized(_outputIndex);
 
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
@@ -530,7 +565,7 @@ contract Colosseum is Initializable, ISemver {
 
         // Verify ZK proof according to the given proof type.
         bytes32 publicInputHash;
-        if (_zkEVMProof.proof.length == 0) {
+        if (_isZKVM) {
             publicInputHash = ZK_PROOF_VERIFIER.verifyZKVMProof(
                 _zkVMProof,
                 srcSegment,
