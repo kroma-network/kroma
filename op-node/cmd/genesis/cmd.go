@@ -49,6 +49,11 @@ var (
 		Usage: "Path to rollup output file",
 	}
 
+	isMPTFlag = &cli.BoolFlag{
+		Name:  "isMPT",
+		Usage: "when it is true, set to mpt",
+	}
+
 	l1AllocsFlag = &cli.StringFlag{
 		Name:  "l1-allocs",
 		Usage: "Path to L1 genesis state dump",
@@ -72,6 +77,7 @@ var (
 		l1DeploymentsFlag,
 		outfileL2Flag,
 		outfileRollupFlag,
+		isMPTFlag,
 	}
 )
 
@@ -137,6 +143,9 @@ var Subcommands = cli.Commands{
 			deployConfig := ctx.Path("deploy-config")
 			log.Info("Deploy config", "path", deployConfig)
 			config, err := genesis.NewDeployConfig(deployConfig)
+			if ctx.Bool("isMPT") {
+				config.IsMPT = true
+			}
 			if err != nil {
 				return err
 			}
