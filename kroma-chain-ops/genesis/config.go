@@ -338,6 +338,11 @@ type DeployConfig struct {
 	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
+
+	// ZKProofVerifierSP1Verifier is the address of the SP1VerifierGateway contract.
+	ZKProofVerifierSP1Verifier common.Address `json:"zkProofVerifierSP1Verifier"`
+	// ZKProofVerifierVKey is the verification key for the zkVM program.
+	ZKProofVerifierVKey common.Hash `json:"zkProofVerifierVKey"`
 	// [Kroma: END]
 }
 
@@ -630,6 +635,12 @@ func (d *DeployConfig) Check() error {
 	if d.ZKVerifierM56Py == nil {
 		return fmt.Errorf("%w: ZKVerifierM56Py cannot be nil", ErrInvalidDeployConfig)
 	}
+	if d.ZKProofVerifierSP1Verifier == (common.Address{}) {
+		return fmt.Errorf("%w: ZKProofVerifierSP1Verifier cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.ZKProofVerifierVKey == (common.Hash{}) {
+		return fmt.Errorf("%w: ZKProofVerifierVKey cannot be 0", ErrInvalidDeployConfig)
+	}
 	// [Kroma: END]
 
 	return nil
@@ -883,6 +894,8 @@ type L1Deployments struct {
 	ZKMerkleTrie              common.Address `json:"ZKMerkleTrie"`
 	ZKVerifier                common.Address `json:"ZKVerifier"`
 	ZKVerifierProxy           common.Address `json:"ZKVerifierProxy"`
+	ZKProofVerifier           common.Address `json:"ZKProofVerifier"`
+	ZKProofVerifierProxy      common.Address `json:"ZKProofVerifierProxy"`
 	// [Kroma: END]
 }
 

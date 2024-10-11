@@ -7,6 +7,7 @@ import { Vm } from "forge-std/Vm.sol";
 
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
+import { Types } from "../libraries/Types.sol";
 import "./CommonTest.t.sol";
 
 // Free function for setting the prevBaseFee param in the KromaPortal.

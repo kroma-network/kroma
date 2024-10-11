@@ -12,6 +12,7 @@ const PROXY_NAMES = [
   'L1ERC721BridgeProxy',
   'KromaMintableERC20FactoryProxy',
   'ZKVerifierProxy',
+  'ZKProofVerifierProxy',
   'ColosseumProxy',
   'SecurityCouncilProxy',
   'SecurityCouncilTokenProxy',

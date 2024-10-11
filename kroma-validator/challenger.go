@@ -986,8 +986,6 @@ func (c *Challenger) CancelChallenge(ctx context.Context, outputIndex *big.Int) 
 // ProveFault creates proveFault transaction for invalid output root.
 // TODO: ProveFault will take long time, so that we may have to handle it carefully.
 func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, challenger common.Address, skipSelectFaultPosition bool) (*types.Transaction, error) {
-	c.log.Info("crafting proveFault tx", "outputIndex", outputIndex, "challenger", challenger)
-
 	challenge, err := c.GetChallenge(ctx, outputIndex, challenger)
 	if err != nil {
 		return nil, err
@@ -1006,40 +1004,59 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 		blockNumber = new(big.Int).Add(blockNumber, position)
 	}
 
-	proof, err := c.PublicInputProof(ctx, blockNumber.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get public input proof(fault position blockNumber: %d): %w", blockNumber.Uint64(), err)
-	}
-
-	targetBlockNumber := new(big.Int).Add(blockNumber, common.Big1)
-	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-	defer cCancel()
-	trace, err := c.l2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
-	}
-
-	traceBz, err := json.Marshal(trace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
-	}
-
-	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(ctx, string(traceBz))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
-	}
-
 	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
-	return c.colosseumContract.ProveFault(
-		txOpts,
-		outputIndex,
-		position,
-		proof,
-		fetchResult.Proof,
-		// NOTE(0xHansLee): the hash of public input (pair[4], pair[5]) is not needed in proving fault.
-		// It can be calculated using public input sent to colosseum contract.
-		fetchResult.Pair[:4],
-	)
+
+	header, err := c.l2Client.HeaderByNumber(ctx, blockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block header(fault position blockNumber: %d): %w", blockNumber.Uint64(), err)
+	}
+
+	// if the src block time is after Kroma MPT time, generate zkVM proof otherwise zkEVM proof
+	if c.cfg.RollupConfig.IsKromaMPT(header.Time) {
+		c.log.Info("crafting zkVMProveFault tx", "outputIndex", outputIndex, "challenger", challenger)
+
+		// TODO(seolaoh): add fetching zkVM preimages and proof
+
+		return c.colosseumContract.ProveFaultWithZkVm(txOpts, outputIndex, position, bindings.TypesZkVmProof{})
+	} else {
+		c.log.Info("crafting zkEVMProveFault tx", "outputIndex", outputIndex, "challenger", challenger)
+
+		proof, err := c.PublicInputProof(ctx, blockNumber.Uint64())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get public input proof(fault position blockNumber: %d): %w", blockNumber.Uint64(), err)
+		}
+
+		targetBlockNumber := new(big.Int).Add(blockNumber, common.Big1)
+		cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+		defer cCancel()
+		trace, err := c.l2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		}
+
+		traceBz, err := json.Marshal(trace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		}
+
+		fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(ctx, string(traceBz))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		}
+
+		return c.colosseumContract.ProveFaultWithZkEvm(
+			txOpts,
+			outputIndex,
+			position,
+			bindings.TypesZkEvmProof{
+				PublicInputProof: proof,
+				Proof:            fetchResult.Proof,
+				// NOTE(0xHansLee): the hash of public input (pair[4], pair[5]) is not needed in proving fault.
+				// It can be calculated using public input sent to colosseum contract.
+				Pair: fetchResult.Pair[:4],
+			},
+		)
+	}
 }
 
 // IsOutputDeleted checks if the output is deleted.

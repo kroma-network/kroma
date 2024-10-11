@@ -30,6 +30,7 @@ const L1_ORDERED_NAMES = [
   'L1GovernanceToken',
   'AssetManager',
   'ValidatorManager',
+  'ZKProofVerifier',
 ]
 const L2_ORDERED_NAMES = [
   'L1Block',
