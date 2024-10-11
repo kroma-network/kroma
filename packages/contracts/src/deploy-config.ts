@@ -194,13 +194,13 @@ interface RequiredDeployConfig {
   colosseumCreationPeriodSeconds: number
 
   /**
-   * Dummy hash to be used to compute ZK fault proof as a padding if
+   * Dummy hash to be used to compute zkEVM proof as a padding if
    * the number of transaction is less than maximum number of transactions.
    */
   colosseumDummyHash: string
 
   /**
-   * Maximum the number of transaction are allowed in a block.
+   * Maximum the number of transaction are allowed in a block when computing zkEVM proof.
    */
   colosseumMaxTxs: number
 
@@ -249,6 +249,16 @@ interface RequiredDeployConfig {
    * The value used by line 1173 of the ZK verifier contract.
    */
   zkVerifierM56Py: string
+
+  /**
+   * Address of the SP1VerifierGateway contract.
+   */
+  zkProofVerifierSP1Verifier: string
+
+  /**
+   * The verification key for the zkVM program.
+   */
+  zkProofVerifierVKey: string
 
   /**
    * Governor voting delay in block.
@@ -586,6 +596,14 @@ export const deployConfigSpec: {
   },
   zkVerifierM56Py: {
     type: 'string', // uint256
+  },
+  zkProofVerifierSP1Verifier: {
+    type: 'address',
+    default: ethers.constants.AddressZero,
+  },
+  zkProofVerifierVKey: {
+    type: 'string', // bytes32
+    default: ethers.constants.HashZero,
   },
   governorVotingDelayBlocks: {
     type: 'number',

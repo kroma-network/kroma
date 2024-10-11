@@ -2,7 +2,6 @@
 pragma solidity 0.8.15;
 
 /* Testing utilities */
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -27,6 +26,7 @@ import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { SystemConfig } from "../L1/SystemConfig.sol";
 import { ZKMerkleTrie } from "../L1/ZKMerkleTrie.sol";
+import { ZKProofVerifier } from "../L1/ZKProofVerifier.sol";
 import { ZKVerifier } from "../L1/ZKVerifier.sol";
 import { L2CrossDomainMessenger } from "../L2/L2CrossDomainMessenger.sol";
 import { L2ERC721Bridge } from "../L2/L2ERC721Bridge.sol";
@@ -35,11 +35,11 @@ import { L2ToL1MessagePasser } from "../L2/L2ToL1MessagePasser.sol";
 import { CodeDeployer } from "../libraries/CodeDeployer.sol";
 import { Constants } from "../libraries/Constants.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
-import { Types } from "../libraries/Types.sol";
 import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
+import { ISP1Verifier } from "../vendor/ISP1Verifier.sol";
 import { FFIInterface } from "./setup/FFIInterface.sol";
 
 contract CommonTest is Test {
@@ -732,17 +732,30 @@ contract ERC721Bridge_Initializer is Messenger_Initializer {
     }
 }
 
+contract MockSP1Verifier is ISP1Verifier {
+    function verifyProof(
+        bytes32 programVKey,
+        bytes calldata publicValues,
+        bytes calldata proofBytes
+    ) external view {}
+}
+
 contract Colosseum_Initializer is Portal_Initializer {
     uint256 immutable CHAIN_ID = 901;
     bytes32 immutable DUMMY_HASH =
         hex"a1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7";
     uint256 immutable MAX_TXS = 100;
+    bytes32 immutable ZKVM_PROGRAM_V_KEY = bytes32(0);
 
     // Test target
     Colosseum colosseumImpl;
 
     ZKVerifier zkVerifier;
     ZKVerifier zkVerifierImpl;
+
+    ZKProofVerifier zkProofVerifier;
+    ZKProofVerifier zkProofVerifierImpl;
+    MockSP1Verifier sp1Verifier;
 
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
@@ -767,6 +780,21 @@ contract Colosseum_Initializer is Portal_Initializer {
         vm.prank(multisig);
         verifierProxy.upgradeTo(address(zkVerifierImpl));
 
+        // Deploy the ZKProofVerifier
+        sp1Verifier = new MockSP1Verifier();
+        Proxy zkProofVerifierProxy = new Proxy(multisig);
+        zkProofVerifier = ZKProofVerifier(payable(address(zkProofVerifierProxy)));
+        zkProofVerifierImpl = new ZKProofVerifier({
+            _zkVerifier: zkVerifier,
+            _dummyHash: DUMMY_HASH,
+            _maxTxs: MAX_TXS,
+            _zkMerkleTrie: address(zkMerkleTrie),
+            _sp1Verifier: sp1Verifier,
+            _zkVmProgramVKey: ZKVM_PROGRAM_V_KEY
+        });
+        vm.prank(multisig);
+        zkProofVerifierProxy.upgradeTo(address(zkProofVerifierImpl));
+
         // case - L2OutputOracle submissionInterval == 1800
         segmentsLengths.push(9);
         segmentsLengths.push(6);
@@ -789,16 +817,13 @@ contract Colosseum_Initializer is Portal_Initializer {
 
         colosseumImpl = new Colosseum({
             _l2Oracle: oracle,
-            _zkVerifier: zkVerifier,
+            _zkProofVerifier: zkProofVerifier,
             _submissionInterval: submissionInterval,
             _creationPeriodSeconds: creationPeriodSeconds,
             _bisectionTimeout: bisectionTimeout,
             _provingTimeout: provingTimeout,
-            _dummyHash: DUMMY_HASH,
-            _maxTxs: MAX_TXS,
             _segmentsLengths: segmentsLengths,
-            _securityCouncil: address(securityCouncil),
-            _zkMerkleTrie: address(zkMerkleTrie)
+            _securityCouncil: address(securityCouncil)
         });
         vm.prank(multisig);
         toProxy(address(colosseum)).upgradeToAndCall(

@@ -42,7 +42,8 @@ library Types {
     }
 
     /**
-     * @notice Struct representing the elements that are hashed together to generate a public input.
+     * @notice Struct representing the elements that are hashed together to generate a public input
+     *         for zkEVM proof.
      *
      * @custom:field blockHash        The hash of the block.
      * @custom:field parentHash       The hash of the previous block.
@@ -155,6 +156,7 @@ library Types {
      * @custom:field segments   Array of the segment.
      * @custom:field segStart   The L2 block number of the first segment.
      * @custom:field segSize    The number of L2 blocks.
+     * @custom:field l1Head     Parent L1 block hash at the challenge creation time.
      */
     struct Challenge {
         uint8 turn;
@@ -164,6 +166,7 @@ library Types {
         bytes32[] segments;
         uint256 segSize;
         uint256 segStart;
+        bytes32 l1Head;
     }
 
     /**
@@ -204,11 +207,12 @@ library Types {
     }
 
     /**
-     * @notice Struct representing the data for verifying the public input.
+     * @notice Struct representing the data for verifying the public input of zkEVM proof.
      *
      * @custom:field srcOutputRootProof          Proof of the source output root.
      * @custom:field dstOutputRootProof          Proof of the destination output root.
-     * @custom:field publicInput                 Ingredients to compute the public input used by ZK proof verification.
+     * @custom:field publicInput                 Ingredients to compute the public input used by
+     *                                           zkEVM proof verification.
      * @custom:field rlps                        Pre-encoded RLPs to compute the next block hash
      *                                           of the source output root proof.
      * @custom:field l2ToL1MessagePasserBalance  Balance of the L2ToL1MessagePasser account.
@@ -223,5 +227,32 @@ library Types {
         bytes32 l2ToL1MessagePasserBalance;
         bytes32 l2ToL1MessagePasserCodeHash;
         bytes[] merkleProof;
+    }
+
+    /**
+     * @notice Struct representing zkEVM public input and proof.
+     *
+     * @param publicInputProof Data for verifying the public input.
+     * @param proof            Halo2 proofs composed of points and scalars.
+     *                         See https://zcash.github.io/halo2/design/implementation/proofs.html.
+     * @param pair             Aggregated multi-opening proofs and public inputs.
+     *                         (Currently only 2 public inputs)
+     */
+    struct ZkEvmProof {
+        PublicInputProof publicInputProof;
+        uint256[] proof;
+        uint256[] pair;
+    }
+
+    /**
+     * @notice Struct representing zkVM public input and proof.
+     *
+     * @param publicValues The public values concatenated.
+     *                     (Currently 3 public inputs: bytes32 srcOutputRoot, bytes32 dstOutputRoot, bytes32 l1Head)
+     * @param proofBytes   The proof of the program execution the SP1 zkVM encoded as bytes.
+     */
+    struct ZkVmProof {
+        bytes publicValues;
+        bytes proofBytes;
     }
 }

@@ -244,15 +244,15 @@ library Hashing {
     }
 
     /**
-     * @notice Hashes the various elements of a public input into a public input hash.
+     * @notice Hashes the various elements of a public input into a public input hash for zkEVM proof.
      *
      * @param _prevStateRoot Previous state root.
      * @param _publicInput   Public input which should be hashed to a public input hash.
      * @param _dummyHashes   Dummy hashes returned from generateDummyHashes().
      *
-     * @return Hashed block header.
+     * @return Hash of public input for zkEVM proof.
      */
-    function hashPublicInput(
+    function hashZkEvmPublicInput(
         bytes32 _prevStateRoot,
         Types.PublicInput memory _publicInput,
         bytes32[] memory _dummyHashes
