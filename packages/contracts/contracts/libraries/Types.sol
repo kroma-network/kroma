@@ -238,7 +238,7 @@ library Types {
      * @param pair             Aggregated multi-opening proofs and public inputs.
      *                         (Currently only 2 public inputs)
      */
-    struct ZKEVMProof {
+    struct ZkEvmProof {
         PublicInputProof publicInputProof;
         uint256[] proof;
         uint256[] pair;
@@ -251,7 +251,7 @@ library Types {
      *                     (Currently 3 public inputs: bytes32 srcOutputRoot, bytes32 dstOutputRoot, bytes32 l1Head)
      * @param proofBytes   The proof of the program execution the SP1 zkVM encoded as bytes.
      */
-    struct ZKVMProof {
+    struct ZkVmProof {
         bytes publicValues;
         bytes proofBytes;
     }

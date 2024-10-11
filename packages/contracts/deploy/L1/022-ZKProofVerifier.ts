@@ -52,7 +52,7 @@ const deployFn: DeployFunction = async (hre) => {
       )
       await assertContractVariable(
         contract,
-        'zkVMProgramVKey',
+        'zkVmProgramVKey',
         hre.deployConfig.zkProofVerifierVKey
       )
     },

@@ -57,7 +57,7 @@ contract ZKProofVerifier is ISemver {
     error InvalidPublicInput();
 
     /// @notice Reverts when the ZK proof is invalid.
-    error InvalidZKProof();
+    error InvalidZkProof();
 
     /// @notice Reverts when the inclusion proof is invalid.
     error InvalidInclusionProof();
@@ -88,21 +88,21 @@ contract ZKProofVerifier is ISemver {
     /// @param _maxTxs Number of max transactions per block for zkEVM proofs.
     /// @param _zkMerkleTrie Address of the ZKMerkleTrie contract.
     /// @param _sp1Verifier Address of the SP1VerifierGateway contract.
-    /// @param _zkVMProgramVKey The verification key for the zkVM program.
+    /// @param _zkVmProgramVKey The verification key for the zkVM program.
     constructor(
         ZKVerifier _zkVerifier,
         bytes32 _dummyHash,
         uint256 _maxTxs,
         address _zkMerkleTrie,
         ISP1Verifier _sp1Verifier,
-        bytes32 _zkVMProgramVKey
+        bytes32 _zkVmProgramVKey
     ) {
         ZK_VERIFIER = _zkVerifier;
         DUMMY_HASH = _dummyHash;
         MAX_TXS = _maxTxs;
         ZK_MERKLE_TRIE = _zkMerkleTrie;
         SP1_VERIFIER = _sp1Verifier;
-        ZKVM_PROGRAM_V_KEY = _zkVMProgramVKey;
+        ZKVM_PROGRAM_V_KEY = _zkVmProgramVKey;
     }
 
     /// @notice Getter for the address of ZKVerifier contract.
@@ -131,21 +131,21 @@ contract ZKProofVerifier is ISemver {
     }
 
     /// @notice Getter for the verification key for the zkVM program.
-    function zkVMProgramVKey() external view returns (bytes32) {
+    function zkVmProgramVKey() external view returns (bytes32) {
         return ZKVM_PROGRAM_V_KEY;
     }
 
     /// @notice Verifies zkEVM public inputs and proof.
-    /// @param _zkEVMProof The public input and proof using zkEVM.
+    /// @param _zkEvmProof The public input and proof using zkEVM.
     /// @param _storedSrcOutput The stored source output root.
     /// @param _storedDstOutput The stored destination output root. It will only be used for fault proving.
     /// @return publicInputHash_ Hash of public input.
-    function verifyZKEVMProof(
-        Types.ZKEVMProof calldata _zkEVMProof,
+    function verifyZkEvmProof(
+        Types.ZkEvmProof calldata _zkEvmProof,
         bytes32 _storedSrcOutput,
         bytes32 _storedDstOutput
     ) external view returns (bytes32 publicInputHash_) {
-        Types.PublicInputProof calldata publicInputProof = _zkEVMProof.publicInputProof;
+        Types.PublicInputProof calldata publicInputProof = _zkEvmProof.publicInputProof;
 
         if (
             publicInputProof.srcOutputRootProof.nextBlockHash !=
@@ -158,7 +158,7 @@ contract ZKProofVerifier is ISemver {
             Hashing.hashOutputRootProof(publicInputProof.srcOutputRootProof),
             Hashing.hashOutputRootProof(publicInputProof.dstOutputRootProof)
         );
-        _validateZKEVMPublicInput(
+        _validateZkEvmPublicInput(
             publicInputProof.dstOutputRootProof,
             publicInputProof.publicInput,
             publicInputProof.rlps
@@ -171,23 +171,23 @@ contract ZKProofVerifier is ISemver {
             publicInputProof.dstOutputRootProof.stateRoot
         );
 
-        publicInputHash_ = _hashZKEVMPublicInput(
+        publicInputHash_ = _hashZkEvmPublicInput(
             publicInputProof.srcOutputRootProof.stateRoot,
             publicInputProof.publicInput
         );
 
-        if (!ZK_VERIFIER.verify(_zkEVMProof.proof, _zkEVMProof.pair, publicInputHash_))
-            revert InvalidZKProof();
+        if (!ZK_VERIFIER.verify(_zkEvmProof.proof, _zkEvmProof.pair, publicInputHash_))
+            revert InvalidZkProof();
     }
 
     /// @notice Verifies zkVM public inputs and proof.
-    /// @param _zkVMProof The public input and proof using zkVM.
+    /// @param _zkVmProof The public input and proof using zkVM.
     /// @param _storedSrcOutput The stored source output root.
     /// @param _storedDstOutput The stored destination output root. It will only be used for fault proving.
     /// @param _storedL1Head The stored L1 block hash.
     /// @return publicInputHash_ Hash of public input.
-    function verifyZKVMProof(
-        Types.ZKVMProof calldata _zkVMProof,
+    function verifyZkVmProof(
+        Types.ZkVmProof calldata _zkVmProof,
         bytes32 _storedSrcOutput,
         bytes32 _storedDstOutput,
         bytes32 _storedL1Head
@@ -195,19 +195,19 @@ contract ZKProofVerifier is ISemver {
         _validatePublicInputOutput(
             _storedSrcOutput,
             _storedDstOutput,
-            bytes32(_zkVMProof.publicValues[:32]),
-            bytes32(_zkVMProof.publicValues[32:64])
+            bytes32(_zkVmProof.publicValues[:32]),
+            bytes32(_zkVmProof.publicValues[32:64])
         );
 
-        if (bytes32(_zkVMProof.publicValues[64:96]) != _storedL1Head) revert InvalidPublicInput();
+        if (bytes32(_zkVmProof.publicValues[64:96]) != _storedL1Head) revert InvalidPublicInput();
 
         SP1_VERIFIER.verifyProof(
             ZKVM_PROGRAM_V_KEY,
-            _zkVMProof.publicValues,
-            _zkVMProof.proofBytes
+            _zkVmProof.publicValues,
+            _zkVmProof.proofBytes
         );
 
-        publicInputHash_ = keccak256(_zkVMProof.publicValues);
+        publicInputHash_ = keccak256(_zkVmProof.publicValues);
     }
 
     /// @notice Checks if the public input outputs are valid. Reverts if they are invalid.
@@ -234,7 +234,7 @@ contract ZKProofVerifier is ISemver {
     /// @param _publicInput Ingredients to compute the public input used by zkEVM proof verification.
     /// @param _rlps Pre-encoded RLPs to compute the latest block hash of the destination output
     ///              root proof.
-    function _validateZKEVMPublicInput(
+    function _validateZkEvmPublicInput(
         Types.OutputRootProof calldata _dstOutputRootProof,
         Types.PublicInput calldata _publicInput,
         Types.BlockHeaderRLP calldata _rlps
@@ -284,7 +284,7 @@ contract ZKProofVerifier is ISemver {
     /// @param _prevStateRoot Previous state root.
     /// @param _publicInput Ingredients to compute the public input used by zkEVM proof verification.
     /// @return Hash of public input for zkEVM proof.
-    function _hashZKEVMPublicInput(
+    function _hashZkEvmPublicInput(
         bytes32 _prevStateRoot,
         Types.PublicInput calldata _publicInput
     ) internal view returns (bytes32) {
@@ -302,6 +302,6 @@ contract ZKProofVerifier is ISemver {
         // of providing a preimage that would generate the desired public input hash
         // from an attacker's perspective, we have decided to omit the verification
         // using the transaction root.
-        return Hashing.hashZKEVMPublicInput(_prevStateRoot, _publicInput, dummyHashes);
+        return Hashing.hashZkEvmPublicInput(_prevStateRoot, _publicInput, dummyHashes);
     }
 }

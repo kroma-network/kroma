@@ -790,7 +790,7 @@ contract Colosseum_Initializer is Portal_Initializer {
             _maxTxs: MAX_TXS,
             _zkMerkleTrie: address(zkMerkleTrie),
             _sp1Verifier: sp1Verifier,
-            _zkVMProgramVKey: ZKVM_PROGRAM_V_KEY
+            _zkVmProgramVKey: ZKVM_PROGRAM_V_KEY
         });
         vm.prank(multisig);
         zkProofVerifierProxy.upgradeTo(address(zkProofVerifierImpl));

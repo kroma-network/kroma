@@ -252,7 +252,7 @@ library Hashing {
      *
      * @return Hash of public input for zkEVM proof.
      */
-    function hashZKEVMPublicInput(
+    function hashZkEvmPublicInput(
         bytes32 _prevStateRoot,
         Types.PublicInput memory _publicInput,
         bytes32[] memory _dummyHashes

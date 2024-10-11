@@ -1017,7 +1017,7 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 
 		// TODO(seolaoh): add fetching zkVM preimages and proof
 
-		return c.colosseumContract.ZkVMProveFault(txOpts, outputIndex, position, bindings.TypesZKVMProof{})
+		return c.colosseumContract.ProveFaultWithZkVm(txOpts, outputIndex, position, bindings.TypesZkVmProof{})
 	} else {
 		c.log.Info("crafting zkEVMProveFault tx", "outputIndex", outputIndex, "challenger", challenger)
 
@@ -1044,11 +1044,11 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 			return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
 		}
 
-		return c.colosseumContract.ZkEVMProveFault(
+		return c.colosseumContract.ProveFaultWithZkEvm(
 			txOpts,
 			outputIndex,
 			position,
-			bindings.TypesZKEVMProof{
+			bindings.TypesZkEvmProof{
 				PublicInputProof: proof,
 				Proof:            fetchResult.Proof,
 				// NOTE(0xHansLee): the hash of public input (pair[4], pair[5]) is not needed in proving fault.
