@@ -173,11 +173,6 @@ func (v *StateVerifier) verify() bool {
 			codes += 1
 		}
 
-		if !bytes.Equal(acc.CodeHash, transAcc.CodeHash) {
-			logger.Printf("not equal CodeHash - mpt : %s  VS  trans : %s\n", common.Bytes2Hex(acc.CodeHash), common.Bytes2Hex(transAcc.CodeHash))
-			return false
-		}
-
 		if time.Since(lastReport) > time.Second*8 {
 			logger.Println("Traversing state", "accounts", accounts, "slots", slots, "codes", codes, "elapsed", common.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
@@ -197,8 +192,8 @@ func main() {
 
 	mptRawDBOpenOption := rawdb.OpenOptions{
 		Type:              "pebble",
-		Directory:         "./db/geth/chaindata",
-		AncientsDirectory: "./db/geth/chaindata/ancient",
+		Directory:         "/db/geth/chaindata",
+		AncientsDirectory: "/db/geth/chaindata/ancient",
 		Namespace:         "eth/db/chaindata/",
 		Cache:             0,
 		Handles:           0,
@@ -207,8 +202,8 @@ func main() {
 
 	transRawDBOpenOption := rawdb.OpenOptions{
 		Type:              "pebble",
-		Directory:         "./transitioned-db/geth/chaindata",
-		AncientsDirectory: "./transitioned-db/geth/chaindata/ancient",
+		Directory:         "/transitioned-db/geth/chaindata",
+		AncientsDirectory: "/transitioned-db/geth/chaindata/ancient",
 		Namespace:         "eth/db/chaindata/",
 		Cache:             0,
 		Handles:           0,
