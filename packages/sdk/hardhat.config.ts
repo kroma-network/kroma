@@ -52,6 +52,7 @@ const config: HardhatUserConfig = {
         '689af8efa8c651a91ad287602527f3af2fe9f6501a7ac4b061667b5a93e037fd', // 17
         'de9be858da4a475276426320d5e9262ecfc3ba460bfac56360bfa6c4c28b4ee0', // 18
         'df57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e', // 19
+        '1d280b7aebe9d1d9f17b4d6e80fee354a923643563e40f7e7daba95e7fd2198e',
       ],
     },
     devnetL2: {

@@ -1,0 +1,16 @@
+services:
+  migration-verifier:
+    container_name: verifier
+    build:
+      context: .
+    volumes:
+      - "ops-devnet-migration_mpt-geth_data:/db"
+      - "ops-devnet-migration_zkt-geth_data:/transitioned-db"
+    entrypoint:
+      - migration-verifier
+
+volumes:
+  ops-devnet-migration_mpt-geth_data:
+    external: true
+  ops-devnet-migration_zkt-geth_data:
+    external: true

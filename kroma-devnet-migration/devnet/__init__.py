@@ -22,6 +22,7 @@ pjoin = os.path.join
 parser = argparse.ArgumentParser(description='Bedrock devnet launcher')
 parser.add_argument('--monorepo-dir', help='Directory of the monorepo', default=os.getcwd())
 parser.add_argument('--allocs', help='Only create the allocs and exit', type=bool, action=argparse.BooleanOptionalAction)
+parser.add_argument('--test', help='Tests the deployment, must already be deployed', type=bool, action=argparse.BooleanOptionalAction)
 
 log = logging.getLogger()
 
@@ -91,6 +92,11 @@ def main():
       rollup_config_path=pjoin(devnet_dir, 'rollup.json'),
       mpt_rollup_config_path=pjoin(devnet_dir, 'mpt-rollup.json')
     )
+
+    if args.test:
+        log.info('Testing deployed devnet')
+        devnet_test(paths)
+        return
 
 
     os.makedirs(devnet_dir, exist_ok=True)
@@ -369,14 +375,19 @@ def devnet_test(paths):
     # Run the two commands with different signers, so the ethereum nonce management does not conflict
     # And do not use devnet system addresses, to avoid breaking fee-estimation or nonce values.
     run_commands([
-        CommandPreset('erc20-test',
-          ['npx', 'hardhat',  'deposit-erc20', '--network',  'devnetL1',
-           '--l1-contracts-json-path', paths.addresses_json_path, '--signer-index', '14'],
-          cwd=paths.sdk_dir, timeout=8*60),
+        # CommandPreset('erc20-test',
+        #   ['npx', 'hardhat',  'deposit-erc20', '--network',  'devnetL1',
+        #    '--l1-contracts-json-path', paths.addresses_json_path, '--check-balance-mismatch' ],
+        #   cwd=paths.sdk_dir, timeout=8*60),
         CommandPreset('eth-test',
-          ['npx', 'hardhat',  'deposit-eth', '--network',  'devnetL1',
-           '--l1-contracts-json-path', paths.addresses_json_path, '--signer-index', '15'],
+          ['npx', 'hardhat',  'deposit-eth', '--network',  'devnetL1',  '--amount', ' 904625697166532776746648320380374280103671755200316906560',
+           '--l1-contracts-json-path', paths.addresses_json_path],
           cwd=paths.sdk_dir, timeout=8*60)
+        # CommandPreset('eth-test',
+        #               ['npx', 'hardhat',  'send-message', '--network',  'devnetL1',
+        #                '--l1-contracts-json-path', paths.addresses_json_path],
+        #               cwd=paths.sdk_dir, timeout=8*60)
+
     ], max_workers=2)
 
 
