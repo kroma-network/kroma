@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -42,7 +43,7 @@ func NewStateVerifier(mptDBOpenOption, transitionedDBOpenOption rawdb.OpenOption
 
 }
 
-func (v *StateVerifier) verify() bool {
+func (v *StateVerifier) verify() (string, bool) {
 	mptHeadBlock := rawdb.ReadHeadHeader(v.rawDB)
 	mptHeadBlockNumber := mptHeadBlock.Number.Uint64()
 	transHeadBlock := rawdb.ReadHeadHeader(v.rawTransDB)
@@ -54,16 +55,21 @@ func (v *StateVerifier) verify() bool {
 		commonLatestBlockNumber = mptHeadBlockNumber
 	}
 
+	var currentAccKey string
+
+	fmt.Println("commonLatestBlockNumber :", commonLatestBlockNumber)
+
 	mptBlockHash := rawdb.ReadCanonicalHash(v.rawDB, commonLatestBlockNumber)
 	mptStateRoot := rawdb.ReadBlock(v.rawDB, mptBlockHash, commonLatestBlockNumber).Root()
 
 	transBlockHash := rawdb.ReadCanonicalHash(v.rawTransDB, commonLatestBlockNumber)
 	transStateRoot := rawdb.ReadBlock(v.rawTransDB, transBlockHash, commonLatestBlockNumber).Root()
 
-	if mptStateRoot.Cmp(transStateRoot) != 0 {
-		logger.Println("State Root is not equal")
-		return false
-	}
+	// Note: comment out because we want to check what is wrong
+	//if mptStateRoot.Cmp(transStateRoot) != 0 {
+	//	logger.Println("State Root is not equal")
+	//	return false
+	//}
 
 	mptStateTrie, err := trie.NewStateTrie(trie.StateTrieID(mptStateRoot), v.mptDB)
 
@@ -94,12 +100,18 @@ func (v *StateVerifier) verify() bool {
 
 	for accIter.Next() {
 		accounts += 1
+		currentAccKey = hex.EncodeToString(accIter.Key)
 		var acc types.StateAccount
 		if err := rlp.DecodeBytes(accIter.Value, &acc); err != nil {
 			logger.Panicln(fmt.Errorf("Invalid account encountered during traversal: %w", err))
 		}
 
+		if err != nil {
+			logger.Panicln(fmt.Errorf("decode erorr %w", err))
+		}
+
 		transAcc, err := transStateTrie.GetAccountByHash(common.BytesToHash(accIter.Key))
+		//fmt.Println("hex.EncodeToString(accIter.Key) : ", hex.EncodeToString(accIter.Key))
 
 		if err != nil {
 			logger.Panicln(fmt.Errorf("Failed to get account in TRANS: %w", err))
@@ -107,23 +119,25 @@ func (v *StateVerifier) verify() bool {
 
 		if transAcc.Balance.Cmp(acc.Balance) != 0 {
 			logger.Printf("balance mismatch. expected %s, got %s\n", transAcc.Balance, acc.Balance)
-			return false
+			return currentAccKey, false
 		}
 
 		if transAcc.Nonce != acc.Nonce {
-			logger.Printf("nonce mismatch. expected %s, got %s\n", transAcc.Nonce, acc.Nonce)
-			return false
+			logger.Printf("nonce mismatch. expected %d, got %d\n", transAcc.Nonce, acc.Nonce)
+			return currentAccKey, false
 		}
 
 		if !bytes.Equal(transAcc.CodeHash, acc.CodeHash) {
 			logger.Printf("CodeHash mismatch. expected %s, got %s\n", common.BytesToHash(transAcc.CodeHash), common.BytesToHash(acc.CodeHash))
-			return false
+			return currentAccKey, false
 		}
 
 		if acc.Root != v.mptDB.EmptyRoot() {
 			id := trie.StorageTrieID(mptStateRoot, common.BytesToHash(accIter.Key), acc.Root)
+			anotherId := trie.StorageTrieID(transStateRoot, common.BytesToHash(accIter.Key), acc.Root)
+
 			storageTrie, err := trie.NewStateTrie(id, v.mptDB)
-			transLowLevelStorageTrie, err := trie.New(id, v.transDB)
+			transLowLevelStorageTrie, err := trie.New(anotherId, v.transDB)
 
 			if err != nil {
 				logger.Panicln("Failed to open low-level trans storage trie", "root", transLowLevelStorageTrie, "err", err)
@@ -144,17 +158,17 @@ func (v *StateVerifier) verify() bool {
 
 				if err != nil {
 					logger.Printf("failed find value for %s\n", common.BytesToHash(storageIter.Key).String())
-					return false
+					return currentAccKey, false
 				}
 
 				if err != nil {
 					logger.Printf("failed to decode storage value for %s\n", common.BytesToHash(storageIter.Key).String())
-					return false
+					return currentAccKey, false
 				}
 
 				if !bytes.Equal(storageIter.Value, transVal) {
 					logger.Printf("not equal storage value - mpt val : %s  VS  trans val : %s\n", common.Bytes2Hex(storageIter.Value), common.Bytes2Hex(transVal))
-					return false
+					return currentAccKey, false
 				}
 
 				if time.Since(lastReport) > time.Second*8 {
@@ -173,11 +187,6 @@ func (v *StateVerifier) verify() bool {
 			codes += 1
 		}
 
-		if !bytes.Equal(acc.CodeHash, transAcc.CodeHash) {
-			logger.Printf("not equal CodeHash - mpt : %s  VS  trans : %s\n", common.Bytes2Hex(acc.CodeHash), common.Bytes2Hex(transAcc.CodeHash))
-			return false
-		}
-
 		if time.Since(lastReport) > time.Second*8 {
 			logger.Println("Traversing state", "accounts", accounts, "slots", slots, "codes", codes, "elapsed", common.PrettyDuration(time.Since(start)))
 			lastReport = time.Now()
@@ -189,7 +198,7 @@ func (v *StateVerifier) verify() bool {
 	logger.Println("State is complete", "accounts", accounts, "slots", slots, "codes", codes, "elapsed", common.PrettyDuration(time.Since(start)))
 	logger.Println("accounts number:", accounts)
 
-	return true
+	return currentAccKey, true
 }
 
 func main() {
@@ -197,21 +206,21 @@ func main() {
 
 	mptRawDBOpenOption := rawdb.OpenOptions{
 		Type:              "pebble",
-		Directory:         "./db/geth/chaindata",
-		AncientsDirectory: "./db/geth/chaindata/ancient",
+		Directory:         "/db/geth/chaindata",
+		AncientsDirectory: "/db/geth/chaindata/ancient",
 		Namespace:         "eth/db/chaindata/",
 		Cache:             0,
-		Handles:           0,
+		Handles:           1,
 		ReadOnly:          true,
 	}
 
 	transRawDBOpenOption := rawdb.OpenOptions{
 		Type:              "pebble",
-		Directory:         "./transitioned-db/geth/chaindata",
-		AncientsDirectory: "./transitioned-db/geth/chaindata/ancient",
+		Directory:         "/transitioned-db/geth/chaindata",
+		AncientsDirectory: "/transitioned-db/geth/chaindata/ancient",
 		Namespace:         "eth/db/chaindata/",
 		Cache:             0,
-		Handles:           0,
+		Handles:           1,
 		ReadOnly:          true,
 	}
 
@@ -219,8 +228,11 @@ func main() {
 
 	_ = stateVerifier
 
-	result := stateVerifier.verify()
+	currentAccKey, result := stateVerifier.verify()
+	if !result {
+		logger.Println("currentAccKey : ", currentAccKey)
+	}
 
-	logger.Println("result : ", result)
+	fmt.Println("result : ", result)
 
 }

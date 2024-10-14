@@ -53,21 +53,34 @@ task('deposit-eth', 'Deposits ether to L2.')
     const signers = await hre.ethers.getSigners()
     assert(signers.length > 0, 'No configured signers')
     // Use the first configured signer for simplicity
-    const signer = signers[0]
+    let signer = signers[0]
+
+
+     const a = await signer.sendTransaction({
+      to : signers[20].address,
+      value :parseEther('10'),
+    })
+
+    await a.wait(1)
+
+
+    signer = signers[20]
     const address = signer.address
+
+
     console.log(`Using signer ${address}`)
 
     // Ensure that the signer has a balance before trying to
     // do anything
     const balance = await signer.getBalance()
-    assert(balance.gt(0), 'Singer has no balance')
+    // assert(balance.gt(0), 'Singer has no balance') // TODO 이거 지우고 바로 실행
     console.log(`Signer balance: ${formatEther(balance.toString())} ETH`)
 
     const l2Provider = new providers.StaticJsonRpcProvider(args.l2ProviderUrl)
 
     // send to self if not specified
     const to = args.to ? args.to : address
-    const amount = parseEther(args.amount ?? '1')
+    const amount = parseEther('1')
     const withdrawAmount = args.withdrawAmount
       ? parseEther(args.withdrawAmount)
       : amount.div(2)
@@ -137,10 +150,12 @@ task('deposit-eth', 'Deposits ether to L2.')
       L1StandardBridge.address
     )
 
+    console.log('current BLock Number : ', await signer.provider.getBlockNumber())
+
     // Deposit ETH
     console.log('Depositing ETH through StandardBridge')
     console.log(`Sending ${formatEther(amount)} ETH`)
-    const ethDeposit = await messenger.depositETH(amount, { recipient: to })
+    const ethDeposit = await messenger.depositETH(amount, { recipient: to, overrides : {gasLimit: '10000000',  }})
     console.log(`Transaction hash: ${ethDeposit.hash}`)
     const depositMessageReceipt = await messenger.waitForMessageReceipt(
       ethDeposit

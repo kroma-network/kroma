@@ -107,6 +107,10 @@ devnet-down-migration:
 	@(cd ./ops-devnet-migration && GENESIS_TIMESTAMP=$(shell date +%s) docker compose stop)
 .PHONY: devnet-down-migration
 
+devnet-test-migration: pre-devnet
+	PYTHONPATH=./kroma-devnet-migration $(PYTHON) ./kroma-devnet-migration/main.py --monorepo-dir=. --test
+.PHONY: devnet-test-migration
+
 devnet-clean:
 	rm -rf ./packages/contracts/deployments/devnetL1
 	rm -rf ./.devnet
