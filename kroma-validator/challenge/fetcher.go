@@ -9,73 +9,80 @@ import (
 	"math/big"
 	"net/http"
 	"time"
-
-	"github.com/ethereum/go-ethereum/log"
 )
 
 type (
-	JsonRpcError struct {
+	ProofFetcher struct {
+		rpcURL     string
+		httpClient *http.Client
+	}
+
+	rpcRequest struct {
+		JsonRPC string `json:"jsonrpc"`
+		Method  string `json:"method"`
+		Params  any    `json:"params"`
+		Id      int    `json:"id"`
+	}
+
+	rpcResponse struct {
+		JsonRPC string          `json:"jsonrpc"`
+		Result  json.RawMessage `json:"result"`
+		Error   *jsonRPCError   `json:"error"`
+		Id      int             `json:"id"`
+	}
+
+	jsonRPCError struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 		Data    any    `json:"data"`
 	}
 
-	response struct {
-		Jsonrpc string         `json:"jsonrpc"`
-		Result  *ProveResponse `json:"result"`
-		Error   *JsonRpcError  `json:"error"`
-		Id      string         `json:"id"`
+	ZkEVMProofFetcher interface {
+		FetchProofAndPair(ctx context.Context, trace string) (*ProofAndPair, error)
 	}
 
-	ProveResponse struct {
-		FinalPair []byte `json:"final_pair,omitempty"`
-		Proof     []byte `json:"proof,omitempty"`
+	zkEVMProveResponse struct {
+		FinalPair []byte `json:"final_pair"`
+		Proof     []byte `json:"proof"`
 	}
 
-	ProverClient interface {
-		Prove(ctx context.Context, traceString string) (*ProveResponse, error)
-	}
-
-	Fetcher struct {
-		Client  JsonRPCProverClient
-		logger  log.Logger
-		timeout time.Duration
+	ProofAndPair struct {
+		Proof []*big.Int
+		Pair  []*big.Int
 	}
 )
 
-func NewFetcher(rpcURL string, timeout time.Duration, logger log.Logger) (*Fetcher, error) {
+func NewProofFetcher(rpcURL string, networkTimeout time.Duration) (*ProofFetcher, error) {
 	if rpcURL == "" {
-		return nil, fmt.Errorf("no RPC URL specified")
+		return nil, fmt.Errorf("empty RPC URL supplied")
 	}
 
-	return &Fetcher{
-		Client:  JsonRPCProverClient{rpcURL},
-		logger:  logger,
-		timeout: timeout,
+	return &ProofFetcher{
+		rpcURL: rpcURL,
+		httpClient: &http.Client{
+			Timeout: networkTimeout,
+		},
 	}, nil
 }
 
-type ProofAndPair struct {
-	Proof []*big.Int
-	Pair  []*big.Int
-}
-
-func (f *Fetcher) FetchProofAndPair(ctx context.Context, trace string) (*ProofAndPair, error) {
-	cCtx, cCancel := context.WithTimeout(ctx, f.timeout)
-	defer cCancel()
-
-	resp, err := f.Client.Prove(cCtx, trace)
+func (f *ProofFetcher) FetchProofAndPair(ctx context.Context, trace string) (*ProofAndPair, error) {
+	resultBytes, err := f.fetch(ctx, "prove", []any{trace})
 	if err != nil {
-		f.logger.Error("could not request fault proof", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch proof and pair: %w", err)
 	}
 
-	result := &ProofAndPair{
-		Proof: Decode(resp.Proof),
-		Pair:  Decode(resp.FinalPair),
+	var proveResult zkEVMProveResponse
+	err = json.Unmarshal(resultBytes, &proveResult)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal as zkEVMProveResponse: %w", err)
 	}
 
-	return result, nil
+	proofAndPair := &ProofAndPair{
+		Proof: Decode(proveResult.Proof),
+		Pair:  Decode(proveResult.FinalPair),
+	}
+
+	return proofAndPair, nil
 }
 
 func Decode(data []byte) []*big.Int {
@@ -92,56 +99,44 @@ func Decode(data []byte) []*big.Int {
 	return result
 }
 
-var _ ProverClient = (*JsonRPCProverClient)(nil)
-
-type JsonRPCProverClient struct {
-	address string
-}
-
-func (c JsonRPCProverClient) Prove(ctx context.Context, traceString string) (*ProveResponse, error) {
-	reqBody := struct {
-		Jsonrpc string `json:"jsonrpc"`
-		Method  string `json:"method"`
-		Params  any    `json:"params"`
-		Id      string `json:"id"`
-	}{
-		Jsonrpc: "2.0",
-		Method:  "prove",
-		Params:  []any{traceString},
-		Id:      "0",
+func (f *ProofFetcher) fetch(ctx context.Context, method string, params []any) (json.RawMessage, error) {
+	reqBody := rpcRequest{
+		JsonRPC: "2.0",
+		Method:  method,
+		Params:  params,
+		Id:      0,
 	}
-
 	reqBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to json.Marshal %w", err)
+		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.address, bytes.NewReader(reqBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new reqBody for proof: %w", err)
-	}
-
-	cli := http.Client{}
-	res, err := cli.Do(req)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, f.rpcURL, bytes.NewReader(reqBytes))
 	if err != nil {
 		return nil, err
 	}
 
-	respBytes, err := io.ReadAll(res.Body)
+	res, err := f.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	resBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp response
-	if err := json.Unmarshal(respBytes, &resp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	var response rpcResponse
+	if err = json.Unmarshal(resBytes, &response); err != nil {
+		return nil, err
 	}
 
-	if resp.Error != nil {
-		return nil, fmt.Errorf("error occurs from zk prover: %s", resp.Error)
+	if response.Error != nil {
+		return nil, fmt.Errorf("error occurred from zkEVM prover: %w", response.Error)
 	}
 
-	return resp.Result, nil
+	return response.Result, nil
 }
 
-func (j *JsonRpcError) Error() string { return fmt.Sprintf("[%d] %s", j.Code, j.Message) }
+func (j *jsonRPCError) Error() string { return fmt.Sprintf("[%d] %s", j.Code, j.Message) }

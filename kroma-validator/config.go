@@ -48,7 +48,7 @@ type Config struct {
 	ChallengerEnabled               bool
 	GuardianEnabled                 bool
 	GuardianPollInterval            time.Duration
-	ProofFetcher                    ProofFetcher
+	ProofFetcher                    chal.ZkEVMProofFetcher
 }
 
 // Check ensures that the [Config] is valid.
@@ -226,9 +226,9 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, errors.New("ProverRPC is required when challenger enabled, but given empty")
 	}
 
-	var fetcher ProofFetcher
+	var fetcher chal.ZkEVMProofFetcher
 	if len(cfg.ProverRPC) > 0 {
-		fetcher, err = chal.NewFetcher(cfg.ProverRPC, cfg.FetchingProofTimeout, l)
+		fetcher, err = chal.NewProofFetcher(cfg.ProverRPC, cfg.FetchingProofTimeout, l)
 		if err != nil {
 			return nil, err
 		}

@@ -29,9 +29,9 @@ import (
 
 var deletedOutputRoot = [32]byte{}
 
-type ProofFetcher interface {
-	FetchProofAndPair(ctx context.Context, trace string) (*chal.ProofAndPair, error)
-}
+//type ZkEVMProofFetcher interface {
+//	FetchProofAndPair(ctx context.Context, trace string) (*chal.ProofAndPair, error)
+//}
 
 type Challenger struct {
 	log    log.Logger
@@ -997,6 +997,8 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 		c.log.Info("crafting zkVMProveFault tx", "outputIndex", outputIndex, "challenger", challenger)
 
 		// TODO(seolaoh): add fetching zkVM preimages and proof
+		// blockHash := header.Hash()
+		// l1Head := challenge.L1Head
 
 		return c.colosseumContract.ProveFaultWithZkVm(txOpts, outputIndex, position, bindings.TypesZkVmProof{})
 	} else {
