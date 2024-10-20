@@ -29,10 +29,6 @@ import (
 
 var deletedOutputRoot = [32]byte{}
 
-type ProofFetcher interface {
-	FetchProofAndPair(ctx context.Context, trace string) (*chal.ProofAndPair, error)
-}
-
 type Challenger struct {
 	log    log.Logger
 	cfg    Config
@@ -42,6 +38,9 @@ type Challenger struct {
 
 	l1Client *ethclient.Client
 	l2Client *ethclient.Client
+
+	ZkEVMProofFetcher chal.ZkEVMProofFetcher
+	ZkVMProofFetcher  chal.ZkVMProofFetcher
 
 	l2OOContract      *bindings.L2OutputOracle
 	l2OOABI           *abi.ABI
@@ -104,6 +103,16 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		return nil, err
 	}
 
+	// TODO(seolaoh): remove zkEVMProofFetcher after zkVM transition completed
+	var zkEVMProofFetcher chal.ZkEVMProofFetcher
+	if len(cfg.ZkEVMProverRPC) > 0 {
+		zkEVMProofFetcher = chal.NewClient(cfg.ZkEVMProverRPC, cfg.ZkEVMNetworkTimeout)
+	}
+	var zkVMProofFetcher chal.ZkVMProofFetcher
+	if len(cfg.ZkVMProverRPC) > 0 {
+		zkVMProofFetcher = chal.NewClient(cfg.ZkVMProverRPC, cfg.NetworkTimeout)
+	}
+
 	return &Challenger{
 		log:  l.New("service", "challenge"),
 		cfg:  cfg,
@@ -111,6 +120,9 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 
 		l1Client: cfg.L1Client,
 		l2Client: cfg.L2Client,
+
+		ZkEVMProofFetcher: zkEVMProofFetcher,
+		ZkVMProofFetcher:  zkVMProofFetcher,
 
 		l2OOContract:      l2OOContract,
 		l2OOABI:           l2OOABI,
@@ -520,7 +532,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 	isAsserter := asserter == c.cfg.TxManager.From()
 	isChallenger := challenger == c.cfg.TxManager.From()
 
-	ticker := time.NewTicker(c.cfg.ChallengerPollInterval)
+	ticker := time.NewTicker(c.cfg.ChallengePollInterval)
 	defer ticker.Stop()
 
 	for ; ; <-ticker.C {
@@ -997,6 +1009,8 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 		c.log.Info("crafting zkVMProveFault tx", "outputIndex", outputIndex, "challenger", challenger)
 
 		// TODO(seolaoh): add fetching zkVM preimages and proof
+		// blockHash := header.Hash()
+		// l1Head := challenge.L1Head
 
 		return c.colosseumContract.ProveFaultWithZkVm(txOpts, outputIndex, position, bindings.TypesZkVmProof{})
 	} else {
@@ -1020,7 +1034,7 @@ func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, chall
 			return nil, fmt.Errorf("failed to marshal block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
 		}
 
-		fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(ctx, string(traceBz))
+		fetchResult, err := c.ZkEVMProofFetcher.FetchProofAndPair(ctx, string(traceBz))
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
 		}

@@ -17,7 +17,7 @@ type Fetcher struct {
 	mockPath string
 }
 
-func NewFetcher(logger log.Logger, path string) *Fetcher {
+func NewFetcher(logger log.Logger, path string) *Fetcher { // TODO
 	return &Fetcher{
 		l:        logger,
 		mockPath: path,

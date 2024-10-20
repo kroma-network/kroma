@@ -3,6 +3,7 @@ package validator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -19,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	"github.com/kroma-network/kroma/kroma-validator/flags"
 	"github.com/kroma-network/kroma/kroma-validator/metrics"
 )
@@ -33,22 +33,24 @@ type Config struct {
 	ValidatorPoolAddr               common.Address
 	ValidatorManagerAddr            common.Address
 	AssetManagerAddr                common.Address
-	ChallengerPollInterval          time.Duration
 	NetworkTimeout                  time.Duration
 	TxManager                       *txmgr.BufferedTxManager
 	L1Client                        *ethclient.Client
 	L2Client                        *ethclient.Client
 	RollupClient                    *sources.RollupClient
 	RollupConfig                    *rollup.Config
+	ChallengePollInterval           time.Duration
 	AllowNonFinalized               bool
 	OutputSubmitterEnabled          bool
 	OutputSubmitterAllowPublicRound bool
 	OutputSubmitterRetryInterval    time.Duration
 	OutputSubmitterRoundBuffer      uint64
 	ChallengerEnabled               bool
+	ZkEVMProverRPC                  string
+	ZkEVMNetworkTimeout             time.Duration
+	ZkVMProverRPC                   string
 	GuardianEnabled                 bool
 	GuardianPollInterval            time.Duration
-	ProofFetcher                    ProofFetcher
 }
 
 // Check ensures that the [Config] is valid.
@@ -90,11 +92,8 @@ type CLIConfig struct {
 	// AssetManagerAddress is the AssetManager contract address.
 	AssetManagerAddress string
 
-	// ChallengerPollInterval is how frequently to poll L2 for new finalized outputs.
-	ChallengerPollInterval time.Duration
-
-	// ProverRPC is the URL of prover jsonRPC server.
-	ProverRPC string
+	// ChallengePollInterval is how frequently to poll L1 to handle related challenges.
+	ChallengePollInterval time.Duration
 
 	// AllowNonFinalized can be set to true to submit outputs
 	// for L2 blocks derived from non-finalized L1 data.
@@ -112,12 +111,19 @@ type CLIConfig struct {
 
 	ChallengerEnabled bool
 
+	// ZkEVMProverRPC is the URL of zkEVM prover JSON-RPC server.
+	ZkEVMProverRPC string
+
+	// ZkEVMNetworkTimeout is timeout to be connected with zkEVM prover.
+	ZkEVMNetworkTimeout time.Duration
+
+	// ZkVMProverRPC is the URL of zkVM prover JSON-RPC server.
+	ZkVMProverRPC string
+
 	GuardianEnabled bool
 
 	// GuardianPollInterval is how frequently to poll L1 for inspection.
 	GuardianPollInterval time.Duration
-
-	FetchingProofTimeout time.Duration
 
 	TxMgrConfig   txmgr.CLIConfig
 	RPCConfig     oprpc.CLIConfig
@@ -129,9 +135,6 @@ type CLIConfig struct {
 func (c CLIConfig) Check() error {
 	if !(c.OutputSubmitterEnabled || c.ChallengerEnabled || c.GuardianEnabled) {
 		return errors.New("one of output submitter, challenger, guardian should be enabled")
-	}
-	if c.OutputSubmitterAllowPublicRound && !c.OutputSubmitterEnabled {
-		return errors.New("OutputSubmitterAllowPublicRound is meaningful when OutputSubmitterEnabled enabled")
 	}
 	if err := c.RPCConfig.Check(); err != nil {
 		return err
@@ -162,23 +165,25 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 		AssetManagerAddress:    ctx.String(flags.AssetManagerAddressFlag.Name),
 		OutputSubmitterEnabled: ctx.Bool(flags.OutputSubmitterEnabledFlag.Name),
 		ChallengerEnabled:      ctx.Bool(flags.ChallengerEnabledFlag.Name),
-		ChallengerPollInterval: ctx.Duration(flags.ChallengerPollIntervalFlag.Name),
-		TxMgrConfig:            txmgr.ReadCLIConfig(ctx),
 
 		// Optional Flags
+		ChallengePollInterval:           ctx.Duration(flags.ChallengePollIntervalFlag.Name),
 		AllowNonFinalized:               ctx.Bool(flags.AllowNonFinalizedFlag.Name),
 		OutputSubmitterRetryInterval:    ctx.Duration(flags.OutputSubmitterRetryIntervalFlag.Name),
 		OutputSubmitterRoundBuffer:      ctx.Uint64(flags.OutputSubmitterRoundBufferFlag.Name),
 		OutputSubmitterAllowPublicRound: ctx.Bool(flags.OutputSubmitterAllowPublicRoundFlag.Name),
-		SecurityCouncilAddress:          ctx.String(flags.SecurityCouncilAddressFlag.Name),
-		ProverRPC:                       ctx.String(flags.ProverRPCFlag.Name),
+		ZkEVMProverRPC:                  ctx.String(flags.ZkEVMProverRPCFlag.Name),
+		ZkEVMNetworkTimeout:             ctx.Duration(flags.ZkEVMNetworkTimeoutFlag.Name),
+		ZkVMProverRPC:                   ctx.String(flags.ZkVMProverRPCFlag.Name),
 		GuardianEnabled:                 ctx.Bool(flags.GuardianEnabledFlag.Name),
+		SecurityCouncilAddress:          ctx.String(flags.SecurityCouncilAddressFlag.Name),
 		GuardianPollInterval:            ctx.Duration(flags.GuardianPollIntervalFlag.Name),
-		FetchingProofTimeout:            ctx.Duration(flags.FetchingProofTimeoutFlag.Name),
-		RPCConfig:                       oprpc.ReadCLIConfig(ctx),
-		LogConfig:                       oplog.ReadCLIConfig(ctx),
-		MetricsConfig:                   opmetrics.ReadCLIConfig(ctx),
-		PprofConfig:                     pprof.ReadCLIConfig(ctx),
+
+		TxMgrConfig:   txmgr.ReadCLIConfig(ctx),
+		RPCConfig:     oprpc.ReadCLIConfig(ctx),
+		LogConfig:     oplog.ReadCLIConfig(ctx),
+		MetricsConfig: opmetrics.ReadCLIConfig(ctx),
+		PprofConfig:   pprof.ReadCLIConfig(ctx),
 	}
 }
 
@@ -186,35 +191,35 @@ func NewConfig(ctx *cli.Context) CLIConfig {
 func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Config, error) {
 	l2OOAddress, err := opservice.ParseAddress(cfg.L2OOAddress)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse L2OOAddress: %w", err)
 	}
 
 	colosseumAddress, err := opservice.ParseAddress(cfg.ColosseumAddress)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse ColosseumAddress: %w", err)
 	}
 
 	var securityCouncilAddress common.Address
 	if cfg.GuardianEnabled {
 		securityCouncilAddress, err = opservice.ParseAddress(cfg.SecurityCouncilAddress)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse SecurityCouncilAddress: %w", err)
 		}
 	}
 
 	valPoolAddress, err := opservice.ParseAddress(cfg.ValPoolAddress)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse ValPoolAddress: %w", err)
 	}
 
 	valMgrAddress, err := opservice.ParseAddress(cfg.ValMgrAddress)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse ValMgrAddress: %w", err)
 	}
 
 	assetManagerAddress, err := opservice.ParseAddress(cfg.AssetManagerAddress)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse AssetManagerAddress: %w", err)
 	}
 
 	txManager, err := txmgr.NewBufferedTxManager("validator", l, m, cfg.TxMgrConfig)
@@ -222,38 +227,38 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		return nil, err
 	}
 
-	if cfg.ChallengerEnabled && len(cfg.ProverRPC) == 0 {
-		return nil, errors.New("ProverRPC is required when challenger enabled, but given empty")
-	}
-
-	var fetcher ProofFetcher
-	if len(cfg.ProverRPC) > 0 {
-		fetcher, err = chal.NewFetcher(cfg.ProverRPC, cfg.FetchingProofTimeout, l)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// Connect to L1 and L2 providers. Perform these last since they are the most expensive.
 	ctx := context.Background()
 	l1Client, err := dial.DialEthClientWithTimeout(ctx, dial.DefaultDialTimeout, l, cfg.L1EthRpc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to dial L1 RPC: %w", err)
 	}
 
 	l2Client, err := dial.DialEthClientWithTimeout(ctx, dial.DefaultDialTimeout, l, cfg.L2EthRpc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to dial L2 RPC: %w", err)
 	}
 
 	rollupClient, err := dial.DialRollupClientWithTimeout(ctx, dial.DefaultDialTimeout, l, cfg.RollupRpc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to dial rollup node RPC: %w", err)
 	}
 
 	rollupConfig, err := rollupClient.RollupConfig(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.ChallengerEnabled {
+		if rollupConfig.IsKromaMPT(uint64(time.Now().Unix())) {
+			if len(cfg.ZkVMProverRPC) == 0 {
+				return nil, errors.New("ZkVMProverRPC is required when challenger enabled after Kroma MPT time")
+			}
+		} else {
+			if len(cfg.ZkEVMProverRPC) == 0 {
+				return nil, errors.New("ZkEVMProverRPC is required when challenger enabled before Kroma MPT time")
+			}
+		}
 	}
 
 	return &Config{
@@ -263,21 +268,23 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 		ValidatorPoolAddr:               valPoolAddress,
 		ValidatorManagerAddr:            valMgrAddress,
 		AssetManagerAddr:                assetManagerAddress,
-		ChallengerPollInterval:          cfg.ChallengerPollInterval,
-		GuardianPollInterval:            cfg.GuardianPollInterval,
 		NetworkTimeout:                  cfg.TxMgrConfig.NetworkTimeout,
 		TxManager:                       txManager,
 		L1Client:                        l1Client,
 		L2Client:                        l2Client,
 		RollupClient:                    rollupClient,
 		RollupConfig:                    rollupConfig,
+		ChallengePollInterval:           cfg.ChallengePollInterval,
 		AllowNonFinalized:               cfg.AllowNonFinalized,
 		OutputSubmitterEnabled:          cfg.OutputSubmitterEnabled,
 		OutputSubmitterAllowPublicRound: cfg.OutputSubmitterAllowPublicRound,
 		OutputSubmitterRetryInterval:    cfg.OutputSubmitterRetryInterval,
 		OutputSubmitterRoundBuffer:      cfg.OutputSubmitterRoundBuffer,
 		ChallengerEnabled:               cfg.ChallengerEnabled,
+		ZkEVMProverRPC:                  cfg.ZkEVMProverRPC,
+		ZkEVMNetworkTimeout:             cfg.ZkEVMNetworkTimeout,
+		ZkVMProverRPC:                   cfg.ZkVMProverRPC,
 		GuardianEnabled:                 cfg.GuardianEnabled,
-		ProofFetcher:                    fetcher,
+		GuardianPollInterval:            cfg.GuardianPollInterval,
 	}, nil
 }
