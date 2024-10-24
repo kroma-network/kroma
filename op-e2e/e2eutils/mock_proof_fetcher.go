@@ -6,22 +6,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/log"
 	"golang.org/x/sync/errgroup"
 
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 )
 
-type Fetcher struct {
-	l        log.Logger
-	mockPath string
+type MockClient struct {
+	dataDir string
 }
 
-func NewFetcher(logger log.Logger, path string) *Fetcher {
-	return &Fetcher{
-		l:        logger,
-		mockPath: path,
-	}
+func NewMockClient(dataDir string) *MockClient {
+	return &MockClient{dataDir}
 }
 
 func read(path string) ([]byte, error) {
@@ -33,14 +28,14 @@ func read(path string) ([]byte, error) {
 	return data, nil
 }
 
-func (f *Fetcher) FetchProofAndPair(_ context.Context, _ string) (*chal.ProofAndPair, error) {
+func (m *MockClient) FetchProofAndPair(_ context.Context, _ string) (*chal.ProofAndPair, error) {
 	decoded := make([][]*big.Int, 2)
 	files := []string{"verify_circuit_proof.data", "verify_circuit_final_pair.data"}
 
 	g, _ := errgroup.WithContext(context.Background())
 
 	for i := 0; i < len(files); i++ {
-		filePath := filepath.Join(f.mockPath, files[i])
+		filePath := filepath.Join(m.dataDir, files[i])
 		i := i
 
 		g.Go(func() error {

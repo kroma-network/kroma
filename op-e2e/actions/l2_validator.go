@@ -75,7 +75,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		AssetManagerAddr:                cfg.AssetManagerAddr,
 		ColosseumAddr:                   cfg.ColosseumAddr,
 		SecurityCouncilAddr:             cfg.SecurityCouncilAddr,
-		ChallengerPollInterval:          time.Second,
+		ChallengePollInterval:           time.Second,
 		OutputSubmitterRetryInterval:    time.Second,
 		OutputSubmitterRoundBuffer:      30,
 		OutputSubmitterAllowPublicRound: true,
@@ -85,7 +85,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		RollupClient:                    rollupCl,
 		RollupConfig:                    rollupConfig,
 		AllowNonFinalized:               cfg.AllowNonFinalized,
-		ProofFetcher:                    e2eutils.NewFetcher(log, "../testdata/proof"),
+		ZkEVMProofFetcher:               e2eutils.NewMockClient("../testdata/proof"),
 		// We use custom signing here instead of using the transaction manager.
 		TxManager: &txmgr.BufferedTxManager{
 			SimpleTxManager: txmgr.SimpleTxManager{
