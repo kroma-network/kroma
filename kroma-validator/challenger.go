@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -36,9 +35,6 @@ type Challenger struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	metr   metrics.Metricer
-
-	l1Client *ethclient.Client
-	l2Client *ethclient.Client
 
 	l2OOContract      *bindings.L2OutputOracle
 	l2OOABI           *abi.ABI
@@ -105,9 +101,6 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		log:  l.New("service", "challenge"),
 		cfg:  cfg,
 		metr: m,
-
-		l1Client: cfg.L1Client,
-		l2Client: cfg.L2Client,
 
 		l2OOContract:      l2OOContract,
 		l2OOABI:           l2OOABI,
@@ -340,7 +333,7 @@ func (c *Challenger) scanPrevOutputs() error {
 		Topics:    [][]common.Hash{topics},
 	}
 
-	logs, err := c.l1Client.FilterLogs(c.ctx, query)
+	logs, err := c.cfg.L1Client.FilterLogs(c.ctx, query)
 	if err != nil {
 		return fmt.Errorf("failed to get event logs related to outputs: %w", err)
 	}
@@ -997,7 +990,7 @@ func (c *Challenger) ProveFault(
 
 	targetBlockNumber := new(big.Int).Add(blockNumber, common.Big1)
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
-	header, err := c.l2Client.HeaderByNumber(cCtx, targetBlockNumber)
+	header, err := c.cfg.L2Client.HeaderByNumber(cCtx, targetBlockNumber)
 	defer cCancel()
 	if err != nil {
 		return nil, true, err
@@ -1054,8 +1047,9 @@ func (c *Challenger) proveFaultWithZkVm(
 		outputIndex,
 		position,
 		bindings.TypesZkVmProof{
-			PublicValues: proofResult.PublicValues,
-			ProofBytes:   proofResult.Proof,
+			ZkVmProgramVKey: proofResult.VKeyHash,
+			PublicValues:    proofResult.PublicValues,
+			ProofBytes:      proofResult.Proof,
 		},
 	)
 	if err != nil {
@@ -1080,7 +1074,7 @@ func (c *Challenger) proveFaultWithZkEvm(
 
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	trace, err := c.l2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
+	trace, err := c.cfg.L2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
 	if err != nil {
 		return nil, true, fmt.Errorf("failed to get block trace(target block number: %s): %w", targetBlockNumber.String(), err)
 	}

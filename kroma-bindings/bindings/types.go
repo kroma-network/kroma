@@ -104,6 +104,7 @@ type TypesZkEvmProof struct {
 
 // TypesZkVmProof is an auto generated low-level Go binding around an user-defined struct.
 type TypesZkVmProof struct {
-	PublicValues []byte
-	ProofBytes   []byte
+	ZkVmProgramVKey [32]byte
+	PublicValues    []byte
+	ProofBytes      []byte
 }

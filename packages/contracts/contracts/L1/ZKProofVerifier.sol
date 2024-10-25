@@ -53,6 +53,9 @@ contract ZKProofVerifier is ISemver {
     /// @notice The verification key for the zkVM program.
     bytes32 internal immutable ZKVM_PROGRAM_V_KEY;
 
+    /// @notice Reverts when the zkVM program verification key is invalid.
+    error InvalidZkVmVKey();
+
     /// @notice Reverts when the public input is invalid.
     error InvalidPublicInput();
 
@@ -192,6 +195,8 @@ contract ZKProofVerifier is ISemver {
         bytes32 _storedDstOutput,
         bytes32 _storedL1Head
     ) external view returns (bytes32 publicInputHash_) {
+        if (_zkVmProof.zkVmProgramVKey != ZKVM_PROGRAM_V_KEY) revert InvalidZkVmVKey();
+
         _validatePublicInputOutput(
             _storedSrcOutput,
             _storedDstOutput,
