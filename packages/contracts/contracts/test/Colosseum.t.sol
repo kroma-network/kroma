@@ -10,7 +10,7 @@ import { ValidatorPool } from "../L1/ValidatorPool.sol";
 import { ZKProofVerifier } from "../L1/ZKProofVerifier.sol";
 import { ZKVerifier } from "../L1/ZKVerifier.sol";
 import { Proxy } from "../universal/Proxy.sol";
-import { ColosseumTestData } from "./testdata/ColosseumTestData.sol";
+import { ZkEvmTestData } from "./testdata/ZkEvmTestData.sol";
 import { Colosseum_Initializer } from "./CommonTest.t.sol";
 import { MockL2OutputOracle } from "./ValidatorManager.t.sol";
 
@@ -139,14 +139,14 @@ contract ColosseumTest is Colosseum_Initializer {
     }
 
     function _getOutputRoot(address _sender, uint256 _blockNumber) private view returns (bytes32) {
-        uint256 targetBlockNumber = ColosseumTestData.INVALID_BLOCK_NUMBER;
+        uint256 targetBlockNumber = ZkEvmTestData.INVALID_BLOCK_NUMBER;
         if (_blockNumber == targetBlockNumber - 1) {
-            return ColosseumTestData.PREV_OUTPUT_ROOT;
+            return ZkEvmTestData.PREV_OUTPUT_ROOT;
         }
 
         if (isChallenger[_sender]) {
             if (_blockNumber == targetBlockNumber) {
-                return ColosseumTestData.TARGET_OUTPUT_ROOT;
+                return ZkEvmTestData.TARGET_OUTPUT_ROOT;
             }
         } else if (_blockNumber >= targetBlockNumber) {
             return keccak256(abi.encode(_blockNumber));
@@ -300,16 +300,14 @@ contract ColosseumTest is Colosseum_Initializer {
             (
                 Types.OutputRootProof memory srcOutputRootProof,
                 Types.OutputRootProof memory dstOutputRootProof
-            ) = ColosseumTestData.outputRootProof();
-            Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
-            Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
+            ) = ZkEvmTestData.outputRootProof();
+            Types.PublicInput memory publicInput = ZkEvmTestData.publicInput();
+            Types.BlockHeaderRLP memory rlps = ZkEvmTestData.blockHeaderRLP();
 
-            ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
+            ZkEvmTestData.ProofPair memory pp = ZkEvmTestData.proofAndPair();
 
-            (
-                ColosseumTestData.Account memory account,
-                bytes[] memory merkleProof
-            ) = ColosseumTestData.merkleProof();
+            (ZkEvmTestData.Account memory account, bytes[] memory merkleProof) = ZkEvmTestData
+                .merkleProof();
 
             Types.PublicInputProof memory proof = Types.PublicInputProof({
                 srcOutputRootProof: srcOutputRootProof,
@@ -1227,9 +1225,9 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
     }
 
     function _getOutputRoot(address sender, uint256 blockNumber) private view returns (bytes32) {
-        uint256 targetBlockNumber = ColosseumTestData.INVALID_BLOCK_NUMBER;
+        uint256 targetBlockNumber = ZkEvmTestData.INVALID_BLOCK_NUMBER;
         if (blockNumber == targetBlockNumber - 1) {
-            return ColosseumTestData.PREV_OUTPUT_ROOT;
+            return ZkEvmTestData.PREV_OUTPUT_ROOT;
         }
 
         // If asserter, wrong output after targetBlockNumber
@@ -1243,7 +1241,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
 
         // If challenger, correct output always
         if (blockNumber == targetBlockNumber) {
-            return ColosseumTestData.TARGET_OUTPUT_ROOT;
+            return ZkEvmTestData.TARGET_OUTPUT_ROOT;
         } else {
             return keccak256(abi.encode(blockNumber));
         }
@@ -1319,16 +1317,16 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
     function _getZkEvmProof()
         private
         pure
-        returns (ColosseumTestData.ProofPair memory, Types.PublicInputProof memory)
+        returns (ZkEvmTestData.ProofPair memory, Types.PublicInputProof memory)
     {
         (
             Types.OutputRootProof memory srcOutputRootProof,
             Types.OutputRootProof memory dstOutputRootProof
-        ) = ColosseumTestData.outputRootProof();
-        Types.PublicInput memory publicInput = ColosseumTestData.publicInput();
-        Types.BlockHeaderRLP memory rlps = ColosseumTestData.blockHeaderRLP();
-        ColosseumTestData.ProofPair memory pp = ColosseumTestData.proofAndPair();
-        (ColosseumTestData.Account memory account, bytes[] memory merkleProof) = ColosseumTestData
+        ) = ZkEvmTestData.outputRootProof();
+        Types.PublicInput memory publicInput = ZkEvmTestData.publicInput();
+        Types.BlockHeaderRLP memory rlps = ZkEvmTestData.blockHeaderRLP();
+        ZkEvmTestData.ProofPair memory pp = ZkEvmTestData.proofAndPair();
+        (ZkEvmTestData.Account memory account, bytes[] memory merkleProof) = ZkEvmTestData
             .merkleProof();
 
         Types.PublicInputProof memory proof = Types.PublicInputProof({
@@ -1379,10 +1377,7 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
             challenge = colosseum.getChallenge(targetOutputIndex, challenger);
         }
 
-        (
-            ColosseumTestData.ProofPair memory pp,
-            Types.PublicInputProof memory proof
-        ) = _getZkEvmProof();
+        (ZkEvmTestData.ProofPair memory pp, Types.PublicInputProof memory proof) = _getZkEvmProof();
         Types.ZkEvmProof memory zkEvmProof = Types.ZkEvmProof({
             publicInputProof: proof,
             proof: pp.proof,

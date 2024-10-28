@@ -6,7 +6,7 @@ import { Types } from "../../libraries/Types.sol";
 import { RLPWriter } from "../../libraries/rlp/RLPWriter.sol";
 import { Colosseum } from "../../L1/Colosseum.sol";
 
-library ColosseumTestData {
+library ZkEvmTestData {
     uint256 internal constant INVALID_BLOCK_NUMBER = 21;
     bytes32 internal constant PREV_OUTPUT_ROOT =
         0xa6b4cc150f0c24daf8b5803491addbe102a388cf1ccec74fbe103a2deb5004e6;
