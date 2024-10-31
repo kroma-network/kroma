@@ -565,7 +565,7 @@ ValidatorRewardVault_Test:test_reward_senderNotValidatorPool_reverts() (gas: 866
 ValidatorRewardVault_Test:test_reward_succeeds() (gas: 88175)
 ValidatorRewardVault_Test:test_reward_zeroValidatorAddress_reverts() (gas: 11201)
 ValidatorRewardVault_Test:test_withdrawL2_succeeds() (gas: 92852)
-ValidatorRewardVault_Test:test_withdrawToProtocolVault_succeeds() (gas: 145124)
+ValidatorRewardVault_Test:test_withdrawToProtocolVault_succeeds() (gas: 145018)
 ValidatorRewardVault_Test:test_withdraw_succeeds() (gas: 192973)
 ZKMerkleTrie_Test:test_verifyInclustionProof_valid_0() (gas: 140954)
 ZKMerkleTrie_Test:test_verifyInclustionProof_valid_1() (gas: 76602)

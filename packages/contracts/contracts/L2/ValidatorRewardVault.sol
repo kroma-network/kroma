@@ -146,20 +146,16 @@ contract ValidatorRewardVault is FeeVault, ISemver {
 
     /**
      * @notice Withdraws all remaining contract balance excluding reserved amount to ProtocolVault.
-     *         Reverts if the withdraw amount is less than the minimum withdrawal amount.
+     *         Reverts if the available withdraw amount is 0.
+     *         Note that this function is added not to use this contract anymore.
      */
     function withdrawToProtocolVault() external {
         uint256 amount = address(this).balance - totalReserved;
-        require(
-            amount >= MIN_WITHDRAWAL_AMOUNT,
-            "ValidatorRewardVault: withdrawal amount must be greater than minimum withdrawal amount"
-        );
-        require(
-            amount > 0,
-            "ValidatorRewardVault: withdrawal amount must be greater than zero"
-        );
+        require(amount > 0, "ValidatorRewardVault: withdrawal amount must be greater than zero");
 
-        totalProcessed += amount;
+        unchecked {
+            totalProcessed += amount;
+        }
 
         emit Withdrawal(amount, Predeploys.PROTOCOL_VAULT, msg.sender);
 
