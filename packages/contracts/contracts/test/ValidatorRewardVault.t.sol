@@ -14,6 +14,7 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
     address internal constant recipient = address(256);
     uint256 internal constant l2BlockNumber = 1800;
 
+    uint256 internal vaultBalance;
     uint256 internal rewardDivider = 0;
 
     event Rewarded(address indexed validator, uint256 indexed l2BlockNumber, uint256 amount);
@@ -30,6 +31,8 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
             address(new ValidatorRewardVault(address(pool), rewardDivider)).code
         );
         vm.label(Predeploys.VALIDATOR_REWARD_VAULT, "ValidatorRewardVault");
+
+        vaultBalance = rewardDivider * (vault.MIN_WITHDRAWAL_AMOUNT() + 10 ether);
     }
 
     function test_minWithdrawalAmount_succeeds() external {
@@ -53,7 +56,7 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
     }
 
     function test_reward_succeeds() external {
-        vm.deal(address(vault), vault.MIN_WITHDRAWAL_AMOUNT());
+        vm.deal(address(vault), vaultBalance);
 
         uint256 reserved = vault.totalReserved();
         uint256 balance = vault.balanceOf(recipient);
@@ -91,7 +94,7 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
     }
 
     function test_withdraw_succeeds() external {
-        vm.deal(address(vault), vault.REWARD_DIVIDER() * vault.MIN_WITHDRAWAL_AMOUNT());
+        vm.deal(address(vault), vaultBalance);
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
         vault.reward(recipient, l2BlockNumber);
 
@@ -125,7 +128,7 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
     }
 
     function test_withdrawL2_succeeds() external {
-        vm.deal(address(vault), vault.REWARD_DIVIDER() * vault.MIN_WITHDRAWAL_AMOUNT());
+        vm.deal(address(vault), vaultBalance);
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
         vault.reward(recipient, l2BlockNumber);
 
@@ -138,7 +141,7 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
         vm.expectEmit(true, true, true, true, address(Predeploys.VALIDATOR_REWARD_VAULT));
         emit Withdrawal(amount, recipient, recipient);
 
-        uint256 prevBalance = payable(msg.sender).balance;
+        uint256 prevBalance = recipient.balance;
         vm.prank(recipient);
         vault.withdrawToL2();
         // The withdrawal was successful
@@ -146,11 +149,35 @@ contract ValidatorRewardVault_Test is Bridge_Initializer {
         // Check the total determined reward amount was decreased.
         assertEq(vault.totalReserved(), reserved - amount);
 
-        assertEq(payable(msg.sender).balance, prevBalance + amount);
+        assertEq(recipient.balance, prevBalance + amount);
+    }
+
+    function test_withdrawToProtocolVault_succeeds() external {
+        vm.deal(address(vault), vaultBalance);
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
+        vault.reward(recipient, l2BlockNumber);
+
+        uint256 reserved = vault.totalReserved();
+        uint256 amount = vaultBalance - reserved;
+
+        // No ether has been withdrawn yet
+        assertEq(vault.totalProcessed(), 0);
+        assertGt(reserved, 0);
+
+        vm.expectEmit(true, true, true, true, address(Predeploys.VALIDATOR_REWARD_VAULT));
+        emit Withdrawal(amount, Predeploys.PROTOCOL_VAULT, recipient);
+
+        uint256 prevBalance = Predeploys.PROTOCOL_VAULT.balance;
+        vm.prank(recipient);
+        vault.withdrawToProtocolVault();
+
+        // The withdrawal was successful
+        assertEq(vault.totalProcessed(), amount);
+        assertEq(vault.totalReserved(), reserved);
+        assertEq(Predeploys.PROTOCOL_VAULT.balance, prevBalance + amount);
     }
 
     function test_balanceOf_succeeds() external {
-        uint256 vaultBalance = vault.MIN_WITHDRAWAL_AMOUNT();
         vm.deal(address(vault), vaultBalance);
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(address(pool)));
         vault.reward(recipient, l2BlockNumber);
