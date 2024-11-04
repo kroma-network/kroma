@@ -65,6 +65,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 	validator "github.com/kroma-network/kroma/kroma-validator"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
 	"github.com/kroma-network/kroma/op-e2e/testdata"
@@ -974,12 +975,9 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 		ValMgrAddress:         config.L1Deployments.ValidatorManagerProxy.Hex(),
 		AssetManagerAddress:   config.L1Deployments.AssetManagerProxy.Hex(),
 		ChallengePollInterval: 500 * time.Millisecond,
-		ZkEVMProverRPC:        "http://0.0.0.0:0",
-		ZkVMProverRPC:         "http://0.0.0.0:0",
-		WitnessGeneratorRPC:   "http://0.0.0.0:0",
 		TxMgrConfig:           newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
 		AllowNonFinalized:     cfg.NonFinalizedOutputs,
-		ChallengerEnabled:     true,
+		ChallengerEnabled:     false, // to bypass prover connection check in NewValidatorConfig
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
@@ -1005,7 +1003,8 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 	challengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 
 	// Replace to mock proof fetcher
-	challengerCfg.ZkEVMProofFetcher = e2eutils.NewMockClient("./testdata/proof")
+	challengerCfg.ChallengerEnabled = true
+	challengerCfg.ZkEVMProofFetcher = chal.NewZkEVMProofFetcher(e2eutils.NewMockRPC("./testdata/proof"))
 	sys.Challenger, err = validator.NewValidator(*challengerCfg, sys.Cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return fmt.Errorf("unable to setup challenger: %w", err)

@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
@@ -18,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli/v2"
 
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
@@ -47,9 +50,9 @@ type Config struct {
 	OutputSubmitterRetryInterval    time.Duration
 	OutputSubmitterRoundBuffer      uint64
 	ChallengerEnabled               bool
-	ZkEVMProofFetcher               chal.ZkEVMProofFetcher
-	ZkVMProofFetcher                chal.ZkVMProofFetcher
-	WitnessGenerator                chal.WitnessGenerator
+	ZkEVMProofFetcher               *chal.ZkEVMProofFetcher
+	ZkVMProofFetcher                *chal.ZkVMProofFetcher
+	WitnessGenerator                *chal.WitnessGenerator
 	GuardianEnabled                 bool
 	GuardianPollInterval            time.Duration
 }
@@ -255,16 +258,22 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 	}
 
 	// TODO(seolaoh): remove zkEVMProofFetcher after zkVM transition completed
-	var zkEVMProofFetcher chal.ZkEVMProofFetcher
-	var zkVMProofFetcher chal.ZkVMProofFetcher
-	var witnessGenerator chal.WitnessGenerator
+	var zkEVMProofFetcher *chal.ZkEVMProofFetcher
+	var zkVMProofFetcher *chal.ZkVMProofFetcher
+	var witnessGenerator *chal.WitnessGenerator
 	if cfg.ChallengerEnabled {
 		if rollupConfig.IsKromaMPT(uint64(time.Now().Unix())) {
-			if len(cfg.ZkVMProverRPC) == 0 || len(cfg.WitnessGeneratorRPC) == 0 {
-				return nil, errors.New("ZkVMProverRPC and WitnessGeneratorRPC are required when challenger enabled after Kroma MPT time")
+			pc, err := client.NewRPC(ctx, l.New("service", "prover"), cfg.ZkVMProverRPC)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create zkVM prover rpc client: %w", err)
 			}
-			zkVMProofFetcher = chal.NewClient(cfg.ZkVMProverRPC, cfg.TxMgrConfig.NetworkTimeout)
-			witnessGenerator = chal.NewClient(cfg.WitnessGeneratorRPC, cfg.TxMgrConfig.NetworkTimeout)
+			zkVMProofFetcher = chal.NewZkVMProofFetcher(pc)
+
+			wc, err := client.NewRPC(ctx, l.New("service", "witness"), cfg.WitnessGeneratorRPC)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create witness generator rpc client: %w", err)
+			}
+			witnessGenerator = chal.NewWitnessGenerator(wc)
 
 			proverSpec, err := zkVMProofFetcher.Spec(ctx)
 			if err != nil {
@@ -278,10 +287,17 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 				return nil, errors.New("SP1 version of zkVM prover and witness generator mismatched")
 			}
 		} else {
-			if len(cfg.ZkEVMProverRPC) == 0 {
-				return nil, errors.New("ZkEVMProverRPC is required when challenger enabled before Kroma MPT time")
+			clientOpt := rpc.WithHTTPClient(&http.Client{
+				Timeout: cfg.ZkEVMNetworkTimeout,
+			})
+			opts := []client.RPCOption{
+				client.WithGethRPCOptions(clientOpt),
 			}
-			zkEVMProofFetcher = chal.NewClient(cfg.ZkEVMProverRPC, cfg.ZkEVMNetworkTimeout)
+			pc, err := client.NewRPC(ctx, l.New("service", "prover"), cfg.ZkEVMProverRPC, opts...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create zkEVM prover rpc client: %w", err)
+			}
+			zkEVMProofFetcher = chal.NewZkEVMProofFetcher(pc)
 		}
 	}
 

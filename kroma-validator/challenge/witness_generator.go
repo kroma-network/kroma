@@ -3,6 +3,7 @@ package challenge
 import (
 	"context"
 
+	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -12,6 +13,10 @@ const (
 	RequestCompleted  RequestStatusType = "Completed"
 	RequestFailed     RequestStatusType = "Failed"
 )
+
+type WitnessGenerator struct {
+	rpc client.RPC
+}
 
 type SpecResponse struct {
 	Version    string      `json:"version"`
@@ -27,20 +32,24 @@ type WitnessResponse struct {
 	Witness       string            `json:"witness"`
 }
 
-type WitnessGenerator interface {
-	Spec(ctx context.Context) (*SpecResponse, error)
-	RequestWitness(ctx context.Context, blockHash string, l1Head string) (*RequestStatusType, error)
-	GetWitness(ctx context.Context, blockHash string, l1Head string) (*WitnessResponse, error)
+func NewWitnessGenerator(rpc client.RPC) *WitnessGenerator {
+	return &WitnessGenerator{rpc}
 }
 
-func (c *Client) Spec(ctx context.Context) (*SpecResponse, error) {
-	return send[SpecResponse](ctx, c, "spec", []any{})
+func (w *WitnessGenerator) Spec(ctx context.Context) (*SpecResponse, error) {
+	var output *SpecResponse
+	err := w.rpc.CallContext(ctx, &output, "spec")
+	return output, err
 }
 
-func (c *Client) RequestWitness(ctx context.Context, blockHash string, l1Head string) (*RequestStatusType, error) {
-	return send[RequestStatusType](ctx, c, "requestWitness", []any{blockHash, l1Head})
+func (w *WitnessGenerator) RequestWitness(ctx context.Context, blockHash string, l1Head string) (*RequestStatusType, error) {
+	var output *RequestStatusType
+	err := w.rpc.CallContext(ctx, &output, "requestWitness", blockHash, l1Head)
+	return output, err
 }
 
-func (c *Client) GetWitness(ctx context.Context, blockHash string, l1Head string) (*WitnessResponse, error) {
-	return send[WitnessResponse](ctx, c, "getWitness", []any{blockHash, l1Head})
+func (w *WitnessGenerator) GetWitness(ctx context.Context, blockHash string, l1Head string) (*WitnessResponse, error) {
+	var output *WitnessResponse
+	err := w.rpc.CallContext(ctx, &output, "getWitness", blockHash, l1Head)
+	return output, err
 }

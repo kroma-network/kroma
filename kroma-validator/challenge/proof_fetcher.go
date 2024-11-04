@@ -7,10 +7,15 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type zkEVMProveResponse struct {
+type ZkEVMProofFetcher struct {
+	rpc client.RPC
+}
+
+type ZkEVMProveResponse struct {
 	FinalPair []byte `json:"final_pair"`
 	Proof     []byte `json:"proof"`
 }
@@ -20,25 +25,26 @@ type ProofAndPair struct {
 	Pair  []*big.Int
 }
 
-type ZkEVMProofFetcher interface {
-	FetchProofAndPair(ctx context.Context, trace string) (*ProofAndPair, error)
+func NewZkEVMProofFetcher(rpc client.RPC) *ZkEVMProofFetcher {
+	return &ZkEVMProofFetcher{rpc}
 }
 
-func (c *Client) FetchProofAndPair(ctx context.Context, trace string) (*ProofAndPair, error) {
-	proveResult, err := send[zkEVMProveResponse](ctx, c, "prove", []any{trace})
+func (z *ZkEVMProofFetcher) FetchProofAndPair(ctx context.Context, trace string) (*ProofAndPair, error) {
+	var output *ZkEVMProveResponse
+	err := z.rpc.CallContext(ctx, &output, "prove", trace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request prove: %w", err)
 	}
 
 	proofAndPair := &ProofAndPair{
-		Proof: Decode(proveResult.Proof),
-		Pair:  Decode(proveResult.FinalPair),
+		Proof: decode(output.Proof),
+		Pair:  decode(output.FinalPair),
 	}
 
 	return proofAndPair, nil
 }
 
-func Decode(data []byte) []*big.Int {
+func decode(data []byte) []*big.Int {
 	result := make([]*big.Int, len(data)/32)
 
 	for i := 0; i < len(data)/32; i++ {
@@ -52,6 +58,10 @@ func Decode(data []byte) []*big.Int {
 	return result
 }
 
+type ZkVMProofFetcher struct {
+	rpc client.RPC
+}
+
 type HexBytes []byte
 
 type ZkVMProofResponse struct {
@@ -62,18 +72,26 @@ type ZkVMProofResponse struct {
 	Proof         HexBytes          `json:"proof"`
 }
 
-type ZkVMProofFetcher interface {
-	Spec(ctx context.Context) (*SpecResponse, error)
-	RequestProve(ctx context.Context, blockHash string, l1Head string, witness string) (*RequestStatusType, error)
-	GetProof(ctx context.Context, blockHash string, l1Head string) (*ZkVMProofResponse, error)
+func NewZkVMProofFetcher(rpc client.RPC) *ZkVMProofFetcher {
+	return &ZkVMProofFetcher{rpc}
 }
 
-func (c *Client) RequestProve(ctx context.Context, blockHash string, l1Head string, witness string) (*RequestStatusType, error) {
-	return send[RequestStatusType](ctx, c, "requestProve", []any{blockHash, l1Head, witness})
+func (z *ZkVMProofFetcher) Spec(ctx context.Context) (*SpecResponse, error) {
+	var output *SpecResponse
+	err := z.rpc.CallContext(ctx, &output, "spec")
+	return output, err
 }
 
-func (c *Client) GetProof(ctx context.Context, blockHash string, l1Head string) (*ZkVMProofResponse, error) {
-	return send[ZkVMProofResponse](ctx, c, "getProof", []any{blockHash, l1Head})
+func (z *ZkVMProofFetcher) RequestProve(ctx context.Context, blockHash string, l1Head string, witness string) (*RequestStatusType, error) {
+	var output *RequestStatusType
+	err := z.rpc.CallContext(ctx, &output, "requestProve", blockHash, l1Head, witness)
+	return output, err
+}
+
+func (z *ZkVMProofFetcher) GetProof(ctx context.Context, blockHash string, l1Head string) (*ZkVMProofResponse, error) {
+	var output *ZkVMProofResponse
+	err := z.rpc.CallContext(ctx, &output, "getProof", blockHash, l1Head)
+	return output, err
 }
 
 // UnmarshalJSON handles the conversion from a hex string to a byte array.

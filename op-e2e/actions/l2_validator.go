@@ -23,6 +23,7 @@ import (
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	validator "github.com/kroma-network/kroma/kroma-validator"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
@@ -85,7 +86,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		RollupClient:                    rollupCl,
 		RollupConfig:                    rollupConfig,
 		AllowNonFinalized:               cfg.AllowNonFinalized,
-		ZkEVMProofFetcher:               e2eutils.NewMockClient("../testdata/proof"),
+		ZkEVMProofFetcher:               chal.NewZkEVMProofFetcher(e2eutils.NewMockRPC("../testdata/proof")),
 		// We use custom signing here instead of using the transaction manager.
 		TxManager: &txmgr.BufferedTxManager{
 			SimpleTxManager: txmgr.SimpleTxManager{
