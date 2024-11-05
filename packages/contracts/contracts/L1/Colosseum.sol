@@ -931,18 +931,18 @@ contract Colosseum is Initializable, ISemver {
     }
 
     /**
-     * @notice Returns the challenge segments corresponding to the given L2 output index and challenger.
+     * @notice Returns the challenge corresponding to the given L2 output index and challenger.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      * @param _challenger  Address of the challenger.
      *
-     * @return The challenge segments data.
+     * @return The challenge data.
      */
-    function getSegments(
+    function getChallenge(
         uint256 _outputIndex,
         address _challenger
-    ) external view returns (bytes32[] memory) {
-        return challenges[_outputIndex][_challenger].segments;
+    ) external view returns (Types.Challenge memory) {
+        return challenges[_outputIndex][_challenger];
     }
 
     /**

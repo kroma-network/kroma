@@ -247,11 +247,13 @@ library Types {
     /**
      * @notice Struct representing zkVM public input and proof.
      *
-     * @param publicValues The public values concatenated.
-     *                     (Currently 3 public inputs: bytes32 srcOutputRoot, bytes32 dstOutputRoot, bytes32 l1Head)
-     * @param proofBytes   The proof of the program execution the SP1 zkVM encoded as bytes.
+     * @param zkVmProgramVKey The verification key for the zkVM program.
+     * @param publicValues    The public values concatenated.
+     *                        (Currently 3 public inputs: bytes32 srcOutputRoot, bytes32 dstOutputRoot, bytes32 l1Head)
+     * @param proofBytes      The proof of the program execution the SP1 zkVM encoded as bytes.
      */
     struct ZkVmProof {
+        bytes32 zkVmProgramVKey;
         bytes publicValues;
         bytes proofBytes;
     }

@@ -82,15 +82,15 @@ var (
 		EnvVars:  prefixEnvVars("CHALLENGER_ENABLED"),
 		Required: true,
 	}
-	ChallengerPollIntervalFlag = &cli.DurationFlag{
-		Name:     "challenger.poll-interval",
-		Usage:    "Poll interval for challenge process",
-		Required: true,
-		EnvVars:  prefixEnvVars("CHALLENGER_POLL_INTERVAL"),
-	}
 
 	// Optional flags
 
+	ChallengePollIntervalFlag = &cli.DurationFlag{
+		Name:    "challenge-poll-interval",
+		Usage:   "Poll interval for challenge process",
+		EnvVars: prefixEnvVars("CHALLENGE_POLL_INTERVAL"),
+		Value:   time.Second * 5,
+	}
 	AllowNonFinalizedFlag = &cli.BoolFlag{
 		Name:    "allow-non-finalized",
 		Usage:   "Allow the validator to submit outputs for L2 blocks derived from non-finalized L1 blocks.",
@@ -113,32 +113,42 @@ var (
 		Usage:   "Allows l2 output submitter in public round",
 		EnvVars: prefixEnvVars("OUTPUT_SUBMITTER_ALLOW_PUBLIC_ROUND"),
 	}
-	ProverRPCFlag = &cli.StringFlag{
-		Name:    "prover-rpc-url",
-		Usage:   "jsonRPC URL for kroma-prover.",
-		EnvVars: prefixEnvVars("PROVER_RPC"),
+	ZkEVMProverRPCFlag = &cli.StringFlag{
+		Name:    "challenger.zkevm-prover-rpc",
+		Usage:   "JSON-RPC URL for zkEVM prover, required before Kroma MPT time",
+		EnvVars: prefixEnvVars("CHALLENGER_ZKEVM_PROVER_RPC"),
 	}
-	SecurityCouncilAddressFlag = &cli.StringFlag{
-		Name:    "securitycouncil-address",
-		Usage:   "Address of the SecurityCouncil contract",
-		EnvVars: prefixEnvVars("SECURITYCOUNCIL_ADDRESS"),
+	ZkEVMNetworkTimeoutFlag = &cli.DurationFlag{
+		Name:    "challenger.zkevm-network-timeout",
+		Usage:   "Max duration to wait while fetching zkEVM proof",
+		EnvVars: prefixEnvVars("CHALLENGER_ZKEVM_NETWORK_TIMEOUT"),
+		Value:   time.Hour * 4,
+	}
+	ZkVMProverRPCFlag = &cli.StringFlag{
+		Name:    "challenger.zkvm-prover-rpc",
+		Usage:   "JSON-RPC URL for zkVM prover, required after Kroma MPT time",
+		EnvVars: prefixEnvVars("CHALLENGER_ZKVM_PROVER_RPC"),
+	}
+	WitnessGeneratorRPCFlag = &cli.StringFlag{
+		Name:    "challenger.witness-generator-rpc",
+		Usage:   "JSON-RPC URL for zkVM witness generator, required after Kroma MPT time",
+		EnvVars: prefixEnvVars("CHALLENGER_WITNESS_GENERATOR_RPC"),
 	}
 	GuardianEnabledFlag = &cli.BoolFlag{
 		Name:    "guardian.enabled",
 		Usage:   "Enable guardian",
 		EnvVars: prefixEnvVars("GUARDIAN_ENABLED"),
 	}
+	SecurityCouncilAddressFlag = &cli.StringFlag{
+		Name:    "securitycouncil-address",
+		Usage:   "Address of the SecurityCouncil contract",
+		EnvVars: prefixEnvVars("SECURITYCOUNCIL_ADDRESS"),
+	}
 	GuardianPollIntervalFlag = &cli.DurationFlag{
 		Name:    "guardian.poll-interval",
 		Usage:   "Poll interval for guardian inspection",
 		EnvVars: prefixEnvVars("GUARDIAN_POLL_INTERVAL"),
 		Value:   time.Minute,
-	}
-	FetchingProofTimeoutFlag = &cli.DurationFlag{
-		Name:    "fetching-proof-timeout",
-		Usage:   "Duration we will wait to fetching proof",
-		EnvVars: prefixEnvVars("FETCHING_PROOF_TIMEOUT"),
-		Value:   time.Hour * 4,
 	}
 )
 
@@ -153,19 +163,21 @@ var requiredFlags = []cli.Flag{
 	AssetManagerAddressFlag,
 	OutputSubmitterEnabledFlag,
 	ChallengerEnabledFlag,
-	ChallengerPollIntervalFlag,
 }
 
 var optionalFlags = []cli.Flag{
+	ChallengePollIntervalFlag,
 	AllowNonFinalizedFlag,
 	OutputSubmitterRetryIntervalFlag,
 	OutputSubmitterRoundBufferFlag,
 	OutputSubmitterAllowPublicRoundFlag,
-	ProverRPCFlag,
-	SecurityCouncilAddressFlag,
+	ZkEVMProverRPCFlag,
+	ZkEVMNetworkTimeoutFlag,
+	ZkVMProverRPCFlag,
+	WitnessGeneratorRPCFlag,
 	GuardianEnabledFlag,
+	SecurityCouncilAddressFlag,
 	GuardianPollIntervalFlag,
-	FetchingProofTimeoutFlag,
 }
 
 func init() {

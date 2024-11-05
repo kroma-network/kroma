@@ -2,26 +2,46 @@ package e2eutils
 
 import (
 	"context"
-	"math/big"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/sync/errgroup"
 
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 )
 
-type Fetcher struct {
-	l        log.Logger
-	mockPath string
+type MockRPC struct {
+	dataDir string
 }
 
-func NewFetcher(logger log.Logger, path string) *Fetcher {
-	return &Fetcher{
-		l:        logger,
-		mockPath: path,
+func NewMockRPC(dataDir string) *MockRPC {
+	return &MockRPC{dataDir}
+}
+
+func (m *MockRPC) Close() {}
+
+func (m *MockRPC) CallContext(ctx context.Context, result any, method string, _ ...any) error {
+	switch method {
+	case "prove":
+		proveRes, err := m.prove(ctx)
+		if err != nil {
+			return err
+		}
+
+		if r, ok := result.(**chal.ZkEVMProveResponse); ok {
+			*r = proveRes
+		} else {
+			return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+		}
+	default:
+		return fmt.Errorf("CallContext invalid method %s", method)
 	}
+
+	return nil
 }
 
 func read(path string) ([]byte, error) {
@@ -33,14 +53,14 @@ func read(path string) ([]byte, error) {
 	return data, nil
 }
 
-func (f *Fetcher) FetchProofAndPair(_ context.Context, _ string) (*chal.ProofAndPair, error) {
-	decoded := make([][]*big.Int, 2)
-	files := []string{"verify_circuit_proof.data", "verify_circuit_final_pair.data"}
+func (m *MockRPC) prove(ctx context.Context) (*chal.ZkEVMProveResponse, error) {
+	buf := make([][]byte, 2)
+	files := []string{"verify_circuit_final_pair.data", "verify_circuit_proof.data"}
 
-	g, _ := errgroup.WithContext(context.Background())
+	g, _ := errgroup.WithContext(ctx)
 
 	for i := 0; i < len(files); i++ {
-		filePath := filepath.Join(f.mockPath, files[i])
+		filePath := filepath.Join(m.dataDir, files[i])
 		i := i
 
 		g.Go(func() error {
@@ -49,7 +69,7 @@ func (f *Fetcher) FetchProofAndPair(_ context.Context, _ string) (*chal.ProofAnd
 				return err
 			}
 
-			decoded[i] = chal.Decode(data)
+			buf[i] = data
 			return nil
 		})
 	}
@@ -58,10 +78,18 @@ func (f *Fetcher) FetchProofAndPair(_ context.Context, _ string) (*chal.ProofAnd
 		return nil, err
 	}
 
-	result := &chal.ProofAndPair{
-		Proof: decoded[0],
-		Pair:  decoded[1],
+	result := &chal.ZkEVMProveResponse{
+		FinalPair: buf[0],
+		Proof:     buf[1],
 	}
 
 	return result, nil
+}
+
+func (m *MockRPC) BatchCallContext(_ context.Context, _ []rpc.BatchElem) error {
+	return errors.New("BatchCallContext should not be called")
+}
+
+func (m *MockRPC) EthSubscribe(_ context.Context, _ any, _ ...any) (ethereum.Subscription, error) {
+	return nil, errors.New("EthSubscribe should not be called")
 }

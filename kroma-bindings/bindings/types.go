@@ -31,6 +31,7 @@ type TypesChallenge struct {
 	Segments   [][32]byte
 	SegSize    *big.Int
 	SegStart   *big.Int
+	L1Head     [32]byte
 }
 
 // TypesOutputRootProof is an auto generated low-level Go binding around an user-defined struct.
@@ -93,18 +94,6 @@ type TypesBond struct {
 	Amount    *big.Int
 	ExpiresAt *big.Int
 }
-// TypesZKEVMProof is an auto generated low-level Go binding around an user-defined struct.
-type TypesZKEVMProof struct {
-	PublicInputProof TypesPublicInputProof
-	Proof            []*big.Int
-	Pair             []*big.Int
-}
-
-// TypesZKVMProof is an auto generated low-level Go binding around an user-defined struct.
-type TypesZKVMProof struct {
-	PublicValues []byte
-	ProofBytes   []byte
-}
 
 // TypesZkEvmProof is an auto generated low-level Go binding around an user-defined struct.
 type TypesZkEvmProof struct {
@@ -115,7 +104,7 @@ type TypesZkEvmProof struct {
 
 // TypesZkVmProof is an auto generated low-level Go binding around an user-defined struct.
 type TypesZkVmProof struct {
-	PublicValues []byte
-	ProofBytes   []byte
+	ZkVmProgramVKey [32]byte
+	PublicValues    []byte
+	ProofBytes      []byte
 }
-

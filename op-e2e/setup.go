@@ -65,6 +65,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 	validator "github.com/kroma-network/kroma/kroma-validator"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
 	"github.com/kroma-network/kroma/op-e2e/testdata"
@@ -827,7 +828,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		ValPoolAddress:                  config.L1Deployments.ValidatorPoolProxy.Hex(),
 		ValMgrAddress:                   config.L1Deployments.ValidatorManagerProxy.Hex(),
 		AssetManagerAddress:             config.L1Deployments.AssetManagerProxy.Hex(),
-		ChallengerPollInterval:          500 * time.Millisecond,
+		ChallengePollInterval:           500 * time.Millisecond,
 		TxMgrConfig:                     newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		AllowNonFinalized:               cfg.NonFinalizedOutputs,
 		OutputSubmitterRetryInterval:    500 * time.Millisecond,
@@ -965,19 +966,18 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 	// Run validator node (Challenger)
 	challengerCliCfg := validator.CLIConfig{
-		L1EthRpc:               sys.EthInstances["l1"].WSEndpoint(),
-		L2EthRpc:               sys.EthInstances["sequencer"].HTTPEndpoint(),
-		RollupRpc:              sys.RollupNodes["sequencer"].HTTPEndpoint(),
-		L2OOAddress:            config.L1Deployments.L2OutputOracleProxy.Hex(),
-		ColosseumAddress:       config.L1Deployments.ColosseumProxy.Hex(),
-		ValPoolAddress:         config.L1Deployments.ValidatorPoolProxy.Hex(),
-		ValMgrAddress:          config.L1Deployments.ValidatorManagerProxy.Hex(),
-		AssetManagerAddress:    config.L1Deployments.AssetManagerProxy.Hex(),
-		ChallengerPollInterval: 500 * time.Millisecond,
-		ProverRPC:              "http://0.0.0.0:0",
-		TxMgrConfig:            newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
-		AllowNonFinalized:      cfg.NonFinalizedOutputs,
-		ChallengerEnabled:      true,
+		L1EthRpc:              sys.EthInstances["l1"].WSEndpoint(),
+		L2EthRpc:              sys.EthInstances["sequencer"].HTTPEndpoint(),
+		RollupRpc:             sys.RollupNodes["sequencer"].HTTPEndpoint(),
+		L2OOAddress:           config.L1Deployments.L2OutputOracleProxy.Hex(),
+		ColosseumAddress:      config.L1Deployments.ColosseumProxy.Hex(),
+		ValPoolAddress:        config.L1Deployments.ValidatorPoolProxy.Hex(),
+		ValMgrAddress:         config.L1Deployments.ValidatorManagerProxy.Hex(),
+		AssetManagerAddress:   config.L1Deployments.AssetManagerProxy.Hex(),
+		ChallengePollInterval: 500 * time.Millisecond,
+		TxMgrConfig:           newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
+		AllowNonFinalized:     cfg.NonFinalizedOutputs,
+		ChallengerEnabled:     false, // to bypass prover connection check in NewValidatorConfig
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
@@ -1002,8 +1002,9 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 	// For challenge setup, set target block number for submitting invalid output
 	challengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 
-	// Replace to mock fetcher
-	challengerCfg.ProofFetcher = e2eutils.NewFetcher(sys.Cfg.Loggers["challenger"], "./testdata/proof")
+	// Replace to mock proof fetcher
+	challengerCfg.ChallengerEnabled = true
+	challengerCfg.ZkEVMProofFetcher = chal.NewZkEVMProofFetcher(e2eutils.NewMockRPC("./testdata/proof"))
 	sys.Challenger, err = validator.NewValidator(*challengerCfg, sys.Cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return fmt.Errorf("unable to setup challenger: %w", err)
