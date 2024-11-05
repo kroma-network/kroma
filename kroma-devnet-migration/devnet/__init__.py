@@ -253,6 +253,11 @@ def devnet_deploy(paths):
         ], cwd=paths.op_node_dir)
 
     rollup_config = read_json(paths.rollup_config_path)
+    mpt_genesis_l2 = read_json(paths.genesis_l2_path)
+    # it's must be same zkt geth's kromaMPTTime in the entrypoint.sh file
+    rollup_config['mpt_time'] = int(mpt_genesis_l2['timestamp'],16) + 60
+
+    write_json(paths.rollup_config_path, rollup_config)
 
     if os.path.exists(paths.mpt_genesis_l2_path):
       log.info('MPT L2 genesis and rollup configs already generated.')
@@ -267,16 +272,6 @@ def devnet_deploy(paths):
         '--outfile.rollup', paths.mpt_rollup_config_path,
         '--isMPT', 'true',
       ], cwd=paths.op_node_dir)
-
-
-    # mpt_genesis_l2_json = read_json(paths.genesis_l2_path)
-    # mpt_genesis_l2_json['config']['zktrie'] = False
-    # write_json(paths.mpt_genesis_l2_path, mpt_genesis_l2_json)
-    #
-    # mpt_rollup_config_json = read_json(paths.rollup_config_path)
-    # # mpt_rollup_config_json['genesis']['l2']['hash'] = '0x96b90a98309707659590f73845124752a93ef0f2188abd390c246e1dbf58a0db'
-    # write_json(paths.mpt_rollup_config_path, mpt_rollup_config_json)
-
 
     addresses = read_json(paths.addresses_json_path)
 
