@@ -245,12 +245,6 @@ func (s *channelManager) processBlocks() error {
 		latestL2ref eth.L2BlockRef
 	)
 	for i, block := range s.blocks {
-		if s.rollupCfg.KromaMptTime != nil {
-			if block.Time() == *s.rollupCfg.KromaMptTime && blocksAdded > 0 {
-				s.log.Info("Pause adding block", "reason", "The MPT block must be the first block in the channel")
-				break
-			}
-		}
 		l1info, err := s.currentChannel.AddBlock(block)
 		if errors.As(err, &_chFullErr) {
 			// current block didn't get added because channel is already full
@@ -259,12 +253,16 @@ func (s *channelManager) processBlocks() error {
 			return fmt.Errorf("adding block[%d] to channel builder: %w", i, err)
 		}
 		s.log.Debug("Added block to channel", "id", s.currentChannel.ID(), "block", eth.ToBlockID(block))
-
 		blocksAdded += 1
 		latestL2ref = l2BlockRefFromBlockAndL1Info(block, l1info)
 		s.metr.RecordL2BlockInChannel(block)
 		// current block got added but channel is now full
 		if s.currentChannel.IsFull() {
+			break
+		}
+		if s.rollupCfg.KromaMptTime != nil && block.Time() == *s.rollupCfg.KromaMptTime-s.rollupCfg.BlockTime {
+			s.log.Info("Pause adding block", "reason", "The MPT block must be the first block in the channel")
+			s.currentChannel.channelBuilder.setFullErr(errors.New("reached the block just before KromaMPTTime"))
 			break
 		}
 	}
