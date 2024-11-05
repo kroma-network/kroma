@@ -483,3 +483,68 @@ func TestChannelManager_ChannelCreation(t *testing.T) {
 		})
 	}
 }
+
+// [Kroma: START]
+func TestChannelManager_Close_BeforeMPTBlock(t *testing.T) {
+	require := require.New(t)
+
+	rng := rand.New(rand.NewSource(123))
+	log := testlog.Logger(t, log.LevelError)
+
+	cfg := defaultTestChannelConfig()
+	cfg.InitNoneCompressor()
+	cfg.BatchType = derive.SpanBatchType
+	rollupConfig := defaultTestRollupConfig
+	rollupConfig.BlockTime = 2
+	kromaMPTTime := uint64(1732200100)
+	rollupConfig.KromaMPTTime = &kromaMPTTime
+	m := NewChannelManager(log, metrics.NoopMetrics, cfg, &rollupConfig)
+	m.Clear(eth.BlockID{})
+
+	numTx := 1
+	zktBlock1 := derivetest.RandomL2BlockWithChainId(rng, numTx, defaultTestRollupConfig.L2ChainID)
+	zktBlock2 := derivetest.RandomL2BlockWithChainId(rng, numTx, defaultTestRollupConfig.L2ChainID)
+	mptBlock := derivetest.RandomL2BlockWithChainId(rng, numTx, defaultTestRollupConfig.L2ChainID)
+
+	h := zktBlock1.Header()
+	h.Time = kromaMPTTime - rollupConfig.BlockTime*2
+	zktBlock1 = zktBlock1.WithSeal(h)
+
+	h = zktBlock2.Header()
+	h.Number = new(big.Int).Add(zktBlock1.Number(), big.NewInt(1))
+	h.Time = zktBlock1.Time() + rollupConfig.BlockTime
+	h.ParentHash = zktBlock1.Hash()
+	zktBlock2 = zktBlock2.WithSeal(h)
+
+	h = mptBlock.Header()
+	h.Number = new(big.Int).Add(zktBlock2.Number(), big.NewInt(1))
+	h.Time = zktBlock2.Time() + rollupConfig.BlockTime
+	h.ParentHash = zktBlock2.Hash()
+	mptBlock = mptBlock.WithSeal(h)
+
+	require.NoError(m.AddL2Block(zktBlock1), "adding 1st L2 block")
+	require.NoError(m.AddL2Block(zktBlock2), "adding 2nd L2 block")
+	require.NoError(m.AddL2Block(mptBlock), "adding 3nd L2 block")
+
+	txdata, err := m.TxData(eth.BlockID{})
+	require.NoError(err)
+	ch1 := m.txChannels[txdata.ID().String()]
+	require.ErrorIs(ch1.FullErr(), ErrJustBeforeKromaMPTTime)
+
+	// current channel is not full yet
+	_, err = m.TxData(eth.BlockID{})
+	require.ErrorIs(err, io.EOF)
+
+	// Close immediately marks the channel as full with an ErrTerminated
+	// if the channel is not already full.
+	m.currentChannel.Close()
+	err = m.outputFrames()
+	require.NoError(err)
+	txdata, err = m.TxData(eth.BlockID{})
+	require.NoError(err)
+	ch2 := m.txChannels[txdata.ID().String()]
+	require.ErrorIs(ch2.FullErr(), ErrTerminated)
+	require.NotEqual(ch1.ID(), ch2.ID())
+}
+
+// [Kroma: END]
