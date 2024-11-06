@@ -187,6 +187,8 @@ func (v *L2Validator) ActRegisterValidator(t Testing, assets *big.Int) {
 
 func (v *L2Validator) ActApprove(t Testing, assets *big.Int) {
 	assetManagerContract, err := bindings.NewAssetManagerCaller(v.assetManagerContractAddr, v.cfg.L1Client)
+	require.NoError(t, err)
+
 	tokenAddr, err := assetManagerContract.ASSETTOKEN(&bind.CallOpts{})
 	require.NoError(t, err)
 

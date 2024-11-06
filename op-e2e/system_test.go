@@ -178,9 +178,7 @@ func TestL2OutputSubmitterV2(t *testing.T) {
 	require.NoError(t, err, "Error starting up system")
 	defer sys.Close()
 
-	rollupRPCClient, err := rpc.DialContext(context.Background(), sys.RollupNodes["sequencer"].HTTPEndpoint())
-	require.NoError(t, err)
-	rollupClient := sources.NewRollupClient(client.NewBaseRPCClient(rollupRPCClient))
+	rollupClient := sys.RollupClient("sequencer")
 
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, sys.Clients["l1"])
 	require.NoError(t, err)
@@ -1779,6 +1777,7 @@ func TestChallengeV2(t *testing.T) {
 	challengerAddr := cfg.Secrets.Addresses().Challenger1
 	validatorAddr := cfg.Secrets.Addresses().TrustedValidator
 	beforeAmount, err := validatorHelper.AssetMgrContract.TotalValidatorKro(&bind.CallOpts{}, validatorAddr)
+	require.NoError(t, err)
 
 	// Subscribe slash event in ValidatorManager
 	slashedCh := make(chan *bindings.ValidatorManagerSlashed, 1)
