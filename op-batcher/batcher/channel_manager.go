@@ -261,7 +261,6 @@ func (s *channelManager) processBlocks() error {
 			break
 		}
 		if s.rollupCfg.KromaMptTime != nil && block.Time() == *s.rollupCfg.KromaMptTime-s.rollupCfg.BlockTime {
-			s.log.Info("Pause adding block", "reason", "The MPT block must be the first block in the channel")
 			s.currentChannel.channelBuilder.setFullErr(errors.New("reached the block just before KromaMPTTime"))
 			break
 		}
