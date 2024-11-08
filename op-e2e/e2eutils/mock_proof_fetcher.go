@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
+	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 type MockRPC struct {
@@ -26,6 +27,7 @@ func (m *MockRPC) Close() {}
 
 func (m *MockRPC) CallContext(ctx context.Context, result any, method string, _ ...any) error {
 	switch method {
+	// for zkEVM prover
 	case "prove":
 		proveRes, err := m.prove(ctx)
 		if err != nil {
@@ -34,6 +36,31 @@ func (m *MockRPC) CallContext(ctx context.Context, result any, method string, _ 
 
 		if r, ok := result.(**chal.ZkEVMProveResponse); ok {
 			*r = proveRes
+		} else {
+			return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+		}
+	// for zkVM witness generator and prover
+	case "requestWitness", "requestProve":
+		requestRes := m.requestStatus()
+
+		if r, ok := result.(**chal.RequestStatusType); ok {
+			*r = requestRes
+		} else {
+			return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+		}
+	case "getWitness":
+		requestRes := m.getWitness()
+
+		if r, ok := result.(**chal.WitnessResponse); ok {
+			*r = requestRes
+		} else {
+			return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
+		}
+	case "getProof":
+		requestRes := m.getProof()
+
+		if r, ok := result.(**chal.ZkVMProofResponse); ok {
+			*r = requestRes
 		} else {
 			return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
 		}
@@ -84,6 +111,23 @@ func (m *MockRPC) prove(ctx context.Context) (*chal.ZkEVMProveResponse, error) {
 	}
 
 	return result, nil
+}
+
+func (m *MockRPC) requestStatus() *chal.RequestStatusType {
+	status := chal.RequestCompleted
+	return &status
+}
+
+func (m *MockRPC) getWitness() *chal.WitnessResponse {
+	return &chal.WitnessResponse{Witness: testdata.ZkVMWitness}
+}
+
+func (m *MockRPC) getProof() *chal.ZkVMProofResponse {
+	return &chal.ZkVMProofResponse{
+		VKeyHash:     testdata.ZkVMVKeyHash,
+		PublicValues: testdata.ZkVMPublicVaules,
+		Proof:        testdata.ZkVMProof,
+	}
 }
 
 func (m *MockRPC) BatchCallContext(_ context.Context, _ []rpc.BatchElem) error {

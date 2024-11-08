@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -18,6 +19,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	val "github.com/kroma-network/kroma/kroma-validator"
 	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
+	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 const defaultDepositAmount = 1_000
@@ -48,13 +50,14 @@ type Runtime struct {
 	challenger2              *L2Validator
 	guardian                 *L2Validator
 	outputOracleContract     *bindings.L2OutputOracle
-	colosseumContract        *bindings.Colosseum
+	colosseumContract        *bindings.MockColosseum
 	securityCouncilContract  *bindings.SecurityCouncil
 	valPoolContract          *bindings.ValidatorPoolCaller
 	valMgrContract           *bindings.ValidatorManagerCaller
 	assetMgrContract         *bindings.AssetManagerCaller
 	assetTokenContract       *bindings.GovernanceTokenCaller
 	targetInvalidBlockNumber uint64
+	ChallengeProofType       testdata.ProofType
 	outputIndex              *big.Int
 	outputOnL1               bindings.TypesCheckpointOutput
 	txHash                   common.Hash
@@ -65,22 +68,36 @@ type Runtime struct {
 type SetupSequencerTestFunc = func(t Testing, sd *e2eutils.SetupData, log log.Logger) (*L1Miner, *L2Engine, *L2Sequencer)
 
 // defaultRuntime is currently only used for l2_challenger_test.
-func defaultRuntime(gt *testing.T, setupSequencerTest SetupSequencerTestFunc, deltaTimeOffset *hexutil.Uint64) Runtime {
+func defaultRuntime(
+	gt *testing.T, setupSequencerTest SetupSequencerTestFunc, deltaTimeOffset *hexutil.Uint64, proofType testdata.ProofType,
+) Runtime {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
+	if proofType == testdata.ZkVMType {
+		genesisActivation := hexutil.Uint64(0)
+		deltaTimeOffset = &genesisActivation
+		mptOffset := hexutil.Uint64(2)
+		dp.DeployConfig.L2GenesisEcotoneTimeOffset = deltaTimeOffset
+		dp.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptOffset
+	}
 	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	l := testlog.Logger(t, log.LvlDebug)
 	rt := Runtime{
-		t:            t,
-		dp:           dp,
-		sd:           sd,
-		l:            l,
-		l1BlockDelta: 6,
+		t:                  t,
+		dp:                 dp,
+		sd:                 sd,
+		l:                  l,
+		l1BlockDelta:       6,
+		ChallengeProofType: proofType,
 	}
 
 	rt.miner, rt.seqEngine, rt.sequencer = setupSequencerTest(rt.t, rt.sd, rt.l)
 	rt.setupBatcher(dp)
+
+	if proofType == testdata.ZkVMType {
+		rt.assertReplaceMockColosseum()
+	}
 
 	return rt
 }
@@ -132,17 +149,20 @@ func (rt *Runtime) setupValidator(pk *ecdsa.PrivateKey, setInvalidBlockNumber bo
 	var validatorRollupClient *sources.RollupClient
 	if isMalicious {
 		// setup mockup rpc for returning invalid output
-		validatorRPC := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient())
+		validatorRPC, err := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient(), rt.ChallengeProofType)
+		require.NoError(rt.t, err)
 		validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 		validatorRollupClient = sources.NewRollupClient(validatorRPC)
 	} else {
 		// setup mockup rpc for returning valid output
-		validatorRPC := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient())
+		validatorRPC, err := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient(), rt.ChallengeProofType)
+		require.NoError(rt.t, err)
 		if setInvalidBlockNumber {
 			validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 		}
 		validatorRollupClient = sources.NewRollupClient(validatorRPC)
 	}
+
 	validator := NewL2Validator(rt.t, rt.l, &ValidatorCfg{
 		OutputOracleAddr:     rt.sd.DeploymentsL1.L2OutputOracleProxy,
 		ValidatorPoolAddr:    rt.sd.DeploymentsL1.ValidatorPoolProxy,
@@ -162,7 +182,7 @@ func (rt *Runtime) bindContracts() {
 	rt.outputOracleContract, err = bindings.NewL2OutputOracle(rt.sd.DeploymentsL1.L2OutputOracleProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
-	rt.colosseumContract, err = bindings.NewColosseum(rt.sd.DeploymentsL1.ColosseumProxy, rt.miner.EthClient())
+	rt.colosseumContract, err = bindings.NewMockColosseum(rt.sd.DeploymentsL1.ColosseumProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
 	rt.securityCouncilContract, err = bindings.NewSecurityCouncil(rt.sd.DeploymentsL1.SecurityCouncilProxy, rt.miner.EthClient())
@@ -187,10 +207,34 @@ func (rt *Runtime) bindContracts() {
 // It also asserts that the deploying and upgrade tx is successful.
 func (rt *Runtime) assertRedeployValPoolToTerminate(newTerminationIndex *big.Int) {
 	deployTx, upgradeTx, err := e2eutils.RedeployValPoolToTerminate(
-		rt.t.Ctx(),
 		newTerminationIndex,
 		rt.miner.EthClient(),
 		rt.dp.Secrets,
+		rt.sd.RollupCfg.L1ChainID,
+		rt.sd.DeploymentsL1,
+		rt.dp.DeployConfig,
+	)
+	require.NoError(rt.t, err)
+
+	// Check deploy tx submission was successful
+	rt.includeL1BlockByTx(deployTx.Hash())
+	receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), deployTx.Hash())
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "deploy tx submission failed")
+
+	// Check upgrade tx submission was successful
+	rt.includeL1BlockByTx(upgradeTx.Hash())
+	receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), upgradeTx.Hash())
+	require.NoError(rt.t, err)
+	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "upgrade tx submission failed")
+}
+
+// assertReplaceMockColosseum deploys MockColosseum which has setL1Head function and upgrades proxy for challenge test.
+// It also asserts that the deploying and upgrade tx is successful.
+func (rt *Runtime) assertReplaceMockColosseum() {
+	deployTx, upgradeTx, err := e2eutils.ReplaceMockColosseum(
+		rt.miner.EthClient(),
+		rt.dp.Secrets.SysCfgOwner,
 		rt.sd.RollupCfg.L1ChainID,
 		rt.sd.DeploymentsL1,
 		rt.dp.DeployConfig,
@@ -281,6 +325,22 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 	challenge, err := rt.colosseumContract.GetChallenge(nil, rt.outputIndex, challenger.address)
 	require.NoError(rt.t, err)
 	require.NotNil(rt.t, challenge, "challenge not found")
+
+	// mock challenge.l1Head for zkVM challenge test
+	if rt.ChallengeProofType == testdata.ZkVMType {
+		txOpts, err := bind.NewKeyedTransactorWithChainID(rt.dp.Secrets.Alice, rt.sd.RollupCfg.L1ChainID)
+		require.NoError(rt.t, err)
+		tx, err := rt.colosseumContract.SetL1Head(txOpts, rt.outputIndex, challenger.address, testdata.ChallengeL1Head)
+		require.NoError(rt.t, err)
+
+		// include tx on L1
+		rt.includeL1BlockByTx(tx.Hash())
+
+		// Check whether the submission was successful
+		receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), tx.Hash())
+		require.NoError(rt.t, err)
+		require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "failed to set L1 head")
+	}
 
 	if version == valhelper.ValidatorV1 {
 		// check pending bond amount after create challenge

@@ -178,6 +178,9 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		DataAvailabilityType:   batcherFlags.CalldataType,
 		MaxPendingTransactions: 1,
 		BatcherTargetNumFrames: 1,
+		// [Kroma: START]
+		ChallengeProofType: testdata.DefaultProofType,
+		// [Kroma: END]
 	}
 }
 
@@ -255,6 +258,9 @@ type SystemConfig struct {
 	// EnableChallenge enables challenge setup, the validator will act as a malicious one and
 	// the challenger and guardian will act as honest parties.
 	EnableChallenge bool
+
+	// ChallengeProofType configures challenge proof type that is used for proving fault.
+	ChallengeProofType testdata.ProofType
 
 	// ValidatorVersion makes the version of validator system other than V1.
 	ValidatorVersion uint8
@@ -853,29 +859,28 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		// set up ValidatorRewardVault(Mallory) to be able to provide asset tokens to AssetManager
 		validatorHelper.ApproveAssetToken(cfg.Secrets.Mallory, cfg.L1Deployments.AssetManagerProxy, new(big.Int).SetUint64(math.MaxUint64))
 
-		func() {
-			// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			deployTx, upgradeTx, err := e2eutils.RedeployValPoolToTerminate(
-				ctx,
-				cfg.DeployConfig.ValidatorPoolTerminateOutputIndex.ToInt(),
-				l1Client,
-				cfg.Secrets,
-				cfg.L1ChainIDBig(),
-				cfg.L1Deployments,
-				cfg.DeployConfig,
-			)
-			require.NoError(t, err)
+		// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test
+		deployTx, upgradeTx, err := e2eutils.RedeployValPoolToTerminate(
+			cfg.DeployConfig.ValidatorPoolTerminateOutputIndex.ToInt(),
+			l1Client,
+			cfg.Secrets,
+			cfg.L1ChainIDBig(),
+			cfg.L1Deployments,
+			cfg.DeployConfig,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("unable to redeploy ValidatorPool: %w", err)
+		}
 
-			// Check deploy tx and upgrade tx submission were successful
-			ctx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			_, err = wait.ForReceiptOK(ctx, l1Client, deployTx.Hash())
-			require.NoError(t, err)
-			_, err = wait.ForReceiptOK(ctx, l1Client, upgradeTx.Hash())
-			require.NoError(t, err)
-		}()
+		// Check deploy tx and upgrade tx submission were successful
+		_, err = wait.ForReceiptOK(context.Background(), l1Client, deployTx.Hash())
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait deploy tx success: %w", err)
+		}
+		_, err = wait.ForReceiptOK(context.Background(), l1Client, upgradeTx.Hash())
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait upgrade tx success: %w", err)
+		}
 	}
 
 	validatorCfg, err := validator.NewValidatorConfig(validatorCliCfg, sys.Cfg.Loggers["validator"], validatormetrics.NoopMetrics)
@@ -889,7 +894,10 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		return nil, fmt.Errorf("unable to init validator rollup rpc client: %w", err)
 	}
 	rpcCl := client.NewBaseRPCClient(cl)
-	validatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
+	validatorMaliciousL2RPC, err := e2eutils.NewMaliciousL2RPC(rpcCl, cfg.ChallengeProofType)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init validator malicious rpc: %w", err)
+	}
 	validatorCfg.RollupClient = sources.NewRollupClient(validatorMaliciousL2RPC)
 	validatorCfg.L2Client = sys.Clients["sequencer"]
 
@@ -964,6 +972,30 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 // [Kroma: START]
 
 func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
+	l1Client := sys.NodeClient("l1")
+
+	// Deploy MockColosseum which has setL1Head function for challenge test
+	deployTx, upgradeTx, err := e2eutils.ReplaceMockColosseum(
+		l1Client,
+		cfg.Secrets.SysCfgOwner,
+		cfg.L1ChainIDBig(),
+		cfg.L1Deployments,
+		cfg.DeployConfig,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to replace Colosseum: %w", err)
+	}
+
+	// Check deploy tx and upgrade tx submission were successful
+	_, err = wait.ForReceiptOK(context.Background(), l1Client, deployTx.Hash())
+	if err != nil {
+		return fmt.Errorf("failed to wait deploy tx success: %w", err)
+	}
+	_, err = wait.ForReceiptOK(context.Background(), l1Client, upgradeTx.Hash())
+	if err != nil {
+		return fmt.Errorf("failed to wait upgrade tx success: %w", err)
+	}
+
 	// Run validator node (Challenger)
 	challengerCliCfg := validator.CLIConfig{
 		L1EthRpc:              sys.EthInstances["l1"].WSEndpoint(),
@@ -995,7 +1027,10 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 		return fmt.Errorf("unable to init challenger rollup rpc client: %w", err)
 	}
 	rpcCl := client.NewBaseRPCClient(cl)
-	challengerHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
+	challengerHonestL2RPC, err := e2eutils.NewHonestL2RPC(rpcCl, cfg.ChallengeProofType)
+	if err != nil {
+		return fmt.Errorf("unable to init challenger honest rpc: %w", err)
+	}
 	challengerCfg.RollupClient = sources.NewRollupClient(challengerHonestL2RPC)
 	challengerCfg.L2Client = sys.Clients["sequencer"]
 
@@ -1005,6 +1040,8 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 	// Replace to mock proof fetcher
 	challengerCfg.ChallengerEnabled = true
 	challengerCfg.ZkEVMProofFetcher = chal.NewZkEVMProofFetcher(e2eutils.NewMockRPC("./testdata/proof"))
+	challengerCfg.ZkVMProofFetcher = chal.NewZkVMProofFetcher(e2eutils.NewMockRPC(""))
+	challengerCfg.WitnessGenerator = chal.NewWitnessGenerator(e2eutils.NewMockRPC(""))
 	sys.Challenger, err = validator.NewValidator(*challengerCfg, sys.Cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return fmt.Errorf("unable to setup challenger: %w", err)
@@ -1046,7 +1083,10 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 		return fmt.Errorf("unable to init guardian rollup rpc client: %w", err)
 	}
 	rpcCl = client.NewBaseRPCClient(cl)
-	guardianHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
+	guardianHonestL2RPC, err := e2eutils.NewHonestL2RPC(rpcCl, cfg.ChallengeProofType)
+	if err != nil {
+		return fmt.Errorf("unable to init guardian honest rpc: %w", err)
+	}
 	guardianCfg.RollupClient = sources.NewRollupClient(guardianHonestL2RPC)
 	guardianCfg.L2Client = sys.Clients["sequencer"]
 

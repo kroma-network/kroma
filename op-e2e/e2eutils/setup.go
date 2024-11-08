@@ -1,15 +1,16 @@
 package e2eutils
 
 import (
-	"context"
+	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	opCrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -272,7 +273,6 @@ func UsePlasma() bool {
 
 // RedeployValPoolToTerminate redeploys ValidatorPool and upgrades proxy to set the termination index to the given value.
 func RedeployValPoolToTerminate(
-	ctx context.Context,
 	terminationIndex *big.Int,
 	l1Client *ethclient.Client,
 	secrets *Secrets,
@@ -280,11 +280,9 @@ func RedeployValPoolToTerminate(
 	l1Deployments *genesis.L1Deployments,
 	deployConfig *genesis.DeployConfig,
 ) (*types.Transaction, *types.Transaction, error) {
-	signerFn := opCrypto.PrivateKeySignerFn(secrets.SysCfgOwner, l1ChainID)
-	txOpts := &bind.TransactOpts{
-		Context: ctx,
-		From:    secrets.Addresses().SysCfgOwner,
-		Signer:  signerFn,
+	txOpts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l1ChainID)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Deploy a ValidatorPool implementation
@@ -310,6 +308,73 @@ func RedeployValPoolToTerminate(
 		return nil, nil, err
 	}
 	upgradeTx, err := proxyAdmin.Upgrade(txOpts, l1Deployments.ValidatorPoolProxy, implAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return deployTx, upgradeTx, nil
+}
+
+func parseSegLenToBigInts(s string) ([]*big.Int, error) {
+	s = strings.Trim(s, "[]")
+	segLens := strings.Split(s, ",")
+
+	bigInts := make([]*big.Int, 0, len(segLens))
+
+	for _, segLen := range segLens {
+		segLen = strings.TrimSpace(segLen)
+		bigInt := new(big.Int)
+		_, ok := bigInt.SetString(segLen, 10)
+		if !ok {
+			return nil, fmt.Errorf("failed to convert %s to *big.Int", segLen)
+		}
+		bigInts = append(bigInts, bigInt)
+	}
+
+	return bigInts, nil
+}
+
+// ReplaceMockColosseum deploys MockColosseum which has setL1Head function and upgrades proxy for challenge test.
+func ReplaceMockColosseum(
+	l1Client *ethclient.Client,
+	sysCfgOwner *ecdsa.PrivateKey,
+	l1ChainID *big.Int,
+	l1Deployments *genesis.L1Deployments,
+	deployConfig *genesis.DeployConfig,
+) (*types.Transaction, *types.Transaction, error) {
+	txOpts, err := bind.NewKeyedTransactorWithChainID(sysCfgOwner, l1ChainID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	segmentsLengths, err := parseSegLenToBigInts(deployConfig.ColosseumSegmentsLengths)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Deploy a MockColosseum implementation
+	implAddr, deployTx, _, err := bindings.DeployMockColosseum(
+		txOpts,
+		l1Client,
+		l1Deployments.L2OutputOracleProxy,
+		l1Deployments.ZKProofVerifierProxy,
+		new(big.Int).SetUint64(deployConfig.L2OutputOracleSubmissionInterval),
+		new(big.Int).SetUint64(deployConfig.ColosseumCreationPeriodSeconds),
+		new(big.Int).SetUint64(deployConfig.ColosseumBisectionTimeout),
+		new(big.Int).SetUint64(deployConfig.ColosseumProvingTimeout),
+		segmentsLengths,
+		l1Deployments.SecurityCouncilProxy,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Upgrade ColosseumProxy to the deployed implementation address
+	proxyAdmin, err := bindings.NewProxyAdminTransactor(l1Deployments.ProxyAdmin, l1Client)
+	if err != nil {
+		return nil, nil, err
+	}
+	upgradeTx, err := proxyAdmin.Upgrade(txOpts, l1Deployments.ColosseumProxy, implAddr)
 	if err != nil {
 		return nil, nil, err
 	}

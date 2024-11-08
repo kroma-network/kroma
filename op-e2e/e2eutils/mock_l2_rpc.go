@@ -5,23 +5,28 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 type MaliciousL2RPC struct {
 	rpc client.RPC
 	// targetBlockNumber is the block number for challenge
 	targetBlockNumber *hexutil.Uint64
+	proofType         testdata.ProofType
 }
 
-func NewMaliciousL2RPC(rpc client.RPC) *MaliciousL2RPC {
-	return &MaliciousL2RPC{rpc: rpc}
+func NewMaliciousL2RPC(rpc client.RPC, proofType testdata.ProofType) (*MaliciousL2RPC, error) {
+	if !testdata.ValidProofType(proofType) {
+		return nil, fmt.Errorf("unexpected challenge proof type: %s", proofType)
+	}
+	return &MaliciousL2RPC{rpc: rpc, proofType: proofType}, nil
 }
 
 // SetTargetBlockNumber sets the first invalid block number for mocking malicious L2 RPC.
@@ -46,7 +51,7 @@ func (m *MaliciousL2RPC) CallContext(ctx context.Context, result interface{}, me
 		if m.targetBlockNumber != nil && *m.targetBlockNumber-1 == blockNumber {
 			if method == "optimism_outputAtBlock" {
 				if o, ok := result.(**eth.OutputResponse); ok {
-					return testdata.SetPrevOutputResponse(*o)
+					return testdata.SetPrevOutputResponse(*o, m.proofType)
 				} else {
 					return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
 				}
@@ -89,10 +94,14 @@ type HonestL2RPC struct {
 	rpc client.RPC
 	// targetBlockNumber is the block number for challenge
 	targetBlockNumber *hexutil.Uint64
+	proofType         testdata.ProofType
 }
 
-func NewHonestL2RPC(rpc client.RPC) *HonestL2RPC {
-	return &HonestL2RPC{rpc: rpc}
+func NewHonestL2RPC(rpc client.RPC, proofType testdata.ProofType) (*HonestL2RPC, error) {
+	if !testdata.ValidProofType(proofType) {
+		return nil, fmt.Errorf("unexpected challenge proof type: %s", proofType)
+	}
+	return &HonestL2RPC{rpc: rpc, proofType: proofType}, nil
 }
 
 // SetTargetBlockNumber sets the target block number for challenge.
@@ -117,7 +126,7 @@ func (m *HonestL2RPC) CallContext(ctx context.Context, result interface{}, metho
 		if m.targetBlockNumber != nil && *m.targetBlockNumber-1 == blockNumber {
 			if method == "optimism_outputAtBlock" {
 				if o, ok := result.(**eth.OutputResponse); ok {
-					return testdata.SetPrevOutputResponse(*o)
+					return testdata.SetPrevOutputResponse(*o, m.proofType)
 				} else {
 					return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
 				}
@@ -131,7 +140,7 @@ func (m *HonestL2RPC) CallContext(ctx context.Context, result interface{}, metho
 		} else if m.targetBlockNumber != nil && *m.targetBlockNumber == blockNumber {
 			if method == "optimism_outputAtBlock" {
 				if o, ok := result.(**eth.OutputResponse); ok {
-					return testdata.SetTargetOutputResponse(*o)
+					return testdata.SetTargetOutputResponse(*o, m.proofType)
 				} else {
 					return fmt.Errorf("invalid type for result: %T (method %s)", result, method)
 				}

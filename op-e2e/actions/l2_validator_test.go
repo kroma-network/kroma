@@ -11,6 +11,7 @@ import (
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
+	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 // TestValidatorBatchType run each validator-related test case in singular batch mode and span batch mode.
@@ -39,7 +40,7 @@ func TestValidatorBatchType(t *testing.T) {
 }
 
 func RunValidatorPoolTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
-	rt := defaultRuntime(gt, setupSequencerTest, deltaTimeOffset)
+	rt := defaultRuntime(gt, setupSequencerTest, deltaTimeOffset, testdata.DefaultProofType)
 	rt.setupHonestValidator(false)
 
 	// bind contracts
@@ -52,7 +53,7 @@ func RunValidatorPoolTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
 }
 
 func RunValidatorManagerTest(gt *testing.T, deltaTimeOffset *hexutil.Uint64) {
-	rt := defaultRuntime(gt, setupSequencerTest, deltaTimeOffset)
+	rt := defaultRuntime(gt, setupSequencerTest, deltaTimeOffset, testdata.DefaultProofType)
 
 	// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test
 	rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
