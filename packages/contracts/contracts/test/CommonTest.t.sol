@@ -39,8 +39,9 @@ import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
-import { ISP1Verifier } from "../vendor/ISP1Verifier.sol";
+import { SP1Verifier } from "../vendor/SP1VerifierPlonk.sol";
 import { FFIInterface } from "./setup/FFIInterface.sol";
+import { ZkVmTestData } from "./testdata/ZkVmTestData.sol";
 
 contract CommonTest is Test {
     address alice = address(128);
@@ -732,20 +733,12 @@ contract ERC721Bridge_Initializer is Messenger_Initializer {
     }
 }
 
-contract MockSP1Verifier is ISP1Verifier {
-    function verifyProof(
-        bytes32 programVKey,
-        bytes calldata publicValues,
-        bytes calldata proofBytes
-    ) external view {}
-}
-
 contract Colosseum_Initializer is Portal_Initializer {
     uint256 immutable CHAIN_ID = 901;
     bytes32 immutable DUMMY_HASH =
         hex"a1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7";
     uint256 immutable MAX_TXS = 100;
-    bytes32 immutable ZKVM_PROGRAM_V_KEY = bytes32(0);
+    bytes32 immutable ZKVM_PROGRAM_V_KEY = ZkVmTestData.ZKVM_PROGRAM_V_KEY;
 
     // Test target
     Colosseum colosseumImpl;
@@ -755,7 +748,7 @@ contract Colosseum_Initializer is Portal_Initializer {
 
     ZKProofVerifier zkProofVerifier;
     ZKProofVerifier zkProofVerifierImpl;
-    MockSP1Verifier sp1Verifier;
+    SP1Verifier sp1Verifier;
 
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
@@ -781,7 +774,7 @@ contract Colosseum_Initializer is Portal_Initializer {
         verifierProxy.upgradeTo(address(zkVerifierImpl));
 
         // Deploy the ZKProofVerifier
-        sp1Verifier = new MockSP1Verifier();
+        sp1Verifier = new SP1Verifier();
         Proxy zkProofVerifierProxy = new Proxy(multisig);
         zkProofVerifier = ZKProofVerifier(payable(address(zkProofVerifierProxy)));
         zkProofVerifierImpl = new ZKProofVerifier({
