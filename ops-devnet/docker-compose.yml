@@ -107,7 +107,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:v0.5.0
+    image: kromanetwork/geth:mpt-d6420143
     ports:
       - "9545:8545"
       - "9546:8546"
