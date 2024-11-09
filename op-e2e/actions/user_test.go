@@ -5,12 +5,13 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
 type hardforkScheduledTest struct {
@@ -18,7 +19,6 @@ type hardforkScheduledTest struct {
 	canyonTime   *hexutil.Uint64
 	deltaTime    *hexutil.Uint64
 	ecotoneTime  *hexutil.Uint64
-	kromaMPTTime *hexutil.Uint64
 	fjordTime    *hexutil.Uint64
 	runToFork    string
 }
@@ -35,8 +35,6 @@ func (tc *hardforkScheduledTest) fork(fork string) **hexutil.Uint64 {
 	switch fork {
 	case "fjord":
 		return &tc.fjordTime
-	case "mpt":
-		return &tc.kromaMPTTime
 	case "ecotone":
 		return &tc.ecotoneTime
 	case "delta":
@@ -67,10 +65,6 @@ func TestCrossLayerUser(t *testing.T) {
 		"canyon",
 		"delta",
 		"ecotone",
-		// [Kroma: START]
-		// TODO(seolaoh): uncomment below forks when geth updated
-		//"mpt",
-		// [Kroma: END]
 		//"fjord",
 	}
 	for i, fork := range forks {
@@ -119,7 +113,6 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 	dp.DeployConfig.L2GenesisCanyonTimeOffset = test.canyonTime
 	dp.DeployConfig.L2GenesisDeltaTimeOffset = test.deltaTime
 	dp.DeployConfig.L2GenesisEcotoneTimeOffset = test.ecotoneTime
-	dp.DeployConfig.L2GenesisKromaMPTTimeOffset = test.kromaMPTTime
 	dp.DeployConfig.L2GenesisFjordTimeOffset = test.fjordTime
 
 	// [Kroma: START]
@@ -132,9 +125,6 @@ func runCrossLayerUserTest(gt *testing.T, test hardforkScheduledTest) {
 	}
 	if test.ecotoneTime != nil {
 		require.Zero(t, uint64(*test.ecotoneTime)%uint64(dp.DeployConfig.L2BlockTime), "ecotone fork must be aligned")
-	}
-	if test.kromaMPTTime != nil {
-		require.Zero(t, uint64(*test.kromaMPTTime)%uint64(dp.DeployConfig.L2BlockTime), "kroma mpt fork must be aligned")
 	}
 
 	sd := e2eutils.Setup(t, dp, defaultAlloc)

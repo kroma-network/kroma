@@ -62,8 +62,7 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 		ShanghaiTime:                  config.CanyonTime(block.Time()),
 		CancunTime:                    config.EcotoneTime(block.Time()),
 		EcotoneTime:                   config.EcotoneTime(block.Time()),
-		// TODO(seolaoh): uncomment this when geth updated
-		// KromaMPTTime:                  config.KromaMPTTime(block.Time()),
+		KromaMPTTime:                  config.KromaMPTTime(block.Time()),
 		InteropTime: config.InteropTime(block.Time()),
 		Kroma: &params.KromaConfig{
 			EIP1559Denominator:       eip1559Denom,
@@ -73,10 +72,14 @@ func NewL2Genesis(config *DeployConfig, block *types.Block) (*core.Genesis, erro
 		Zktrie: true,
 	}
 
-	// TODO(seolaoh): turn off Zktrie when MPT time is past in genesis
-	//if kromaChainConfig.IsKromaMPT(block.Time()) {
-	//	kromaChainConfig.Zktrie = false
-	//}
+	if kromaChainConfig.IsKromaMPT(block.Time()) {
+		kromaChainConfig.Optimism = &params.OptimismConfig{
+			EIP1559Denominator:       eip1559Denom,
+			EIP1559Elasticity:        eip1559Elasticity,
+			EIP1559DenominatorCanyon: eip1559DenomCanyon,
+		}
+		kromaChainConfig.Zktrie = false
+	}
 
 	gasLimit := config.L2GenesisBlockGasLimit
 	if gasLimit == 0 {
