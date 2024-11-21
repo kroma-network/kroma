@@ -2,7 +2,9 @@ package batcher
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
+	"hash/adler32"
 	"math"
 	"math/big"
 	"math/rand"
@@ -14,6 +16,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 
 	"github.com/stretchr/testify/require"
@@ -810,3 +813,58 @@ func blockBatchRlpSize(t *testing.T, b *types.Block) int {
 	require.NoError(t, batch.EncodeRLP(&buf), "RLP-encoding batch")
 	return buf.Len()
 }
+
+// [Kroma: START]
+func l2BlockToRlpSpanBatch(rollupCfg *rollup.Config, l2block *types.Block) ([]byte, error) {
+	sbb := derive.NewSpanBatchBuilder(rollupCfg.Genesis.L2Time, rollupCfg.L2ChainID)
+	batch, l1Info, err := derive.BlockToSingularBatch(rollupCfg, l2block)
+	if err != nil {
+		return nil, err
+	}
+	sbb.AppendSingularBatch(batch, l1Info.SequenceNumber)
+	rawSpanBatch, err := sbb.GetRawSpanBatch()
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	err = rlp.Encode(&buf, derive.NewBatchData(rawSpanBatch))
+	return buf.Bytes(), nil
+}
+
+func TestChannelBuilder_SpanBatchEncodingIncludesChecksum(t *testing.T) {
+	require := require.New(t)
+	cfg := ChannelConfig{
+		MaxFrameSize:    10000,
+		TargetNumFrames: 1,
+		BatchType:       derive.SpanBatchType,
+	}
+	cfg.InitShadowCompressor()
+	cb, err := NewChannelBuilder(cfg, defaultTestRollupConfig, latestL1BlockOrigin)
+	require.NoError(err)
+
+	rng := rand.New(rand.NewSource(200))
+	l2block := dtest.RandomL2BlockWithChainId(rng, 2, defaultTestRollupConfig.L2ChainID)
+
+	_, err = cb.AddBlock(l2block)
+	require.NoError(err)
+
+	cb.Close()
+	require.NoError(cb.OutputFrames())
+
+	outputFrames := cb.frames
+	require.Equal(len(outputFrames), 1)
+
+	buf := bytes.NewBuffer(outputFrames[0].data)
+	f := new(derive.Frame)
+	err = f.UnmarshalBinary(buf)
+	require.NoError(err)
+
+	rlpBatch, err := l2BlockToRlpSpanBatch(&defaultTestRollupConfig, l2block)
+	require.NoError(err)
+	require.Greater(len(f.Data), 4)
+	actualChecksum := f.Data[len(f.Data)-4:]
+	expectedChecksum := adler32.Checksum(rlpBatch)
+	require.Equal(binary.BigEndian.Uint32(actualChecksum), expectedChecksum)
+}
+
+// [Kroma: END]
