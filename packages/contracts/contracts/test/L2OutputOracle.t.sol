@@ -423,7 +423,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
 }
 
 contract L2OutputOracle_ValidatorSystemUpgrade_Test is ValidatorSystemUpgrade_Initializer {
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
 
         vm.prank(trusted);
@@ -563,5 +563,54 @@ contract L2OutputOracleUpgradeable_Test is L2OutputOracle_Initializer {
         bytes32 slot21After = vm.load(address(oracle), bytes32(uint256(21)));
         bytes32 slot21Expected = NextImpl(address(oracle)).slot21Init();
         assertEq(slot21Expected, slot21After);
+    }
+}
+
+contract L2OutputOracle_Restricted_Test is ValidatorSystemUpgrade_Initializer {
+    function setUp() public virtual override {
+        super.setUp();
+
+        vm.prank(trusted);
+        pool.deposit{ value: trusted.balance }();
+        _registerValidator(trusted, minActivateAmount);
+
+        // Submit outputs to ValidatorPool is terminated
+        for (uint256 i; i <= terminateOutputIndex; i++) {
+            _submitL2OutputV1();
+        }
+    }
+
+    /******************************************
+     * Submit Tests - Restricted output index *
+     ******************************************/
+
+    function test_submitL2Output_restricted_trustedValidator_succeeds() public {
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        uint256 nextOutputIndex = oracle.nextOutputIndex();
+        bytes32 dummyOutputRoot = keccak256(abi.encode());
+
+        vm.prank(trusted);
+        valMgr.setRestrictedOutputIndex(nextOutputIndex);
+        assertEq(valMgr.restrictedOutputIndex(), nextOutputIndex);
+
+        warpToSubmitTime();
+        vm.prank(trusted);
+        oracle.submitL2Output(dummyOutputRoot, nextBlockNumber, 0, 0);
+        assertEq(oracle.getL2Output(nextOutputIndex).outputRoot, dummyOutputRoot);
+    }
+
+    function test_submitL2Output_restricted_notTrustedValidator_reverts() public {
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        uint256 nextOutputIndex = oracle.nextOutputIndex();
+        bytes32 dummyOutputRoot = keccak256(abi.encode());
+
+        vm.prank(trusted);
+        valMgr.setRestrictedOutputIndex(nextOutputIndex);
+        assertEq(valMgr.restrictedOutputIndex(), nextOutputIndex);
+
+        warpToSubmitTime();
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.NotSelectedPriorityValidator.selector);
+        oracle.submitL2Output(dummyOutputRoot, nextBlockNumber, 0, 0);
     }
 }

@@ -14,7 +14,7 @@ import { MockColosseum } from "./mock/MockColosseum.sol";
 import { ZkEvmTestData } from "./testdata/ZkEvmTestData.sol";
 import { ZkVmTestData } from "./testdata/ZkVmTestData.sol";
 import { Colosseum_Initializer } from "./CommonTest.t.sol";
-import { MockL2OutputOracle } from "./ValidatorManager.t.sol";
+import { MockL2OutputOracle, MockValidatorManager } from "./ValidatorManager.t.sol";
 
 contract MockZKProofVerifier is ZKProofVerifier {
     constructor(
@@ -1551,5 +1551,181 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
         colosseum.challengerTimeout(targetOutputIndex, challenger);
 
         assertEq(assetMgr.totalValidatorKro(challenger), minActivateAmount - bondAmount);
+    }
+}
+
+contract Colosseum_MptTransition_Test is Colosseum_Initializer {
+    MockColosseum mockColosseum;
+    MockZKProofVerifier mockZKProofVerifier;
+    MockL2OutputOracle mockOracle;
+    uint256 internal targetOutputIndex;
+
+    function setUp() public override {
+        // value greater than terminateOutputIndex(3)
+        mptFirstOutputIndex = 5;
+        super.setUp();
+
+        MockColosseum mockColosseumImpl = new MockColosseum(
+            oracle,
+            zkProofVerifier,
+            submissionInterval,
+            creationPeriodSeconds,
+            bisectionTimeout,
+            provingTimeout,
+            segmentsLengths,
+            address(securityCouncil)
+        );
+        vm.prank(multisig);
+        Proxy(payable(address(colosseum))).upgradeTo(address(mockColosseumImpl));
+        mockColosseum = MockColosseum(address(colosseum));
+
+        MockZKProofVerifier mockVerifierImpl = new MockZKProofVerifier({
+            _zkVerifier: zkVerifier,
+            _dummyHash: DUMMY_HASH,
+            _maxTxs: MAX_TXS,
+            _zkMerkleTrie: address(zkMerkleTrie),
+            _sp1Verifier: sp1Verifier,
+            _zkVmProgramVKey: ZKVM_PROGRAM_V_KEY
+        });
+        vm.prank(multisig);
+        Proxy(payable(address(zkProofVerifier))).upgradeTo(address(mockVerifierImpl));
+        mockZKProofVerifier = MockZKProofVerifier(address(zkProofVerifier));
+
+        address oracleAddress = address(oracle);
+        MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
+            pool,
+            valMgr,
+            address(colosseum),
+            submissionInterval,
+            l2BlockTime,
+            startingBlockNumber,
+            startingTimestamp,
+            finalizationPeriodSeconds
+        );
+        vm.prank(multisig);
+        Proxy(payable(oracleAddress)).upgradeTo(address(mockOracleImpl));
+        mockOracle = MockL2OutputOracle(oracleAddress);
+
+        // Deploy ValidatorPool with new argument
+        terminateOutputIndex = 0;
+        poolImpl = new ValidatorPool({
+            _l2OutputOracle: oracle,
+            _portal: mockPortal,
+            _securityCouncil: guardian,
+            _trustedValidator: trusted,
+            _requiredBondAmount: requiredBondAmount,
+            _maxUnbond: maxUnbond,
+            _roundDuration: roundDuration,
+            _terminateOutputIndex: terminateOutputIndex
+        });
+        vm.prank(multisig);
+        Proxy(payable(address(pool))).upgradeTo(address(poolImpl));
+
+        // Submit outputs until ValidatorPool is terminated
+        vm.prank(trusted);
+        pool.deposit{ value: trusted.balance }();
+        for (uint256 i; i <= terminateOutputIndex; i++) {
+            _submitL2OutputV1();
+        }
+
+        // Only trusted validator can submit the first output with ValidatorManager
+        _registerValidator(trusted, minActivateAmount);
+
+        // Submit invalid output as asserter
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        warpToSubmitTime();
+        vm.prank(valMgr.nextValidator());
+        oracle.submitL2Output(keccak256(abi.encode()), nextBlockNumber, 0, 0);
+
+        // To create challenge, challenger also registers validator
+        _registerValidator(challenger, minActivateAmount);
+
+        targetOutputIndex = oracle.latestOutputIndex();
+    }
+
+    function _getOutputRoot(address sender, uint256 blockNumber) private view returns (bytes32) {
+        uint256 targetBlockNumber = ZkEvmTestData.INVALID_BLOCK_NUMBER;
+        if (blockNumber == targetBlockNumber - 1) {
+            return ZkEvmTestData.PREV_OUTPUT_ROOT;
+        }
+
+        // If asserter, wrong output after targetBlockNumber
+        if (sender == trusted) {
+            if (blockNumber < targetBlockNumber - 1) {
+                return keccak256(abi.encode(blockNumber));
+            } else {
+                return keccak256(abi.encode());
+            }
+        }
+
+        // If challenger, correct output always
+        if (blockNumber == targetBlockNumber) {
+            return ZkEvmTestData.TARGET_OUTPUT_ROOT;
+        } else {
+            return keccak256(abi.encode(blockNumber));
+        }
+    }
+
+    function _newSegments(
+        address sender,
+        uint8 turn,
+        uint256 segStart,
+        uint256 segSize
+    ) private view returns (bytes32[] memory) {
+        uint256 segLen = colosseum.segmentsLengths(turn - 1);
+
+        bytes32[] memory arr = new bytes32[](segLen);
+
+        for (uint256 i = 0; i < segLen; i++) {
+            uint256 n = segStart + i * (segSize / (segLen - 1));
+            arr[i] = _getOutputRoot(sender, n);
+        }
+
+        return arr;
+    }
+
+    function _getFirstSegments() private view returns (bytes32[] memory) {
+        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(targetOutputIndex);
+        uint256 end = targetOutput.l2BlockNumber;
+        uint256 start = end - oracle.SUBMISSION_INTERVAL();
+
+        bytes32[] memory segments = _newSegments(challenger, 1, start, end - start);
+
+        return segments;
+    }
+
+    function test_createChallenge_succeeds() public {
+        bytes32[] memory segments = _getFirstSegments();
+        vm.prank(challenger);
+        colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
+    }
+
+    function test_createChallenge_mptFirstOutputIndex_reverts() public {
+        bytes32[] memory segments = _getFirstSegments();
+
+        // upgrade validatorManager with targetOutputIndex
+        address valMgrAddress = address(valMgr);
+        constructorParams._mptFirstOutputIndex = targetOutputIndex;
+        MockValidatorManager mockValMgrImpl = new MockValidatorManager(constructorParams);
+        vm.prank(multisig);
+        Proxy(payable(valMgrAddress)).upgradeTo(address(mockValMgrImpl));
+
+        vm.prank(challenger);
+        vm.expectRevert(IValidatorManager.MptFirstOutputRestricted.selector);
+        colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
+    }
+
+    function test_createChallenge_upgradeMptFirstOutputIndex_succeeds() public {
+        bytes32[] memory segments = _getFirstSegments();
+
+        // upgrade validatorManager with targetOutputIndex + 1
+        address valMgrAddress = address(valMgr);
+        constructorParams._mptFirstOutputIndex = targetOutputIndex + 1;
+        MockValidatorManager mockValMgrImpl = new MockValidatorManager(constructorParams);
+        vm.prank(multisig);
+        Proxy(payable(valMgrAddress)).upgradeTo(address(mockValMgrImpl));
+
+        vm.prank(challenger);
+        colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
     }
 }

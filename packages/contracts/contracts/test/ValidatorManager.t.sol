@@ -1037,4 +1037,18 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMgr.activatedValidatorCount(), count);
         assertEq(valMgr.activatedValidatorTotalWeight(), totalWeight + 10);
     }
+
+    function test_setRestrictedOutputIndex_TrustedValidator_succeeds() public {
+        uint256 nextOutputIndex = oracle.nextOutputIndex();
+        vm.prank(trusted);
+        valMgr.setRestrictedOutputIndex(nextOutputIndex);
+        assertEq(valMgr.restrictedOutputIndex(), nextOutputIndex);
+    }
+
+    function test_setRestrictedOutputIndex_notTrustedValidator_reverts() public {
+        uint256 nextOutputIndex = oracle.nextOutputIndex();
+        vm.prank(asserter);
+        vm.expectRevert(IValidatorManager.NotAllowedCaller.selector);
+        valMgr.setRestrictedOutputIndex(nextOutputIndex);
+    }
 }
