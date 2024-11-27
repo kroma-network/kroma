@@ -261,6 +261,11 @@ interface IValidatorManager {
     error NotSelectedPriorityValidator();
 
     /**
+     * @notice Reverts if the validator is not allowed to restrictedOutputIndex.
+     */
+    error NotAllowedRestrictedOutputIndex();
+
+    /**
      * @notice Registers as a validator with assets at least MIN_REGISTER_AMOUNT. The validator with
      *         assets more than MIN_ACTIVATE_AMOUNT can be activated at the same time.
      *
@@ -409,6 +414,13 @@ interface IValidatorManager {
      * @param validator Address of the output submitter.
      */
     function checkSubmissionEligibility(address validator) external view;
+
+    /**
+     * @notice Checks the eligibility to create challenge to this outputIndex.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     */
+    function checkCreateChallengeEligibility(uint256 outputIndex) external view;
 
     /**
      * @notice Determines who can submit the L2 checkpoint output for the current round.

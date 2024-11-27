@@ -130,6 +130,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
     mapping(uint256 => uint128) internal _pendingChallengeReward;
 
     /**
+     * @notice Output index only allowed to submit to TrustedValidator.
+                Challenging this output is also restricted.
+     */
+    uint256 public restrictedOutputIndex;
+
+    uint256[49] private __gap;
+
+    /**
      * @notice A modifier that only allows L2OutputOracle contract to call.
      */
     modifier onlyL2OutputOracle() {
@@ -150,6 +158,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     modifier onlyAssetManager() {
         if (msg.sender != address(ASSET_MANAGER)) revert NotAllowedCaller();
+        _;
+    }
+
+    /**
+     * @notice A modifier that only allows TrustedValidator to call.
+     */
+    modifier onlyTrustedValidator() {
+        if (msg.sender != TRUSTED_VALIDATOR) revert NotAllowedCaller();
         _;
     }
 
@@ -390,6 +406,15 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
+    function checkCreateChallengeEligibility(uint256 outputIndex) external view onlyColosseum {
+        if (
+            restrictedOutputIndex == outputIndex
+        ) revert NotAllowedRestrictedOutputIndex();
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
     function getCommissionRate(address validator) external view returns (uint8) {
         return _validatorInfo[validator].commissionRate;
     }
@@ -438,6 +463,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function nextValidator() public view returns (address) {
+        if (restrictedOutputIndex == L2_ORACLE.nextOutputIndex()) {
+            return TRUSTED_VALIDATOR;
+        }
+
         if (_nextPriorityValidator != address(0)) {
             uint256 l2Timestamp = L2_ORACLE.nextOutputMinL2Timestamp();
             if (block.timestamp >= l2Timestamp) {
@@ -735,5 +764,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
         if (noSubmissionCount(validator) > 0) {
             _validatorInfo[validator].noSubmissionCount = 0;
         }
+    }
+
+    /**
+     * @notice Allow restrictedOutputIndex.
+     *
+     * @param _outputIndex The output index to set the limit on.
+     */
+    function setRestrictedOutputIndex(uint256 _outputIndex) public onlyTrustedValidator {
+        restrictedOutputIndex = _outputIndex;
     }
 }
