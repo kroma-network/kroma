@@ -381,6 +381,25 @@ func (c *Config) IsInterop(timestamp uint64) bool {
 	return c.InteropTime != nil && timestamp >= *c.InteropTime
 }
 
+// IsEcotoneActivationBlock returns whether the specified block is the first block subject to the
+// KromaMPT upgrade. KromaMPT activation at genesis does not count.
+func (c *Config) IsKromaMPTActivationBlock(l2BlockTime uint64) bool {
+	return c.IsKromaMPT(l2BlockTime) &&
+		l2BlockTime >= c.BlockTime &&
+		!c.IsKromaMPT(l2BlockTime-c.BlockTime)
+}
+
+// IsKromaMPTParentBlock returns whether the specified block is the parent block subject to the
+// KromaMPT upgrade.
+func (c *Config) IsKromaMPTParentBlock(l2BlockTime uint64) bool {
+	if c.KromaMPTTime == nil {
+		return false
+	}
+	return l2BlockTime == *c.KromaMPTTime-c.BlockTime
+}
+
+// [Kroma: END]
+
 // ForkchoiceUpdatedVersion returns the EngineAPIMethod suitable for the chain hard fork version.
 func (c *Config) ForkchoiceUpdatedVersion(attr *eth.PayloadAttributes) eth.EngineAPIMethod {
 	if attr == nil {
