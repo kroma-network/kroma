@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 )
 
 // L1ReceiptsFetcher fetches L1 header info and receipts for the payload attributes derivation (the info tx and deposits)
@@ -108,6 +108,16 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		}
 	}
 
+	// [Kroma: START]
+	// Include KromaMPT network upgrade transactions in the block before(parent block) of the KromaMPT target block.
+	if ba.rollupCfg.IsKromaMPTParentBlock(nextL2Time) {
+		upgradeTxs, err = KromaMPTNetworkUpgradeTransactions()
+		if err != nil {
+			return nil, NewCriticalError(fmt.Errorf("failed to build kroma mpt network upgrade txs: %w", err))
+		}
+	}
+	// [Kroma: END]
+
 	l1InfoTx, err := L1InfoDepositBytes(ba.rollupCfg, sysConfig, seqNumber, l1Info, nextL2Time)
 	if err != nil {
 		return nil, NewCriticalError(fmt.Errorf("failed to create l1InfoTx: %w", err))
@@ -119,19 +129,24 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	txs = append(txs, upgradeTxs...)
 
 	// [Kroma: START]
-	// In Kroma, the IsSystemTransaction field was deleted from DepositTx.
-	// After transitioning to MPT, we bring back the IsSystemTransaction field for compatibility with OP.
-	// Therefore, before MPT time, use KromaDepositTx struct to create deposit transactions without that field.
-	if !ba.rollupCfg.IsKromaMPT(nextL2Time) {
-		for i, otx := range txs {
-			if otx[0] != types.DepositTxType {
-				continue
+	suggestedFeeRecipient := common.Address{}
+	if ba.rollupCfg.IsKromaMPT(nextL2Time) {
+		suggestedFeeRecipient = predeploys.SequencerFeeVaultAddr
+	} else {
+		// In Kroma, the IsSystemTransaction field was deleted from DepositTx.
+		// After transitioning to MPT, we bring back the IsSystemTransaction field for compatibility with OP.
+		// Therefore, before MPT time, use KromaDepositTx struct to create deposit transactions without that field.
+		if !ba.rollupCfg.IsKromaMPT(nextL2Time) {
+			for i, otx := range txs {
+				if otx[0] != types.DepositTxType {
+					continue
+				}
+				tx, err := ToKromaDepositBytes(otx)
+				if err != nil {
+					return nil, NewCriticalError(err)
+				}
+				txs[i] = tx
 			}
-			tx, err := ToKromaDepositBytes(otx)
-			if err != nil {
-				return nil, NewCriticalError(fmt.Errorf("failed to convert deposit tx to KromaDepositTx: %w", err))
-			}
-			txs[i] = tx
 		}
 	}
 	// [Kroma: END]
@@ -150,7 +165,7 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	}
 
 	// [Kroma: START]
-	suggestedFeeRecipient := common.Address{}
+	suggestedFeeRecipient = common.Address{}
 	if ba.rollupCfg.IsKromaMPT(nextL2Time) {
 		suggestedFeeRecipient = predeploys.ProtocolVaultAddr
 	}
