@@ -1038,7 +1038,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMgr.activatedValidatorTotalWeight(), totalWeight + 10);
     }
 
-    function test_setRestrictedOutputIndex_TrustedValidator_succeeds() public {
+    function test_setRestrictedOutputIndex_trustedValidator_succeeds() public {
         uint256 nextOutputIndex = oracle.nextOutputIndex();
         vm.prank(trusted);
         valMgr.setRestrictedOutputIndex(nextOutputIndex);

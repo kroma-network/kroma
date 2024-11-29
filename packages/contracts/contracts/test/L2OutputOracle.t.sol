@@ -423,7 +423,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
 }
 
 contract L2OutputOracle_ValidatorSystemUpgrade_Test is ValidatorSystemUpgrade_Initializer {
-    function setUp() public virtual override {
+    function setUp() public override {
         super.setUp();
 
         vm.prank(trusted);
