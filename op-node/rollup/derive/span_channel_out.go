@@ -190,10 +190,18 @@ func (co *SpanChannelOut) Close() error {
 		return ErrChannelOutAlreadyClosed
 	}
 	co.closed = true
-	if err := co.Flush(); err != nil {
+	if err := co.compress.Close(); err != nil {
 		return err
 	}
-	return co.compress.Close()
+	if co.ReadyBytes() == 0 && co.compress.Len() > 0 {
+		_, err := io.Copy(co.reader, co.compress)
+		if err != nil {
+			// Must reset reader to avoid partial output
+			co.reader.Reset()
+			return fmt.Errorf("failed to flush compressed data to reader: %w", err)
+		}
+	}
+	return nil
 }
 
 // OutputFrame writes a frame to w with a given max size and returns the frame
