@@ -256,10 +256,15 @@ def devnet_deploy(paths):
     run_command(['docker', 'compose', 'up', '-d', 'l2'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir
     })
+    run_command(['docker', 'compose', 'up', '-d', 'l2-historical'], cwd=paths.ops_bedrock_dir, env={
+        'PWD': paths.ops_bedrock_dir
+    })
 
     # Wait for the L2 to be available.
     wait_up(9545)
     wait_for_rpc_server('127.0.0.1:9545')
+    wait_up(9445)
+    wait_for_rpc_server('127.0.0.1:9445')
 
     # [Kroma: START]
     # Print out the addresses being used for easier debugging.
@@ -275,7 +280,7 @@ def devnet_deploy(paths):
     log.info(f'Using AssetManager {asset_manager}')
 
     log.info('Bringing up `kroma-node`, `kroma-batcher` and `kroma-validator`.')
-    run_command(['docker', 'compose', 'up', '-d', 'kroma-node', 'kroma-batcher', 'kroma-validator', 'kroma-challenger'], cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', 'up', '-d', 'kroma-node', 'kroma-node-historical', 'kroma-batcher', 'kroma-validator', 'kroma-challenger'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
         'COLOSSEUM_ADDRESS': colosseum,
