@@ -76,9 +76,9 @@ func defaultRuntime(
 	if proofType == testdata.ZkVMType {
 		genesisActivation := hexutil.Uint64(0)
 		deltaTimeOffset = &genesisActivation
-		mptOffset := hexutil.Uint64(2)
+		mptTimeOffset := hexutil.Uint64(2)
 		dp.DeployConfig.L2GenesisEcotoneTimeOffset = deltaTimeOffset
-		dp.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptOffset
+		dp.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
 	}
 	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
@@ -96,7 +96,7 @@ func defaultRuntime(
 	rt.setupBatcher(dp)
 
 	if proofType == testdata.ZkVMType {
-		rt.assertReplaceMockColosseum()
+		rt.assertReplaceWithMockColosseum()
 	}
 
 	return rt
@@ -229,10 +229,10 @@ func (rt *Runtime) assertRedeployValPoolToTerminate(newTerminationIndex *big.Int
 	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "upgrade tx submission failed")
 }
 
-// assertReplaceMockColosseum deploys MockColosseum which has setL1Head function and upgrades proxy for challenge test.
+// assertReplaceWithMockColosseum deploys MockColosseum which has setL1Head function and upgrades proxy for challenge test.
 // It also asserts that the deploying and upgrade tx is successful.
-func (rt *Runtime) assertReplaceMockColosseum() {
-	deployTx, upgradeTx, err := e2eutils.ReplaceMockColosseum(
+func (rt *Runtime) assertReplaceWithMockColosseum() {
+	deployTx, upgradeTx, err := e2eutils.ReplaceWithMockColosseum(
 		rt.miner.EthClient(),
 		rt.dp.Secrets.SysCfgOwner,
 		rt.sd.RollupCfg.L1ChainID,

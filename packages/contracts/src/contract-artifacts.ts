@@ -368,7 +368,7 @@
 
         let MockColosseum
         try {
-          MockColosseum = require('../artifacts/contracts/test/MockColosseum.sol/MockColosseum.json')
+          MockColosseum = require('../artifacts/contracts/test/mock/MockColosseum.sol/MockColosseum.json')
         } catch {}
         
 

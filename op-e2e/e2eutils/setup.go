@@ -279,10 +279,10 @@ func RedeployValPoolToTerminate(
 	l1ChainID *big.Int,
 	l1Deployments *genesis.L1Deployments,
 	deployConfig *genesis.DeployConfig,
-) (*types.Transaction, *types.Transaction, error) {
+) (deployTx, upgradeTx *types.Transaction, err error) {
 	txOpts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l1ChainID)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	// Deploy a ValidatorPool implementation
@@ -299,57 +299,54 @@ func RedeployValPoolToTerminate(
 		terminationIndex,
 	)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	// Upgrade ValidatorPoolProxy to the deployed implementation address
 	proxyAdmin, err := bindings.NewProxyAdminTransactor(l1Deployments.ProxyAdmin, l1Client)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
-	upgradeTx, err := proxyAdmin.Upgrade(txOpts, l1Deployments.ValidatorPoolProxy, implAddr)
+	upgradeTx, err = proxyAdmin.Upgrade(txOpts, l1Deployments.ValidatorPoolProxy, implAddr)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
-	return deployTx, upgradeTx, nil
+	return
 }
 
 func parseSegLenToBigInts(s string) ([]*big.Int, error) {
-	s = strings.Trim(s, "[]")
 	segLens := strings.Split(s, ",")
-
 	bigInts := make([]*big.Int, 0, len(segLens))
 
 	for _, segLen := range segLens {
 		segLen = strings.TrimSpace(segLen)
-		bigInt := new(big.Int)
-		_, ok := bigInt.SetString(segLen, 10)
-		if !ok {
+		if bn, ok := new(big.Int).SetString(segLen, 10); ok {
+			bigInts = append(bigInts, bn)
+		} else {
 			return nil, fmt.Errorf("failed to convert %s to *big.Int", segLen)
 		}
-		bigInts = append(bigInts, bigInt)
 	}
 
 	return bigInts, nil
 }
 
-// ReplaceMockColosseum deploys MockColosseum which has setL1Head function and upgrades proxy for challenge test.
-func ReplaceMockColosseum(
+// ReplaceWithMockColosseum deploys MockColosseum which has setL1Head function and upgrades proxy for challenge test.
+func ReplaceWithMockColosseum(
 	l1Client *ethclient.Client,
 	sysCfgOwner *ecdsa.PrivateKey,
 	l1ChainID *big.Int,
 	l1Deployments *genesis.L1Deployments,
 	deployConfig *genesis.DeployConfig,
-) (*types.Transaction, *types.Transaction, error) {
+) (deployTx, upgradeTx *types.Transaction, err error) {
 	txOpts, err := bind.NewKeyedTransactorWithChainID(sysCfgOwner, l1ChainID)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	segmentsLengths, err := parseSegLenToBigInts(deployConfig.ColosseumSegmentsLengths)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	// Deploy a MockColosseum implementation
@@ -366,20 +363,20 @@ func ReplaceMockColosseum(
 		l1Deployments.SecurityCouncilProxy,
 	)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	// Upgrade ColosseumProxy to the deployed implementation address
 	proxyAdmin, err := bindings.NewProxyAdminTransactor(l1Deployments.ProxyAdmin, l1Client)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
-	upgradeTx, err := proxyAdmin.Upgrade(txOpts, l1Deployments.ColosseumProxy, implAddr)
+	upgradeTx, err = proxyAdmin.Upgrade(txOpts, l1Deployments.ColosseumProxy, implAddr)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
-	return deployTx, upgradeTx, nil
+	return
 }
 
 // [Kroma: END]

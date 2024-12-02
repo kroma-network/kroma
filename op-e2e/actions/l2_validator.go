@@ -86,9 +86,9 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		RollupClient:                    rollupCl,
 		RollupConfig:                    rollupConfig,
 		AllowNonFinalized:               cfg.AllowNonFinalized,
-		ZkEVMProofFetcher:               chal.NewZkEVMProofFetcher(e2eutils.NewMockRPC("../testdata/proof")),
-		ZkVMProofFetcher:                chal.NewZkVMProofFetcher(e2eutils.NewMockRPC("")),
-		WitnessGenerator:                chal.NewWitnessGenerator(e2eutils.NewMockRPC("")),
+		ZkEVMProofFetcher:               chal.NewZkEVMProofFetcher(e2eutils.NewMockRPCWithData("../testdata/proof")),
+		ZkVMProofFetcher:                chal.NewZkVMProofFetcher(e2eutils.NewMockRPC()),
+		WitnessGenerator:                chal.NewWitnessGenerator(e2eutils.NewMockRPC()),
 		// We use custom signing here instead of using the transaction manager.
 		TxManager: &txmgr.BufferedTxManager{
 			SimpleTxManager: txmgr.SimpleTxManager{

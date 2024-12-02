@@ -873,13 +873,9 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		}
 
 		// Check deploy tx and upgrade tx submission were successful
-		_, err = wait.ForReceiptOK(context.Background(), l1Client, deployTx.Hash())
+		err = waitDeployAndUpgradeTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
 		if err != nil {
-			return nil, fmt.Errorf("failed to wait deploy tx success: %w", err)
-		}
-		_, err = wait.ForReceiptOK(context.Background(), l1Client, upgradeTx.Hash())
-		if err != nil {
-			return nil, fmt.Errorf("failed to wait upgrade tx success: %w", err)
+			return nil, err
 		}
 	}
 
@@ -975,7 +971,7 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 	l1Client := sys.NodeClient("l1")
 
 	// Deploy MockColosseum which has setL1Head function for challenge test
-	deployTx, upgradeTx, err := e2eutils.ReplaceMockColosseum(
+	deployTx, upgradeTx, err := e2eutils.ReplaceWithMockColosseum(
 		l1Client,
 		cfg.Secrets.SysCfgOwner,
 		cfg.L1ChainIDBig(),
@@ -987,13 +983,9 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 	}
 
 	// Check deploy tx and upgrade tx submission were successful
-	_, err = wait.ForReceiptOK(context.Background(), l1Client, deployTx.Hash())
+	err = waitDeployAndUpgradeTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
 	if err != nil {
-		return fmt.Errorf("failed to wait deploy tx success: %w", err)
-	}
-	_, err = wait.ForReceiptOK(context.Background(), l1Client, upgradeTx.Hash())
-	if err != nil {
-		return fmt.Errorf("failed to wait upgrade tx success: %w", err)
+		return err
 	}
 
 	// Run validator node (Challenger)
@@ -1039,9 +1031,9 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 
 	// Replace to mock proof fetcher
 	challengerCfg.ChallengerEnabled = true
-	challengerCfg.ZkEVMProofFetcher = chal.NewZkEVMProofFetcher(e2eutils.NewMockRPC("./testdata/proof"))
-	challengerCfg.ZkVMProofFetcher = chal.NewZkVMProofFetcher(e2eutils.NewMockRPC(""))
-	challengerCfg.WitnessGenerator = chal.NewWitnessGenerator(e2eutils.NewMockRPC(""))
+	challengerCfg.ZkEVMProofFetcher = chal.NewZkEVMProofFetcher(e2eutils.NewMockRPCWithData("./testdata/proof"))
+	challengerCfg.ZkVMProofFetcher = chal.NewZkVMProofFetcher(e2eutils.NewMockRPC())
+	challengerCfg.WitnessGenerator = chal.NewWitnessGenerator(e2eutils.NewMockRPC())
 	sys.Challenger, err = validator.NewValidator(*challengerCfg, sys.Cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return fmt.Errorf("unable to setup challenger: %w", err)
@@ -1102,6 +1094,20 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 		return fmt.Errorf("unable to start guardian: %w", err)
 	}
 
+	return nil
+}
+
+func waitDeployAndUpgradeTxs(client *ethclient.Client, deployTx, upgradeTx common.Hash) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	_, err := wait.ForReceiptOK(ctx, client, deployTx)
+	if err != nil {
+		return fmt.Errorf("failed to wait deploy tx success: %w", err)
+	}
+	_, err = wait.ForReceiptOK(ctx, client, upgradeTx)
+	if err != nil {
+		return fmt.Errorf("failed to wait upgrade tx success: %w", err)
+	}
 	return nil
 }
 

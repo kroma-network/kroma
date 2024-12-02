@@ -2000,10 +2000,10 @@ func TestZkVMChallenge(t *testing.T) {
 
 	cfg := DefaultSystemConfig(t)
 	genesisBlock := hexutil.Uint64(0)
-	mptOffset := hexutil.Uint64(2)
+	mptTimeOffset := hexutil.Uint64(2)
 	cfg.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
 	cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &genesisBlock
-	cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptOffset
+	cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
 	cfg.DeployConfig.L1BlockTime = 3
 	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle
 	cfg.EnableChallenge = true
