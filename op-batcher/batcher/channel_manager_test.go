@@ -504,7 +504,7 @@ func TestChannelManager_Close_BeforeMPTBlock(t *testing.T) {
 	numTx := 1
 	zktBlock1 := derivetest.RandomL2BlockWithChainId(rng, numTx, defaultTestRollupConfig.L2ChainID)
 	zktBlock2 := derivetest.RandomL2BlockWithChainId(rng, numTx, defaultTestRollupConfig.L2ChainID)
-	mptBlock := derivetest.RandomL2BlockWithChainId(rng, numTx, defaultTestRollupConfig.L2ChainID)
+	mptBlock := derivetest.RandomL2MPTBlockWithChainId(rng, numTx, defaultTestRollupConfig.L2ChainID)
 
 	h := zktBlock1.Header()
 	h.Time = kromaMPTTime - rollupConfig.BlockTime*2

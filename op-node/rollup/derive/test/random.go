@@ -29,9 +29,36 @@ func RandomL2Block(rng *rand.Rand, txCount int) (*types.Block, []*types.Receipt)
 	return testutils.RandomBlockPrependTxs(rng, txCount, types.NewTx(l1InfoTx))
 }
 
+// RandomMPTL2Block returns a random block whose first transaction is a random post-MPT upgrade
+// L1 Info Deposit transaction.
+func RandomMPTL2Block(rng *rand.Rand, txCount int) (*types.Block, []*types.Receipt) {
+	l1Block := types.NewBlock(testutils.RandomHeader(rng),
+		nil, nil, nil, trie.NewStackTrie(nil))
+	rollupCfg := rollup.Config{}
+	t := uint64(0)
+	rollupCfg.EcotoneTime = &t
+	rollupCfg.KromaMPTTime = &t
+
+	l1InfoTx, err := derive.L1InfoDeposit(&rollupCfg, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), 0)
+	if err != nil {
+		panic("L1InfoDeposit: " + err.Error())
+	}
+	return testutils.RandomBlockPrependTxs(rng, txCount, types.NewTx(l1InfoTx))
+}
+
 func RandomL2BlockWithChainId(rng *rand.Rand, txCount int, chainId *big.Int) *types.Block {
 	signer := types.NewLondonSigner(chainId)
 	block, _ := RandomL2Block(rng, 0)
+	txs := []*types.Transaction{block.Transactions()[0]} // L1 info deposit TX
+	for i := 0; i < txCount; i++ {
+		txs = append(txs, testutils.RandomTx(rng, big.NewInt(int64(rng.Uint32())), signer))
+	}
+	return block.WithBody(txs, nil)
+}
+
+func RandomL2MPTBlockWithChainId(rng *rand.Rand, txCount int, chainId *big.Int) *types.Block {
+	signer := types.NewLondonSigner(chainId)
+	block, _ := RandomMPTL2Block(rng, 0)
 	txs := []*types.Transaction{block.Transactions()[0]} // L1 info deposit TX
 	for i := 0; i < txCount; i++ {
 		txs = append(txs, testutils.RandomTx(rng, big.NewInt(int64(rng.Uint32())), signer))
