@@ -111,10 +111,11 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	// [Kroma: START]
 	// Include KromaMPT network upgrade transactions in the block before(parent block) of the KromaMPT target block.
 	if ba.rollupCfg.IsKromaMPTParentBlock(nextL2Time) {
-		upgradeTxs, err = KromaMPTNetworkUpgradeTransactions()
+		kromaMPT, err := KromaMPTNetworkUpgradeTransactions()
 		if err != nil {
 			return nil, NewCriticalError(fmt.Errorf("failed to build kroma mpt network upgrade txs: %w", err))
 		}
+		upgradeTxs = append(upgradeTxs, kromaMPT...)
 	}
 	// [Kroma: END]
 
