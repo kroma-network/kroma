@@ -366,15 +366,27 @@
         } catch {}
         
 
+        let MockColosseum
+        try {
+          MockColosseum = require('../artifacts/contracts/test/mock/MockColosseum.sol/MockColosseum.json')
+        } catch {}
+        
+
         let FFIInterface
         try {
           FFIInterface = require('../artifacts/contracts/test/setup/FFIInterface.sol/FFIInterface.json')
         } catch {}
         
 
-        let ColosseumTestData
+        let ZkEvmTestData
         try {
-          ColosseumTestData = require('../artifacts/contracts/test/testdata/ColosseumTestData.sol/ColosseumTestData.json')
+          ZkEvmTestData = require('../artifacts/contracts/test/testdata/ZkEvmTestData.sol/ZkEvmTestData.json')
+        } catch {}
+        
+
+        let ZkVmTestData
+        try {
+          ZkVmTestData = require('../artifacts/contracts/test/testdata/ZkVmTestData.sol/ZkVmTestData.json')
         } catch {}
         
 
@@ -480,6 +492,24 @@
         } catch {}
         
 
+        let ISP1VerifierWithHash
+        try {
+          ISP1VerifierWithHash = require('../artifacts/contracts/vendor/ISP1Verifier.sol/ISP1VerifierWithHash.json')
+        } catch {}
+        
+
+        let PlonkVerifier
+        try {
+          PlonkVerifier = require('../artifacts/contracts/vendor/PlonkVerifier.sol/PlonkVerifier.json')
+        } catch {}
+        
+
+        let SP1Verifier
+        try {
+          SP1Verifier = require('../artifacts/contracts/vendor/SP1VerifierPlonk.sol/SP1Verifier.json')
+        } catch {}
+        
+
         let WETH9
         try {
           WETH9 = require('../artifacts/contracts/vendor/WETH9.sol/WETH9.json')
@@ -548,8 +578,10 @@ MerkleTrie,
 SecureMerkleTrie,
 Types,
 Uint128Math,
+MockColosseum,
 FFIInterface,
-ColosseumTestData,
+ZkEvmTestData,
+ZkVmTestData,
 CrossDomainMessenger,
 ERC721Bridge,
 IKromaMintableERC20,
@@ -567,6 +599,9 @@ ProxyAdmin,
 StandardBridge,
 AddressAliasHelper,
 ISP1Verifier,
+ISP1VerifierWithHash,
+PlonkVerifier,
+SP1Verifier,
 WETH9
       }[name]
     }

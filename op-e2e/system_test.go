@@ -12,10 +12,8 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	gethutils "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
@@ -49,6 +47,7 @@ import (
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
+	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 // TestSystemBatchType run each system e2e test case in singular batch mode and span batch mode.
@@ -178,9 +177,7 @@ func TestL2OutputSubmitterV2(t *testing.T) {
 	require.NoError(t, err, "Error starting up system")
 	defer sys.Close()
 
-	rollupRPCClient, err := rpc.DialContext(context.Background(), sys.RollupNodes["sequencer"].HTTPEndpoint())
-	require.NoError(t, err)
-	rollupClient := sources.NewRollupClient(client.NewBaseRPCClient(rollupRPCClient))
+	rollupClient := sys.RollupClient("sequencer")
 
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, sys.Clients["l1"])
 	require.NoError(t, err)
@@ -452,10 +449,10 @@ func TestSystemE2EDencunAtGenesisWithBlobs(t *testing.T) {
 	require.Nil(t, err, "Waiting for blob tx on L1")
 	// end sending blob-containing txns on l1
 	l2Client := sys.Clients["sequencer"]
-	finalizedBlock, err := gethutils.WaitForL1OriginOnL2(sys.RollupConfig, blockContainsBlob.BlockNumber.Uint64(), l2Client, 30*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	finalizedBlock, err := geth.WaitForL1OriginOnL2(sys.RollupConfig, blockContainsBlob.BlockNumber.Uint64(), l2Client, 30*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	require.Nil(t, err, "Waiting for L1 origin of blob tx on L2")
 	finalizationTimeout := 30 * time.Duration(cfg.DeployConfig.L1BlockTime) * time.Second
-	_, err = gethutils.WaitForBlockToBeSafe(finalizedBlock.Header().Number, l2Client, finalizationTimeout)
+	_, err = geth.WaitForBlockToBeSafe(finalizedBlock.Header().Number, l2Client, finalizationTimeout)
 	require.Nil(t, err, "Waiting for safety of L2 block")
 }
 
@@ -1655,7 +1652,7 @@ func StopStartBatcher(t *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	require.Greater(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain did not advance after batcher was restarted")
 }
 
-func TestChallenge(t *testing.T) {
+func TestZkEVMChallenge(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
@@ -1779,6 +1776,7 @@ func TestChallengeV2(t *testing.T) {
 	challengerAddr := cfg.Secrets.Addresses().Challenger1
 	validatorAddr := cfg.Secrets.Addresses().TrustedValidator
 	beforeAmount, err := validatorHelper.AssetMgrContract.TotalValidatorKro(&bind.CallOpts{}, validatorAddr)
+	require.NoError(t, err)
 
 	// Subscribe slash event in ValidatorManager
 	slashedCh := make(chan *bindings.ValidatorManagerSlashed, 1)
@@ -1992,6 +1990,115 @@ func TestChallengerTimeoutByGuardian(t *testing.T) {
 			require.Equal(t, from, cfg.Secrets.Addresses().Guardian)
 
 			return
+		}
+	}
+}
+
+func TestZkVMChallenge(t *testing.T) {
+	t.Skip("Temporarily skip, enable when test data added") // TODO(seolaoh)
+	InitParallel(t)
+
+	cfg := DefaultSystemConfig(t)
+	genesisBlock := hexutil.Uint64(0)
+	mptTimeOffset := hexutil.Uint64(2)
+	cfg.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
+	cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &genesisBlock
+	cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
+	cfg.DeployConfig.L1BlockTime = 3
+	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle
+	cfg.EnableChallenge = true
+	cfg.ChallengeProofType = testdata.ZkVMType
+	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
+
+	sys, err := cfg.Start(t)
+	require.NoError(t, err, "Error starting up system")
+	defer sys.Close()
+
+	l1Client := sys.NodeClient("l1")
+	validatorHelper := sys.ValidatorHelper()
+
+	// Deposit to ValidatorPool to be a challenger
+	validatorHelper.DepositToValPool(cfg.Secrets.Challenger1, big.NewInt(1_000_000_000))
+
+	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
+	require.NoError(t, err)
+
+	colosseum, err := bindings.NewMockColosseum(cfg.L1Deployments.ColosseumProxy, l1Client)
+	require.NoError(t, err)
+
+	securityCouncil, err := bindings.NewSecurityCouncil(cfg.L1Deployments.SecurityCouncilProxy, l1Client)
+	require.NoError(t, err)
+
+	targetOutputOracleIndex := new(big.Int).SetUint64(
+		uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval))))
+	challengerAddr := cfg.Secrets.Addresses().Challenger1
+
+	// Set a timeout for challenge success and output validation by security council
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for challengeCreated, l1HeadMocked, numCheck := false, false, 0; ; <-ticker.C {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("Timed out waiting for challenge conclusion")
+		default:
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, targetOutputOracleIndex, challengerAddr)
+			require.NoError(t, err)
+
+			// mock challenge.l1Head for test
+			if challengeStatus != chal.StatusNone && !l1HeadMocked {
+				txOpts, err := bind.NewKeyedTransactorWithChainID(sys.Cfg.Secrets.Alice, cfg.L1ChainIDBig())
+				require.NoError(t, err)
+				tx, err := colosseum.SetL1Head(txOpts, targetOutputOracleIndex, challengerAddr, testdata.ChallengeL1Head)
+				require.NoError(t, err)
+				_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+				require.NoError(t, err)
+
+				l1HeadMocked = true
+			}
+
+			if challengeStatus == chal.StatusReadyToProve {
+				challengeCreated = true
+			}
+			if !challengeCreated {
+				continue
+			}
+
+			// after challenge is proven, status is NONE
+			if challengeStatus != chal.StatusNone {
+				continue
+			}
+
+			// Check validation request tx exists and not executed
+			toBlock := latestBlock(t, l1Client)
+			iter, err := securityCouncil.FilterValidationRequested(&bind.FilterOpts{End: &toBlock}, nil)
+			require.NoError(t, err)
+			eventExists := iter.Next()
+			require.True(t, eventExists)
+			tx, err := securityCouncil.Transactions(&bind.CallOpts{}, iter.Event.TransactionId)
+			require.NoError(t, err)
+			eventExists = iter.Next()
+			require.False(t, eventExists)
+			err = iter.Close()
+			require.NoError(t, err)
+			require.NotEqual(t, tx.Target, common.Address{})
+			require.False(t, tx.Executed)
+
+			// Check output is deleted by challenger
+			output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, targetOutputOracleIndex)
+			require.NoError(t, err)
+			require.Equal(t, output.Submitter, challengerAddr)
+			require.True(t, val.IsOutputDeleted(output.OutputRoot))
+
+			numCheck++
+
+			// after enough time for security council elapsed, the challenge is regarded to be correct
+			if numCheck >= 5 {
+				return
+			}
 		}
 	}
 }

@@ -18,3 +18,8 @@ interface ISP1Verifier {
         bytes calldata proofBytes
     ) external view;
 }
+
+interface ISP1VerifierWithHash is ISP1Verifier {
+    /// @notice Returns the hash of the verifier.
+    function VERIFIER_HASH() external pure returns (bytes32);
+}

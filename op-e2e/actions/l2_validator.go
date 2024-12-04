@@ -86,7 +86,9 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		RollupClient:                    rollupCl,
 		RollupConfig:                    rollupConfig,
 		AllowNonFinalized:               cfg.AllowNonFinalized,
-		ZkEVMProofFetcher:               chal.NewZkEVMProofFetcher(e2eutils.NewMockRPC("../testdata/proof")),
+		ZkEVMProofFetcher:               chal.NewZkEVMProofFetcher(e2eutils.NewMockRPCWithData("../testdata/proof")),
+		ZkVMProofFetcher:                chal.NewZkVMProofFetcher(e2eutils.NewMockRPC()),
+		WitnessGenerator:                chal.NewWitnessGenerator(e2eutils.NewMockRPC()),
 		// We use custom signing here instead of using the transaction manager.
 		TxManager: &txmgr.BufferedTxManager{
 			SimpleTxManager: txmgr.SimpleTxManager{
@@ -187,6 +189,8 @@ func (v *L2Validator) ActRegisterValidator(t Testing, assets *big.Int) {
 
 func (v *L2Validator) ActApprove(t Testing, assets *big.Int) {
 	assetManagerContract, err := bindings.NewAssetManagerCaller(v.assetManagerContractAddr, v.cfg.L1Client)
+	require.NoError(t, err)
+
 	tokenAddr, err := assetManagerContract.ASSETTOKEN(&bind.CallOpts{})
 	require.NoError(t, err)
 

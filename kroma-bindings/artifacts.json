@@ -1,5 +1,6 @@
 [
   "Colosseum",
+  "MockColosseum",
   "CrossDomainMessenger",
   "ERC20",
   "ERC721",
