@@ -113,6 +113,10 @@ func TestPreparePayloadAttributes(t *testing.T) {
 		l1Info.InfoNum = l2Parent.L1Origin.Number + 1
 		epoch := l1Info.ID()
 		l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, 0, l1Info, 0)
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+		require.NoError(t, err)
+		// [Kroma: END]
 		require.NoError(t, err)
 		l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, nil, nil)
 		attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)
@@ -185,6 +189,10 @@ func TestPreparePayloadAttributes(t *testing.T) {
 
 		epoch := l1Info.ID()
 		l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, l2Parent.SequenceNumber+1, l1Info, 0)
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+		require.NoError(t, err)
+		// [Kroma: END]
 		require.NoError(t, err)
 
 		l1Fetcher.ExpectInfoByHash(epoch.Hash, l1Info, nil)
@@ -241,6 +249,10 @@ func TestPreparePayloadAttributes(t *testing.T) {
 					time--
 				}
 				l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, 0, l1Info, time)
+				// [Kroma: START] Use KromaDepositTx instead of DepositTx
+				l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+				require.NoError(t, err)
+				// [Kroma: END]
 				require.NoError(t, err)
 				l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, nil, nil)
 				attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)
