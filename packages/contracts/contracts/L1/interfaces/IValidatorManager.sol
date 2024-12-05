@@ -56,7 +56,8 @@ interface IValidatorManager {
      * @custom:field _baseReward                   Base reward for the validator.
      * @custom:field _minRegisterAmount            Minimum amount to register as a validator.
      * @custom:field _minActivateAmount            Minimum amount to activate a validator.
-     * @custom:field _mptFirstOutputIndex          Output index only allowed to submit to TrustedValidator.
+     * @custom:field _mptFirstOutputIndex          First output index after the MPT transition.
+                                                   Only TrustedValidator is allowed to submit output.
                                                    Challenges for this outputIndex are also restricted.
      */
     struct ConstructorParams {

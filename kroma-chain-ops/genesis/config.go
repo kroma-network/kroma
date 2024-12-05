@@ -286,6 +286,9 @@ type DeployConfig struct {
 	ValidatorManagerMinRegisterAmount *hexutil.Big `json:"validatorManagerMinRegisterAmount"`
 	// ValidatorManagerMinActivateAmount is the amount of the minimum activation amount.
 	ValidatorManagerMinActivateAmount *hexutil.Big `json:"validatorManagerMinActivateAmount"`
+	// ValidatorMptFirstOutputIndex is the first output index after the MPT transition.
+	// Only TrustedValidator is allowed to submit output. Challenges for this outputIndex are also restricted.
+	ValidatorManagerMptFirstOutputIndex *hexutil.Big `json:"validatorManagerMptFirstOutputIndex"`
 	// ValidatorManagerCommissionChangeDelaySeconds is the delay to finalize the commission rate change in seconds.
 	ValidatorManagerCommissionChangeDelaySeconds uint64 `json:"validatorManagerCommissionChangeDelaySeconds"`
 	// ValidatorManagerRoundDurationSeconds is the duration of one submission round in seconds.
@@ -559,6 +562,9 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.ValidatorManagerMinActivateAmount.ToInt().Cmp(d.ValidatorManagerMinRegisterAmount.ToInt()) < 0 {
 		return fmt.Errorf("%w: ValidatorManagerMinActivateAmount must equal or more than ValidatorManagerMinRegisterAmount", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMptFirstOutputIndex == nil {
+		return fmt.Errorf("%w: ValidatorManagerMptFirstOutputIndex cannot be nil", ErrInvalidDeployConfig)
 	}
 	if d.ValidatorManagerCommissionChangeDelaySeconds == 0 {
 		return fmt.Errorf("%w: ValidatorManagerCommissionChangeDelaySeconds cannot be 0", ErrInvalidDeployConfig)

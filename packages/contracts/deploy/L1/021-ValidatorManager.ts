@@ -47,6 +47,8 @@ const deployFn: DeployFunction = async (hre) => {
         _baseReward: hre.deployConfig.validatorManagerBaseReward,
         _minRegisterAmount: hre.deployConfig.validatorManagerMinRegisterAmount,
         _minActivateAmount: hre.deployConfig.validatorManagerMinActivateAmount,
+        _mptFirstOutputIndex:
+          hre.deployConfig.validatorManagerMptFirstOutputIndex,
       },
     ],
     isProxyImpl: true,
