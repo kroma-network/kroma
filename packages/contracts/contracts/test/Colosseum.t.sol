@@ -7,6 +7,7 @@ import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
 import { Colosseum } from "../L1/Colosseum.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
+import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { ZKProofVerifier } from "../L1/ZKProofVerifier.sol";
 import { ZKVerifier } from "../L1/ZKVerifier.sol";
 import { Proxy } from "../universal/Proxy.sol";
@@ -1555,14 +1556,8 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
 }
 
 contract Colosseum_MptTransition_Test is Colosseum_Initializer {
-    MockColosseum mockColosseum;
-    MockZKProofVerifier mockZKProofVerifier;
-    MockL2OutputOracle mockOracle;
-    uint256 internal targetOutputIndex;
 
     function setUp() public override {
-        // value greater than terminateOutputIndex(3)
-        mptFirstOutputIndex = 5;
         super.setUp();
 
         MockColosseum mockColosseumImpl = new MockColosseum(
@@ -1577,7 +1572,6 @@ contract Colosseum_MptTransition_Test is Colosseum_Initializer {
         );
         vm.prank(multisig);
         Proxy(payable(address(colosseum))).upgradeTo(address(mockColosseumImpl));
-        mockColosseum = MockColosseum(address(colosseum));
 
         MockZKProofVerifier mockVerifierImpl = new MockZKProofVerifier({
             _zkVerifier: zkVerifier,
@@ -1589,7 +1583,6 @@ contract Colosseum_MptTransition_Test is Colosseum_Initializer {
         });
         vm.prank(multisig);
         Proxy(payable(address(zkProofVerifier))).upgradeTo(address(mockVerifierImpl));
-        mockZKProofVerifier = MockZKProofVerifier(address(zkProofVerifier));
 
         address oracleAddress = address(oracle);
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
@@ -1604,7 +1597,6 @@ contract Colosseum_MptTransition_Test is Colosseum_Initializer {
         );
         vm.prank(multisig);
         Proxy(payable(oracleAddress)).upgradeTo(address(mockOracleImpl));
-        mockOracle = MockL2OutputOracle(oracleAddress);
 
         // Deploy ValidatorPool with new argument
         terminateOutputIndex = 0;
@@ -1621,6 +1613,15 @@ contract Colosseum_MptTransition_Test is Colosseum_Initializer {
         vm.prank(multisig);
         Proxy(payable(address(pool))).upgradeTo(address(poolImpl));
 
+        // upgrade validatorManager with new mptFirstOutputIndex param
+        mptFirstOutputIndex = 10;
+        constructorParams._mptFirstOutputIndex = mptFirstOutputIndex;
+        address valMgrAddress = address(valMgr);
+        ValidatorManager newValMgrImpl = new ValidatorManager(constructorParams);
+        vm.prank(multisig);
+        Proxy(payable(valMgrAddress)).upgradeTo(address(newValMgrImpl));
+        valMgr = ValidatorManager(valMgrAddress);
+
         // Submit outputs until ValidatorPool is terminated
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
@@ -1631,6 +1632,11 @@ contract Colosseum_MptTransition_Test is Colosseum_Initializer {
         // Only trusted validator can submit the first output with ValidatorManager
         _registerValidator(trusted, minActivateAmount);
 
+        for (uint256 i = oracle.nextOutputIndex(); i < mptFirstOutputIndex; i++) {
+            warpToSubmitTime();
+            _submitL2OutputV2(false);
+        }
+
         // Submit invalid output as asserter
         uint256 nextBlockNumber = oracle.nextBlockNumber();
         warpToSubmitTime();
@@ -1639,8 +1645,6 @@ contract Colosseum_MptTransition_Test is Colosseum_Initializer {
 
         // To create challenge, challenger also registers validator
         _registerValidator(challenger, minActivateAmount);
-
-        targetOutputIndex = oracle.latestOutputIndex();
     }
 
     function _getOutputRoot(address sender, uint256 blockNumber) private view returns (bytes32) {
@@ -1684,8 +1688,8 @@ contract Colosseum_MptTransition_Test is Colosseum_Initializer {
         return arr;
     }
 
-    function _getFirstSegments() private view returns (bytes32[] memory) {
-        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(targetOutputIndex);
+    function _getFirstSegments(uint256 outputIndex) private view returns (bytes32[] memory) {
+        Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
         uint256 end = targetOutput.l2BlockNumber;
         uint256 start = end - oracle.SUBMISSION_INTERVAL();
 
@@ -1694,38 +1698,26 @@ contract Colosseum_MptTransition_Test is Colosseum_Initializer {
         return segments;
     }
 
-    function test_createChallenge_succeeds() public {
-        bytes32[] memory segments = _getFirstSegments();
-        vm.prank(challenger);
-        colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
-    }
-
     function test_createChallenge_mptFirstOutputIndex_reverts() public {
-        bytes32[] memory segments = _getFirstSegments();
+        bytes32[] memory segments = _getFirstSegments(mptFirstOutputIndex);
 
-        // upgrade validatorManager with targetOutputIndex
-        address valMgrAddress = address(valMgr);
-        constructorParams._mptFirstOutputIndex = targetOutputIndex;
-        MockValidatorManager mockValMgrImpl = new MockValidatorManager(constructorParams);
-        vm.prank(multisig);
-        Proxy(payable(valMgrAddress)).upgradeTo(address(mockValMgrImpl));
-
-        vm.prank(challenger);
+        vm.startPrank(challenger, challenger);
         vm.expectRevert(IValidatorManager.MptFirstOutputRestricted.selector);
-        colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
+        colosseum.createChallenge(mptFirstOutputIndex, bytes32(0), 0, segments);
     }
 
     function test_createChallenge_upgradeMptFirstOutputIndex_succeeds() public {
-        bytes32[] memory segments = _getFirstSegments();
+        bytes32[] memory segments = _getFirstSegments(mptFirstOutputIndex);
 
-        // upgrade validatorManager with targetOutputIndex + 1
+        // upgrade validatorManager with mptFirstOutputIndex + 1
         address valMgrAddress = address(valMgr);
-        constructorParams._mptFirstOutputIndex = targetOutputIndex + 1;
+        constructorParams._mptFirstOutputIndex = mptFirstOutputIndex + 1;
         MockValidatorManager mockValMgrImpl = new MockValidatorManager(constructorParams);
         vm.prank(multisig);
         Proxy(payable(valMgrAddress)).upgradeTo(address(mockValMgrImpl));
+        assertEq(valMgr.MPT_FIRST_OUTPUT_INDEX(), mptFirstOutputIndex + 1);
 
         vm.prank(challenger);
-        colosseum.createChallenge(targetOutputIndex, bytes32(0), 0, segments);
+        colosseum.createChallenge(mptFirstOutputIndex, bytes32(0), 0, segments);
     }
 }

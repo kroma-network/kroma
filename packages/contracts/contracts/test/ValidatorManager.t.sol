@@ -1044,9 +1044,6 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
     MockL2OutputOracle mockOracle;
     MockValidatorManager mockValMgr;
     function setUp() public override {
-        // value greater than terminateOutputIndex(3)
-        mptFirstOutputIndex = 5;
-
         super.setUp();
 
         address oracleAddress = address(oracle);
@@ -1064,6 +1061,9 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
         Proxy(payable(oracleAddress)).upgradeTo(address(mockOracleImpl));
         mockOracle = MockL2OutputOracle(oracleAddress);
 
+        // upgrade validatorManager with new mptFirstOutputIndex param
+        mptFirstOutputIndex = 10;
+        constructorParams._mptFirstOutputIndex = mptFirstOutputIndex;
         address valMgrAddress = address(valMgr);
         MockValidatorManager mockValMgrImpl = new MockValidatorManager(constructorParams);
         vm.prank(multisig);
@@ -1076,7 +1076,6 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
         for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitL2OutputV1();
         }
-
         vm.warp(oracle.finalizedAt(terminateOutputIndex));
         mockOracle.mockSetNextFinalizeOutputIndex(terminateOutputIndex + 1);
 
@@ -1085,10 +1084,12 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
         uint128 assets = minActivateAmount;
         _registerValidator(asserter, assets);
         _registerValidator(trusted, assets);
-        _submitL2OutputV2(false);
-
-        vm.warp(oracle.finalizedAt(terminateOutputIndex + 1));
-        mockOracle.mockSetNextFinalizeOutputIndex(terminateOutputIndex + 2);
+        for (uint256 i = oracle.nextOutputIndex(); i < mptFirstOutputIndex; i++) {
+            warpToSubmitTime();
+            _submitL2OutputV2(false);
+        }
+        vm.warp(oracle.finalizedAt(mptFirstOutputIndex - 1));
+        mockOracle.mockSetNextFinalizeOutputIndex(mptFirstOutputIndex);
     }
 
     function test_submitL2Output_mptFirstOutput_privateRound_trustedValidator_succeeds() public {
@@ -1097,13 +1098,14 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
     }
 
     function test_submitL2Output_mptFirstOutput_publicRound_trustedValidator_succeeds() public {
-        // Warp to public round since trusted validator is always selected for the priority validator
+        // Warp to public round
         vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
-        _submitL2OutputV2(false);
+        vm.startPrank(trusted, trusted);
+        _submitL2OutputV2(true);
     }
 
     function test_submitL2Output_mptFirstOutput_publicRound_notTrustedValidator_reverts() public {
-        // Warp to public round since trusted validator is always selected for the priority validator
+        // Warp to public round
         vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
 
         uint256 nextBlockNumber = oracle.nextBlockNumber();
@@ -1115,7 +1117,7 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
 
     function test_submitL2Output_mptFirstOutput_afterUpgrade_notTrustedValidator_succeeds() public {
         uint128 newMptFirstOutputIndex = 1000;
-        // Warp to public round since trusted validator is always selected for the priority validator
+        // Warp to public round
         vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
 
         // upgrade validatorManager with newMptFirstOutput
