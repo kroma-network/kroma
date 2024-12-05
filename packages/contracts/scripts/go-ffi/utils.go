@@ -136,25 +136,6 @@ func makeDepositTx(
 	return depositTx
 }
 
-func toKromaDepositTx(depTx types.DepositTx) types.KromaDepositTx {
-	kromaDepTx := types.KromaDepositTx{
-		SourceHash: depTx.SourceHash,
-		From:       depTx.From,
-		Value:      new(big.Int).Set(depTx.Value),
-		Gas:        depTx.Gas,
-		Data:       depTx.Data,
-	}
-	// Fill optional fields
-	if depTx.Mint != nil {
-		kromaDepTx.Mint = new(big.Int).Set(depTx.Mint)
-	}
-	if depTx.To != nil {
-		to := *depTx.To
-		kromaDepTx.To = &to
-	}
-	return kromaDepTx
-}
-
 // Custom type to write the generated proof to
 type proofList [][]byte
 

@@ -118,7 +118,6 @@ contract FFIInterface {
         bytes memory result = vm.ffi(cmds);
         return abi.decode(result, (bytes32));
     }
-    // [Kroma: END]
 
     function hashDepositTransaction(
         address _from,
@@ -127,12 +126,13 @@ contract FFIInterface {
         uint256 _value,
         uint64 _gas,
         bytes memory _data,
-        uint64 _logIndex
+        uint64 _logIndex,
+        bool _isKromaDepTx
     )
         external
         returns (bytes32)
     {
-        string[] memory cmds = new string[](11);
+        string[] memory cmds = new string[](12);
         cmds[0] = "scripts/go-ffi/go-ffi";
         cmds[1] = "diff";
         cmds[2] = "hashDepositTransaction";
@@ -144,13 +144,19 @@ contract FFIInterface {
         cmds[8] = vm.toString(_value);
         cmds[9] = vm.toString(_gas);
         cmds[10] = vm.toString(_data);
+        cmds[11] = vm.toString(_isKromaDepTx);
 
         bytes memory result = vm.ffi(cmds);
         return abi.decode(result, (bytes32));
     }
 
-    function encodeDepositTransaction(Types.UserDepositTransaction calldata txn) external returns (bytes memory) {
-        string[] memory cmds = new string[](12);
+    function encodeDepositTransaction(
+        Types.UserDepositTransaction calldata txn,
+        bool isKromaDepTx
+    )
+        external returns
+    (bytes memory) {
+        string[] memory cmds = new string[](13);
         cmds[0] = "scripts/go-ffi/go-ffi";
         cmds[1] = "diff";
         cmds[2] = "encodeDepositTransaction";
@@ -163,10 +169,12 @@ contract FFIInterface {
         cmds[9] = vm.toString(txn.data);
         cmds[10] = vm.toString(txn.l1BlockHash);
         cmds[11] = vm.toString(txn.logIndex);
+        cmds[12] = vm.toString(isKromaDepTx);
 
         bytes memory result = vm.ffi(cmds);
         return abi.decode(result, (bytes));
     }
+    // [Kroma: END]
 
     function encodeCrossDomainMessage(
         uint256 _nonce,

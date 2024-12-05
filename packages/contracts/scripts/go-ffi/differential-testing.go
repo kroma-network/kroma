@@ -182,8 +182,11 @@ func DiffTestUtils() {
 		encoded, err := types.NewTx(&depositTx).MarshalBinary()
 		checkErr(err, "Error encoding deposit transaction")
 		// [Kroma: START]
-		encoded, err = derive.ToKromaDepositBytes(encoded)
-		checkErr(err, "Error converting deposit transaction to KromaDepositTx")
+		isKromaDepositTx := args[9] == "true"
+		if isKromaDepositTx {
+			encoded, err = derive.ToKromaDepositBytes(encoded)
+			checkErr(err, "Error converting deposit transaction to KromaDepositTx")
+		}
 		// [Kroma: END]
 
 		// Hash encoded deposit transaction
@@ -211,10 +214,17 @@ func DiffTestUtils() {
 		checkOk(ok)
 
 		depositTx := makeDepositTx(from, to, value, mint, gasLimit, isCreate, data, l1BlockHash, logIndex)
-		kromaDepTx := toKromaDepositTx(depositTx)
-
 		// RLP encode deposit transaction
-		encoded, err := types.NewTx(&kromaDepTx).MarshalBinary()
+		encoded, err := types.NewTx(&depositTx).MarshalBinary()
+		checkErr(err, "Error encoding deposit transaction")
+		// [Kroma: START]
+		isKromaDepositTx := args[10] == "true"
+		if isKromaDepositTx {
+			encoded, err = derive.ToKromaDepositBytes(encoded)
+			checkErr(err, "Error converting deposit transaction to KromaDepositTx")
+		}
+		// [Kroma: END]
+
 		checkErr(err, "Failed to RLP encode deposit transaction")
 		// Pack rlp encoded deposit transaction
 		packed, err := bytesArgs.Pack(&encoded)
