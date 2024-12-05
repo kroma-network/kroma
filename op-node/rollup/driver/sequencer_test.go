@@ -258,6 +258,12 @@ func TestSequencerChaosMonkey(t *testing.T) {
 		}
 		infoDep, err := derive.L1InfoDepositBytes(cfg, cfg.Genesis.SystemConfig, seqNr, l1Info, 0)
 		require.NoError(t, err)
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		if cfg.KromaMPTTime == nil || !cfg.IsKromaMPT(l2Parent.Time + cfg.BlockTime) {
+			infoDep, err = derive.ToKromaDepositBytes(infoDep)
+			require.NoError(t, err)
+		}
+		// [Kroma: END]
 
 		testGasLimit := eth.Uint64Quantity(10_000_000)
 		return &eth.PayloadAttributes{

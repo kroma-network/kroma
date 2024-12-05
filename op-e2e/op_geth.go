@@ -220,6 +220,20 @@ func (d *OpGeth) CreatePayloadAttributes(txs ...*types.Transaction) (*eth.Payloa
 		txBytes = append(txBytes, bin)
 	}
 
+	// [Kroma: START] Use KromaDepositTx instead of DepositTx
+	if d.L2ChainConfig.IsPreKromaMPT(uint64(timestamp)) {
+		for i := range txBytes {
+			if txBytes[i][0] == types.DepositTxType {
+				bin, err := derive.ToKromaDepositBytes(txBytes[i])
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert DepositTx to KromaDepositTx: %w", err)
+				}
+				txBytes[i] = bin
+			}
+		}
+	}
+	// [Kroma: END]
+
 	var withdrawals *types.Withdrawals
 	if d.L2ChainConfig.IsCanyon(uint64(timestamp)) {
 		withdrawals = &types.Withdrawals{}

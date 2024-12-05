@@ -93,6 +93,10 @@ func TestInvalidDepositInFCU(t *testing.T) {
 		Gas:                 25000,
 		IsSystemTransaction: false,
 	})
+	// [Kroma: START] Use KromaDepositTx instead of DepositTx
+	badDepositTx, err = badDepositTx.ToKromaDepositTx()
+	require.NoError(t, err)
+	// [Kroma: END]
 
 	// We are inserting a block with an invalid deposit.
 	// The invalid deposit should still remain in the block.
@@ -263,6 +267,10 @@ func TestPreregolith(t *testing.T) {
 				Gas:                 25000,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			depositTx, err = depositTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			envelope, err := opGeth.AddL2Block(ctx, depositTx)
 			require.NoError(t, err)
@@ -308,6 +316,10 @@ func TestPreregolith(t *testing.T) {
 				Gas:                 21_000,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			incrementNonceTx, err = incrementNonceTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			// Contract creation deposit tx
 			contractCreateTx := types.NewTx(&types.DepositTx{
@@ -317,6 +329,10 @@ func TestPreregolith(t *testing.T) {
 				Data:                []byte{},
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			contractCreateTx, err = contractCreateTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			_, err = opGeth.AddL2Block(ctx, incrementNonceTx, contractCreateTx)
 			require.NoError(t, err)
@@ -367,6 +383,10 @@ func TestPreregolith(t *testing.T) {
 				Gas:                 uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			depositTx, err = depositTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			signer := types.LatestSigner(opGeth.L2ChainConfig)
 			// Second tx with a gas limit that will fit in regolith but not bedrock
@@ -452,6 +472,10 @@ func TestRegolith(t *testing.T) {
 				Gas:                 25000,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			depositTx, err = depositTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			envelope, err := opGeth.AddL2Block(ctx, depositTx)
 			require.NoError(t, err)
@@ -504,6 +528,10 @@ func TestRegolith(t *testing.T) {
 				Gas:                 21_000,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			incrementNonceTx, err = incrementNonceTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			// Contract creation deposit tx
 			contractCreateTx := types.NewTx(&types.DepositTx{
@@ -513,6 +541,10 @@ func TestRegolith(t *testing.T) {
 				Data:                []byte{},
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			contractCreateTx, err = contractCreateTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			_, err = opGeth.AddL2Block(ctx, incrementNonceTx, contractCreateTx)
 			require.NoError(t, err)
@@ -570,6 +602,10 @@ func TestRegolith(t *testing.T) {
 				Gas:                 uint64(cfg.DeployConfig.L2GenesisBlockGasLimit) - 1_000_000,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			depositTx, err = depositTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			signer := types.LatestSigner(opGeth.L2ChainConfig)
 			// Second tx with a gas limit that will fit in regolith but not bedrock
@@ -674,6 +710,10 @@ func TestRegolith(t *testing.T) {
 				Gas:                 1_000_000,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			deployTx, err = deployTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			// Store a non-zero value
 			storeTx := types.NewTx(&types.DepositTx{
@@ -684,6 +724,10 @@ func TestRegolith(t *testing.T) {
 				Gas:                 1_000_000,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			storeTx, err = storeTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			// Store a non-zero value
 			zeroTx := types.NewTx(&types.DepositTx{
@@ -694,6 +738,10 @@ func TestRegolith(t *testing.T) {
 				Gas:                 1_000_000,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			zeroTx, err = zeroTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			// Store a non-zero value again
 			// Has same gas cost as zeroTx, except the first tx gets a gas refund for clearing the storage slot
@@ -705,6 +753,10 @@ func TestRegolith(t *testing.T) {
 				Gas:                 1_000_001,
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			rezeroTx, err = rezeroTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			_, err = opGeth.AddL2Block(ctx, deployTx, storeTx, zeroTx, rezeroTx)
 			require.NoError(t, err)
@@ -791,6 +843,10 @@ func TestPreCanyon(t *testing.T) {
 				},
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			pushZeroContractCreateTxn, err = pushZeroContractCreateTxn.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
 			require.NoError(t, err)
@@ -865,6 +921,10 @@ func TestCanyon(t *testing.T) {
 				},
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			pushZeroContractCreateTxn, err = pushZeroContractCreateTxn.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			_, err = opGeth.AddL2Block(ctx, pushZeroContractCreateTxn)
 			require.NoError(t, err)
@@ -933,6 +993,10 @@ func TestPreEcotone(t *testing.T) {
 				},
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			tstoreTxn, err = tstoreTxn.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			_, err = opGeth.AddL2Block(ctx, tstoreTxn)
 			require.NoError(t, err)
@@ -1014,6 +1078,10 @@ func TestEcotone(t *testing.T) {
 				},
 				IsSystemTransaction: false,
 			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			tstoreTxn, err = tstoreTxn.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
 
 			_, err = opGeth.AddL2Block(ctx, tstoreTxn)
 			require.NoError(t, err)
@@ -1022,6 +1090,120 @@ func TestEcotone(t *testing.T) {
 			require.NoError(t, err)
 
 			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, tstoreTxn.Hash())
+			require.NoError(t, err)
+			assert.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+		})
+	}
+}
+
+func TestPreKromaMPT(t *testing.T) {
+	futureTimestamp := hexutil.Uint64(4)
+
+	tests := []struct {
+		name         string
+		kromaMPTTime *hexutil.Uint64
+	}{
+		{name: "KromaMPTNotScheduled"},
+		{name: "KromaMPTNotYetActive", kromaMPTTime: &futureTimestamp},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(fmt.Sprintf("KromaDepositTx_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			s := hexutil.Uint64(0)
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &s
+			cfg.DeployConfig.L2GenesisDeltaTimeOffset = &s
+			cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &s
+			cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = test.kromaMPTTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			fromAddr := cfg.Secrets.Addresses().Alice
+			// Contract creation deposit tx
+			contractCreateTx := types.NewTx(&types.DepositTx{
+				From:                fromAddr,
+				Value:               big.NewInt(params.Ether),
+				Gas:                 1000001,
+				Data:                []byte{},
+				IsSystemTransaction: false,
+			})
+			// [Kroma: START] Use KromaDepositTx instead of DepositTx
+			contractCreateTx, err = contractCreateTx.ToKromaDepositTx()
+			require.NoError(t, err)
+			// [Kroma: END]
+
+			_, err = opGeth.AddL2Block(ctx, contractCreateTx)
+			require.NoError(t, err)
+
+			// Check L1Info
+			l2Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+			require.NoError(t, err)
+			depTxBytes, err := l2Block.Transactions()[0].MarshalBinary()
+			require.NoError(t, err)
+			isKromaDepTx, err := types.IsKromaDepositTx(depTxBytes[1:])
+			require.NoError(t, err)
+			assert.Equal(t, true, isKromaDepTx)
+
+			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, contractCreateTx.Hash())
+			require.NoError(t, err)
+			assert.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+		})
+	}
+}
+
+func TestKromaMPT(t *testing.T) {
+	tests := []struct {
+		name         string
+		kromaMPTTime hexutil.Uint64
+	}{
+		{name: "ActivateAtGenesis", kromaMPTTime: 0},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(fmt.Sprintf("ReviveDepositTx_%s", test.name), func(t *testing.T) {
+			InitParallel(t)
+			cfg := DefaultSystemConfig(t)
+			s := hexutil.Uint64(0)
+			cfg.DeployConfig.L2GenesisCanyonTimeOffset = &s
+			cfg.DeployConfig.L2GenesisDeltaTimeOffset = &s
+			cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &s
+			cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &test.kromaMPTTime
+
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			opGeth, err := NewOpGeth(t, ctx, &cfg)
+			require.NoError(t, err)
+			defer opGeth.Close()
+
+			fromAddr := cfg.Secrets.Addresses().Alice
+			// Contract creation deposit tx
+			contractCreateTx := types.NewTx(&types.DepositTx{
+				From:                fromAddr,
+				Value:               big.NewInt(params.Ether),
+				Gas:                 1000001,
+				Data:                []byte{},
+				IsSystemTransaction: false,
+			})
+
+			_, err = opGeth.AddL2Block(ctx, contractCreateTx)
+			require.NoError(t, err)
+
+			l2Block, err := opGeth.L2Client.BlockByNumber(ctx, nil)
+			require.NoError(t, err)
+			depTxBytes, err := l2Block.Transactions()[0].MarshalBinary()
+			require.NoError(t, err)
+			isKromaDepTx, err := types.IsKromaDepositTx(depTxBytes[1:])
+			require.NoError(t, err)
+			assert.Equal(t, false, isKromaDepTx)
+
+			receipt, err := opGeth.L2Client.TransactionReceipt(ctx, contractCreateTx.Hash())
 			require.NoError(t, err)
 			assert.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 		})

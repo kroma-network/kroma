@@ -172,13 +172,6 @@ func ToKromaDepositBytes(input hexutil.Bytes) (hexutil.Bytes, error) {
 	if input[0] != types.DepositTxType {
 		return nil, fmt.Errorf("unexpected transaction type: %d", input[0])
 	}
-	isKromaDepTx, err := types.IsKromaDepositTx(input[1:]);
-	if err != nil {
-		return nil, err
-	}
-	if isKromaDepTx {
-		return input, nil
-	}
 	var tx types.Transaction
 	if err := tx.UnmarshalBinary(input); err != nil {
 		return nil, fmt.Errorf("failed to decode deposit tx: %w", err)

@@ -352,10 +352,5 @@ func L1InfoDepositBytes(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNu
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode L1 info tx: %w", err)
 	}
-	// [Kroma: START] Use KromaDepositTx instead of DepositTx before MPT time
-	if !rollupCfg.IsKromaMPT(l2BlockTime) {
-		opaqueL1Tx, err = ToKromaDepositBytes(opaqueL1Tx)
-	}
-	// [Kroma: END]
 	return opaqueL1Tx, nil
 }

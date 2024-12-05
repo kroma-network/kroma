@@ -90,9 +90,9 @@ func TestAttributesQueue(t *testing.T) {
 		l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
 		require.NoError(st, err)
 
-		l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+		kromaDepTx, err := ToKromaDepositBytes(l1InfoTx)
 		require.NoError(st, err)
-		testAttributes(l1InfoTx, common.Address{})
+		testAttributes(kromaDepTx, common.Address{})
 	})
 
 	t.Run("after kroma mpt time", func(st *testing.T) {
