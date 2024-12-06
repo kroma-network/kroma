@@ -1076,8 +1076,6 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
         for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitL2OutputV1();
         }
-        vm.warp(oracle.finalizedAt(terminateOutputIndex));
-        mockOracle.mockSetNextFinalizeOutputIndex(terminateOutputIndex + 1);
 
         // Since the first output of V2 is always for trusted validator,
         // so for accurate test, we should pass the first V2 output
@@ -1093,6 +1091,7 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
     }
 
     function test_submitL2Output_mptFirstOutput_privateRound_trustedValidator_succeeds() public {
+        warpToSubmitTime();
         assertEq(valMgr.nextValidator(), trusted);
         _submitL2OutputV2(false);
     }

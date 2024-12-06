@@ -113,6 +113,11 @@ const deployFn: DeployFunction = async (hre) => {
         'BASE_REWARD',
         hre.deployConfig.validatorManagerBaseReward
       )
+      await assertContractVariable(
+        contract,
+        'MPT_FIRST_OUTPUT_INDEX',
+        hre.deployConfig.validatorManagerMptFirstOutputIndex
+      )
     },
   })
 }

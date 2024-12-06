@@ -112,7 +112,7 @@ interface RequiredDeployConfig {
   validatorManagerMinActivateAmount: string
 
   /**
-   * The output index to set limits on output submissions and challenges.
+   * The first output index after MPT transition.
    */
   validatorManagerMptFirstOutputIndex: string
 

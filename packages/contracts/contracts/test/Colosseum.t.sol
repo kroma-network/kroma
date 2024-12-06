@@ -1560,44 +1560,6 @@ contract Colosseum_MptTransition_Test is Colosseum_Initializer {
     function setUp() public override {
         super.setUp();
 
-        MockColosseum mockColosseumImpl = new MockColosseum(
-            oracle,
-            zkProofVerifier,
-            submissionInterval,
-            creationPeriodSeconds,
-            bisectionTimeout,
-            provingTimeout,
-            segmentsLengths,
-            address(securityCouncil)
-        );
-        vm.prank(multisig);
-        Proxy(payable(address(colosseum))).upgradeTo(address(mockColosseumImpl));
-
-        MockZKProofVerifier mockVerifierImpl = new MockZKProofVerifier({
-            _zkVerifier: zkVerifier,
-            _dummyHash: DUMMY_HASH,
-            _maxTxs: MAX_TXS,
-            _zkMerkleTrie: address(zkMerkleTrie),
-            _sp1Verifier: sp1Verifier,
-            _zkVmProgramVKey: ZKVM_PROGRAM_V_KEY
-        });
-        vm.prank(multisig);
-        Proxy(payable(address(zkProofVerifier))).upgradeTo(address(mockVerifierImpl));
-
-        address oracleAddress = address(oracle);
-        MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
-            pool,
-            valMgr,
-            address(colosseum),
-            submissionInterval,
-            l2BlockTime,
-            startingBlockNumber,
-            startingTimestamp,
-            finalizationPeriodSeconds
-        );
-        vm.prank(multisig);
-        Proxy(payable(oracleAddress)).upgradeTo(address(mockOracleImpl));
-
         // Deploy ValidatorPool with new argument
         terminateOutputIndex = 0;
         poolImpl = new ValidatorPool({
