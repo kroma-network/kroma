@@ -1556,7 +1556,6 @@ contract Colosseum_ValidatorSystemUpgrade_Test is Colosseum_Initializer {
 }
 
 contract Colosseum_MptTransition_Test is Colosseum_Initializer {
-
     function setUp() public override {
         super.setUp();
 

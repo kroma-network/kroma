@@ -63,7 +63,7 @@
   "validatorManagerTrustedValidator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
   "validatorManagerMinRegisterAmount": "0x1",
   "validatorManagerMinActivateAmount": "0x2",
-  "validatorManagerMptFirstOutputIndex": "0x0",
+  "validatorManagerMptFirstOutputIndex": "0x1",
   "validatorManagerCommissionChangeDelaySeconds": 2,
   "validatorManagerRoundDurationSeconds": 4,
   "validatorManagerSoftJailPeriodSeconds": 1,

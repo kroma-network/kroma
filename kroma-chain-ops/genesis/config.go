@@ -286,7 +286,7 @@ type DeployConfig struct {
 	ValidatorManagerMinRegisterAmount *hexutil.Big `json:"validatorManagerMinRegisterAmount"`
 	// ValidatorManagerMinActivateAmount is the amount of the minimum activation amount.
 	ValidatorManagerMinActivateAmount *hexutil.Big `json:"validatorManagerMinActivateAmount"`
-	// ValidatorMptFirstOutputIndex is the first output index after the MPT transition.
+	// ValidatorManagerMptFirstOutputIndex is the first output index after the MPT transition.
 	// Only TrustedValidator is allowed to submit output. Challenges for this outputIndex are also restricted.
 	ValidatorManagerMptFirstOutputIndex *hexutil.Big `json:"validatorManagerMptFirstOutputIndex"`
 	// ValidatorManagerCommissionChangeDelaySeconds is the delay to finalize the commission rate change in seconds.
