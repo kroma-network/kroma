@@ -112,6 +112,11 @@ interface RequiredDeployConfig {
   validatorManagerMinActivateAmount: string
 
   /**
+   * The first output index after MPT transition.
+   */
+  validatorManagerMptFirstOutputIndex: string
+
+  /**
    * The delay to finalize the commission rate change in seconds.
    */
   validatorManagerCommissionChangeDelaySeconds: number
@@ -421,6 +426,9 @@ export const deployConfigSpec: {
   },
   validatorManagerMinActivateAmount: {
     type: 'string', // uint128
+  },
+  validatorManagerMptFirstOutputIndex: {
+    type: 'string', // uint256
   },
   validatorManagerCommissionChangeDelaySeconds: {
     type: 'number',

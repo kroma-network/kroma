@@ -105,6 +105,13 @@ contract ValidatorManager is ISemver, IValidatorManager {
     uint128 public immutable BASE_REWARD;
 
     /**
+     * @notice The first output index after MPT transition, only allowed to be submitted by TRUSTED_VALIDATOR.
+     *         Challenging to this output is also restricted to prevent unintended challenges from
+     *         nodes that haven't upgraded.
+     */
+    uint256 public immutable MPT_FIRST_OUTPUT_INDEX;
+
+    /**
      * @notice Address of the next validator with priority for submitting output.
      */
     address internal _nextPriorityValidator;
@@ -154,6 +161,14 @@ contract ValidatorManager is ISemver, IValidatorManager {
     }
 
     /**
+     * @notice A modifier that only allows TrustedValidator to call.
+     */
+    modifier onlyTrustedValidator() {
+        if (msg.sender != TRUSTED_VALIDATOR) revert NotAllowedCaller();
+        _;
+    }
+
+    /**
      * @notice Semantic version.
      * @custom:semver 1.0.0
      */
@@ -181,6 +196,7 @@ contract ValidatorManager is ISemver, IValidatorManager {
         JAIL_THRESHOLD = _constructorParams._jailThreshold;
         MAX_OUTPUT_FINALIZATIONS = _constructorParams._maxOutputFinalizations;
         BASE_REWARD = _constructorParams._baseReward;
+        MPT_FIRST_OUTPUT_INDEX = _constructorParams._mptFirstOutputIndex;
     }
 
     /**
@@ -390,6 +406,15 @@ contract ValidatorManager is ISemver, IValidatorManager {
     /**
      * @inheritdoc IValidatorManager
      */
+    function checkChallengeEligibility(uint256 outputIndex) external view onlyColosseum {
+        if (MPT_FIRST_OUTPUT_INDEX == outputIndex) {
+            revert MptFirstOutputRestricted();
+        }
+    }
+
+    /**
+     * @inheritdoc IValidatorManager
+     */
     function getCommissionRate(address validator) external view returns (uint8) {
         return _validatorInfo[validator].commissionRate;
     }
@@ -438,6 +463,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
      * @inheritdoc IValidatorManager
      */
     function nextValidator() public view returns (address) {
+        if (MPT_FIRST_OUTPUT_INDEX == L2_ORACLE.nextOutputIndex()) {
+            return TRUSTED_VALIDATOR;
+        }
+
         if (_nextPriorityValidator != address(0)) {
             uint256 l2Timestamp = L2_ORACLE.nextOutputMinL2Timestamp();
             if (block.timestamp >= l2Timestamp) {
