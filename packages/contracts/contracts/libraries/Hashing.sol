@@ -15,14 +15,16 @@ library Hashing {
      *         given deposit is sent to the L2 system. Useful for searching for a deposit in the L2
      *         system.
      *
-     * @param _tx User deposit transaction to hash.
+     * @param _tx           User deposit transaction to hash.
+     * @param _isKromaDepTx Whether the given transaction is a KromaDepositTx.
      *
      * @return Hash of the RLP encoded L2 deposit transaction.
      */
     function hashDepositTransaction(
-        Types.UserDepositTransaction memory _tx
+        Types.UserDepositTransaction memory _tx,
+        bool _isKromaDepTx
     ) internal pure returns (bytes32) {
-        return keccak256(Encoding.encodeDepositTransaction(_tx));
+        return keccak256(Encoding.encodeDepositTransaction(_tx, _isKromaDepTx));
     }
 
     /**

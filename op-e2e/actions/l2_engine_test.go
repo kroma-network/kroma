@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-service/client/l2/engineapi"
-	"github.com/ethereum-optimism/optimism/op-service/client/l2/engineapi/test"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/beacon"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
@@ -20,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/client/l2/engineapi"
+	"github.com/ethereum-optimism/optimism/op-service/client/l2/engineapi/test"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -46,7 +46,7 @@ func TestL2EngineAPI(gt *testing.T) {
 	chainA, _ := core.GenerateChain(sd.L2Cfg.Config, genesisBlock, consensus, db, 1, func(i int, gen *core.BlockGen) {
 		gen.SetCoinbase(common.Address{'A'})
 	})
-	payloadA, err := eth.BlockAsPayload(chainA[0], sd.RollupCfg.CanyonTime)
+	payloadA, err := eth.BlockAsPayload(chainA[0], sd.RollupCfg.CanyonTime, sd.RollupCfg.KromaMPTTime)
 	require.NoError(t, err)
 
 	// apply the payload
@@ -69,7 +69,7 @@ func TestL2EngineAPI(gt *testing.T) {
 	chainB, _ := core.GenerateChain(sd.L2Cfg.Config, genesisBlock, consensus, db, 1, func(i int, gen *core.BlockGen) {
 		gen.SetCoinbase(common.Address{'B'})
 	})
-	payloadB, err := eth.BlockAsPayload(chainB[0], sd.RollupCfg.CanyonTime)
+	payloadB, err := eth.BlockAsPayload(chainB[0], sd.RollupCfg.CanyonTime, sd.RollupCfg.KromaMPTTime)
 	require.NoError(t, err)
 
 	// apply the payload

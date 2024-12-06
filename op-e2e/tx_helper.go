@@ -3,10 +3,12 @@ package op_e2e
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -50,6 +52,19 @@ func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l
 	reconstructedDep, err := derive.UnmarshalDepositLogEvent(l1Receipt.Logs[0])
 	require.NoError(t, err, "Could not reconstruct L2 Deposit")
 	tx = types.NewTx(reconstructedDep)
+	// [Kroma: START] Use KromaDepositTx instead of DepositTx
+	// If a receipt cannot be found using the DepositTx hash, it is converted to a KromaDepositTx.
+	_, err = l2Client.TransactionReceipt(ctx, tx.Hash())
+	if err != nil {
+		if errors.Is(err, ethereum.NotFound) {
+			tx, err = tx.ToKromaDepositTx()
+			require.NoError(t, err, "failed to convert DepositTx to KromaDepositTx")
+		} else {
+			require.Fail(t, "failed to get deposit tx with reconstructed tx hash", err)
+		}
+	}
+	require.NoError(t, err)
+	// [Kroma: END]
 	l2Receipt, err := wait.ForReceipt(ctx, l2Client, tx.Hash(), l2Opts.ExpectedStatus)
 	require.NoError(t, err, "Waiting for deposit tx on L2")
 	return l2Receipt

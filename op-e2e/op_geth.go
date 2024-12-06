@@ -111,7 +111,7 @@ func NewOpGeth(t *testing.T, ctx context.Context, cfg *SystemConfig) (*OpGeth, e
 	l2Client, err := ethclient.Dial(selectEndpoint(node))
 	require.Nil(t, err)
 
-	genesisPayload, err := eth.BlockAsPayload(l2GenesisBlock, cfg.DeployConfig.CanyonTime(l2GenesisBlock.Time()))
+	genesisPayload, err := eth.BlockAsPayload(l2GenesisBlock, cfg.DeployConfig.CanyonTime(l2GenesisBlock.Time()), cfg.DeployConfig.KromaMPTTime(l2GenesisBlock.Time()))
 
 	require.Nil(t, err)
 	return &OpGeth{
@@ -219,6 +219,20 @@ func (d *OpGeth) CreatePayloadAttributes(txs ...*types.Transaction) (*eth.Payloa
 		}
 		txBytes = append(txBytes, bin)
 	}
+
+	// [Kroma: START] Use KromaDepositTx instead of DepositTx
+	if d.L2ChainConfig.IsPreKromaMPT(uint64(timestamp)) {
+		for i := range txBytes {
+			if txBytes[i][0] == types.DepositTxType {
+				bin, err := derive.ToKromaDepositBytes(txBytes[i])
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert DepositTx to KromaDepositTx: %w", err)
+				}
+				txBytes[i] = bin
+			}
+		}
+	}
+	// [Kroma: END]
 
 	var withdrawals *types.Withdrawals
 	if d.L2ChainConfig.IsCanyon(uint64(timestamp)) {

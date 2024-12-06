@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 // L1ReceiptsFetcher fetches L1 header info and receipts for the payload attributes derivation (the info tx and deposits)
@@ -117,6 +118,24 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	txs = append(txs, depositTxs...)
 	txs = append(txs, upgradeTxs...)
 
+	// [Kroma: START]
+	// In Kroma, the IsSystemTransaction field was deleted from DepositTx.
+	// After transitioning to MPT, we bring back the IsSystemTransaction field for compatibility with OP.
+	// Therefore, before MPT time, use KromaDepositTx struct to create deposit transactions without that field.
+	if !ba.rollupCfg.IsKromaMPT(nextL2Time) {
+		for i, otx := range txs {
+			if otx[0] != types.DepositTxType {
+				continue
+			}
+			tx, err := ToKromaDepositBytes(otx)
+			if err != nil {
+				return nil, NewCriticalError(fmt.Errorf("failed to convert deposit tx to KromaDepositTx: %w", err))
+			}
+			txs[i] = tx
+		}
+	}
+	// [Kroma: END]
+
 	var withdrawals *types.Withdrawals
 	if ba.rollupCfg.IsCanyon(nextL2Time) {
 		withdrawals = &types.Withdrawals{}
@@ -130,14 +149,36 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		}
 	}
 
+	// [Kroma: START]
+	suggestedFeeRecipient := common.Address{}
+	if ba.rollupCfg.IsKromaMPT(nextL2Time) {
+		suggestedFeeRecipient = predeploys.ProtocolVaultAddr
+	}
+	// [Kroma: END]
+
 	return &eth.PayloadAttributes{
 		Timestamp:             hexutil.Uint64(nextL2Time),
 		PrevRandao:            eth.Bytes32(l1Info.MixDigest()),
-		SuggestedFeeRecipient: common.Address{},
+		SuggestedFeeRecipient: suggestedFeeRecipient,
 		Transactions:          txs,
 		NoTxPool:              true,
 		GasLimit:              (*eth.Uint64Quantity)(&sysConfig.GasLimit),
 		Withdrawals:           withdrawals,
 		ParentBeaconBlockRoot: parentBeaconRoot,
 	}, nil
+}
+
+func ToKromaDepositBytes(input hexutil.Bytes) (hexutil.Bytes, error) {
+	if input[0] != types.DepositTxType {
+		return nil, fmt.Errorf("unexpected transaction type: %d", input[0])
+	}
+	var tx types.Transaction
+	if err := tx.UnmarshalBinary(input); err != nil {
+		return nil, fmt.Errorf("failed to decode deposit tx: %w", err)
+	}
+	kromaDepTx, err := tx.ToKromaDepositTx()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert deposit tx to KromaDepositTx: %w", err)
+	}
+	return kromaDepTx.MarshalBinary()
 }

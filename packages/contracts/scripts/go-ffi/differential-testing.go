@@ -19,6 +19,7 @@ import (
 
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/crossdomain"
+	"github.com/kroma-network/kroma/op-node/rollup/derive"
 )
 
 // [Kroma: START]
@@ -180,6 +181,13 @@ func DiffTestUtils() {
 		// RLP encode deposit transaction
 		encoded, err := types.NewTx(&depositTx).MarshalBinary()
 		checkErr(err, "Error encoding deposit transaction")
+		// [Kroma: START]
+		isKromaDepositTx := args[9] == "true"
+		if isKromaDepositTx {
+			encoded, err = derive.ToKromaDepositBytes(encoded)
+			checkErr(err, "Error converting deposit transaction to KromaDepositTx")
+		}
+		// [Kroma: END]
 
 		// Hash encoded deposit transaction
 		hash := crypto.Keccak256Hash(encoded)
@@ -206,9 +214,17 @@ func DiffTestUtils() {
 		checkOk(ok)
 
 		depositTx := makeDepositTx(from, to, value, mint, gasLimit, isCreate, data, l1BlockHash, logIndex)
-
 		// RLP encode deposit transaction
 		encoded, err := types.NewTx(&depositTx).MarshalBinary()
+		checkErr(err, "Error encoding deposit transaction")
+		// [Kroma: START]
+		isKromaDepositTx := args[10] == "true"
+		if isKromaDepositTx {
+			encoded, err = derive.ToKromaDepositBytes(encoded)
+			checkErr(err, "Error converting deposit transaction to KromaDepositTx")
+		}
+		// [Kroma: END]
+
 		checkErr(err, "Failed to RLP encode deposit transaction")
 		// Pack rlp encoded deposit transaction
 		packed, err := bytesArgs.Pack(&encoded)

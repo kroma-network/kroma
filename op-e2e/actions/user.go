@@ -381,6 +381,18 @@ func (s *CrossLayerUser) CheckDepositTx(t Testing, l1TxHash common.Hash, index i
 		reconstructedDep, err := derive.UnmarshalDepositLogEvent(depositReceipt.Logs[index])
 		require.NoError(t, err, "Could not reconstruct L2 Deposit")
 		l2Tx := types.NewTx(reconstructedDep)
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		// If a receipt cannot be found using the DepositTx hash, it is converted to a KromaDepositTx.
+		_, err = s.L2.env.EthCl.TransactionReceipt(t.Ctx(), l2Tx.Hash())
+		if err != nil {
+			if errors.Is(err, ethereum.NotFound) {
+				l2Tx, err = l2Tx.ToKromaDepositTx()
+				require.NoError(t, err, "failed to convert DepositTx to KromaDepositTx")
+			} else {
+				require.Fail(t, "failed to get deposit tx with reconstructed tx hash", err)
+			}
+		}
+		// [Kroma: END]
 		s.L2.CheckReceipt(t, l2Success, l2Tx.Hash())
 	}
 }

@@ -92,7 +92,6 @@ contract Hashing_hashOutputRootProof_Test is CommonTest {
         );
     }
 }
-// [Kroma: END]
 
 contract Hashing_hashDepositTransaction_Test is CommonTest {
     /// @notice Tests that hashDepositTransaction returns the correct hash in a simple case.
@@ -107,21 +106,29 @@ contract Hashing_hashDepositTransaction_Test is CommonTest {
     )
         external
     {
+        Types.UserDepositTransaction memory userDeposit = Types.UserDepositTransaction(
+            _from,
+            _to,
+            false, // isCreate
+            _value,
+            _mint,
+            _gas,
+            _data,
+            bytes32(uint256(0)),
+            _logIndex
+        );
+
+        // assert DepositTx
         assertEq(
-            Hashing.hashDepositTransaction(
-                Types.UserDepositTransaction(
-                    _from,
-                    _to,
-                    false, // isCreate
-                    _value,
-                    _mint,
-                    _gas,
-                    _data,
-                    bytes32(uint256(0)),
-                    _logIndex
-                )
-            ),
-            ffi.hashDepositTransaction(_from, _to, _mint, _value, _gas, _data, _logIndex)
+            Hashing.hashDepositTransaction(userDeposit, false),
+            ffi.hashDepositTransaction(_from, _to, _mint, _value, _gas, _data, _logIndex, false)
+        );
+
+        // asset KromaDepositTx
+        assertEq(
+            Hashing.hashDepositTransaction(userDeposit, true),
+            ffi.hashDepositTransaction(_from, _to, _mint, _value, _gas, _data, _logIndex, true)
         );
     }
 }
+// [Kroma: END]

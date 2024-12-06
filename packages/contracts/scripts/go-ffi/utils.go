@@ -117,14 +117,12 @@ func makeDepositTx(
 
 	// Create deposit transaction
 	depositTx := types.DepositTx{
-		SourceHash: udp.SourceHash(),
-		From:       from,
-		Value:      value,
-		Gas:        gasLimit.Uint64(),
-		/* [Kroma: START]
+		SourceHash:          udp.SourceHash(),
+		From:                from,
+		Value:               value,
+		Gas:                 gasLimit.Uint64(),
 		IsSystemTransaction: false, // This will never be a system transaction in the tests.
-		[Kroma: END] */
-		Data: data,
+		Data:                data,
 	}
 
 	// Fill optional fields

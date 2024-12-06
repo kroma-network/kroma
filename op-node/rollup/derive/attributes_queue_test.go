@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 // TestAttributesQueue checks that it properly uses the PreparePayloadAttributes function
@@ -31,11 +32,6 @@ func TestAttributesQueue(t *testing.T) {
 	}
 	rng := rand.New(rand.NewSource(1234))
 	l1Info := testutils.RandomBlockInfo(rng)
-
-	l1Fetcher := &testutils.MockL1Source{}
-	defer l1Fetcher.AssertExpectations(t)
-
-	l1Fetcher.ExpectInfoByHash(l1Info.InfoHash, l1Info, nil)
 
 	safeHead := testutils.RandomL2BlockRef(rng)
 	safeHead.L1Origin = l1Info.ID()
@@ -64,26 +60,49 @@ func TestAttributesQueue(t *testing.T) {
 		ValidatorRewardScalar: [32]byte{},
 	}
 
-	l2Fetcher := &testutils.MockL2Client{}
-	l2Fetcher.ExpectSystemConfigByL2Hash(safeHead.Hash, parentL1Cfg, nil)
+	testAttributes := func(l1InfoTx []byte, suggestedFeeRecipient common.Address) {
+		l1Fetcher := &testutils.MockL1Source{}
+		defer l1Fetcher.AssertExpectations(t)
+		l1Fetcher.ExpectInfoByHash(l1Info.InfoHash, l1Info, nil)
+		l2Fetcher := &testutils.MockL2Client{}
+		l2Fetcher.ExpectSystemConfigByL2Hash(safeHead.Hash, parentL1Cfg, nil)
 
-	rollupCfg := rollup.Config{}
-	l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
-	require.NoError(t, err)
-	attrs := eth.PayloadAttributes{
-		Timestamp:             eth.Uint64Quantity(safeHead.Time + cfg.BlockTime),
-		PrevRandao:            eth.Bytes32(l1Info.InfoMixDigest),
-		SuggestedFeeRecipient: common.Address{},
-		Transactions:          []eth.Data{l1InfoTx, eth.Data("foobar"), eth.Data("example")},
-		NoTxPool:              true,
-		GasLimit:              (*eth.Uint64Quantity)(&expectedL1Cfg.GasLimit),
+		attrs := eth.PayloadAttributes{
+			Timestamp:             eth.Uint64Quantity(safeHead.Time + cfg.BlockTime),
+			PrevRandao:            eth.Bytes32(l1Info.InfoMixDigest),
+			SuggestedFeeRecipient: suggestedFeeRecipient,
+			Transactions:          []eth.Data{l1InfoTx, eth.Data("foobar"), eth.Data("example")},
+			NoTxPool:              true,
+			GasLimit:              (*eth.Uint64Quantity)(&expectedL1Cfg.GasLimit),
+		}
+		attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l2Fetcher)
+
+		aq := NewAttributesQueue(testlog.Logger(t, log.LevelError), cfg, attrBuilder, nil)
+
+		actual, err := aq.createNextAttributes(context.Background(), &batch, safeHead)
+
+		require.NoError(t, err)
+		require.Equal(t, attrs, *actual)
 	}
-	attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l2Fetcher)
 
-	aq := NewAttributesQueue(testlog.Logger(t, log.LevelError), cfg, attrBuilder, nil)
+	t.Run("before kroma mpt time", func(st *testing.T) {
+		rollupCfg := rollup.Config{}
+		l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
+		require.NoError(st, err)
 
-	actual, err := aq.createNextAttributes(context.Background(), &batch, safeHead)
+		kromaDepTx, err := ToKromaDepositBytes(l1InfoTx)
+		require.NoError(st, err)
+		testAttributes(kromaDepTx, common.Address{})
+	})
 
-	require.NoError(t, err)
-	require.Equal(t, attrs, *actual)
+	t.Run("after kroma mpt time", func(st *testing.T) {
+		zero := uint64(0)
+		cfg.KromaMPTTime = &zero
+		rollupCfg := rollup.Config{
+			KromaMPTTime: &zero,
+		}
+		l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
+		require.NoError(st, err)
+		testAttributes(l1InfoTx, predeploys.ProtocolVaultAddr)
+	})
 }
