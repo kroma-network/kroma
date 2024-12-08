@@ -41,14 +41,14 @@ func (testSuite *PeerParamsTestSuite) TestNewPeerScoreThresholds() {
 	testSuite.Equal(expected, thresholds)
 }
 
-// TestGetPeerScoreParams validates the peer score parameters.
+// TestGetPeerScoreParams_None validates the peer score parameters.
 func (testSuite *PeerParamsTestSuite) TestGetPeerScoreParams_None() {
 	params, err := GetScoringParams("none", chaincfg.Sepolia)
 	testSuite.NoError(err)
 	testSuite.Nil(params)
 }
 
-// TestLightPeerScoreParams validates the light peer score params.
+// TestGetPeerScoreParams_Light validates the light peer score params.
 func (testSuite *PeerParamsTestSuite) TestGetPeerScoreParams_Light() {
 	cfg := chaincfg.Sepolia
 	cfg.BlockTime = 1
