@@ -242,6 +242,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint128 internal baseReward = 20e18;
     uint128 internal minRegisterAmount = 10e18;
     uint128 internal minActivateAmount = 100e18;
+    uint256 internal mptFirstOutputIndex = 10000; // just large enough value, set again in test
+
     IValidatorManager.ConstructorParams constructorParams;
 
     // Test data
@@ -361,7 +363,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _maxOutputFinalizations: maxOutputFinalizations,
             _baseReward: baseReward,
             _minRegisterAmount: minRegisterAmount,
-            _minActivateAmount: minActivateAmount
+            _minActivateAmount: minActivateAmount,
+            _mptFirstOutputIndex: mptFirstOutputIndex
         });
         valMgrImpl = new ValidatorManager({ _constructorParams: constructorParams });
 

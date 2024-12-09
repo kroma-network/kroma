@@ -187,6 +187,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertEq(valMgr.JAIL_THRESHOLD(), jailThreshold);
         assertEq(valMgr.MAX_OUTPUT_FINALIZATIONS(), maxOutputFinalizations);
         assertEq(valMgr.BASE_REWARD(), baseReward);
+        assertEq(valMgr.MPT_FIRST_OUTPUT_INDEX(), mptFirstOutputIndex);
     }
 
     function test_constructor_smallMinActivateAmount_reverts() external {
@@ -1036,5 +1037,99 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.stopPrank();
         assertEq(valMgr.activatedValidatorCount(), count);
         assertEq(valMgr.activatedValidatorTotalWeight(), totalWeight + 10);
+    }
+}
+
+contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializer {
+    MockL2OutputOracle mockOracle;
+    MockValidatorManager mockValMgr;
+    function setUp() public override {
+        super.setUp();
+
+        address oracleAddress = address(oracle);
+        MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
+            pool,
+            valMgr,
+            address(colosseum),
+            submissionInterval,
+            l2BlockTime,
+            startingBlockNumber,
+            startingTimestamp,
+            finalizationPeriodSeconds
+        );
+        vm.prank(multisig);
+        Proxy(payable(oracleAddress)).upgradeTo(address(mockOracleImpl));
+        mockOracle = MockL2OutputOracle(oracleAddress);
+
+        // upgrade validatorManager with new mptFirstOutputIndex param
+        mptFirstOutputIndex = 10;
+        constructorParams._mptFirstOutputIndex = mptFirstOutputIndex;
+        address valMgrAddress = address(valMgr);
+        MockValidatorManager mockValMgrImpl = new MockValidatorManager(constructorParams);
+        vm.prank(multisig);
+        Proxy(payable(valMgrAddress)).upgradeTo(address(mockValMgrImpl));
+        mockValMgr = MockValidatorManager(valMgrAddress);
+
+        // Submit until terminateOutputIndex and set next output index to be finalized after it
+        vm.prank(trusted);
+        pool.deposit{ value: trusted.balance }();
+        for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
+            _submitL2OutputV1();
+        }
+
+        // Since the first output of V2 is always for trusted validator,
+        // so for accurate test, we should pass the first V2 output
+        uint128 assets = minActivateAmount;
+        _registerValidator(asserter, assets);
+        _registerValidator(trusted, assets);
+        for (uint256 i = oracle.nextOutputIndex(); i < mptFirstOutputIndex; i++) {
+            warpToSubmitTime();
+            _submitL2OutputV2(false);
+        }
+        vm.warp(oracle.finalizedAt(mptFirstOutputIndex - 1));
+        mockOracle.mockSetNextFinalizeOutputIndex(mptFirstOutputIndex);
+    }
+
+    function test_submitL2Output_mptFirstOutput_privateRound_trustedValidator_succeeds() public {
+        warpToSubmitTime();
+        assertEq(valMgr.nextValidator(), trusted);
+        _submitL2OutputV2(false);
+    }
+
+    function test_submitL2Output_mptFirstOutput_publicRound_trustedValidator_succeeds() public {
+        // Warp to public round
+        vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
+        vm.startPrank(trusted, trusted);
+        _submitL2OutputV2(true);
+    }
+
+    function test_submitL2Output_mptFirstOutput_publicRound_notTrustedValidator_reverts() public {
+        // Warp to public round
+        vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
+
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
+        vm.startPrank(asserter, asserter);
+        vm.expectRevert(IValidatorManager.NotSelectedPriorityValidator.selector);
+        oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
+    }
+
+    function test_submitL2Output_mptFirstOutput_afterUpgrade_notTrustedValidator_succeeds() public {
+        uint128 newMptFirstOutputIndex = 1000;
+        // Warp to public round
+        vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
+
+        // upgrade validatorManager with newMptFirstOutput
+        address valMgrAddress = address(valMgr);
+        constructorParams._mptFirstOutputIndex = newMptFirstOutputIndex;
+        MockValidatorManager mockValMgrImpl = new MockValidatorManager(constructorParams);
+        vm.prank(multisig);
+        Proxy(payable(valMgrAddress)).upgradeTo(address(mockValMgrImpl));
+        mockValMgr = MockValidatorManager(valMgrAddress);
+
+        uint256 nextBlockNumber = oracle.nextBlockNumber();
+        bytes32 outputRoot = keccak256(abi.encode(nextBlockNumber));
+        vm.startPrank(asserter, asserter);
+        oracle.submitL2Output(outputRoot, nextBlockNumber, 0, 0);
     }
 }
