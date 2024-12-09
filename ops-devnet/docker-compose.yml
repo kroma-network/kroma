@@ -108,7 +108,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:mpt-fd7e2919
+    image: osa8361/geth-mpt
     ports:
       - "9545:8545"
       - "9546:8546"
@@ -128,7 +128,7 @@ services:
 
   l2-historical:
     pid: host # allow debugging
-    image: kromanetwork/geth:mpt-fd7e2919
+    image: osa8361/geth-mpt
     ports:
       - "9445:8545"
       - "9446:8546"
