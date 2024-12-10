@@ -24,7 +24,7 @@ const (
 	L1InfoArguments            = 9
 	L1InfoBedrockLen           = 4 + 32*L1InfoArguments
 	L1InfoEcotoneLen           = 4 + 32*6 // after Ecotone upgrade, args are packed into 6 32-byte slots
-	L1InfoKromaMPTLen          = 4 + 32*5 // after KromaMPT upgrade, args are packed into 6 32-byte slots
+	L1InfoKromaMPTLen          = 4 + 32*5 // after KromaMPT upgrade, args are packed into 5 32-byte slots
 )
 
 var (
