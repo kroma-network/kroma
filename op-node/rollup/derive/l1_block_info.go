@@ -433,6 +433,8 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 	// [Kroma: START]
 	if rollupCfg.IsKromaMPT(l2BlockTime) {
 		L1BlockAddress = oppredeploys.L1BlockAddr
+	} else {
+		L1BlockAddress = predeploys.L1BlockAddr
 	}
 	// [Kroma: END]
 
