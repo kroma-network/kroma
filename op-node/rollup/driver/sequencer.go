@@ -99,6 +99,12 @@ func (d *Sequencer) StartBuildingBlock(ctx context.Context) error {
 		d.log.Info("Sequencing Ecotone upgrade block")
 	}
 
+	// For the KromaMPT parent block we shouldn't include any sequencer transactions.
+	if d.rollupCfg.IsKromaMPTParentBlock(uint64(attrs.Timestamp)) {
+		attrs.NoTxPool = true
+		d.log.Info("Sequencing MPT upgrade block")
+	}
+
 	d.log.Debug("prepared attributes for new block",
 		"num", l2Head.Number+1, "time", uint64(attrs.Timestamp),
 		"origin", l1Origin, "origin_time", l1Origin.Time, "noTxPool", attrs.NoTxPool)
