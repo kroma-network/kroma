@@ -417,20 +417,16 @@ const check = {
   // - check version
   // - check MIN_WITHDRAWAL_AMOUNT
   // - check RECIPIENT
-  L1FeeVault: async (
-    hre: HardhatRuntimeEnvironment,
-    signer: Signer
-  ) => {
+  L1FeeVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
     const L1FeeVault = await hre.ethers.getContractAt(
       'L1FeeVault',
-      predeploys.L1FeeVault,
+      predeploys.KromaL1FeeVault,
       signer
     )
 
     await assertSemver(L1FeeVault, 'L1FeeVault')
 
-    const MIN_WITHDRAWAL_AMOUNT =
-      await L1FeeVault.MIN_WITHDRAWAL_AMOUNT()
+    const MIN_WITHDRAWAL_AMOUNT = await L1FeeVault.MIN_WITHDRAWAL_AMOUNT()
     console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
 
     const RECIPIENT = await L1FeeVault.RECIPIENT()

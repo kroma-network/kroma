@@ -31,7 +31,7 @@ contract FeeVaultWithdrawal is Script {
         address[] memory vaults = new address[](3);
         vaults[0] = Predeploys.VALIDATOR_REWARD_VAULT;
         vaults[1] = Predeploys.PROTOCOL_VAULT;
-        vaults[2] = Predeploys.L1_FEE_VAULT;
+        vaults[2] = Predeploys.KROMA_L1_FEE_VAULT;
 
         for (uint256 i; i < vaults.length; i++) {
             address vault = vaults[i];

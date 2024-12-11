@@ -87,8 +87,8 @@ contract Encoding_Test is CommonTest {
 
         // assert KromaDepositTx
         {
-            bytes memory txn = Encoding.encodeDepositTransaction(t, true);
-            bytes memory _txn = ffi.encodeDepositTransaction(t, true);
+            txn = Encoding.encodeDepositTransaction(t, true);
+            _txn = ffi.encodeDepositTransaction(t, true);
 
             assertEq(txn, _txn, "failed to assert kroma deposit tx");
         }

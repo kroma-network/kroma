@@ -8,10 +8,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 func TestMPTSourcesMatchSpec(t *testing.T) {
@@ -50,6 +51,18 @@ func TestMPTSourcesMatchSpec(t *testing.T) {
 		{
 			source:       updateL1BlockMPTProxySource,
 			expectedHash: "0xb3a45c33c31a2322c4c4db99788dcae68606b98e4c90ea9fb3d1bc93ddfbf3bf",
+		},
+		{
+			source:       deployGasPriceOracleMPTSource,
+			expectedHash: "0x68219c2277a00907673390a65684be3c56297f65eb168ffadcd3d14cce3204c6",
+		},
+		{
+			source:       updateGasPriceOracleMPTProxySource,
+			expectedHash: "0x30f9d5d060ae85936d70ce7e51c48f3d609304321fb412b181e8c2e06b68ba15",
+		},
+		{
+			source:       enableKromaMPTSource,
+			expectedHash: "0xe0b5bb4bc6b821c057531a3ca4e07aa657c7d593610939bd7eb9d679344ff562",
 		},
 	} {
 		require.Equal(t, common.HexToHash(test.expectedHash), test.source.SourceHash())
@@ -90,7 +103,7 @@ func TestMPTNetworkTransactions(t *testing.T) {
 			require.NoError(t, err)
 			deploymentData, err := getDeploymentData(test.chainId)
 			require.NoError(t, err)
-			require.Len(t, upgradeTxns, 8)
+			require.Len(t, upgradeTxns, kromaMPTUpgradeTxCount)
 
 			deployBaseFeeVaultSender, deployBaseFeeVault := toDepositTxn(t, upgradeTxns[1])
 			require.Equal(t, deployBaseFeeVaultSender, BaseFeeVaultDeployerAddress)
@@ -120,7 +133,7 @@ func TestMPTNetworkTransactions(t *testing.T) {
 		chainID := big.NewInt(KromaLocalDevnetChainID)
 		upgradeTxns, err := KromaMPTNetworkUpgradeTransactions(chainID) // Use default configuration
 		require.NoError(t, err)
-		require.Len(t, upgradeTxns, 8)
+		require.Len(t, upgradeTxns, kromaMPTUpgradeTxCount)
 
 		deployL1BlockSender, deployL1Block := toDepositTxn(t, upgradeTxns[0])
 		require.Equal(t, deployL1BlockSender, L1BlockMPTDeployerAddress)
@@ -129,35 +142,60 @@ func TestMPTNetworkTransactions(t *testing.T) {
 		require.Equal(t, uint64(500_000), deployL1Block.Gas())
 		require.Equal(t, hexutil.Bytes(l1BlockMPTDeploymentBytecode).String(), hexutil.Bytes(deployL1Block.Data()).String())
 
-		updateL1BlockProxySender, updateL1BlockProxy := toDepositTxn(t, upgradeTxns[4])
+		deployGasPriceOracleSender, deployGasPriceOracle := toDepositTxn(t, upgradeTxns[4])
+		require.Equal(t, deployGasPriceOracleSender, GasPriceOracleMPTDeployerAddress)
+		require.Equal(t, deployGasPriceOracleMPTSource.SourceHash(), deployGasPriceOracle.SourceHash())
+		require.Nil(t, deployGasPriceOracle.To())
+		require.Equal(t, uint64(1_000_000), deployGasPriceOracle.Gas())
+		require.Equal(t, hexutil.Bytes(gasPriceOracleMPTDeploymentBytecode).String(), hexutil.Bytes(deployGasPriceOracle.Data()).String())
+
+		updateL1BlockProxySender, updateL1BlockProxy := toDepositTxn(t, upgradeTxns[5])
 		require.Equal(t, updateL1BlockProxySender, common.Address{})
 		require.Equal(t, updateL1BlockMPTProxySource.SourceHash(), updateL1BlockProxy.SourceHash())
 		require.NotNil(t, updateL1BlockProxy.To())
-		require.Equal(t, *updateL1BlockProxy.To(), predeploys.L1BlockAddr)
+		require.Equal(t, *updateL1BlockProxy.To(), oppredeploys.L1BlockAddr)
 		require.Equal(t, uint64(50_000), updateL1BlockProxy.Gas())
 		require.Equal(t, common.FromHex("0x3659cfe6000000000000000000000000cd7467a8926d13f8b41ea035ff3761326c822bad"), updateL1BlockProxy.Data())
 
-		updateBaseFeeVaultProxySender, updateBaseFeeVaultProxy := toDepositTxn(t, upgradeTxns[5])
+		updateBaseFeeVaultProxySender, updateBaseFeeVaultProxy := toDepositTxn(t, upgradeTxns[6])
 		require.Equal(t, updateBaseFeeVaultProxySender, common.Address{})
 		require.Equal(t, updateBaseFeeVaultProxySource.SourceHash(), updateBaseFeeVaultProxy.SourceHash())
 		require.NotNil(t, updateBaseFeeVaultProxy.To())
-		require.Equal(t, *updateBaseFeeVaultProxy.To(), predeploys.BaseFeeVaultAddr)
+		require.Equal(t, *updateBaseFeeVaultProxy.To(), oppredeploys.BaseFeeVaultAddr)
 		require.Equal(t, uint64(50_000), updateBaseFeeVaultProxy.Gas())
 		require.Equal(t, common.FromHex("3659cfe6000000000000000000000000db78bab44d9632e68348659dd47b4806ba276d89"), updateBaseFeeVaultProxy.Data())
-		updateL1FeeVaultProxySender, updateL1FeeVaultProxy := toDepositTxn(t, upgradeTxns[6])
+
+		updateL1FeeVaultProxySender, updateL1FeeVaultProxy := toDepositTxn(t, upgradeTxns[7])
 		require.Equal(t, updateL1FeeVaultProxySender, common.Address{})
 		require.Equal(t, updateL1FeeVaultProxySource.SourceHash(), updateL1FeeVaultProxy.SourceHash())
 		require.NotNil(t, updateL1FeeVaultProxy.To())
-		require.Equal(t, *updateL1FeeVaultProxy.To(), predeploys.L1FeeVaultAddr)
+		require.Equal(t, *updateL1FeeVaultProxy.To(), oppredeploys.L1FeeVaultAddr)
 		require.Equal(t, uint64(50_000), updateL1FeeVaultProxy.Gas())
 		require.Equal(t, common.FromHex("3659cfe6000000000000000000000000d86e1a7c380f398bda3d598ee65c891ce5c3c8f0"), updateL1FeeVaultProxy.Data())
-		updateSequencerFeeVaultProxySender, updateSequencerFeeVaultProxy := toDepositTxn(t, upgradeTxns[7])
+
+		updateSequencerFeeVaultProxySender, updateSequencerFeeVaultProxy := toDepositTxn(t, upgradeTxns[8])
 		require.Equal(t, updateSequencerFeeVaultProxySender, common.Address{})
 		require.Equal(t, updateSequencerFeeVaultProxySource.SourceHash(), updateSequencerFeeVaultProxy.SourceHash())
 		require.NotNil(t, updateSequencerFeeVaultProxy.To())
-		require.Equal(t, *updateSequencerFeeVaultProxy.To(), predeploys.SequencerFeeVaultAddr)
+		require.Equal(t, *updateSequencerFeeVaultProxy.To(), oppredeploys.SequencerFeeVaultAddr)
 		require.Equal(t, uint64(50_000), updateSequencerFeeVaultProxy.Gas())
 		require.Equal(t, common.FromHex("3659cfe600000000000000000000000013963c74d9c62d31ce3fcec0d46f6430a74ea79e"), updateSequencerFeeVaultProxy.Data())
+
+		updateGasPriceOracleProxySender, updateGasPriceOracleProxy := toDepositTxn(t, upgradeTxns[9])
+		require.Equal(t, updateGasPriceOracleProxySender, common.Address{})
+		require.Equal(t, updateGasPriceOracleMPTProxySource.SourceHash(), updateGasPriceOracleProxy.SourceHash())
+		require.NotNil(t, updateGasPriceOracleProxy.To())
+		require.Equal(t, *updateGasPriceOracleProxy.To(), predeploys.GasPriceOracleAddr)
+		require.Equal(t, uint64(50_000), updateGasPriceOracleProxy.Gas())
+		require.Equal(t, common.FromHex("3659cfe60000000000000000000000008aa737409ba5a40950ad531a8f22aedf8b9a00ac"), updateGasPriceOracleProxy.Data())
+
+		gpoSetKromaMPTSender, gpoSetKromaMPT := toDepositTxn(t, upgradeTxns[10])
+		require.Equal(t, gpoSetKromaMPTSender, L1InfoDepositerAddress)
+		require.Equal(t, enableKromaMPTSource.SourceHash(), gpoSetKromaMPT.SourceHash())
+		require.NotNil(t, gpoSetKromaMPT.To())
+		require.Equal(t, *gpoSetKromaMPT.To(), predeploys.GasPriceOracleAddr)
+		require.Equal(t, uint64(80_000), gpoSetKromaMPT.Gas())
+		require.Equal(t, common.FromHex("0x8cca6762"), gpoSetKromaMPT.Data())
 	})
 }
 
