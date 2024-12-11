@@ -6,7 +6,8 @@ import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @custom:proxied
- * @custom:predeploy 0x4200000000000000000000000000000000000007
+ * @custom:predeploy 0x4200000000000000000000000000000000000007 (before Kroma MPT transition)
+ * @custom:predeploy 0x420000000000000000000000000000000000001A (after Kroma MPT transition)
  * @title L1FeeVault
  * @notice The L1FeeVault accumulates the L1 portion of the transaction fees.
  */

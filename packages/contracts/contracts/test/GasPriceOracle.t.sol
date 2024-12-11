@@ -37,9 +37,9 @@ contract GasPriceOracle_Test is CommonTest {
     function setUp() public virtual override {
         super.setUp();
         // place the L1Block contract at the predeploy address
-        vm.etch(Predeploys.L1_BLOCK_ATTRIBUTES, address(new L1Block()).code);
+        vm.etch(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES, address(new L1Block()).code);
 
-        l1Block = L1Block(Predeploys.L1_BLOCK_ATTRIBUTES);
+        l1Block = L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES);
         depositor = l1Block.DEPOSITOR_ACCOUNT();
 
         // We are not setting the gas oracle at its predeploy
