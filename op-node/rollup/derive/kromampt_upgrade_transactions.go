@@ -47,7 +47,7 @@ func KromaMPTNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 		To:                  nil,
 		Mint:                big.NewInt(0),
 		Value:               big.NewInt(0),
-		Gas:                 375_000,
+		Gas:                 500_000,
 		IsSystemTransaction: false,
 		Data:                l1BlockMPTDeploymentBytecode,
 	}).MarshalBinary()

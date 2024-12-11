@@ -61,7 +61,7 @@ func TestMPTNetworkTransactions(t *testing.T) {
 	require.Equal(t, deployL1BlockSender, L1BlockMPTDeployerAddress)
 	require.Equal(t, deployL1BlockMPTSource.SourceHash(), deployL1Block.SourceHash())
 	require.Nil(t, deployL1Block.To())
-	require.Equal(t, uint64(375_000), deployL1Block.Gas())
+	require.Equal(t, uint64(500_000), deployL1Block.Gas())
 	require.Equal(t, hexutil.Bytes(l1BlockMPTDeploymentBytecode).String(), hexutil.Bytes(deployL1Block.Data()).String())
 
 	deployBaseFeeVaultSender, deployBaseFeeVault := toDepositTxn(t, upgradeTxns[1])

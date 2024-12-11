@@ -372,7 +372,7 @@ func (c *Config) IsKromaMPT(timestamp uint64) bool {
 }
 
 // IsKromaMPTParentBlock returns whether the specified block is the parent block subject to the
-// KromaMPT upgrade.
+// KromaMPT upgrade. KromaMPT activation at genesis does not count.
 func (c *Config) IsKromaMPTParentBlock(l2BlockTime uint64) bool {
 	return c.KromaMPTTime != nil && l2BlockTime == *c.KromaMPTTime-c.BlockTime
 }
