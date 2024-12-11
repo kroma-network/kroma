@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/ethereum-optimism/optimism/kroma-bindings/predeploys"
 	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/solabi"
+	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 const (
@@ -406,9 +406,11 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 		l1BlockInfo.BlobBaseFeeScalar = blobBaseFeeScalar
 		l1BlockInfo.BaseFeeScalar = baseFeeScalar
 		l1BlockInfo.ValidatorRewardScalar = sysCfg.ValidatorRewardScalar
-		out, err := l1BlockInfo.marshalBinaryEcotone()
+		var out []byte
 		if rollupCfg.IsKromaMPT(l2BlockTime) {
 			out, err = l1BlockInfo.marshalBinaryKromaMPT()
+		} else {
+			out, err = l1BlockInfo.marshalBinaryEcotone()
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal Ecotone l1 block info: %w", err)

@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -109,13 +109,13 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	}
 
 	// [Kroma: START]
-	// Include KromaMPT network upgrade transactions in the block before(parent block) of the KromaMPT target block.
+	// Include KromaMPT network upgrade transactions in the parent block of the KromaMPT target block.
 	if ba.rollupCfg.IsKromaMPTParentBlock(nextL2Time) {
-		kromaMPT, err := KromaMPTNetworkUpgradeTransactions()
+		mptUpgradeTxs, err := KromaMPTNetworkUpgradeTransactions()
 		if err != nil {
 			return nil, NewCriticalError(fmt.Errorf("failed to build kroma mpt network upgrade txs: %w", err))
 		}
-		upgradeTxs = append(upgradeTxs, kromaMPT...)
+		upgradeTxs = append(upgradeTxs, mptUpgradeTxs...)
 	}
 	// [Kroma: END]
 
@@ -132,22 +132,20 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	// [Kroma: START]
 	suggestedFeeRecipient := common.Address{}
 	if ba.rollupCfg.IsKromaMPT(nextL2Time) {
-		suggestedFeeRecipient = predeploys.SequencerFeeVaultAddr
+		suggestedFeeRecipient = oppredeploys.SequencerFeeVaultAddr
 	} else {
 		// In Kroma, the IsSystemTransaction field was deleted from DepositTx.
 		// After transitioning to MPT, we bring back the IsSystemTransaction field for compatibility with OP.
 		// Therefore, before MPT time, use KromaDepositTx struct to create deposit transactions without that field.
-		if !ba.rollupCfg.IsKromaMPT(nextL2Time) {
-			for i, otx := range txs {
-				if otx[0] != types.DepositTxType {
-					continue
-				}
-				tx, err := ToKromaDepositBytes(otx)
-				if err != nil {
-					return nil, NewCriticalError(err)
-				}
-				txs[i] = tx
+		for i, otx := range txs {
+			if otx[0] != types.DepositTxType {
+				continue
 			}
+			tx, err := ToKromaDepositBytes(otx)
+			if err != nil {
+				return nil, NewCriticalError(err)
+			}
+			txs[i] = tx
 		}
 	}
 	// [Kroma: END]

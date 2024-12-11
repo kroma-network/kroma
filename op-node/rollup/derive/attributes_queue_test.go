@@ -74,10 +74,8 @@ func TestAttributesQueue(t *testing.T) {
 		l2Fetcher.ExpectSystemConfigByL2Hash(safeHead.Hash, parentL1Cfg, nil)
 
 		parentBeaconRoot := l1Info.ParentBeaconRoot()
-		if cfg.IsEcotone(0) {
-			if parentBeaconRoot == nil { // default to zero hash if there is no beacon-block-root available
-				parentBeaconRoot = new(common.Hash)
-			}
+		if cfg.IsEcotone(safeHead.Time+cfg.BlockTime) && parentBeaconRoot == nil { // default to zero hash if there is no beacon-block-root available
+			parentBeaconRoot = new(common.Hash)
 		}
 		attrs := eth.PayloadAttributes{
 			Timestamp:             eth.Uint64Quantity(safeHead.Time + cfg.BlockTime),

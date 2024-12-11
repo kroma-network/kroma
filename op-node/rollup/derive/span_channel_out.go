@@ -102,7 +102,6 @@ func (co *SpanChannelOut) AddSingularBatch(batch *SingularBatch, seqNum uint64) 
 	// Append Singular batch to its span batch builder
 	co.spanBatchBuilder.AppendSingularBatch(batch, seqNum)
 	// Convert Span batch to RawSpanBatch
-	//TODO
 	rawSpanBatch, err := co.spanBatchBuilder.GetRawSpanBatch()
 	if err != nil {
 		return 0, fmt.Errorf("failed to convert SpanBatch into RawSpanBatch: %w", err)
