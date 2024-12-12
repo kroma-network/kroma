@@ -226,7 +226,7 @@ func (d *OpGeth) CreatePayloadAttributes(txs ...*types.Transaction) (*eth.Payloa
 			if txBytes[i][0] == types.DepositTxType {
 				bin, err := derive.ToKromaDepositBytes(txBytes[i])
 				if err != nil {
-					return nil, fmt.Errorf("failed to convert DepositTx to KromaDepositTx: %w", err)
+					return nil, err
 				}
 				txBytes[i] = bin
 			}
