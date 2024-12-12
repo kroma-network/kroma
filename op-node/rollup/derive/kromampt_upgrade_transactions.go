@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strconv"
 
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -12,13 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 
-	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 const (
 	KromaLocalDevnetChainID = 901
-	kromaMPTUpgradeTxCount  = 11
+	KromaMPTUpgradeTxCount  = 11
 )
 
 var (
@@ -168,7 +168,7 @@ func KromaMPTNetworkUpgradeTransactions(chainID *big.Int) ([]hexutil.Bytes, erro
 		return nil, err
 	}
 
-	upgradeTxns := make([]hexutil.Bytes, 0, kromaMPTUpgradeTxCount)
+	upgradeTxns := make([]hexutil.Bytes, 0, KromaMPTUpgradeTxCount)
 
 	deployL1BlockTransaction, err := types.NewTx(&types.DepositTx{
 		SourceHash:          deployL1BlockMPTSource.SourceHash(),
