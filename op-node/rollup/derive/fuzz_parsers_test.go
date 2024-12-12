@@ -101,17 +101,16 @@ func FuzzL1InfoEcotoneRoundTrip(f *testing.F) {
 
 // FuzzL1InfoKromaMPTRoundTrip checks that our Kroma MPT encoder round trips properly
 func FuzzL1InfoKromaMPTRoundTrip(f *testing.F) {
-	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, blobBaseFee, hash []byte, seqNumber uint64, baseFeeScalar, blobBaseFeeScalar uint32, validatorRewardScalar []byte) {
+	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, blobBaseFee, hash []byte, seqNumber uint64, baseFeeScalar, blobBaseFeeScalar uint32) {
 		in := L1BlockInfo{
-			Number:                number,
-			Time:                  time,
-			BaseFee:               BytesToBigInt(baseFee),
-			BlockHash:             common.BytesToHash(hash),
-			SequenceNumber:        seqNumber,
-			BlobBaseFee:           BytesToBigInt(blobBaseFee),
-			BaseFeeScalar:         baseFeeScalar,
-			BlobBaseFeeScalar:     blobBaseFeeScalar,
-			ValidatorRewardScalar: eth.Bytes32(common.BytesToHash(validatorRewardScalar)),
+			Number:            number,
+			Time:              time,
+			BaseFee:           BytesToBigInt(baseFee),
+			BlockHash:         common.BytesToHash(hash),
+			SequenceNumber:    seqNumber,
+			BlobBaseFee:       BytesToBigInt(blobBaseFee),
+			BaseFeeScalar:     baseFeeScalar,
+			BlobBaseFeeScalar: blobBaseFeeScalar,
 		}
 		enc, err := in.marshalBinaryKromaMPT()
 		if err != nil {
