@@ -60,7 +60,7 @@ contract GasPriceOracle is ISemver {
             msg.sender == L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).DEPOSITOR_ACCOUNT(),
             "GasPriceOracle: only the depositor account can set isKromaMPT flag"
         );
-        require(getKromaMPT() == false, "GasPriceOracle: Kroma MPT already active");
+        require(isKromaMPT() == false, "GasPriceOracle: Kroma MPT already active");
 
         bytes32 slot = IS_KROMA_MPT_KEY;
         assembly {
@@ -69,12 +69,14 @@ contract GasPriceOracle is ISemver {
     }
 
     /// @notice Retrieves the boolean indicates whether the network has gone through the Kroma MPT upgrade.
-    /// @return isKromaMPT The boolean indicates whether the network has gone through the Kroma MPT upgrade.
-    function getKromaMPT() public view returns (bool isKromaMPT) {
+    /// @return The boolean indicates whether the network has gone through the Kroma MPT upgrade.
+    function isKromaMPT() public view returns (bool) {
         bytes32 slot = IS_KROMA_MPT_KEY;
+        bool kromaMPT;
         assembly {
-            isKromaMPT := sload(slot)
+            kromaMPT := sload(slot)
         }
+        return kromaMPT;
     }
 
     /// @notice Retrieves the current gas price (base fee).
@@ -108,7 +110,7 @@ contract GasPriceOracle is ISemver {
     /// @notice Retrieves the latest known L1 base fee.
     /// @return Latest known L1 base fee.
     function l1BaseFee() public view returns (uint256) {
-        if (getKromaMPT()) {
+        if (isKromaMPT()) {
             return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).basefee();
         } else {
             return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).basefee();
@@ -118,7 +120,7 @@ contract GasPriceOracle is ISemver {
     /// @notice Retrieves the current blob base fee.
     /// @return Current blob base fee.
     function blobBaseFee() public view returns (uint256) {
-        if (getKromaMPT()) {
+        if (isKromaMPT()) {
             return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).blobBaseFee();
         } else {
             return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).blobBaseFee();
@@ -128,7 +130,7 @@ contract GasPriceOracle is ISemver {
     /// @notice Retrieves the current base fee scalar.
     /// @return Current base fee scalar.
     function baseFeeScalar() public view returns (uint32) {
-        if (getKromaMPT()) {
+        if (isKromaMPT()) {
             return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).baseFeeScalar();
         } else {
             return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).baseFeeScalar();
@@ -138,7 +140,7 @@ contract GasPriceOracle is ISemver {
     /// @notice Retrieves the current blob base fee scalar.
     /// @return Current blob base fee scalar.
     function blobBaseFeeScalar() public view returns (uint32) {
-        if (getKromaMPT()) {
+        if (isKromaMPT()) {
             return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).blobBaseFeeScalar();
         } else {
             return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).blobBaseFeeScalar();

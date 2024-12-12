@@ -86,12 +86,10 @@ contract Encoding_Test is CommonTest {
         assertEq(txn, _txn, "failed to assert deposit tx");
 
         // assert KromaDepositTx
-        {
-            txn = Encoding.encodeDepositTransaction(t, true);
-            _txn = ffi.encodeDepositTransaction(t, true);
+        txn = Encoding.encodeDepositTransaction(t, true);
+        _txn = ffi.encodeDepositTransaction(t, true);
 
-            assertEq(txn, _txn, "failed to assert kroma deposit tx");
-        }
+        assertEq(txn, _txn, "failed to assert kroma deposit tx");
     }
     // [Kroma: END]
 }

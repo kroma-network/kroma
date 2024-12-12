@@ -413,28 +413,28 @@ const check = {
     await checkProxy(hre, 'ProtocolVault', signer.provider)
     await assertProxy(hre, 'ProtocolVault', signer.provider)
   },
-  // L1FeeVault
+  // KromaL1FeeVault
   // - check version
   // - check MIN_WITHDRAWAL_AMOUNT
   // - check RECIPIENT
-  L1FeeVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
-    const L1FeeVault = await hre.ethers.getContractAt(
+  KromaL1FeeVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+    const KromaL1FeeVault = await hre.ethers.getContractAt(
       'L1FeeVault',
       predeploys.KromaL1FeeVault,
       signer
     )
 
-    await assertSemver(L1FeeVault, 'L1FeeVault')
+    await assertSemver(KromaL1FeeVault, 'KromaL1FeeVault')
 
-    const MIN_WITHDRAWAL_AMOUNT = await L1FeeVault.MIN_WITHDRAWAL_AMOUNT()
+    const MIN_WITHDRAWAL_AMOUNT = await KromaL1FeeVault.MIN_WITHDRAWAL_AMOUNT()
     console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
 
-    const RECIPIENT = await L1FeeVault.RECIPIENT()
+    const RECIPIENT = await KromaL1FeeVault.RECIPIENT()
     assert(RECIPIENT !== hre.ethers.constants.AddressZero)
     yell(`  - RECIPIENT: ${RECIPIENT}`)
 
-    await checkProxy(hre, 'L1FeeVault', signer.provider)
-    await assertProxy(hre, 'L1FeeVault', signer.provider)
+    await checkProxy(hre, 'KromaL1FeeVault', signer.provider)
+    await assertProxy(hre, 'KromaL1FeeVault', signer.provider)
   },
   // L2ToL1MessagePasser
   // - check version
@@ -458,6 +458,76 @@ const check = {
 
     await checkProxy(hre, 'L2ToL1MessagePasser', signer.provider)
     await assertProxy(hre, 'L2ToL1MessagePasser', signer.provider)
+  },
+  // SequencerFeeVault
+  // - check version
+  // - check MIN_WITHDRAWAL_AMOUNT
+  // - check RECIPIENT
+  SequencerFeeVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+    const SequencerFeeVault = await hre.ethers.getContractAt(
+      'ProtocolVault',
+      predeploys.SequencerFeeVault,
+      signer
+    )
+
+    await assertSemver(SequencerFeeVault, 'SequencerFeeVault')
+
+    const MIN_WITHDRAWAL_AMOUNT =
+      await SequencerFeeVault.MIN_WITHDRAWAL_AMOUNT()
+    console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
+
+    const RECIPIENT = await SequencerFeeVault.RECIPIENT()
+    assert(RECIPIENT !== hre.ethers.constants.AddressZero)
+    yell(`  - RECIPIENT: ${RECIPIENT}`)
+
+    await checkProxy(hre, 'SequencerFeeVault', signer.provider)
+    await assertProxy(hre, 'SequencerFeeVault', signer.provider)
+  },
+  // BaseFeeVault
+  // - check version
+  // - check MIN_WITHDRAWAL_AMOUNT
+  // - check RECIPIENT
+  BaseFeeVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+    const BaseFeeVault = await hre.ethers.getContractAt(
+      'ProtocolVault',
+      predeploys.BaseFeeVault,
+      signer
+    )
+
+    await assertSemver(BaseFeeVault, 'BaseFeeVault')
+
+    const MIN_WITHDRAWAL_AMOUNT = await BaseFeeVault.MIN_WITHDRAWAL_AMOUNT()
+    console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
+
+    const RECIPIENT = await BaseFeeVault.RECIPIENT()
+    assert(RECIPIENT !== hre.ethers.constants.AddressZero)
+    yell(`  - RECIPIENT: ${RECIPIENT}`)
+
+    await checkProxy(hre, 'BaseFeeVault', signer.provider)
+    await assertProxy(hre, 'BaseFeeVault', signer.provider)
+  },
+  // L1FeeVault
+  // - check version
+  // - check MIN_WITHDRAWAL_AMOUNT
+  // - check RECIPIENT
+  L1FeeVault: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+    const L1FeeVault = await hre.ethers.getContractAt(
+      'L1FeeVault',
+      predeploys.L1FeeVault,
+      signer
+    )
+
+    await assertSemver(L1FeeVault, 'L1FeeVault')
+
+    const MIN_WITHDRAWAL_AMOUNT = await L1FeeVault.MIN_WITHDRAWAL_AMOUNT()
+    console.log(`  - MIN_WITHDRAWAL_AMOUNT: ${MIN_WITHDRAWAL_AMOUNT}`)
+
+    const RECIPIENT = await L1FeeVault.RECIPIENT()
+    assert(RECIPIENT !== hre.ethers.constants.AddressZero)
+    yell(`  - RECIPIENT: ${RECIPIENT}`)
+
+    await checkProxy(hre, 'L1FeeVault', signer.provider)
+    await assertProxy(hre, 'L1FeeVault', signer.provider)
   },
 }
 
