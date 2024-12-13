@@ -28,10 +28,13 @@ contract FeeVaultWithdrawal is Script {
     function run() external {
         require(address(MULTICALL).code.length > 0);
 
-        address[] memory vaults = new address[](3);
+        address[] memory vaults = new address[](6);
         vaults[0] = Predeploys.VALIDATOR_REWARD_VAULT;
         vaults[1] = Predeploys.PROTOCOL_VAULT;
         vaults[2] = Predeploys.KROMA_L1_FEE_VAULT;
+        vaults[3] = Predeploys.SEQUENCER_FEE_WALLET;
+        vaults[4] = Predeploys.BASE_FEE_VAULT;
+        vaults[5] = Predeploys.L1_FEE_VAULT;
 
         for (uint256 i; i < vaults.length; i++) {
             address vault = vaults[i];

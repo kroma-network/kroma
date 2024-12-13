@@ -14,7 +14,8 @@ library Predeploys {
     /**
      * @notice Address of the L1Block predeploy used before Kroma MPT hardfork.
      */
-    address internal constant KROMA_L1_BLOCK_ATTRIBUTES = 0x4200000000000000000000000000000000000002;
+    address internal constant KROMA_L1_BLOCK_ATTRIBUTES =
+        0x4200000000000000000000000000000000000002;
 
     /**
      * @notice Address of the L1Block predeploy used after Kroma MPT hardfork.
@@ -54,21 +55,6 @@ library Predeploys {
     address internal constant VALIDATOR_REWARD_VAULT = 0x4200000000000000000000000000000000000008;
 
     /**
-     * @notice Address of the SequencerFeeWallet predeploy used after Kroma MPT hardfork.
-     */
-    address internal constant SEQUENCER_FEE_WALLET = 0x4200000000000000000000000000000000000011;
-
-    /**
-     * @notice Address of the BaseFeeVault predeploy used after Kroma MPT hardfork.
-     */
-    address internal constant BASE_FEE_VAULT = 0x4200000000000000000000000000000000000019;
-
-    /**
-     * @notice Address of the L1FeeVault predeploy used after Kroma MPT hardfork.
-     */
-    address internal constant L1_FEE_VAULT = 0x420000000000000000000000000000000000001A;
-
-    /**
      * @notice Address of the L2StandardBridge predeploy.
      */
     address internal constant L2_STANDARD_BRIDGE = 0x4200000000000000000000000000000000000009;
@@ -89,4 +75,19 @@ library Predeploys {
      */
     address internal constant KROMA_MINTABLE_ERC721_FACTORY =
         0x420000000000000000000000000000000000000c;
+
+    /**
+     * @notice Address of the SequencerFeeWallet predeploy used after Kroma MPT hardfork.
+     */
+    address internal constant SEQUENCER_FEE_WALLET = 0x4200000000000000000000000000000000000011;
+
+    /**
+     * @notice Address of the BaseFeeVault predeploy used after Kroma MPT hardfork.
+     */
+    address internal constant BASE_FEE_VAULT = 0x4200000000000000000000000000000000000019;
+
+    /**
+     * @notice Address of the L1FeeVault predeploy used after Kroma MPT hardfork.
+     */
+    address internal constant L1_FEE_VAULT = 0x420000000000000000000000000000000000001A;
 }
