@@ -59,11 +59,7 @@ library Encoding {
         uint256 _value,
         uint256 _gasLimit,
         bytes memory _data
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
+    ) internal pure returns (bytes memory) {
         (, uint16 version) = decodeVersionedNonce(_nonce);
         if (version == 0) {
             return encodeCrossDomainMessageV0(_nonce, _sender, _target, _value, _gasLimit, _data);
@@ -87,20 +83,17 @@ library Encoding {
         uint256 _value,
         uint256 _gasLimit,
         bytes memory _data
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        return abi.encodeWithSignature(
-            "relayMessage(uint256,address,address,uint256,uint256,bytes)",
-            _nonce,
-            _sender,
-            _target,
-            _value,
-            _gasLimit,
-            _data
-        );
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encodeWithSignature(
+                "relayMessage(uint256,address,address,uint256,uint256,bytes)",
+                _nonce,
+                _sender,
+                _target,
+                _value,
+                _gasLimit,
+                _data
+            );
     }
 
     /// @notice Adds a version number into the first two bytes of a message nonce.
@@ -151,24 +144,58 @@ library Encoding {
         bytes32 hash,
         bytes32 batcherHash,
         uint256 validatorRewardScalar
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
+    ) internal pure returns (bytes memory) {
         bytes4 functionSignature = bytes4(keccak256("setL1BlockValuesEcotone()"));
-        return abi.encodePacked(
-            functionSignature,
-            baseFeeScalar,
-            blobBaseFeeScalar,
-            sequenceNumber,
-            timestamp,
-            number,
-            baseFee,
-            blobBaseFee,
-            hash,
-            batcherHash,
-            validatorRewardScalar
-        );
+        return
+            abi.encodePacked(
+                functionSignature,
+                baseFeeScalar,
+                blobBaseFeeScalar,
+                sequenceNumber,
+                timestamp,
+                number,
+                baseFee,
+                blobBaseFee,
+                hash,
+                batcherHash,
+                validatorRewardScalar
+            );
+    }
+
+    /// @notice Returns an appropriately encoded call to L1Block.setL1BlockValuesEcotone without validatorRewardScalar.
+    /// @param baseFeeScalar     L1 base fee Scalar
+    /// @param blobBaseFeeScalar L1 blob base fee Scalar
+    /// @param sequenceNumber    Number of L2 blocks since epoch start.
+    /// @param timestamp         L1 timestamp.
+    /// @param number            L1 blocknumber.
+    /// @param baseFee           L1 base fee.
+    /// @param blobBaseFee       L1 blob base fee.
+    /// @param hash              L1 blockhash.
+    /// @param batcherHash       Versioned hash to authenticate batcher by.
+    function encodeSetL1BlockValuesKromaMPT(
+        uint32 baseFeeScalar,
+        uint32 blobBaseFeeScalar,
+        uint64 sequenceNumber,
+        uint64 timestamp,
+        uint64 number,
+        uint256 baseFee,
+        uint256 blobBaseFee,
+        bytes32 hash,
+        bytes32 batcherHash
+    ) internal pure returns (bytes memory) {
+        bytes4 functionSignature = bytes4(keccak256("setL1BlockValuesEcotone()"));
+        return
+            abi.encodePacked(
+                functionSignature,
+                baseFeeScalar,
+                blobBaseFeeScalar,
+                sequenceNumber,
+                timestamp,
+                number,
+                baseFee,
+                blobBaseFee,
+                hash,
+                batcherHash
+            );
     }
 }

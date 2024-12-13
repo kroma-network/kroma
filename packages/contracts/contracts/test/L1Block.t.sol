@@ -50,9 +50,7 @@ contract L1BlockBedrock_Test is L1BlockTest {
         uint256 fo,
         uint256 fs,
         uint256 vrr
-    )
-        external
-    {
+    ) external {
         vrr = bound(vrr, 0, 10000);
         vm.prank(depositor);
         l1Block.setL1BlockValues(n, t, b, h, s, bt, fo, fs, vrr);
@@ -97,15 +95,22 @@ contract L1BlockEcotone_Test is L1BlockTest {
         bytes32 hash,
         bytes32 batcherHash,
         uint256 validatorRewardScalar
-    )
-        external
-    {
+    ) external {
         bytes memory functionCallDataPacked = Encoding.encodeSetL1BlockValuesEcotone(
-            baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash, validatorRewardScalar
+            baseFeeScalar,
+            blobBaseFeeScalar,
+            sequenceNumber,
+            timestamp,
+            number,
+            baseFee,
+            blobBaseFee,
+            hash,
+            batcherHash,
+            validatorRewardScalar
         );
 
         vm.prank(depositor);
-        (bool success,) = address(l1Block).call(functionCallDataPacked);
+        (bool success, ) = address(l1Block).call(functionCallDataPacked);
         assertTrue(success, "Function call failed");
 
         assertEq(l1Block.baseFeeScalar(), baseFeeScalar);
@@ -118,6 +123,57 @@ contract L1BlockEcotone_Test is L1BlockTest {
         assertEq(l1Block.hash(), hash);
         assertEq(l1Block.batcherHash(), batcherHash);
         assertEq(l1Block.validatorRewardScalar(), validatorRewardScalar);
+
+        // ensure we didn't accidentally pollute the 128 bits of the sequencenum+scalars slot that
+        // should be empty
+        bytes32 scalarsSlot = vm.load(address(l1Block), bytes32(uint256(3)));
+        bytes32 mask128 = hex"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000";
+
+        assertEq(0, scalarsSlot & mask128);
+
+        // ensure we didn't accidentally pollute the 128 bits of the number & timestamp slot that
+        // should be empty
+        bytes32 numberTimestampSlot = vm.load(address(l1Block), bytes32(uint256(0)));
+        assertEq(0, numberTimestampSlot & mask128);
+    }
+
+    /// @dev Tests that setL1BlockValuesEcotone updates the values appropriately without validatorRewardScalar.
+    function testFuzz_setL1BlockValuesEcotone_withoutValidatorRewardScalar_succeeds(
+        uint32 baseFeeScalar,
+        uint32 blobBaseFeeScalar,
+        uint64 sequenceNumber,
+        uint64 timestamp,
+        uint64 number,
+        uint256 baseFee,
+        uint256 blobBaseFee,
+        bytes32 hash,
+        bytes32 batcherHash
+    ) external {
+        bytes memory functionCallDataPacked = Encoding.encodeSetL1BlockValuesKromaMPT(
+            baseFeeScalar,
+            blobBaseFeeScalar,
+            sequenceNumber,
+            timestamp,
+            number,
+            baseFee,
+            blobBaseFee,
+            hash,
+            batcherHash
+        );
+
+        vm.prank(depositor);
+        (bool success, ) = address(l1Block).call(functionCallDataPacked);
+        assertTrue(success, "Function call failed");
+
+        assertEq(l1Block.baseFeeScalar(), baseFeeScalar);
+        assertEq(l1Block.blobBaseFeeScalar(), blobBaseFeeScalar);
+        assertEq(l1Block.sequenceNumber(), sequenceNumber);
+        assertEq(l1Block.timestamp(), timestamp);
+        assertEq(l1Block.number(), number);
+        assertEq(l1Block.basefee(), baseFee);
+        assertEq(l1Block.blobBaseFee(), blobBaseFee);
+        assertEq(l1Block.hash(), hash);
+        assertEq(l1Block.batcherHash(), batcherHash);
 
         // ensure we didn't accidentally pollute the 128 bits of the sequencenum+scalars slot that
         // should be empty
@@ -148,7 +204,7 @@ contract L1BlockEcotone_Test is L1BlockTest {
         );
 
         vm.prank(depositor);
-        (bool success,) = address(l1Block).call(functionCallDataPacked);
+        (bool success, ) = address(l1Block).call(functionCallDataPacked);
         assertTrue(success, "function call failed");
     }
 

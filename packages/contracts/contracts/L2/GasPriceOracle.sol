@@ -55,11 +55,13 @@ contract GasPriceOracle is ISemver {
     }
 
     /// @notice Set chain to be Kroma MPT chain (callable by depositor account)
+    ///         NOTE that it should be called after setEcotone called first.
     function setKromaMPT() external {
         require(
             msg.sender == L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).DEPOSITOR_ACCOUNT(),
             "GasPriceOracle: only the depositor account can set isKromaMPT flag"
         );
+        require(isEcotone == true, "GasPriceOracle: Ecotone is not active");
         require(isKromaMPT() == false, "GasPriceOracle: Kroma MPT already active");
 
         bytes32 slot = IS_KROMA_MPT_KEY;
