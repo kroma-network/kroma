@@ -51,7 +51,7 @@ func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l
 	require.NoError(t, err, "Could not reconstruct L2 Deposit")
 	tx = types.NewTx(reconstructedDep)
 	// [Kroma: START] Use KromaDepositTx instead of DepositTx
-	if len(isKromaMPT) == 0 {
+	if len(isKromaMPT) == 0 || !isKromaMPT[0] {
 		tx, err = tx.ToKromaDepositTx()
 		require.NoError(t, err, "failed to convert DepositTx to KromaDepositTx")
 	}
