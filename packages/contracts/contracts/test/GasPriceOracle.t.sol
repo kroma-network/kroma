@@ -16,7 +16,7 @@ contract GasPriceOracle_Test is CommonTest {
     event DecimalsUpdated(uint256);
 
     GasPriceOracle gasPriceOracle;
-    L1Block l1Block;
+    L1Block kromaL1Block;
     address depositor;
 
     // The initial L1 context values
@@ -37,10 +37,10 @@ contract GasPriceOracle_Test is CommonTest {
     function setUp() public virtual override {
         super.setUp();
         // place the L1Block contract at the predeploy address
-        vm.etch(Predeploys.L1_BLOCK_ATTRIBUTES, address(new L1Block()).code);
+        vm.etch(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES, address(new L1Block()).code);
 
-        l1Block = L1Block(Predeploys.L1_BLOCK_ATTRIBUTES);
-        depositor = l1Block.DEPOSITOR_ACCOUNT();
+        kromaL1Block = L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES);
+        depositor = kromaL1Block.DEPOSITOR_ACCOUNT();
 
         // We are not setting the gas oracle at its predeploy
         // address for simplicity purposes. Nothing in this test
@@ -55,7 +55,7 @@ contract GasPriceOracleBedrock_Test is GasPriceOracle_Test {
         super.setUp();
 
         vm.prank(depositor);
-        l1Block.setL1BlockValues({
+        kromaL1Block.setL1BlockValues({
             _number: number,
             _timestamp: timestamp,
             _basefee: baseFee,
@@ -130,12 +130,21 @@ contract GasPriceOracleEcotone_Test is GasPriceOracle_Test {
         super.setUp();
 
         bytes memory calldataPacked = Encoding.encodeSetL1BlockValuesEcotone(
-            baseFeeScalar, blobBaseFeeScalar, sequenceNumber, timestamp, number, baseFee, blobBaseFee, hash, batcherHash, validatorRewardScalar
+            baseFeeScalar,
+            blobBaseFeeScalar,
+            sequenceNumber,
+            timestamp,
+            number,
+            baseFee,
+            blobBaseFee,
+            hash,
+            batcherHash,
+            validatorRewardScalar
         );
 
         // Execute the function call
         vm.prank(depositor);
-        (bool success,) = address(l1Block).call(calldataPacked);
+        (bool success, ) = address(kromaL1Block).call(calldataPacked);
         require(success, "Function call failed");
 
         vm.prank(depositor);
@@ -209,5 +218,118 @@ contract GasPriceOracleEcotone_Test is GasPriceOracle_Test {
         uint256 price = gasPriceOracle.getL1Fee(data);
         // gas * (2M*16*20 + 3M*15) / 16M == 48977.5
         assertEq(price, 48977);
+    }
+}
+
+contract GasPriceOracleKromaMPT_Test is GasPriceOracle_Test {
+    L1Block l1Block;
+
+    /// @dev Sets up the test suite.
+    function setUp() public virtual override {
+        super.setUp();
+
+        bytes memory calldataPacked = Encoding.encodeSetL1BlockValuesEcotone(
+            baseFeeScalar,
+            blobBaseFeeScalar,
+            sequenceNumber,
+            timestamp,
+            number,
+            baseFee,
+            blobBaseFee,
+            hash,
+            batcherHash,
+            validatorRewardScalar
+        );
+
+        // Execute the function call
+        vm.prank(depositor);
+        (bool success, ) = address(kromaL1Block).call(calldataPacked);
+        require(success, "Function call failed");
+
+        // place the L1Block contract at the new predeploy address
+        vm.etch(Predeploys.L1_BLOCK_ATTRIBUTES, address(new L1Block()).code);
+        l1Block = L1Block(Predeploys.L1_BLOCK_ATTRIBUTES);
+
+        // set different L1Block values to the new L1Block contract
+        bytes32 mptHash = bytes32(uint256(65));
+        bytes32 mptBatcherHash = bytes32(uint256(778));
+        calldataPacked = Encoding.encodeSetL1BlockValuesKromaMPT(
+            baseFeeScalar + 1,
+            blobBaseFeeScalar + 1,
+            sequenceNumber + 1,
+            timestamp + 1,
+            number + 1,
+            baseFee + 1,
+            blobBaseFee + 1,
+            mptHash,
+            mptBatcherHash
+        );
+
+        // Execute the function call
+        vm.prank(depositor);
+        (success, ) = address(l1Block).call(calldataPacked);
+        require(success, "Function call failed");
+    }
+
+    /// @dev Tests that `setKromaMPT` is only callable by the depositor.
+    function test_setKromaMPT_wrongCaller_reverts() external {
+        vm.expectRevert("GasPriceOracle: only the depositor account can set isKromaMPT flag");
+        gasPriceOracle.setKromaMPT();
+    }
+
+    /// @dev Tests that `setKromaMPT` is only callable after `setEcotone` called.
+    function test_setKromaMPT_beforeEcotone_reverts() external {
+        vm.prank(depositor);
+        vm.expectRevert("GasPriceOracle: Ecotone is not active");
+        gasPriceOracle.setKromaMPT();
+    }
+
+    /// @dev Tests that `setKromaMPT` is called successfully.
+    function test_setKromaMPT_succeeds() public {
+        vm.startPrank(depositor);
+        gasPriceOracle.setEcotone();
+        gasPriceOracle.setKromaMPT();
+    }
+
+    /// @dev Tests that `isKromaMPT` is set correctly.
+    function test_isKromaMPT_succeeds() public {
+        bool isKromaMPT = gasPriceOracle.isKromaMPT();
+        assertEq(isKromaMPT, false);
+
+        test_setKromaMPT_succeeds();
+        isKromaMPT = gasPriceOracle.isKromaMPT();
+        assertEq(isKromaMPT, true);
+    }
+
+    /// @dev Tests that `l1BaseFee` is set correctly.
+    function test_l1BaseFee_succeeds() external {
+        assertEq(gasPriceOracle.l1BaseFee(), kromaL1Block.basefee());
+
+        test_setKromaMPT_succeeds();
+        assertEq(gasPriceOracle.l1BaseFee(), l1Block.basefee());
+    }
+
+    /// @dev Tests that `blobBaseFee` is set correctly.
+    function test_blobBaseFee_succeeds() external {
+        assertEq(gasPriceOracle.blobBaseFee(), kromaL1Block.blobBaseFee());
+
+        test_setKromaMPT_succeeds();
+        assertEq(gasPriceOracle.blobBaseFee(), l1Block.blobBaseFee());
+    }
+
+    /// @dev Tests that `baseFeeScalar` is set correctly.
+    function test_baseFeeScalar_succeeds() external {
+        assertEq(gasPriceOracle.baseFeeScalar(), kromaL1Block.baseFeeScalar());
+
+        test_setKromaMPT_succeeds();
+        assertEq(gasPriceOracle.baseFeeScalar(), l1Block.baseFeeScalar());
+    }
+
+    /// @dev Tests that `blobBaseFeeScalar` is set correctly.
+    function test_blobBaseFeeScalar_succeeds() external {
+        assertEq(gasPriceOracle.blobBaseFeeScalar(), kromaL1Block.blobBaseFeeScalar());
+
+        test_setKromaMPT_succeeds();
+        assertEq(gasPriceOracle.blobBaseFeeScalar(), l1Block.blobBaseFeeScalar());
     }
 }

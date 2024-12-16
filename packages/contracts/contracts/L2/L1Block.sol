@@ -5,7 +5,8 @@ import { Constants } from "../libraries/Constants.sol";
 import { ISemver } from "../universal/ISemver.sol";
 
 /// @custom:proxied
-/// @custom:predeploy 0x4200000000000000000000000000000000000002
+/// @custom:predeploy 0x4200000000000000000000000000000000000002 (before Kroma MPT transition)
+/// @custom:predeploy 0x4200000000000000000000000000000000000015 (after Kroma MPT transition)
 /// @title L1Block
 /// @notice The L1Block predeploy gives users access to information about the last known L1 block.
 ///         Values within this contract are updated once per epoch (every L1 block) and can only be
