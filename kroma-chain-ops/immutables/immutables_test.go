@@ -39,7 +39,7 @@ func TestBuildKroma(t *testing.T) {
 		// },
 		L1BlockNumber:  struct{}{},
 		GasPriceOracle: struct{}{},
-		L1Block:        struct{}{},
+		KromaL1Block:   struct{}{},
 		// GovernanceToken: struct{}{},
 		// LegacyMessagePasser: struct{}{},
 		L2ERC721Bridge: struct {

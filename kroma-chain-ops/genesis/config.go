@@ -1092,7 +1092,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		[Kroma: END] */
 		L1BlockNumber:  struct{}{},
 		GasPriceOracle: struct{}{},
-		L1Block:        struct{}{},
+		KromaL1Block:   struct{}{},
 		/* [Kroma: START]
 		GovernanceToken: struct{}{},
 		LegacyMessagePasser: struct{}{},
@@ -1185,7 +1185,7 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"_initializing": false,
 	}
 	[Kroma: END] */
-	storage["L1Block"] = state.StorageValues{
+	storage["KromaL1Block"] = state.StorageValues{
 		"number":                block.Number(),
 		"timestamp":             block.Time(),
 		"basefee":               block.BaseFee(),

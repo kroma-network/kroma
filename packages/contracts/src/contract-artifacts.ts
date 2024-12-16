@@ -222,6 +222,12 @@
         } catch {}
         
 
+        let KromaL1Block
+        try {
+          KromaL1Block = require('../artifacts/contracts/L2/KromaL1Block.sol/KromaL1Block.json')
+        } catch {}
+        
+
         let L1Block
         try {
           L1Block = require('../artifacts/contracts/L2/L1Block.sol/L1Block.json')
@@ -554,6 +560,7 @@ CrossDomainOwnable,
 CrossDomainOwnable2,
 CrossDomainOwnable3,
 GasPriceOracle,
+KromaL1Block,
 L1Block,
 L2CrossDomainMessenger,
 L2ERC721Bridge,

@@ -290,6 +290,20 @@ const check = {
     await checkProxy(hre, 'KromaMintableERC20Factory', signer.provider)
     await assertProxy(hre, 'KromaMintableERC20Factory', signer.provider)
   },
+  // KromaL1Block
+  // - check version
+  KromaL1Block: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {
+    const KromaL1Block = await hre.ethers.getContractAt(
+      'KromaL1Block',
+      predeploys.KromaL1Block,
+      signer
+    )
+
+    await assertSemver(KromaL1Block, 'KromaL1Block')
+
+    await checkProxy(hre, 'KromaL1Block', signer.provider)
+    await assertProxy(hre, 'KromaL1Block', signer.provider)
+  },
   // L1Block
   // - check version
   L1Block: async (hre: HardhatRuntimeEnvironment, signer: Signer) => {

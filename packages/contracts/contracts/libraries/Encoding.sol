@@ -122,7 +122,7 @@ library Encoding {
         return (nonce, version);
     }
 
-    /// @notice Returns an appropriately encoded call to L1Block.setL1BlockValuesEcotone
+    /// @notice Returns an appropriately encoded call to KromaL1Block.setL1BlockValuesEcotone
     /// @param baseFeeScalar         L1 base fee Scalar
     /// @param blobBaseFeeScalar     L1 blob base fee Scalar
     /// @param sequenceNumber        Number of L2 blocks since epoch start.

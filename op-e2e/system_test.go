@@ -720,7 +720,7 @@ func TestMissingBatchE2E(t *testing.T) {
 	}
 }
 
-func L1InfoFromState(ctx context.Context, contract *bindings.L1Block, l2Number *big.Int, ecotone bool) (*derive.L1BlockInfo, error) {
+func L1InfoFromState(ctx context.Context, contract *bindings.KromaL1Block, l2Number *big.Int, ecotone bool) (*derive.L1BlockInfo, error) {
 	var err error
 	out := &derive.L1BlockInfo{}
 	opts := bind.CallOpts{
@@ -1146,16 +1146,16 @@ func TestL1InfoContract(t *testing.T) {
 	endSeqBlock, err := geth.WaitForBlock(endSeqBlockNumber, l2Seq, time.Minute)
 	require.Nil(t, err)
 
-	seqL1Info, err := bindings.NewL1Block(cfg.L1InfoPredeployAddress, l2Seq)
+	seqL1Info, err := bindings.NewKromaL1Block(cfg.L1InfoPredeployAddress, l2Seq)
 	require.Nil(t, err)
 
-	verifL1Info, err := bindings.NewL1Block(cfg.L1InfoPredeployAddress, l2Verif)
+	verifL1Info, err := bindings.NewKromaL1Block(cfg.L1InfoPredeployAddress, l2Verif)
 	require.Nil(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	fillInfoLists := func(start *types.Block, contract *bindings.L1Block, client *ethclient.Client) ([]*derive.L1BlockInfo, []*derive.L1BlockInfo) {
+	fillInfoLists := func(start *types.Block, contract *bindings.KromaL1Block, client *ethclient.Client) ([]*derive.L1BlockInfo, []*derive.L1BlockInfo) {
 		var txList, stateList []*derive.L1BlockInfo
 		for b := start; ; {
 			var infoFromTx *derive.L1BlockInfo
@@ -1590,8 +1590,8 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	l1FeeVaultDiff := new(big.Int).Sub(l1FeeVaultEndBalance, l1FeeVaultStartBalance)
 	validatorRewardVaultDiff := new(big.Int).Sub(validatorRewardVaultEndBalance, validatorRewardVaultStartBalance)
 
-	// get a validator reward scalar from L1Block contract
-	l1BlockContract, err := bindings.NewL1Block(predeploys.L1BlockAddr, l2Seq)
+	// get a validator reward scalar from KromaL1Block contract
+	l1BlockContract, err := bindings.NewKromaL1Block(predeploys.L1BlockAddr, l2Seq)
 	require.Nil(t, err)
 
 	validatorRewardScalar, err := l1BlockContract.ValidatorRewardScalar(&bind.CallOpts{})

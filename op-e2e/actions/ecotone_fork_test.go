@@ -204,7 +204,7 @@ func TestEcotoneNetworkUpgradeTransactions(gt *testing.T) {
 	require.Greater(t, cost.Uint64(), uint64(0), "expecting non-zero scalars after activation block")
 
 	// Get L1Block info
-	l1Block, err := bindings.NewL1BlockCaller(predeploys.L1BlockAddr, ethCl)
+	l1Block, err := bindings.NewKromaL1BlockCaller(predeploys.L1BlockAddr, ethCl)
 	require.NoError(t, err)
 	l1BlockInfo, err := l1Block.Timestamp(nil)
 	require.NoError(t, err)

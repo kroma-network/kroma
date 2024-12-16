@@ -79,7 +79,7 @@ func IsProxied(predeployAddr common.Address) bool {
 func init() {
 	Predeploys["ProxyAdmin"] = &oppredeploys.Predeploy{Address: ProxyAdminAddr}
 	Predeploys["WETH9"] = &oppredeploys.Predeploy{Address: WETH9Addr, ProxyDisabled: true}
-	Predeploys["L1Block"] = &oppredeploys.Predeploy{Address: L1BlockAddr}
+	Predeploys["KromaL1Block"] = &oppredeploys.Predeploy{Address: L1BlockAddr}
 	Predeploys["L2ToL1MessagePasser"] = &oppredeploys.Predeploy{Address: L2ToL1MessagePasserAddr}
 	Predeploys["L2CrossDomainMessenger"] = &oppredeploys.Predeploy{Address: L2CrossDomainMessengerAddr}
 	Predeploys["GasPriceOracle"] = &oppredeploys.Predeploy{Address: GasPriceOracleAddr}

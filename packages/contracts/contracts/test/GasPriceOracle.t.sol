@@ -8,6 +8,7 @@ import { CommonTest } from "./CommonTest.t.sol";
 import { Encoding } from "../libraries/Encoding.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { GasPriceOracle } from "../L2/GasPriceOracle.sol";
+import { KromaL1Block } from "../L2/KromaL1Block.sol";
 import { L1Block } from "../L2/L1Block.sol";
 
 contract GasPriceOracle_Test is CommonTest {
@@ -16,7 +17,7 @@ contract GasPriceOracle_Test is CommonTest {
     event DecimalsUpdated(uint256);
 
     GasPriceOracle gasPriceOracle;
-    L1Block kromaL1Block;
+    KromaL1Block kromaL1Block;
     address depositor;
 
     // The initial L1 context values
@@ -36,10 +37,10 @@ contract GasPriceOracle_Test is CommonTest {
     /// @dev Sets up the test suite.
     function setUp() public virtual override {
         super.setUp();
-        // place the L1Block contract at the predeploy address
-        vm.etch(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES, address(new L1Block()).code);
+        // place the KromaL1Block contract at the predeploy address
+        vm.etch(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES, address(new KromaL1Block()).code);
 
-        kromaL1Block = L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES);
+        kromaL1Block = KromaL1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES);
         depositor = kromaL1Block.DEPOSITOR_ACCOUNT();
 
         // We are not setting the gas oracle at its predeploy

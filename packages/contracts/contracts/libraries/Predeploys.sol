@@ -12,15 +12,10 @@ library Predeploys {
     address internal constant PROXY_ADMIN = 0x4200000000000000000000000000000000000000;
 
     /**
-     * @notice Address of the L1Block predeploy used before Kroma MPT hardfork.
+     * @notice Address of the KromaL1Block predeploy used before Kroma MPT hardfork.
      */
     address internal constant KROMA_L1_BLOCK_ATTRIBUTES =
         0x4200000000000000000000000000000000000002;
-
-    /**
-     * @notice Address of the L1Block predeploy used after Kroma MPT hardfork.
-     */
-    address internal constant L1_BLOCK_ATTRIBUTES = 0x4200000000000000000000000000000000000015;
 
     /**
      * @notice Address of the L2ToL1MessagePasser predeploy.
@@ -80,6 +75,11 @@ library Predeploys {
      * @notice Address of the SequencerFeeWallet predeploy used after Kroma MPT hardfork.
      */
     address internal constant SEQUENCER_FEE_WALLET = 0x4200000000000000000000000000000000000011;
+
+    /**
+     * @notice Address of the L1Block predeploy used after Kroma MPT hardfork.
+     */
+    address internal constant L1_BLOCK_ATTRIBUTES = 0x4200000000000000000000000000000000000015;
 
     /**
      * @notice Address of the BaseFeeVault predeploy used after Kroma MPT hardfork.
