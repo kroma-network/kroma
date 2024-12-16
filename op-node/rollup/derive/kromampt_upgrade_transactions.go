@@ -240,7 +240,7 @@ func KromaMPTNetworkUpgradeTransactions(chainID *big.Int) ([]hexutil.Bytes, erro
 		To:                  nil,
 		Mint:                big.NewInt(0),
 		Value:               big.NewInt(0),
-		Gas:                 1_000_000,
+		Gas:                 1_500_000,
 		IsSystemTransaction: false,
 		Data:                gasPriceOracleMPTDeploymentBytecode,
 	}).MarshalBinary()
