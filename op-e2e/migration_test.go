@@ -22,6 +22,7 @@ import (
 	"github.com/kroma-network/zktrie/trie"
 	"github.com/stretchr/testify/require"
 
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
@@ -236,7 +237,7 @@ func validateL1BlockTxProof(t *testing.T, l1Cl *ethclient.Client, l2Cl *ethclien
 		_, err := l1Cl.BlockByHash(context.Background(), common.BigToHash(v))
 		require.Nil(t, err)
 	}
-	proof, err := l2GethCl.GetProof(context.Background(), predeploys.L1BlockAddr, []string{l1BlockHashSlot}, new(big.Int).Sub(number, common.Big1))
+	proof, err := l2GethCl.GetProof(context.Background(), predeploys.KromaL1BlockAddr, []string{l1BlockHashSlot}, new(big.Int).Sub(number, common.Big1))
 	require.Nil(t, err, "failed to validate state proof for pre-transition block")
 	for _, accProof := range proof.AccountProof {
 		validateZktProof(accProof)
@@ -250,7 +251,7 @@ func validateL1BlockTxProof(t *testing.T, l1Cl *ethclient.Client, l2Cl *ethclien
 		}
 	}
 
-	proof, err = l2GethCl.GetProof(context.Background(), predeploys.L1BlockAddr, []string{l1BlockHashSlot}, number)
+	proof, err = l2GethCl.GetProof(context.Background(), oppredeploys.L1BlockAddr, []string{l1BlockHashSlot}, number)
 	require.Nil(t, err, "failed to validate state proof for transition block")
 	for _, accProof := range proof.AccountProof {
 		validateMptProof(accProof)
@@ -264,7 +265,7 @@ func validateL1BlockTxProof(t *testing.T, l1Cl *ethclient.Client, l2Cl *ethclien
 		}
 	}
 
-	proof, err = l2GethCl.GetProof(context.Background(), predeploys.L1BlockAddr, []string{l1BlockHashSlot}, new(big.Int).Add(number, common.Big1))
+	proof, err = l2GethCl.GetProof(context.Background(), oppredeploys.L1BlockAddr, []string{l1BlockHashSlot}, new(big.Int).Add(number, common.Big1))
 	require.Nil(t, err, "failed to validate state proof for post-transition block")
 	for _, accProof := range proof.AccountProof {
 		validateMptProof(accProof)

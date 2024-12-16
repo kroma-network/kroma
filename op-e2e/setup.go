@@ -127,7 +127,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		Premine:                premine,
 		DeployConfig:           deployConfig,
 		L1Deployments:          config.L1Deployments,
-		L1InfoPredeployAddress: predeploys.L1BlockAddr,
+		L1InfoPredeployAddress: predeploys.KromaL1BlockAddr,
 		JWTFilePath:            writeDefaultJWT(t),
 		JWTSecret:              testingJWTSecret,
 		BlobsPath:              t.TempDir(),

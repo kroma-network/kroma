@@ -81,7 +81,7 @@ func EcotoneNetworkUpgradeTransactions() ([]hexutil.Bytes, error) {
 	updateL1BlockProxy, err := types.NewTx(&types.DepositTx{
 		SourceHash:          updateL1BlockProxySource.SourceHash(),
 		From:                common.Address{},
-		To:                  &predeploys.L1BlockAddr,
+		To:                  &predeploys.KromaL1BlockAddr,
 		Mint:                big.NewInt(0),
 		Value:               big.NewInt(0),
 		Gas:                 50_000,

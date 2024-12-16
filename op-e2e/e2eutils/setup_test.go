@@ -35,5 +35,5 @@ func TestSetup(t *testing.T) {
 	require.Equal(t, sd.L2Cfg.Alloc[dp.Addresses.Alice].Balance.Uint64(), Ether(1e12).Uint64())
 
 	require.Contains(t, sd.L1Cfg.Alloc, dp.DeployConfig.KromaPortalProxy)
-	require.Contains(t, sd.L2Cfg.Alloc, predeploys.L1BlockAddr)
+	require.Contains(t, sd.L2Cfg.Alloc, predeploys.KromaL1BlockAddr)
 }

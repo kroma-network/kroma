@@ -1591,7 +1591,7 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	validatorRewardVaultDiff := new(big.Int).Sub(validatorRewardVaultEndBalance, validatorRewardVaultStartBalance)
 
 	// get a validator reward scalar from KromaL1Block contract
-	l1BlockContract, err := bindings.NewKromaL1Block(predeploys.L1BlockAddr, l2Seq)
+	l1BlockContract, err := bindings.NewKromaL1Block(predeploys.KromaL1BlockAddr, l2Seq)
 	require.Nil(t, err)
 
 	validatorRewardScalar, err := l1BlockContract.ValidatorRewardScalar(&bind.CallOpts{})
