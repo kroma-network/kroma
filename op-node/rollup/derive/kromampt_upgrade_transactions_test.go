@@ -63,32 +63,32 @@ func TestMPTNetworkTransactions(t *testing.T) {
 		chainId *big.Int
 	}{
 		{
-			name:    "Local devnet configuration",
+			name:    "LocalDevnet",
 			chainId: big.NewInt(KromaLocalDevnetChainID),
 		},
 		{
-			name:    "Kroma configuration",
+			name:    "KromaMainnet",
 			chainId: big.NewInt(params.KromaMainnetChainID),
 		},
 		{
-			name:    "Kroma Sepolia configuration",
+			name:    "KromaSepolia",
 			chainId: big.NewInt(params.KromaSepoliaChainID),
 		},
 		{
-			name:    "Kroma Holesky configuration",
+			name:    "KromaHolesky",
 			chainId: big.NewInt(params.KromaDevnetChainID),
 		},
 		{
-			name:    "Unsupported chain. Defaults to local devnet",
+			name:    "UnsupportedChain",
 			chainId: big.NewInt(9999),
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			upgradeTxns, err := KromaMPTNetworkUpgradeTransactions(tt.chainId)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			upgradeTxns, err := KromaMPTNetworkUpgradeTransactions(test.chainId)
 			require.NoError(t, err)
-			deploymentData, err := getDeploymentData(tt.chainId)
+			deploymentData, err := getDeploymentData(test.chainId)
 			require.NoError(t, err)
 			require.Len(t, upgradeTxns, 8)
 
@@ -97,26 +97,26 @@ func TestMPTNetworkTransactions(t *testing.T) {
 			require.Equal(t, deployBaseFeeVaultSource.SourceHash(), deployBaseFeeVault.SourceHash())
 			require.Nil(t, deployBaseFeeVault.To())
 			require.Equal(t, uint64(1_000_000), deployBaseFeeVault.Gas())
-			require.Equal(t, fmt.Sprintf("0x%x", deploymentData.baseFeeVaultDeploymentBytecodeWithArg), hexutil.Bytes(deployBaseFeeVault.Data()).String())
+			require.Equal(t, hexutil.Bytes(deploymentData.baseFeeVaultDeploymentBytecodeWithArg).String(), hexutil.Bytes(deployBaseFeeVault.Data()).String())
 
 			deployL1FeeVaultSender, deployL1FeeVault := toDepositTxn(t, upgradeTxns[2])
 			require.Equal(t, deployL1FeeVaultSender, L1FeeVaultDeployerAddress)
 			require.Equal(t, deployL1FeeVaultSource.SourceHash(), deployL1FeeVault.SourceHash())
 			require.Nil(t, deployL1FeeVault.To())
 			require.Equal(t, uint64(1_000_000), deployL1FeeVault.Gas())
-			require.Equal(t, fmt.Sprintf("0x%x", deploymentData.l1FeeVaultDeploymentBytecodeWithArg), hexutil.Bytes(deployL1FeeVault.Data()).String())
+			require.Equal(t, hexutil.Bytes(deploymentData.l1FeeVaultDeploymentBytecodeWithArg).String(), hexutil.Bytes(deployL1FeeVault.Data()).String())
 
 			deploySequencerFeeVaultSender, deploySequencerFeeVault := toDepositTxn(t, upgradeTxns[3])
 			require.Equal(t, deploySequencerFeeVaultSender, SequencerFeeVaultDeployerAddress)
 			require.Equal(t, deploySequencerFeeVaultSource.SourceHash(), deploySequencerFeeVault.SourceHash())
 			require.Nil(t, deploySequencerFeeVault.To())
 			require.Equal(t, uint64(1_000_000), deploySequencerFeeVault.Gas())
-			require.Equal(t, fmt.Sprintf("0x%x", deploymentData.sequencerFeeVaultDeploymentBytecodeWithArg), hexutil.Bytes(deploySequencerFeeVault.Data()).String())
+			require.Equal(t, hexutil.Bytes(deploymentData.sequencerFeeVaultDeploymentBytecodeWithArg).String(), hexutil.Bytes(deploySequencerFeeVault.Data()).String())
 		})
 	}
 
 	// test chainId-independent configurations
-	t.Run("ChainId-Independent Configurations", func(t *testing.T) {
+	t.Run("ChainIDIndependent", func(t *testing.T) {
 		chainID := big.NewInt(KromaLocalDevnetChainID)
 		upgradeTxns, err := KromaMPTNetworkUpgradeTransactions(chainID) // Use default configuration
 		require.NoError(t, err)
@@ -144,6 +144,20 @@ func TestMPTNetworkTransactions(t *testing.T) {
 		require.Equal(t, *updateBaseFeeVaultProxy.To(), predeploys.BaseFeeVaultAddr)
 		require.Equal(t, uint64(50_000), updateBaseFeeVaultProxy.Gas())
 		require.Equal(t, common.FromHex("3659cfe6000000000000000000000000db78bab44d9632e68348659dd47b4806ba276d89"), updateBaseFeeVaultProxy.Data())
+		updateL1FeeVaultProxySender, updateL1FeeVaultProxy := toDepositTxn(t, upgradeTxns[6])
+		require.Equal(t, updateL1FeeVaultProxySender, common.Address{})
+		require.Equal(t, updateL1FeeVaultProxySource.SourceHash(), updateL1FeeVaultProxy.SourceHash())
+		require.NotNil(t, updateL1FeeVaultProxy.To())
+		require.Equal(t, *updateL1FeeVaultProxy.To(), predeploys.L1FeeVaultAddr)
+		require.Equal(t, uint64(50_000), updateL1FeeVaultProxy.Gas())
+		require.Equal(t, common.FromHex("3659cfe6000000000000000000000000d86e1a7c380f398bda3d598ee65c891ce5c3c8f0"), updateL1FeeVaultProxy.Data())
+		updateSequencerFeeVaultProxySender, updateSequencerFeeVaultProxy := toDepositTxn(t, upgradeTxns[7])
+		require.Equal(t, updateSequencerFeeVaultProxySender, common.Address{})
+		require.Equal(t, updateSequencerFeeVaultProxySource.SourceHash(), updateSequencerFeeVaultProxy.SourceHash())
+		require.NotNil(t, updateSequencerFeeVaultProxy.To())
+		require.Equal(t, *updateSequencerFeeVaultProxy.To(), predeploys.SequencerFeeVaultAddr)
+		require.Equal(t, uint64(50_000), updateSequencerFeeVaultProxy.Gas())
+		require.Equal(t, common.FromHex("3659cfe600000000000000000000000013963c74d9c62d31ce3fcec0d46f6430a74ea79e"), updateSequencerFeeVaultProxy.Data())
 	})
 }
 
