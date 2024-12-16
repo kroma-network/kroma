@@ -371,6 +371,12 @@ func (c *Config) IsKromaMPT(timestamp uint64) bool {
 	return c.KromaMPTTime != nil && timestamp >= *c.KromaMPTTime
 }
 
+// IsKromaMPTParentBlock returns whether the specified block is the parent block subject to the
+// KromaMPT upgrade. KromaMPT activation at genesis does not count.
+func (c *Config) IsKromaMPTParentBlock(l2BlockTime uint64) bool {
+	return c.KromaMPTTime != nil && l2BlockTime == *c.KromaMPTTime-c.BlockTime
+}
+
 // IsFjord returns true if the Fjord hardfork is active at or past the given timestamp.
 func (c *Config) IsFjord(timestamp uint64) bool {
 	return c.FjordTime != nil && timestamp >= *c.FjordTime

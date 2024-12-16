@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/solabi"
@@ -23,6 +24,7 @@ const (
 	L1InfoArguments            = 9
 	L1InfoBedrockLen           = 4 + 32*L1InfoArguments
 	L1InfoEcotoneLen           = 4 + 32*6 // after Ecotone upgrade, args are packed into 6 32-byte slots
+	L1InfoKromaMPTLen          = 4 + 32*5 // after KromaMPT upgrade, args are packed into 5 32-byte slots
 )
 
 var (
@@ -261,6 +263,106 @@ func (info *L1BlockInfo) unmarshalBinaryEcotone(data []byte) error {
 	return nil
 }
 
+// KromaMPT Binary Format
+// +---------+--------------------------+
+// | Bytes   | Field                    |
+// +---------+--------------------------+
+// | 4       | Function signature       |
+// | 4       | BaseFeeScalar            |
+// | 4       | BlobBaseFeeScalar        |
+// | 8       | SequenceNumber           |
+// | 8       | Timestamp                |
+// | 8       | L1BlockNumber            |
+// | 32      | BaseFee                  |
+// | 32      | BlobBaseFee              |
+// | 32      | BlockHash                |
+// | 32      | BatcherHash              |
+// +---------+--------------------------+
+
+func (info *L1BlockInfo) marshalBinaryKromaMPT() ([]byte, error) {
+	w := bytes.NewBuffer(make([]byte, 0, L1InfoKromaMPTLen))
+	if err := solabi.WriteSignature(w, L1InfoFuncEcotoneBytes4); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(w, binary.BigEndian, info.BaseFeeScalar); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(w, binary.BigEndian, info.BlobBaseFeeScalar); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(w, binary.BigEndian, info.SequenceNumber); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(w, binary.BigEndian, info.Time); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(w, binary.BigEndian, info.Number); err != nil {
+		return nil, err
+	}
+	if err := solabi.WriteUint256(w, info.BaseFee); err != nil {
+		return nil, err
+	}
+	blobBasefee := info.BlobBaseFee
+	if blobBasefee == nil {
+		blobBasefee = big.NewInt(1) // set to 1, to match the min blob basefee as defined in EIP-4844
+	}
+	if err := solabi.WriteUint256(w, blobBasefee); err != nil {
+		return nil, err
+	}
+	if err := solabi.WriteHash(w, info.BlockHash); err != nil {
+		return nil, err
+	}
+	// ABI encoding will perform the left-padding with zeroes to 32 bytes, matching the "batcherHash" SystemConfig format and version 0 byte.
+	if err := solabi.WriteAddress(w, info.BatcherAddr); err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
+}
+
+func (info *L1BlockInfo) unmarshalBinaryKromaMPT(data []byte) error {
+	if len(data) != L1InfoKromaMPTLen {
+		return fmt.Errorf("data is unexpected length: %d", len(data))
+	}
+	r := bytes.NewReader(data)
+
+	var err error
+	if _, err := solabi.ReadAndValidateSignature(r, L1InfoFuncEcotoneBytes4); err != nil {
+		return err
+	}
+	if err := binary.Read(r, binary.BigEndian, &info.BaseFeeScalar); err != nil {
+		return fmt.Errorf("invalid ecotone l1 block info format")
+	}
+	if err := binary.Read(r, binary.BigEndian, &info.BlobBaseFeeScalar); err != nil {
+		return fmt.Errorf("invalid ecotone l1 block info format")
+	}
+	if err := binary.Read(r, binary.BigEndian, &info.SequenceNumber); err != nil {
+		return fmt.Errorf("invalid ecotone l1 block info format")
+	}
+	if err := binary.Read(r, binary.BigEndian, &info.Time); err != nil {
+		return fmt.Errorf("invalid ecotone l1 block info format")
+	}
+	if err := binary.Read(r, binary.BigEndian, &info.Number); err != nil {
+		return fmt.Errorf("invalid ecotone l1 block info format")
+	}
+	if info.BaseFee, err = solabi.ReadUint256(r); err != nil {
+		return err
+	}
+	if info.BlobBaseFee, err = solabi.ReadUint256(r); err != nil {
+		return err
+	}
+	if info.BlockHash, err = solabi.ReadHash(r); err != nil {
+		return err
+	}
+	// The "batcherHash" will be correctly parsed as address, since the version 0 and left-padding matches the ABI encoding format.
+	if info.BatcherAddr, err = solabi.ReadAddress(r); err != nil {
+		return err
+	}
+	if !solabi.EmptyReader(r) {
+		return errors.New("too many bytes")
+	}
+	return nil
+}
+
 // isEcotoneButNotFirstBlock returns whether the specified block is subject to the Ecotone upgrade,
 // but is not the actiation block itself.
 func isEcotoneButNotFirstBlock(rollupCfg *rollup.Config, l2BlockTime uint64) bool {
@@ -270,6 +372,9 @@ func isEcotoneButNotFirstBlock(rollupCfg *rollup.Config, l2BlockTime uint64) boo
 // L1BlockInfoFromBytes is the inverse of L1InfoDeposit, to see where the L2 chain is derived from
 func L1BlockInfoFromBytes(rollupCfg *rollup.Config, l2BlockTime uint64, data []byte) (*L1BlockInfo, error) {
 	var info L1BlockInfo
+	if rollupCfg.IsKromaMPT(l2BlockTime) {
+		return &info, info.unmarshalBinaryKromaMPT(data)
+	}
 	if isEcotoneButNotFirstBlock(rollupCfg, l2BlockTime) {
 		return &info, info.unmarshalBinaryEcotone(data)
 	}
@@ -301,7 +406,12 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 		l1BlockInfo.BlobBaseFeeScalar = blobBaseFeeScalar
 		l1BlockInfo.BaseFeeScalar = baseFeeScalar
 		l1BlockInfo.ValidatorRewardScalar = sysCfg.ValidatorRewardScalar
-		out, err := l1BlockInfo.marshalBinaryEcotone()
+		var out []byte
+		if rollupCfg.IsKromaMPT(l2BlockTime) {
+			out, err = l1BlockInfo.marshalBinaryKromaMPT()
+		} else {
+			out, err = l1BlockInfo.marshalBinaryEcotone()
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal Ecotone l1 block info: %w", err)
 		}
@@ -321,6 +431,15 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 		L1BlockHash: block.Hash(),
 		SeqNumber:   seqNumber,
 	}
+
+	// [Kroma: START]
+	if rollupCfg.IsKromaMPT(l2BlockTime) {
+		L1BlockAddress = oppredeploys.L1BlockAddr
+	} else {
+		L1BlockAddress = predeploys.L1BlockAddr
+	}
+	// [Kroma: END]
+
 	// Set a very large gas limit with `IsSystemTransaction` to ensure
 	// that the L1 Attributes Transaction does not run out of gas.
 	out := &types.DepositTx{

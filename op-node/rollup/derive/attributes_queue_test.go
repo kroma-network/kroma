@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
-	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
 // TestAttributesQueue checks that it properly uses the PreparePayloadAttributes function
@@ -59,6 +59,12 @@ func TestAttributesQueue(t *testing.T) {
 		GasLimit:              1234,
 		ValidatorRewardScalar: [32]byte{},
 	}
+	expectedMPTL1Cfg := eth.SystemConfig{
+		BatcherAddr: common.Address{42},
+		Overhead:    [32]byte{},
+		Scalar:      [32]byte{},
+		GasLimit:    1234,
+	}
 
 	testAttributes := func(l1InfoTx []byte, suggestedFeeRecipient common.Address) {
 		l1Fetcher := &testutils.MockL1Source{}
@@ -67,10 +73,15 @@ func TestAttributesQueue(t *testing.T) {
 		l2Fetcher := &testutils.MockL2Client{}
 		l2Fetcher.ExpectSystemConfigByL2Hash(safeHead.Hash, parentL1Cfg, nil)
 
+		parentBeaconRoot := l1Info.ParentBeaconRoot()
+		if cfg.IsEcotone(safeHead.Time+cfg.BlockTime) && parentBeaconRoot == nil { // default to zero hash if there is no beacon-block-root available
+			parentBeaconRoot = new(common.Hash)
+		}
 		attrs := eth.PayloadAttributes{
 			Timestamp:             eth.Uint64Quantity(safeHead.Time + cfg.BlockTime),
 			PrevRandao:            eth.Bytes32(l1Info.InfoMixDigest),
 			SuggestedFeeRecipient: suggestedFeeRecipient,
+			ParentBeaconBlockRoot: parentBeaconRoot,
 			Transactions:          []eth.Data{l1InfoTx, eth.Data("foobar"), eth.Data("example")},
 			NoTxPool:              true,
 			GasLimit:              (*eth.Uint64Quantity)(&expectedL1Cfg.GasLimit),
@@ -82,11 +93,17 @@ func TestAttributesQueue(t *testing.T) {
 		actual, err := aq.createNextAttributes(context.Background(), &batch, safeHead)
 
 		require.NoError(t, err)
-		require.Equal(t, attrs, *actual)
+		require.Equal(t, attrs, *actual, "Expected %v but got %v", attrs, actual)
 	}
 
 	t.Run("before kroma mpt time", func(st *testing.T) {
-		rollupCfg := rollup.Config{}
+		zero := uint64(0)
+		cfg.RegolithTime = &zero
+		cfg.EcotoneTime = &zero
+		rollupCfg := rollup.Config{
+			RegolithTime: &zero,
+			EcotoneTime:  &zero,
+		}
 		l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
 		require.NoError(st, err)
 
@@ -98,11 +115,15 @@ func TestAttributesQueue(t *testing.T) {
 	t.Run("after kroma mpt time", func(st *testing.T) {
 		zero := uint64(0)
 		cfg.KromaMPTTime = &zero
+		cfg.RegolithTime = &zero
+		cfg.EcotoneTime = &zero
 		rollupCfg := rollup.Config{
+			RegolithTime: &zero,
+			EcotoneTime:  &zero,
 			KromaMPTTime: &zero,
 		}
-		l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
+		l1InfoTx, err := L1InfoDepositBytes(&rollupCfg, expectedMPTL1Cfg, safeHead.SequenceNumber+1, l1Info, 0)
 		require.NoError(st, err)
-		testAttributes(l1InfoTx, predeploys.ProtocolVaultAddr)
+		testAttributes(l1InfoTx, predeploys.SequencerFeeVaultAddr)
 	})
 }
