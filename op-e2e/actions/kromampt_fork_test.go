@@ -2,8 +2,9 @@ package actions
 
 import (
 	"context"
-	oppredeploys "github.com/kroma-network/kroma/op-bindings/predeploys"
 	"testing"
+
+	oppredeploys "github.com/kroma-network/kroma/op-bindings/predeploys"
 
 	"github.com/stretchr/testify/require"
 
@@ -70,6 +71,8 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	require.NoError(t, err)
 
 	// Get current implementations addresses (by slot) for L1Block + GasPriceOracle
+	initialL1BlockAddress, err := ethCl.StorageAt(context.Background(), predeploys.L1BlockAddr, genesis.ImplementationSlot, nil)
+	require.NoError(t, err)
 	initialGasPriceOracleAddress, err := ethCl.StorageAt(context.Background(), predeploys.GasPriceOracleAddr, genesis.ImplementationSlot, nil)
 	require.NoError(t, err)
 
@@ -146,6 +149,7 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	updatedL1BlockAddress, err := ethCl.StorageAt(context.Background(), oppredeploys.L1BlockAddr, genesis.ImplementationSlot, latestBlock.Number())
 	require.NoError(t, err)
 	require.Equal(t, expectedL1BlockAddress, common.BytesToAddress(updatedL1BlockAddress))
+	require.NotEqualf(t, initialL1BlockAddress, updatedL1BlockAddress, "L1Block Proxy address should have changed")
 	verifyCodeHashMatches(t, ethCl, expectedL1BlockAddress, l1BlockMPTCodeHash)
 
 	// Check that KromaMPT was activated
