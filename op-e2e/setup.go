@@ -976,22 +976,9 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 // [Kroma: START]
 
-// getFreePort dynamically allocates an unused TCP port.
-func getFreePort() (int, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-	return listener.Addr().(*net.TCPAddr).Port, nil
-}
-
 func setupNodesForMPT(t *testing.T, cfg *SystemConfig) {
 	// Dynamically allocate a random unused port.
-	historicalRpcPort, err := getFreePort()
-	if err != nil {
-		t.Fatalf("failed to get a free port: %v", err)
-	}
+	historicalRpcPort := findAvailablePort(t)
 
 	// Setup historical rpc node.
 	cfg.Nodes["historical"] = &rollupNode.Config{
@@ -999,6 +986,11 @@ func setupNodesForMPT(t *testing.T, cfg *SystemConfig) {
 			VerifierConfDepth:  0,
 			SequencerConfDepth: 0,
 			SequencerEnabled:   false,
+		},
+		RPC: rollupNode.RPCConfig{
+			ListenAddr:  "127.0.0.1",
+			ListenPort:  0,
+			EnableAdmin: true,
 		},
 		L1EpochPollInterval:         time.Second * 4,
 		RuntimeConfigReloadInterval: time.Minute * 10,
