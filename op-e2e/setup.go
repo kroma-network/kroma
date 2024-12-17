@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -46,6 +47,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	geth_eth "github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
@@ -264,6 +266,9 @@ type SystemConfig struct {
 
 	// ValidatorVersion makes the version of validator system other than V1.
 	ValidatorVersion uint8
+
+	// SetupMPTMigration sets up the environment to migrate to Kroma MPT.
+	SetupMPTMigration bool
 	// [Kroma: END]
 }
 
@@ -485,6 +490,10 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	// [Kroma: START]
 	cfg.DeployConfig.ValidatorPoolRoundDuration = cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime / 2
 	cfg.DeployConfig.ValidatorManagerRoundDurationSeconds = cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime / 2
+
+	if cfg.SetupMPTMigration {
+		setupNodesForMPT(t, &cfg)
+	}
 	// [Kroma: END]
 	opts, err := NewSystemConfigOptions(_opts)
 	if err != nil {
@@ -912,7 +921,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	}
 
 	if cfg.EnableChallenge {
-		if err = cfg.StartChallengeSystem(sys); err != nil {
+		if err = startChallengeSystem(sys, &cfg); err != nil {
 			return nil, fmt.Errorf("unable to start challenge system: %w", err)
 		}
 	}
@@ -967,7 +976,72 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 // [Kroma: START]
 
-func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
+// getFreePort dynamically allocates an unused TCP port.
+func getFreePort() (int, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer listener.Close()
+	return listener.Addr().(*net.TCPAddr).Port, nil
+}
+
+func setupNodesForMPT(t *testing.T, cfg *SystemConfig) {
+	// Dynamically allocate a random unused port.
+	historicalRpcPort, err := getFreePort()
+	if err != nil {
+		t.Fatalf("failed to get a free port: %v", err)
+	}
+
+	// Setup historical rpc node.
+	cfg.Nodes["historical"] = &rollupNode.Config{
+		Driver: driver.Config{
+			VerifierConfDepth:  0,
+			SequencerConfDepth: 0,
+			SequencerEnabled:   false,
+		},
+		L1EpochPollInterval:         time.Second * 4,
+		RuntimeConfigReloadInterval: time.Minute * 10,
+		ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
+		Sync:                        sync.Config{SyncMode: sync.CLSync},
+	}
+	cfg.Loggers["historical"] = testlog.Logger(t, log.LevelInfo).New("role", "historical")
+	cfg.GethOptions["historical"] = append(cfg.GethOptions["historical"], []geth.GethOption{
+		func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
+			nodeCfg.HTTPPort = historicalRpcPort
+			nodeCfg.HTTPModules = []string{"debug", "eth"}
+			nodeCfg.HTTPHost = "127.0.0.1"
+			return nil
+		},
+	}...)
+
+	// Set historical rpc endpoint.
+	for name := range cfg.Nodes {
+		name := name
+		cfg.GethOptions[name] = append(cfg.GethOptions[name], []geth.GethOption{
+			func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
+				// Since the migration process requires preimages, enable storing preimage option.
+				ethCfg.Preimages = true
+				ethCfg.RollupHistoricalRPC = fmt.Sprintf("http://127.0.0.1:%d", historicalRpcPort)
+				if name == "historical" {
+					ethCfg.RollupHistoricalRPC = ""
+					ethCfg.DisableMPTMigration = true
+				}
+				// Deep copy the genesis
+				dst := &core.Genesis{}
+				b, _ := json.Marshal(ethCfg.Genesis)
+				err := json.Unmarshal(b, dst)
+				if err != nil {
+					return err
+				}
+				ethCfg.Genesis = dst
+				return nil
+			},
+		}...)
+	}
+}
+
+func startChallengeSystem(sys *System, cfg *SystemConfig) error {
 	l1Client := sys.NodeClient("l1")
 
 	// Deploy MockColosseum which has setL1Head function for challenge test
