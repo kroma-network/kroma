@@ -146,7 +146,7 @@ func TestMPTNetworkTransactions(t *testing.T) {
 		require.Equal(t, deployGasPriceOracleSender, GasPriceOracleMPTDeployerAddress)
 		require.Equal(t, deployGasPriceOracleMPTSource.SourceHash(), deployGasPriceOracle.SourceHash())
 		require.Nil(t, deployGasPriceOracle.To())
-		require.Equal(t, uint64(1_000_000), deployGasPriceOracle.Gas())
+		require.Equal(t, uint64(1_500_000), deployGasPriceOracle.Gas())
 		require.Equal(t, hexutil.Bytes(gasPriceOracleMPTDeploymentBytecode).String(), hexutil.Bytes(deployGasPriceOracle.Data()).String())
 
 		updateL1BlockProxySender, updateL1BlockProxy := toDepositTxn(t, upgradeTxns[5])
