@@ -1481,8 +1481,8 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	// Wait until Kroma MPT migration completed when it's set
 	if cfg.DeployConfig.L2GenesisKromaMPTTimeOffset != nil {
 		mptTimeOffset := *cfg.DeployConfig.L2GenesisKromaMPTTimeOffset
-		mptMigrationNextBlock := uint64(mptTimeOffset)/cfg.DeployConfig.L2BlockTime + 1
-		_, err = geth.WaitForBlock(big.NewInt(int64(mptMigrationNextBlock)), l2Seq, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+		mptBlock := uint64(mptTimeOffset) / cfg.DeployConfig.L2BlockTime
+		_, err = geth.WaitForBlock(big.NewInt(int64(mptBlock)), l2Seq, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
 		require.NoError(t, err)
 	}
 
@@ -1540,6 +1540,8 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	l1Fee := l1CostFn(tx.RollupCostData(), header.Time)
 	isKromaMPT := sys.RollupConfig.IsKromaMPT(header.Time)
 	if isKromaMPT {
+		require.Equal(t, oppredeploys.SequencerFeeVaultAddr, header.Coinbase, "coinbase should be sequencer fee vault")
+
 		// BaseFee Recipient
 		baseFeeRecipientStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.BaseFeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
 		require.Nil(t, err)
@@ -1560,25 +1562,14 @@ func testFees(t *testing.T, cfg SystemConfig) {
 		sequencerFeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, header.Number)
 		require.Nil(t, err)
 
-		// Note that coinbase address of genesis block cannot be set to SequencerFeeVault address in Kroma.
-		// So here we use header.Coinbase rather than genesis.Coinbase()
-		coinbaseStartBalance, err := l2Seq.BalanceAt(context.Background(), header.Coinbase, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-		require.NoError(t, err)
-
-		coinbaseEndBalance, err := l2Seq.BalanceAt(context.Background(), header.Coinbase, header.Number)
-		require.Nil(t, err)
-
-		// Diff fee recipient + coinbase balances
+		// Diff fee recipient balances
 		baseFeeRecipientDiff := new(big.Int).Sub(baseFeeRecipientEndBalance, baseFeeRecipientStartBalance)
 		l1FeeRecipientDiff := new(big.Int).Sub(l1FeeRecipientEndBalance, l1FeeRecipientStartBalance)
 		sequencerFeeVaultDiff := new(big.Int).Sub(sequencerFeeVaultEndBalance, sequencerFeeVaultStartBalance)
-		coinbaseDiff := new(big.Int).Sub(coinbaseEndBalance, coinbaseStartBalance)
 
 		// Tally L2 Fee
 		l2Fee := gasTip.Mul(gasTip, new(big.Int).SetUint64(receipt.GasUsed))
-		require.Equal(t, sequencerFeeVaultDiff, coinbaseDiff, "coinbase is always sequencer fee vault")
-		require.Equal(t, l2Fee, coinbaseDiff, "l2 fee mismatch")
-		require.Equal(t, l2Fee, sequencerFeeVaultDiff)
+		require.Equal(t, l2Fee, sequencerFeeVaultDiff, "l2 fee mismatch")
 
 		// Tally BaseFee
 		baseFee := new(big.Int).Mul(header.BaseFee, new(big.Int).SetUint64(receipt.GasUsed))
@@ -1589,7 +1580,7 @@ func testFees(t *testing.T, cfg SystemConfig) {
 			l1FeeRecipientStartBalance, l1FeeRecipientEndBalance)
 
 		// Calculate total fee
-		baseFeeRecipientDiff.Add(baseFeeRecipientDiff, coinbaseDiff)
+		baseFeeRecipientDiff.Add(baseFeeRecipientDiff, sequencerFeeVaultDiff)
 		totalFee = new(big.Int).Add(baseFeeRecipientDiff, l1FeeRecipientDiff)
 	} else {
 		// Check balances of ProtocolVault
