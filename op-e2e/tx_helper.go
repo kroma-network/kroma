@@ -3,12 +3,10 @@ package op_e2e
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,7 +24,7 @@ import (
 // The L2 transaction options can be configured by modifying the DepositTxOps value supplied to applyL2Opts
 // Will verify that the transaction is included with the expected status on L1 and L2
 // Returns the receipt of the L2 transaction
-func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l2Client *ethclient.Client, l1Opts *bind.TransactOpts, applyL2Opts DepositTxOptsFn) *types.Receipt {
+func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l2Client *ethclient.Client, l1Opts *bind.TransactOpts, applyL2Opts DepositTxOptsFn, isKromaMPT ...bool) *types.Receipt {
 	l2Opts := defaultDepositTxOpts(l1Opts)
 	applyL2Opts(l2Opts)
 
@@ -53,17 +51,10 @@ func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l
 	require.NoError(t, err, "Could not reconstruct L2 Deposit")
 	tx = types.NewTx(reconstructedDep)
 	// [Kroma: START] Use KromaDepositTx instead of DepositTx
-	// If a receipt cannot be found using the DepositTx hash, it is converted to a KromaDepositTx.
-	_, err = l2Client.TransactionReceipt(ctx, tx.Hash())
-	if err != nil {
-		if errors.Is(err, ethereum.NotFound) {
-			tx, err = tx.ToKromaDepositTx()
-			require.NoError(t, err, "failed to convert DepositTx to KromaDepositTx")
-		} else {
-			require.Fail(t, "failed to get deposit tx with reconstructed tx hash", err)
-		}
+	if len(isKromaMPT) == 0 || !isKromaMPT[0] {
+		tx, err = tx.ToKromaDepositTx()
+		require.NoError(t, err, "failed to convert DepositTx to KromaDepositTx")
 	}
-	require.NoError(t, err)
 	// [Kroma: END]
 	l2Receipt, err := wait.ForReceipt(ctx, l2Client, tx.Hash(), l2Opts.ExpectedStatus)
 	require.NoError(t, err, "Waiting for deposit tx on L2")
