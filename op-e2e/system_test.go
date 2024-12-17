@@ -1301,7 +1301,7 @@ func testWithdrawals(t *testing.T, cfg SystemConfig) {
 	mintAmount := big.NewInt(1_000_000_000_000)
 	opts.Value = mintAmount
 	// [Kroma: START]
-	var isKromaMPT = false
+	isKromaMPT := false
 	if cfg.DeployConfig.L2GenesisKromaMPTTimeOffset != nil {
 		mptTimeOffset := *cfg.DeployConfig.L2GenesisKromaMPTTimeOffset
 		mptMigrationNextBlock := uint64(mptTimeOffset)/cfg.DeployConfig.L2BlockTime + 1
@@ -1513,36 +1513,7 @@ func testFees(t *testing.T, cfg SystemConfig) {
 
 	require.Equal(t, decimals.Uint64(), uint64(6), "wrong gpo decimals")
 
-	// Fee recipients before Kroma MPT
-	// Check balances of ProtocolVault
-	protocolVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
-	// Check balances of L1FeeVault
-	l1FeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
-	// Check balance of ValidatorRewardVault
-	validatorRewardVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
-	// Fee recipients after Kroma MPT
-	// BaseFee Recipient
-	baseFeeRecipientStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.BaseFeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
-	// L1Fee Recipient
-	l1FeeRecipientStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
-	sequencerFeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
 	// Simple transfer from signer to random account
-	startBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-	require.Greater(t, startBalance.Uint64(), big.NewInt(params.Ether).Uint64())
-
 	transferAmount := big.NewInt(params.Ether)
 	gasTip := big.NewInt(10)
 	receipt := SendL2Tx(t, cfg, l2Seq, ethPrivKey, func(opts *TxOpts) {
@@ -1559,46 +1530,89 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	header, err := l2Seq.HeaderByNumber(context.Background(), receipt.BlockNumber)
 	require.Nil(t, err)
 
-	// Fee recipients before Kroma MPT
-	protocolVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	l1FeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	validatorRewardVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	// Fee recipients after Kroma MPT
-	baseFeeRecipientEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.BaseFeeVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	l1FeeRecipientEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.L1FeeVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	sequencerFeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	// Note that coinbase address of genesis block cannot be set to SequencerFeeVault address in Kroma.
-	// So here we use header.Coinbase rather than genesis.Coinbase()
-	coinbaseStartBalance, err := l2Seq.BalanceAt(context.Background(), header.Coinbase, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.NoError(t, err)
-
-	coinbaseEndBalance, err := l2Seq.BalanceAt(context.Background(), header.Coinbase, header.Number)
-	require.Nil(t, err)
-
-	endBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, header.Number)
-	require.Nil(t, err)
-
 	l1Header, err := l1.HeaderByNumber(context.Background(), nil)
 	require.Nil(t, err)
 
 	tx, _, err := l2Seq.TransactionByHash(context.Background(), receipt.TxHash)
 	require.NoError(t, err, "Should be able to get transaction")
 
-	l1Fee := l1CostFn(tx.RollupCostData(), header.Time)
 	var totalFee *big.Int
-	if !sys.RollupConfig.IsKromaMPT(header.Time) {
+	l1Fee := l1CostFn(tx.RollupCostData(), header.Time)
+	isKromaMPT := sys.RollupConfig.IsKromaMPT(header.Time)
+	if isKromaMPT {
+		// BaseFee Recipient
+		baseFeeRecipientStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.BaseFeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		baseFeeRecipientEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.BaseFeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// L1Fee Recipient
+		l1FeeRecipientStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		l1FeeRecipientEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.L1FeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		sequencerFeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		sequencerFeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Note that coinbase address of genesis block cannot be set to SequencerFeeVault address in Kroma.
+		// So here we use header.Coinbase rather than genesis.Coinbase()
+		coinbaseStartBalance, err := l2Seq.BalanceAt(context.Background(), header.Coinbase, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.NoError(t, err)
+
+		coinbaseEndBalance, err := l2Seq.BalanceAt(context.Background(), header.Coinbase, header.Number)
+		require.Nil(t, err)
+
+		// Diff fee recipient + coinbase balances
+		baseFeeRecipientDiff := new(big.Int).Sub(baseFeeRecipientEndBalance, baseFeeRecipientStartBalance)
+		l1FeeRecipientDiff := new(big.Int).Sub(l1FeeRecipientEndBalance, l1FeeRecipientStartBalance)
+		sequencerFeeVaultDiff := new(big.Int).Sub(sequencerFeeVaultEndBalance, sequencerFeeVaultStartBalance)
+		coinbaseDiff := new(big.Int).Sub(coinbaseEndBalance, coinbaseStartBalance)
+
+		// Tally L2 Fee
+		l2Fee := gasTip.Mul(gasTip, new(big.Int).SetUint64(receipt.GasUsed))
+		require.Equal(t, sequencerFeeVaultDiff, coinbaseDiff, "coinbase is always sequencer fee vault")
+		require.Equal(t, l2Fee, coinbaseDiff, "l2 fee mismatch")
+		require.Equal(t, l2Fee, sequencerFeeVaultDiff)
+
+		// Tally BaseFee
+		baseFee := new(big.Int).Mul(header.BaseFee, new(big.Int).SetUint64(receipt.GasUsed))
+		require.Equal(t, baseFee, baseFeeRecipientDiff, "base fee fee mismatch")
+
+		// Tally L1 Fee
+		require.Equalf(t, l1Fee.Uint64(), l1FeeRecipientDiff.Uint64(), "L1 fee mismatch: start balance %v, end balance %v",
+			l1FeeRecipientStartBalance, l1FeeRecipientEndBalance)
+
+		// Calculate total fee
+		baseFeeRecipientDiff.Add(baseFeeRecipientDiff, coinbaseDiff)
+		totalFee = new(big.Int).Add(baseFeeRecipientDiff, l1FeeRecipientDiff)
+	} else {
+		// Check balances of ProtocolVault
+		protocolVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		protocolVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Check balances of L1FeeVault
+		l1FeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		l1FeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Check balance of ValidatorRewardVault
+		validatorRewardVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		validatorRewardVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, header.Number)
+		require.Nil(t, err)
+
 		// Diff fee recipients balances
 		protocolVaultDiff := new(big.Int).Sub(protocolVaultEndBalance, protocolVaultStartBalance)
 		l1FeeVaultDiff := new(big.Int).Sub(l1FeeVaultEndBalance, l1FeeVaultStartBalance)
@@ -1633,40 +1647,16 @@ func testFees(t *testing.T, cfg SystemConfig) {
 		// Calculate total fee
 		protocolVaultDiff.Add(protocolVaultDiff, validatorRewardVaultDiff)
 		totalFee = new(big.Int).Add(protocolVaultDiff, l1FeeVaultDiff)
-	} else {
-		// Diff fee recipient + coinbase balances
-		baseFeeRecipientDiff := new(big.Int).Sub(baseFeeRecipientEndBalance, baseFeeRecipientStartBalance)
-		l1FeeRecipientDiff := new(big.Int).Sub(l1FeeRecipientEndBalance, l1FeeRecipientStartBalance)
-		sequencerFeeVaultDiff := new(big.Int).Sub(sequencerFeeVaultEndBalance, sequencerFeeVaultStartBalance)
-		coinbaseDiff := new(big.Int).Sub(coinbaseEndBalance, coinbaseStartBalance)
-
-		// Tally L2 Fee
-		l2Fee := gasTip.Mul(gasTip, new(big.Int).SetUint64(receipt.GasUsed))
-		require.Equal(t, sequencerFeeVaultDiff, coinbaseDiff, "coinbase is always sequencer fee vault")
-		require.Equal(t, l2Fee, coinbaseDiff, "l2 fee mismatch")
-		require.Equal(t, l2Fee, sequencerFeeVaultDiff)
-
-		// Tally BaseFee
-		baseFee := new(big.Int).Mul(header.BaseFee, new(big.Int).SetUint64(receipt.GasUsed))
-		require.Equal(t, baseFee, baseFeeRecipientDiff, "base fee fee mismatch")
-
-		// Tally L1 Fee
-		require.Equalf(t, l1Fee.Uint64(), l1FeeRecipientDiff.Uint64(), "L1 fee mismatch: start balance %v, end balance %v",
-			l1FeeRecipientStartBalance, l1FeeRecipientEndBalance)
-
-		// Calculate total fee
-		baseFeeRecipientDiff.Add(baseFeeRecipientDiff, coinbaseDiff)
-		totalFee = new(big.Int).Add(baseFeeRecipientDiff, l1FeeRecipientDiff)
 	}
 
 	gpoEcotone, err := gpoContract.IsEcotone(nil)
 	require.NoError(t, err)
 	require.Equal(t, sys.RollupConfig.IsEcotone(header.Time), gpoEcotone, "GPO and chain must have same ecotone view")
 
-	if sys.RollupConfig.IsKromaMPT(header.Time) {
+	if isKromaMPT {
 		gpoKromaMPT, err := gpoContract.IsKromaMPT(nil)
 		require.NoError(t, err)
-		require.Equal(t, sys.RollupConfig.IsKromaMPT(header.Time), gpoKromaMPT, "GPO and chain must have same kroma mpt view")
+		require.Equal(t, isKromaMPT, gpoKromaMPT, "GPO and chain must have same kroma mpt view")
 	}
 
 	bytes, err := tx.MarshalBinary()
@@ -1695,6 +1685,13 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	}
 
 	// Check total fee
+	startBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+	require.Nil(t, err)
+	require.Greater(t, startBalance.Uint64(), big.NewInt(params.Ether).Uint64())
+
+	endBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, header.Number)
+	require.Nil(t, err)
+
 	balanceDiff := new(big.Int).Sub(startBalance, endBalance)
 	balanceDiff.Sub(balanceDiff, transferAmount)
 	require.Equal(t, balanceDiff, totalFee, "balances should add up")
