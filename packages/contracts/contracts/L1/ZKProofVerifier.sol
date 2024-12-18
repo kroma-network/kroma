@@ -200,11 +200,11 @@ contract ZKProofVerifier is ISemver {
         _validatePublicInputOutput(
             _storedSrcOutput,
             _storedDstOutput,
-            bytes32(_zkVmProof.publicValues[:32]),
-            bytes32(_zkVmProof.publicValues[32:64])
+            bytes32(_zkVmProof.publicValues[8:40]),
+            bytes32(_zkVmProof.publicValues[48:80])
         );
 
-        if (bytes32(_zkVmProof.publicValues[64:96]) != _storedL1Head) revert InvalidPublicInput();
+        if (bytes32(_zkVmProof.publicValues[88:120]) != _storedL1Head) revert InvalidPublicInput();
 
         SP1_VERIFIER.verifyProof(
             ZKVM_PROGRAM_V_KEY,

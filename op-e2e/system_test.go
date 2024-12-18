@@ -2115,20 +2115,23 @@ func TestChallengerTimeoutByGuardian(t *testing.T) {
 }
 
 func TestZkVMChallenge(t *testing.T) {
-	t.Skip("Temporarily skip, enable when test data added") // TODO(seolaoh)
 	InitParallel(t)
 
-	cfg := DefaultSystemConfig(t)
 	genesisBlock := hexutil.Uint64(0)
-	mptTimeOffset := hexutil.Uint64(2)
+	ecotoneTimeOffset := hexutil.Uint64(2)
+	mptTimeOffset := hexutil.Uint64(16)
+
+	cfg := DefaultSystemConfig(t)
+	cfg.SetupMPTMigration = true
 	cfg.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
-	cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &genesisBlock
+	cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &ecotoneTimeOffset
 	cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
 	cfg.DeployConfig.L1BlockTime = 3
 	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle
 	cfg.EnableChallenge = true
 	cfg.ChallengeProofType = testdata.ZkVMType
 	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
+	cfg.ValidatorVersion = valhelper.ValidatorV2
 
 	sys, err := cfg.Start(t)
 	require.NoError(t, err, "Error starting up system")
@@ -2139,6 +2142,10 @@ func TestZkVMChallenge(t *testing.T) {
 
 	// Deposit to ValidatorPool to be a challenger
 	validatorHelper.DepositToValPool(cfg.Secrets.Challenger1, big.NewInt(1_000_000_000))
+
+	// Register to ValidatorManager to be a challenger
+	validatorHelper.RegisterToValMgr(cfg.Secrets.Challenger1,
+		cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt(), cfg.Secrets.Addresses().Challenger1)
 
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
 	require.NoError(t, err)
