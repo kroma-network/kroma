@@ -490,10 +490,6 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	// [Kroma: START]
 	cfg.DeployConfig.ValidatorPoolRoundDuration = cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime / 2
 	cfg.DeployConfig.ValidatorManagerRoundDurationSeconds = cfg.DeployConfig.L2OutputOracleSubmissionInterval * cfg.DeployConfig.L2BlockTime / 2
-
-	if cfg.SetupMPTMigration {
-		setupNodesForMPT(t, &cfg)
-	}
 	// [Kroma: END]
 	opts, err := NewSystemConfigOptions(_opts)
 	if err != nil {
@@ -632,7 +628,8 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		return nil, err
 	}
 
-	for name := range cfg.Nodes {
+	// [Kroma: START]
+	initializeNode := func(name string) (EthInstance, error) {
 		var ethClient EthInstance
 		if cfg.ExternalL2Shim == "" {
 			node, backend, err := geth.InitL2(name, big.NewInt(int64(cfg.DeployConfig.L2ChainID)), l2Genesis, cfg.JWTFilePath, cfg.GethOptions[name]...)
@@ -659,6 +656,26 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 				JWTPath: cfg.JWTFilePath,
 			}).Run(t)
 		}
+		return ethClient, nil
+	}
+
+	if cfg.SetupMPTMigration {
+		ethClient, err := setupNodesForMPT(t, &cfg, initializeNode)
+		if err != nil {
+			return nil, err
+		}
+		sys.EthInstances["historical"] = ethClient
+	}
+
+	for name := range cfg.Nodes {
+		if name == "historical" {
+			continue
+		}
+		ethClient, err := initializeNode(name)
+		if err != nil {
+			return nil, err
+		}
+		// [Kroma: END]
 		sys.EthInstances[name] = ethClient
 	}
 
@@ -976,49 +993,57 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 // [Kroma: START]
 
-func setupNodesForMPT(t *testing.T, cfg *SystemConfig) {
-	// Dynamically allocate a random unused port.
-	historicalRpcPort := findAvailablePort(t)
-
+func setupNodesForMPT(
+	t *testing.T, cfg *SystemConfig, initializeNode func(name string) (EthInstance, error),
+) (EthInstance, error) {
 	// Setup historical rpc node.
-	cfg.Nodes["historical"] = &rollupNode.Config{
+	historicalName := "historical"
+	cfg.Nodes[historicalName] = &rollupNode.Config{
 		Driver: driver.Config{
 			VerifierConfDepth:  0,
 			SequencerConfDepth: 0,
 			SequencerEnabled:   false,
-		},
-		RPC: rollupNode.RPCConfig{
-			ListenAddr:  "127.0.0.1",
-			ListenPort:  0,
-			EnableAdmin: true,
 		},
 		L1EpochPollInterval:         time.Second * 4,
 		RuntimeConfigReloadInterval: time.Minute * 10,
 		ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
 		Sync:                        sync.Config{SyncMode: sync.CLSync},
 	}
-	cfg.Loggers["historical"] = testlog.Logger(t, log.LevelInfo).New("role", "historical")
-	cfg.GethOptions["historical"] = append(cfg.GethOptions["historical"], []geth.GethOption{
+	cfg.Loggers[historicalName] = testlog.Logger(t, log.LevelInfo).New("role", historicalName)
+	cfg.GethOptions[historicalName] = append(cfg.GethOptions[historicalName], []geth.GethOption{
 		func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
-			nodeCfg.HTTPPort = historicalRpcPort
 			nodeCfg.HTTPModules = []string{"debug", "eth"}
-			nodeCfg.HTTPHost = "127.0.0.1"
+			ethCfg.RollupHistoricalRPC = ""
+			ethCfg.DisableMPTMigration = true
+			// Deep copy the genesis
+			dst := &core.Genesis{}
+			b, _ := json.Marshal(ethCfg.Genesis)
+			err := json.Unmarshal(b, dst)
+			if err != nil {
+				return err
+			}
+			ethCfg.Genesis = dst
 			return nil
 		},
 	}...)
 
+	ethClient, err := initializeNode(historicalName)
+	if err != nil {
+		return nil, err
+	}
+
 	// Set historical rpc endpoint.
+	historicalEndpoint := ethClient.HTTPEndpoint()
 	for name := range cfg.Nodes {
+		if name == historicalName {
+			continue
+		}
 		name := name
 		cfg.GethOptions[name] = append(cfg.GethOptions[name], []geth.GethOption{
 			func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
 				// Since the migration process requires preimages, enable storing preimage option.
 				ethCfg.Preimages = true
-				ethCfg.RollupHistoricalRPC = fmt.Sprintf("http://127.0.0.1:%d", historicalRpcPort)
-				if name == "historical" {
-					ethCfg.RollupHistoricalRPC = ""
-					ethCfg.DisableMPTMigration = true
-				}
+				ethCfg.RollupHistoricalRPC = historicalEndpoint
 				// Deep copy the genesis
 				dst := &core.Genesis{}
 				b, _ := json.Marshal(ethCfg.Genesis)
@@ -1031,6 +1056,8 @@ func setupNodesForMPT(t *testing.T, cfg *SystemConfig) {
 			},
 		}...)
 	}
+
+	return ethClient, nil
 }
 
 func startChallengeSystem(sys *System, cfg *SystemConfig) error {
