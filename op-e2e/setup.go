@@ -1075,6 +1075,32 @@ func startChallengeSystem(sys *System, cfg *SystemConfig) error {
 		return fmt.Errorf("unable to replace Colosseum: %w", err)
 	}
 
+	// Deploy SP1Verifier contract
+	sp1Verifier, deployTx, err := e2eutils.DeploySP1Verifier(
+		l1Client,
+		cfg.Secrets.SysCfgOwner,
+		cfg.L1ChainIDBig(),
+	)
+	if err != nil {
+		return fmt.Errorf("unable to deploy SP1Verifier: %w", err)
+	}
+
+	err = waitDeployAndUpgradeTxs(l1Client, deployTx.Hash())
+
+	// Deploy new ZKProofVerifier impl and upgrade ZKProofVerifier proxy
+	deployTx, upgradeTx, err = e2eutils.RedeployZKProofVerifier(
+		l1Client,
+		cfg.Secrets.SysCfgOwner,
+		cfg.L1ChainIDBig(),
+		cfg.L1Deployments,
+		cfg.DeployConfig,
+		sp1Verifier,
+		cfg.DeployConfig.ZKProofVerifierVKey,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to redeploy ZKProofVerifier: %w", err)
+	}
+
 	// Check deploy tx and upgrade tx submission were successful
 	err = waitDeployAndUpgradeTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
 	if err != nil {
@@ -1190,16 +1216,15 @@ func startChallengeSystem(sys *System, cfg *SystemConfig) error {
 	return nil
 }
 
-func waitDeployAndUpgradeTxs(client *ethclient.Client, deployTx, upgradeTx common.Hash) error {
+func waitDeployAndUpgradeTxs(client *ethclient.Client, txs ...common.Hash) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	_, err := wait.ForReceiptOK(ctx, client, deployTx)
-	if err != nil {
-		return fmt.Errorf("failed to wait deploy tx success: %w", err)
-	}
-	_, err = wait.ForReceiptOK(ctx, client, upgradeTx)
-	if err != nil {
-		return fmt.Errorf("failed to wait upgrade tx success: %w", err)
+
+	for _, tx := range txs {
+		_, err := wait.ForReceiptOK(ctx, client, tx)
+		if err != nil {
+			return fmt.Errorf("failed to wait deploy/upgrade tx success: %w", err)
+		}
 	}
 	return nil
 }

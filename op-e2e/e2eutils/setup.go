@@ -379,4 +379,70 @@ func ReplaceWithMockColosseum(
 	return
 }
 
+// DeploySP1Verifier deploys a SP!VerifierPlonk contract which is used in ZKProofVerifier.
+func DeploySP1Verifier(
+	l1Client *ethclient.Client,
+	sysCfgOwner *ecdsa.PrivateKey,
+	l1ChainID *big.Int,
+) (address common.Address, deployTx *types.Transaction, err error) {
+	txOpts, err := bind.NewKeyedTransactorWithChainID(sysCfgOwner, l1ChainID)
+	if err != nil {
+		return
+	}
+
+	// Deploy a SP1Verifier implementation
+	address, deployTx, _, err = bindings.DeploySP1Verifier(
+		txOpts,
+		l1Client,
+	)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// RedeployZKProofVerifier deploys a new ZKProofVerifier with given SP1Verifier and zkVmProgramKey.
+func RedeployZKProofVerifier(
+	l1Client *ethclient.Client,
+	sysCfgOwner *ecdsa.PrivateKey,
+	l1ChainID *big.Int,
+	l1Deployments *genesis.L1Deployments,
+	deployConfig *genesis.DeployConfig,
+	sp1Verifier common.Address,
+	zkVmProgramKey [32]byte,
+) (deployTx, upgradeTx *types.Transaction, err error) {
+	txOpts, err := bind.NewKeyedTransactorWithChainID(sysCfgOwner, l1ChainID)
+	if err != nil {
+		return
+	}
+
+	// Deploy a ZKProofVerifier implementation
+	implAddr, deployTx, _, err := bindings.DeployZKProofVerifier(
+		txOpts,
+		l1Client,
+		l1Deployments.ZKVerifier,
+		deployConfig.ColosseumDummyHash,
+		new(big.Int).SetUint64(deployConfig.ColosseumMaxTxs),
+		l1Deployments.ZKMerkleTrie,
+		sp1Verifier,
+		zkVmProgramKey,
+	)
+	if err != nil {
+		return
+	}
+
+	// Upgrade ZKProofVerifierProxy to the deployed implementation address
+	proxyAdmin, err := bindings.NewProxyAdminTransactor(l1Deployments.ProxyAdmin, l1Client)
+	if err != nil {
+		return
+	}
+	upgradeTx, err = proxyAdmin.Upgrade(txOpts, l1Deployments.ZKProofVerifierProxy, implAddr)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 // [Kroma: END]
