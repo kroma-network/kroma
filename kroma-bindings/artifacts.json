@@ -28,6 +28,7 @@
   "ProxyAdmin",
   "SecurityCouncil",
   "SecurityCouncilToken",
+  "SP1Verifier",
   "StandardBridge",
   "SystemConfig",
   "TimeLock",
