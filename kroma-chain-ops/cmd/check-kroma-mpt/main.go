@@ -20,6 +20,7 @@ import (
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/ethereum-optimism/optimism/op-service/opio"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -28,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli/v2"
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
@@ -53,6 +55,7 @@ func main() {
 				makeCommand("miner-addr", checkMinerAddr),
 				makeCommand("fee-distribution", checkFeeDistribution),
 				makeCommand("l1-block-addr-data", checkL1BlockAddrAndData),
+				makeCommand("historical-rpc", checkHistoricalRPC),
 				makeCommand("l1-block", checkL1Block),
 				makeCommand("gpo", checkGPO),
 				makeCommand("eip-6780-selfdestruct", checkSelfdestruct),
@@ -162,12 +165,12 @@ func makeCommandAction(fn CheckAction) func(c *cli.Context) error {
 	}
 }
 
-type blocksBtwMPT struct {
+type mptBlockWithParent struct {
 	prevBlock *types.Block
 	mptBlock  *types.Block
 }
 
-func getBlocksBtwMPT(ctx context.Context, env *actionEnv) (*blocksBtwMPT, error) {
+func getMPTBlockWithParent(ctx context.Context, env *actionEnv) (*mptBlockWithParent, error) {
 	conf, err := env.rollupCl.RollupConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -189,13 +192,13 @@ func getBlocksBtwMPT(ctx context.Context, env *actionEnv) (*blocksBtwMPT, error)
 		return nil, err
 	}
 
-	return &blocksBtwMPT{prevBlock, mptBlock}, nil
+	return &mptBlockWithParent{prevBlock, mptBlock}, nil
 }
 
 func checkIsSystemTx(ctx context.Context, env *actionEnv) error {
-	blocks, err := getBlocksBtwMPT(ctx, env)
+	blocks, err := getMPTBlockWithParent(ctx, env)
 	if err != nil {
-		return fmt.Errorf("failed to get blocks btw mpt: %w", err)
+		return fmt.Errorf("failed to get mpt and parent block: %w", err)
 	}
 
 	for _, tx := range blocks.prevBlock.Transactions() {
@@ -235,9 +238,9 @@ func checkIsSystemTx(ctx context.Context, env *actionEnv) error {
 }
 
 func checkMinerAddr(ctx context.Context, env *actionEnv) error {
-	blocks, err := getBlocksBtwMPT(ctx, env)
+	blocks, err := getMPTBlockWithParent(ctx, env)
 	if err != nil {
-		return fmt.Errorf("failed to get blocks btw mpt: %w", err)
+		return fmt.Errorf("failed to get mpt and parent block: %w", err)
 	}
 
 	if blocks.prevBlock.Coinbase().Cmp(common.Address{}) != 0 {
@@ -304,9 +307,9 @@ func checkFeeDistribution(ctx context.Context, env *actionEnv) error {
 }
 
 func checkL1BlockAddrAndData(ctx context.Context, env *actionEnv) error {
-	blocks, err := getBlocksBtwMPT(ctx, env)
+	blocks, err := getMPTBlockWithParent(ctx, env)
 	if err != nil {
-		return fmt.Errorf("failed to get blocks btw mpt: %w", err)
+		return fmt.Errorf("failed to get mpt and parent block: %w", err)
 	}
 
 	prevL1InfoTx := blocks.prevBlock.Transactions()[0]
@@ -330,6 +333,87 @@ func checkL1BlockAddrAndData(ctx context.Context, env *actionEnv) error {
 	return nil
 }
 
+func checkHistoricalRPC(ctx context.Context, env *actionEnv) error {
+	blocks, err := getMPTBlockWithParent(ctx, env)
+	if err != nil {
+		return fmt.Errorf("failed to get mpt and parent block: %w", err)
+	}
+
+	rollupCfg, err := env.rollupCl.RollupConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve rollup config: %w", err)
+	}
+	l2RPC := client.NewBaseRPCClient(env.l2.Client())
+	l2EthCl, err := sources.NewL2Client(l2RPC, env.log, nil, sources.L2ClientDefaultConfig(rollupCfg, false))
+	if err != nil {
+		return fmt.Errorf("failed to create eth client: %w", err)
+	}
+
+	genesisBlockNum := big.NewInt(rpc.EarliestBlockNumber.Int64())
+	prevBlockNum := blocks.prevBlock.Number()
+	_, err = env.l2.BalanceAt(ctx, env.addr, genesisBlockNum)
+	if err != nil {
+		return fmt.Errorf("failed to get balance at genesis: %w", err)
+	}
+	_, err = env.l2.BalanceAt(ctx, env.addr, prevBlockNum)
+	if err != nil {
+		return fmt.Errorf("failed to get balance at mpt previous block: %w", err)
+	}
+
+	_, err = l2EthCl.GetProof(ctx, predeploys.KromaL1BlockAddr, []common.Hash{}, "earliest")
+	if err != nil {
+		return fmt.Errorf("failed to get proof at genesis: %w", err)
+	}
+	_, err = l2EthCl.GetProof(ctx, predeploys.KromaL1BlockAddr, []common.Hash{}, blocks.prevBlock.Hash().Hex())
+	if err != nil {
+		return fmt.Errorf("failed to get proof at mpt previous block: %w", err)
+	}
+
+	_, err = env.l2.CodeAt(ctx, predeploys.KromaL1BlockAddr, genesisBlockNum)
+	if err != nil {
+		return fmt.Errorf("failed to get code at genesis: %w", err)
+	}
+	_, err = env.l2.CodeAt(ctx, predeploys.KromaL1BlockAddr, prevBlockNum)
+	if err != nil {
+		return fmt.Errorf("failed to get code at mpt previous block: %w", err)
+	}
+
+	_, err = l2EthCl.GetStorageAt(ctx, predeploys.KromaL1BlockAddr, common.Hash{}, "earliest")
+	if err != nil {
+		return fmt.Errorf("failed to get storage at genesis: %w", err)
+	}
+	_, err = l2EthCl.GetStorageAt(ctx, predeploys.KromaL1BlockAddr, common.Hash{}, blocks.prevBlock.Hash().Hex())
+	if err != nil {
+		return fmt.Errorf("failed to get storage at mpt previous block: %w", err)
+	}
+
+	msg := ethereum.CallMsg{
+		From: env.addr,
+		To:   &predeploys.KromaL1BlockAddr,
+		Data: crypto.Keccak256([]byte("number()"))[:4],
+	}
+	_, err = env.l2.CallContract(ctx, msg, genesisBlockNum)
+	if err != nil {
+		return fmt.Errorf("failed to call at genesis: %w", err)
+	}
+	_, err = env.l2.CallContract(ctx, msg, prevBlockNum)
+	if err != nil {
+		return fmt.Errorf("failed to call at mpt previous block: %w", err)
+	}
+
+	_, err = env.l2.NonceAt(ctx, env.addr, genesisBlockNum)
+	if err != nil {
+		return fmt.Errorf("failed to get nonce at genesis: %w", err)
+	}
+	_, err = env.l2.NonceAt(ctx, env.addr, prevBlockNum)
+	if err != nil {
+		return fmt.Errorf("failed to get nonce at mpt previous block: %w", err)
+	}
+
+	env.log.Info("historical RPC test: SUCCESS")
+	return nil
+}
+
 func checkL1Block(ctx context.Context, env *actionEnv) error {
 	cl, err := bindings.NewL1Block(oppredeploys.L1BlockAddr, env.l2)
 	if err != nil {
@@ -338,7 +422,7 @@ func checkL1Block(ctx context.Context, env *actionEnv) error {
 
 	blobBaseFee, err := cl.BlobBaseFee(nil)
 	if err != nil {
-		return fmt.Errorf("failed to get blob basfee from L1Block contract: %w", err)
+		return fmt.Errorf("failed to get blob basefee from L1Block contract: %w", err)
 	}
 	if big.NewInt(0).Cmp(blobBaseFee) == 0 {
 		return errors.New("blob basefee must never be 0, EIP specifies minimum of 1")
@@ -366,7 +450,7 @@ func checkL1Block(ctx context.Context, env *actionEnv) error {
 	return nil
 }
 
-func checkGPO(ctx context.Context, env *actionEnv) error {
+func checkGPO(_ context.Context, env *actionEnv) error {
 	cl, err := bindings.NewGasPriceOracle(predeploys.GasPriceOracleAddr, env.l2)
 	if err != nil {
 		return fmt.Errorf("failed to create bindings around GasPriceOracle contract: %w", err)
@@ -430,9 +514,7 @@ func conditionalCode(data []byte) []byte {
 		// success case
 		byte(vm.JUMPDEST),
 		byte(vm.CALLER),
-		/* [Kroma: START]
 		byte(vm.SELFDESTRUCT),
-		[Kroma: END] */
 		byte(vm.STOP),
 	}
 	binary.BigEndian.PutUint32(suffix[1:5], uint32(len(data))+9)
@@ -608,6 +690,9 @@ func checkAll(ctx context.Context, env *actionEnv) error {
 	}
 	if err := checkL1BlockAddrAndData(ctx, env); err != nil {
 		return fmt.Errorf("l1-block-addr-data error: %w", err)
+	}
+	if err := checkHistoricalRPC(ctx, env); err != nil {
+		return fmt.Errorf("historical-rpc error: %w", err)
 	}
 	if err := checkL1Block(ctx, env); err != nil {
 		return fmt.Errorf("l1-block error: %w", err)
