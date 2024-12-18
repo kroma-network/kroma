@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	l1BlockMPTCodeHash           = common.HexToHash("0x18fc22e60c9fc3d6a26e9b5c3e4c4e333f7646157e0d59cc18f4da0d43b84227")
+	l1BlockMPTCodeHash           = common.HexToHash("0xc88a313aa75dc4fbf0b6850d9f9ae41e04243b7008cf3eadb29256d4a71c1dfd")
 	baseFeeVaultMPTCodeHash      = common.HexToHash("0xc0ccbda46b89a834c65c871fb0ccb93f02c60268d5560a8e1b13722979bb38dd")
 	sequencerFeeVaultMPTCodeHash = common.HexToHash("0xc0ccbda46b89a834c65c871fb0ccb93f02c60268d5560a8e1b13722979bb38dd")
 	l1FeeVaultMPTCodeHash        = common.HexToHash("0xf96923a0115890fc344bc26402cbdc062ff2d6f63317b40dd7f284f2b37c6d64")
@@ -71,7 +71,7 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	require.NoError(t, err)
 
 	// Get current implementations addresses (by slot) for L1Block + GasPriceOracle
-	initialL1BlockAddress, err := ethCl.StorageAt(context.Background(), predeploys.L1BlockAddr, genesis.ImplementationSlot, nil)
+	initialL1BlockAddress, err := ethCl.StorageAt(context.Background(), predeploys.KromaL1BlockAddr, genesis.ImplementationSlot, nil)
 	require.NoError(t, err)
 	initialGasPriceOracleAddress, err := ethCl.StorageAt(context.Background(), predeploys.GasPriceOracleAddr, genesis.ImplementationSlot, nil)
 	require.NoError(t, err)
