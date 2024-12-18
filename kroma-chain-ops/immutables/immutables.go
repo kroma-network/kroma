@@ -48,7 +48,7 @@ type PredeploysImmutableConfig struct {
 	}
 	L1BlockNumber  struct{}
 	GasPriceOracle struct{}
-	L1Block        struct{}
+	KromaL1Block   struct{}
 	/* [Kroma: START]
 	GovernanceToken struct{}
 	LegacyMessagePasser struct{}

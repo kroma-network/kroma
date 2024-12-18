@@ -28,7 +28,7 @@ var (
 	opts, _                = bind.NewKeyedTransactorWithChainID(pk, common.Big1)
 	from                   = crypto.PubkeyToAddress(pk.PublicKey)
 	portalContract, _      = bindings.NewKromaPortal(addr, nil)
-	l1BlockInfoContract, _ = bindings.NewL1Block(addr, nil)
+	l1BlockInfoContract, _ = bindings.NewKromaL1Block(addr, nil)
 )
 
 func cap_byte_slice(b []byte, c int) []byte {

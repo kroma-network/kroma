@@ -12,6 +12,7 @@
   "KromaMintableERC721Factory",
   "KromaPortal",
   "L1Block",
+  "KromaL1Block",
   "L1CrossDomainMessenger",
   "L1ERC721Bridge",
   "L1FeeVault",

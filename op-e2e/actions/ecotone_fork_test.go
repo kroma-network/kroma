@@ -75,7 +75,7 @@ func TestEcotoneNetworkUpgradeTransactions(gt *testing.T) {
 	// Get current implementations addresses (by slot) for L1Block + GasPriceOracle
 	initialGasPriceOracleAddress, err := ethCl.StorageAt(context.Background(), predeploys.GasPriceOracleAddr, genesis.ImplementationSlot, nil)
 	require.NoError(t, err)
-	initialL1BlockAddress, err := ethCl.StorageAt(context.Background(), predeploys.L1BlockAddr, genesis.ImplementationSlot, nil)
+	initialL1BlockAddress, err := ethCl.StorageAt(context.Background(), predeploys.KromaL1BlockAddr, genesis.ImplementationSlot, nil)
 	require.NoError(t, err)
 
 	// Build to the ecotone block
@@ -125,7 +125,7 @@ func TestEcotoneNetworkUpgradeTransactions(gt *testing.T) {
 	verifyCodeHashMatches(t, ethCl, expectedGasPriceOracleAddress, gasPriceOracleCodeHash)
 
 	// L1Block Proxy is updated
-	updatedL1BlockAddress, err := ethCl.StorageAt(context.Background(), predeploys.L1BlockAddr, genesis.ImplementationSlot, latestBlock.Number())
+	updatedL1BlockAddress, err := ethCl.StorageAt(context.Background(), predeploys.KromaL1BlockAddr, genesis.ImplementationSlot, latestBlock.Number())
 	require.NoError(t, err)
 	require.Equal(t, expectedL1BlockAddress, common.BytesToAddress(updatedL1BlockAddress))
 	require.NotEqualf(t, initialL1BlockAddress, updatedL1BlockAddress, "L1Block Proxy address should have changed")
@@ -204,7 +204,7 @@ func TestEcotoneNetworkUpgradeTransactions(gt *testing.T) {
 	require.Greater(t, cost.Uint64(), uint64(0), "expecting non-zero scalars after activation block")
 
 	// Get L1Block info
-	l1Block, err := bindings.NewL1BlockCaller(predeploys.L1BlockAddr, ethCl)
+	l1Block, err := bindings.NewKromaL1BlockCaller(predeploys.KromaL1BlockAddr, ethCl)
 	require.NoError(t, err)
 	l1BlockInfo, err := l1Block.Timestamp(nil)
 	require.NoError(t, err)
