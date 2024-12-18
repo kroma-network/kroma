@@ -106,10 +106,6 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 		txn := transactions[i]
 		receipt, err := ethCl.TransactionReceipt(context.Background(), txn.Hash())
 		require.NoError(t, err)
-		if receipt.Status != types.ReceiptStatusSuccessful {
-			log.Error("transaction failed", "hash", txn.Hash().Hex(), "status", receipt.Status)
-			log.Info("transaction recceipt", "receipt", receipt)
-		}
 		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 		require.NotEmpty(t, txn.Data(), "upgrade tx must provide input data")
 	}
@@ -120,32 +116,32 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	expectedSequencerFeeVaultAddress := crypto.CreateAddress(derive.SequencerFeeVaultDeployerAddress, 0)
 	expectedGasPriceOracleAddress := crypto.CreateAddress(derive.GasPriceOracleMPTDeployerAddress, 0)
 
-	// New Base Fee Vault Proxy is deployed
+	// New Base Fee Vault impl is deployed
 	updatedBaseFeeVaultAddress, err := ethCl.StorageAt(context.Background(), oppredeploys.BaseFeeVaultAddr, genesis.ImplementationSlot, latestBlock.Number())
 	require.NoError(t, err)
 	require.Equal(t, expectedBaseFeeVaultAddress, common.BytesToAddress(updatedBaseFeeVaultAddress))
 	verifyCodeHashMatches(t, ethCl, expectedBaseFeeVaultAddress, baseFeeVaultMPTCodeHash)
 
-	// New L1 Fee Vault Proxy is deployed
+	// New L1 Fee Vault impl is deployed
 	updatedL1FeeVaultAddress, err := ethCl.StorageAt(context.Background(), oppredeploys.L1FeeVaultAddr, genesis.ImplementationSlot, latestBlock.Number())
 	require.NoError(t, err)
 	require.Equal(t, expectedL1FeeVaultAddress, common.BytesToAddress(updatedL1FeeVaultAddress))
 	verifyCodeHashMatches(t, ethCl, expectedL1FeeVaultAddress, l1FeeVaultMPTCodeHash)
 
-	// New Sequencer Fee Vault Proxy is deployed
+	// New Sequencer Fee Vault impl is deployed
 	updatedSequencerFeeVaultAddress, err := ethCl.StorageAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, genesis.ImplementationSlot, latestBlock.Number())
 	require.NoError(t, err)
 	require.Equal(t, expectedSequencerFeeVaultAddress, common.BytesToAddress(updatedSequencerFeeVaultAddress))
 	verifyCodeHashMatches(t, ethCl, expectedSequencerFeeVaultAddress, sequencerFeeVaultMPTCodeHash)
 
-	// Gas Price Oracle Proxy is updated
+	// Gas Price Oracle impl is updated
 	updatedGasPriceOracleAddress, err := ethCl.StorageAt(context.Background(), predeploys.GasPriceOracleAddr, genesis.ImplementationSlot, latestBlock.Number())
 	require.NoError(t, err)
 	require.Equal(t, expectedGasPriceOracleAddress, common.BytesToAddress(updatedGasPriceOracleAddress))
 	require.NotEqualf(t, initialGasPriceOracleAddress, updatedGasPriceOracleAddress, "Gas Price Oracle Proxy address should have changed")
 	verifyCodeHashMatches(t, ethCl, expectedGasPriceOracleAddress, gasPriceOracleMPTCodeHash)
 
-	// New L1Block proxy is deployed
+	// New L1Block impl is deployed
 	updatedL1BlockAddress, err := ethCl.StorageAt(context.Background(), oppredeploys.L1BlockAddr, genesis.ImplementationSlot, latestBlock.Number())
 	require.NoError(t, err)
 	require.Equal(t, expectedL1BlockAddress, common.BytesToAddress(updatedL1BlockAddress))
