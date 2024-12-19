@@ -731,7 +731,7 @@ contract ColosseumTest is Colosseum_Initializer {
     }
 
     function test_proveFaultWithZkVm_succeeds() external {
-        isZkVm = false; // TODO(seolaoh): enable when test data added
+        isZkVm = true;
         uint256 outputIndex = targetOutputIndex;
         Types.CheckpointOutput memory targetOutput = oracle.getL2Output(outputIndex);
 
