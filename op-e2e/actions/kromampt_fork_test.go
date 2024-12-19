@@ -4,16 +4,14 @@ import (
 	"context"
 	"testing"
 
-	oppredeploys "github.com/kroma-network/kroma/op-bindings/predeploys"
-
-	"github.com/stretchr/testify/require"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/stretchr/testify/require"
 
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -34,6 +32,7 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
 	genesisBlock := hexutil.Uint64(0)
+	ecotoneOffset := hexutil.Uint64(2)
 	kromaMPTOffset := hexutil.Uint64(4)
 
 	dp.DeployConfig.L1CancunTimeOffset = &genesisBlock // can be removed once Cancun on L1 is the default
@@ -42,7 +41,7 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	dp.DeployConfig.L2GenesisRegolithTimeOffset = &genesisBlock
 	dp.DeployConfig.L2GenesisCanyonTimeOffset = &genesisBlock
 	dp.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
-	dp.DeployConfig.L2GenesisEcotoneTimeOffset = &genesisBlock
+	dp.DeployConfig.L2GenesisEcotoneTimeOffset = &ecotoneOffset
 	dp.DeployConfig.L2GenesisKromaMPTTimeOffset = &kromaMPTOffset
 	require.NoError(t, dp.DeployConfig.Check(), "must have valid config")
 
@@ -64,15 +63,15 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	require.NoError(t, err)
 	protocolFeeRecipient, err := protocolFeeVault.RECIPIENT(nil)
 	require.NoError(t, err)
+	require.NotEqual(t, protocolFeeRecipient, common.Address{})
+	require.Equal(t, protocolFeeRecipient, dp.DeployConfig.ProtocolVaultRecipient)
 
 	l1FeeVault, err := bindings.NewL1FeeVaultCaller(predeploys.L1FeeVaultAddr, ethCl)
 	require.NoError(t, err)
 	l1FeeRecipient, err := l1FeeVault.RECIPIENT(nil)
 	require.NoError(t, err)
 
-	// Get current implementations addresses (by slot) for L1Block + GasPriceOracle
-	initialL1BlockAddress, err := ethCl.StorageAt(context.Background(), predeploys.KromaL1BlockAddr, genesis.ImplementationSlot, nil)
-	require.NoError(t, err)
+	// Get current implementations addresses (by slot) for GasPriceOracle
 	initialGasPriceOracleAddress, err := ethCl.StorageAt(context.Background(), predeploys.GasPriceOracleAddr, genesis.ImplementationSlot, nil)
 	require.NoError(t, err)
 
@@ -110,7 +109,6 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 		require.NotEmpty(t, txn.Data(), "upgrade tx must provide input data")
 	}
 
-	expectedL1BlockAddress := crypto.CreateAddress(derive.L1BlockMPTDeployerAddress, 0)
 	expectedBaseFeeVaultAddress := crypto.CreateAddress(derive.BaseFeeVaultDeployerAddress, 0)
 	expectedL1FeeVaultAddress := crypto.CreateAddress(derive.L1FeeVaultDeployerAddress, 0)
 	expectedSequencerFeeVaultAddress := crypto.CreateAddress(derive.SequencerFeeVaultDeployerAddress, 0)
@@ -140,13 +138,6 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	require.Equal(t, expectedGasPriceOracleAddress, common.BytesToAddress(updatedGasPriceOracleAddress))
 	require.NotEqualf(t, initialGasPriceOracleAddress, updatedGasPriceOracleAddress, "Gas Price Oracle Proxy address should have changed")
 	verifyCodeHashMatches(t, ethCl, expectedGasPriceOracleAddress, gasPriceOracleMPTCodeHash)
-
-	// New L1Block impl is deployed
-	updatedL1BlockAddress, err := ethCl.StorageAt(context.Background(), oppredeploys.L1BlockAddr, genesis.ImplementationSlot, latestBlock.Number())
-	require.NoError(t, err)
-	require.Equal(t, expectedL1BlockAddress, common.BytesToAddress(updatedL1BlockAddress))
-	require.NotEqualf(t, initialL1BlockAddress, updatedL1BlockAddress, "L1Block Proxy address should have changed")
-	verifyCodeHashMatches(t, ethCl, expectedL1BlockAddress, l1BlockMPTCodeHash)
 
 	// Check that KromaMPT was activated
 	isKromaMPT, err := gasPriceOracle.IsKromaMPT(nil)
