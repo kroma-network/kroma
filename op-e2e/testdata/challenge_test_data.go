@@ -37,7 +37,6 @@ func ValidProofType(value ProofType) bool {
 
 var (
 	TargetBlockNumber = uint64(21)
-	EmptyHash         = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 
 	// for zkVM challenge
 	ZkVMVKeyHash     = common.HexToHash("0x00ad7cc293beb89796e8a9713ab7189b33faf6975325da0707d2d9cb129db055")
@@ -88,13 +87,6 @@ func SetPrevOutputResponse(o *eth.OutputResponse, proofType ProofType) error {
 	case ZkVMType:
 		o.OutputRoot = eth.Bytes32(zkVMPrevOutput)
 		// Other values than output root won't be used in zkVM challenge, so we can set them to empty hash
-		o.WithdrawalStorageRoot = EmptyHash
-		o.StateRoot = EmptyHash
-		o.BlockRef = eth.L2BlockRef{
-			Number:     TargetBlockNumber - 1,
-			Hash:       EmptyHash,
-			ParentHash: common.HexToHash("0x"),
-		}
 	case ZkEVMType:
 		outputRoot, err := rollup.ComputeKromaL2OutputRoot(&bindings.TypesOutputRootProof{
 			Version:                  eth.OutputVersionV0,
@@ -175,13 +167,6 @@ func SetTargetOutputResponse(o *eth.OutputResponse, proofType ProofType) error {
 	case ZkVMType:
 		o.OutputRoot = eth.Bytes32(zkVMTargetOutput)
 		// Other values than output root won't be used in zkVM challenge, so we can set them to empty hash
-		o.WithdrawalStorageRoot = EmptyHash
-		o.StateRoot = EmptyHash
-		o.BlockRef = eth.L2BlockRef{
-			Number:     TargetBlockNumber,
-			Hash:       EmptyHash,
-			ParentHash: EmptyHash,
-		}
 	case ZkEVMType:
 		nextBlockhash := common.HexToHash("0x6c4e19b1fc27f6a075c67f35bd15b21c40025a892e32cdb8d9b5f5d5ec60093a")
 		outputRoot, err := rollup.ComputeKromaL2OutputRoot(&bindings.TypesOutputRootProof{

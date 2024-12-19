@@ -379,7 +379,7 @@ func ReplaceWithMockColosseum(
 	return
 }
 
-// DeploySP1Verifier deploys a SP!VerifierPlonk contract which is used in ZKProofVerifier.
+// DeploySP1Verifier deploys a SP1VerifierPlonk contract which is used in ZKProofVerifier.
 func DeploySP1Verifier(
 	l1Client *ethclient.Client,
 	sysCfgOwner *ecdsa.PrivateKey,
@@ -402,7 +402,7 @@ func DeploySP1Verifier(
 	return
 }
 
-// RedeployZKProofVerifier deploys a new ZKProofVerifier with given SP1Verifier and zkVmProgramKey.
+// RedeployZKProofVerifier deploys a new ZKProofVerifier with given SP1Verifier.
 func RedeployZKProofVerifier(
 	l1Client *ethclient.Client,
 	sysCfgOwner *ecdsa.PrivateKey,
@@ -410,7 +410,7 @@ func RedeployZKProofVerifier(
 	l1Deployments *genesis.L1Deployments,
 	deployConfig *genesis.DeployConfig,
 	sp1Verifier common.Address,
-	zkVmProgramKey [32]byte,
+	zkVmProgramVKey [32]byte,
 ) (deployTx, upgradeTx *types.Transaction, err error) {
 	txOpts, err := bind.NewKeyedTransactorWithChainID(sysCfgOwner, l1ChainID)
 	if err != nil {
@@ -426,7 +426,7 @@ func RedeployZKProofVerifier(
 		new(big.Int).SetUint64(deployConfig.ColosseumMaxTxs),
 		l1Deployments.ZKMerkleTrie,
 		sp1Verifier,
-		zkVmProgramKey,
+		zkVmProgramVKey,
 	)
 	if err != nil {
 		return

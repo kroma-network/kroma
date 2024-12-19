@@ -2131,7 +2131,6 @@ func TestZkVMChallenge(t *testing.T) {
 	cfg.EnableChallenge = true
 	cfg.ChallengeProofType = testdata.ZkVMType
 	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
-	cfg.ValidatorVersion = valhelper.ValidatorV2
 
 	sys, err := cfg.Start(t)
 	require.NoError(t, err, "Error starting up system")
@@ -2142,10 +2141,6 @@ func TestZkVMChallenge(t *testing.T) {
 
 	// Deposit to ValidatorPool to be a challenger
 	validatorHelper.DepositToValPool(cfg.Secrets.Challenger1, big.NewInt(1_000_000_000))
-
-	// Register to ValidatorManager to be a challenger
-	validatorHelper.RegisterToValMgr(cfg.Secrets.Challenger1,
-		cfg.DeployConfig.ValidatorManagerMinActivateAmount.ToInt(), cfg.Secrets.Addresses().Challenger1)
 
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
 	require.NoError(t, err)

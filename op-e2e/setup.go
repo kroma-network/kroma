@@ -899,7 +899,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		}
 
 		// Check deploy tx and upgrade tx submission were successful
-		err = waitDeployAndUpgradeTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
+		err = waitTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
 		if err != nil {
 			return nil, err
 		}
@@ -1075,6 +1075,12 @@ func startChallengeSystem(sys *System, cfg *SystemConfig) error {
 		return fmt.Errorf("unable to replace Colosseum: %w", err)
 	}
 
+	// Check deploy tx and upgrade tx submission were successful
+	err = waitTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
+	if err != nil {
+		return err
+	}
+
 	// Deploy SP1Verifier contract
 	sp1Verifier, deployTx, err := e2eutils.DeploySP1Verifier(
 		l1Client,
@@ -1085,7 +1091,10 @@ func startChallengeSystem(sys *System, cfg *SystemConfig) error {
 		return fmt.Errorf("unable to deploy SP1Verifier: %w", err)
 	}
 
-	err = waitDeployAndUpgradeTxs(l1Client, deployTx.Hash())
+	err = waitTxs(l1Client, deployTx.Hash())
+	if err != nil {
+		return err
+	}
 
 	// Deploy new ZKProofVerifier impl and upgrade ZKProofVerifier proxy
 	deployTx, upgradeTx, err = e2eutils.RedeployZKProofVerifier(
@@ -1102,7 +1111,7 @@ func startChallengeSystem(sys *System, cfg *SystemConfig) error {
 	}
 
 	// Check deploy tx and upgrade tx submission were successful
-	err = waitDeployAndUpgradeTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
+	err = waitTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
 	if err != nil {
 		return err
 	}
@@ -1216,14 +1225,14 @@ func startChallengeSystem(sys *System, cfg *SystemConfig) error {
 	return nil
 }
 
-func waitDeployAndUpgradeTxs(client *ethclient.Client, txs ...common.Hash) error {
+func waitTxs(client *ethclient.Client, txs ...common.Hash) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	for _, tx := range txs {
 		_, err := wait.ForReceiptOK(ctx, client, tx)
 		if err != nil {
-			return fmt.Errorf("failed to wait deploy/upgrade tx success: %w", err)
+			return fmt.Errorf("failed to wait tx success: %w", err)
 		}
 	}
 	return nil
