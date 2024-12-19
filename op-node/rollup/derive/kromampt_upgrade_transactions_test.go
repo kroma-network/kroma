@@ -6,12 +6,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
@@ -103,7 +103,7 @@ func TestMPTNetworkTransactions(t *testing.T) {
 			require.NoError(t, err)
 			deploymentData, err := getDeploymentData(test.chainId)
 			require.NoError(t, err)
-			require.Len(t, upgradeTxns, kromaMPTUpgradeTxCount)
+			require.Len(t, upgradeTxns, KromaMPTUpgradeTxCount)
 
 			deployBaseFeeVaultSender, deployBaseFeeVault := toDepositTxn(t, upgradeTxns[1])
 			require.Equal(t, deployBaseFeeVaultSender, BaseFeeVaultDeployerAddress)
@@ -133,7 +133,7 @@ func TestMPTNetworkTransactions(t *testing.T) {
 		chainID := big.NewInt(KromaLocalDevnetChainID)
 		upgradeTxns, err := KromaMPTNetworkUpgradeTransactions(chainID) // Use default configuration
 		require.NoError(t, err)
-		require.Len(t, upgradeTxns, kromaMPTUpgradeTxCount)
+		require.Len(t, upgradeTxns, KromaMPTUpgradeTxCount)
 
 		deployL1BlockSender, deployL1Block := toDepositTxn(t, upgradeTxns[0])
 		require.Equal(t, deployL1BlockSender, L1BlockMPTDeployerAddress)
