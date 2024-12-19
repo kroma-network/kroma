@@ -157,6 +157,13 @@ func (d *Sequencer) PlanNextSequencerAction() time.Duration {
 		return delay
 	}
 
+	// [Kroma: START]
+	// Delay if the next block to be created is a KromaMPT block.
+	if d.rollupCfg.IsKromaMPTParentBlock(head.Time) {
+		return d.nextAction.Sub(now)
+	}
+	// [Kroma: END]
+
 	blockTime := time.Duration(d.rollupCfg.BlockTime) * time.Second
 	payloadTime := time.Unix(int64(head.Time+d.rollupCfg.BlockTime), 0)
 	remainingTime := payloadTime.Sub(now)
