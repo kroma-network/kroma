@@ -2,7 +2,6 @@ package op_e2e
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/oppprof"
@@ -32,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -1263,6 +1261,7 @@ func TestWithdrawals(t *testing.T) {
 		mptTimeOffset := hexutil.Uint64(4)
 
 		cfg := DefaultSystemConfig(t)
+		cfg.SetupMPTMigration = true
 		cfg.DeployConfig.FinalizationPeriodSeconds = 2 // 2s finalization period
 		cfg.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
 		cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &ecotoneTimeOffset
@@ -1270,59 +1269,6 @@ func TestWithdrawals(t *testing.T) {
 		cfg.DeployConfig.L1BlockTime = 3
 		// set the L2 block time to 2 seconds to enforce the MPT transition at the second block
 		cfg.DeployConfig.L2BlockTime = 2
-
-		// Setup historical rpc node. Note that the port should be set as separate for each tests.
-		historicalRpcPort := 8055
-		cfg.Nodes["historical"] = &rollupNode.Config{
-			Driver: driver.Config{
-				VerifierConfDepth:  0,
-				SequencerConfDepth: 0,
-				SequencerEnabled:   false,
-			},
-			RPC: rollupNode.RPCConfig{
-				ListenAddr:  "127.0.0.1",
-				ListenPort:  0,
-				EnableAdmin: true,
-			},
-			L1EpochPollInterval:         time.Second * 4,
-			RuntimeConfigReloadInterval: time.Minute * 10,
-			ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
-			Sync:                        sync.Config{SyncMode: sync.CLSync},
-		}
-		cfg.Loggers["historical"] = testlog.Logger(t, log.LevelInfo).New("role", "historical")
-		cfg.GethOptions["historical"] = append(cfg.GethOptions["historical"], []geth.GethOption{
-			func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
-				nodeCfg.HTTPPort = historicalRpcPort
-				nodeCfg.HTTPModules = []string{"debug", "eth"}
-				nodeCfg.HTTPHost = "127.0.0.1"
-				return nil
-			},
-		}...)
-
-		// Set historical rpc endpoint.
-		for name := range cfg.Nodes {
-			name := name
-			cfg.GethOptions[name] = append(cfg.GethOptions[name], []geth.GethOption{
-				func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
-					// Since the migration process requires preimages, enable storing preimage option.
-					ethCfg.Preimages = true
-					ethCfg.RollupHistoricalRPC = fmt.Sprintf("http://127.0.0.1:%d", historicalRpcPort)
-					if name == "historical" {
-						ethCfg.RollupHistoricalRPC = ""
-						ethCfg.DisableMPTMigration = true
-					}
-					// Deep copy the genesis
-					dst := &core.Genesis{}
-					b, _ := json.Marshal(ethCfg.Genesis)
-					err := json.Unmarshal(b, dst)
-					if err != nil {
-						return err
-					}
-					ethCfg.Genesis = dst
-					return nil
-				},
-			}...)
-		}
 
 		testWithdrawals(t, cfg)
 	})
@@ -1355,7 +1301,7 @@ func testWithdrawals(t *testing.T, cfg SystemConfig) {
 	mintAmount := big.NewInt(1_000_000_000_000)
 	opts.Value = mintAmount
 	// [Kroma: START]
-	var isKromaMPT = false
+	isKromaMPT := false
 	if cfg.DeployConfig.L2GenesisKromaMPTTimeOffset != nil {
 		mptTimeOffset := *cfg.DeployConfig.L2GenesisKromaMPTTimeOffset
 		mptMigrationNextBlock := uint64(mptTimeOffset)/cfg.DeployConfig.L2BlockTime + 1
@@ -1485,6 +1431,25 @@ func TestFees(t *testing.T) {
 		cfg.DeployConfig.L2GenesisEcotoneTimeOffset = new(hexutil.Uint64)
 		testFees(t, cfg)
 	})
+	t.Run("kroma-mpt", func(t *testing.T) {
+		InitParallel(t)
+		cfg := DefaultSystemConfig(t)
+		cfg.DeployConfig.L1GenesisBlockBaseFeePerGas = (*hexutil.Big)(big.NewInt(7))
+
+		genesisBlock := hexutil.Uint64(0)
+		ecotoneTimeOffset := hexutil.Uint64(2)
+		mptTimeOffset := hexutil.Uint64(4)
+
+		cfg.SetupMPTMigration = true
+		cfg.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
+		cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &ecotoneTimeOffset
+		cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
+		cfg.DeployConfig.L1BlockTime = 3
+		// set the L2 block time to 2 seconds to enforce the MPT transition at the second block
+		cfg.DeployConfig.L2BlockTime = 2
+
+		testFees(t, cfg)
+	})
 }
 
 func testFees(t *testing.T, cfg SystemConfig) {
@@ -1510,14 +1475,25 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	ethPrivKey := cfg.Secrets.Alice
 	fromAddr := crypto.PubkeyToAddress(ethPrivKey.PublicKey)
 
-	// require.NotEqual(t, cfg.DeployConfig.L2OutputOracleProposer, fromAddr)
+	require.NotEqual(t, cfg.DeployConfig.ValidatorManagerTrustedValidator, fromAddr)
 	require.NotEqual(t, cfg.DeployConfig.BatchSenderAddress, fromAddr)
+
+	// Wait until Kroma MPT migration completed when it's set
+	if cfg.DeployConfig.L2GenesisKromaMPTTimeOffset != nil {
+		mptTimeOffset := *cfg.DeployConfig.L2GenesisKromaMPTTimeOffset
+		mptBlock := uint64(mptTimeOffset) / cfg.DeployConfig.L2BlockTime
+		_, err = geth.WaitForBlock(big.NewInt(int64(mptBlock)), l2Seq, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+		require.NoError(t, err)
+	}
 
 	// Find gaspriceoracle contract
 	gpoContract, err := bindings.NewGasPriceOracle(predeploys.GasPriceOracleAddr, l2Seq)
 	require.Nil(t, err)
 
-	if !sys.RollupConfig.IsEcotone(sys.L2GenesisCfg.Timestamp) {
+	head, err := l2Seq.BlockByNumber(context.Background(), nil)
+	require.NoError(t, err)
+
+	if !sys.RollupConfig.IsEcotone(head.Time()) {
 		overhead, err := gpoContract.Overhead(&bind.CallOpts{})
 		require.Nil(t, err, "reading gpo overhead")
 		require.Equal(t, overhead.Uint64(), cfg.DeployConfig.GasPriceOracleOverhead, "wrong gpo overhead")
@@ -1537,23 +1513,7 @@ func testFees(t *testing.T, cfg SystemConfig) {
 
 	require.Equal(t, decimals.Uint64(), uint64(6), "wrong gpo decimals")
 
-	// Check balances of ProtocolVault
-	protocolVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
-	// Check balances of L1FeeVault
-	l1FeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
-	// Check balance of ValidatorRewardVault
-	validatorRewardVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
 	// Simple transfer from signer to random account
-	startBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-	require.Greater(t, startBalance.Uint64(), big.NewInt(params.Ether).Uint64())
-
 	transferAmount := big.NewInt(params.Ether)
 	gasTip := big.NewInt(10)
 	receipt := SendL2Tx(t, cfg, l2Seq, ethPrivKey, func(opts *TxOpts) {
@@ -1570,62 +1530,128 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	header, err := l2Seq.HeaderByNumber(context.Background(), receipt.BlockNumber)
 	require.Nil(t, err)
 
-	protocolVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	l1FeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	validatorRewardVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	endBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, header.Number)
-	require.Nil(t, err)
-
 	l1Header, err := l1.HeaderByNumber(context.Background(), nil)
 	require.Nil(t, err)
 
-	// Diff fee recipients balances
-	protocolVaultDiff := new(big.Int).Sub(protocolVaultEndBalance, protocolVaultStartBalance)
-	l1FeeVaultDiff := new(big.Int).Sub(l1FeeVaultEndBalance, l1FeeVaultStartBalance)
-	validatorRewardVaultDiff := new(big.Int).Sub(validatorRewardVaultEndBalance, validatorRewardVaultStartBalance)
-
-	// get a validator reward scalar from KromaL1Block contract
-	l1BlockContract, err := bindings.NewKromaL1Block(predeploys.KromaL1BlockAddr, l2Seq)
-	require.Nil(t, err)
-
-	validatorRewardScalar, err := l1BlockContract.ValidatorRewardScalar(&bind.CallOpts{})
-	require.Nil(t, err, "reading validatorRewardScalar")
-
-	gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
-	fee := new(big.Int)
-	fee.Mul(gasUsed, header.BaseFee)
-	fee.Add(fee, new(big.Int).Mul(gasTip, gasUsed))
-
-	R := big.NewRat(validatorRewardScalar.Int64(), 10000)
-	reward := new(big.Int).Mul(fee, R.Num())
-	reward.Div(reward, R.Denom())
-
-	// Tally Validator reward
-	require.Equal(t, reward, validatorRewardVaultDiff, "validator reward mismatch")
-
-	// Tally Protocol fund
-	protocolFee := new(big.Int).Sub(fee, reward)
-	require.Equal(t, protocolFee.Cmp(protocolVaultDiff), 0, "protocol fund mismatch")
-
-	// Tally sequencer reward
 	tx, _, err := l2Seq.TransactionByHash(context.Background(), receipt.TxHash)
 	require.NoError(t, err, "Should be able to get transaction")
-	bytes, err := tx.MarshalBinary()
-	require.Nil(t, err)
 
+	var totalFee *big.Int
 	l1Fee := l1CostFn(tx.RollupCostData(), header.Time)
-	require.Equalf(t, l1Fee, l1FeeVaultDiff, "L1 fee mismatch: start balance %v, end balance %v", l1FeeVaultStartBalance, l1FeeVaultEndBalance)
+	isKromaMPT := sys.RollupConfig.IsKromaMPT(header.Time)
+	if isKromaMPT {
+		require.Equal(t, oppredeploys.SequencerFeeVaultAddr, header.Coinbase, "coinbase should be sequencer fee vault")
+
+		// BaseFee Recipient
+		baseFeeRecipientStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.BaseFeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		baseFeeRecipientEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.BaseFeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// L1Fee Recipient
+		l1FeeRecipientStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		l1FeeRecipientEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.L1FeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		sequencerFeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		sequencerFeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Diff fee recipient balances
+		baseFeeRecipientDiff := new(big.Int).Sub(baseFeeRecipientEndBalance, baseFeeRecipientStartBalance)
+		l1FeeRecipientDiff := new(big.Int).Sub(l1FeeRecipientEndBalance, l1FeeRecipientStartBalance)
+		sequencerFeeVaultDiff := new(big.Int).Sub(sequencerFeeVaultEndBalance, sequencerFeeVaultStartBalance)
+
+		// Tally L2 Fee
+		l2Fee := gasTip.Mul(gasTip, new(big.Int).SetUint64(receipt.GasUsed))
+		require.Equal(t, l2Fee, sequencerFeeVaultDiff, "l2 fee mismatch")
+
+		// Tally BaseFee
+		baseFee := new(big.Int).Mul(header.BaseFee, new(big.Int).SetUint64(receipt.GasUsed))
+		require.Equal(t, baseFee, baseFeeRecipientDiff, "base fee fee mismatch")
+
+		// Tally L1 Fee
+		require.Equalf(t, l1Fee.Uint64(), l1FeeRecipientDiff.Uint64(), "L1 fee mismatch: start balance %v, end balance %v",
+			l1FeeRecipientStartBalance, l1FeeRecipientEndBalance)
+
+		// Calculate total fee
+		baseFeeRecipientDiff.Add(baseFeeRecipientDiff, sequencerFeeVaultDiff)
+		totalFee = new(big.Int).Add(baseFeeRecipientDiff, l1FeeRecipientDiff)
+	} else {
+		// Check balances of ProtocolVault
+		protocolVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		protocolVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Check balances of L1FeeVault
+		l1FeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		l1FeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Check balance of ValidatorRewardVault
+		validatorRewardVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		validatorRewardVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Diff fee recipients balances
+		protocolVaultDiff := new(big.Int).Sub(protocolVaultEndBalance, protocolVaultStartBalance)
+		l1FeeVaultDiff := new(big.Int).Sub(l1FeeVaultEndBalance, l1FeeVaultStartBalance)
+		validatorRewardVaultDiff := new(big.Int).Sub(validatorRewardVaultEndBalance, validatorRewardVaultStartBalance)
+
+		// get a validator reward scalar from KromaL1Block contract
+		l1BlockContract, err := bindings.NewKromaL1Block(predeploys.KromaL1BlockAddr, l2Seq)
+		require.Nil(t, err)
+
+		validatorRewardScalar, err := l1BlockContract.ValidatorRewardScalar(&bind.CallOpts{})
+		require.Nil(t, err, "reading validatorRewardScalar")
+
+		gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
+		fee := new(big.Int)
+		fee.Mul(gasUsed, header.BaseFee)
+		fee.Add(fee, new(big.Int).Mul(gasTip, gasUsed))
+
+		R := big.NewRat(validatorRewardScalar.Int64(), 10000)
+		reward := new(big.Int).Mul(fee, R.Num())
+		reward.Div(reward, R.Denom())
+
+		// Tally Validator reward
+		require.Equal(t, reward, validatorRewardVaultDiff, "validator reward mismatch")
+
+		// Tally Protocol fund
+		protocolFee := new(big.Int).Sub(fee, reward)
+		require.Equal(t, protocolFee.Cmp(protocolVaultDiff), 0, "protocol fund mismatch")
+
+		// Tally sequencer reward
+		require.Equalf(t, l1Fee, l1FeeVaultDiff, "L1 fee mismatch: start balance %v, end balance %v", l1FeeVaultStartBalance, l1FeeVaultEndBalance)
+
+		// Calculate total fee
+		protocolVaultDiff.Add(protocolVaultDiff, validatorRewardVaultDiff)
+		totalFee = new(big.Int).Add(protocolVaultDiff, l1FeeVaultDiff)
+	}
 
 	gpoEcotone, err := gpoContract.IsEcotone(nil)
 	require.NoError(t, err)
 	require.Equal(t, sys.RollupConfig.IsEcotone(header.Time), gpoEcotone, "GPO and chain must have same ecotone view")
 
+	if isKromaMPT {
+		gpoKromaMPT, err := gpoContract.IsKromaMPT(nil)
+		require.NoError(t, err)
+		require.Equal(t, isKromaMPT, gpoKromaMPT, "GPO and chain must have same kroma mpt view")
+	}
+
+	bytes, err := tx.MarshalBinary()
+	require.Nil(t, err)
 	gpoL1Fee, err := gpoContract.GetL1Fee(&bind.CallOpts{}, bytes)
 	require.Nil(t, err)
 
@@ -1649,9 +1675,14 @@ func testFees(t *testing.T, cfg SystemConfig) {
 			new(big.Float).SetInt(receipt.L1Fee), "fee field in receipt matches gas used times scalar times base fee")
 	}
 
-	// Calculate total fee
-	protocolVaultDiff.Add(protocolVaultDiff, validatorRewardVaultDiff)
-	totalFee := new(big.Int).Add(protocolVaultDiff, l1FeeVaultDiff)
+	// Check total fee
+	startBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+	require.Nil(t, err)
+	require.Greater(t, startBalance.Uint64(), big.NewInt(params.Ether).Uint64())
+
+	endBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, header.Number)
+	require.Nil(t, err)
+
 	balanceDiff := new(big.Int).Sub(startBalance, endBalance)
 	balanceDiff.Sub(balanceDiff, transferAmount)
 	require.Equal(t, balanceDiff, totalFee, "balances should add up")

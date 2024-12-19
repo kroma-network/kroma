@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -46,6 +47,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	geth_eth "github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
@@ -264,6 +266,9 @@ type SystemConfig struct {
 
 	// ValidatorVersion makes the version of validator system other than V1.
 	ValidatorVersion uint8
+
+	// SetupMPTMigration sets up the environment to migrate to Kroma MPT.
+	SetupMPTMigration bool
 	// [Kroma: END]
 }
 
@@ -623,7 +628,8 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		return nil, err
 	}
 
-	for name := range cfg.Nodes {
+	// [Kroma: START]
+	initializeNode := func(name string) (EthInstance, error) {
 		var ethClient EthInstance
 		if cfg.ExternalL2Shim == "" {
 			node, backend, err := geth.InitL2(name, big.NewInt(int64(cfg.DeployConfig.L2ChainID)), l2Genesis, cfg.JWTFilePath, cfg.GethOptions[name]...)
@@ -650,6 +656,26 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 				JWTPath: cfg.JWTFilePath,
 			}).Run(t)
 		}
+		return ethClient, nil
+	}
+
+	if cfg.SetupMPTMigration {
+		ethClient, err := setupNodesForMPT(t, &cfg, initializeNode)
+		if err != nil {
+			return nil, err
+		}
+		sys.EthInstances["historical"] = ethClient
+	}
+
+	for name := range cfg.Nodes {
+		if name == "historical" {
+			continue
+		}
+		ethClient, err := initializeNode(name)
+		if err != nil {
+			return nil, err
+		}
+		// [Kroma: END]
 		sys.EthInstances[name] = ethClient
 	}
 
@@ -912,7 +938,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	}
 
 	if cfg.EnableChallenge {
-		if err = cfg.StartChallengeSystem(sys); err != nil {
+		if err = startChallengeSystem(sys, &cfg); err != nil {
 			return nil, fmt.Errorf("unable to start challenge system: %w", err)
 		}
 	}
@@ -967,7 +993,74 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 // [Kroma: START]
 
-func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
+func setupNodesForMPT(
+	t *testing.T, cfg *SystemConfig, initializeNode func(name string) (EthInstance, error),
+) (EthInstance, error) {
+	// Setup historical rpc node.
+	historicalName := "historical"
+	cfg.Nodes[historicalName] = &rollupNode.Config{
+		Driver: driver.Config{
+			VerifierConfDepth:  0,
+			SequencerConfDepth: 0,
+			SequencerEnabled:   false,
+		},
+		L1EpochPollInterval:         time.Second * 4,
+		RuntimeConfigReloadInterval: time.Minute * 10,
+		ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
+		Sync:                        sync.Config{SyncMode: sync.CLSync},
+	}
+	cfg.Loggers[historicalName] = testlog.Logger(t, log.LevelInfo).New("role", historicalName)
+	cfg.GethOptions[historicalName] = append(cfg.GethOptions[historicalName], []geth.GethOption{
+		func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
+			nodeCfg.HTTPModules = []string{"debug", "eth"}
+			ethCfg.RollupHistoricalRPC = ""
+			ethCfg.DisableMPTMigration = true
+			// Deep copy the genesis
+			dst := &core.Genesis{}
+			b, _ := json.Marshal(ethCfg.Genesis)
+			err := json.Unmarshal(b, dst)
+			if err != nil {
+				return err
+			}
+			ethCfg.Genesis = dst
+			return nil
+		},
+	}...)
+
+	ethClient, err := initializeNode(historicalName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set historical rpc endpoint.
+	historicalEndpoint := ethClient.HTTPEndpoint()
+	for name := range cfg.Nodes {
+		if name == historicalName {
+			continue
+		}
+		name := name
+		cfg.GethOptions[name] = append(cfg.GethOptions[name], []geth.GethOption{
+			func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
+				// Since the migration process requires preimages, enable storing preimage option.
+				ethCfg.Preimages = true
+				ethCfg.RollupHistoricalRPC = historicalEndpoint
+				// Deep copy the genesis
+				dst := &core.Genesis{}
+				b, _ := json.Marshal(ethCfg.Genesis)
+				err := json.Unmarshal(b, dst)
+				if err != nil {
+					return err
+				}
+				ethCfg.Genesis = dst
+				return nil
+			},
+		}...)
+	}
+
+	return ethClient, nil
+}
+
+func startChallengeSystem(sys *System, cfg *SystemConfig) error {
 	l1Client := sys.NodeClient("l1")
 
 	// Deploy MockColosseum which has setL1Head function for challenge test
