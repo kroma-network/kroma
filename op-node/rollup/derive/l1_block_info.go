@@ -31,7 +31,6 @@ var (
 	L1InfoFuncBedrockBytes4 = crypto.Keccak256([]byte(L1InfoFuncBedrockSignature))[:4]
 	L1InfoFuncEcotoneBytes4 = crypto.Keccak256([]byte(L1InfoFuncEcotoneSignature))[:4]
 	L1InfoDepositerAddress  = common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001")
-	L1BlockAddress          = predeploys.KromaL1BlockAddr
 )
 
 const (
@@ -433,10 +432,9 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 	}
 
 	// [Kroma: START]
+	l1BlockAddress := predeploys.KromaL1BlockAddr
 	if rollupCfg.IsKromaMPT(l2BlockTime) {
-		L1BlockAddress = oppredeploys.L1BlockAddr
-	} else {
-		L1BlockAddress = predeploys.KromaL1BlockAddr
+		l1BlockAddress = oppredeploys.L1BlockAddr
 	}
 	// [Kroma: END]
 
@@ -445,7 +443,7 @@ func L1InfoDeposit(rollupCfg *rollup.Config, sysCfg eth.SystemConfig, seqNumber 
 	out := &types.DepositTx{
 		SourceHash:          source.SourceHash(),
 		From:                L1InfoDepositerAddress,
-		To:                  &L1BlockAddress,
+		To:                  &l1BlockAddress,
 		Mint:                nil,
 		Value:               big.NewInt(0),
 		Gas:                 150_000_000,
