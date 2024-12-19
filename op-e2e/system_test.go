@@ -2115,14 +2115,16 @@ func TestChallengerTimeoutByGuardian(t *testing.T) {
 }
 
 func TestZkVMChallenge(t *testing.T) {
-	t.Skip("Temporarily skip, enable when test data added") // TODO(seolaoh)
 	InitParallel(t)
 
-	cfg := DefaultSystemConfig(t)
 	genesisBlock := hexutil.Uint64(0)
-	mptTimeOffset := hexutil.Uint64(2)
+	ecotoneTimeOffset := hexutil.Uint64(2)
+	mptTimeOffset := hexutil.Uint64(16)
+
+	cfg := DefaultSystemConfig(t)
+	cfg.SetupMPTMigration = true
 	cfg.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
-	cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &genesisBlock
+	cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &ecotoneTimeOffset
 	cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
 	cfg.DeployConfig.L1BlockTime = 3
 	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle

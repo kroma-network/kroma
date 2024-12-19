@@ -77,7 +77,7 @@ func (m *MockRPC) getWitness() *chal.WitnessResponse {
 func (m *MockRPC) getProof() *chal.ZkVMProofResponse {
 	return &chal.ZkVMProofResponse{
 		VKeyHash:     testdata.ZkVMVKeyHash,
-		PublicValues: testdata.ZkVMPublicVaules,
+		PublicValues: testdata.ZkVMPublicValues,
 		Proof:        testdata.ZkVMProof,
 	}
 }

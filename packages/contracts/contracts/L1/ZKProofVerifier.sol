@@ -200,11 +200,13 @@ contract ZKProofVerifier is ISemver {
         _validatePublicInputOutput(
             _storedSrcOutput,
             _storedDstOutput,
-            bytes32(_zkVmProof.publicValues[:32]),
-            bytes32(_zkVmProof.publicValues[32:64])
+            bytes32(_zkVmProof.publicValues[8:40]), // skip ABI-encoding prefix at publicValues[0:8].
+            bytes32(_zkVmProof.publicValues[48:80]) // skip ABI-encoding prefix at publicValues[40:48].
         );
 
-        if (bytes32(_zkVmProof.publicValues[64:96]) != _storedL1Head) revert InvalidPublicInput();
+        // Check if the L1 block hash is correct.
+        // Skip ABI-encoding prefix at publicValues[80:88].
+        if (bytes32(_zkVmProof.publicValues[88:120]) != _storedL1Head) revert InvalidPublicInput();
 
         SP1_VERIFIER.verifyProof(
             ZKVM_PROGRAM_V_KEY,

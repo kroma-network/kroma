@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -40,20 +39,15 @@ var (
 	TargetBlockNumber = uint64(21)
 
 	// for zkVM challenge
-	ZkVMVKeyHash     = common.HexToHash("0x6c15e3bb696329c15f6b963e40ac4c3841e726ef6fcaea042daf4b3d056e8d2f")
+	ZkVMVKeyHash     = common.HexToHash("0x00ad7cc293beb89796e8a9713ab7189b33faf6975325da0707d2d9cb129db055")
+	ZkVMProof        = hexutil.MustDecode("0x54bdcae3256eaae3a90569ad01460800c08e2e06c3855ced450de49dd34e32854eb67a8816b72b8294ea24733d2b47253edf6796321dc105f65d4509ee27dcdf849c453327152d4769901e03502fb829cfb6712c6f6e1088feb007a2cea4d8ae37a055671a40948624b98a91069134ea8ea6226e2f6a1457abec73c7d54c3f84eae953650fff44bd6eb127f188b42cf0b4552d9332ab154323b704fce64a396882f54dab173beedccb24459be8ba08df8b8682b90bed088ca80581e6280ab0299e26a5440c0dea757e11484d1bfb9cc54cb5b999b3d9b82ac4106ad0beb705d2a40467061ec853e02449daa488a94aae8c9d1147065857a08c80ced9a04decd9d5f96d64001c6675f4f317af95829e40e3274101e9baa1e539111a0654c3628da41cc4610dd0dde84ff63c37fd213cb6ae5a86e22c0a088249aa3752ee4beb023777e02802629c8c5bfb2197357eb1566a77f4169177c826ba62d784693318795cea293e048bebd2ac5e88b24ff21e8547a3edf369173a0c3106ee2fef2d807103f9a1c91d7ef6307a47781f8ec796db6f3e1e6256b14aefb0be95d15818eaea4fa6b8ab2b2605cc47f8010abd47fabc7be65ea31096f26cbdc6ac2fd7fd8af7be18fa9e0a3500fb95305139353357d88322ec0d64026fe5a9b5c5f8a124de743207eb2a1dcf72d0168eae8a898ce3fec30a266d95ab8a8359547e7c56894f89f940d90e097cfe99058f651935fbe199211af862819d46cbb1722643447f9e5100714ddf2c3805f779b66f864138e7596ec5a224816bb75cb6a269387cb10bf269229d301fff5a2f5ef5191d95b89be192e5295bb20eb7f2b81bb48513cc2e1f389686da0eb207a4d13446c0b1482f1b1d1ff61fde440f4d194b2f1b9a4ea1bc2c394bc72be7e54c5ff0fff46f22939d5bb4f5e8e12683cbf26915f030efa53541e61583081eef0c4eef42367c3f341f6283fe706def1fd0b918c440144a12cb30fea3620db53fda424496de0e44526cb992e2071e8a4d7c3c427dfe45a1ad2ed61fac6b1d353e45fb0bb3371366931164f97d439a05a188e38673f2c9aba54e4677272c085ab877f90baf7e56a92c2ab2447d75b662fc04cccf3f9716dfaf575662e2a003d77395c3c8a90706526d8ed1dbfde71dde5739670a8bf30fecc98f6b2929fa1876db545698cfc3233f1101212ebe78c6db2460071fcce10504c35ff472738e")
+	ZkVMPublicValues = hexutil.MustDecode("0x20000000000000008906045a3f098db0d7a5f7d9400e1299718fc9563b30417e887cf0c91a375fea200000000000000053ae7b0c4ef070efb9bec7ae130edce19797b2283f020e085a69796ad43b6c512000000000000000c5f36b4618de22a58113263406f398342a7624d832fda0ccd05ab61b0ceb5352")
 	ZkVMWitness      = "0x"
-	ZkVMProof        = []byte("0x097da0323fa72c64d59682d6991bab9a50c996336d5fd070f0d56ef3ecb9a5d00d489a87499d9b0026b1fecda38a6edd41d290ffd053a1abb0747b0dbb5b66ff1d35d77f6bcf425a06872e78d8c544966b577e1cbd63975a8d371766ec0b642b279a6d15b4d7b8dd3b47da0f02122e475d6b6a8f97422d56f18acc2184f245e50eae81146701d25724a5c2b9baf82ae93ca264d11c4a481dba73886b01c642932557ed9e6845c6e16562ba4521add47de2c5aa811502c73e8735c874c4db4ba90df225349e121ce92fe27aebb8e236ff905b9911df6f67b52c82a34fe8933c9b053cb8567250f35115a32ae989650483221ce6a4490f092f9543f30a89f065c3116de44ce1a7ca5f947b2557373d893c6989c7b5c2bc42be86f8b059dc6a5fa106bd0c0abd63686b42f3706a366f270767b050e1ba3ec5a454b520023fd40cd60fe55fe86edeea81ff5b7d32347b9c086e969db21bc20c635ca3f6462b52d65f0fc8f4b067b8d4ec08fc2bbf1c23bf0160488d3a828b73acf294b4d42cc1cf4112ca129ba4dca38719090f2be26e2af92380b3ddb339a50fd42fb66e9296c7471ee0f694e35863ed363a77c1ca0e0b3fe1c57f566d36542cb2ef47d3b1eb3daf25ebed15fd6a0adaaf2f37c105b5298d9113d5b2ba641d82bfad0ec4cac0827b1a2c814d228825f742cd68bcec14d229025f551a812af3657b69ecae33f360d00000000728afb9bcba40e0fbc85d775ae7ea50aff5f22ee0e77b7655e732e7a2ee068e1d1c3e5dd8edaa6fc4cd247b4589c8b94c3dac94e2f7a72888ca531087666a4b702eaae316ed0d4df9b072fe8c7392814a25eea4b2c4922d51fb0a6cf64d64968e1e25234f6c4639dbdd3d760ee52c7af731ca9faa84edff95112c335e02a4212d26b444f87cd3f4f831496168d34df8f467ba62b9593672ae25edfeb08b366c24192e1dc95648187b63d52615c37bb108358c6c49ce51bf3e2b77bb15b72efbb6283e36d4e0b3a80f18281201ab420a5a81efc7af8e3cdfb64c693b2ddedb94a21a7462dc9ec33d761306721c1f8d5e8f4b517724a01673bba4853d54591c6d8213b2d1456728311ec65f4f13f40c383f8e72f7890954051eccd05bc3c1fe44e6224c2e29bda437a135eba9ed261aa9a09ccb612dcf5c87dad3e60b3cdbb118d9000000011ae99cd49723c91c7c9001f4256a2c378b1896d5bdfb32f08ce2b329a5587ef720d4ab2bb8e82786d89e196bfe3043c9ffd38e1c622e3d41061c3ad7347dece5")
-	ZkVMPublicVaules = []byte("0x2000000000000000ee40a952b20e40f8911e64179baf6afe0cac0e6226f18719560efa55ee51e701200000000000000048f9fe8c248855f9da9e8f6e06f3215f57a6a96f684b5fc63232b565bdb98479200000000000000042c0d60066fbd229758f8deaee337afc6cd0a75ddf120896258a4fd846aafbfd")
 
-	zkVMPrevBlockhash             = common.HexToHash("0x")
-	zkVMPrevStateRoot             = common.HexToHash("0x")
-	zkVMPrevWithdrawalStorageRoot = common.HexToHash("0x")
+	zkVMPrevOutput   = common.HexToHash("0x8906045a3f098db0d7a5f7d9400e1299718fc9563b30417e887cf0c91a375fea")
+	zkVMTargetOutput = common.HexToHash("0x53ae7b0c4ef070efb9bec7ae130edce19797b2283f020e085a69796ad43b6c51")
 
-	zkVMTargetBlockhash             = common.HexToHash("0x")
-	zkVMTargetStateRoot             = common.HexToHash("0x")
-	zkVMTargetWithdrawalStorageRoot = common.HexToHash("0x")
-
-	ChallengeL1Head = common.HexToHash("0x")
+	ChallengeL1Head = common.HexToHash("0xc5f36b4618de22a58113263406f398342a7624d832fda0ccd05ab61b0ceb5352")
 
 	// for zkEVM challenge
 	coinbaseAddr   = common.HexToAddress("0x0000000000000000000000000000000000000000")
@@ -91,24 +85,8 @@ var (
 func SetPrevOutputResponse(o *eth.OutputResponse, proofType ProofType) error {
 	switch proofType {
 	case ZkVMType:
-		outputRoot, err := rollup.ComputeL2OutputRoot(&opbindings.TypesOutputRootProof{
-			Version:                  eth.OutputVersionV0,
-			StateRoot:                zkVMPrevStateRoot,
-			MessagePasserStorageRoot: zkVMPrevWithdrawalStorageRoot,
-			LatestBlockhash:          zkVMTargetBlockhash,
-		})
-		if err != nil {
-			return fmt.Errorf("mocking error: %w", err)
-		}
-
-		o.OutputRoot = outputRoot
-		o.WithdrawalStorageRoot = zkVMPrevWithdrawalStorageRoot
-		o.StateRoot = zkVMPrevStateRoot
-		o.BlockRef = eth.L2BlockRef{
-			Number:     TargetBlockNumber - 1,
-			Hash:       zkVMPrevBlockhash,
-			ParentHash: common.HexToHash("0x"),
-		}
+		o.OutputRoot = eth.Bytes32(zkVMPrevOutput)
+		// Other values than output root won't be used in zkVM challenge, so we don't have to mock them
 	case ZkEVMType:
 		outputRoot, err := rollup.ComputeKromaL2OutputRoot(&bindings.TypesOutputRootProof{
 			Version:                  eth.OutputVersionV0,
@@ -187,24 +165,8 @@ func SetPrevOutputWithProofResponse(o *eth.OutputWithProofResponse) error {
 func SetTargetOutputResponse(o *eth.OutputResponse, proofType ProofType) error {
 	switch proofType {
 	case ZkVMType:
-		outputRoot, err := rollup.ComputeL2OutputRoot(&opbindings.TypesOutputRootProof{
-			Version:                  eth.OutputVersionV0,
-			StateRoot:                zkVMTargetStateRoot,
-			MessagePasserStorageRoot: zkVMTargetWithdrawalStorageRoot,
-			LatestBlockhash:          zkVMTargetBlockhash,
-		})
-		if err != nil {
-			return fmt.Errorf("mocking error: %w", err)
-		}
-
-		o.OutputRoot = outputRoot
-		o.WithdrawalStorageRoot = zkVMTargetWithdrawalStorageRoot
-		o.StateRoot = zkVMTargetStateRoot
-		o.BlockRef = eth.L2BlockRef{
-			Number:     TargetBlockNumber,
-			Hash:       zkVMTargetBlockhash,
-			ParentHash: zkVMPrevBlockhash,
-		}
+		o.OutputRoot = eth.Bytes32(zkVMTargetOutput)
+		// Other values than output root won't be used in zkVM challenge, so we don't have to mock them
 	case ZkEVMType:
 		nextBlockhash := common.HexToHash("0x6c4e19b1fc27f6a075c67f35bd15b21c40025a892e32cdb8d9b5f5d5ec60093a")
 		outputRoot, err := rollup.ComputeKromaL2OutputRoot(&bindings.TypesOutputRootProof{

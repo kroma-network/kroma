@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -57,7 +56,6 @@ type Runtime struct {
 	assetMgrContract         *bindings.AssetManagerCaller
 	assetTokenContract       *bindings.GovernanceTokenCaller
 	targetInvalidBlockNumber uint64
-	ChallengeProofType       testdata.ProofType
 	outputIndex              *big.Int
 	outputOnL1               bindings.TypesCheckpointOutput
 	txHash                   common.Hash
@@ -68,36 +66,22 @@ type Runtime struct {
 type SetupSequencerTestFunc = func(t Testing, sd *e2eutils.SetupData, log log.Logger) (*L1Miner, *L2Engine, *L2Sequencer)
 
 // defaultRuntime is currently only used for l2_challenger_test.
-func defaultRuntime(
-	gt *testing.T, setupSequencerTest SetupSequencerTestFunc, deltaTimeOffset *hexutil.Uint64, proofType testdata.ProofType,
-) Runtime {
+func defaultRuntime(gt *testing.T, setupSequencerTest SetupSequencerTestFunc, deltaTimeOffset *hexutil.Uint64) Runtime {
 	t := NewDefaultTesting(gt)
 	dp := e2eutils.MakeDeployParams(t, defaultRollupTestParams)
-	if proofType == testdata.ZkVMType {
-		genesisActivation := hexutil.Uint64(0)
-		deltaTimeOffset = &genesisActivation
-		mptTimeOffset := hexutil.Uint64(2)
-		dp.DeployConfig.L2GenesisEcotoneTimeOffset = deltaTimeOffset
-		dp.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
-	}
 	dp.DeployConfig.L2GenesisDeltaTimeOffset = deltaTimeOffset
 	sd := e2eutils.Setup(t, dp, defaultAlloc)
 	l := testlog.Logger(t, log.LvlDebug)
 	rt := Runtime{
-		t:                  t,
-		dp:                 dp,
-		sd:                 sd,
-		l:                  l,
-		l1BlockDelta:       6,
-		ChallengeProofType: proofType,
+		t:            t,
+		dp:           dp,
+		sd:           sd,
+		l:            l,
+		l1BlockDelta: 6,
 	}
 
 	rt.miner, rt.seqEngine, rt.sequencer = setupSequencerTest(rt.t, rt.sd, rt.l)
 	rt.setupBatcher(dp)
-
-	if proofType == testdata.ZkVMType {
-		rt.assertReplaceWithMockColosseum()
-	}
 
 	return rt
 }
@@ -149,13 +133,13 @@ func (rt *Runtime) setupValidator(pk *ecdsa.PrivateKey, setInvalidBlockNumber bo
 	var validatorRollupClient *sources.RollupClient
 	if isMalicious {
 		// setup mockup rpc for returning invalid output
-		validatorRPC, err := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient(), rt.ChallengeProofType)
+		validatorRPC, err := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient(), testdata.DefaultProofType)
 		require.NoError(rt.t, err)
 		validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 		validatorRollupClient = sources.NewRollupClient(validatorRPC)
 	} else {
 		// setup mockup rpc for returning valid output
-		validatorRPC, err := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient(), rt.ChallengeProofType)
+		validatorRPC, err := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient(), testdata.DefaultProofType)
 		require.NoError(rt.t, err)
 		if setInvalidBlockNumber {
 			validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
@@ -210,31 +194,6 @@ func (rt *Runtime) assertRedeployValPoolToTerminate(newTerminationIndex *big.Int
 		newTerminationIndex,
 		rt.miner.EthClient(),
 		rt.dp.Secrets,
-		rt.sd.RollupCfg.L1ChainID,
-		rt.sd.DeploymentsL1,
-		rt.dp.DeployConfig,
-	)
-	require.NoError(rt.t, err)
-
-	// Check deploy tx submission was successful
-	rt.includeL1BlockByTx(deployTx.Hash())
-	receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), deployTx.Hash())
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "deploy tx submission failed")
-
-	// Check upgrade tx submission was successful
-	rt.includeL1BlockByTx(upgradeTx.Hash())
-	receipt, err = rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), upgradeTx.Hash())
-	require.NoError(rt.t, err)
-	require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "upgrade tx submission failed")
-}
-
-// assertReplaceWithMockColosseum deploys MockColosseum which has setL1Head function and upgrades proxy for challenge test.
-// It also asserts that the deploying and upgrade tx is successful.
-func (rt *Runtime) assertReplaceWithMockColosseum() {
-	deployTx, upgradeTx, err := e2eutils.ReplaceWithMockColosseum(
-		rt.miner.EthClient(),
-		rt.dp.Secrets.SysCfgOwner,
 		rt.sd.RollupCfg.L1ChainID,
 		rt.sd.DeploymentsL1,
 		rt.dp.DeployConfig,
@@ -325,22 +284,6 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 	challenge, err := rt.colosseumContract.GetChallenge(nil, rt.outputIndex, challenger.address)
 	require.NoError(rt.t, err)
 	require.NotNil(rt.t, challenge, "challenge not found")
-
-	// mock challenge.l1Head for zkVM challenge test
-	if rt.ChallengeProofType == testdata.ZkVMType {
-		txOpts, err := bind.NewKeyedTransactorWithChainID(rt.dp.Secrets.Alice, rt.sd.RollupCfg.L1ChainID)
-		require.NoError(rt.t, err)
-		tx, err := rt.colosseumContract.SetL1Head(txOpts, rt.outputIndex, challenger.address, testdata.ChallengeL1Head)
-		require.NoError(rt.t, err)
-
-		// include tx on L1
-		rt.includeL1BlockByTx(tx.Hash())
-
-		// Check whether the submission was successful
-		receipt, err := rt.miner.EthClient().TransactionReceipt(rt.t.Ctx(), tx.Hash())
-		require.NoError(rt.t, err)
-		require.Equal(rt.t, types.ReceiptStatusSuccessful, receipt.Status, "failed to set L1 head")
-	}
 
 	if version == valhelper.ValidatorV1 {
 		// check pending bond amount after create challenge
