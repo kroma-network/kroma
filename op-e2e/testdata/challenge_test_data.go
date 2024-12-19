@@ -86,7 +86,7 @@ func SetPrevOutputResponse(o *eth.OutputResponse, proofType ProofType) error {
 	switch proofType {
 	case ZkVMType:
 		o.OutputRoot = eth.Bytes32(zkVMPrevOutput)
-		// Other values than output root won't be used in zkVM challenge, so we can set them to empty hash
+		// Other values than output root won't be used in zkVM challenge, so we don't have to mock them
 	case ZkEVMType:
 		outputRoot, err := rollup.ComputeKromaL2OutputRoot(&bindings.TypesOutputRootProof{
 			Version:                  eth.OutputVersionV0,
@@ -166,7 +166,7 @@ func SetTargetOutputResponse(o *eth.OutputResponse, proofType ProofType) error {
 	switch proofType {
 	case ZkVMType:
 		o.OutputRoot = eth.Bytes32(zkVMTargetOutput)
-		// Other values than output root won't be used in zkVM challenge, so we can set them to empty hash
+		// Other values than output root won't be used in zkVM challenge, so we don't have to mock them
 	case ZkEVMType:
 		nextBlockhash := common.HexToHash("0x6c4e19b1fc27f6a075c67f35bd15b21c40025a892e32cdb8d9b5f5d5ec60093a")
 		outputRoot, err := rollup.ComputeKromaL2OutputRoot(&bindings.TypesOutputRootProof{
