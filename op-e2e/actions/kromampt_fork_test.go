@@ -70,6 +70,8 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	require.NoError(t, err)
 	l1FeeRecipient, err := l1FeeVault.RECIPIENT(nil)
 	require.NoError(t, err)
+	require.NotEqual(t, l1FeeRecipient, common.Address{})
+	require.Equal(t, l1FeeRecipient, dp.DeployConfig.L1FeeVaultRecipient)
 
 	// Get current implementations addresses (by slot) for GasPriceOracle
 	initialGasPriceOracleAddress, err := ethCl.StorageAt(context.Background(), predeploys.GasPriceOracleAddr, genesis.ImplementationSlot, nil)
@@ -88,14 +90,6 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	// See [derive.KromaMPTNetworkUpgradeTransactions]
 	require.Equal(t, 12, len(transactions))
 
-	// Use KromaDepositTx instead of DepositTx
-	for i, otx := range transactions {
-		if otx.Type() == types.DepositTxType {
-			transactions[i], err = otx.ToKromaDepositTx()
-			require.NoError(t, err)
-		}
-	}
-
 	_, err = derive.L1BlockInfoFromBytes(sd.RollupCfg, latestBlock.Time(), transactions[0].Data())
 	require.NoError(t, err)
 	require.Equal(t, derive.L1InfoEcotoneLen, len(transactions[0].Data()))
@@ -109,6 +103,7 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 		require.NotEmpty(t, txn.Data(), "upgrade tx must provide input data")
 	}
 
+	expectedL1BlockAddress := crypto.CreateAddress(derive.L1BlockMPTDeployerAddress, 0)
 	expectedBaseFeeVaultAddress := crypto.CreateAddress(derive.BaseFeeVaultDeployerAddress, 0)
 	expectedL1FeeVaultAddress := crypto.CreateAddress(derive.L1FeeVaultDeployerAddress, 0)
 	expectedSequencerFeeVaultAddress := crypto.CreateAddress(derive.SequencerFeeVaultDeployerAddress, 0)
@@ -138,6 +133,12 @@ func TestKromaMPTNetworkUpgradeTransactions(gt *testing.T) {
 	require.Equal(t, expectedGasPriceOracleAddress, common.BytesToAddress(updatedGasPriceOracleAddress))
 	require.NotEqualf(t, initialGasPriceOracleAddress, updatedGasPriceOracleAddress, "Gas Price Oracle Proxy address should have changed")
 	verifyCodeHashMatches(t, ethCl, expectedGasPriceOracleAddress, gasPriceOracleMPTCodeHash)
+
+	// L1Block impl is deployed
+	updatedL1BlockAddress, err := ethCl.StorageAt(context.Background(), oppredeploys.L1BlockAddr, genesis.ImplementationSlot, latestBlock.Number())
+	require.NoError(t, err)
+	require.Equal(t, expectedL1BlockAddress, common.BytesToAddress(updatedL1BlockAddress))
+	verifyCodeHashMatches(t, ethCl, common.BytesToAddress(updatedL1BlockAddress), l1BlockMPTCodeHash)
 
 	// Check that KromaMPT was activated
 	isKromaMPT, err := gasPriceOracle.IsKromaMPT(nil)
