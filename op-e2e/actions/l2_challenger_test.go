@@ -16,7 +16,7 @@ import (
 
 var challengerTests = []struct {
 	name string
-	f    func(ft *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8, proofType testdata.ProofType)
+	f    func(ft *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8)
 }{
 	{"ChallengeBasic", ChallengeBasic},
 	{"ChallengeAsserterBisectTimeout", ChallengeAsserterBisectTimeout},
@@ -32,7 +32,7 @@ func TestChallengerBatchType(t *testing.T) {
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_SingularBatch", func(t *testing.T) {
-			test.f(t, nil, valhelper.ValidatorV1, testdata.DefaultProofType)
+			test.f(t, nil, valhelper.ValidatorV1)
 		})
 	}
 
@@ -40,7 +40,7 @@ func TestChallengerBatchType(t *testing.T) {
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_SpanBatch", func(t *testing.T) {
-			test.f(t, &deltaTimeOffset, valhelper.ValidatorV1, testdata.DefaultProofType)
+			test.f(t, &deltaTimeOffset, valhelper.ValidatorV1)
 		})
 	}
 }
@@ -50,39 +50,19 @@ func TestValidatorSystemVersion(t *testing.T) {
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_ValidatorPool", func(t *testing.T) {
-			test.f(t, nil, valhelper.ValidatorV1, testdata.DefaultProofType)
+			test.f(t, nil, valhelper.ValidatorV1)
 		})
 	}
 	for _, test := range challengerTests {
 		test := test
 		t.Run(test.name+"_ValidatorManager", func(t *testing.T) {
-			test.f(t, nil, valhelper.ValidatorV2, testdata.DefaultProofType)
+			test.f(t, nil, valhelper.ValidatorV2)
 		})
 	}
 }
 
-// TestChallengerProofType run each challenge test case in zkEVM version and zkVM version.
-func TestChallengerProofType(t *testing.T) {
-	t.Skip("Temporarily skip, enable when test data added") // TODO(seolaoh)
-
-	for _, test := range challengerTests {
-		test := test
-		t.Run(test.name+"_zkEVM", func(t *testing.T) {
-			test.f(t, nil, valhelper.ValidatorV1, testdata.ZkEVMType)
-		})
-	}
-
-	deltaTimeOffset := hexutil.Uint64(0)
-	for _, test := range challengerTests {
-		test := test
-		t.Run(test.name+"_zkVM", func(t *testing.T) {
-			test.f(t, &deltaTimeOffset, valhelper.ValidatorV1, testdata.ZkVMType)
-		})
-	}
-}
-
-func ChallengeBasic(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8, proofType testdata.ProofType) {
-	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset, proofType)
+func ChallengeBasic(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
+	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
 	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
@@ -169,9 +149,8 @@ interaction:
 	}
 }
 
-func ChallengeAsserterBisectTimeout(
-	t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8, proofType testdata.ProofType) {
-	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset, proofType)
+func ChallengeAsserterBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
+	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
 	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
@@ -253,9 +232,8 @@ interaction:
 	}
 }
 
-func ChallengeChallengerBisectTimeout(
-	t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8, proofType testdata.ProofType) {
-	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset, proofType)
+func ChallengeChallengerBisectTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
+	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
 	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
@@ -335,9 +313,8 @@ interaction:
 	}
 }
 
-func ChallengeChallengerProvingTimeout(
-	t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8, proofType testdata.ProofType) {
-	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset, proofType)
+func ChallengeChallengerProvingTimeout(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
+	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
 	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
@@ -421,9 +398,8 @@ interaction:
 	}
 }
 
-func ChallengeInvalidProofFail(
-	t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8, proofType testdata.ProofType) {
-	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset, proofType)
+func ChallengeInvalidProofFail(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
+	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
 	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
@@ -538,9 +514,8 @@ interaction:
 	}
 }
 
-func ChallengeForceDeleteOutputBySecurityCouncil(
-	t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8, proofType testdata.ProofType) {
-	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset, proofType)
+func ChallengeForceDeleteOutputBySecurityCouncil(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
+	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
 	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
@@ -633,8 +608,8 @@ interaction:
 	}
 }
 
-func MultipleChallenges(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8, proofType testdata.ProofType) {
-	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset, proofType)
+func MultipleChallenges(t *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8) {
+	rt := defaultRuntime(t, setupSequencerTest, deltaTimeOffset)
 
 	if version == valhelper.ValidatorV2 {
 		rt.assertRedeployValPoolToTerminate(defaultValPoolTerminationIndex)
