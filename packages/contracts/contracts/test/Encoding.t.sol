@@ -56,6 +56,7 @@ contract Encoding_Test is CommonTest {
         assertEq(encoding, _encoding);
     }
 
+    // [Kroma: START]
     function testDiff_encodeDepositTransaction_succeeds(
         address _from,
         address _to,
@@ -78,9 +79,17 @@ contract Encoding_Test is CommonTest {
             _logIndex
         );
 
-        bytes memory txn = Encoding.encodeDepositTransaction(t);
-        bytes memory _txn = ffi.encodeDepositTransaction(t);
+        // assert DepositTx
+        bytes memory txn = Encoding.encodeDepositTransaction(t, false);
+        bytes memory _txn = ffi.encodeDepositTransaction(t, false);
 
-        assertEq(txn, _txn);
+        assertEq(txn, _txn, "failed to assert deposit tx");
+
+        // assert KromaDepositTx
+        txn = Encoding.encodeDepositTransaction(t, true);
+        _txn = ffi.encodeDepositTransaction(t, true);
+
+        assertEq(txn, _txn, "failed to assert kroma deposit tx");
     }
+    // [Kroma: END]
 }

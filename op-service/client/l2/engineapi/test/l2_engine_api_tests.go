@@ -38,6 +38,10 @@ func RunEngineAPITests(t *testing.T, createBackend func(t *testing.T) engineapi.
 		txData, err := derive.L1InfoDeposit(rollupCfg, eth.SystemConfig{}, 1, eth.HeaderBlockInfo(genesis), 0)
 		api.assert.NoError(err)
 		tx := types.NewTx(txData)
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		tx, err = tx.ToKromaDepositTx()
+		require.NoError(t, err)
+		// [Kroma: END]
 		block := api.addBlock(tx)
 		api.assert.Equal(block.BlockHash, api.headHash(), "should create and import new block")
 		imported := api.backend.GetBlockByHash(block.BlockHash)

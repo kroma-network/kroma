@@ -28,7 +28,7 @@ var (
 	opts, _                = bind.NewKeyedTransactorWithChainID(pk, common.Big1)
 	from                   = crypto.PubkeyToAddress(pk.PublicKey)
 	portalContract, _      = bindings.NewKromaPortal(addr, nil)
-	l1BlockInfoContract, _ = bindings.NewL1Block(addr, nil)
+	l1BlockInfoContract, _ = bindings.NewKromaL1Block(addr, nil)
 )
 
 func cap_byte_slice(b []byte, c int) []byte {
@@ -96,6 +96,34 @@ func FuzzL1InfoEcotoneRoundTrip(f *testing.F) {
 			t.Fatalf("The data did not round trip correctly. in: %v. out: %v", in, out)
 		}
 
+	})
+}
+
+// FuzzL1InfoKromaMPTRoundTrip checks that our Kroma MPT encoder round trips properly
+func FuzzL1InfoKromaMPTRoundTrip(f *testing.F) {
+	f.Fuzz(func(t *testing.T, number, time uint64, baseFee, blobBaseFee, hash []byte, seqNumber uint64, baseFeeScalar, blobBaseFeeScalar uint32) {
+		in := L1BlockInfo{
+			Number:            number,
+			Time:              time,
+			BaseFee:           BytesToBigInt(baseFee),
+			BlockHash:         common.BytesToHash(hash),
+			SequenceNumber:    seqNumber,
+			BlobBaseFee:       BytesToBigInt(blobBaseFee),
+			BaseFeeScalar:     baseFeeScalar,
+			BlobBaseFeeScalar: blobBaseFeeScalar,
+		}
+		enc, err := in.marshalBinaryKromaMPT()
+		if err != nil {
+			t.Fatalf("Failed to marshal binary: %v", err)
+		}
+		var out L1BlockInfo
+		err = out.unmarshalBinaryKromaMPT(enc)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal binary: %v", err)
+		}
+		if !cmp.Equal(in, out, cmp.Comparer(testutils.BigEqual)) {
+			t.Fatalf("The data did not round trip correctly. in: %v. out: %v", in, out)
+		}
 	})
 }
 

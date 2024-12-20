@@ -71,6 +71,6 @@ const deployFn: DeployFunction = async (hre) => {
   })
 }
 
-deployFn.tags = ['KromaPortal', 'setup', 'l1']
+deployFn.tags = ['KromaPortal', 'setup', 'l1', 'mpt']
 
 export default deployFn

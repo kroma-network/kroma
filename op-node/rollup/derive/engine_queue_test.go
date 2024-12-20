@@ -968,6 +968,12 @@ func TestBlockBuildingRace(t *testing.T) {
 		InfoBloom:            types.Bloom{},
 		InfoExtra:            []byte{},
 	}, 0)
+	// [Kroma: START] Use KromaDepositTx instead of DepositTx
+	if cfg.KromaMPTTime == nil || !cfg.IsKromaMPT(refA1.Time) {
+		a1InfoTx, err = ToKromaDepositBytes(a1InfoTx)
+		require.NoError(t, err)
+	}
+	// [Kroma: END]
 
 	require.NoError(t, err)
 	payloadA1 := &eth.ExecutionPayload{

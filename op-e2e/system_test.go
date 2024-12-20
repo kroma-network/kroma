@@ -10,12 +10,11 @@ import (
 	"testing"
 	"time"
 
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	gethutils "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
@@ -49,6 +48,7 @@ import (
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
+	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 // TestSystemBatchType run each system e2e test case in singular batch mode and span batch mode.
@@ -178,9 +178,7 @@ func TestL2OutputSubmitterV2(t *testing.T) {
 	require.NoError(t, err, "Error starting up system")
 	defer sys.Close()
 
-	rollupRPCClient, err := rpc.DialContext(context.Background(), sys.RollupNodes["sequencer"].HTTPEndpoint())
-	require.NoError(t, err)
-	rollupClient := sources.NewRollupClient(client.NewBaseRPCClient(rollupRPCClient))
+	rollupClient := sys.RollupClient("sequencer")
 
 	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, sys.Clients["l1"])
 	require.NoError(t, err)
@@ -452,10 +450,10 @@ func TestSystemE2EDencunAtGenesisWithBlobs(t *testing.T) {
 	require.Nil(t, err, "Waiting for blob tx on L1")
 	// end sending blob-containing txns on l1
 	l2Client := sys.Clients["sequencer"]
-	finalizedBlock, err := gethutils.WaitForL1OriginOnL2(sys.RollupConfig, blockContainsBlob.BlockNumber.Uint64(), l2Client, 30*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
+	finalizedBlock, err := geth.WaitForL1OriginOnL2(sys.RollupConfig, blockContainsBlob.BlockNumber.Uint64(), l2Client, 30*time.Duration(cfg.DeployConfig.L1BlockTime)*time.Second)
 	require.Nil(t, err, "Waiting for L1 origin of blob tx on L2")
 	finalizationTimeout := 30 * time.Duration(cfg.DeployConfig.L1BlockTime) * time.Second
-	_, err = gethutils.WaitForBlockToBeSafe(finalizedBlock.Header().Number, l2Client, finalizationTimeout)
+	_, err = geth.WaitForBlockToBeSafe(finalizedBlock.Header().Number, l2Client, finalizationTimeout)
 	require.Nil(t, err, "Waiting for safety of L2 block")
 }
 
@@ -720,7 +718,7 @@ func TestMissingBatchE2E(t *testing.T) {
 	}
 }
 
-func L1InfoFromState(ctx context.Context, contract *bindings.L1Block, l2Number *big.Int, ecotone bool) (*derive.L1BlockInfo, error) {
+func L1InfoFromState(ctx context.Context, contract *bindings.KromaL1Block, l2Number *big.Int, ecotone bool) (*derive.L1BlockInfo, error) {
 	var err error
 	out := &derive.L1BlockInfo{}
 	opts := bind.CallOpts{
@@ -1146,16 +1144,16 @@ func TestL1InfoContract(t *testing.T) {
 	endSeqBlock, err := geth.WaitForBlock(endSeqBlockNumber, l2Seq, time.Minute)
 	require.Nil(t, err)
 
-	seqL1Info, err := bindings.NewL1Block(cfg.L1InfoPredeployAddress, l2Seq)
+	seqL1Info, err := bindings.NewKromaL1Block(cfg.L1InfoPredeployAddress, l2Seq)
 	require.Nil(t, err)
 
-	verifL1Info, err := bindings.NewL1Block(cfg.L1InfoPredeployAddress, l2Verif)
+	verifL1Info, err := bindings.NewKromaL1Block(cfg.L1InfoPredeployAddress, l2Verif)
 	require.Nil(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	fillInfoLists := func(start *types.Block, contract *bindings.L1Block, client *ethclient.Client) ([]*derive.L1BlockInfo, []*derive.L1BlockInfo) {
+	fillInfoLists := func(start *types.Block, contract *bindings.KromaL1Block, client *ethclient.Client) ([]*derive.L1BlockInfo, []*derive.L1BlockInfo) {
 		var txList, stateList []*derive.L1BlockInfo
 		for b := start; ; {
 			var infoFromTx *derive.L1BlockInfo
@@ -1248,11 +1246,35 @@ func calcGasFees(gasUsed uint64, gasTipCap *big.Int, gasFeeCap *big.Int, baseFee
 // balance changes on L1 and L2 and has to include gas fees in the balance checks.
 // It does not check that the withdrawal can be executed prior to the end of the finality period.
 func TestWithdrawals(t *testing.T) {
-	InitParallel(t)
+	t.Run("pre-kromaMPT", func(t *testing.T) {
+		InitParallel(t)
 
-	cfg := DefaultSystemConfig(t)
-	cfg.DeployConfig.FinalizationPeriodSeconds = 2 // 2s finalization period
+		cfg := DefaultSystemConfig(t)
+		cfg.DeployConfig.FinalizationPeriodSeconds = 2 // 2s finalization period
+		testWithdrawals(t, cfg)
+	})
+	t.Run("kromaMPT", func(t *testing.T) {
+		InitParallel(t)
 
+		genesisBlock := hexutil.Uint64(0)
+		ecotoneTimeOffset := hexutil.Uint64(2)
+		mptTimeOffset := hexutil.Uint64(4)
+
+		cfg := DefaultSystemConfig(t)
+		cfg.SetupMPTMigration = true
+		cfg.DeployConfig.FinalizationPeriodSeconds = 2 // 2s finalization period
+		cfg.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
+		cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &ecotoneTimeOffset
+		cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
+		cfg.DeployConfig.L1BlockTime = 3
+		// set the L2 block time to 2 seconds to enforce the MPT transition at the second block
+		cfg.DeployConfig.L2BlockTime = 2
+
+		testWithdrawals(t, cfg)
+	})
+}
+
+func testWithdrawals(t *testing.T, cfg SystemConfig) {
 	sys, err := cfg.Start(t)
 	require.Nil(t, err, "Error starting up system")
 	defer sys.Close()
@@ -1278,9 +1300,19 @@ func TestWithdrawals(t *testing.T) {
 	// Send deposit tx
 	mintAmount := big.NewInt(1_000_000_000_000)
 	opts.Value = mintAmount
+	// [Kroma: START]
+	isKromaMPT := false
+	if cfg.DeployConfig.L2GenesisKromaMPTTimeOffset != nil {
+		mptTimeOffset := *cfg.DeployConfig.L2GenesisKromaMPTTimeOffset
+		mptMigrationNextBlock := uint64(mptTimeOffset)/cfg.DeployConfig.L2BlockTime + 1
+		_, err = geth.WaitForBlock(big.NewInt(int64(mptMigrationNextBlock)), l2Verif, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+		require.NoError(t, err)
+		isKromaMPT = true
+	}
 	SendDepositTx(t, cfg, l1Client, l2Verif, opts, func(l2Opts *DepositTxOpts) {
 		l2Opts.Value = common.Big0
-	})
+	}, isKromaMPT)
+	// [Kroma: END]
 
 	// Confirm L2 balance
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
@@ -1399,6 +1431,25 @@ func TestFees(t *testing.T) {
 		cfg.DeployConfig.L2GenesisEcotoneTimeOffset = new(hexutil.Uint64)
 		testFees(t, cfg)
 	})
+	t.Run("kroma-mpt", func(t *testing.T) {
+		InitParallel(t)
+		cfg := DefaultSystemConfig(t)
+		cfg.DeployConfig.L1GenesisBlockBaseFeePerGas = (*hexutil.Big)(big.NewInt(7))
+
+		genesisBlock := hexutil.Uint64(0)
+		ecotoneTimeOffset := hexutil.Uint64(2)
+		mptTimeOffset := hexutil.Uint64(4)
+
+		cfg.SetupMPTMigration = true
+		cfg.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
+		cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &ecotoneTimeOffset
+		cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
+		cfg.DeployConfig.L1BlockTime = 3
+		// set the L2 block time to 2 seconds to enforce the MPT transition at the second block
+		cfg.DeployConfig.L2BlockTime = 2
+
+		testFees(t, cfg)
+	})
 }
 
 func testFees(t *testing.T, cfg SystemConfig) {
@@ -1424,14 +1475,25 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	ethPrivKey := cfg.Secrets.Alice
 	fromAddr := crypto.PubkeyToAddress(ethPrivKey.PublicKey)
 
-	// require.NotEqual(t, cfg.DeployConfig.L2OutputOracleProposer, fromAddr)
+	require.NotEqual(t, cfg.DeployConfig.ValidatorManagerTrustedValidator, fromAddr)
 	require.NotEqual(t, cfg.DeployConfig.BatchSenderAddress, fromAddr)
+
+	// Wait until Kroma MPT migration completed when it's set
+	if cfg.DeployConfig.L2GenesisKromaMPTTimeOffset != nil {
+		mptTimeOffset := *cfg.DeployConfig.L2GenesisKromaMPTTimeOffset
+		mptBlock := uint64(mptTimeOffset) / cfg.DeployConfig.L2BlockTime
+		_, err = geth.WaitForBlock(big.NewInt(int64(mptBlock)), l2Seq, 10*time.Duration(cfg.DeployConfig.L2BlockTime)*time.Second)
+		require.NoError(t, err)
+	}
 
 	// Find gaspriceoracle contract
 	gpoContract, err := bindings.NewGasPriceOracle(predeploys.GasPriceOracleAddr, l2Seq)
 	require.Nil(t, err)
 
-	if !sys.RollupConfig.IsEcotone(sys.L2GenesisCfg.Timestamp) {
+	head, err := l2Seq.BlockByNumber(context.Background(), nil)
+	require.NoError(t, err)
+
+	if !sys.RollupConfig.IsEcotone(head.Time()) {
 		overhead, err := gpoContract.Overhead(&bind.CallOpts{})
 		require.Nil(t, err, "reading gpo overhead")
 		require.Equal(t, overhead.Uint64(), cfg.DeployConfig.GasPriceOracleOverhead, "wrong gpo overhead")
@@ -1451,23 +1513,7 @@ func testFees(t *testing.T, cfg SystemConfig) {
 
 	require.Equal(t, decimals.Uint64(), uint64(6), "wrong gpo decimals")
 
-	// Check balances of ProtocolVault
-	protocolVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
-	// Check balances of L1FeeVault
-	l1FeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
-	// Check balance of ValidatorRewardVault
-	validatorRewardVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-
 	// Simple transfer from signer to random account
-	startBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
-	require.Nil(t, err)
-	require.Greater(t, startBalance.Uint64(), big.NewInt(params.Ether).Uint64())
-
 	transferAmount := big.NewInt(params.Ether)
 	gasTip := big.NewInt(10)
 	receipt := SendL2Tx(t, cfg, l2Seq, ethPrivKey, func(opts *TxOpts) {
@@ -1484,62 +1530,128 @@ func testFees(t *testing.T, cfg SystemConfig) {
 	header, err := l2Seq.HeaderByNumber(context.Background(), receipt.BlockNumber)
 	require.Nil(t, err)
 
-	protocolVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	l1FeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	validatorRewardVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, header.Number)
-	require.Nil(t, err)
-
-	endBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, header.Number)
-	require.Nil(t, err)
-
 	l1Header, err := l1.HeaderByNumber(context.Background(), nil)
 	require.Nil(t, err)
 
-	// Diff fee recipients balances
-	protocolVaultDiff := new(big.Int).Sub(protocolVaultEndBalance, protocolVaultStartBalance)
-	l1FeeVaultDiff := new(big.Int).Sub(l1FeeVaultEndBalance, l1FeeVaultStartBalance)
-	validatorRewardVaultDiff := new(big.Int).Sub(validatorRewardVaultEndBalance, validatorRewardVaultStartBalance)
-
-	// get a validator reward scalar from L1Block contract
-	l1BlockContract, err := bindings.NewL1Block(predeploys.L1BlockAddr, l2Seq)
-	require.Nil(t, err)
-
-	validatorRewardScalar, err := l1BlockContract.ValidatorRewardScalar(&bind.CallOpts{})
-	require.Nil(t, err, "reading validatorRewardScalar")
-
-	gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
-	fee := new(big.Int)
-	fee.Mul(gasUsed, header.BaseFee)
-	fee.Add(fee, new(big.Int).Mul(gasTip, gasUsed))
-
-	R := big.NewRat(validatorRewardScalar.Int64(), 10000)
-	reward := new(big.Int).Mul(fee, R.Num())
-	reward.Div(reward, R.Denom())
-
-	// Tally Validator reward
-	require.Equal(t, reward, validatorRewardVaultDiff, "validator reward mismatch")
-
-	// Tally Protocol fund
-	protocolFee := new(big.Int).Sub(fee, reward)
-	require.Equal(t, protocolFee.Cmp(protocolVaultDiff), 0, "protocol fund mismatch")
-
-	// Tally sequencer reward
 	tx, _, err := l2Seq.TransactionByHash(context.Background(), receipt.TxHash)
 	require.NoError(t, err, "Should be able to get transaction")
-	bytes, err := tx.MarshalBinary()
-	require.Nil(t, err)
 
+	var totalFee *big.Int
 	l1Fee := l1CostFn(tx.RollupCostData(), header.Time)
-	require.Equalf(t, l1Fee, l1FeeVaultDiff, "L1 fee mismatch: start balance %v, end balance %v", l1FeeVaultStartBalance, l1FeeVaultEndBalance)
+	isKromaMPT := sys.RollupConfig.IsKromaMPT(header.Time)
+	if isKromaMPT {
+		require.Equal(t, oppredeploys.SequencerFeeVaultAddr, header.Coinbase, "coinbase should be sequencer fee vault")
+
+		// BaseFee Recipient
+		baseFeeRecipientStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.BaseFeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		baseFeeRecipientEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.BaseFeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// L1Fee Recipient
+		l1FeeRecipientStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		l1FeeRecipientEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.L1FeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		sequencerFeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		sequencerFeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), oppredeploys.SequencerFeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Diff fee recipient balances
+		baseFeeRecipientDiff := new(big.Int).Sub(baseFeeRecipientEndBalance, baseFeeRecipientStartBalance)
+		l1FeeRecipientDiff := new(big.Int).Sub(l1FeeRecipientEndBalance, l1FeeRecipientStartBalance)
+		sequencerFeeVaultDiff := new(big.Int).Sub(sequencerFeeVaultEndBalance, sequencerFeeVaultStartBalance)
+
+		// Tally L2 Fee
+		l2Fee := gasTip.Mul(gasTip, new(big.Int).SetUint64(receipt.GasUsed))
+		require.Equal(t, l2Fee, sequencerFeeVaultDiff, "l2 fee mismatch")
+
+		// Tally BaseFee
+		baseFee := new(big.Int).Mul(header.BaseFee, new(big.Int).SetUint64(receipt.GasUsed))
+		require.Equal(t, baseFee, baseFeeRecipientDiff, "base fee fee mismatch")
+
+		// Tally L1 Fee
+		require.Equalf(t, l1Fee.Uint64(), l1FeeRecipientDiff.Uint64(), "L1 fee mismatch: start balance %v, end balance %v",
+			l1FeeRecipientStartBalance, l1FeeRecipientEndBalance)
+
+		// Calculate total fee
+		baseFeeRecipientDiff.Add(baseFeeRecipientDiff, sequencerFeeVaultDiff)
+		totalFee = new(big.Int).Add(baseFeeRecipientDiff, l1FeeRecipientDiff)
+	} else {
+		// Check balances of ProtocolVault
+		protocolVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		protocolVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ProtocolVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Check balances of L1FeeVault
+		l1FeeVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		l1FeeVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.L1FeeVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Check balance of ValidatorRewardVault
+		validatorRewardVaultStartBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+		require.Nil(t, err)
+
+		validatorRewardVaultEndBalance, err := l2Seq.BalanceAt(context.Background(), predeploys.ValidatorRewardVaultAddr, header.Number)
+		require.Nil(t, err)
+
+		// Diff fee recipients balances
+		protocolVaultDiff := new(big.Int).Sub(protocolVaultEndBalance, protocolVaultStartBalance)
+		l1FeeVaultDiff := new(big.Int).Sub(l1FeeVaultEndBalance, l1FeeVaultStartBalance)
+		validatorRewardVaultDiff := new(big.Int).Sub(validatorRewardVaultEndBalance, validatorRewardVaultStartBalance)
+
+		// get a validator reward scalar from KromaL1Block contract
+		l1BlockContract, err := bindings.NewKromaL1Block(predeploys.KromaL1BlockAddr, l2Seq)
+		require.Nil(t, err)
+
+		validatorRewardScalar, err := l1BlockContract.ValidatorRewardScalar(&bind.CallOpts{})
+		require.Nil(t, err, "reading validatorRewardScalar")
+
+		gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
+		fee := new(big.Int)
+		fee.Mul(gasUsed, header.BaseFee)
+		fee.Add(fee, new(big.Int).Mul(gasTip, gasUsed))
+
+		R := big.NewRat(validatorRewardScalar.Int64(), 10000)
+		reward := new(big.Int).Mul(fee, R.Num())
+		reward.Div(reward, R.Denom())
+
+		// Tally Validator reward
+		require.Equal(t, reward, validatorRewardVaultDiff, "validator reward mismatch")
+
+		// Tally Protocol fund
+		protocolFee := new(big.Int).Sub(fee, reward)
+		require.Equal(t, protocolFee.Cmp(protocolVaultDiff), 0, "protocol fund mismatch")
+
+		// Tally sequencer reward
+		require.Equalf(t, l1Fee, l1FeeVaultDiff, "L1 fee mismatch: start balance %v, end balance %v", l1FeeVaultStartBalance, l1FeeVaultEndBalance)
+
+		// Calculate total fee
+		protocolVaultDiff.Add(protocolVaultDiff, validatorRewardVaultDiff)
+		totalFee = new(big.Int).Add(protocolVaultDiff, l1FeeVaultDiff)
+	}
 
 	gpoEcotone, err := gpoContract.IsEcotone(nil)
 	require.NoError(t, err)
 	require.Equal(t, sys.RollupConfig.IsEcotone(header.Time), gpoEcotone, "GPO and chain must have same ecotone view")
 
+	if isKromaMPT {
+		gpoKromaMPT, err := gpoContract.IsKromaMPT(nil)
+		require.NoError(t, err)
+		require.Equal(t, isKromaMPT, gpoKromaMPT, "GPO and chain must have same kroma mpt view")
+	}
+
+	bytes, err := tx.MarshalBinary()
+	require.Nil(t, err)
 	gpoL1Fee, err := gpoContract.GetL1Fee(&bind.CallOpts{}, bytes)
 	require.Nil(t, err)
 
@@ -1563,9 +1675,14 @@ func testFees(t *testing.T, cfg SystemConfig) {
 			new(big.Float).SetInt(receipt.L1Fee), "fee field in receipt matches gas used times scalar times base fee")
 	}
 
-	// Calculate total fee
-	protocolVaultDiff.Add(protocolVaultDiff, validatorRewardVaultDiff)
-	totalFee := new(big.Int).Add(protocolVaultDiff, l1FeeVaultDiff)
+	// Check total fee
+	startBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, big.NewInt(rpc.EarliestBlockNumber.Int64()))
+	require.Nil(t, err)
+	require.Greater(t, startBalance.Uint64(), big.NewInt(params.Ether).Uint64())
+
+	endBalance, err := l2Seq.BalanceAt(context.Background(), fromAddr, header.Number)
+	require.Nil(t, err)
+
 	balanceDiff := new(big.Int).Sub(startBalance, endBalance)
 	balanceDiff.Sub(balanceDiff, transferAmount)
 	require.Equal(t, balanceDiff, totalFee, "balances should add up")
@@ -1655,7 +1772,7 @@ func StopStartBatcher(t *testing.T, deltaTimeOffset *hexutil.Uint64) {
 	require.Greater(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain did not advance after batcher was restarted")
 }
 
-func TestChallenge(t *testing.T) {
+func TestZkEVMChallenge(t *testing.T) {
 	InitParallel(t)
 
 	cfg := DefaultSystemConfig(t)
@@ -1779,6 +1896,7 @@ func TestChallengeV2(t *testing.T) {
 	challengerAddr := cfg.Secrets.Addresses().Challenger1
 	validatorAddr := cfg.Secrets.Addresses().TrustedValidator
 	beforeAmount, err := validatorHelper.AssetMgrContract.TotalValidatorKro(&bind.CallOpts{}, validatorAddr)
+	require.NoError(t, err)
 
 	// Subscribe slash event in ValidatorManager
 	slashedCh := make(chan *bindings.ValidatorManagerSlashed, 1)
@@ -1992,6 +2110,117 @@ func TestChallengerTimeoutByGuardian(t *testing.T) {
 			require.Equal(t, from, cfg.Secrets.Addresses().Guardian)
 
 			return
+		}
+	}
+}
+
+func TestZkVMChallenge(t *testing.T) {
+	InitParallel(t)
+
+	genesisBlock := hexutil.Uint64(0)
+	ecotoneTimeOffset := hexutil.Uint64(2)
+	mptTimeOffset := hexutil.Uint64(16)
+
+	cfg := DefaultSystemConfig(t)
+	cfg.SetupMPTMigration = true
+	cfg.DeployConfig.L2GenesisDeltaTimeOffset = &genesisBlock
+	cfg.DeployConfig.L2GenesisEcotoneTimeOffset = &ecotoneTimeOffset
+	cfg.DeployConfig.L2GenesisKromaMPTTimeOffset = &mptTimeOffset
+	cfg.DeployConfig.L1BlockTime = 3
+	cfg.DeployConfig.L2BlockTime = 2 // same config with L2OutputOracle
+	cfg.EnableChallenge = true
+	cfg.ChallengeProofType = testdata.ZkVMType
+	cfg.NonFinalizedOutputs = true // speed up the time till we see checkpoint outputs
+
+	sys, err := cfg.Start(t)
+	require.NoError(t, err, "Error starting up system")
+	defer sys.Close()
+
+	l1Client := sys.NodeClient("l1")
+	validatorHelper := sys.ValidatorHelper()
+
+	// Deposit to ValidatorPool to be a challenger
+	validatorHelper.DepositToValPool(cfg.Secrets.Challenger1, big.NewInt(1_000_000_000))
+
+	l2OutputOracle, err := bindings.NewL2OutputOracleCaller(cfg.L1Deployments.L2OutputOracleProxy, l1Client)
+	require.NoError(t, err)
+
+	colosseum, err := bindings.NewMockColosseum(cfg.L1Deployments.ColosseumProxy, l1Client)
+	require.NoError(t, err)
+
+	securityCouncil, err := bindings.NewSecurityCouncil(cfg.L1Deployments.SecurityCouncilProxy, l1Client)
+	require.NoError(t, err)
+
+	targetOutputOracleIndex := new(big.Int).SetUint64(
+		uint64(math.Ceil(float64(testdata.TargetBlockNumber) / float64(cfg.DeployConfig.L2OutputOracleSubmissionInterval))))
+	challengerAddr := cfg.Secrets.Addresses().Challenger1
+
+	// Set a timeout for challenge success and output validation by security council
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for challengeCreated, l1HeadMocked, numCheck := false, false, 0; ; <-ticker.C {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("Timed out waiting for challenge conclusion")
+		default:
+			challengeStatus, err := colosseum.GetStatus(&bind.CallOpts{}, targetOutputOracleIndex, challengerAddr)
+			require.NoError(t, err)
+
+			// mock challenge.l1Head for test
+			if challengeStatus != chal.StatusNone && !l1HeadMocked {
+				txOpts, err := bind.NewKeyedTransactorWithChainID(sys.Cfg.Secrets.Alice, cfg.L1ChainIDBig())
+				require.NoError(t, err)
+				tx, err := colosseum.SetL1Head(txOpts, targetOutputOracleIndex, challengerAddr, testdata.ChallengeL1Head)
+				require.NoError(t, err)
+				_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+				require.NoError(t, err)
+
+				l1HeadMocked = true
+			}
+
+			if challengeStatus == chal.StatusReadyToProve {
+				challengeCreated = true
+			}
+			if !challengeCreated {
+				continue
+			}
+
+			// after challenge is proven, status is NONE
+			if challengeStatus != chal.StatusNone {
+				continue
+			}
+
+			// Check validation request tx exists and not executed
+			toBlock := latestBlock(t, l1Client)
+			iter, err := securityCouncil.FilterValidationRequested(&bind.FilterOpts{End: &toBlock}, nil)
+			require.NoError(t, err)
+			eventExists := iter.Next()
+			require.True(t, eventExists)
+			tx, err := securityCouncil.Transactions(&bind.CallOpts{}, iter.Event.TransactionId)
+			require.NoError(t, err)
+			eventExists = iter.Next()
+			require.False(t, eventExists)
+			err = iter.Close()
+			require.NoError(t, err)
+			require.NotEqual(t, tx.Target, common.Address{})
+			require.False(t, tx.Executed)
+
+			// Check output is deleted by challenger
+			output, err := l2OutputOracle.GetL2Output(&bind.CallOpts{}, targetOutputOracleIndex)
+			require.NoError(t, err)
+			require.Equal(t, output.Submitter, challengerAddr)
+			require.True(t, val.IsOutputDeleted(output.OutputRoot))
+
+			numCheck++
+
+			// after enough time for security council elapsed, the challenge is regarded to be correct
+			if numCheck >= 5 {
+				return
+			}
 		}
 	}
 }

@@ -10,7 +10,7 @@ import { Bridge_Initializer } from "./CommonTest.t.sol";
 // Test the implementations of the FeeVault
 contract FeeVault_Test is Bridge_Initializer {
     ProtocolVault protocolVault = ProtocolVault(payable(Predeploys.PROTOCOL_VAULT));
-    L1FeeVault l1FeeVault = L1FeeVault(payable(Predeploys.L1_FEE_VAULT));
+    L1FeeVault l1FeeVault = L1FeeVault(payable(Predeploys.KROMA_L1_FEE_VAULT));
 
     address constant recipient = address(0x10000);
     address constant caller = address(0x10001);
@@ -20,10 +20,10 @@ contract FeeVault_Test is Bridge_Initializer {
     function setUp() public override {
         super.setUp();
         vm.etch(Predeploys.PROTOCOL_VAULT, address(new ProtocolVault(recipient)).code);
-        vm.etch(Predeploys.L1_FEE_VAULT, address(new L1FeeVault(recipient)).code);
+        vm.etch(Predeploys.KROMA_L1_FEE_VAULT, address(new L1FeeVault(recipient)).code);
 
         vm.label(Predeploys.PROTOCOL_VAULT, "ProtocolVault");
-        vm.label(Predeploys.L1_FEE_VAULT, "L1FeeVault");
+        vm.label(Predeploys.KROMA_L1_FEE_VAULT, "L1FeeVault");
     }
 
     function test_constructor_succeeds() external {
@@ -39,14 +39,14 @@ contract FeeVault_Test is Bridge_Initializer {
     function test_withdrawToL2_succeeds() external {
         uint256 reward = 1 ether;
         vm.deal(address(l1FeeVault), reward);
-        assertEq(payable(Predeploys.L1_FEE_VAULT).balance, reward);
+        assertEq(payable(Predeploys.KROMA_L1_FEE_VAULT).balance, reward);
 
         uint256 prevBalance = payable(recipient).balance;
 
         // No ether has been withdrawn yet
         assertEq(l1FeeVault.totalProcessed(), 0);
 
-        vm.expectEmit(true, true, true, true, address(Predeploys.L1_FEE_VAULT));
+        vm.expectEmit(true, true, true, true, address(Predeploys.KROMA_L1_FEE_VAULT));
         emit Withdrawal(reward, recipient, recipient);
 
         // Withdraw to L2

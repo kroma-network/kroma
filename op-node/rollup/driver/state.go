@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	gosync "sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -389,6 +391,12 @@ func (s *Driver) eventLoop() {
 				s.metrics.RecordPipelineReset()
 				continue
 			} else if err != nil && errors.Is(err, derive.ErrTemporary) {
+				// [Kroma: START]
+				if strings.Contains(err.Error(), core.ErrHaltOnStateTransition.Error()) {
+					s.log.Warn("Stopping derivation pipeline", "reason", err)
+					return
+				}
+				// [Kroma: END]
 				s.log.Warn("Derivation process temporary error", "attempts", stepAttempts, "err", err)
 				reqStep()
 				continue

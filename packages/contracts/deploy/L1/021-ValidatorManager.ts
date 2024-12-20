@@ -47,6 +47,8 @@ const deployFn: DeployFunction = async (hre) => {
         _baseReward: hre.deployConfig.validatorManagerBaseReward,
         _minRegisterAmount: hre.deployConfig.validatorManagerMinRegisterAmount,
         _minActivateAmount: hre.deployConfig.validatorManagerMinActivateAmount,
+        _mptFirstOutputIndex:
+          hre.deployConfig.validatorManagerMptFirstOutputIndex,
       },
     ],
     isProxyImpl: true,
@@ -110,6 +112,11 @@ const deployFn: DeployFunction = async (hre) => {
         contract,
         'BASE_REWARD',
         hre.deployConfig.validatorManagerBaseReward
+      )
+      await assertContractVariable(
+        contract,
+        'MPT_FIRST_OUTPUT_INDEX',
+        hre.deployConfig.validatorManagerMptFirstOutputIndex
       )
     },
   })

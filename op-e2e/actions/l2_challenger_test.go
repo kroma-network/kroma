@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/testdata"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
@@ -12,6 +11,7 @@ import (
 	val "github.com/kroma-network/kroma/kroma-validator"
 	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
+	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 var challengerTests = []struct {

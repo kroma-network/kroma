@@ -14,15 +14,20 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/poseidon"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/ethereum/go-ethereum/trie/triedb/hashdb"
 	zkt "github.com/kroma-network/zktrie/types"
 
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/crossdomain"
+	"github.com/kroma-network/kroma/op-node/rollup/derive"
 )
 
+// [Kroma: START]
 func init() {
 	zkt.InitHashScheme(poseidon.HashFixed)
 }
+
+// [Kroma: END]
 
 // ABI types
 var (
@@ -68,6 +73,7 @@ var (
 		{Name: "inputs", Type: proveWithdrawalInputs},
 	}
 
+	/* [Kroma: START]
 	// cannonMemoryProof inputs tuple (bytes32, bytes)
 	cannonMemoryProof, _ = abi.NewType("tuple", "CannonMemoryProof", []abi.ArgumentMarshaling{
 		{Name: "memRoot", Type: "bytes32"},
@@ -76,6 +82,7 @@ var (
 	cannonMemoryProofArgs = abi.Arguments{
 		{Name: "encodedCannonMemoryProof", Type: cannonMemoryProof},
 	}
+	[Kroma: END] */
 )
 
 func DiffTestUtils() {
@@ -174,6 +181,13 @@ func DiffTestUtils() {
 		// RLP encode deposit transaction
 		encoded, err := types.NewTx(&depositTx).MarshalBinary()
 		checkErr(err, "Error encoding deposit transaction")
+		// [Kroma: START]
+		isKromaDepositTx := args[9] == "true"
+		if isKromaDepositTx {
+			encoded, err = derive.ToKromaDepositBytes(encoded)
+			checkErr(err, "Error converting deposit transaction to KromaDepositTx")
+		}
+		// [Kroma: END]
 
 		// Hash encoded deposit transaction
 		hash := crypto.Keccak256Hash(encoded)
@@ -200,9 +214,17 @@ func DiffTestUtils() {
 		checkOk(ok)
 
 		depositTx := makeDepositTx(from, to, value, mint, gasLimit, isCreate, data, l1BlockHash, logIndex)
-
 		// RLP encode deposit transaction
 		encoded, err := types.NewTx(&depositTx).MarshalBinary()
+		checkErr(err, "Error encoding deposit transaction")
+		// [Kroma: START]
+		isKromaDepositTx := args[10] == "true"
+		if isKromaDepositTx {
+			encoded, err = derive.ToKromaDepositBytes(encoded)
+			checkErr(err, "Error converting deposit transaction to KromaDepositTx")
+		}
+		// [Kroma: END]
+
 		checkErr(err, "Failed to RLP encode deposit transaction")
 		// Pack rlp encoded deposit transaction
 		packed, err := bytesArgs.Pack(&encoded)
@@ -235,11 +257,13 @@ func DiffTestUtils() {
 		version := common.HexToHash(args[1])
 		stateRoot := common.HexToHash(args[2])
 		messagePasserStorageRoot := common.HexToHash(args[3])
-		blockHash := common.HexToHash(args[4])
+		// [Kroma: START]
+		latestBlockHash := common.HexToHash(args[4])
 		nextBlockHash := common.HexToHash(args[5])
 
 		// Hash the output root proof
-		hash, err := hashOutputRootProof(version, stateRoot, messagePasserStorageRoot, blockHash, nextBlockHash)
+		hash, err := hashOutputRootProof(version, stateRoot, messagePasserStorageRoot, latestBlockHash, nextBlockHash)
+		// [Kroma: END]
 		checkErr(err, "Error hashing output root proof")
 
 		// Pack hash
@@ -247,6 +271,7 @@ func DiffTestUtils() {
 		checkErr(err, "Error encoding output")
 
 		fmt.Print(hexutil.Encode(packed))
+	// [Kroma: START]
 	case "getProveWithdrawalTransactionInputs":
 		// Parse input arguments
 		nonce, ok := new(big.Int).SetString(args[1], 10)
@@ -258,6 +283,7 @@ func DiffTestUtils() {
 		gasLimit, ok := new(big.Int).SetString(args[5], 10)
 		checkOk(ok)
 		data := common.FromHex(args[6])
+		isKromaMPT := args[7] == "true"
 
 		wdHash, err := hashWithdrawal(nonce, sender, target, value, gasLimit, data)
 		checkErr(err, "Error hashing withdrawal")
@@ -276,70 +302,111 @@ func DiffTestUtils() {
 		// Compute the storage slot the withdrawalHash will be stored in
 		hash := crypto.Keccak256Hash(packed)
 
-		// [Kroma: START]
-		// Create a zk trie for state
-		state, err := trie.NewZkTrie(
-			types.GetEmptyRootHash(true),
-			trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
-		)
-		checkErr(err, "Error creating zk trie")
-		// [Kroma: END]
-
-		// Put a "true" bool in the storage slot
-		err = state.UpdateStorage(common.Address{}, hash.Bytes(), []byte{0x01})
-		checkErr(err, "Error updating storage")
-
-		// [Kroma: START]
-		// Create a zk trie for the world state
-		world, err := trie.NewZkTrie(
-			types.GetEmptyRootHash(true),
-			trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
-		)
-		checkErr(err, "Error creating zk trie")
-		// [Kroma: END]
-
-		// Put the put the rlp encoded account in the world trie
-		account := types.StateAccount{
-			Nonce:   0,
-			Balance: big.NewInt(0),
-			Root:    state.Hash(),
-		}
-		writer := new(bytes.Buffer)
-		checkErr(account.EncodeRLP(writer), "Error encoding account")
-		err = world.UpdateStorage(common.Address{}, predeploys.L2ToL1MessagePasserAddr.Bytes(), writer.Bytes())
-		checkErr(err, "Error updating storage")
-
-		// Get the proof
-		var proof proofList
-		// [Kroma: START]
-		key_s, err := zkt.ToSecureKeyBytes(hash.Bytes())
-		checkErr(err, "Error computing secure key bytes")
-		checkErr(state.Prove(key_s.Bytes(), &proof), "Error getting proof")
-		// [Kroma: END]
-
-		// Get the output root
-		outputRoot, err := hashOutputRootProof(common.Hash{}, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
-		checkErr(err, "Error hashing output root proof")
-
-		// Pack the output
-		output := struct {
+		var output struct {
 			WorldRoot      common.Hash
 			StateRoot      common.Hash
 			OutputRoot     common.Hash
 			WithdrawalHash common.Hash
 			Proof          proofList
-		}{
-			WorldRoot:      world.Hash(),
-			StateRoot:      state.Hash(),
-			OutputRoot:     outputRoot,
-			WithdrawalHash: wdHash,
-			Proof:          proof,
+		}
+
+		if isKromaMPT {
+			// Create a secure trie for state
+			state, err := trie.NewStateTrie(
+				trie.TrieID(types.EmptyRootHash),
+				trie.NewDatabase(rawdb.NewMemoryDatabase(), &trie.Config{HashDB: hashdb.Defaults}),
+			)
+			checkErr(err, "Error creating secure trie")
+
+			// Put a "true" bool in the storage slot
+			err = state.UpdateStorage(common.Address{}, hash.Bytes(), []byte{0x01})
+			checkErr(err, "Error updating storage")
+
+			// Create a secure trie for the world state
+			world, err := trie.NewStateTrie(
+				trie.TrieID(types.EmptyRootHash),
+				trie.NewDatabase(rawdb.NewMemoryDatabase(), &trie.Config{HashDB: hashdb.Defaults}),
+			)
+			checkErr(err, "Error creating secure trie")
+
+			// Put the put the rlp encoded account in the world trie
+			account := types.StateAccount{
+				Nonce:   0,
+				Balance: big.NewInt(0),
+				Root:    state.Hash(),
+			}
+			writer := new(bytes.Buffer)
+			checkErr(account.EncodeRLP(writer), "Error encoding account")
+			err = world.UpdateStorage(common.Address{}, predeploys.L2ToL1MessagePasserAddr.Bytes(), writer.Bytes())
+			checkErr(err, "Error updating storage")
+
+			// Get the proof
+			var proof proofList
+			checkErr(state.Prove(predeploys.L2ToL1MessagePasserAddr.Bytes(), &proof), "Error getting proof")
+
+			// Get the output root (OutputV0)
+			outputRoot, err := hashOutputRootProof(common.Hash{}, world.Hash(), state.Hash(), common.Hash{}, common.Hash{})
+			checkErr(err, "Error hashing output root proof")
+
+			// Pack the output
+			output.WorldRoot = world.Hash()
+			output.StateRoot = state.Hash()
+			output.OutputRoot = outputRoot
+			output.WithdrawalHash = wdHash
+			output.Proof = proof
+		} else {
+			// Create a zk trie for state
+			state, err := trie.NewZkTrie(
+				types.GetEmptyRootHash(true),
+				trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
+			)
+			checkErr(err, "Error creating zk trie")
+
+			// Put a "true" bool in the storage slot
+			err = state.UpdateStorage(common.Address{}, hash.Bytes(), []byte{0x01})
+			checkErr(err, "Error updating storage")
+
+			// Create a zk trie for the world state
+			world, err := trie.NewZkTrie(
+				types.GetEmptyRootHash(true),
+				trie.NewZkDatabase(rawdb.NewMemoryDatabase()),
+			)
+			checkErr(err, "Error creating zk trie")
+
+			// Put the put the rlp encoded account in the world trie
+			account := types.StateAccount{
+				Nonce:   0,
+				Balance: big.NewInt(0),
+				Root:    state.Hash(),
+			}
+			writer := new(bytes.Buffer)
+			checkErr(account.EncodeRLP(writer), "Error encoding account")
+			err = world.UpdateStorage(common.Address{}, predeploys.L2ToL1MessagePasserAddr.Bytes(), writer.Bytes())
+			checkErr(err, "Error updating storage")
+
+			// Get the proof
+			var proof proofList
+			key_s, err := zkt.ToSecureKeyBytes(hash.Bytes())
+			checkErr(err, "Error computing secure key bytes")
+			checkErr(state.Prove(key_s.Bytes(), &proof), "Error getting proof")
+
+			// Get the output root which includes nextBlockHash (KromaOutputV0)
+			outputRoot, err := hashOutputRootProof(common.Hash{}, world.Hash(), state.Hash(), common.Hash{}, common.Hash{31: 0x01})
+			checkErr(err, "Error hashing output root proof")
+
+			// Pack the output
+			output.WorldRoot = world.Hash()
+			output.StateRoot = state.Hash()
+			output.OutputRoot = outputRoot
+			output.WithdrawalHash = wdHash
+			output.Proof = proof
 		}
 		packed, err = proveWithdrawalInputsArgs.Pack(&output)
 		checkErr(err, "Error encoding output")
 
 		// Print the output
 		fmt.Print(hexutil.Encode(packed[32:]))
+	// [Kroma: END]
 	/* [Kroma: START]
 	case "cannonMemoryProof":
 		// <pc, insn, [memAddr, memValue]>

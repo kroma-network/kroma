@@ -49,10 +49,10 @@ func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int, challenger comm
 	require.False(t, outputFinalized, "output is already finalized")
 
 	if isAsserter {
-		outputs, err := v.challenger.OutputsAtIndex(t.Ctx(), outputIndex)
-		require.NoError(t, err, "unable to fetch outputs")
+		output, err := v.challenger.GetL2Output(t.Ctx(), outputIndex)
+		require.NoError(t, err, "unable to fetch output")
 
-		outputDeleted := val.IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
+		outputDeleted := val.IsOutputDeleted(output.OutputRoot)
 		require.False(t, outputDeleted, "output is already deleted")
 	}
 
@@ -80,10 +80,10 @@ func (v *L2Validator) ActChallengerTimeout(t Testing, outputIndex *big.Int, chal
 	require.NoError(t, err, "unable to get if output is finalized")
 	require.False(t, outputFinalized, "output is already finalized")
 
-	outputs, err := v.challenger.OutputsAtIndex(t.Ctx(), outputIndex)
-	require.NoError(t, err, "unable to fetch outputs")
+	output, err := v.challenger.GetL2Output(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to fetch output")
 
-	outputDeleted := val.IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
+	outputDeleted := val.IsOutputDeleted(output.OutputRoot)
 	require.False(t, outputDeleted, "output is already deleted")
 
 	tx, err := v.challenger.ChallengerTimeout(t.Ctx(), outputIndex, challenger)
@@ -100,8 +100,9 @@ func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int, skipSelectP
 	require.NoError(t, err, "unable to get if output is finalized")
 	require.False(t, outputFinalized, "output is already finalized")
 
-	tx, err := v.challenger.ProveFault(t.Ctx(), outputIndex, v.address, skipSelectPosition)
+	tx, retry, err := v.challenger.ProveFault(t.Ctx(), outputIndex, v.address, skipSelectPosition)
 	require.NoError(t, err, "unable to create prove fault tx")
+	require.False(t, retry, "prove fault retry not allowed since using test data")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)

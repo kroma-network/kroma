@@ -174,6 +174,12 @@
         } catch {}
         
 
+        let ZKProofVerifier
+        try {
+          ZKProofVerifier = require('../artifacts/contracts/L1/ZKProofVerifier.sol/ZKProofVerifier.json')
+        } catch {}
+        
+
         let IPoseidon2
         try {
           IPoseidon2 = require('../artifacts/contracts/L1/ZKTrieHasher.sol/IPoseidon2.json')
@@ -213,6 +219,12 @@
         let GasPriceOracle
         try {
           GasPriceOracle = require('../artifacts/contracts/L2/GasPriceOracle.sol/GasPriceOracle.json')
+        } catch {}
+        
+
+        let KromaL1Block
+        try {
+          KromaL1Block = require('../artifacts/contracts/L2/KromaL1Block.sol/KromaL1Block.json')
         } catch {}
         
 
@@ -318,6 +330,12 @@
         } catch {}
         
 
+        let RLPReader
+        try {
+          RLPReader = require('../artifacts/contracts/libraries/rlp/RLPReader.sol/RLPReader.json')
+        } catch {}
+        
+
         let RLPWriter
         try {
           RLPWriter = require('../artifacts/contracts/libraries/rlp/RLPWriter.sol/RLPWriter.json')
@@ -327,6 +345,18 @@
         let SafeCall
         try {
           SafeCall = require('../artifacts/contracts/libraries/SafeCall.sol/SafeCall.json')
+        } catch {}
+        
+
+        let MerkleTrie
+        try {
+          MerkleTrie = require('../artifacts/contracts/libraries/trie/MerkleTrie.sol/MerkleTrie.json')
+        } catch {}
+        
+
+        let SecureMerkleTrie
+        try {
+          SecureMerkleTrie = require('../artifacts/contracts/libraries/trie/SecureMerkleTrie.sol/SecureMerkleTrie.json')
         } catch {}
         
 
@@ -342,9 +372,27 @@
         } catch {}
         
 
-        let ColosseumTestData
+        let MockColosseum
         try {
-          ColosseumTestData = require('../artifacts/contracts/test/testdata/ColosseumTestData.sol/ColosseumTestData.json')
+          MockColosseum = require('../artifacts/contracts/test/mock/MockColosseum.sol/MockColosseum.json')
+        } catch {}
+        
+
+        let FFIInterface
+        try {
+          FFIInterface = require('../artifacts/contracts/test/setup/FFIInterface.sol/FFIInterface.json')
+        } catch {}
+        
+
+        let ZkEvmTestData
+        try {
+          ZkEvmTestData = require('../artifacts/contracts/test/testdata/ZkEvmTestData.sol/ZkEvmTestData.json')
+        } catch {}
+        
+
+        let ZkVmTestData
+        try {
+          ZkVmTestData = require('../artifacts/contracts/test/testdata/ZkVmTestData.sol/ZkVmTestData.json')
         } catch {}
         
 
@@ -444,6 +492,30 @@
         } catch {}
         
 
+        let ISP1Verifier
+        try {
+          ISP1Verifier = require('../artifacts/contracts/vendor/ISP1Verifier.sol/ISP1Verifier.json')
+        } catch {}
+        
+
+        let ISP1VerifierWithHash
+        try {
+          ISP1VerifierWithHash = require('../artifacts/contracts/vendor/ISP1Verifier.sol/ISP1VerifierWithHash.json')
+        } catch {}
+        
+
+        let PlonkVerifier
+        try {
+          PlonkVerifier = require('../artifacts/contracts/vendor/PlonkVerifier.sol/PlonkVerifier.json')
+        } catch {}
+        
+
+        let SP1Verifier
+        try {
+          SP1Verifier = require('../artifacts/contracts/vendor/SP1VerifierPlonk.sol/SP1Verifier.json')
+        } catch {}
+        
+
         let WETH9
         try {
           WETH9 = require('../artifacts/contracts/vendor/WETH9.sol/WETH9.json')
@@ -480,6 +552,7 @@ SystemConfig,
 ValidatorManager,
 ValidatorPool,
 ZKMerkleTrie,
+ZKProofVerifier,
 IPoseidon2,
 ZKTrieHasher,
 ZKVerifier,
@@ -487,6 +560,7 @@ CrossDomainOwnable,
 CrossDomainOwnable2,
 CrossDomainOwnable3,
 GasPriceOracle,
+KromaL1Block,
 L1Block,
 L2CrossDomainMessenger,
 L2ERC721Bridge,
@@ -504,11 +578,17 @@ Encoding,
 Hashing,
 NodeReader,
 Predeploys,
+RLPReader,
 RLPWriter,
 SafeCall,
+MerkleTrie,
+SecureMerkleTrie,
 Types,
 Uint128Math,
-ColosseumTestData,
+MockColosseum,
+FFIInterface,
+ZkEvmTestData,
+ZkVmTestData,
 CrossDomainMessenger,
 ERC721Bridge,
 IKromaMintableERC20,
@@ -525,6 +605,10 @@ IStaticERC1967Proxy,
 ProxyAdmin,
 StandardBridge,
 AddressAliasHelper,
+ISP1Verifier,
+ISP1VerifierWithHash,
+PlonkVerifier,
+SP1Verifier,
 WETH9
       }[name]
     }

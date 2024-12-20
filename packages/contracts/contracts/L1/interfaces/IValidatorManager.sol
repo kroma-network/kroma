@@ -56,6 +56,9 @@ interface IValidatorManager {
      * @custom:field _baseReward                   Base reward for the validator.
      * @custom:field _minRegisterAmount            Minimum amount to register as a validator.
      * @custom:field _minActivateAmount            Minimum amount to activate a validator.
+     * @custom:field _mptFirstOutputIndex          First output index after the MPT transition.
+                                                   Only TrustedValidator is allowed to submit output.
+                                                   Challenges for this outputIndex are also restricted.
      */
     struct ConstructorParams {
         L2OutputOracle _l2Oracle;
@@ -70,6 +73,7 @@ interface IValidatorManager {
         uint128 _baseReward;
         uint128 _minRegisterAmount;
         uint128 _minActivateAmount;
+        uint256 _mptFirstOutputIndex;
     }
 
     /**
@@ -261,6 +265,11 @@ interface IValidatorManager {
     error NotSelectedPriorityValidator();
 
     /**
+     * @notice Reverts if the output index is restricted since it's first output after MPT transition.
+     */
+    error MptFirstOutputRestricted();
+
+    /**
      * @notice Registers as a validator with assets at least MIN_REGISTER_AMOUNT. The validator with
      *         assets more than MIN_ACTIVATE_AMOUNT can be activated at the same time.
      *
@@ -409,6 +418,13 @@ interface IValidatorManager {
      * @param validator Address of the output submitter.
      */
     function checkSubmissionEligibility(address validator) external view;
+
+    /**
+     * @notice Checks the eligibility to create challenge to this outputIndex.
+     *
+     * @param outputIndex Index of the L2 checkpoint output.
+     */
+    function checkChallengeEligibility(uint256 outputIndex) external view;
 
     /**
      * @notice Determines who can submit the L2 checkpoint output for the current round.

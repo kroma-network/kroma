@@ -125,6 +125,10 @@ task('watch', 'Watch a Kroma System')
       }
     })
 
+    const KromaL1Block = await hre.ethers.getContractAt(
+      'KromaL1Block',
+      predeploys.KromaL1Block
+    )
     const L1Block = await hre.ethers.getContractAt(
       'L1Block',
       predeploys.L1Block
@@ -135,7 +139,17 @@ task('watch', 'Watch a Kroma System')
       for (const txn of block.transactions) {
         const to = utils.getAddress(txn.to || hre.ethers.constants.AddressZero)
 
-        if (to === utils.getAddress(predeploys.L1Block)) {
+        if (to === utils.getAddress(predeploys.KromaL1Block)) {
+          const data = KromaL1Block.interface.parseTransaction(txn)
+          console.log('KromaL1Block values updated')
+          console.log(`  tx hash: ${txn.hash}`)
+          console.log(`    number:         ${data.args._number}`)
+          console.log(`    timestamp:      ${data.args._timestamp}`)
+          console.log(`    basefee:        ${data.args._basefee}`)
+          console.log(`    hash:           ${data.args._hash}`)
+          console.log(`    sequenceNumber: ${data.args._sequenceNumber}`)
+          console.log()
+        } else if (to === utils.getAddress(predeploys.L1Block)) {
           const data = L1Block.interface.parseTransaction(txn)
           console.log('L1Block values updated')
           console.log(`  tx hash: ${txn.hash}`)

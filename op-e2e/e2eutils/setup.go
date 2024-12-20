@@ -1,15 +1,16 @@
 package e2eutils
 
 import (
-	"context"
+	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	opCrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -72,6 +73,7 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	// genesisTimeOffset := hexutil.Uint64(0)
 	deployConfig.L2GenesisDeltaTimeOffset = nil
 	deployConfig.L2GenesisEcotoneTimeOffset = nil
+	deployConfig.L2GenesisKromaMPTTimeOffset = nil
 	// [Kroma: END]
 	ApplyDeployConfigForks(deployConfig)
 
@@ -206,6 +208,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 		CanyonTime:             deployConf.CanyonTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		DeltaTime:              deployConf.DeltaTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		EcotoneTime:            deployConf.EcotoneTime(uint64(deployConf.L1GenesisBlockTimestamp)),
+		KromaMPTTime:           deployConf.KromaMPTTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		FjordTime:              deployConf.FjordTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		InteropTime:            deployConf.InteropTime(uint64(deployConf.L1GenesisBlockTimestamp)),
 		DAChallengeAddress:     l1Deployments.DataAvailabilityChallengeProxy,
@@ -270,19 +273,16 @@ func UsePlasma() bool {
 
 // RedeployValPoolToTerminate redeploys ValidatorPool and upgrades proxy to set the termination index to the given value.
 func RedeployValPoolToTerminate(
-	ctx context.Context,
 	terminationIndex *big.Int,
 	l1Client *ethclient.Client,
 	secrets *Secrets,
 	l1ChainID *big.Int,
 	l1Deployments *genesis.L1Deployments,
 	deployConfig *genesis.DeployConfig,
-) (*types.Transaction, *types.Transaction, error) {
-	signerFn := opCrypto.PrivateKeySignerFn(secrets.SysCfgOwner, l1ChainID)
-	txOpts := &bind.TransactOpts{
-		Context: ctx,
-		From:    secrets.Addresses().SysCfgOwner,
-		Signer:  signerFn,
+) (deployTx, upgradeTx *types.Transaction, err error) {
+	txOpts, err := bind.NewKeyedTransactorWithChainID(secrets.SysCfgOwner, l1ChainID)
+	if err != nil {
+		return
 	}
 
 	// Deploy a ValidatorPool implementation
@@ -299,20 +299,150 @@ func RedeployValPoolToTerminate(
 		terminationIndex,
 	)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	// Upgrade ValidatorPoolProxy to the deployed implementation address
 	proxyAdmin, err := bindings.NewProxyAdminTransactor(l1Deployments.ProxyAdmin, l1Client)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
-	upgradeTx, err := proxyAdmin.Upgrade(txOpts, l1Deployments.ValidatorPoolProxy, implAddr)
+	upgradeTx, err = proxyAdmin.Upgrade(txOpts, l1Deployments.ValidatorPoolProxy, implAddr)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
-	return deployTx, upgradeTx, nil
+	return
+}
+
+func parseSegLenToBigInts(s string) ([]*big.Int, error) {
+	segLens := strings.Split(s, ",")
+	bigInts := make([]*big.Int, 0, len(segLens))
+
+	for _, segLen := range segLens {
+		segLen = strings.TrimSpace(segLen)
+		if bn, ok := new(big.Int).SetString(segLen, 10); ok {
+			bigInts = append(bigInts, bn)
+		} else {
+			return nil, fmt.Errorf("failed to convert %s to *big.Int", segLen)
+		}
+	}
+
+	return bigInts, nil
+}
+
+// ReplaceWithMockColosseum deploys MockColosseum which has setL1Head function and upgrades proxy for challenge test.
+func ReplaceWithMockColosseum(
+	l1Client *ethclient.Client,
+	sysCfgOwner *ecdsa.PrivateKey,
+	l1ChainID *big.Int,
+	l1Deployments *genesis.L1Deployments,
+	deployConfig *genesis.DeployConfig,
+) (deployTx, upgradeTx *types.Transaction, err error) {
+	txOpts, err := bind.NewKeyedTransactorWithChainID(sysCfgOwner, l1ChainID)
+	if err != nil {
+		return
+	}
+
+	segmentsLengths, err := parseSegLenToBigInts(deployConfig.ColosseumSegmentsLengths)
+	if err != nil {
+		return
+	}
+
+	// Deploy a MockColosseum implementation
+	implAddr, deployTx, _, err := bindings.DeployMockColosseum(
+		txOpts,
+		l1Client,
+		l1Deployments.L2OutputOracleProxy,
+		l1Deployments.ZKProofVerifierProxy,
+		new(big.Int).SetUint64(deployConfig.L2OutputOracleSubmissionInterval),
+		new(big.Int).SetUint64(deployConfig.ColosseumCreationPeriodSeconds),
+		new(big.Int).SetUint64(deployConfig.ColosseumBisectionTimeout),
+		new(big.Int).SetUint64(deployConfig.ColosseumProvingTimeout),
+		segmentsLengths,
+		l1Deployments.SecurityCouncilProxy,
+	)
+	if err != nil {
+		return
+	}
+
+	// Upgrade ColosseumProxy to the deployed implementation address
+	proxyAdmin, err := bindings.NewProxyAdminTransactor(l1Deployments.ProxyAdmin, l1Client)
+	if err != nil {
+		return
+	}
+	upgradeTx, err = proxyAdmin.Upgrade(txOpts, l1Deployments.ColosseumProxy, implAddr)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// DeploySP1Verifier deploys a SP1VerifierPlonk contract which is used in ZKProofVerifier.
+func DeploySP1Verifier(
+	l1Client *ethclient.Client,
+	sysCfgOwner *ecdsa.PrivateKey,
+	l1ChainID *big.Int,
+) (address common.Address, deployTx *types.Transaction, err error) {
+	txOpts, err := bind.NewKeyedTransactorWithChainID(sysCfgOwner, l1ChainID)
+	if err != nil {
+		return
+	}
+
+	// Deploy a SP1Verifier implementation
+	address, deployTx, _, err = bindings.DeploySP1Verifier(
+		txOpts,
+		l1Client,
+	)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// RedeployZKProofVerifier deploys a new ZKProofVerifier with given SP1Verifier.
+func RedeployZKProofVerifier(
+	l1Client *ethclient.Client,
+	sysCfgOwner *ecdsa.PrivateKey,
+	l1ChainID *big.Int,
+	l1Deployments *genesis.L1Deployments,
+	deployConfig *genesis.DeployConfig,
+	sp1Verifier common.Address,
+	zkVmProgramVKey [32]byte,
+) (deployTx, upgradeTx *types.Transaction, err error) {
+	txOpts, err := bind.NewKeyedTransactorWithChainID(sysCfgOwner, l1ChainID)
+	if err != nil {
+		return
+	}
+
+	// Deploy a ZKProofVerifier implementation
+	implAddr, deployTx, _, err := bindings.DeployZKProofVerifier(
+		txOpts,
+		l1Client,
+		l1Deployments.ZKVerifier,
+		deployConfig.ColosseumDummyHash,
+		new(big.Int).SetUint64(deployConfig.ColosseumMaxTxs),
+		l1Deployments.ZKMerkleTrie,
+		sp1Verifier,
+		zkVmProgramVKey,
+	)
+	if err != nil {
+		return
+	}
+
+	// Upgrade ZKProofVerifierProxy to the deployed implementation address
+	proxyAdmin, err := bindings.NewProxyAdminTransactor(l1Deployments.ProxyAdmin, l1Client)
+	if err != nil {
+		return
+	}
+	upgradeTx, err = proxyAdmin.Upgrade(txOpts, l1Deployments.ZKProofVerifierProxy, implAddr)
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 // [Kroma: END]

@@ -7,6 +7,7 @@ import { Vm } from "forge-std/Vm.sol";
 
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
+import { Types } from "../libraries/Types.sol";
 import "./CommonTest.t.sol";
 
 // Free function for setting the prevBaseFee param in the KromaPortal.
@@ -54,14 +55,14 @@ contract GasBenchMark_KromaPortal is Portal_Initializer {
         bytes32 _storageRoot;
         bytes32 _stateRoot;
         (_stateRoot, _storageRoot, _outputRoot, , _withdrawalProof) = ffi
-            .getProveWithdrawalTransactionInputs(_defaultTx);
+            .getProveWithdrawalTransactionInputs(_defaultTx, true);
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({
             version: bytes32(uint256(0)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
         _submittedBlockNumber = oracle.nextBlockNumber();

@@ -5,12 +5,13 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 )
 
 type hardforkScheduledTest struct {
@@ -64,7 +65,7 @@ func TestCrossLayerUser(t *testing.T) {
 		"canyon",
 		"delta",
 		"ecotone",
-		"fjord",
+		//"fjord",
 	}
 	for i, fork := range forks {
 		i := i

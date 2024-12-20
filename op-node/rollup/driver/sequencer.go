@@ -99,6 +99,12 @@ func (d *Sequencer) StartBuildingBlock(ctx context.Context) error {
 		d.log.Info("Sequencing Ecotone upgrade block")
 	}
 
+	// For the KromaMPT parent block we shouldn't include any sequencer transactions.
+	if d.rollupCfg.IsKromaMPTParentBlock(uint64(attrs.Timestamp)) {
+		attrs.NoTxPool = true
+		d.log.Info("Sequencing MPT upgrade block")
+	}
+
 	d.log.Debug("prepared attributes for new block",
 		"num", l2Head.Number+1, "time", uint64(attrs.Timestamp),
 		"origin", l1Origin, "origin_time", l1Origin.Time, "noTxPool", attrs.NoTxPool)
@@ -150,6 +156,13 @@ func (d *Sequencer) PlanNextSequencerAction() time.Duration {
 	if delay := d.nextAction.Sub(now); delay > 0 && buildingOnto.Hash == head.Hash {
 		return delay
 	}
+
+	// [Kroma: START]
+	// Delay if the next block to be created is a KromaMPT block.
+	if d.rollupCfg.IsKromaMPTParentBlock(head.Time) {
+		return d.nextAction.Sub(now)
+	}
+	// [Kroma: END]
 
 	blockTime := time.Duration(d.rollupCfg.BlockTime) * time.Second
 	payloadTime := time.Unix(int64(head.Time+d.rollupCfg.BlockTime), 0)

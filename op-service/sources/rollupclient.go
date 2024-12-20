@@ -80,8 +80,8 @@ func (r *RollupClient) Close() {
 }
 
 // [Kroma: START]
-func (r *RollupClient) OutputWithProofAtBlock(ctx context.Context, blockNum uint64) (*eth.OutputResponse, error) {
-	var output *eth.OutputResponse
+func (r *RollupClient) OutputWithProofAtBlock(ctx context.Context, blockNum uint64) (*eth.OutputWithProofResponse, error) {
+	var output *eth.OutputWithProofResponse
 	err := r.rpc.CallContext(ctx, &output, "kroma_outputWithProofAtBlock", hexutil.Uint64(blockNum))
 	return output, err
 }

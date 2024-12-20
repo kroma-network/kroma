@@ -12,9 +12,10 @@ library Predeploys {
     address internal constant PROXY_ADMIN = 0x4200000000000000000000000000000000000000;
 
     /**
-     * @notice Address of the L1Block predeploy.
+     * @notice Address of the KromaL1Block predeploy used before Kroma MPT hardfork.
      */
-    address internal constant L1_BLOCK_ATTRIBUTES = 0x4200000000000000000000000000000000000002;
+    address internal constant KROMA_L1_BLOCK_ATTRIBUTES =
+        0x4200000000000000000000000000000000000002;
 
     /**
      * @notice Address of the L2ToL1MessagePasser predeploy.
@@ -34,17 +35,17 @@ library Predeploys {
     address internal constant GAS_PRICE_ORACLE = 0x4200000000000000000000000000000000000005;
 
     /**
-     * @notice Address of the ProtocolVault predeploy.
+     * @notice Address of the ProtocolVault predeploy used before Kroma MPT hardfork.
      */
     address internal constant PROTOCOL_VAULT = 0x4200000000000000000000000000000000000006;
 
     /**
-     * @notice Address of the L1FeeVault predeploy.
+     * @notice Address of the L1FeeVault predeploy used before Kroma MPT hardfork.
      */
-    address internal constant L1_FEE_VAULT = 0x4200000000000000000000000000000000000007;
+    address internal constant KROMA_L1_FEE_VAULT = 0x4200000000000000000000000000000000000007;
 
     /**
-     * @notice Address of the ValidatorRewardVault predeploy.
+     * @notice Address of the ValidatorRewardVault predeploy used before Kroma MPT hardfork.
      */
     address internal constant VALIDATOR_REWARD_VAULT = 0x4200000000000000000000000000000000000008;
 
@@ -69,4 +70,24 @@ library Predeploys {
      */
     address internal constant KROMA_MINTABLE_ERC721_FACTORY =
         0x420000000000000000000000000000000000000c;
+
+    /**
+     * @notice Address of the SequencerFeeWallet predeploy used after Kroma MPT hardfork.
+     */
+    address internal constant SEQUENCER_FEE_WALLET = 0x4200000000000000000000000000000000000011;
+
+    /**
+     * @notice Address of the L1Block predeploy used after Kroma MPT hardfork.
+     */
+    address internal constant L1_BLOCK_ATTRIBUTES = 0x4200000000000000000000000000000000000015;
+
+    /**
+     * @notice Address of the BaseFeeVault predeploy used after Kroma MPT hardfork.
+     */
+    address internal constant BASE_FEE_VAULT = 0x4200000000000000000000000000000000000019;
+
+    /**
+     * @notice Address of the L1FeeVault predeploy used after Kroma MPT hardfork.
+     */
+    address internal constant L1_FEE_VAULT = 0x420000000000000000000000000000000000001A;
 }

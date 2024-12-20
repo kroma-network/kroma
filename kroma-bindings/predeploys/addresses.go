@@ -9,7 +9,7 @@ import (
 const (
 	ProxyAdmin                   = "0x4200000000000000000000000000000000000000"
 	WETH9                        = "0x4200000000000000000000000000000000000001"
-	L1Block                      = "0x4200000000000000000000000000000000000002"
+	KromaL1Block                 = "0x4200000000000000000000000000000000000002"
 	L2ToL1MessagePasser          = "0x4200000000000000000000000000000000000003"
 	L2CrossDomainMessenger       = "0x4200000000000000000000000000000000000004"
 	GasPriceOracle               = "0x4200000000000000000000000000000000000005"
@@ -36,7 +36,7 @@ const (
 var (
 	ProxyAdminAddr                   = common.HexToAddress(ProxyAdmin)
 	WETH9Addr                        = common.HexToAddress(WETH9)
-	L1BlockAddr                      = common.HexToAddress(L1Block)
+	KromaL1BlockAddr                 = common.HexToAddress(KromaL1Block)
 	L2ToL1MessagePasserAddr          = common.HexToAddress(L2ToL1MessagePasser)
 	L2CrossDomainMessengerAddr       = common.HexToAddress(L2CrossDomainMessenger)
 	GasPriceOracleAddr               = common.HexToAddress(GasPriceOracle)
@@ -79,7 +79,7 @@ func IsProxied(predeployAddr common.Address) bool {
 func init() {
 	Predeploys["ProxyAdmin"] = &oppredeploys.Predeploy{Address: ProxyAdminAddr}
 	Predeploys["WETH9"] = &oppredeploys.Predeploy{Address: WETH9Addr, ProxyDisabled: true}
-	Predeploys["L1Block"] = &oppredeploys.Predeploy{Address: L1BlockAddr}
+	Predeploys["KromaL1Block"] = &oppredeploys.Predeploy{Address: KromaL1BlockAddr}
 	Predeploys["L2ToL1MessagePasser"] = &oppredeploys.Predeploy{Address: L2ToL1MessagePasserAddr}
 	Predeploys["L2CrossDomainMessenger"] = &oppredeploys.Predeploy{Address: L2CrossDomainMessengerAddr}
 	Predeploys["GasPriceOracle"] = &oppredeploys.Predeploy{Address: GasPriceOracleAddr}

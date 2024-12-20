@@ -120,6 +120,9 @@ type DeployConfig struct {
 	// L2GenesisEcotoneTimeOffset is the number of seconds after genesis block that Ecotone hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Ecotone.
 	L2GenesisEcotoneTimeOffset *hexutil.Uint64 `json:"l2GenesisEcotoneTimeOffset,omitempty"`
+	// L2GenesisKromaMPTTimeOffset is the number of seconds after genesis block that Kroma MPT hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable Kroma MPT.
+	L2GenesisKromaMPTTimeOffset *hexutil.Uint64 `json:"l2GenesisKromaMPTTimeOffset,omitempty"`
 	// L2GenesisFjordTimeOffset is the number of seconds after genesis block that Fjord hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Fjord.
 	L2GenesisFjordTimeOffset *hexutil.Uint64 `json:"l2GenesisFjordTimeOffset,omitempty"`
@@ -283,6 +286,9 @@ type DeployConfig struct {
 	ValidatorManagerMinRegisterAmount *hexutil.Big `json:"validatorManagerMinRegisterAmount"`
 	// ValidatorManagerMinActivateAmount is the amount of the minimum activation amount.
 	ValidatorManagerMinActivateAmount *hexutil.Big `json:"validatorManagerMinActivateAmount"`
+	// ValidatorManagerMptFirstOutputIndex is the first output index after the MPT transition.
+	// Only TrustedValidator is allowed to submit output. Challenges for this outputIndex are also restricted.
+	ValidatorManagerMptFirstOutputIndex *hexutil.Big `json:"validatorManagerMptFirstOutputIndex"`
 	// ValidatorManagerCommissionChangeDelaySeconds is the delay to finalize the commission rate change in seconds.
 	ValidatorManagerCommissionChangeDelaySeconds uint64 `json:"validatorManagerCommissionChangeDelaySeconds"`
 	// ValidatorManagerRoundDurationSeconds is the duration of one submission round in seconds.
@@ -335,6 +341,11 @@ type DeployConfig struct {
 	ZKVerifierHashScalar *hexutil.Big `json:"zkVerifierHashScalar"`
 	ZKVerifierM56Px      *hexutil.Big `json:"zkVerifierM56Px"`
 	ZKVerifierM56Py      *hexutil.Big `json:"zkVerifierM56Py"`
+
+	// ZKProofVerifierSP1Verifier is the address of the SP1VerifierGateway contract.
+	ZKProofVerifierSP1Verifier common.Address `json:"zkProofVerifierSP1Verifier"`
+	// ZKProofVerifierVKey is the verification key for the zkVM program.
+	ZKProofVerifierVKey common.Hash `json:"zkProofVerifierVKey"`
 	// [Kroma: END]
 }
 
@@ -517,11 +528,14 @@ func (d *DeployConfig) Check() error {
 	if err := checkFork(d.L2GenesisDeltaTimeOffset, d.L2GenesisEcotoneTimeOffset, "delta", "ecotone"); err != nil {
 		return err
 	}
-	if err := checkFork(d.L2GenesisEcotoneTimeOffset, d.L2GenesisFjordTimeOffset, "ecotone", "fjord"); err != nil {
+	// [Kroma: START]
+	if err := checkFork(d.L2GenesisEcotoneTimeOffset, d.L2GenesisKromaMPTTimeOffset, "ecotone", "mpt"); err != nil {
+		return err
+	}
+	if err := checkFork(d.L2GenesisKromaMPTTimeOffset, d.L2GenesisFjordTimeOffset, "mpt", "fjord"); err != nil {
 		return err
 	}
 
-	// [Kroma: START]
 	if d.ValidatorRewardScalar == 0 {
 		log.Warn("ValidatorRewardScalar is 0")
 	}
@@ -548,6 +562,9 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.ValidatorManagerMinActivateAmount.ToInt().Cmp(d.ValidatorManagerMinRegisterAmount.ToInt()) < 0 {
 		return fmt.Errorf("%w: ValidatorManagerMinActivateAmount must equal or more than ValidatorManagerMinRegisterAmount", ErrInvalidDeployConfig)
+	}
+	if d.ValidatorManagerMptFirstOutputIndex == nil {
+		return fmt.Errorf("%w: ValidatorManagerMptFirstOutputIndex cannot be nil", ErrInvalidDeployConfig)
 	}
 	if d.ValidatorManagerCommissionChangeDelaySeconds == 0 {
 		return fmt.Errorf("%w: ValidatorManagerCommissionChangeDelaySeconds cannot be 0", ErrInvalidDeployConfig)
@@ -623,6 +640,12 @@ func (d *DeployConfig) Check() error {
 	}
 	if d.ZKVerifierM56Py == nil {
 		return fmt.Errorf("%w: ZKVerifierM56Py cannot be nil", ErrInvalidDeployConfig)
+	}
+	if d.ZKProofVerifierSP1Verifier == (common.Address{}) {
+		return fmt.Errorf("%w: ZKProofVerifierSP1Verifier cannot be address(0)", ErrInvalidDeployConfig)
+	}
+	if d.ZKProofVerifierVKey == (common.Hash{}) {
+		return fmt.Errorf("%w: ZKProofVerifierVKey cannot be 0", ErrInvalidDeployConfig)
 	}
 	// [Kroma: END]
 
@@ -713,6 +736,17 @@ func (d *DeployConfig) EcotoneTime(genesisTime uint64) *uint64 {
 	return &v
 }
 
+func (d *DeployConfig) KromaMPTTime(genesisTime uint64) *uint64 {
+	if d.L2GenesisKromaMPTTimeOffset == nil {
+		return nil
+	}
+	v := uint64(0)
+	if offset := *d.L2GenesisKromaMPTTimeOffset; offset > 0 {
+		v = genesisTime + uint64(offset)
+	}
+	return &v
+}
+
 func (d *DeployConfig) FjordTime(genesisTime uint64) *uint64 {
 	if d.L2GenesisFjordTimeOffset == nil {
 		return nil
@@ -776,6 +810,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Block, l2GenesisBlockHas
 		CanyonTime:             d.CanyonTime(l1StartBlock.Time()),
 		DeltaTime:              d.DeltaTime(l1StartBlock.Time()),
 		EcotoneTime:            d.EcotoneTime(l1StartBlock.Time()),
+		KromaMPTTime:           d.KromaMPTTime(l1StartBlock.Time()),
 		FjordTime:              d.FjordTime(l1StartBlock.Time()),
 		InteropTime:            d.InteropTime(l1StartBlock.Time()),
 		UsePlasma:              d.UsePlasma,
@@ -865,6 +900,8 @@ type L1Deployments struct {
 	ZKMerkleTrie              common.Address `json:"ZKMerkleTrie"`
 	ZKVerifier                common.Address `json:"ZKVerifier"`
 	ZKVerifierProxy           common.Address `json:"ZKVerifierProxy"`
+	ZKProofVerifier           common.Address `json:"ZKProofVerifier"`
+	ZKProofVerifierProxy      common.Address `json:"ZKProofVerifierProxy"`
 	// [Kroma: END]
 }
 
@@ -1055,7 +1092,7 @@ func NewL2ImmutableConfig(config *DeployConfig, block *types.Block) (*immutables
 		[Kroma: END] */
 		L1BlockNumber:  struct{}{},
 		GasPriceOracle: struct{}{},
-		L1Block:        struct{}{},
+		KromaL1Block:   struct{}{},
 		/* [Kroma: START]
 		GovernanceToken: struct{}{},
 		LegacyMessagePasser: struct{}{},
@@ -1148,7 +1185,7 @@ func NewL2StorageConfig(config *DeployConfig, block *types.Block) (state.Storage
 		"_initializing": false,
 	}
 	[Kroma: END] */
-	storage["L1Block"] = state.StorageValues{
+	storage["KromaL1Block"] = state.StorageValues{
 		"number":                block.Number(),
 		"timestamp":             block.Time(),
 		"basefee":               block.BaseFee(),

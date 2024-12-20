@@ -1,10 +1,16 @@
+################################################################
+#                   PROFILE: DEFAULT (Local)                   #
+################################################################
+
 [profile.default]
+
+# Compilation settings
 src = 'contracts'
 out = 'forge-artifacts'
+script = 'scripts'
 optimizer = true
+# [Kroma: START]
 optimizer_runs = 10_000
-
-allow_paths = ["../../node_modules"]
 remappings = [
   '@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/',
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
@@ -12,20 +18,83 @@ remappings = [
   'forge-std/=node_modules/forge-std/src',
   'ds-test/=node_modules/ds-test/src'
 ]
+# [Kroma: END]
 extra_output = ['devdoc', 'userdoc', 'metadata', 'storageLayout']
 bytecode_hash = 'none'
-build_info = true
 build_info_path = 'artifacts/build-info'
+
+# Test / Script Runner Settings
 ffi = true
+# [Kroma: START]
 fuzz_runs = 16
 no_match_contract = 'EchidnaFuzz'
-
+# [Kroma: END]
 fs_permissions = [
-  { 'access'='read-write', 'path'='./.resource-metering.csv' },
+  { access='read-write', path='./.resource-metering.csv' },
+  { access='read-write', path='./snapshots/' },
+  { access='read-write', path='./deployments/' },
+  { access='read', path='./deploy-config/' },
+  { access='read', path='./periphery-deploy-config/' },
+  { access='read', path='./broadcast/' },
+  { access='read', path = './forge-artifacts/' },
+  { access='write', path='./semver-lock.json' },
+  { access='read-write', path='./.testdata/' },
+  { access='read', path='./kout-deployment' }
 ]
+libs = ["node_modules"]
+
+[fuzz]
+runs = 64
+
+[fmt]
+line_length=120
+multiline_func_header='all'
+bracket_spacing=true
+wrap_comments=true
+ignore = ['contracts/vendor/WETH9.sol']
+
+################################################################
+#                         PROFILE: CI                          #
+################################################################
 
 [profile.ci]
-fuzz_runs = 512
+deny_warnings = true
+fuzz = { runs = 512 }
+
+[profile.ci.invariant]
+runs = 256
+depth = 32
+
+################################################################
+#                         PROFILE: LITE                        #
+################################################################
+
+[profile.lite]
+optimizer = false
+
+################################################################
+#                         PROFILE: KONTROL                     #
+################################################################
+# See test/kontrol/README.md for an explanation of how the profiles are configured
+
+[profile.kdeploy]
+src = 'src/L1'
+out = 'kout-deployment'
+test = 'test/kontrol'
+script = 'scripts-kontrol'
+
+[profile.kprove]
+src = 'test/kontrol/proofs'
+out = 'kout-proofs'
+test = 'test/kontrol/proofs'
+script = 'test/kontrol/proofs'
+ast = true
+
+# [Kroma: START]
+################################################################
+#                         PROFILE: ECHIDNA                     #
+################################################################
 
 [profile.echidna]
 bytecode_hash = 'ipfs'
+# [Kroma: END]

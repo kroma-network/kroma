@@ -6,7 +6,7 @@ import { Types } from "../../libraries/Types.sol";
 import { RLPWriter } from "../../libraries/rlp/RLPWriter.sol";
 import { Colosseum } from "../../L1/Colosseum.sol";
 
-library ColosseumTestData {
+library ZkEvmTestData {
     uint256 internal constant INVALID_BLOCK_NUMBER = 21;
     bytes32 internal constant PREV_OUTPUT_ROOT =
         0xa6b4cc150f0c24daf8b5803491addbe102a388cf1ccec74fbe103a2deb5004e6;
@@ -22,7 +22,7 @@ library ColosseumTestData {
             version: bytes32(uint256(0)),
             stateRoot: 0x263975548df46f3ffc739f602b503f32b4c522026c8c93204929ddd5b65ad202,
             messagePasserStorageRoot: 0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127,
-            blockHash: 0x3392758b5bca8b8319df6180c145ca28152f1b6a3af977bc48ec67d2259dbcd2,
+            latestBlockhash: 0x3392758b5bca8b8319df6180c145ca28152f1b6a3af977bc48ec67d2259dbcd2,
             nextBlockHash: 0x4ecf76378ef03e3a417ac169cb052a879424345c59765aca05fe1fb6259375a9
         });
 
@@ -30,7 +30,7 @@ library ColosseumTestData {
             version: bytes32(uint256(0)),
             stateRoot: 0x0475b3d38492c9e58190616eaad4ab033942aa55747d49c5a614b9e751998d5e,
             messagePasserStorageRoot: 0x24f53397bd92b66fda812b6e1191a00b60fc8e304033518006cbeedcab7f2127,
-            blockHash: 0x4ecf76378ef03e3a417ac169cb052a879424345c59765aca05fe1fb6259375a9,
+            latestBlockhash: 0x4ecf76378ef03e3a417ac169cb052a879424345c59765aca05fe1fb6259375a9,
             nextBlockHash: 0x6c4e19b1fc27f6a075c67f35bd15b21c40025a892e32cdb8d9b5f5d5ec60093a
         });
 

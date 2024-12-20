@@ -23,6 +23,7 @@ import (
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	validator "github.com/kroma-network/kroma/kroma-validator"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 )
 
@@ -75,7 +76,7 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		AssetManagerAddr:                cfg.AssetManagerAddr,
 		ColosseumAddr:                   cfg.ColosseumAddr,
 		SecurityCouncilAddr:             cfg.SecurityCouncilAddr,
-		ChallengerPollInterval:          time.Second,
+		ChallengePollInterval:           time.Second,
 		OutputSubmitterRetryInterval:    time.Second,
 		OutputSubmitterRoundBuffer:      30,
 		OutputSubmitterAllowPublicRound: true,
@@ -85,7 +86,9 @@ func NewL2Validator(t Testing, log log.Logger, cfg *ValidatorCfg, l1 *ethclient.
 		RollupClient:                    rollupCl,
 		RollupConfig:                    rollupConfig,
 		AllowNonFinalized:               cfg.AllowNonFinalized,
-		ProofFetcher:                    e2eutils.NewFetcher(log, "../testdata/proof"),
+		ZkEVMProofFetcher:               chal.NewZkEVMProofFetcher(e2eutils.NewMockRPCWithData("../testdata/proof")),
+		ZkVMProofFetcher:                chal.NewZkVMProofFetcher(e2eutils.NewMockRPC()),
+		WitnessGenerator:                chal.NewWitnessGenerator(e2eutils.NewMockRPC()),
 		// We use custom signing here instead of using the transaction manager.
 		TxManager: &txmgr.BufferedTxManager{
 			SimpleTxManager: txmgr.SimpleTxManager{
@@ -186,6 +189,8 @@ func (v *L2Validator) ActRegisterValidator(t Testing, assets *big.Int) {
 
 func (v *L2Validator) ActApprove(t Testing, assets *big.Int) {
 	assetManagerContract, err := bindings.NewAssetManagerCaller(v.assetManagerContractAddr, v.cfg.L1Client)
+	require.NoError(t, err)
+
 	tokenAddr, err := assetManagerContract.ASSETTOKEN(&bind.CallOpts{})
 	require.NoError(t, err)
 
