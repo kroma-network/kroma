@@ -108,7 +108,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:zkvm-d90b21eb
+    image: kromanetwork/geth:v0.6.0-rc.1
     ports:
       - "9545:8545"
       - "9546:8546"
@@ -128,7 +128,7 @@ services:
 
   l2-historical:
     pid: host # allow debugging
-    image: kromanetwork/geth:zkvm-d90b21eb
+    image: kromanetwork/geth:v0.6.0-rc.1
     ports:
       - "9445:8545"
       - "9446:8546"
