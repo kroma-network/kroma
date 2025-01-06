@@ -502,6 +502,13 @@ func (c *Challenger) handleOutput(outputIndex *big.Int) {
 	}
 }
 
+type ChallengeWithData struct {
+	Challenge   bindings.TypesChallenge
+	Retry       bool
+	ZkVMWitness string
+	ZkVMProof   *chal.ZkVMProofResponse
+}
+
 // handleChallenge handles related challenge according to its status and role when challenge created.
 func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Address, challenger common.Address) {
 	c.log.Info("handling related challenge", "outputIndex", outputIndex, "asserter", asserter, "challenger", challenger)
@@ -509,6 +516,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 
 	isAsserter := asserter == c.cfg.TxManager.From()
 	isChallenger := challenger == c.cfg.TxManager.From()
+	challengeWithData := &ChallengeWithData{bindings.TypesChallenge{}, false, "", nil}
 
 	ticker := time.NewTicker(c.cfg.ChallengePollInterval)
 	defer ticker.Stop()
@@ -529,6 +537,13 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 				c.log.Info("challenge is not in progress", "outputIndex", outputIndex, "challenger", challenger)
 				return
 			}
+
+			challenge, err := c.GetChallenge(c.ctx, outputIndex, challenger)
+			if err != nil {
+				c.log.Error("unable to get challenge", "err", err, "outputIndex", outputIndex, "challenger", challenger)
+				continue
+			}
+			challengeWithData.Challenge = challenge
 
 			output, err := c.GetL2Output(c.ctx, outputIndex)
 			if err != nil {
@@ -557,7 +572,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 				}
 				switch status {
 				case chal.StatusAsserterTurn:
-					tx, err := c.Bisect(c.ctx, outputIndex, challenger)
+					tx, err := c.Bisect(c.ctx, &challengeWithData.Challenge, outputIndex)
 					if err != nil {
 						c.log.Error("failed to create bisect tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 						continue
@@ -607,7 +622,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 				// the contract automatically cancels the challenge.
 				switch status {
 				case chal.StatusChallengerTurn:
-					tx, err := c.Bisect(c.ctx, outputIndex, challenger)
+					tx, err := c.Bisect(c.ctx, &challengeWithData.Challenge, outputIndex)
 					if err != nil {
 						c.log.Error("failed to create bisect tx", "err", err, "outputIndex", outputIndex)
 						continue
@@ -618,12 +633,13 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 					}
 				case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
 					skipSelectFaultPosition := status == chal.StatusAsserterTimeout
-					tx, retry, err := c.ProveFault(c.ctx, outputIndex, challenger, skipSelectFaultPosition)
+					tx, err := c.ProveFault(c.ctx, challengeWithData, outputIndex, skipSelectFaultPosition)
 					if err != nil {
 						c.log.Error("failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
-					if retry {
+					if challengeWithData.Retry {
+						challengeWithData.Retry = false
 						continue
 					}
 					if err := c.submitChallengeTx(tx); err != nil {
@@ -922,13 +938,8 @@ func (c *Challenger) CreateChallenge(ctx context.Context, outputRange *OutputRan
 	return c.colosseumContract.CreateChallenge(txOpts, outputIndex, l1BlockHash, l1BlockNumber, segments.Hashes)
 }
 
-func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
-	c.log.Info("crafting bisect tx", "outputIndex", outputIndex, "challenger", challenger)
-
-	challenge, err := c.GetChallenge(ctx, outputIndex, challenger)
-	if err != nil {
-		return nil, err
-	}
+func (c *Challenger) Bisect(ctx context.Context, challenge *bindings.TypesChallenge, outputIndex *big.Int) (*types.Transaction, error) {
+	c.log.Info("crafting bisect tx", "outputIndex", outputIndex, "challenger", challenge.Challenger)
 
 	prevSegments := chal.NewSegments(challenge.SegStart.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
 	position, err := c.selectFaultPosition(ctx, prevSegments)
@@ -948,7 +959,7 @@ func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int, challenge
 	}
 
 	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
-	return c.colosseumContract.Bisect(txOpts, outputIndex, challenger, position, nextSegments.Hashes)
+	return c.colosseumContract.Bisect(txOpts, outputIndex, challenge.Challenger, position, nextSegments.Hashes)
 }
 
 func (c *Challenger) ChallengerTimeout(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
@@ -968,23 +979,20 @@ func (c *Challenger) CancelChallenge(ctx context.Context, outputIndex *big.Int) 
 // ProveFault creates proveFault transaction for invalid output root.
 // TODO: ProveFault will take long time, so that we may have to handle it carefully.
 func (c *Challenger) ProveFault(
-	ctx context.Context, outputIndex *big.Int, challenger common.Address, skipSelectFaultPosition bool,
-) (*types.Transaction, bool, error) {
-	challenge, err := c.GetChallenge(ctx, outputIndex, challenger)
-	if err != nil {
-		return nil, true, err
-	}
+	ctx context.Context, challengeWithData *ChallengeWithData, outputIndex *big.Int, skipSelectFaultPosition bool,
+) (*types.Transaction, error) {
+	challenge := challengeWithData.Challenge
 
 	// when asserter timeout, skip finding fault position since the same segments have been stored in colosseum
 	position := common.Big0
 	blockNumber := challenge.SegStart
 	if !skipSelectFaultPosition {
 		prevSegments := chal.NewSegments(blockNumber.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
-		position, err = c.selectFaultPosition(ctx, prevSegments)
+		position, err := c.selectFaultPosition(ctx, prevSegments)
 		if err != nil {
-			return nil, true, fmt.Errorf("failed to select fault position(outputIndex: %s, challengerAddress: %s): %w", outputIndex.String(), challenger.String(), err)
+			return nil, fmt.Errorf("failed to select fault position(outputIndex: %s, challengerAddress: %s): %w",
+				outputIndex.String(), challenge.Challenger.String(), err)
 		}
-
 		blockNumber = new(big.Int).Add(blockNumber, position)
 	}
 
@@ -993,52 +1001,81 @@ func (c *Challenger) ProveFault(
 	header, err := c.cfg.L2Client.HeaderByNumber(cCtx, targetBlockNumber)
 	defer cCancel()
 	if err != nil {
-		return nil, true, err
+		return nil, err
 	}
 
 	// if the target block time is after Kroma MPT time, generate zkVM proof otherwise zkEVM proof
 	if c.cfg.RollupConfig.IsKromaMPT(header.Time) {
-		return c.proveFaultWithZkVm(ctx, outputIndex, challenge, targetBlockNumber, header.Hash().Hex(), position)
+		return c.proveFaultWithZkVm(ctx, outputIndex, challengeWithData, targetBlockNumber, header.Hash().Hex(), position)
 	} else {
-		return c.proveFaultWithZkEvm(ctx, outputIndex, challenger, targetBlockNumber, position)
+		return c.proveFaultWithZkEvm(ctx, outputIndex, challenge.Challenger, targetBlockNumber, position)
 	}
 }
 
 // proveFaultWithZkVm fetches zkVM witness data and proof to create proveFaultWithZkVm transaction.
 // It sends requests to external RPC and immediately returns, then continuously checks the status of request and moves to next step.
 func (c *Challenger) proveFaultWithZkVm(
-	ctx context.Context, outputIndex *big.Int, challenge bindings.TypesChallenge, targetBlockNumber *big.Int, blockHash string, position *big.Int,
-) (*types.Transaction, bool, error) {
+	ctx context.Context, outputIndex *big.Int, challengeWithData *ChallengeWithData, targetBlockNumber *big.Int, blockHash string, position *big.Int,
+) (*types.Transaction, error) {
+	challenge := challengeWithData.Challenge
 	c.log.Info("crafting proveFaultWithZkVm tx", "outputIndex", outputIndex, "challenger", challenge.Challenger)
 
 	l1Head := hex.EncodeToString(challenge.L1Head[:])
 
-	requestStatus, err := c.cfg.WitnessGenerator.RequestWitness(ctx, blockHash, l1Head)
-	if err != nil {
-		return nil, true, fmt.Errorf("failed to request witness(target block number: %s): %w", targetBlockNumber.String(), err)
-	}
-	if *requestStatus != chal.RequestCompleted {
-		c.log.Info("witness generation is not completed", "targetBlockNumber", targetBlockNumber, "status", *requestStatus)
-		return nil, true, nil
+	if len(challengeWithData.ZkVMWitness) == 0 {
+		witnessResult, err := c.cfg.WitnessGenerator.GetWitness(ctx, blockHash, l1Head)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get witness(target block number: %s): %w", targetBlockNumber.String(), err)
+		}
+
+		switch witnessResult.RequestStatus {
+		case chal.RequestNone, chal.RequestFailed:
+			c.log.Info("witness generation should be requested",
+				"targetBlockNumber", targetBlockNumber, "status", witnessResult.RequestStatus)
+			_, err = c.cfg.WitnessGenerator.RequestWitness(ctx, blockHash, l1Head)
+			if err != nil {
+				return nil, fmt.Errorf("failed to request witness(target block number: %s): %w", targetBlockNumber.String(), err)
+			}
+			challengeWithData.Retry = true
+			return nil, nil
+		case chal.RequestProcessing:
+			c.log.Info("witness generation is in progress", "targetBlockNumber", targetBlockNumber)
+			challengeWithData.Retry = true
+			return nil, nil
+		case chal.RequestCompleted:
+			c.log.Info("witness generation is completed", "targetBlockNumber", targetBlockNumber)
+			challengeWithData.ZkVMWitness = witnessResult.Witness
+		default:
+			return nil, fmt.Errorf("unknown request status of witness generation: %s", witnessResult.RequestStatus)
+		}
 	}
 
-	witnessResult, err := c.cfg.WitnessGenerator.GetWitness(ctx, blockHash, l1Head)
-	if err != nil {
-		return nil, true, fmt.Errorf("failed to get witness(target block number: %s): %w", targetBlockNumber.String(), err)
-	}
+	if challengeWithData.ZkVMProof == nil {
+		proofResult, err := c.cfg.ZkVMProofFetcher.GetProof(ctx, blockHash, l1Head)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get proof(target block number: %s): %w", targetBlockNumber.String(), err)
+		}
 
-	requestStatus, err = c.cfg.ZkVMProofFetcher.RequestProve(ctx, blockHash, l1Head, witnessResult.Witness)
-	if err != nil {
-		return nil, true, fmt.Errorf("failed to request proof(target block number: %s): %w", targetBlockNumber.String(), err)
-	}
-	if *requestStatus != chal.RequestCompleted {
-		c.log.Info("proof generation is not completed", "targetBlockNumber", targetBlockNumber, "status", *requestStatus)
-		return nil, true, nil
-	}
-
-	proofResult, err := c.cfg.ZkVMProofFetcher.GetProof(ctx, blockHash, l1Head)
-	if err != nil {
-		return nil, true, fmt.Errorf("failed to get proof(target block number: %s): %w", targetBlockNumber.String(), err)
+		switch proofResult.RequestStatus {
+		case chal.RequestNone, chal.RequestFailed:
+			c.log.Info("proof generation should be requested",
+				"targetBlockNumber", targetBlockNumber, "status", proofResult.RequestStatus)
+			_, err = c.cfg.ZkVMProofFetcher.RequestProve(ctx, blockHash, l1Head, challengeWithData.ZkVMWitness)
+			if err != nil {
+				return nil, fmt.Errorf("failed to request proof(target block number: %s): %w", targetBlockNumber.String(), err)
+			}
+			challengeWithData.Retry = true
+			return nil, nil
+		case chal.RequestProcessing:
+			c.log.Info("proof generation is in progress", "targetBlockNumber", targetBlockNumber)
+			challengeWithData.Retry = true
+			return nil, nil
+		case chal.RequestCompleted:
+			c.log.Info("proof generation is completed", "targetBlockNumber", targetBlockNumber)
+			challengeWithData.ZkVMProof = proofResult
+		default:
+			return nil, fmt.Errorf("unknown request status of proof generation: %s", proofResult.RequestStatus)
+		}
 	}
 
 	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
@@ -1047,46 +1084,46 @@ func (c *Challenger) proveFaultWithZkVm(
 		outputIndex,
 		position,
 		bindings.TypesZkVmProof{
-			ZkVmProgramVKey: proofResult.VKeyHash,
-			PublicValues:    proofResult.PublicValues,
-			ProofBytes:      proofResult.Proof,
+			ZkVmProgramVKey: challengeWithData.ZkVMProof.VKeyHash,
+			PublicValues:    challengeWithData.ZkVMProof.PublicValues,
+			ProofBytes:      challengeWithData.ZkVMProof.Proof,
 		},
 	)
 	if err != nil {
-		return nil, true, err
+		return nil, err
 	}
 
-	return tx, false, nil
+	return tx, nil
 }
 
 // proveFaultWithZkEvm fetches public input and zkEVM proof to create proveFaultWithZkEvm transaction.
 // It sends requests to external RPC and waits until responded.
 func (c *Challenger) proveFaultWithZkEvm(
 	ctx context.Context, outputIndex *big.Int, challenger common.Address, targetBlockNumber *big.Int, position *big.Int,
-) (*types.Transaction, bool, error) {
+) (*types.Transaction, error) {
 	c.log.Info("crafting proveFaultWithZkEvm tx", "outputIndex", outputIndex, "challenger", challenger)
 
 	srcBlockNumber := new(big.Int).Sub(targetBlockNumber, common.Big1)
 	proof, err := c.PublicInputProof(ctx, srcBlockNumber.Uint64())
 	if err != nil {
-		return nil, true, fmt.Errorf("failed to get public input proof(prev block number: %s): %w", srcBlockNumber.String(), err)
+		return nil, fmt.Errorf("failed to get public input proof(prev block number: %s): %w", srcBlockNumber.String(), err)
 	}
 
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
 	trace, err := c.cfg.L2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
 	if err != nil {
-		return nil, true, fmt.Errorf("failed to get block trace(target block number: %s): %w", targetBlockNumber.String(), err)
+		return nil, fmt.Errorf("failed to get block trace(target block number: %s): %w", targetBlockNumber.String(), err)
 	}
 
 	traceBz, err := json.Marshal(trace)
 	if err != nil {
-		return nil, true, fmt.Errorf("failed to marshal block trace(target block number: %s): %w", targetBlockNumber.String(), err)
+		return nil, fmt.Errorf("failed to marshal block trace(target block number: %s): %w", targetBlockNumber.String(), err)
 	}
 
 	fetchResult, err := c.cfg.ZkEVMProofFetcher.FetchProofAndPair(ctx, string(traceBz))
 	if err != nil {
-		return nil, true, fmt.Errorf("failed to fetch proof and pair(target block number: %s): %w", targetBlockNumber.String(), err)
+		return nil, fmt.Errorf("failed to fetch proof and pair(target block number: %s): %w", targetBlockNumber.String(), err)
 	}
 
 	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
@@ -1103,10 +1140,10 @@ func (c *Challenger) proveFaultWithZkEvm(
 		},
 	)
 	if err != nil {
-		return nil, true, err
+		return nil, err
 	}
 
-	return tx, false, nil
+	return tx, nil
 }
 
 // IsOutputDeleted checks if the output is deleted.
