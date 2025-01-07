@@ -504,7 +504,7 @@ func (c *Challenger) handleOutput(outputIndex *big.Int) {
 
 type ChallengeWithData struct {
 	Challenge   bindings.TypesChallenge
-	Retry       bool
+	Processing  bool
 	ZkVMWitness string
 	ZkVMProof   *chal.ZkVMProofResponse
 }
@@ -516,7 +516,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 
 	isAsserter := asserter == c.cfg.TxManager.From()
 	isChallenger := challenger == c.cfg.TxManager.From()
-	challengeWithData := &ChallengeWithData{bindings.TypesChallenge{}, false, "", nil}
+	var challengeWithData *ChallengeWithData
 
 	ticker := time.NewTicker(c.cfg.ChallengePollInterval)
 	defer ticker.Stop()
@@ -543,7 +543,11 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 				c.log.Error("unable to get challenge", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 				continue
 			}
-			challengeWithData.Challenge = challenge
+			if challengeWithData == nil {
+				challengeWithData = &ChallengeWithData{Challenge: challenge}
+			} else {
+				challengeWithData.Challenge = challenge
+			}
 
 			output, err := c.GetL2Output(c.ctx, outputIndex)
 			if err != nil {
@@ -638,8 +642,8 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 						c.log.Error("failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
-					if challengeWithData.Retry {
-						challengeWithData.Retry = false
+					if challengeWithData.Processing {
+						challengeWithData.Processing = false
 						continue
 					}
 					if err := c.submitChallengeTx(tx); err != nil {
@@ -1036,11 +1040,11 @@ func (c *Challenger) proveFaultWithZkVm(
 			if err != nil {
 				return nil, fmt.Errorf("failed to request witness(target block number: %s): %w", targetBlockNumber.String(), err)
 			}
-			challengeWithData.Retry = true
+			challengeWithData.Processing = true
 			return nil, nil
 		case chal.RequestProcessing:
 			c.log.Info("witness generation is in progress", "targetBlockNumber", targetBlockNumber)
-			challengeWithData.Retry = true
+			challengeWithData.Processing = true
 			return nil, nil
 		case chal.RequestCompleted:
 			c.log.Info("witness generation is completed", "targetBlockNumber", targetBlockNumber)
@@ -1064,11 +1068,11 @@ func (c *Challenger) proveFaultWithZkVm(
 			if err != nil {
 				return nil, fmt.Errorf("failed to request proof(target block number: %s): %w", targetBlockNumber.String(), err)
 			}
-			challengeWithData.Retry = true
+			challengeWithData.Processing = true
 			return nil, nil
 		case chal.RequestProcessing:
 			c.log.Info("proof generation is in progress", "targetBlockNumber", targetBlockNumber)
-			challengeWithData.Retry = true
+			challengeWithData.Processing = true
 			return nil, nil
 		case chal.RequestCompleted:
 			c.log.Info("proof generation is completed", "targetBlockNumber", targetBlockNumber)

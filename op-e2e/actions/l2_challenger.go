@@ -106,10 +106,10 @@ func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int, skipSelectP
 	challenge, err := v.challenger.GetChallenge(t.Ctx(), outputIndex, v.address)
 	require.NoError(t, err, "unable to get challenge")
 
-	challengeWithData := &val.ChallengeWithData{Challenge: challenge, Retry: false, ZkVMWitness: "", ZkVMProof: nil}
+	challengeWithData := &val.ChallengeWithData{Challenge: challenge, Processing: false, ZkVMWitness: "", ZkVMProof: nil}
 	tx, err := v.challenger.ProveFault(t.Ctx(), challengeWithData, outputIndex, skipSelectPosition)
 	require.NoError(t, err, "unable to create prove fault tx")
-	require.False(t, challengeWithData.Retry, "prove fault retry not allowed since using test data")
+	require.False(t, challengeWithData.Processing, "prove fault retry not allowed since using test data")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
