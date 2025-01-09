@@ -281,7 +281,7 @@ func NewValidatorConfig(cfg CLIConfig, l log.Logger, m metrics.Metricer) (*Confi
 			}
 			witnessGenSpec, err := witnessGenerator.Spec(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to reqeust spec of witness generator: %w", err)
+				return nil, fmt.Errorf("failed to request spec of witness generator: %w", err)
 			}
 			if proverSpec.SP1Version != witnessGenSpec.SP1Version {
 				return nil, errors.New("SP1 version of zkVM prover and witness generator mismatched")
