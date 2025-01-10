@@ -71,14 +71,15 @@ func (m *MockRPC) requestStatus() *chal.RequestStatusType {
 }
 
 func (m *MockRPC) getWitness() *chal.WitnessResponse {
-	return &chal.WitnessResponse{Witness: testdata.ZkVMWitness}
+	return &chal.WitnessResponse{RequestStatus: chal.RequestCompleted, Witness: testdata.ZkVMWitness}
 }
 
 func (m *MockRPC) getProof() *chal.ZkVMProofResponse {
 	return &chal.ZkVMProofResponse{
-		VKeyHash:     testdata.ZkVMVKeyHash,
-		PublicValues: testdata.ZkVMPublicValues,
-		Proof:        testdata.ZkVMProof,
+		RequestStatus: chal.RequestCompleted,
+		ProgramVKey:   testdata.ZkVMVKeyHash,
+		PublicValues:  testdata.ZkVMPublicValues,
+		Proof:         testdata.ZkVMProof,
 	}
 }
 

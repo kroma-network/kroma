@@ -56,7 +56,10 @@ func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int, challenger comm
 		require.False(t, outputDeleted, "output is already deleted")
 	}
 
-	tx, err := v.challenger.Bisect(t.Ctx(), outputIndex, challenger)
+	challenge, err := v.challenger.GetChallenge(t.Ctx(), outputIndex, challenger)
+	require.NoError(t, err, "unable to get challenge")
+
+	tx, err := v.challenger.Bisect(t.Ctx(), &challenge, outputIndex)
 	require.NoError(t, err, "unable to create bisect tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
@@ -100,9 +103,13 @@ func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int, skipSelectP
 	require.NoError(t, err, "unable to get if output is finalized")
 	require.False(t, outputFinalized, "output is already finalized")
 
-	tx, retry, err := v.challenger.ProveFault(t.Ctx(), outputIndex, v.address, skipSelectPosition)
+	challenge, err := v.challenger.GetChallenge(t.Ctx(), outputIndex, v.address)
+	require.NoError(t, err, "unable to get challenge")
+
+	challengeWithData := &val.ChallengeWithData{Challenge: challenge, Processing: false, ZkVMWitness: "", ZkVMProof: nil}
+	tx, err := v.challenger.ProveFault(t.Ctx(), challengeWithData, outputIndex, skipSelectPosition)
 	require.NoError(t, err, "unable to create prove fault tx")
-	require.False(t, retry, "prove fault retry not allowed since using test data")
+	require.False(t, challengeWithData.Processing, "prove fault retry not allowed since using test data")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)
