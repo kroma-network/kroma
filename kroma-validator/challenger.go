@@ -614,6 +614,8 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 						c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
+					c.log.Info("successfully canceled challenge", "outputIndex", outputIndex)
+					return
 				}
 
 				// if output is already finalized, terminate handling
