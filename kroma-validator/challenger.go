@@ -1089,7 +1089,7 @@ func (c *Challenger) proveFaultWithZkVm(
 		outputIndex,
 		position,
 		bindings.TypesZkVmProof{
-			ZkVmProgramVKey: challengeWithData.ZkVMProof.VKeyHash,
+			ZkVmProgramVKey: challengeWithData.ZkVMProof.ProgramVKey,
 			PublicValues:    challengeWithData.ZkVMProof.PublicValues,
 			ProofBytes:      challengeWithData.ZkVMProof.Proof,
 		},
