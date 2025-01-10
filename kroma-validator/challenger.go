@@ -990,9 +990,10 @@ func (c *Challenger) ProveFault(
 	// when asserter timeout, skip finding fault position since the same segments have been stored in colosseum
 	position := common.Big0
 	blockNumber := challenge.SegStart
+	var err error
 	if !skipSelectFaultPosition {
 		prevSegments := chal.NewSegments(blockNumber.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
-		position, err := c.selectFaultPosition(ctx, prevSegments)
+		position, err = c.selectFaultPosition(ctx, prevSegments)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select fault position(outputIndex: %s, challengerAddress: %s): %w",
 				outputIndex.String(), challenge.Challenger.String(), err)

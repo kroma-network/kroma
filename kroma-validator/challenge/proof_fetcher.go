@@ -66,7 +66,7 @@ type HexBytes []byte
 
 type ZkVMProofResponse struct {
 	RequestStatus RequestStatusType `json:"request_status"`
-	VKeyHash      common.Hash       `json:"vkey_hash"`
+	VKeyHash      common.Hash       `json:"program_key"`
 	RequestID     string            `json:"request_id"`
 	PublicValues  HexBytes          `json:"public_values"`
 	Proof         HexBytes          `json:"proof"`
