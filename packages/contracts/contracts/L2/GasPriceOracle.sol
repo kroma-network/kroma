@@ -27,6 +27,9 @@ contract GasPriceOracle is ISemver {
     /// @custom:semver 1.1.0
     string public constant version = "1.1.0";
 
+    /// @notice The storage slot storing a boolean indicates whether the network has gone through the Kroma MPT upgrade.
+    bytes32 internal constant IS_KROMA_MPT_KEY = keccak256("isKromaMPT");
+
     /// @notice Indicates whether the network has gone through the Ecotone upgrade.
     bool public isEcotone;
 
@@ -44,11 +47,38 @@ contract GasPriceOracle is ISemver {
     /// @notice Set chain to be Ecotone chain (callable by depositor account)
     function setEcotone() external {
         require(
-            msg.sender == L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).DEPOSITOR_ACCOUNT(),
+            msg.sender == L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).DEPOSITOR_ACCOUNT(),
             "GasPriceOracle: only the depositor account can set isEcotone flag"
         );
         require(isEcotone == false, "GasPriceOracle: Ecotone already active");
         isEcotone = true;
+    }
+
+    /// @notice Set chain to be Kroma MPT chain (callable by depositor account)
+    ///         NOTE that it should be called after setEcotone called first.
+    function setKromaMPT() external {
+        require(
+            msg.sender == L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).DEPOSITOR_ACCOUNT(),
+            "GasPriceOracle: only the depositor account can set isKromaMPT flag"
+        );
+        require(isEcotone == true, "GasPriceOracle: Ecotone is not active");
+        require(isKromaMPT() == false, "GasPriceOracle: Kroma MPT already active");
+
+        bytes32 slot = IS_KROMA_MPT_KEY;
+        assembly {
+            sstore(slot, true)
+        }
+    }
+
+    /// @notice Retrieves the boolean indicates whether the network has gone through the Kroma MPT upgrade.
+    /// @return The boolean indicates whether the network has gone through the Kroma MPT upgrade.
+    function isKromaMPT() public view returns (bool) {
+        bytes32 slot = IS_KROMA_MPT_KEY;
+        bool kromaMPT;
+        assembly {
+            kromaMPT := sload(slot)
+        }
+        return kromaMPT;
     }
 
     /// @notice Retrieves the current gas price (base fee).
@@ -68,7 +98,7 @@ contract GasPriceOracle is ISemver {
     /// @return Current fee overhead.
     function overhead() public view returns (uint256) {
         require(!isEcotone, "GasPriceOracle: overhead() is deprecated");
-        return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).l1FeeOverhead();
+        return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).l1FeeOverhead();
     }
 
     /// @custom:legacy
@@ -76,31 +106,47 @@ contract GasPriceOracle is ISemver {
     /// @return Current fee scalar.
     function scalar() public view returns (uint256) {
         require(!isEcotone, "GasPriceOracle: scalar() is deprecated");
-        return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).l1FeeScalar();
+        return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).l1FeeScalar();
     }
 
     /// @notice Retrieves the latest known L1 base fee.
     /// @return Latest known L1 base fee.
     function l1BaseFee() public view returns (uint256) {
-        return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).basefee();
+        if (isKromaMPT()) {
+            return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).basefee();
+        } else {
+            return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).basefee();
+        }
     }
 
     /// @notice Retrieves the current blob base fee.
     /// @return Current blob base fee.
     function blobBaseFee() public view returns (uint256) {
-        return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).blobBaseFee();
+        if (isKromaMPT()) {
+            return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).blobBaseFee();
+        } else {
+            return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).blobBaseFee();
+        }
     }
 
     /// @notice Retrieves the current base fee scalar.
     /// @return Current base fee scalar.
     function baseFeeScalar() public view returns (uint32) {
-        return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).baseFeeScalar();
+        if (isKromaMPT()) {
+            return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).baseFeeScalar();
+        } else {
+            return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).baseFeeScalar();
+        }
     }
 
     /// @notice Retrieves the current blob base fee scalar.
     /// @return Current blob base fee scalar.
     function blobBaseFeeScalar() public view returns (uint32) {
-        return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).blobBaseFeeScalar();
+        if (isKromaMPT()) {
+            return L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).blobBaseFeeScalar();
+        } else {
+            return L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).blobBaseFeeScalar();
+        }
     }
 
     /// @custom:legacy
@@ -119,7 +165,7 @@ contract GasPriceOracle is ISemver {
         if (isEcotone) {
             return l1GasUsed;
         }
-        return l1GasUsed + L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).l1FeeOverhead();
+        return l1GasUsed + L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).l1FeeOverhead();
     }
 
     /// @notice Computation of the L1 portion of the fee for Bedrock.
@@ -127,8 +173,9 @@ contract GasPriceOracle is ISemver {
     /// @return L1 fee that should be paid for the tx
     function _getL1FeeBedrock(bytes memory _data) internal view returns (uint256) {
         uint256 l1GasUsed = _getCalldataGas(_data);
-        uint256 fee = (l1GasUsed + L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).l1FeeOverhead()) * l1BaseFee()
-            * L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).l1FeeScalar();
+        uint256 fee = (l1GasUsed + L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).l1FeeOverhead()) *
+            l1BaseFee() *
+            L1Block(Predeploys.KROMA_L1_BLOCK_ATTRIBUTES).l1FeeScalar();
         return fee / (10 ** DECIMALS);
     }
 

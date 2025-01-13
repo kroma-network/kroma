@@ -732,7 +732,7 @@ func checkUpgradeTxs(ctx context.Context, env *actionEnv) error {
 }
 
 func checkL1Block(ctx context.Context, env *actionEnv) error {
-	cl, err := bindings.NewL1Block(predeploys.L1BlockAddr, env.l2)
+	cl, err := bindings.NewKromaL1Block(predeploys.KromaL1BlockAddr, env.l2)
 	if err != nil {
 		return fmt.Errorf("failed to create bindings around L1Block contract: %w", err)
 	}

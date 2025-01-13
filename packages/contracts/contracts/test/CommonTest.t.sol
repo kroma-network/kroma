@@ -2,7 +2,6 @@
 pragma solidity 0.8.15;
 
 /* Testing utilities */
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -27,6 +26,7 @@ import { ValidatorManager } from "../L1/ValidatorManager.sol";
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { SystemConfig } from "../L1/SystemConfig.sol";
 import { ZKMerkleTrie } from "../L1/ZKMerkleTrie.sol";
+import { ZKProofVerifier } from "../L1/ZKProofVerifier.sol";
 import { ZKVerifier } from "../L1/ZKVerifier.sol";
 import { L2CrossDomainMessenger } from "../L2/L2CrossDomainMessenger.sol";
 import { L2ERC721Bridge } from "../L2/L2ERC721Bridge.sol";
@@ -35,11 +35,13 @@ import { L2ToL1MessagePasser } from "../L2/L2ToL1MessagePasser.sol";
 import { CodeDeployer } from "../libraries/CodeDeployer.sol";
 import { Constants } from "../libraries/Constants.sol";
 import { Predeploys } from "../libraries/Predeploys.sol";
-import { Types } from "../libraries/Types.sol";
 import { KromaMintableERC20 } from "../universal/KromaMintableERC20.sol";
 import { KromaMintableERC20Factory } from "../universal/KromaMintableERC20Factory.sol";
 import { Proxy } from "../universal/Proxy.sol";
 import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
+import { SP1Verifier } from "../vendor/SP1VerifierPlonk.sol";
+import { FFIInterface } from "./setup/FFIInterface.sol";
+import { ZkVmTestData } from "./testdata/ZkVmTestData.sol";
 
 contract CommonTest is Test {
     address alice = address(128);
@@ -53,8 +55,6 @@ contract CommonTest is Test {
     uint64 immutable NON_ZERO_GASLIMIT = 50000;
     bytes32 nonZeroHash = keccak256(abi.encode("NON_ZERO"));
     bytes NON_ZERO_DATA = hex"0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000";
-
-    uint256 constant MAX_OUTPUT_ROOT_PROOF_VERSION = 0;
 
     event TransactionDeposited(
         address indexed from,
@@ -242,6 +242,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint128 internal baseReward = 20e18;
     uint128 internal minRegisterAmount = 10e18;
     uint128 internal minActivateAmount = 100e18;
+    uint256 internal mptFirstOutputIndex = 10000; // just large enough value, set again in test
+
     IValidatorManager.ConstructorParams constructorParams;
 
     // Test data
@@ -361,7 +363,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _maxOutputFinalizations: maxOutputFinalizations,
             _baseReward: baseReward,
             _minRegisterAmount: minRegisterAmount,
-            _minActivateAmount: minActivateAmount
+            _minActivateAmount: minActivateAmount,
+            _mptFirstOutputIndex: mptFirstOutputIndex
         });
         valMgrImpl = new ValidatorManager({ _constructorParams: constructorParams });
 
@@ -738,12 +741,17 @@ contract Colosseum_Initializer is Portal_Initializer {
     bytes32 immutable DUMMY_HASH =
         hex"a1235b834d6f1f78f78bc4db856fbc49302cce2c519921347600693021e087f7";
     uint256 immutable MAX_TXS = 100;
+    bytes32 immutable ZKVM_PROGRAM_V_KEY = ZkVmTestData.ZKVM_PROGRAM_V_KEY;
 
     // Test target
     Colosseum colosseumImpl;
 
     ZKVerifier zkVerifier;
     ZKVerifier zkVerifierImpl;
+
+    ZKProofVerifier zkProofVerifier;
+    ZKProofVerifier zkProofVerifierImpl;
+    SP1Verifier sp1Verifier;
 
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
@@ -768,6 +776,21 @@ contract Colosseum_Initializer is Portal_Initializer {
         vm.prank(multisig);
         verifierProxy.upgradeTo(address(zkVerifierImpl));
 
+        // Deploy the ZKProofVerifier
+        sp1Verifier = new SP1Verifier();
+        Proxy zkProofVerifierProxy = new Proxy(multisig);
+        zkProofVerifier = ZKProofVerifier(payable(address(zkProofVerifierProxy)));
+        zkProofVerifierImpl = new ZKProofVerifier({
+            _zkVerifier: zkVerifier,
+            _dummyHash: DUMMY_HASH,
+            _maxTxs: MAX_TXS,
+            _zkMerkleTrie: address(zkMerkleTrie),
+            _sp1Verifier: sp1Verifier,
+            _zkVmProgramVKey: ZKVM_PROGRAM_V_KEY
+        });
+        vm.prank(multisig);
+        zkProofVerifierProxy.upgradeTo(address(zkProofVerifierImpl));
+
         // case - L2OutputOracle submissionInterval == 1800
         segmentsLengths.push(9);
         segmentsLengths.push(6);
@@ -790,16 +813,13 @@ contract Colosseum_Initializer is Portal_Initializer {
 
         colosseumImpl = new Colosseum({
             _l2Oracle: oracle,
-            _zkVerifier: zkVerifier,
+            _zkProofVerifier: zkProofVerifier,
             _submissionInterval: submissionInterval,
             _creationPeriodSeconds: creationPeriodSeconds,
             _bisectionTimeout: bisectionTimeout,
             _provingTimeout: provingTimeout,
-            _dummyHash: DUMMY_HASH,
-            _maxTxs: MAX_TXS,
             _segmentsLengths: segmentsLengths,
-            _securityCouncil: address(securityCouncil),
-            _zkMerkleTrie: address(zkMerkleTrie)
+            _securityCouncil: address(securityCouncil)
         });
         vm.prank(multisig);
         toProxy(address(colosseum)).upgradeToAndCall(
@@ -820,193 +840,6 @@ contract SecurityCouncil_Initializer is UpgradeGovernor_Initializer {
         securityCouncilImpl = new SecurityCouncil(colosseum, payable(address(upgradeGovernor)));
         vm.prank(multisig);
         toProxy(address(securityCouncil)).upgradeTo(address(securityCouncilImpl));
-    }
-}
-
-contract FFIInterface is Test {
-    function getProveWithdrawalTransactionInputs(
-        Types.WithdrawalTransaction memory _tx
-    ) external returns (bytes32, bytes32, bytes32, bytes32, bytes[] memory) {
-        string[] memory cmds = new string[](9);
-        cmds[0] = "scripts/go-ffi/go-ffi";
-        cmds[1] = "diff";
-        cmds[2] = "getProveWithdrawalTransactionInputs";
-        cmds[3] = vm.toString(_tx.nonce);
-        cmds[4] = vm.toString(_tx.sender);
-        cmds[5] = vm.toString(_tx.target);
-        cmds[6] = vm.toString(_tx.value);
-        cmds[7] = vm.toString(_tx.gasLimit);
-        cmds[8] = vm.toString(_tx.data);
-
-        bytes memory result = vm.ffi(cmds);
-        (
-            bytes32 stateRoot,
-            bytes32 storageRoot,
-            bytes32 outputRoot,
-            bytes32 withdrawalHash,
-            bytes[] memory withdrawalProof
-        ) = abi.decode(result, (bytes32, bytes32, bytes32, bytes32, bytes[]));
-
-        return (stateRoot, storageRoot, outputRoot, withdrawalHash, withdrawalProof);
-    }
-
-    function hashCrossDomainMessage(
-        uint256 _nonce,
-        address _sender,
-        address _target,
-        uint256 _value,
-        uint256 _gasLimit,
-        bytes memory _data
-    ) external returns (bytes32) {
-        string[] memory cmds = new string[](9);
-        cmds[0] = "scripts/go-ffi/go-ffi";
-        cmds[1] = "diff";
-        cmds[2] = "hashCrossDomainMessage";
-        cmds[3] = vm.toString(_nonce);
-        cmds[4] = vm.toString(_sender);
-        cmds[5] = vm.toString(_target);
-        cmds[6] = vm.toString(_value);
-        cmds[7] = vm.toString(_gasLimit);
-        cmds[8] = vm.toString(_data);
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (bytes32));
-    }
-
-    function hashWithdrawal(
-        uint256 _nonce,
-        address _sender,
-        address _target,
-        uint256 _value,
-        uint256 _gasLimit,
-        bytes memory _data
-    ) external returns (bytes32) {
-        string[] memory cmds = new string[](9);
-        cmds[0] = "scripts/go-ffi/go-ffi";
-        cmds[1] = "diff";
-        cmds[2] = "hashWithdrawal";
-        cmds[3] = vm.toString(_nonce);
-        cmds[4] = vm.toString(_sender);
-        cmds[5] = vm.toString(_target);
-        cmds[6] = vm.toString(_value);
-        cmds[7] = vm.toString(_gasLimit);
-        cmds[8] = vm.toString(_data);
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (bytes32));
-    }
-
-    function hashOutputRootProof(
-        bytes32 _version,
-        bytes32 _stateRoot,
-        bytes32 _messagePasserStorageRoot,
-        bytes32 _blockhash,
-        bytes32 _nextBlockhash
-    ) external returns (bytes32) {
-        string[] memory cmds = new string[](8);
-        cmds[0] = "scripts/go-ffi/go-ffi";
-        cmds[1] = "diff";
-        cmds[2] = "hashOutputRootProof";
-        cmds[3] = Strings.toHexString(uint256(_version));
-        cmds[4] = Strings.toHexString(uint256(_stateRoot));
-        cmds[5] = Strings.toHexString(uint256(_messagePasserStorageRoot));
-        cmds[6] = Strings.toHexString(uint256(_blockhash));
-        cmds[7] = Strings.toHexString(uint256(_nextBlockhash));
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (bytes32));
-    }
-
-    function hashDepositTransaction(
-        address _from,
-        address _to,
-        uint256 _mint,
-        uint256 _value,
-        uint64 _gas,
-        bytes memory _data,
-        uint64 _logIndex
-    ) external returns (bytes32) {
-        string[] memory cmds = new string[](11);
-        cmds[0] = "scripts/go-ffi/go-ffi";
-        cmds[1] = "diff";
-        cmds[2] = "hashDepositTransaction";
-        cmds[3] = "0x0000000000000000000000000000000000000000000000000000000000000000";
-        cmds[4] = vm.toString(_logIndex);
-        cmds[5] = vm.toString(_from);
-        cmds[6] = vm.toString(_to);
-        cmds[7] = vm.toString(_mint);
-        cmds[8] = vm.toString(_value);
-        cmds[9] = vm.toString(_gas);
-        cmds[10] = vm.toString(_data);
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (bytes32));
-    }
-
-    function encodeDepositTransaction(
-        Types.UserDepositTransaction calldata txn
-    ) external returns (bytes memory) {
-        string[] memory cmds = new string[](12);
-        cmds[0] = "scripts/go-ffi/go-ffi";
-        cmds[1] = "diff";
-        cmds[2] = "encodeDepositTransaction";
-        cmds[3] = vm.toString(txn.from);
-        cmds[4] = vm.toString(txn.to);
-        cmds[5] = vm.toString(txn.value);
-        cmds[6] = vm.toString(txn.mint);
-        cmds[7] = vm.toString(txn.gasLimit);
-        cmds[8] = vm.toString(txn.isCreation);
-        cmds[9] = vm.toString(txn.data);
-        cmds[10] = vm.toString(txn.l1BlockHash);
-        cmds[11] = vm.toString(txn.logIndex);
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (bytes));
-    }
-
-    function encodeCrossDomainMessage(
-        uint256 _nonce,
-        address _sender,
-        address _target,
-        uint256 _value,
-        uint256 _gasLimit,
-        bytes memory _data
-    ) external returns (bytes memory) {
-        string[] memory cmds = new string[](9);
-        cmds[0] = "scripts/go-ffi/go-ffi";
-        cmds[1] = "diff";
-        cmds[2] = "encodeCrossDomainMessage";
-        cmds[3] = vm.toString(_nonce);
-        cmds[4] = vm.toString(_sender);
-        cmds[5] = vm.toString(_target);
-        cmds[6] = vm.toString(_value);
-        cmds[7] = vm.toString(_gasLimit);
-        cmds[8] = vm.toString(_data);
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (bytes));
-    }
-
-    function decodeVersionedNonce(uint256 nonce) external returns (uint256, uint256) {
-        string[] memory cmds = new string[](4);
-        cmds[0] = "scripts/go-ffi/go-ffi";
-        cmds[1] = "diff";
-        cmds[2] = "decodeVersionedNonce";
-        cmds[3] = vm.toString(nonce);
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (uint256, uint256));
-    }
-
-    function getMerkleTrieFuzzCase(
-        string memory variant
-    ) external returns (bytes32, bytes memory, bytes memory, bytes[] memory) {
-        string[] memory cmds = new string[](3);
-        cmds[0] = "./scripts/go-ffi/go-ffi";
-        cmds[1] = "trie";
-        cmds[2] = variant;
-
-        return abi.decode(vm.ffi(cmds), (bytes32, bytes, bytes, bytes[]));
     }
 }
 

@@ -16,6 +16,7 @@ import (
 
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
+	zktrie "github.com/kroma-network/zktrie/trie"
 )
 
 var MessagePassedTopic = crypto.Keccak256Hash([]byte("MessagePassed(uint256,address,address,uint256,uint256,bytes,bytes32)"))
@@ -108,7 +109,18 @@ func ProveWithdrawalParametersForBlock(
 		return ProvenWithdrawalParameters{}, errors.New("invalid amount of storage proofs")
 	}
 
-	err = VerifyProof(l2Block.Root(), p)
+	// [Kroma: START]
+	// Include nextBlockHash in OutputRootProof only when WithdrawalProof is zk trie version
+	isKromaMPT := true
+	nextBlockHash := common.Hash{}
+	withdrawalProof := p.StorageProof[0].Proof
+	if bytes.Equal(common.FromHex(withdrawalProof[len(withdrawalProof)-1]), zktrie.ProofMagicBytes()) {
+		isKromaMPT = false
+		nextBlockHash = nextL2Block.Hash()
+	}
+
+	err = VerifyProof(l2Block.Root(), p, isKromaMPT)
+	// [Kroma: END]
 	if err != nil {
 		return ProvenWithdrawalParameters{}, err
 	}
@@ -131,8 +143,8 @@ func ProveWithdrawalParametersForBlock(
 			Version:                  [32]byte{}, // Empty for version 1
 			StateRoot:                l2Block.Root(),
 			MessagePasserStorageRoot: p.StorageHash,
-			BlockHash:                l2Block.Hash(),
-			NextBlockHash:            nextL2Block.Hash(),
+			LatestBlockhash:          l2Block.Hash(),
+			NextBlockHash:            nextBlockHash,
 		},
 		WithdrawalProof: trieNodes,
 	}, nil

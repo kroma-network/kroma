@@ -249,7 +249,6 @@ def devnet_deploy(paths):
             '--outfile.rollup', paths.rollup_config_path
         ], cwd=paths.op_node_dir)
 
-    rollup_config = read_json(paths.rollup_config_path)
     addresses = read_json(paths.addresses_json_path)
 
     # Start the L2.
@@ -257,17 +256,20 @@ def devnet_deploy(paths):
     run_command(['docker', 'compose', 'up', '-d', 'l2'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir
     })
+    run_command(['docker', 'compose', 'up', '-d', 'l2-historical'], cwd=paths.ops_bedrock_dir, env={
+        'PWD': paths.ops_bedrock_dir
+    })
 
     # Wait for the L2 to be available.
     wait_up(9545)
     wait_for_rpc_server('127.0.0.1:9545')
+    wait_up(9445)
+    wait_for_rpc_server('127.0.0.1:9445')
 
     # [Kroma: START]
     # Print out the addresses being used for easier debugging.
     l2_output_oracle = addresses['L2OutputOracleProxy']
     log.info(f'Using L2OutputOracle {l2_output_oracle}')
-    batch_inbox_address = rollup_config['batch_inbox_address']
-    log.info(f'Using batch inbox {batch_inbox_address}')
     colosseum = addresses['ColosseumProxy']
     log.info(f'Using Colosseum {colosseum}')
     validator_pool = addresses['ValidatorPoolProxy']
@@ -278,14 +280,13 @@ def devnet_deploy(paths):
     log.info(f'Using AssetManager {asset_manager}')
 
     log.info('Bringing up `kroma-node`, `kroma-batcher` and `kroma-validator`.')
-    run_command(['docker', 'compose', 'up', '-d', 'kroma-node', 'kroma-batcher', 'kroma-validator'], cwd=paths.ops_bedrock_dir, env={
+    run_command(['docker', 'compose', 'up', '-d', 'kroma-node', 'kroma-node-historical', 'kroma-batcher', 'kroma-validator', 'kroma-challenger'], cwd=paths.ops_bedrock_dir, env={
         'PWD': paths.ops_bedrock_dir,
         'L2OO_ADDRESS': l2_output_oracle,
         'COLOSSEUM_ADDRESS': colosseum,
         'VALPOOL_ADDRESS': validator_pool,
         'VALMGR_ADDRESS': validator_manager,
         'ASSETMANAGER_ADDRESS': asset_manager,
-        'SEQUENCER_BATCH_INBOX_ADDRESS': batch_inbox_address
     })
 
     log.info("Deposit ETH into ValidatorPool contract to be a validator...")

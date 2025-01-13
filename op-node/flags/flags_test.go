@@ -114,6 +114,7 @@ func TestEnvVarFormat(t *testing.T) {
 			"p2p.gossip.mesh.lo",
 			"p2p.gossip.mesh.floodpublish",
 			"l2.engine-sync",
+			"override.mpt",
 		}
 
 		t.Run(flagName, func(t *testing.T) {

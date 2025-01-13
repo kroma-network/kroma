@@ -49,14 +49,17 @@ func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int, challenger comm
 	require.False(t, outputFinalized, "output is already finalized")
 
 	if isAsserter {
-		outputs, err := v.challenger.OutputsAtIndex(t.Ctx(), outputIndex)
-		require.NoError(t, err, "unable to fetch outputs")
+		output, err := v.challenger.GetL2Output(t.Ctx(), outputIndex)
+		require.NoError(t, err, "unable to fetch output")
 
-		outputDeleted := val.IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
+		outputDeleted := val.IsOutputDeleted(output.OutputRoot)
 		require.False(t, outputDeleted, "output is already deleted")
 	}
 
-	tx, err := v.challenger.Bisect(t.Ctx(), outputIndex, challenger)
+	challenge, err := v.challenger.GetChallenge(t.Ctx(), outputIndex, challenger)
+	require.NoError(t, err, "unable to get challenge")
+
+	tx, err := v.challenger.Bisect(t.Ctx(), &challenge, outputIndex)
 	require.NoError(t, err, "unable to create bisect tx")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
@@ -80,10 +83,10 @@ func (v *L2Validator) ActChallengerTimeout(t Testing, outputIndex *big.Int, chal
 	require.NoError(t, err, "unable to get if output is finalized")
 	require.False(t, outputFinalized, "output is already finalized")
 
-	outputs, err := v.challenger.OutputsAtIndex(t.Ctx(), outputIndex)
-	require.NoError(t, err, "unable to fetch outputs")
+	output, err := v.challenger.GetL2Output(t.Ctx(), outputIndex)
+	require.NoError(t, err, "unable to fetch output")
 
-	outputDeleted := val.IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
+	outputDeleted := val.IsOutputDeleted(output.OutputRoot)
 	require.False(t, outputDeleted, "output is already deleted")
 
 	tx, err := v.challenger.ChallengerTimeout(t.Ctx(), outputIndex, challenger)
@@ -100,8 +103,13 @@ func (v *L2Validator) ActProveFault(t Testing, outputIndex *big.Int, skipSelectP
 	require.NoError(t, err, "unable to get if output is finalized")
 	require.False(t, outputFinalized, "output is already finalized")
 
-	tx, err := v.challenger.ProveFault(t.Ctx(), outputIndex, v.address, skipSelectPosition)
+	challenge, err := v.challenger.GetChallenge(t.Ctx(), outputIndex, v.address)
+	require.NoError(t, err, "unable to get challenge")
+
+	challengeWithData := &val.ChallengeWithData{Challenge: challenge, Processing: false, ZkVMWitness: "", ZkVMProof: nil}
+	tx, err := v.challenger.ProveFault(t.Ctx(), challengeWithData, outputIndex, skipSelectPosition)
 	require.NoError(t, err, "unable to create prove fault tx")
+	require.False(t, challengeWithData.Processing, "prove fault retry not allowed since using test data")
 
 	err = v.l1.SendTransaction(t.Ctx(), tx)
 	require.NoError(t, err)

@@ -69,6 +69,7 @@ var mainnetCfg = rollup.Config{
 	CanyonTime:             u64Ptr(1708502400),
 	DeltaTime:              u64Ptr(1709107200),
 	EcotoneTime:            u64Ptr(1714032001),
+	KromaMPTTime:           nil,
 	FjordTime:              nil,
 	InteropTime:            nil,
 	/* [Kroma: START]
@@ -108,6 +109,7 @@ var sepoliaCfg = rollup.Config{
 	CanyonTime:             u64Ptr(1707897600),
 	DeltaTime:              u64Ptr(1708416000),
 	EcotoneTime:            u64Ptr(1713340800),
+	KromaMPTTime:           u64Ptr(1737090000),
 	FjordTime:              nil,
 	InteropTime:            nil,
 	/* [Kroma: START]

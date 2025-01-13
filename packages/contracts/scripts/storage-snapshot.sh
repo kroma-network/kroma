@@ -20,6 +20,7 @@ contracts=(
   contracts/L1/L2OutputOracle.sol:L2OutputOracle
   contracts/L1/KromaPortal.sol:KromaPortal
   contracts/L1/SystemConfig.sol:SystemConfig
+  contracts/L2/KromaL1Block.sol:KromaL1Block
   contracts/L2/L1Block.sol:L1Block
   contracts/L2/L2CrossDomainMessenger.sol:L2CrossDomainMessenger
   contracts/L2/L2StandardBridge.sol:L2StandardBridge

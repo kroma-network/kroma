@@ -11,18 +11,35 @@ library Encoding {
     /// @notice RLP encodes the L2 transaction that would be generated when a given deposit is sent
     ///         to the L2 system. Useful for searching for a deposit in the L2 system. The
     ///         transaction is prefixed with 0x7e to identify its EIP-2718 type.
-    /// @param _tx User deposit transaction to encode.
+    /// @param _tx           User deposit transaction to encode.
+    /// @param _isKromaDepTx Whether the given transaction is a KromaDepositTx.
     /// @return RLP encoded L2 deposit transaction.
-    function encodeDepositTransaction(Types.UserDepositTransaction memory _tx) internal pure returns (bytes memory) {
+    function encodeDepositTransaction(
+        Types.UserDepositTransaction memory _tx,
+        bool _isKromaDepTx
+    ) internal pure returns (bytes memory) {
         bytes32 source = Hashing.hashDepositSource(_tx.l1BlockHash, _tx.logIndex);
-        bytes[] memory raw = new bytes[](7);
-        raw[0] = RLPWriter.writeBytes(abi.encodePacked(source));
-        raw[1] = RLPWriter.writeAddress(_tx.from);
-        raw[2] = _tx.isCreation ? RLPWriter.writeBytes("") : RLPWriter.writeAddress(_tx.to);
-        raw[3] = RLPWriter.writeUint(_tx.mint);
-        raw[4] = RLPWriter.writeUint(_tx.value);
-        raw[5] = RLPWriter.writeUint(uint256(_tx.gasLimit));
-        raw[6] = RLPWriter.writeBytes(_tx.data);
+        bytes[] memory raw;
+        if (_isKromaDepTx) {
+            raw = new bytes[](7);
+            raw[0] = RLPWriter.writeBytes(abi.encodePacked(source));
+            raw[1] = RLPWriter.writeAddress(_tx.from);
+            raw[2] = _tx.isCreation ? RLPWriter.writeBytes("") : RLPWriter.writeAddress(_tx.to);
+            raw[3] = RLPWriter.writeUint(_tx.mint);
+            raw[4] = RLPWriter.writeUint(_tx.value);
+            raw[5] = RLPWriter.writeUint(uint256(_tx.gasLimit));
+            raw[6] = RLPWriter.writeBytes(_tx.data);
+        } else {
+            raw = new bytes[](8);
+            raw[0] = RLPWriter.writeBytes(abi.encodePacked(source));
+            raw[1] = RLPWriter.writeAddress(_tx.from);
+            raw[2] = _tx.isCreation ? RLPWriter.writeBytes("") : RLPWriter.writeAddress(_tx.to);
+            raw[3] = RLPWriter.writeUint(_tx.mint);
+            raw[4] = RLPWriter.writeUint(_tx.value);
+            raw[5] = RLPWriter.writeUint(uint256(_tx.gasLimit));
+            raw[6] = RLPWriter.writeBool(false);
+            raw[7] = RLPWriter.writeBytes(_tx.data);
+        }
         return abi.encodePacked(uint8(0x7e), RLPWriter.writeList(raw));
     }
 
@@ -42,11 +59,7 @@ library Encoding {
         uint256 _value,
         uint256 _gasLimit,
         bytes memory _data
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
+    ) internal pure returns (bytes memory) {
         (, uint16 version) = decodeVersionedNonce(_nonce);
         if (version == 0) {
             return encodeCrossDomainMessageV0(_nonce, _sender, _target, _value, _gasLimit, _data);
@@ -70,20 +83,17 @@ library Encoding {
         uint256 _value,
         uint256 _gasLimit,
         bytes memory _data
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        return abi.encodeWithSignature(
-            "relayMessage(uint256,address,address,uint256,uint256,bytes)",
-            _nonce,
-            _sender,
-            _target,
-            _value,
-            _gasLimit,
-            _data
-        );
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encodeWithSignature(
+                "relayMessage(uint256,address,address,uint256,uint256,bytes)",
+                _nonce,
+                _sender,
+                _target,
+                _value,
+                _gasLimit,
+                _data
+            );
     }
 
     /// @notice Adds a version number into the first two bytes of a message nonce.
@@ -112,7 +122,7 @@ library Encoding {
         return (nonce, version);
     }
 
-    /// @notice Returns an appropriately encoded call to L1Block.setL1BlockValuesEcotone
+    /// @notice Returns an appropriately encoded call to KromaL1Block.setL1BlockValuesEcotone
     /// @param baseFeeScalar         L1 base fee Scalar
     /// @param blobBaseFeeScalar     L1 blob base fee Scalar
     /// @param sequenceNumber        Number of L2 blocks since epoch start.
@@ -134,24 +144,58 @@ library Encoding {
         bytes32 hash,
         bytes32 batcherHash,
         uint256 validatorRewardScalar
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
+    ) internal pure returns (bytes memory) {
         bytes4 functionSignature = bytes4(keccak256("setL1BlockValuesEcotone()"));
-        return abi.encodePacked(
-            functionSignature,
-            baseFeeScalar,
-            blobBaseFeeScalar,
-            sequenceNumber,
-            timestamp,
-            number,
-            baseFee,
-            blobBaseFee,
-            hash,
-            batcherHash,
-            validatorRewardScalar
-        );
+        return
+            abi.encodePacked(
+                functionSignature,
+                baseFeeScalar,
+                blobBaseFeeScalar,
+                sequenceNumber,
+                timestamp,
+                number,
+                baseFee,
+                blobBaseFee,
+                hash,
+                batcherHash,
+                validatorRewardScalar
+            );
+    }
+
+    /// @notice Returns an appropriately encoded call to L1Block.setL1BlockValuesEcotone without validatorRewardScalar.
+    /// @param baseFeeScalar     L1 base fee Scalar
+    /// @param blobBaseFeeScalar L1 blob base fee Scalar
+    /// @param sequenceNumber    Number of L2 blocks since epoch start.
+    /// @param timestamp         L1 timestamp.
+    /// @param number            L1 blocknumber.
+    /// @param baseFee           L1 base fee.
+    /// @param blobBaseFee       L1 blob base fee.
+    /// @param hash              L1 blockhash.
+    /// @param batcherHash       Versioned hash to authenticate batcher by.
+    function encodeSetL1BlockValuesKromaMPT(
+        uint32 baseFeeScalar,
+        uint32 blobBaseFeeScalar,
+        uint64 sequenceNumber,
+        uint64 timestamp,
+        uint64 number,
+        uint256 baseFee,
+        uint256 blobBaseFee,
+        bytes32 hash,
+        bytes32 batcherHash
+    ) internal pure returns (bytes memory) {
+        bytes4 functionSignature = bytes4(keccak256("setL1BlockValuesEcotone()"));
+        return
+            abi.encodePacked(
+                functionSignature,
+                baseFeeScalar,
+                blobBaseFeeScalar,
+                sequenceNumber,
+                timestamp,
+                number,
+                baseFee,
+                blobBaseFee,
+                hash,
+                batcherHash
+            );
     }
 }

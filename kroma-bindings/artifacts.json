@@ -1,5 +1,6 @@
 [
   "Colosseum",
+  "MockColosseum",
   "CrossDomainMessenger",
   "ERC20",
   "ERC721",
@@ -11,6 +12,7 @@
   "KromaMintableERC721Factory",
   "KromaPortal",
   "L1Block",
+  "KromaL1Block",
   "L1CrossDomainMessenger",
   "L1ERC721Bridge",
   "L1FeeVault",
@@ -26,6 +28,7 @@
   "ProxyAdmin",
   "SecurityCouncil",
   "SecurityCouncilToken",
+  "SP1Verifier",
   "StandardBridge",
   "SystemConfig",
   "TimeLock",
@@ -37,5 +40,6 @@
   "WETH9",
   "ZKMerkleTrie",
   "ZKTrieHasher",
-  "ZKVerifier"
+  "ZKVerifier",
+  "ZKProofVerifier"
 ]

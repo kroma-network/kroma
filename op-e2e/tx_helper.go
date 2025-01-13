@@ -24,7 +24,7 @@ import (
 // The L2 transaction options can be configured by modifying the DepositTxOps value supplied to applyL2Opts
 // Will verify that the transaction is included with the expected status on L1 and L2
 // Returns the receipt of the L2 transaction
-func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l2Client *ethclient.Client, l1Opts *bind.TransactOpts, applyL2Opts DepositTxOptsFn) *types.Receipt {
+func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l2Client *ethclient.Client, l1Opts *bind.TransactOpts, applyL2Opts DepositTxOptsFn, isKromaMPT ...bool) *types.Receipt {
 	l2Opts := defaultDepositTxOpts(l1Opts)
 	applyL2Opts(l2Opts)
 
@@ -50,6 +50,12 @@ func SendDepositTx(t *testing.T, cfg SystemConfig, l1Client *ethclient.Client, l
 	reconstructedDep, err := derive.UnmarshalDepositLogEvent(l1Receipt.Logs[0])
 	require.NoError(t, err, "Could not reconstruct L2 Deposit")
 	tx = types.NewTx(reconstructedDep)
+	// [Kroma: START] Use KromaDepositTx instead of DepositTx
+	if len(isKromaMPT) == 0 || !isKromaMPT[0] {
+		tx, err = tx.ToKromaDepositTx()
+		require.NoError(t, err, "failed to convert DepositTx to KromaDepositTx")
+	}
+	// [Kroma: END]
 	l2Receipt, err := wait.ForReceipt(ctx, l2Client, tx.Hash(), l2Opts.ExpectedStatus)
 	require.NoError(t, err, "Waiting for deposit tx on L2")
 	return l2Receipt

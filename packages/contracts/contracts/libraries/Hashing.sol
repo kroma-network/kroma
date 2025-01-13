@@ -15,14 +15,16 @@ library Hashing {
      *         given deposit is sent to the L2 system. Useful for searching for a deposit in the L2
      *         system.
      *
-     * @param _tx User deposit transaction to hash.
+     * @param _tx           User deposit transaction to hash.
+     * @param _isKromaDepTx Whether the given transaction is a KromaDepositTx.
      *
      * @return Hash of the RLP encoded L2 deposit transaction.
      */
     function hashDepositTransaction(
-        Types.UserDepositTransaction memory _tx
+        Types.UserDepositTransaction memory _tx,
+        bool _isKromaDepTx
     ) internal pure returns (bytes32) {
-        return keccak256(Encoding.encodeDepositTransaction(_tx));
+        return keccak256(Encoding.encodeDepositTransaction(_tx, _isKromaDepTx));
     }
 
     /**
@@ -125,38 +127,33 @@ library Hashing {
      * @notice Hashes the various elements of an output root proof into an output root hash which
      *         can be used to check if the proof is valid.
      *
-     * @param _outputRootProof Output root proof which should be hashed to an output root.
+     * @param _outputRootProof Output root proof which should hash to an output root.
      *
      * @return Hashed output root proof.
      */
     function hashOutputRootProof(
         Types.OutputRootProof memory _outputRootProof
     ) internal pure returns (bytes32) {
-        if (_outputRootProof.version == bytes32(uint256(0))) {
-            return hashOutputRootProofV0(_outputRootProof);
-        } else {
-            revert("Hashing: unknown output root proof version");
+        // Note that output root proof will be hashed including nextBlockHash (KromaOutputV0),
+        // otherwise not including (OutputV0).
+        if (_outputRootProof.nextBlockHash == bytes32(0)) {
+            return
+                keccak256(
+                    abi.encode(
+                        _outputRootProof.version,
+                        _outputRootProof.stateRoot,
+                        _outputRootProof.messagePasserStorageRoot,
+                        _outputRootProof.latestBlockhash
+                    )
+                );
         }
-    }
-
-    /**
-     * @notice Hashes the various elements of an output root proof into an output root hash which
-     *         can be used to check if the proof is valid. (version 0)
-     *
-     * @param _outputRootProof Output root proof which should be hashed to an output root.
-     *
-     * @return Hashed output root proof.
-     */
-    function hashOutputRootProofV0(
-        Types.OutputRootProof memory _outputRootProof
-    ) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
                     _outputRootProof.version,
                     _outputRootProof.stateRoot,
                     _outputRootProof.messagePasserStorageRoot,
-                    _outputRootProof.blockHash,
+                    _outputRootProof.latestBlockhash,
                     _outputRootProof.nextBlockHash
                 )
             );
@@ -249,15 +246,15 @@ library Hashing {
     }
 
     /**
-     * @notice Hashes the various elements of a public input into a public input hash.
+     * @notice Hashes the various elements of a public input into a public input hash for zkEVM proof.
      *
      * @param _prevStateRoot Previous state root.
      * @param _publicInput   Public input which should be hashed to a public input hash.
      * @param _dummyHashes   Dummy hashes returned from generateDummyHashes().
      *
-     * @return Hashed block header.
+     * @return Hash of public input for zkEVM proof.
      */
-    function hashPublicInput(
+    function hashZkEvmPublicInput(
         bytes32 _prevStateRoot,
         Types.PublicInput memory _publicInput,
         bytes32[] memory _dummyHashes

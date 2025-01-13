@@ -249,7 +249,7 @@ func (envelope *ExecutionPayloadEnvelope) CheckBlockHash() (actual common.Hash, 
 	return blockHash, blockHash == payload.BlockHash
 }
 
-func BlockAsPayload(bl *types.Block, canyonForkTime *uint64) (*ExecutionPayload, error) {
+func BlockAsPayload(bl *types.Block, canyonForkTime, mptForkTime *uint64) (*ExecutionPayload, error) {
 	baseFee, overflow := uint256.FromBig(bl.BaseFee())
 	if overflow {
 		return nil, fmt.Errorf("invalid base fee in block: %s", bl.BaseFee())
@@ -260,6 +260,20 @@ func BlockAsPayload(bl *types.Block, canyonForkTime *uint64) (*ExecutionPayload,
 		if err != nil {
 			return nil, fmt.Errorf("tx %d failed to marshal: %w", i, err)
 		}
+
+		// [Kroma: START] Use KromaDepositTx instead DepositTx
+		if tx.Type() == types.DepositTxType && (mptForkTime == nil || bl.Time() < *mptForkTime) {
+			kromaDepTx, err := tx.ToKromaDepositTx()
+			if err != nil {
+				return nil, fmt.Errorf("tx %d failed to convert to KromaDepositTx: %w", i, err)
+			}
+			otx, err = kromaDepTx.MarshalBinary()
+			if err != nil {
+				return nil, fmt.Errorf("tx %d failed to marshal: %w", i, err)
+			}
+		}
+		// [Kroma: END]
+
 		opaqueTxs[i] = otx
 	}
 
@@ -289,8 +303,8 @@ func BlockAsPayload(bl *types.Block, canyonForkTime *uint64) (*ExecutionPayload,
 	return payload, nil
 }
 
-func BlockAsPayloadEnv(bl *types.Block, canyonForkTime *uint64) (*ExecutionPayloadEnvelope, error) {
-	payload, err := BlockAsPayload(bl, canyonForkTime)
+func BlockAsPayloadEnv(bl *types.Block, canyonForkTime, mptForkTime *uint64) (*ExecutionPayloadEnvelope, error) {
+	payload, err := BlockAsPayload(bl, canyonForkTime, mptForkTime)
 	if err != nil {
 		return nil, err
 	}

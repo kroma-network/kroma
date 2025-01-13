@@ -225,7 +225,7 @@ export class DepositTx {
       throw new Error('"to" undefined')
     }
     if (typeof event.args.version === 'undefined') {
-      throw new Error(`"verison" undefined`)
+      throw new Error(`"version" undefined`)
     }
     if (!event.args.version.eq(0)) {
       throw new Error(`Unsupported version ${event.args.version.toString()}`)

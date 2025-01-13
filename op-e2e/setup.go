@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -46,6 +47,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	geth_eth "github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
@@ -65,6 +67,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 	"github.com/kroma-network/kroma/kroma-chain-ops/genesis"
 	validator "github.com/kroma-network/kroma/kroma-validator"
+	chal "github.com/kroma-network/kroma/kroma-validator/challenge"
 	validatormetrics "github.com/kroma-network/kroma/kroma-validator/metrics"
 	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
 	"github.com/kroma-network/kroma/op-e2e/testdata"
@@ -102,6 +105,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 	// [Kroma: START]
 	deployConfig.L2GenesisDeltaTimeOffset = nil
 	deployConfig.L2GenesisEcotoneTimeOffset = nil
+	deployConfig.L2GenesisKromaMPTTimeOffset = nil
 	// [Kroma: END]
 	require.NoError(t, deployConfig.Check(), "Deploy config is invalid, do you need to run make devnet-allocs?")
 	l1Deployments := config.L1Deployments.Copy()
@@ -125,7 +129,7 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		Premine:                premine,
 		DeployConfig:           deployConfig,
 		L1Deployments:          config.L1Deployments,
-		L1InfoPredeployAddress: predeploys.L1BlockAddr,
+		L1InfoPredeployAddress: predeploys.KromaL1BlockAddr,
 		JWTFilePath:            writeDefaultJWT(t),
 		JWTSecret:              testingJWTSecret,
 		BlobsPath:              t.TempDir(),
@@ -176,6 +180,9 @@ func DefaultSystemConfig(t *testing.T) SystemConfig {
 		DataAvailabilityType:   batcherFlags.CalldataType,
 		MaxPendingTransactions: 1,
 		BatcherTargetNumFrames: 1,
+		// [Kroma: START]
+		ChallengeProofType: testdata.DefaultProofType,
+		// [Kroma: END]
 	}
 }
 
@@ -254,8 +261,14 @@ type SystemConfig struct {
 	// the challenger and guardian will act as honest parties.
 	EnableChallenge bool
 
+	// ChallengeProofType configures challenge proof type that is used for proving fault.
+	ChallengeProofType testdata.ProofType
+
 	// ValidatorVersion makes the version of validator system other than V1.
 	ValidatorVersion uint8
+
+	// SetupMPTMigration sets up the environment to migrate to Kroma MPT.
+	SetupMPTMigration bool
 	// [Kroma: END]
 }
 
@@ -575,6 +588,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 			CanyonTime:             cfg.DeployConfig.CanyonTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			DeltaTime:              cfg.DeployConfig.DeltaTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			EcotoneTime:            cfg.DeployConfig.EcotoneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			KromaMPTTime:           cfg.DeployConfig.KromaMPTTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			FjordTime:              cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			InteropTime:            cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			/* [Kroma: START]
@@ -614,7 +628,8 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		return nil, err
 	}
 
-	for name := range cfg.Nodes {
+	// [Kroma: START]
+	initializeNode := func(name string) (EthInstance, error) {
 		var ethClient EthInstance
 		if cfg.ExternalL2Shim == "" {
 			node, backend, err := geth.InitL2(name, big.NewInt(int64(cfg.DeployConfig.L2ChainID)), l2Genesis, cfg.JWTFilePath, cfg.GethOptions[name]...)
@@ -641,6 +656,26 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 				JWTPath: cfg.JWTFilePath,
 			}).Run(t)
 		}
+		return ethClient, nil
+	}
+
+	if cfg.SetupMPTMigration {
+		ethClient, err := setupNodesForMPT(t, &cfg, initializeNode)
+		if err != nil {
+			return nil, err
+		}
+		sys.EthInstances["historical"] = ethClient
+	}
+
+	for name := range cfg.Nodes {
+		if name == "historical" {
+			continue
+		}
+		ethClient, err := initializeNode(name)
+		if err != nil {
+			return nil, err
+		}
+		// [Kroma: END]
 		sys.EthInstances[name] = ethClient
 	}
 
@@ -825,7 +860,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		ValPoolAddress:                  config.L1Deployments.ValidatorPoolProxy.Hex(),
 		ValMgrAddress:                   config.L1Deployments.ValidatorManagerProxy.Hex(),
 		AssetManagerAddress:             config.L1Deployments.AssetManagerProxy.Hex(),
-		ChallengerPollInterval:          500 * time.Millisecond,
+		ChallengePollInterval:           500 * time.Millisecond,
 		TxMgrConfig:                     newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.TrustedValidator),
 		AllowNonFinalized:               cfg.NonFinalizedOutputs,
 		OutputSubmitterRetryInterval:    500 * time.Millisecond,
@@ -850,29 +885,24 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		// set up ValidatorRewardVault(Mallory) to be able to provide asset tokens to AssetManager
 		validatorHelper.ApproveAssetToken(cfg.Secrets.Mallory, cfg.L1Deployments.AssetManagerProxy, new(big.Int).SetUint64(math.MaxUint64))
 
-		func() {
-			// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			deployTx, upgradeTx, err := e2eutils.RedeployValPoolToTerminate(
-				ctx,
-				cfg.DeployConfig.ValidatorPoolTerminateOutputIndex.ToInt(),
-				l1Client,
-				cfg.Secrets,
-				cfg.L1ChainIDBig(),
-				cfg.L1Deployments,
-				cfg.DeployConfig,
-			)
-			require.NoError(t, err)
+		// Redeploy and upgrade ValidatorPool to set the termination index to a smaller value for ValidatorManager test
+		deployTx, upgradeTx, err := e2eutils.RedeployValPoolToTerminate(
+			cfg.DeployConfig.ValidatorPoolTerminateOutputIndex.ToInt(),
+			l1Client,
+			cfg.Secrets,
+			cfg.L1ChainIDBig(),
+			cfg.L1Deployments,
+			cfg.DeployConfig,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("unable to redeploy ValidatorPool: %w", err)
+		}
 
-			// Check deploy tx and upgrade tx submission were successful
-			ctx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			_, err = wait.ForReceiptOK(ctx, l1Client, deployTx.Hash())
-			require.NoError(t, err)
-			_, err = wait.ForReceiptOK(ctx, l1Client, upgradeTx.Hash())
-			require.NoError(t, err)
-		}()
+		// Check deploy tx and upgrade tx submission were successful
+		err = waitTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	validatorCfg, err := validator.NewValidatorConfig(validatorCliCfg, sys.Cfg.Loggers["validator"], validatormetrics.NoopMetrics)
@@ -886,7 +916,10 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 		return nil, fmt.Errorf("unable to init validator rollup rpc client: %w", err)
 	}
 	rpcCl := client.NewBaseRPCClient(cl)
-	validatorMaliciousL2RPC := e2eutils.NewMaliciousL2RPC(rpcCl)
+	validatorMaliciousL2RPC, err := e2eutils.NewMaliciousL2RPC(rpcCl, cfg.ChallengeProofType)
+	if err != nil {
+		return nil, fmt.Errorf("unable to init validator malicious rpc: %w", err)
+	}
 	validatorCfg.RollupClient = sources.NewRollupClient(validatorMaliciousL2RPC)
 	validatorCfg.L2Client = sys.Clients["sequencer"]
 
@@ -905,7 +938,7 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 	}
 
 	if cfg.EnableChallenge {
-		if err = cfg.StartChallengeSystem(sys); err != nil {
+		if err = startChallengeSystem(sys, &cfg); err != nil {
 			return nil, fmt.Errorf("unable to start challenge system: %w", err)
 		}
 	}
@@ -960,22 +993,143 @@ func (cfg SystemConfig) Start(t *testing.T, _opts ...SystemConfigOption) (*Syste
 
 // [Kroma: START]
 
-func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
+func setupNodesForMPT(
+	t *testing.T, cfg *SystemConfig, initializeNode func(name string) (EthInstance, error),
+) (EthInstance, error) {
+	// Setup historical rpc node.
+	historicalName := "historical"
+	cfg.Nodes[historicalName] = &rollupNode.Config{
+		Driver: driver.Config{
+			VerifierConfDepth:  0,
+			SequencerConfDepth: 0,
+			SequencerEnabled:   false,
+		},
+		L1EpochPollInterval:         time.Second * 4,
+		RuntimeConfigReloadInterval: time.Minute * 10,
+		ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
+		Sync:                        sync.Config{SyncMode: sync.CLSync},
+	}
+	cfg.Loggers[historicalName] = testlog.Logger(t, log.LevelInfo).New("role", historicalName)
+	cfg.GethOptions[historicalName] = append(cfg.GethOptions[historicalName], []geth.GethOption{
+		func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
+			nodeCfg.HTTPModules = []string{"debug", "eth"}
+			ethCfg.RollupHistoricalRPC = ""
+			ethCfg.DisableMPTMigration = true
+			// Deep copy the genesis
+			dst := &core.Genesis{}
+			b, _ := json.Marshal(ethCfg.Genesis)
+			err := json.Unmarshal(b, dst)
+			if err != nil {
+				return err
+			}
+			ethCfg.Genesis = dst
+			return nil
+		},
+	}...)
+
+	ethClient, err := initializeNode(historicalName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set historical rpc endpoint.
+	historicalEndpoint := ethClient.HTTPEndpoint()
+	for name := range cfg.Nodes {
+		if name == historicalName {
+			continue
+		}
+		name := name
+		cfg.GethOptions[name] = append(cfg.GethOptions[name], []geth.GethOption{
+			func(ethCfg *ethconfig.Config, nodeCfg *node.Config) error {
+				// Since the migration process requires preimages, enable storing preimage option.
+				ethCfg.Preimages = true
+				ethCfg.RollupHistoricalRPC = historicalEndpoint
+				// Deep copy the genesis
+				dst := &core.Genesis{}
+				b, _ := json.Marshal(ethCfg.Genesis)
+				err := json.Unmarshal(b, dst)
+				if err != nil {
+					return err
+				}
+				ethCfg.Genesis = dst
+				return nil
+			},
+		}...)
+	}
+
+	return ethClient, nil
+}
+
+func startChallengeSystem(sys *System, cfg *SystemConfig) error {
+	l1Client := sys.NodeClient("l1")
+
+	// Deploy MockColosseum which has setL1Head function for challenge test
+	deployTx, upgradeTx, err := e2eutils.ReplaceWithMockColosseum(
+		l1Client,
+		cfg.Secrets.SysCfgOwner,
+		cfg.L1ChainIDBig(),
+		cfg.L1Deployments,
+		cfg.DeployConfig,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to replace Colosseum: %w", err)
+	}
+
+	// Check deploy tx and upgrade tx submission were successful
+	err = waitTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
+	if err != nil {
+		return err
+	}
+
+	// Deploy SP1Verifier contract
+	sp1Verifier, deployTx, err := e2eutils.DeploySP1Verifier(
+		l1Client,
+		cfg.Secrets.SysCfgOwner,
+		cfg.L1ChainIDBig(),
+	)
+	if err != nil {
+		return fmt.Errorf("unable to deploy SP1Verifier: %w", err)
+	}
+
+	err = waitTxs(l1Client, deployTx.Hash())
+	if err != nil {
+		return err
+	}
+
+	// Deploy new ZKProofVerifier impl and upgrade ZKProofVerifier proxy
+	deployTx, upgradeTx, err = e2eutils.RedeployZKProofVerifier(
+		l1Client,
+		cfg.Secrets.SysCfgOwner,
+		cfg.L1ChainIDBig(),
+		cfg.L1Deployments,
+		cfg.DeployConfig,
+		sp1Verifier,
+		cfg.DeployConfig.ZKProofVerifierVKey,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to redeploy ZKProofVerifier: %w", err)
+	}
+
+	// Check deploy tx and upgrade tx submission were successful
+	err = waitTxs(l1Client, deployTx.Hash(), upgradeTx.Hash())
+	if err != nil {
+		return err
+	}
+
 	// Run validator node (Challenger)
 	challengerCliCfg := validator.CLIConfig{
-		L1EthRpc:               sys.EthInstances["l1"].WSEndpoint(),
-		L2EthRpc:               sys.EthInstances["sequencer"].HTTPEndpoint(),
-		RollupRpc:              sys.RollupNodes["sequencer"].HTTPEndpoint(),
-		L2OOAddress:            config.L1Deployments.L2OutputOracleProxy.Hex(),
-		ColosseumAddress:       config.L1Deployments.ColosseumProxy.Hex(),
-		ValPoolAddress:         config.L1Deployments.ValidatorPoolProxy.Hex(),
-		ValMgrAddress:          config.L1Deployments.ValidatorManagerProxy.Hex(),
-		AssetManagerAddress:    config.L1Deployments.AssetManagerProxy.Hex(),
-		ChallengerPollInterval: 500 * time.Millisecond,
-		ProverRPC:              "http://0.0.0.0:0",
-		TxMgrConfig:            newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
-		AllowNonFinalized:      cfg.NonFinalizedOutputs,
-		ChallengerEnabled:      true,
+		L1EthRpc:              sys.EthInstances["l1"].WSEndpoint(),
+		L2EthRpc:              sys.EthInstances["sequencer"].HTTPEndpoint(),
+		RollupRpc:             sys.RollupNodes["sequencer"].HTTPEndpoint(),
+		L2OOAddress:           config.L1Deployments.L2OutputOracleProxy.Hex(),
+		ColosseumAddress:      config.L1Deployments.ColosseumProxy.Hex(),
+		ValPoolAddress:        config.L1Deployments.ValidatorPoolProxy.Hex(),
+		ValMgrAddress:         config.L1Deployments.ValidatorManagerProxy.Hex(),
+		AssetManagerAddress:   config.L1Deployments.AssetManagerProxy.Hex(),
+		ChallengePollInterval: 500 * time.Millisecond,
+		TxMgrConfig:           newTxMgrConfig(sys.EthInstances["l1"].WSEndpoint(), cfg.Secrets.Challenger1),
+		AllowNonFinalized:     cfg.NonFinalizedOutputs,
+		ChallengerEnabled:     false, // to bypass prover connection check in NewValidatorConfig
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
@@ -993,15 +1147,21 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 		return fmt.Errorf("unable to init challenger rollup rpc client: %w", err)
 	}
 	rpcCl := client.NewBaseRPCClient(cl)
-	challengerHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
+	challengerHonestL2RPC, err := e2eutils.NewHonestL2RPC(rpcCl, cfg.ChallengeProofType)
+	if err != nil {
+		return fmt.Errorf("unable to init challenger honest rpc: %w", err)
+	}
 	challengerCfg.RollupClient = sources.NewRollupClient(challengerHonestL2RPC)
 	challengerCfg.L2Client = sys.Clients["sequencer"]
 
 	// For challenge setup, set target block number for submitting invalid output
 	challengerHonestL2RPC.SetTargetBlockNumber(testdata.TargetBlockNumber)
 
-	// Replace to mock fetcher
-	challengerCfg.ProofFetcher = e2eutils.NewFetcher(sys.Cfg.Loggers["challenger"], "./testdata/proof")
+	// Replace to mock proof fetcher
+	challengerCfg.ChallengerEnabled = true
+	challengerCfg.ZkEVMProofFetcher = chal.NewZkEVMProofFetcher(e2eutils.NewMockRPCWithData("./testdata/proof"))
+	challengerCfg.ZkVMProofFetcher = chal.NewZkVMProofFetcher(e2eutils.NewMockRPC())
+	challengerCfg.WitnessGenerator = chal.NewWitnessGenerator(e2eutils.NewMockRPC())
 	sys.Challenger, err = validator.NewValidator(*challengerCfg, sys.Cfg.Loggers["challenger"], validatormetrics.NoopMetrics)
 	if err != nil {
 		return fmt.Errorf("unable to setup challenger: %w", err)
@@ -1043,7 +1203,10 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 		return fmt.Errorf("unable to init guardian rollup rpc client: %w", err)
 	}
 	rpcCl = client.NewBaseRPCClient(cl)
-	guardianHonestL2RPC := e2eutils.NewHonestL2RPC(rpcCl)
+	guardianHonestL2RPC, err := e2eutils.NewHonestL2RPC(rpcCl, cfg.ChallengeProofType)
+	if err != nil {
+		return fmt.Errorf("unable to init guardian honest rpc: %w", err)
+	}
 	guardianCfg.RollupClient = sources.NewRollupClient(guardianHonestL2RPC)
 	guardianCfg.L2Client = sys.Clients["sequencer"]
 
@@ -1059,6 +1222,19 @@ func (cfg SystemConfig) StartChallengeSystem(sys *System) error {
 		return fmt.Errorf("unable to start guardian: %w", err)
 	}
 
+	return nil
+}
+
+func waitTxs(client *ethclient.Client, txs ...common.Hash) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	for _, tx := range txs {
+		_, err := wait.ForReceiptOK(ctx, client, tx)
+		if err != nil {
+			return fmt.Errorf("failed to wait tx success: %w", err)
+		}
+	}
 	return nil
 }
 

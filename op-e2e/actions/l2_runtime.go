@@ -18,6 +18,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/bindings"
 	val "github.com/kroma-network/kroma/kroma-validator"
 	valhelper "github.com/kroma-network/kroma/op-e2e/e2eutils/validator"
+	"github.com/kroma-network/kroma/op-e2e/testdata"
 )
 
 const defaultDepositAmount = 1_000
@@ -48,7 +49,7 @@ type Runtime struct {
 	challenger2              *L2Validator
 	guardian                 *L2Validator
 	outputOracleContract     *bindings.L2OutputOracle
-	colosseumContract        *bindings.Colosseum
+	colosseumContract        *bindings.MockColosseum
 	securityCouncilContract  *bindings.SecurityCouncil
 	valPoolContract          *bindings.ValidatorPoolCaller
 	valMgrContract           *bindings.ValidatorManagerCaller
@@ -132,17 +133,20 @@ func (rt *Runtime) setupValidator(pk *ecdsa.PrivateKey, setInvalidBlockNumber bo
 	var validatorRollupClient *sources.RollupClient
 	if isMalicious {
 		// setup mockup rpc for returning invalid output
-		validatorRPC := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient())
+		validatorRPC, err := e2eutils.NewMaliciousL2RPC(rt.sequencer.RPCClient(), testdata.DefaultProofType)
+		require.NoError(rt.t, err)
 		validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 		validatorRollupClient = sources.NewRollupClient(validatorRPC)
 	} else {
 		// setup mockup rpc for returning valid output
-		validatorRPC := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient())
+		validatorRPC, err := e2eutils.NewHonestL2RPC(rt.sequencer.RPCClient(), testdata.DefaultProofType)
+		require.NoError(rt.t, err)
 		if setInvalidBlockNumber {
 			validatorRPC.SetTargetBlockNumber(rt.targetInvalidBlockNumber)
 		}
 		validatorRollupClient = sources.NewRollupClient(validatorRPC)
 	}
+
 	validator := NewL2Validator(rt.t, rt.l, &ValidatorCfg{
 		OutputOracleAddr:     rt.sd.DeploymentsL1.L2OutputOracleProxy,
 		ValidatorPoolAddr:    rt.sd.DeploymentsL1.ValidatorPoolProxy,
@@ -162,7 +166,7 @@ func (rt *Runtime) bindContracts() {
 	rt.outputOracleContract, err = bindings.NewL2OutputOracle(rt.sd.DeploymentsL1.L2OutputOracleProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
-	rt.colosseumContract, err = bindings.NewColosseum(rt.sd.DeploymentsL1.ColosseumProxy, rt.miner.EthClient())
+	rt.colosseumContract, err = bindings.NewMockColosseum(rt.sd.DeploymentsL1.ColosseumProxy, rt.miner.EthClient())
 	require.NoError(rt.t, err)
 
 	rt.securityCouncilContract, err = bindings.NewSecurityCouncil(rt.sd.DeploymentsL1.SecurityCouncilProxy, rt.miner.EthClient())
@@ -187,7 +191,6 @@ func (rt *Runtime) bindContracts() {
 // It also asserts that the deploying and upgrade tx is successful.
 func (rt *Runtime) assertRedeployValPoolToTerminate(newTerminationIndex *big.Int) {
 	deployTx, upgradeTx, err := e2eutils.RedeployValPoolToTerminate(
-		rt.t.Ctx(),
 		newTerminationIndex,
 		rt.miner.EthClient(),
 		rt.dp.Secrets,
@@ -278,7 +281,7 @@ func (rt *Runtime) setupChallenge(challenger *L2Validator, version uint8) {
 	require.Equal(rt.t, types.ReceiptStatusSuccessful, rt.receipt.Status, "failed to create challenge")
 
 	// check challenge created
-	challenge, err := rt.colosseumContract.Challenges(nil, rt.outputIndex, challenger.address)
+	challenge, err := rt.colosseumContract.GetChallenge(nil, rt.outputIndex, challenger.address)
 	require.NoError(rt.t, err)
 	require.NotNil(rt.t, challenge, "challenge not found")
 

@@ -113,6 +113,10 @@ func TestPreparePayloadAttributes(t *testing.T) {
 		l1Info.InfoNum = l2Parent.L1Origin.Number + 1
 		epoch := l1Info.ID()
 		l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, 0, l1Info, 0)
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+		require.NoError(t, err)
+		// [Kroma: END]
 		require.NoError(t, err)
 		l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, nil, nil)
 		attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)
@@ -153,7 +157,12 @@ func TestPreparePayloadAttributes(t *testing.T) {
 		require.NoError(t, err)
 
 		l2Txs := append(append(make([]eth.Data, 0), l1InfoTx), usedDepositTxs...)
-
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		for i, otx := range l2Txs {
+			l2Txs[i], err = ToKromaDepositBytes(otx)
+			require.NoError(t, err)
+		}
+		// [Kroma: END]
 		l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, receipts, nil)
 		attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)
 		attrs, err := attrBuilder.PreparePayloadAttributes(context.Background(), l2Parent, epoch)
@@ -180,6 +189,10 @@ func TestPreparePayloadAttributes(t *testing.T) {
 
 		epoch := l1Info.ID()
 		l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, l2Parent.SequenceNumber+1, l1Info, 0)
+		// [Kroma: START] Use KromaDepositTx instead of DepositTx
+		l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+		require.NoError(t, err)
+		// [Kroma: END]
 		require.NoError(t, err)
 
 		l1Fetcher.ExpectInfoByHash(epoch.Hash, l1Info, nil)
@@ -236,6 +249,68 @@ func TestPreparePayloadAttributes(t *testing.T) {
 					time--
 				}
 				l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, 0, l1Info, time)
+				// [Kroma: START] Use KromaDepositTx instead of DepositTx
+				l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+				require.NoError(t, err)
+				// [Kroma: END]
+				require.NoError(t, err)
+				l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, nil, nil)
+				attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)
+				attrs, err := attrBuilder.PreparePayloadAttributes(context.Background(), l2Parent, epoch)
+				require.NoError(t, err)
+				require.Equal(t, l1InfoTx, []byte(attrs.Transactions[0]))
+			})
+		}
+	})
+	// Test that the payload attributes builder changes the deposit format based on L2-time-based KromaMPT activation
+	t.Run("kroma_mpt", func(t *testing.T) {
+		testCases := []struct {
+			name         string
+			l1Time       uint64
+			l2ParentTime uint64
+			kromaMPTTime uint64
+			kromaMPT     bool
+		}{
+			{"exactly", 900, 1000 - cfg.BlockTime, 1000, true},
+			{"almost", 900, 1000 - cfg.BlockTime - 1, 1000, false},
+			{"inactive", 700, 700, 1000, false},
+			{"l1 time before kroma_mpt", 1000, 1001, 1001, true},
+			{"l1 time way before kroma_mpt", 1000, 2000, 2000, true},
+			{"l1 time before kroma_mpt and l2 after", 1000, 3000, 2000, true},
+		}
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				cfgCopy := *cfg // copy, we are making KromaMPT config modifications
+				cfg := &cfgCopy
+				rng := rand.New(rand.NewSource(1234))
+				l1Fetcher := &testutils.MockL1Source{}
+				defer l1Fetcher.AssertExpectations(t)
+				l2Parent := testutils.RandomL2BlockRef(rng)
+				cfg.KromaMPTTime = &tc.kromaMPTTime
+				l2Parent.Time = tc.l2ParentTime
+
+				l1CfgFetcher := &testutils.MockL2Client{}
+				l1CfgFetcher.ExpectSystemConfigByL2Hash(l2Parent.Hash, testSysCfg, nil)
+				defer l1CfgFetcher.AssertExpectations(t)
+
+				l1Info := testutils.RandomBlockInfo(rng)
+				l1Info.InfoParentHash = l2Parent.L1Origin.Hash
+				l1Info.InfoNum = l2Parent.L1Origin.Number + 1
+				l1Info.InfoTime = tc.l1Time
+
+				epoch := l1Info.ID()
+				time := tc.kromaMPTTime
+				if !tc.kromaMPT {
+					time--
+				}
+				l1InfoTx, err := L1InfoDepositBytes(cfg, testSysCfg, 0, l1Info, time)
+
+				// [Kroma: START] Use KromaDepositTx instead of DepositTx
+				if cfg.KromaMPTTime == nil || !cfg.IsKromaMPT(time) {
+					l1InfoTx, err = ToKromaDepositBytes(l1InfoTx)
+					require.NoError(t, err)
+				}
+				// [Kroma: END]
 				require.NoError(t, err)
 				l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, nil, nil)
 				attrBuilder := NewFetchingAttributesBuilder(cfg, l1Fetcher, l1CfgFetcher)

@@ -51,9 +51,9 @@ contract ValidatorRewardVault is FeeVault, ISemver {
 
     /**
      * @notice Semantic version.
-     * @custom:semver 1.0.0
+     * @custom:semver 1.0.1
      */
-    string public constant version = "1.0.0";
+    string public constant version = "1.0.1";
 
     /**
      * @notice Constructs the ValidatorRewardVault contract.
@@ -141,6 +141,25 @@ contract ValidatorRewardVault is FeeVault, ISemver {
         uint256 amount = _processWithdrawal();
 
         bool success = SafeCall.call(msg.sender, gasleft(), amount, bytes(""));
+        require(success, "ValidatorRewardVault: ETH transfer failed");
+    }
+
+    /**
+     * @notice Withdraws all remaining contract balance excluding reserved amount to ProtocolVault.
+     *         Reverts if the available withdraw amount is 0.
+     *         Note that this function is added not to use this contract anymore.
+     */
+    function withdrawToProtocolVault() external {
+        uint256 amount = address(this).balance - totalReserved;
+        require(amount > 0, "ValidatorRewardVault: withdrawal amount must be greater than zero");
+
+        unchecked {
+            totalProcessed += amount;
+        }
+
+        emit Withdrawal(amount, Predeploys.PROTOCOL_VAULT, msg.sender);
+
+        bool success = SafeCall.call(Predeploys.PROTOCOL_VAULT, gasleft(), amount, bytes(""));
         require(success, "ValidatorRewardVault: ETH transfer failed");
     }
 

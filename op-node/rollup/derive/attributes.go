@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	oppredeploys "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -107,6 +108,17 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		}
 	}
 
+	// [Kroma: START]
+	// Include KromaMPT network upgrade transactions in the parent block of the KromaMPT target block.
+	if ba.rollupCfg.IsKromaMPTParentBlock(nextL2Time) {
+		mptUpgradeTxs, err := KromaMPTNetworkUpgradeTransactions(ba.rollupCfg.L2ChainID)
+		if err != nil {
+			return nil, NewCriticalError(fmt.Errorf("failed to build kroma mpt network upgrade txs: %w", err))
+		}
+		upgradeTxs = append(upgradeTxs, mptUpgradeTxs...)
+	}
+	// [Kroma: END]
+
 	l1InfoTx, err := L1InfoDepositBytes(ba.rollupCfg, sysConfig, seqNumber, l1Info, nextL2Time)
 	if err != nil {
 		return nil, NewCriticalError(fmt.Errorf("failed to create l1InfoTx: %w", err))
@@ -116,6 +128,27 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	txs = append(txs, l1InfoTx)
 	txs = append(txs, depositTxs...)
 	txs = append(txs, upgradeTxs...)
+
+	// [Kroma: START]
+	suggestedFeeRecipient := common.Address{}
+	if ba.rollupCfg.IsKromaMPT(nextL2Time) {
+		suggestedFeeRecipient = oppredeploys.SequencerFeeVaultAddr
+	} else {
+		// In Kroma, the IsSystemTransaction field was deleted from DepositTx.
+		// After transitioning to MPT, we bring back the IsSystemTransaction field for compatibility with OP.
+		// Therefore, before MPT time, use KromaDepositTx struct to create deposit transactions without that field.
+		for i, otx := range txs {
+			if otx[0] != types.DepositTxType {
+				continue
+			}
+			tx, err := ToKromaDepositBytes(otx)
+			if err != nil {
+				return nil, NewCriticalError(err)
+			}
+			txs[i] = tx
+		}
+	}
+	// [Kroma: END]
 
 	var withdrawals *types.Withdrawals
 	if ba.rollupCfg.IsCanyon(nextL2Time) {
@@ -133,11 +166,26 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	return &eth.PayloadAttributes{
 		Timestamp:             hexutil.Uint64(nextL2Time),
 		PrevRandao:            eth.Bytes32(l1Info.MixDigest()),
-		SuggestedFeeRecipient: common.Address{},
+		SuggestedFeeRecipient: suggestedFeeRecipient,
 		Transactions:          txs,
 		NoTxPool:              true,
 		GasLimit:              (*eth.Uint64Quantity)(&sysConfig.GasLimit),
 		Withdrawals:           withdrawals,
 		ParentBeaconBlockRoot: parentBeaconRoot,
 	}, nil
+}
+
+func ToKromaDepositBytes(input hexutil.Bytes) (hexutil.Bytes, error) {
+	if input[0] != types.DepositTxType {
+		return nil, fmt.Errorf("unexpected transaction type: %d", input[0])
+	}
+	var tx types.Transaction
+	if err := tx.UnmarshalBinary(input); err != nil {
+		return nil, fmt.Errorf("failed to decode deposit tx: %w", err)
+	}
+	kromaDepTx, err := tx.ToKromaDepositTx()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert deposit tx to KromaDepositTx: %w", err)
+	}
+	return kromaDepTx.MarshalBinary()
 }

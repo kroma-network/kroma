@@ -6,7 +6,9 @@ import { ISemver } from "../universal/ISemver.sol";
 
 /**
  * @custom:proxied
- * @custom:predeploy 0x4200000000000000000000000000000000000006
+ * @custom:predeploy 0x4200000000000000000000000000000000000006 (before Kroma MPT transition)
+ * @custom:predeploy 0x4200000000000000000000000000000000000011 (for SequencerFeeVault after Kroma MPT transition)
+ * @custom:predeploy 0x4200000000000000000000000000000000000019 (for BaseFeeVault after Kroma MPT transition)
  * @title ProtocolVault
  * @notice The ProtocolVault accumulates transaction fees to fund network operation.
  */

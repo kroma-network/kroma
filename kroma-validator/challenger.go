@@ -3,6 +3,7 @@ package validator
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -29,19 +29,12 @@ import (
 
 var deletedOutputRoot = [32]byte{}
 
-type ProofFetcher interface {
-	FetchProofAndPair(ctx context.Context, trace string) (*chal.ProofAndPair, error)
-}
-
 type Challenger struct {
 	log    log.Logger
 	cfg    Config
 	ctx    context.Context
 	cancel context.CancelFunc
 	metr   metrics.Metricer
-
-	l1Client *ethclient.Client
-	l2Client *ethclient.Client
 
 	l2OOContract      *bindings.L2OutputOracle
 	l2OOABI           *abi.ABI
@@ -108,9 +101,6 @@ func NewChallenger(cfg Config, l log.Logger, m metrics.Metricer) (*Challenger, e
 		log:  l.New("service", "challenge"),
 		cfg:  cfg,
 		metr: m,
-
-		l1Client: cfg.L1Client,
-		l2Client: cfg.L2Client,
 
 		l2OOContract:      l2OOContract,
 		l2OOABI:           l2OOABI,
@@ -343,7 +333,7 @@ func (c *Challenger) scanPrevOutputs() error {
 		Topics:    [][]common.Hash{topics},
 	}
 
-	logs, err := c.l1Client.FilterLogs(c.ctx, query)
+	logs, err := c.cfg.L1Client.FilterLogs(c.ctx, query)
 	if err != nil {
 		return fmt.Errorf("failed to get event logs related to outputs: %w", err)
 	}
@@ -512,6 +502,13 @@ func (c *Challenger) handleOutput(outputIndex *big.Int) {
 	}
 }
 
+type ChallengeWithData struct {
+	Challenge   bindings.TypesChallenge
+	Processing  bool
+	ZkVMWitness string
+	ZkVMProof   *chal.ZkVMProofResponse
+}
+
 // handleChallenge handles related challenge according to its status and role when challenge created.
 func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Address, challenger common.Address) {
 	c.log.Info("handling related challenge", "outputIndex", outputIndex, "asserter", asserter, "challenger", challenger)
@@ -519,8 +516,9 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 
 	isAsserter := asserter == c.cfg.TxManager.From()
 	isChallenger := challenger == c.cfg.TxManager.From()
+	var challengeWithData *ChallengeWithData
 
-	ticker := time.NewTicker(c.cfg.ChallengerPollInterval)
+	ticker := time.NewTicker(c.cfg.ChallengePollInterval)
 	defer ticker.Stop()
 
 	for ; ; <-ticker.C {
@@ -540,12 +538,23 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 				return
 			}
 
-			outputs, err := c.OutputsAtIndex(c.ctx, outputIndex)
+			challenge, err := c.GetChallenge(c.ctx, outputIndex, challenger)
 			if err != nil {
-				c.log.Error("unable to get outputs when handling challenge", "err", err, "outputIndex", outputIndex)
+				c.log.Error("unable to get challenge", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 				continue
 			}
-			isOutputDeleted := IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
+			if challengeWithData == nil {
+				challengeWithData = &ChallengeWithData{Challenge: challenge}
+			} else {
+				challengeWithData.Challenge = challenge
+			}
+
+			output, err := c.GetL2Output(c.ctx, outputIndex)
+			if err != nil {
+				c.log.Error("unable to get output when handling challenge", "err", err, "outputIndex", outputIndex)
+				continue
+			}
+			isOutputDeleted := IsOutputDeleted(output.OutputRoot)
 
 			isOutputFinalized, err := c.IsOutputFinalized(c.ctx, outputIndex)
 			if err != nil {
@@ -567,7 +576,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 				}
 				switch status {
 				case chal.StatusAsserterTurn:
-					tx, err := c.Bisect(c.ctx, outputIndex, challenger)
+					tx, err := c.Bisect(c.ctx, &challengeWithData.Challenge, outputIndex)
 					if err != nil {
 						c.log.Error("failed to create bisect tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 						continue
@@ -587,6 +596,8 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 						c.log.Error("failed to submit challenger timeout tx", "err", err, "outputIndex", outputIndex, "challenger", challenger)
 						continue
 					}
+				default:
+					continue
 				}
 			}
 
@@ -603,6 +614,8 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 						c.log.Error("failed to submit cancel challenge tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
+					c.log.Info("successfully canceled challenge", "outputIndex", outputIndex)
+					return
 				}
 
 				// if output is already finalized, terminate handling
@@ -615,7 +628,7 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 				// the contract automatically cancels the challenge.
 				switch status {
 				case chal.StatusChallengerTurn:
-					tx, err := c.Bisect(c.ctx, outputIndex, challenger)
+					tx, err := c.Bisect(c.ctx, &challengeWithData.Challenge, outputIndex)
 					if err != nil {
 						c.log.Error("failed to create bisect tx", "err", err, "outputIndex", outputIndex)
 						continue
@@ -626,15 +639,21 @@ func (c *Challenger) handleChallenge(outputIndex *big.Int, asserter common.Addre
 					}
 				case chal.StatusAsserterTimeout, chal.StatusReadyToProve:
 					skipSelectFaultPosition := status == chal.StatusAsserterTimeout
-					tx, err := c.ProveFault(c.ctx, outputIndex, challenger, skipSelectFaultPosition)
+					tx, err := c.ProveFault(c.ctx, challengeWithData, outputIndex, skipSelectFaultPosition)
 					if err != nil {
 						c.log.Error("failed to create prove fault tx", "err", err, "outputIndex", outputIndex)
+						continue
+					}
+					if challengeWithData.Processing {
+						challengeWithData.Processing = false
 						continue
 					}
 					if err := c.submitChallengeTx(tx); err != nil {
 						c.log.Error("failed to submit prove fault tx", "err", err, "outputIndex", outputIndex)
 						continue
 					}
+				default:
+					continue
 				}
 			}
 		}
@@ -734,26 +753,7 @@ func (c *Challenger) IsOutputFinalized(ctx context.Context, outputIndex *big.Int
 func (c *Challenger) GetChallenge(ctx context.Context, outputIndex *big.Int, challenger common.Address) (bindings.TypesChallenge, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-
-	challenge, err := c.colosseumContract.Challenges(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
-	if err != nil {
-		return bindings.TypesChallenge{}, fmt.Errorf("failed to fetch challenge data: %w", err)
-	}
-
-	segments, err := c.colosseumContract.GetSegments(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
-	if err != nil {
-		return bindings.TypesChallenge{}, fmt.Errorf("failed to fetch challenge segments data: %w", err)
-	}
-
-	return bindings.TypesChallenge{
-		Turn:       challenge.Turn,
-		TimeoutAt:  challenge.TimeoutAt,
-		Asserter:   challenge.Asserter,
-		Challenger: challenge.Challenger,
-		Segments:   segments,
-		SegSize:    challenge.SegSize,
-		SegStart:   challenge.SegStart,
-	}, nil
+	return c.colosseumContract.GetChallenge(optsutils.NewSimpleCallOpts(cCtx), outputIndex, challenger)
 }
 
 func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
@@ -762,7 +762,7 @@ func (c *Challenger) OutputAtBlockSafe(ctx context.Context, blockNumber uint64) 
 	return c.cfg.RollupClient.OutputAtBlock(cCtx, blockNumber)
 }
 
-func (c *Challenger) OutputWithProofAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputResponse, error) {
+func (c *Challenger) OutputWithProofAtBlockSafe(ctx context.Context, blockNumber uint64) (*eth.OutputWithProofResponse, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
 	return c.cfg.RollupClient.OutputWithProofAtBlock(cCtx, blockNumber)
@@ -812,24 +812,28 @@ func (c *Challenger) PublicInputProof(ctx context.Context, blockNumber uint64) (
 }
 
 type Outputs struct {
-	RemoteOutput bindings.TypesCheckpointOutput
+	RemoteOutput *bindings.TypesCheckpointOutput
 	LocalOutput  *eth.OutputResponse
 }
 
 func (c *Challenger) OutputsAtIndex(ctx context.Context, outputIndex *big.Int) (*Outputs, error) {
+	remoteOutput, err := c.GetL2Output(ctx, outputIndex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get remote output: %w", err)
+	}
+
+	localOutput, err := c.OutputAtBlockSafe(ctx, remoteOutput.L2BlockNumber.Uint64())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local output: %w", err)
+	}
+
+	return &Outputs{&remoteOutput, localOutput}, nil
+}
+
+func (c *Challenger) GetL2Output(ctx context.Context, outputIndex *big.Int) (bindings.TypesCheckpointOutput, error) {
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
 	defer cCancel()
-	RemoteOutput, err := c.l2OOContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
-	if err != nil {
-		return nil, err
-	}
-
-	LocalOutput, err := c.OutputAtBlockSafe(ctx, RemoteOutput.L2BlockNumber.Uint64())
-	if err != nil {
-		return nil, err
-	}
-
-	return &Outputs{RemoteOutput, LocalOutput}, nil
+	return c.l2OOContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
 }
 
 type OutputRange struct {
@@ -940,13 +944,8 @@ func (c *Challenger) CreateChallenge(ctx context.Context, outputRange *OutputRan
 	return c.colosseumContract.CreateChallenge(txOpts, outputIndex, l1BlockHash, l1BlockNumber, segments.Hashes)
 }
 
-func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
-	c.log.Info("crafting bisect tx", "outputIndex", outputIndex, "challenger", challenger)
-
-	challenge, err := c.GetChallenge(ctx, outputIndex, challenger)
-	if err != nil {
-		return nil, err
-	}
+func (c *Challenger) Bisect(ctx context.Context, challenge *bindings.TypesChallenge, outputIndex *big.Int) (*types.Transaction, error) {
+	c.log.Info("crafting bisect tx", "outputIndex", outputIndex, "challenger", challenge.Challenger)
 
 	prevSegments := chal.NewSegments(challenge.SegStart.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
 	position, err := c.selectFaultPosition(ctx, prevSegments)
@@ -966,7 +965,7 @@ func (c *Challenger) Bisect(ctx context.Context, outputIndex *big.Int, challenge
 	}
 
 	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
-	return c.colosseumContract.Bisect(txOpts, outputIndex, challenger, position, nextSegments.Hashes)
+	return c.colosseumContract.Bisect(txOpts, outputIndex, challenge.Challenger, position, nextSegments.Hashes)
 }
 
 func (c *Challenger) ChallengerTimeout(ctx context.Context, outputIndex *big.Int, challenger common.Address) (*types.Transaction, error) {
@@ -985,61 +984,173 @@ func (c *Challenger) CancelChallenge(ctx context.Context, outputIndex *big.Int) 
 
 // ProveFault creates proveFault transaction for invalid output root.
 // TODO: ProveFault will take long time, so that we may have to handle it carefully.
-func (c *Challenger) ProveFault(ctx context.Context, outputIndex *big.Int, challenger common.Address, skipSelectFaultPosition bool) (*types.Transaction, error) {
-	c.log.Info("crafting proveFault tx", "outputIndex", outputIndex, "challenger", challenger)
-
-	challenge, err := c.GetChallenge(ctx, outputIndex, challenger)
-	if err != nil {
-		return nil, err
-	}
+func (c *Challenger) ProveFault(
+	ctx context.Context, challengeWithData *ChallengeWithData, outputIndex *big.Int, skipSelectFaultPosition bool,
+) (*types.Transaction, error) {
+	challenge := challengeWithData.Challenge
 
 	// when asserter timeout, skip finding fault position since the same segments have been stored in colosseum
 	position := common.Big0
 	blockNumber := challenge.SegStart
+	var err error
 	if !skipSelectFaultPosition {
 		prevSegments := chal.NewSegments(blockNumber.Uint64(), challenge.SegSize.Uint64(), challenge.Segments)
 		position, err = c.selectFaultPosition(ctx, prevSegments)
 		if err != nil {
-			return nil, fmt.Errorf("failed to select fault position(outputIndex: %d, challengerAddress: %s): %w", outputIndex.Uint64(), challenger.String(), err)
+			return nil, fmt.Errorf("failed to select fault position(outputIndex: %s, challengerAddress: %s): %w",
+				outputIndex.String(), challenge.Challenger.String(), err)
 		}
-
 		blockNumber = new(big.Int).Add(blockNumber, position)
-	}
-
-	proof, err := c.PublicInputProof(ctx, blockNumber.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get public input proof(fault position blockNumber: %d): %w", blockNumber.Uint64(), err)
 	}
 
 	targetBlockNumber := new(big.Int).Add(blockNumber, common.Big1)
 	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	header, err := c.cfg.L2Client.HeaderByNumber(cCtx, targetBlockNumber)
 	defer cCancel()
-	trace, err := c.l2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		return nil, err
+	}
+
+	// if the target block time is after Kroma MPT time, generate zkVM proof otherwise zkEVM proof
+	if c.cfg.RollupConfig.IsKromaMPT(header.Time) {
+		return c.proveFaultWithZkVm(ctx, outputIndex, challengeWithData, targetBlockNumber, header.Hash().Hex(), position)
+	} else {
+		return c.proveFaultWithZkEvm(ctx, outputIndex, challenge.Challenger, targetBlockNumber, position)
+	}
+}
+
+// proveFaultWithZkVm fetches zkVM witness data and proof to create proveFaultWithZkVm transaction.
+// It sends requests to external RPC and immediately returns, then continuously checks the status of request and moves to next step.
+func (c *Challenger) proveFaultWithZkVm(
+	ctx context.Context, outputIndex *big.Int, challengeWithData *ChallengeWithData, targetBlockNumber *big.Int, blockHash string, position *big.Int,
+) (*types.Transaction, error) {
+	challenge := challengeWithData.Challenge
+	c.log.Info("crafting proveFaultWithZkVm tx", "outputIndex", outputIndex, "challenger", challenge.Challenger)
+
+	l1Head := hex.EncodeToString(challenge.L1Head[:])
+
+	if len(challengeWithData.ZkVMWitness) == 0 {
+		witnessResult, err := c.cfg.WitnessGenerator.GetWitness(ctx, blockHash, l1Head)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get witness(target block number: %s): %w", targetBlockNumber.String(), err)
+		}
+
+		switch witnessResult.RequestStatus {
+		case chal.RequestNone, chal.RequestFailed:
+			c.log.Info("witness generation should be requested",
+				"targetBlockNumber", targetBlockNumber, "status", witnessResult.RequestStatus)
+			_, err = c.cfg.WitnessGenerator.RequestWitness(ctx, blockHash, l1Head)
+			if err != nil {
+				return nil, fmt.Errorf("failed to request witness(target block number: %s): %w", targetBlockNumber.String(), err)
+			}
+			challengeWithData.Processing = true
+			return nil, nil
+		case chal.RequestProcessing:
+			c.log.Info("witness generation is in progress", "targetBlockNumber", targetBlockNumber)
+			challengeWithData.Processing = true
+			return nil, nil
+		case chal.RequestCompleted:
+			c.log.Info("witness generation is completed", "targetBlockNumber", targetBlockNumber)
+			challengeWithData.ZkVMWitness = witnessResult.Witness
+		default:
+			return nil, fmt.Errorf("unknown request status of witness generation: %s", witnessResult.RequestStatus)
+		}
+	}
+
+	if challengeWithData.ZkVMProof == nil {
+		proofResult, err := c.cfg.ZkVMProofFetcher.GetProof(ctx, blockHash, l1Head)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get proof(target block number: %s): %w", targetBlockNumber.String(), err)
+		}
+
+		switch proofResult.RequestStatus {
+		case chal.RequestNone, chal.RequestFailed:
+			c.log.Info("proof generation should be requested",
+				"targetBlockNumber", targetBlockNumber, "status", proofResult.RequestStatus)
+			_, err = c.cfg.ZkVMProofFetcher.RequestProve(ctx, blockHash, l1Head, challengeWithData.ZkVMWitness)
+			if err != nil {
+				return nil, fmt.Errorf("failed to request proof(target block number: %s): %w", targetBlockNumber.String(), err)
+			}
+			challengeWithData.Processing = true
+			return nil, nil
+		case chal.RequestProcessing:
+			c.log.Info("proof generation is in progress", "targetBlockNumber", targetBlockNumber)
+			challengeWithData.Processing = true
+			return nil, nil
+		case chal.RequestCompleted:
+			c.log.Info("proof generation is completed", "targetBlockNumber", targetBlockNumber)
+			challengeWithData.ZkVMProof = proofResult
+		default:
+			return nil, fmt.Errorf("unknown request status of proof generation: %s", proofResult.RequestStatus)
+		}
+	}
+
+	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
+	tx, err := c.colosseumContract.ProveFaultWithZkVm(
+		txOpts,
+		outputIndex,
+		position,
+		bindings.TypesZkVmProof{
+			ZkVmProgramVKey: challengeWithData.ZkVMProof.ProgramVKey,
+			PublicValues:    challengeWithData.ZkVMProof.PublicValues,
+			ProofBytes:      challengeWithData.ZkVMProof.Proof,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
+// proveFaultWithZkEvm fetches public input and zkEVM proof to create proveFaultWithZkEvm transaction.
+// It sends requests to external RPC and waits until responded.
+func (c *Challenger) proveFaultWithZkEvm(
+	ctx context.Context, outputIndex *big.Int, challenger common.Address, targetBlockNumber *big.Int, position *big.Int,
+) (*types.Transaction, error) {
+	c.log.Info("crafting proveFaultWithZkEvm tx", "outputIndex", outputIndex, "challenger", challenger)
+
+	srcBlockNumber := new(big.Int).Sub(targetBlockNumber, common.Big1)
+	proof, err := c.PublicInputProof(ctx, srcBlockNumber.Uint64())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get public input proof(prev block number: %s): %w", srcBlockNumber.String(), err)
+	}
+
+	cCtx, cCancel := context.WithTimeout(ctx, c.cfg.NetworkTimeout)
+	defer cCancel()
+	trace, err := c.cfg.L2Client.GetBlockTraceByNumber(cCtx, targetBlockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block trace(target block number: %s): %w", targetBlockNumber.String(), err)
 	}
 
 	traceBz, err := json.Marshal(trace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal block trace(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		return nil, fmt.Errorf("failed to marshal block trace(target block number: %s): %w", targetBlockNumber.String(), err)
 	}
 
-	fetchResult, err := c.cfg.ProofFetcher.FetchProofAndPair(ctx, string(traceBz))
+	fetchResult, err := c.cfg.ZkEVMProofFetcher.FetchProofAndPair(ctx, string(traceBz))
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch proof and pair(fault position blockNumber: %d): %w", targetBlockNumber.Uint64(), err)
+		return nil, fmt.Errorf("failed to fetch proof and pair(target block number: %s): %w", targetBlockNumber.String(), err)
 	}
 
 	txOpts := optsutils.NewSimpleTxOpts(ctx, c.cfg.TxManager.From(), c.cfg.TxManager.Signer)
-	return c.colosseumContract.ProveFault(
+	tx, err := c.colosseumContract.ProveFaultWithZkEvm(
 		txOpts,
 		outputIndex,
 		position,
-		proof,
-		fetchResult.Proof,
-		// NOTE(0xHansLee): the hash of public input (pair[4], pair[5]) is not needed in proving fault.
-		// It can be calculated using public input sent to colosseum contract.
-		fetchResult.Pair[:4],
+		bindings.TypesZkEvmProof{
+			PublicInputProof: proof,
+			Proof:            fetchResult.Proof,
+			// NOTE(0xHansLee): the hash of public input (pair[4], pair[5]) is not needed in proving fault.
+			// It can be calculated using public input sent to colosseum contract.
+			Pair: fetchResult.Pair[:4],
+		},
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
 }
 
 // IsOutputDeleted checks if the output is deleted.

@@ -381,14 +381,14 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         });
         // Get withdrawal proof data we can use for testing.
         (_stateRoot, _storageRoot, _outputRoot, _withdrawalHash, _withdrawalProof) = ffi
-            .getProveWithdrawalTransactionInputs(_defaultTx);
+            .getProveWithdrawalTransactionInputs(_defaultTx, true);
 
         // Setup a dummy output root proof for reuse.
         _outputRootProof = Types.OutputRootProof({
             version: bytes32(uint256(0)),
             stateRoot: _stateRoot,
             messagePasserStorageRoot: _storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
         _submittedBlockNumber = oracle.nextBlockNumber();
@@ -453,9 +453,9 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
 
     // Test: proveWithdrawalTransaction reverts if the outputRootProof does not match the output root
     function test_proveWithdrawalTransaction_onInvalidOutputRootProof_reverts() external {
-        // Modify the version to invalidate the withdrawal proof.
-        _outputRootProof.version = bytes32(uint256(MAX_OUTPUT_ROOT_PROOF_VERSION + 1));
-        vm.expectRevert("Hashing: unknown output root proof version");
+        // Modify the version to invalidate the output root proof.
+        _outputRootProof.version = bytes32(uint256(1));
+        vm.expectRevert("KromaPortal: invalid output root proof");
         portal.proveWithdrawalTransaction(
             _defaultTx,
             _submittedOutputIndex,
@@ -594,6 +594,37 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
     function test_proveWithdrawalTransaction_validWithdrawalProof_succeeds() external {
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
+        portal.proveWithdrawalTransaction(
+            _defaultTx,
+            _submittedOutputIndex,
+            _outputRootProof,
+            _withdrawalProof
+        );
+    }
+
+    // Test: proveWithdrawalTransaction succeeds when nextBlockHash is not zero.
+    function test_proveWithdrawalTransaction_nextBlockHashNotZero_succeeds() external {
+        // Get modified proof inputs when isKromaMPT is false.
+        (_stateRoot, _storageRoot, _outputRoot, _withdrawalHash, _withdrawalProof) = ffi
+            .getProveWithdrawalTransactionInputs(_defaultTx, false);
+
+        // Create the output root proof with non zero nextBlockHash
+        _outputRootProof = Types.OutputRootProof({
+            version: bytes32(uint256(0)),
+            stateRoot: _stateRoot,
+            messagePasserStorageRoot: _storageRoot,
+            latestBlockhash: bytes32(uint256(0)),
+            nextBlockHash: bytes32(uint256(1))
+        });
+
+        // Setup the Oracle to return the outputRoot
+        vm.mockCall(
+            address(oracle),
+            abi.encodeWithSelector(oracle.getL2Output.selector),
+            abi.encode(trusted, _outputRoot, block.timestamp, _submittedBlockNumber)
+        );
+
+        // Prove the withdrawal transaction
         portal.proveWithdrawalTransaction(
             _defaultTx,
             _submittedOutputIndex,
@@ -872,12 +903,12 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
 
         // Get updated proof inputs.
         (bytes32 stateRoot, bytes32 storageRoot, , , bytes[] memory withdrawalProof) = ffi
-            .getProveWithdrawalTransactionInputs(insufficientGasTx);
+            .getProveWithdrawalTransactionInputs(insufficientGasTx, true);
         Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
             version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
 
@@ -924,12 +955,12 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             bytes32 outputRoot,
             bytes32 withdrawalHash,
             bytes[] memory withdrawalProof
-        ) = ffi.getProveWithdrawalTransactionInputs(_testTx);
+        ) = ffi.getProveWithdrawalTransactionInputs(_testTx, true);
         Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
             version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
 
@@ -1003,14 +1034,14 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             bytes32 outputRoot,
             bytes32 withdrawalHash,
             bytes[] memory withdrawalProof
-        ) = ffi.getProveWithdrawalTransactionInputs(_tx);
+        ) = ffi.getProveWithdrawalTransactionInputs(_tx, true);
 
         // Create the output root proof
         Types.OutputRootProof memory proof = Types.OutputRootProof({
             version: bytes32(uint256(0)),
             stateRoot: stateRoot,
             messagePasserStorageRoot: storageRoot,
-            blockHash: bytes32(uint256(0)),
+            latestBlockhash: bytes32(uint256(0)),
             nextBlockHash: bytes32(uint256(0))
         });
 

@@ -20,6 +20,9 @@ var (
 	ErrChannelTimeoutClose   = errors.New("close to channel timeout")
 	ErrSeqWindowClose        = errors.New("close to sequencer window timeout")
 	ErrTerminated            = errors.New("channel terminated")
+	// [Kroma: START]
+	ErrJustBeforeKromaMPTTime = errors.New("reached the block just before KromaMPTTime")
+	// [Kroma: END]
 )
 
 type ChannelFullError struct {
@@ -174,7 +177,10 @@ func (c *ChannelBuilder) AddBlock(block *types.Block) (*derive.L1BlockInfo, erro
 	if err = c.co.FullErr(); err != nil {
 		c.setFullErr(err)
 		// Adding this block still worked, so don't return error, just mark as full
+	} else /* [Kroma: START] */ if c.rollupCfg.KromaMPTTime != nil && block.Time() == *c.rollupCfg.KromaMPTTime-c.rollupCfg.BlockTime {
+		c.setFullErr(ErrJustBeforeKromaMPTTime)
 	}
+	// [Kroma: END]
 
 	return l1info, nil
 }
