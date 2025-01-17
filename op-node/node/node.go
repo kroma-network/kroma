@@ -594,6 +594,13 @@ func (n *OpNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, envelope *
 		return nil
 	}
 
+	// [Kroma: START]
+	if n.runCfg.rollupCfg.IsKromaMPTActivationBlock(uint64(envelope.ExecutionPayload.Timestamp)) {
+		n.log.Info("Received the payload of the KromaMPT block from p2p but ignored it", "id", envelope.ExecutionPayload.ID(), "peer", from)
+		return nil
+	}
+	// [Kroma: END]
+
 	n.tracer.OnUnsafeL2Payload(ctx, from, envelope)
 
 	n.log.Info("Received signed execution payload from p2p", "id", envelope.ExecutionPayload.ID(), "peer", from)
