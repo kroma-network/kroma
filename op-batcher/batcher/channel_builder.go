@@ -21,7 +21,8 @@ var (
 	ErrSeqWindowClose        = errors.New("close to sequencer window timeout")
 	ErrTerminated            = errors.New("channel terminated")
 	// [Kroma: START]
-	ErrJustBeforeKromaMPTTime = errors.New("reached the block just before KromaMPTTime")
+	ErrReachedKromaMPTParentBlock = errors.New("reached the parent block of KromaMPT")
+	ErrReachedKromaMPTBlock       = errors.New("reached the KromaMPT block")
 	// [Kroma: END]
 )
 
@@ -177,8 +178,13 @@ func (c *ChannelBuilder) AddBlock(block *types.Block) (*derive.L1BlockInfo, erro
 	if err = c.co.FullErr(); err != nil {
 		c.setFullErr(err)
 		// Adding this block still worked, so don't return error, just mark as full
-	} else /* [Kroma: START] */ if c.rollupCfg.KromaMPTTime != nil && block.Time() == *c.rollupCfg.KromaMPTTime-c.rollupCfg.BlockTime {
-		c.setFullErr(ErrJustBeforeKromaMPTTime)
+	}
+
+	// [Kroma: START]
+	if c.rollupCfg.IsKromaMPTParentBlock(block.Time()) {
+		c.setFullErr(ErrReachedKromaMPTParentBlock)
+	} else if c.rollupCfg.IsKromaMPTActivationBlock(block.Time()) {
+		c.setFullErr(ErrReachedKromaMPTBlock)
 	}
 	// [Kroma: END]
 
