@@ -21,7 +21,7 @@ import (
 	"github.com/kroma-network/kroma/kroma-bindings/predeploys"
 )
 
-// TestERC20BridgeDeposits tests the the L1StandardBridge bridge ERC20
+// TestERC20BridgeDeposits tests the L1StandardBridge bridge ERC20
 // functionality.
 func TestERC20BridgeDeposits(t *testing.T) {
 	InitParallel(t)
