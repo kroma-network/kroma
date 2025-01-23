@@ -31,7 +31,7 @@ function myFFITest() public {
 
 ### Available Modes
 
-There are two modes available in `go-ffi`: `diff` and `trie`. Each are present as a subcommand to the `go-ffi` binary, with their own set of variants.
+There are two modes available in `go-ffi`: `diff` and `trie`. Each is present as a subcommand to the `go-ffi` binary, with their own set of variants.
 
 #### `diff`
 
