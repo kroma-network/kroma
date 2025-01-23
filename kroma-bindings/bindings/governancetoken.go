@@ -32,7 +32,7 @@ var (
 // ERC20VotesCheckpoint is an auto generated low-level Go binding around an user-defined struct.
 type ERC20VotesCheckpoint struct {
 	FromBlock uint32
-	Votes     *big.Int
+	Votes     uint224
 }
 
 // GovernanceTokenMetaData contains all meta data concerning the GovernanceToken contract.
