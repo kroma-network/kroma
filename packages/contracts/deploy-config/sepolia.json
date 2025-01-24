@@ -25,6 +25,7 @@
   "validatorManagerJailThreshold": 2,
   "validatorManagerMaxFinalizations": 10,
   "validatorManagerBaseReward": "0x3782DACE9D900000",
+  "validatorManagerMptFirstOutputIndex": "0x24230",
   "assetManagerKgh": "0x04d9D4908e59441b82d0bfA24a0461ea80B7D816",
   "assetManagerVault": "0x944a6edDfd0d18c4D913b2B90f2Ee923B1bcd622",
   "assetManagerMinDelegationPeriod": 21600,
@@ -69,6 +70,8 @@
   "zkVerifierHashScalar": "0xD7496D9D15F9DB7697DF22201FBD73BDC504FBCCBDB34FAA64D43A80361484D",
   "zkVerifierM56Px": "0x59F73EE44B2ACAC480F776270FBF58A5974CE47EC9F7682844E89F17CAEA4F2",
   "zkVerifierM56Py": "0xD7DC3CAC83BA451AB1DD0428B4593FA07198058425B9D672C6F0C087432AF73",
+  "zkProofVerifierSP1Verifier": "0x3B6041173B80E77f038f3F2C0f9744f04837185e",
+  "zkProofVerifierVKey": "0x0082f10b794f55a90a98566913e7639ffeca0b7fcba30bdb1b3faed9c5534b75",
   "governanceTokenProxySalt": "0x62770b858e90d560f80deb05ad8edbcc48e12d3b38110ce709025d5545a9d3c8",
   "mintManagerOwner": "0x80e695eceb5bea3b1788c4dfb40b72afc59f60d8",
   "l1MintManagerRecipients": [

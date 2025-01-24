@@ -371,6 +371,14 @@ func (c *Config) IsKromaMPT(timestamp uint64) bool {
 	return c.KromaMPTTime != nil && timestamp >= *c.KromaMPTTime
 }
 
+// IsKromaMPTActivationBlock returns whether the specified block is the first block subject to the
+// KromaMPT upgrade. KromaMPT activation at genesis does not count.
+func (c *Config) IsKromaMPTActivationBlock(l2BlockTime uint64) bool {
+	return c.IsKromaMPT(l2BlockTime) &&
+		l2BlockTime >= c.BlockTime &&
+		!c.IsKromaMPT(l2BlockTime-c.BlockTime)
+}
+
 // IsKromaMPTParentBlock returns whether the specified block is the parent block subject to the
 // KromaMPT upgrade. KromaMPT activation at genesis does not count.
 func (c *Config) IsKromaMPTParentBlock(l2BlockTime uint64) bool {

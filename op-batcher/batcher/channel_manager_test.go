@@ -7,16 +7,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	derivetest "github.com/ethereum-optimism/optimism/op-node/rollup/derive/test"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/stretchr/testify/require"
 )
 
 func channelManagerTestConfig(maxFrameSize uint64, batchType uint) ChannelConfig {
@@ -485,7 +486,7 @@ func TestChannelManager_ChannelCreation(t *testing.T) {
 }
 
 // [Kroma: START]
-func TestChannelManager_Close_BeforeMPTBlock(t *testing.T) {
+func TestChannelManager_CheckFullErrorsOnKromaMPT(t *testing.T) {
 	require := require.New(t)
 
 	rng := rand.New(rand.NewSource(123))
@@ -524,27 +525,17 @@ func TestChannelManager_Close_BeforeMPTBlock(t *testing.T) {
 
 	require.NoError(m.AddL2Block(zktBlock1), "adding 1st L2 block")
 	require.NoError(m.AddL2Block(zktBlock2), "adding 2nd L2 block")
-	require.NoError(m.AddL2Block(mptBlock), "adding 3nd L2 block")
+	require.NoError(m.AddL2Block(mptBlock), "adding 3rd L2 block")
 
 	txdata, err := m.TxData(eth.BlockID{})
 	require.NoError(err)
 	ch1 := m.txChannels[txdata.ID().String()]
-	require.ErrorIs(ch1.FullErr(), ErrJustBeforeKromaMPTTime)
+	require.ErrorIs(ch1.FullErr(), ErrReachedKromaMPTParentBlock)
 
-	// current channel is not full yet
-	_, err = m.TxData(eth.BlockID{})
-	require.ErrorIs(err, io.EOF)
-
-	// Close immediately marks the channel as full with an ErrTerminated
-	// if the channel is not already full.
-	m.currentChannel.Close()
-	err = m.outputFrames()
-	require.NoError(err)
 	txdata, err = m.TxData(eth.BlockID{})
 	require.NoError(err)
 	ch2 := m.txChannels[txdata.ID().String()]
-	require.ErrorIs(ch2.FullErr(), ErrTerminated)
-	require.NotEqual(ch1.ID(), ch2.ID())
+	require.ErrorIs(ch2.FullErr(), ErrReachedKromaMPTBlock)
 }
 
 // [Kroma: END]
