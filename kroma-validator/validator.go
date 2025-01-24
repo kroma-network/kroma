@@ -54,7 +54,7 @@ func Main(version string, cliCtx *cli.Context) error {
 	}
 	defer func() {
 		if err = server.Stop(); err != nil {
-			l.Error("Error shutting down http server: %w", err)
+			l.Error("Error shutting down http server", "err", err)
 		}
 	}()
 
