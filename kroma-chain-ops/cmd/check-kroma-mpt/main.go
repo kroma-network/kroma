@@ -326,7 +326,7 @@ func checkL1BlockAddrAndData(ctx context.Context, env *actionEnv) error {
 		return fmt.Errorf("l1 info tx data length not matched before MPT, expected: %d, got: %d", derive.L1InfoEcotoneLen, len(prevL1InfoTx.Data()))
 	}
 	if len(mptL1InfoTx.Data()) != derive.L1InfoKromaMPTLen {
-		return fmt.Errorf("l1 info tx data length not matched before MPT, expected: %d, got: %d", derive.L1InfoKromaMPTLen, len(mptL1InfoTx.Data()))
+		return fmt.Errorf("l1 info tx data length not matched after MPT, expected: %d, got: %d", derive.L1InfoKromaMPTLen, len(mptL1InfoTx.Data()))
 	}
 
 	env.log.Info("L1Block address and tx data test: SUCCESS")
