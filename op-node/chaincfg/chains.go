@@ -42,7 +42,7 @@ var Mainnet = &rollup.Config{
 	CanyonTime:             u64Ptr(1708502400),
 	DeltaTime:              u64Ptr(1709107200),
 	EcotoneTime:            u64Ptr(1714032001),
-	KromaMPTTime:           nil,
+	KromaMPTTime:           u64Ptr(1739250001),
 	FjordTime:              nil,
 	InteropTime:            nil,
 	/* [Kroma: START]
