@@ -145,7 +145,7 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 
 	// Change the key of _quorumNumeratorHistory in UpgradeGovernor to 1 which means that quorumNumerator has been set at L1 block number 1 for guardian test
 	if !stateDB.Exist(deployments.UpgradeGovernorProxy) {
-		return fmt.Errorf("upgardeGovernor proxy doesn't exist at %s", deployments.UpgradeGovernorProxy)
+		return fmt.Errorf("upgradeGovernor proxy doesn't exist at %s", deployments.UpgradeGovernorProxy)
 	}
 
 	slot, err = getStorageSlot("UpgradeGovernor", "_quorumNumeratorHistory")
