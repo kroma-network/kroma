@@ -272,7 +272,7 @@ func checkFeeDistribution(ctx context.Context, env *actionEnv) error {
 			return err
 		}
 		if increaseRequired != (bal.Cmp(prevBal) == 1) {
-			return fmt.Errorf("fee distribution unexpectedly, expected increasing: %t, but account: %s, prev: %d, after: %d",
+			return fmt.Errorf("fee distribution unexpected, expected increasing: %t, but account: %s, prev: %d, after: %d",
 				increaseRequired, addr, prevBal, bal)
 		}
 		return nil
