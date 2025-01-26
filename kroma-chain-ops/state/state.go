@@ -15,6 +15,9 @@ import (
 // SetStorage will set the storage values in a db given a contract name,
 // address and the storage values
 func SetStorage(name string, address common.Address, values opstate.StorageValues, db vm.StateDB) error {
+    if values == nil {
+        return fmt.Errorf("%s: storage values cannot be nil", name)
+    }
 	layout, err := bindings.GetStorageLayout(name)
 	if err != nil {
 		return fmt.Errorf("cannot set storage: %w", err)
