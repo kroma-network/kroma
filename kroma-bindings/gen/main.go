@@ -53,11 +53,11 @@ func main() {
 
 	contractData, err := os.ReadFile(f.Contracts)
 	if err != nil {
-		log.Fatal("error reading contract list: %w\n", err)
+		log.Fatalf("error reading contract list: %v\n", err)
 	}
 	contracts := []string{}
 	if err := json.Unmarshal(contractData, &contracts); err != nil {
-		log.Fatal("error parsing contract list: %w\n", err)
+		log.Fatalf("error parsing contract list: %v\n", err)
 	}
 
 	sourceMaps := strings.Split(f.SourceMaps, ",")
