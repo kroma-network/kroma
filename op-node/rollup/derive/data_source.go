@@ -95,21 +95,27 @@ type DataSourceConfig struct {
 }
 
 // isValidBatchTx returns true if:
-//  1. the transaction has a To() address that matches the batch inbox address, and
-//  2. the transaction has a valid signature from the batcher address
-func isValidBatchTx(tx *types.Transaction, l1Signer types.Signer, batchInboxAddr, batcherAddr common.Address) bool {
+//  1. the transaction type is any of Legacy, ACL, DynamicFee, Blob, or Deposit (for L3s).
+//  2. the transaction has a To() address that matches the batch inbox address, and
+//  3. the transaction has a valid signature from the batcher address
+func isValidBatchTx(tx *types.Transaction, l1Signer types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger) bool {
+	// For now, we want to disallow the SetCodeTx type or any future types.
+	if tx.Type() > types.BlobTxType && tx.Type() != types.DepositTxType {
+		return false
+	}
+
 	to := tx.To()
 	if to == nil || *to != batchInboxAddr {
 		return false
 	}
 	seqDataSubmitter, err := l1Signer.Sender(tx) // optimization: only derive sender if To is correct
 	if err != nil {
-		log.Warn("tx in inbox with invalid signature", "hash", tx.Hash(), "err", err)
+		logger.Warn("tx in inbox with invalid signature", "hash", tx.Hash(), "err", err)
 		return false
 	}
 	// some random L1 user might have sent a transaction to our batch inbox, ignore them
 	if seqDataSubmitter != batcherAddr {
-		log.Warn("tx in inbox with unauthorized submitter", "addr", seqDataSubmitter, "hash", tx.Hash(), "err", err)
+		logger.Warn("tx in inbox with unauthorized submitter", "addr", seqDataSubmitter, "hash", tx.Hash(), "err", err)
 		return false
 	}
 	return true
