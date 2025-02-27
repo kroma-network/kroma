@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -469,13 +468,19 @@ func (l *BatchSubmitter) sendTransaction(ctx context.Context, txdata txData, que
 		candidate = l.calldataTxCandidate(data)
 	}
 
-	intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, false, true, true, false)
-	if err != nil {
-		// we log instead of return an error here because txmgr can do its own gas estimation
-		l.Log.Error("Failed to calculate intrinsic gas", "err", err)
-	} else {
-		candidate.GasLimit = intrinsicGas
-	}
+	// [Kroma: START]
+	// There is EIP-7623 in the Prague update.
+	// This has not yet been applied to KROMA GETH, so we cannot make accurate gas calculations using floor data.
+	// To prevent this from causing gas shortage issues, we delegate the estimated gas completely.
+	candidate.GasLimit = 0
+	//intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, false, true, true, false)
+	//if err != nil {
+	//	// we log instead of return an error here because txmgr can do its own gas estimation
+	//	l.Log.Error("Failed to calculate intrinsic gas", "err", err)
+	//} else {
+	//	candidate.GasLimit = intrinsicGas
+	//}
+	// [Kroma: END]
 
 	queue.Send(txdata.ID(), *candidate, receiptsCh)
 	return nil
