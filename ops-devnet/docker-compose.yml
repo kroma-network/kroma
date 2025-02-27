@@ -65,7 +65,7 @@ services:
       - "${PWD}/test-jwt-secret.txt:/test-jwt-secret.txt"
 
   validator:
-    image: "gcr.io/prysmaticlabs/prysm/validator:latest"
+    image: "gcr.io/prysmaticlabs/prysm/validator:v5.0.4"
     command:
       - --beacon-rpc-provider=beacon-chain:4000
       - --datadir=/db/validatordata
@@ -108,7 +108,7 @@ services:
 
   l2:
     pid: host # allow debugging
-    image: kromanetwork/geth:v0.6.1
+    image: kromanetwork/geth:v0.6.2-rc.2
     ports:
       - "9545:8545"
       - "9546:8546"
@@ -128,7 +128,7 @@ services:
 
   l2-historical:
     pid: host # allow debugging
-    image: kromanetwork/geth:v0.6.1
+    image: kromanetwork/geth:v0.6.2-rc.2
     ports:
       - "9445:8545"
       - "9446:8546"
