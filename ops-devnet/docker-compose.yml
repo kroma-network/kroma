@@ -65,7 +65,7 @@ services:
       - "${PWD}/test-jwt-secret.txt:/test-jwt-secret.txt"
 
   validator:
-    image: "gcr.io/prysmaticlabs/prysm/validator:latest"
+    image: "gcr.io/prysmaticlabs/prysm/validator:v5.0.4"
     command:
       - --beacon-rpc-provider=beacon-chain:4000
       - --datadir=/db/validatordata
