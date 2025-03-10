@@ -65,8 +65,8 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         super.setUp();
 
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
-            pool,
-            valMgr,
+            address(pool),
+            address(valMgr),
             address(colosseum),
             submissionInterval,
             l2BlockTime,
@@ -100,7 +100,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitOutputRoot(pool.nextValidator());
         }
-        vm.warp(oracle.finalizedAt(terminateOutputIndex));
+        //        vm.warp(oracle.finalizedAt(terminateOutputIndex));
         mockOracle.mockSetNextFinalizeOutputIndex(terminateOutputIndex + 1);
     }
 

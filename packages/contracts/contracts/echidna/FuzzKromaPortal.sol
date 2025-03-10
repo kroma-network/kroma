@@ -30,7 +30,8 @@ contract EchidnaFuzzKromaPortal {
             _guardian: address(0),
             _paused: false,
             _config: systemConfig,
-            _zkMerkleTrie: ZKMerkleTrie(address(0))
+            _zkMerkleTrie: ZKMerkleTrie(address(0)),
+            _colosseum: address(0)
         });
     }
 

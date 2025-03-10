@@ -249,7 +249,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function afterSubmitL2Output(uint256 outputIndex) external onlyL2OutputOracle {
         _distributeReward();
-
         // Bond validator KRO to reserve slashing amount.
         address submitter = L2_ORACLE.getSubmitter(outputIndex);
         ASSET_MANAGER.bondValidatorKro(submitter);

@@ -146,27 +146,67 @@ library Types {
         bytes data;
     }
 
+    struct Challenge {
+        uint256 turn;
+        uint256 asserterTimeLeft;
+        uint256 challengerTimeLeft;
+        uint256 updatedAt;
+        address asserter;
+        address challenger;
+        Segment segment;
+        bytes32 l1Head;
+    }
+
+    struct Segment {
+        bytes32 output;
+        uint256 pos;
+        uint256 start;
+        uint256 end;
+        bytes32 startOutput;
+        bytes32 endOutput;
+    }
+
     /**
      * @notice Struct representing a challenge.
      *
-     * @custom:field turn       The current turn.
-     * @custom:field timeoutAt  Timeout timestamp of the next turn.
+     * @custom:field startL2BlockNumber  start l2 block number for bisection.
+     * @custom:field startOutputRoot   output.
      * @custom:field asserter   Address of the asserter.
-     * @custom:field challenger Address of the challenger.
-     * @custom:field segments   Array of the segment.
-     * @custom:field segStart   The L2 block number of the first segment.
-     * @custom:field segSize    The number of L2 blocks.
-     * @custom:field l1Head     Parent L1 block hash at the challenge creation time.
+     * @custom:field assertedAt timestamp of Assertion.
+     * @custom:field acceptedAt
+     * @custom:field rejectedAt
+     * @custom:field status
      */
-    struct Challenge {
-        uint8 turn;
-        uint64 timeoutAt;
+    struct Assertion {
+        uint256 startL2BlockNumber;
+        bytes32 startOutputRoot;
         address asserter;
-        address challenger;
-        bytes32[] segments;
-        uint256 segSize;
-        uint256 segStart;
-        bytes32 l1Head;
+        uint256 assertedAt;
+        uint256 acceptedAt;
+        uint256 rejectedAt;
+        AssertionStatus status;
+        uint256 numberOfChallenges;
+    }
+
+    /**
+   * @notice Enum of the Assertion status.
+     *
+     // TODO fix the url
+     * See the https://specs.kroma.network/fault-proof/challenge.html#state-diagram
+     * for more details.
+     *
+     * Belows are possible state transitions at current implementation.
+     *
+     *  1) IN_PROGRESS      → createAssertion()
+     *  2) ACCEPTED      → when challenge period has expired
+     *  3) REJECTED      → when proveFault() succeeds or asserter timeout
+     *  4) RESTORED    → when deleted output is restored by SC
+     */
+    enum AssertionStatus {
+        IN_PROGRESS,
+        ACCEPTED,
+        REJECTED,
+        RESTORED
     }
 
     /**

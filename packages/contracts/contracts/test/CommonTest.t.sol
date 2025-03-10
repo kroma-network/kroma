@@ -42,6 +42,7 @@ import { AddressAliasHelper } from "../vendor/AddressAliasHelper.sol";
 import { SP1Verifier } from "../vendor/SP1VerifierPlonk.sol";
 import { FFIInterface } from "./setup/FFIInterface.sol";
 import { ZkVmTestData } from "./testdata/ZkVmTestData.sol";
+import { ZKProofVerifier } from "../L1/ZKProofVerifier.sol";
 
 contract CommonTest is Test {
     address alice = address(128);
@@ -218,6 +219,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     uint256 internal startingTimestamp = 1000;
     uint256 internal finalizationPeriodSeconds = 7 days;
     address internal guardian = 0x000000000000000000000000000000000000AaaD;
+    uint256 guardianPeriod = 3.5 days;
+    uint256 maxClockDuration = 3.5 days;
 
     // ValidatorPool constructor arguments
     address internal trusted = 0x000000000000000000000000000000000000aaaa;
@@ -324,7 +327,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _guardian: guardian,
             _paused: false,
             _config: systemConfig,
-            _zkMerkleTrie: ZKMerkleTrie(address(0))
+            _zkMerkleTrie: ZKMerkleTrie(address(0)),
+            _colosseum: address(0)
         });
 
         // Deploy the ValidatorPool
@@ -373,10 +377,24 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
         initL1Time = startingTimestamp + 1;
         vm.warp(initL1Time);
         vm.roll(startingBlockNumber);
+
+        colosseum = Colosseum(payable(address(new Proxy(multisig))));
+        Colosseum colosseumImpl = new Colosseum(
+            address(oracle),
+            ZKProofVerifier(address(0)),
+            submissionInterval,
+            guardian,
+            guardianPeriod,
+            maxClockDuration
+        );
+        vm.prank(multisig);
+        Proxy(payable(address(colosseum))).upgradeTo(address(colosseumImpl));
+        colosseum = Colosseum(address(colosseum));
+
         // Deploy the L2OutputOracle
         oracleImpl = new L2OutputOracle({
-            _validatorPool: pool,
-            _validatorManager: valMgr,
+            _validatorPool: address(pool),
+            _validatorManager: address(valMgr),
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
@@ -444,8 +462,8 @@ contract ValidatorSystemUpgrade_Initializer is L2OutputOracle_Initializer {
 
         // Deploy L2OutputOracle with new arguments
         oracleImpl = new L2OutputOracle({
-            _validatorPool: pool,
-            _validatorManager: valMgr,
+            _validatorPool: address(pool),
+            _validatorManager: address(valMgr),
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
@@ -489,6 +507,8 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
     KromaPortal portalImpl;
     KromaPortal portal;
 
+    uint256 internal finalizationPeriod;
+
     event WithdrawalFinalized(bytes32 indexed withdrawalHash, bool success);
     event WithdrawalProven(
         bytes32 indexed withdrawalHash,
@@ -511,7 +531,8 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
             _guardian: guardian,
             _paused: true,
             _config: systemConfig,
-            _zkMerkleTrie: zkMerkleTrie
+            _zkMerkleTrie: zkMerkleTrie,
+            _colosseum: address(colosseum)
         });
         Proxy proxy = new Proxy(multisig);
         vm.prank(multisig);
@@ -521,6 +542,9 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
         );
         portal = KromaPortal(payable(address(proxy)));
         vm.label(address(portal), "KromaPortal");
+        finalizationPeriod =
+            portal.COLOSSEUM().GUARDIAN_PERIOD() +
+            portal.COLOSSEUM().MAX_CLOCK_DURATION();
     }
 }
 
@@ -756,13 +780,6 @@ contract Colosseum_Initializer is Portal_Initializer {
     SecurityCouncil securityCouncilImpl;
     SecurityCouncil securityCouncil;
 
-    uint256[] segmentsLengths;
-
-    // Constructor arguments
-    uint256 internal creationPeriodSeconds = finalizationPeriodSeconds - 1 days;
-    uint256 internal bisectionTimeout = 30 minutes;
-    uint256 internal provingTimeout = 1 hours;
-
     function setUp() public virtual override {
         // Deploy the ZKVerifier
         // Chain ID 901
@@ -791,12 +808,6 @@ contract Colosseum_Initializer is Portal_Initializer {
         vm.prank(multisig);
         zkProofVerifierProxy.upgradeTo(address(zkProofVerifierImpl));
 
-        // case - L2OutputOracle submissionInterval == 1800
-        segmentsLengths.push(9);
-        segmentsLengths.push(6);
-        segmentsLengths.push(10);
-        segmentsLengths.push(6);
-
         colosseum = Colosseum(payable(address(new Proxy(multisig))));
 
         // Init L2OutputOracle after Colosseum contract deployment
@@ -812,19 +823,17 @@ contract Colosseum_Initializer is Portal_Initializer {
         toProxy(address(securityCouncil)).upgradeTo(address(securityCouncilImpl));
 
         colosseumImpl = new Colosseum({
-            _l2Oracle: oracle,
+            _l2Oracle: address(oracle),
             _zkProofVerifier: zkProofVerifier,
             _submissionInterval: submissionInterval,
-            _creationPeriodSeconds: creationPeriodSeconds,
-            _bisectionTimeout: bisectionTimeout,
-            _provingTimeout: provingTimeout,
-            _segmentsLengths: segmentsLengths,
-            _securityCouncil: address(securityCouncil)
+            _securityCouncil: address(securityCouncil),
+            _guardianPeriod: guardianPeriod,
+            _maxClockDuration: maxClockDuration
         });
         vm.prank(multisig);
         toProxy(address(colosseum)).upgradeToAndCall(
             address(colosseumImpl),
-            abi.encodeCall(Colosseum.initialize, segmentsLengths)
+            abi.encodeCall(Colosseum.initialize, ())
         );
     }
 }

@@ -7,24 +7,20 @@ import { ZKProofVerifier } from "contracts/L1/ZKProofVerifier.sol";
 
 contract MockColosseum is Colosseum {
     constructor(
-        L2OutputOracle _l2Oracle,
+        address _l2Oracle,
         ZKProofVerifier _zkProofVerifier,
         uint256 _submissionInterval,
-        uint256 _creationPeriodSeconds,
-        uint256 _bisectionTimeout,
-        uint256 _provingTimeout,
-        uint256[] memory _segmentsLengths,
-        address _securityCouncil
+        address _securityCouncil,
+        uint256 _guardianPeriod,
+        uint256 _maxClockDuration
     )
         Colosseum(
             _l2Oracle,
             _zkProofVerifier,
             _submissionInterval,
-            _creationPeriodSeconds,
-            _bisectionTimeout,
-            _provingTimeout,
-            _segmentsLengths,
-            _securityCouncil
+            _securityCouncil,
+            _guardianPeriod,
+            _maxClockDuration
         )
     {}
 

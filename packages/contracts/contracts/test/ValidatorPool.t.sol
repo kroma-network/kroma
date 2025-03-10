@@ -14,8 +14,8 @@ import { L2OutputOracle_Initializer, ValidatorSystemUpgrade_Initializer } from "
 
 contract MockL2OutputOracle is L2OutputOracle {
     constructor(
-        ValidatorPool _validatorPool,
-        IValidatorManager _validatorManager,
+        address _validatorPool,
+        address _validatorManager,
         address _colosseum,
         uint256 _submissionInterval,
         uint256 _l2BlockTime,
@@ -110,8 +110,8 @@ contract ValidatorPoolTest is L2OutputOracle_Initializer {
 
         address oracleAddress = address(oracle);
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
-            pool,
-            valMgr,
+            address(pool),
+            address(valMgr),
             address(colosseum),
             submissionInterval,
             l2BlockTime,
@@ -766,8 +766,8 @@ contract ValidatorPool_SystemUpgrade_Test is ValidatorSystemUpgrade_Initializer 
 
         address oracleAddress = address(oracle);
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
-            pool,
-            valMgr,
+            address(pool),
+            address(valMgr),
             address(colosseum),
             submissionInterval,
             l2BlockTime,
