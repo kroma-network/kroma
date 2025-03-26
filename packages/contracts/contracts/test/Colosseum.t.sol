@@ -70,7 +70,7 @@ contract ColosseumTest is Colosseum_Initializer {
         address indexed challenger,
         uint256 timestamp
     );
-    event ChallengerHasTimedOut(
+    event ChallengerTimedOut(
         uint256 indexed outputIndex,
         address indexed challenger,
         uint256 timestamp
@@ -411,7 +411,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(block.timestamp + challenge.challengerTimeLeft);
         vm.prank(challenge.challenger);
-        vm.expectRevert(Colosseum.ChallengerTimedOut.selector);
+        vm.expectRevert(Colosseum.ChallengerTimeoutError.selector);
         colosseum.bisect(outputIndex, challenge.challenger, position, output);
     }
 
@@ -429,7 +429,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(block.timestamp + challenge.asserterTimeLeft);
         vm.prank(challenge.asserter);
-        vm.expectRevert(Colosseum.AsserterTimedOut.selector);
+        vm.expectRevert(Colosseum.AsserterTimeoutError.selector);
         colosseum.bisect(outputIndex, challenge.challenger, position, output);
     }
 
@@ -446,7 +446,7 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.warp(block.timestamp + challenge.challengerTimeLeft);
 
         vm.expectEmit(true, true, false, true);
-        emit ChallengerHasTimedOut(outputIndex, challenge.challenger, block.timestamp);
+        emit ChallengerTimedOut(outputIndex, challenge.challenger, block.timestamp);
         vm.prank(challenge.asserter);
         colosseum.challengerTimeout(outputIndex, challenge.challenger);
     }
@@ -558,7 +558,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(block.timestamp + challenge.asserterTimeLeft + 1);
         vm.prank(challenge.asserter);
-        vm.expectRevert(Colosseum.AsserterTimedOut.selector);
+        vm.expectRevert(Colosseum.AsserterTimeoutError.selector);
         colosseum.bisect(outputIndex, challenge.challenger, 0, 0);
 
         assertEq(
@@ -581,7 +581,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(block.timestamp + challenge.challengerTimeLeft + 1);
         vm.prank(challenge.challenger);
-        vm.expectRevert(Colosseum.ChallengerTimedOut.selector);
+        vm.expectRevert(Colosseum.ChallengerTimeoutError.selector);
         colosseum.bisect(outputIndex, challenge.challenger, 0, 0);
 
         assertEq(

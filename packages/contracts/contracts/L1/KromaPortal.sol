@@ -155,11 +155,6 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
     event Unpaused(address account);
 
     /**
-     * @notice Reverts when finalizeWithdrawalTransaction is called on a deleted output.
-     */
-    error DeletedOutput();
-
-    /**
      * @notice Reverts when paused.
      */
     modifier whenNotPaused() {

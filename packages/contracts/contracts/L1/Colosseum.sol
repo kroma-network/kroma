@@ -224,7 +224,7 @@ contract Colosseum is Initializable, ISemver {
      * @param challenger  Address of the challenger.
      * @param timestamp   The timestamp when deleted.
      */
-    event ChallengerHasTimedOut(
+    event ChallengerTimedOut(
         uint256 indexed outputIndex,
         address indexed challenger,
         uint256 timestamp
@@ -318,12 +318,12 @@ contract Colosseum is Initializable, ISemver {
     /**
      * @notice Reverts when an asserter has timed out
      */
-    error AsserterTimedOut();
+    error AsserterTimeoutError();
 
     /**
      * @notice Reverts when a challenger has timed out
      */
-    error ChallengerTimedOut();
+    error ChallengerTimeoutError();
 
     /**
      * @notice Reverts when a challenge cannot be created or progressed.
@@ -331,7 +331,7 @@ contract Colosseum is Initializable, ISemver {
     error NotChallengeable();
 
     /**
-     * @notice Reverts when ch
+     * @notice Reverts when the challenge has been already created.
      */
     error ChallengeAlreadyCreated();
 
@@ -472,7 +472,7 @@ contract Colosseum is Initializable, ISemver {
 
         uint256 elapsed = block.timestamp - assertion.assertedAt;
         if (elapsed >= MAX_CLOCK_DURATION) {
-            revert ChallengerTimedOut();
+            revert ChallengerTimeoutError();
         }
 
         challenge.challengerTimeLeft = MAX_CLOCK_DURATION - elapsed;
@@ -544,9 +544,9 @@ contract Colosseum is Initializable, ISemver {
             }
             challenge.challengerTimeLeft -= elapsed;
         } else if (status == ChallengeStatus.ASSERTER_TIMEOUT) {
-            revert AsserterTimedOut();
+            revert AsserterTimeoutError();
         } else if (status == ChallengeStatus.CHALLENGER_TIMEOUT) {
-            revert ChallengerTimedOut();
+            revert ChallengerTimeoutError();
         } else if (status == ChallengeStatus.NONE) {
             revert ImproperChallengeStatus();
         } else if (status == ChallengeStatus.READY_TO_PROVE) {
@@ -611,35 +611,20 @@ contract Colosseum is Initializable, ISemver {
     }
 
     /**
-     * @notice Accepts the assertion.
-     *         Reverts if is not possible to accept the assertion.
+     * @notice Accepts an assertion if there are no active challenges and the timeout period has elapsed.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      */
     function acceptAssertion(uint256 _outputIndex) external {
         Types.Assertion storage assertion = assertions[_outputIndex];
-        if (!_acceptAssertionIfNoChallengeAndTimedOut(assertion)) {
+        if (
+            assertion.numberOfChallenges > 0 ||
+            block.timestamp - assertion.assertedAt < MAX_CLOCK_DURATION
+        ) {
             revert AssertionNotAcceptable();
         }
-    }
 
-    /**
-     * @notice Accepts an assertion if there are no active challenges and the timeout period has elapsed.
-     *
-     * @param _assertion The assertion struct stored in contract storage.
-     * @return True if the assertion is accepted, false otherwise.
-     */
-    function _acceptAssertionIfNoChallengeAndTimedOut(
-        Types.Assertion storage _assertion
-    ) internal returns (bool) {
-        if (
-            _assertion.numberOfChallenges > 0 ||
-            block.timestamp - _assertion.assertedAt < MAX_CLOCK_DURATION
-        ) {
-            return false;
-        }
-        _assertion.acceptedAt = block.timestamp;
-        return true;
+        assertion.acceptedAt = block.timestamp;
     }
 
     /**
@@ -767,6 +752,9 @@ contract Colosseum is Initializable, ISemver {
         if (status != ChallengeStatus.READY_TO_PROVE && status != ChallengeStatus.ASSERTER_TIMEOUT)
             revert ImproperChallengeStatus();
 
+        // Slice from index 8 to 40 to extract the srcOutputRoot,
+        // as publicValues contains concatenated bytes32 values.
+        // Each bytes32 value occupies 32 bytes, so this range corresponds to the first public input.
         bytes32 srcOutput = bytes32(_zkVmProof.publicValues[8:40]);
         bytes32 dstOutput;
         if (srcOutput == challenge.segment.output) {
@@ -879,7 +867,7 @@ contract Colosseum is Initializable, ISemver {
         delete challenges[_outputIndex][_challenger];
         Types.Assertion storage assertion = assertions[_outputIndex];
         assertion.numberOfChallenges--;
-        emit ChallengerHasTimedOut(_outputIndex, _challenger, block.timestamp);
+        emit ChallengerTimedOut(_outputIndex, _challenger, block.timestamp);
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
