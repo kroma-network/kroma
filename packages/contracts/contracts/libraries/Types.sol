@@ -221,7 +221,7 @@ library Types {
      * Belows are possible state transitions at current implementation.
      *
      *  1) IN_PROGRESS      → createAssertion()
-     *  2) ACCEPTED      → when challenge period has expired
+     *  2) ACCEPTED      → when challenger's timer has expired
      *  3) REJECTED      → when proveFault() succeeds or asserter timeout
      *  4) RESTORED    → when deleted output is restored by SC
      */

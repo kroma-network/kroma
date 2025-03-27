@@ -235,9 +235,9 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(challenge.turn, 1);
         assertEq(
             challenge.challengerTimeLeft,
-            colosseum.MAX_CLOCK_DURATION() - (block.timestamp - assertion.assertedAt)
+            colosseum.MAX_CLOCK_DURATION_SECONDS() - (block.timestamp - assertion.assertedAt)
         );
-        assertEq(challenge.asserterTimeLeft, colosseum.MAX_CLOCK_DURATION());
+        assertEq(challenge.asserterTimeLeft, colosseum.MAX_CLOCK_DURATION_SECONDS());
         assertEq(challenge.updatedAt, block.timestamp);
         assertEq(challenge.segment.start, assertion.startL2BlockNumber);
         assertEq(challenge.segment.end, targetOutput.l2BlockNumber);
@@ -337,7 +337,7 @@ contract ColosseumTest is Colosseum_Initializer {
         assertEq(colosseum.L2_ORACLE_SUBMISSION_INTERVAL(), submissionInterval);
         assertEq(colosseum.SECURITY_COUNCIL(), address(securityCouncil));
         assertEq(colosseum.L2_ORACLE_SUBMISSION_INTERVAL(), submissionInterval);
-        assertEq(colosseum.MAX_CLOCK_DURATION(), maxClockDuration);
+        assertEq(colosseum.MAX_CLOCK_DURATION_SECONDS(), maxClockDuration);
         assertEq(colosseum.GUARDIAN_PERIOD(), guardianPeriod);
     }
 
@@ -469,11 +469,10 @@ contract ColosseumTest is Colosseum_Initializer {
         );
 
         vm.prank(challenger);
-        vm.expectRevert(Colosseum.OutputAlreadyDeleted.selector);
+        vm.expectRevert(Colosseum.NotChallengeable.selector);
         colosseum.createChallenge(outputIndex, bytes32(0), 0);
     }
 
-    // TODO : 이 test case에 대응하는게 있는지 확인
     function test_challengerTimeout_reverts() public {
         uint256 outputIndex = targetOutputIndex;
         _createChallenge(outputIndex, challenger);
@@ -491,12 +490,13 @@ contract ColosseumTest is Colosseum_Initializer {
         colosseum.challengerTimeout(outputIndex, challenge.challenger);
     }
 
-    function test_createChallenge_afterDismissed_succeeds() external {
+    function test_createChallenge_afterDismissed_reverts() external {
         uint256 outputIndex = targetOutputIndex;
 
         test_dismissChallenge_succeeds();
 
-        _createChallenge(outputIndex, challenger);
+        vm.expectRevert(Colosseum.NotChallengeable.selector);
+        colosseum.createChallenge(outputIndex, bytes32(0), 0);
     }
 
     function test_createChallenge_wrongFork_reverts() external {
@@ -898,7 +898,7 @@ contract ColosseumTest is Colosseum_Initializer {
     }
 
     function test_cancelChallenge_noChallenge_reverts() external {
-        vm.expectRevert(Colosseum.CannotCancelChallenge.selector);
+        vm.expectRevert(Colosseum.InvalidOutputGiven.selector);
         colosseum.cancelChallenge(0);
     }
 

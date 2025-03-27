@@ -327,8 +327,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             _guardian: guardian,
             _paused: false,
             _config: systemConfig,
-            _zkMerkleTrie: ZKMerkleTrie(address(0)),
-            _colosseum: address(0)
+            _zkMerkleTrie: ZKMerkleTrie(address(0))
         });
 
         // Deploy the ValidatorPool
@@ -531,8 +530,7 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
             _guardian: guardian,
             _paused: true,
             _config: systemConfig,
-            _zkMerkleTrie: zkMerkleTrie,
-            _colosseum: address(colosseum)
+            _zkMerkleTrie: zkMerkleTrie
         });
         Proxy proxy = new Proxy(multisig);
         vm.prank(multisig);
@@ -542,9 +540,7 @@ contract Portal_Initializer is L2OutputOracle_Initializer, Poseidon2Deployer {
         );
         portal = KromaPortal(payable(address(proxy)));
         vm.label(address(portal), "KromaPortal");
-        finalizationPeriod =
-            portal.COLOSSEUM().GUARDIAN_PERIOD() +
-            portal.COLOSSEUM().MAX_CLOCK_DURATION();
+        finalizationPeriod = colosseum.GUARDIAN_PERIOD() + colosseum.MAX_CLOCK_DURATION_SECONDS();
     }
 }
 
@@ -828,13 +824,10 @@ contract Colosseum_Initializer is Portal_Initializer {
             _submissionInterval: submissionInterval,
             _securityCouncil: address(securityCouncil),
             _guardianPeriod: guardianPeriod,
-            _maxClockDuration: maxClockDuration
+            _maxClockDurationSeconds: maxClockDuration
         });
         vm.prank(multisig);
-        toProxy(address(colosseum)).upgradeToAndCall(
-            address(colosseumImpl),
-            abi.encodeCall(Colosseum.initialize, ())
-        );
+        toProxy(address(colosseum)).upgradeTo(address(colosseumImpl));
     }
 }
 

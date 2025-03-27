@@ -479,7 +479,9 @@ contract L2OutputOracle is Initializable, ISemver {
             }
             if (
                 block.timestamp <=
-                assertion.assertedAt + colosseum.GUARDIAN_PERIOD() + colosseum.MAX_CLOCK_DURATION()
+                assertion.assertedAt +
+                    colosseum.GUARDIAN_PERIOD() +
+                    colosseum.MAX_CLOCK_DURATION_SECONDS()
             ) {
                 return false;
             }

@@ -87,7 +87,7 @@ interface IColosseum {
 
     function GUARDIAN_PERIOD() external view returns (uint256);
 
-    function MAX_CLOCK_DURATION() external view returns (uint256);
+    function MAX_CLOCK_DURATION_SECONDS() external view returns (uint256);
 
     function bisect(
         uint256 _outputIndex,

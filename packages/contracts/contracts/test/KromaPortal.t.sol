@@ -314,8 +314,9 @@ contract KromaPortal_Test is Portal_Initializer {
 
         Types.Assertion memory assertion;
         assertion.assertedAt = ts;
+
         vm.mockCall(
-            address(portal.COLOSSEUM()),
+            portal.L2_ORACLE().COLOSSEUM(),
             abi.encodeWithSelector(IColosseum.getAssertion.selector),
             abi.encode(assertion)
         );
@@ -817,7 +818,7 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         Types.Assertion memory assertion;
         assertion.assertedAt = block.timestamp;
         vm.mockCall(
-            address(portal.COLOSSEUM()),
+            portal.L2_ORACLE().COLOSSEUM(),
             abi.encodeWithSelector(IColosseum.getAssertion.selector),
             abi.encode(assertion)
         );

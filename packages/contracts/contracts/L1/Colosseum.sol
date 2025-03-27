@@ -52,7 +52,7 @@ contract Colosseum is Initializable, ISemver {
     /**
      * @notice A duration for asserter(or challenger) timeout.
      */
-    uint256 public immutable MAX_CLOCK_DURATION;
+    uint256 public immutable MAX_CLOCK_DURATION_SECONDS;
 
     /**
      * @notice Address of the L2OutputOracle.
@@ -101,7 +101,7 @@ contract Colosseum is Initializable, ISemver {
     mapping(uint256 => Types.CheckpointOutput) public deletedOutputs;
 
     /**
-     * @notice A mapping of the assertion.
+     * @notice Maps each output index to its corresponding assertion object.
      */
     mapping(uint256 => Types.Assertion) public assertions;
 
@@ -359,12 +359,12 @@ contract Colosseum is Initializable, ISemver {
     /**
      * @notice Constructs the Colosseum contract.
      *
-     * @param _l2Oracle              Address of the L2OutputOracle contract.
-     * @param _zkProofVerifier       Address of the ZKProofVerifier contract.
-     * @param _submissionInterval    Interval in blocks at which checkpoints must be submitted.
-     * @param _securityCouncil       Address of security council.
-     * @param _guardianPeriod       A period during which guardians verify whether the challenge result is correct.
-     * @param _maxClockDuration      A duration for asserter(or challenger) timeout.
+     * @param _l2Oracle                Address of the L2OutputOracle contract.
+     * @param _zkProofVerifier         Address of the ZKProofVerifier contract.
+     * @param _submissionInterval      Interval in blocks at which checkpoints must be submitted.
+     * @param _securityCouncil         Address of security council.
+     * @param _guardianPeriod          A period during which guardians verify whether the challenge result is correct.
+     * @param _maxClockDurationSeconds A duration for asserter(or challenger) timeout.
      */
     constructor(
         address _l2Oracle,
@@ -372,21 +372,15 @@ contract Colosseum is Initializable, ISemver {
         uint256 _submissionInterval,
         address _securityCouncil,
         uint256 _guardianPeriod,
-        uint256 _maxClockDuration
+        uint256 _maxClockDurationSeconds
     ) {
         L2_ORACLE = IL2OutputOracle(_l2Oracle);
         ZK_PROOF_VERIFIER = _zkProofVerifier;
         L2_ORACLE_SUBMISSION_INTERVAL = _submissionInterval;
         SECURITY_COUNCIL = _securityCouncil;
         GUARDIAN_PERIOD = _guardianPeriod;
-        MAX_CLOCK_DURATION = _maxClockDuration;
-        initialize();
+        MAX_CLOCK_DURATION_SECONDS = _maxClockDurationSeconds;
     }
-
-    /**
-     * @notice Initializer.
-     */
-    function initialize() public initializer {}
 
     /**
      * @notice Allows an asserter to claim that a specific output is correct.
@@ -402,18 +396,19 @@ contract Colosseum is Initializable, ISemver {
             finalizedOutputIndex--;
         }
 
-        Types.CheckpointOutput memory finalizedOutput = L2_ORACLE.getL2Output(finalizedOutputIndex);
-
-        uint256 start = finalizedOutput.l2BlockNumber;
         Types.Assertion storage assertion = assertions[_outputIndex];
+
         if (assertion.asserter != address(0)) {
             revert AssertionAlreadyCreated();
         }
 
-        assertion.startL2BlockNumber = start;
+        Types.CheckpointOutput memory finalizedOutput = L2_ORACLE.getL2Output(finalizedOutputIndex);
+
+        assertion.startL2BlockNumber = finalizedOutput.l2BlockNumber;
         assertion.startOutputRoot = finalizedOutput.outputRoot;
         assertion.asserter = asserter;
         assertion.assertedAt = block.timestamp;
+        assertion.status = Types.AssertionStatus.IN_PROGRESS;
 
         emit AssertionCreated(_outputIndex, asserter, block.timestamp);
     }
@@ -450,14 +445,16 @@ contract Colosseum is Initializable, ISemver {
 
         Types.Assertion storage assertion = assertions[_outputIndex];
 
-        if (assertion.status != Types.AssertionStatus.IN_PROGRESS) {
+        if (
+            assertion.status == Types.AssertionStatus.REJECTED ||
+            assertion.status == Types.AssertionStatus.RESTORED
+        ) {
             revert NotChallengeable();
         }
 
         assertion.numberOfChallenges++;
 
         Types.CheckpointOutput memory targetOutput = L2_ORACLE.getL2Output(_outputIndex);
-        if (targetOutput.outputRoot == DELETED_OUTPUT_ROOT) revert OutputAlreadyDeleted();
 
         if (msg.sender == targetOutput.submitter) revert NotAllowedCaller();
 
@@ -471,12 +468,12 @@ contract Colosseum is Initializable, ISemver {
         challenge.turn = TURN_INIT;
 
         uint256 elapsed = block.timestamp - assertion.assertedAt;
-        if (elapsed >= MAX_CLOCK_DURATION) {
+        if (elapsed >= MAX_CLOCK_DURATION_SECONDS) {
             revert ChallengerTimeoutError();
         }
 
-        challenge.challengerTimeLeft = MAX_CLOCK_DURATION - elapsed;
-        challenge.asserterTimeLeft = MAX_CLOCK_DURATION;
+        challenge.challengerTimeLeft = MAX_CLOCK_DURATION_SECONDS - elapsed;
+        challenge.asserterTimeLeft = MAX_CLOCK_DURATION_SECONDS;
         challenge.updatedAt = block.timestamp;
         challenge.segment.start = assertion.startL2BlockNumber;
         challenge.segment.startOutput = assertion.startOutputRoot;
@@ -520,15 +517,14 @@ contract Colosseum is Initializable, ISemver {
             revert InvalidOutputGiven();
         }
 
-        if (assertion.status != Types.AssertionStatus.IN_PROGRESS) {
-            revert NotChallengeable();
-        }
-
         Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
         ChallengeStatus status = _challengeStatus(challenge);
-
-        if (_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status)) {
+        if (_cancelIfChallengeImpossible(_outputIndex, challenge.challenger, status)) {
             return;
+        }
+
+        if (assertion.status != Types.AssertionStatus.IN_PROGRESS) {
+            revert NotChallengeable();
         }
 
         uint256 elapsed = block.timestamp - challenge.updatedAt;
@@ -619,12 +615,13 @@ contract Colosseum is Initializable, ISemver {
         Types.Assertion storage assertion = assertions[_outputIndex];
         if (
             assertion.numberOfChallenges > 0 ||
-            block.timestamp - assertion.assertedAt < MAX_CLOCK_DURATION
+            block.timestamp - assertion.assertedAt < MAX_CLOCK_DURATION_SECONDS
         ) {
             revert AssertionNotAcceptable();
         }
 
         assertion.acceptedAt = block.timestamp;
+        assertion.status = Types.AssertionStatus.ACCEPTED;
     }
 
     /**
@@ -637,7 +634,11 @@ contract Colosseum is Initializable, ISemver {
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
 
         if (
-            !_cancelIfOutputDeleted(_outputIndex, challenge.challenger, _challengeStatus(challenge))
+            !_cancelIfChallengeImpossible(
+                _outputIndex,
+                challenge.challenger,
+                _challengeStatus(challenge)
+            )
         ) revert CannotCancelChallenge();
     }
 
@@ -676,6 +677,9 @@ contract Colosseum is Initializable, ISemver {
         // Rollback output root.
         L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, _asserter);
 
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        assertion.status = Types.AssertionStatus.RESTORED;
+
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
             // Revert slash asserter.
@@ -703,6 +707,8 @@ contract Colosseum is Initializable, ISemver {
 
         // Delete output root.
         L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, SECURITY_COUNCIL);
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        assertion.status = Types.AssertionStatus.REJECTED;
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
@@ -740,7 +746,7 @@ contract Colosseum is Initializable, ISemver {
         Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
         ChallengeStatus status = _challengeStatus(challenge);
 
-        if (_cancelIfOutputDeleted(_outputIndex, challenge.challenger, status)) {
+        if (_cancelIfChallengeImpossible(_outputIndex, challenge.challenger, status)) {
             return;
         }
 
@@ -811,16 +817,16 @@ contract Colosseum is Initializable, ISemver {
         delete challenges[_outputIndex][msg.sender];
 
         assertion.rejectedAt = block.timestamp;
+        assertion.status = Types.AssertionStatus.REJECTED;
 
         // Delete output root.
         L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, msg.sender);
     }
 
     /**
-     * @notice Cancels the challenge if the output root to be challenged has already been deleted.
-     *         If the output root has been deleted, delete the challenge. Note that before validator
-     *         system upgrade, also refund the challenger's pending bond in validator pool.
-     *         Reverts when challenger is timed out or called by non-challenger.
+     * @notice Cancels the challenge if it can no longer be progressed.
+     *         A challenge becomes unresolvable when the associated assertion is either RESTORED or REJECTED.
+     *         Reverts if the challenger is timed out or called by a non-challenger.
      *
      * @param _outputIndex Index of the L2 checkpoint output.
      * @param _challenger  Address of the challenger.
@@ -828,12 +834,21 @@ contract Colosseum is Initializable, ISemver {
      *
      * @return Whether the challenge was canceled.
      */
-    function _cancelIfOutputDeleted(
+    function _cancelIfChallengeImpossible(
         uint256 _outputIndex,
         address _challenger,
         ChallengeStatus _status
     ) private returns (bool) {
-        if (L2_ORACLE.getL2Output(_outputIndex).outputRoot != DELETED_OUTPUT_ROOT) {
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        // If assertion doesn't exist
+        if (assertion.assertedAt == 0) {
+            revert InvalidOutputGiven();
+        }
+
+        if (
+            assertion.status == Types.AssertionStatus.IN_PROGRESS ||
+            assertion.status == Types.AssertionStatus.ACCEPTED
+        ) {
             return false;
         }
 
