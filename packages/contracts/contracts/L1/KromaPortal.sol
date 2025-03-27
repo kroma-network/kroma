@@ -15,7 +15,6 @@ import { ResourceMetering } from "./ResourceMetering.sol";
 import { SystemConfig } from "./SystemConfig.sol";
 import { ZKMerkleTrie } from "./ZKMerkleTrie.sol";
 import { Types } from "../libraries/Types.sol";
-import { IColosseum } from "./interfaces/IColosseum.sol";
 
 /**
  * @custom:proxied
@@ -68,11 +67,6 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
      * @notice MultiSig wallet address that has the ability to pause and unpause withdrawals.
      */
     address public immutable GUARDIAN;
-
-    /**
-     * @notice Address of Colosseum contract
-     */
-    IColosseum public immutable COLOSSEUM;
 
     /**
      * @notice Address of the ZKMerkleTrie.
@@ -184,15 +178,13 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
         address _guardian,
         bool _paused,
         SystemConfig _config,
-        ZKMerkleTrie _zkMerkleTrie,
-        address _colosseum
+        ZKMerkleTrie _zkMerkleTrie
     ) {
         L2_ORACLE = _l2Oracle;
         VALIDATOR_POOL = _validatorPool;
         GUARDIAN = _guardian;
         SYSTEM_CONFIG = _config;
         ZK_MERKLE_TRIE = _zkMerkleTrie;
-        COLOSSEUM = IColosseum(_colosseum);
         initialize(_paused);
     }
 

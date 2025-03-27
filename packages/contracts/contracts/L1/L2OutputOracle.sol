@@ -456,23 +456,37 @@ contract L2OutputOracle is Initializable, ISemver {
      * @return If the given output is finalized or not.
      */
     function isFinalized(uint256 _outputIndex) external view returns (bool) {
+        // The genesis output is treated as a finalized output.
         if (_outputIndex == 0) {
             return true;
         }
 
-        Types.Assertion memory assertion = IColosseum(COLOSSEUM).getAssertion(_outputIndex);
-        if (
-            (assertion.assertedAt != 0 &&
-                assertion.status == Types.AssertionStatus.IN_PROGRESS &&
-                assertion.numberOfChallenges == 0 &&
-                block.timestamp - assertion.assertedAt >
-                IColosseum(COLOSSEUM).GUARDIAN_PERIOD() +
-                    IColosseum(COLOSSEUM).MAX_CLOCK_DURATION()) ||
-            (assertion.acceptedAt != 0 &&
-                block.timestamp - assertion.acceptedAt > IColosseum(COLOSSEUM).GUARDIAN_PERIOD())
-        ) {
-            return true;
+        IColosseum colosseum = IColosseum(COLOSSEUM);
+        Types.Assertion memory assertion = colosseum.getAssertion(_outputIndex);
+        if (assertion.assertedAt == 0) {
+            return false;
         }
-        return false;
+
+        if (assertion.status == Types.AssertionStatus.RESTORED) {
+            return true; // RESTORED assertions are considered finalized due to social resolution (guardian mechanism).
+        } else if (assertion.status == Types.AssertionStatus.ACCEPTED) {
+            if (block.timestamp <= assertion.acceptedAt + colosseum.GUARDIAN_PERIOD()) {
+                return false;
+            }
+        } else if (assertion.status == Types.AssertionStatus.IN_PROGRESS) {
+            if (assertion.numberOfChallenges > 0) {
+                return false;
+            }
+            if (
+                block.timestamp <=
+                assertion.assertedAt + colosseum.GUARDIAN_PERIOD() + colosseum.MAX_CLOCK_DURATION()
+            ) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        return true;
     }
 }
