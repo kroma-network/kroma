@@ -146,6 +146,18 @@ library Types {
         bytes data;
     }
 
+    /**
+     * @notice Struct representing a challenge.
+     *
+     * @custom:field turn               The current turn.
+     * @custom:field asserterTimeLeft   Total remaining time for the asserter in the challenge, based on the chess clock model.
+     * @custom:field challengerTimeLeft Total remaining time for the challenger in the challenge, based on the chess clock model.
+     * @custom:field updatedAt          Timestamp of the last update to the challenge.
+     * @custom:field asserter           Address of the asserter.
+     * @custom:field challenger         Address of the challenger.
+     * @custom:field segment            The segment being disputed in the challenge.
+     * @custom:field l1Head             The L1 head at the time of challenge creation.
+     */
     struct Challenge {
         uint256 turn;
         uint256 asserterTimeLeft;
@@ -157,6 +169,16 @@ library Types {
         bytes32 l1Head;
     }
 
+    /**
+     * @notice A struct grouping output-related values to avoid stack too deep errors.
+     *
+     * @custom:field output      The output value at the specified position.
+     * @custom:field pos         The mid-point position within the current start and end range.
+     * @custom:field start       The starting position of the current segment.
+     * @custom:field end         The ending position of the current segment.
+     * @custom:field startOutput The output value at the start position.
+     * @custom:field endOutput   The output value at the end position.
+     */
     struct Segment {
         bytes32 output;
         uint256 pos;
@@ -167,15 +189,16 @@ library Types {
     }
 
     /**
-     * @notice Struct representing a challenge.
+     * @notice Struct representing a assertion.
      *
      * @custom:field startL2BlockNumber  start l2 block number for bisection.
      * @custom:field startOutputRoot   output.
      * @custom:field asserter   Address of the asserter.
-     * @custom:field assertedAt timestamp of Assertion.
-     * @custom:field acceptedAt
-     * @custom:field rejectedAt
-     * @custom:field status
+     * @custom:field assertedAt Timestamp when the assertion was created
+     * @custom:field acceptedAt Timestamp when the assertion was accepted.
+     * @custom:field rejectedAt Timestamp when the assertion was rejected.
+     * @custom:field status Current status of the assertion.
+     * @custom:field numberOfChallenges Number of challenges raised against the assertion.
      */
     struct Assertion {
         uint256 startL2BlockNumber;

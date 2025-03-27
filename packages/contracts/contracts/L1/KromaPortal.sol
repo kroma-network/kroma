@@ -380,7 +380,6 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
             "KromaPortal: withdrawal timestamp less than L2 Oracle starting timestamp"
         );
 
-        // TODO: why is this necessary?
         // A proven withdrawal must wait at least the finalization period before it can be
         // finalized. This waiting period can elapse in parallel with the waiting period for the
         // output the withdrawal was proven against. In effect, this means that the minimum
