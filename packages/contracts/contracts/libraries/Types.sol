@@ -191,18 +191,16 @@ library Types {
     /**
      * @notice Struct representing a assertion.
      *
-     * @custom:field startL2BlockNumber  start l2 block number for bisection.
-     * @custom:field startOutputRoot   output.
-     * @custom:field asserter   Address of the asserter.
-     * @custom:field assertedAt Timestamp when the assertion was created
-     * @custom:field acceptedAt Timestamp when the assertion was accepted.
-     * @custom:field rejectedAt Timestamp when the assertion was rejected.
-     * @custom:field status Current status of the assertion.
-     * @custom:field numberOfChallenges Number of challenges raised against the assertion.
+     * @custom:field latestFinalizedOutputIndex Starting point for bisection.
+     * @custom:field asserter                   Address of the asserter.
+     * @custom:field assertedAt                 Timestamp when the assertion was created
+     * @custom:field acceptedAt                 Timestamp when the assertion was accepted.
+     * @custom:field rejectedAt                 Timestamp when the assertion was rejected.
+     * @custom:field status                     Current status of the assertion.
+     * @custom:field numberOfChallenges         Number of challenges raised against the assertion.
      */
     struct Assertion {
-        uint256 startL2BlockNumber;
-        bytes32 startOutputRoot;
+        uint256 latestFinalizedOutputIndex;
         address asserter;
         uint256 assertedAt;
         uint256 acceptedAt;
@@ -212,7 +210,7 @@ library Types {
     }
 
     /**
-   * @notice Enum of the Assertion status.
+     * @notice Enum of the Assertion status.
      *
      // TODO fix the url
      * See the https://specs.kroma.network/fault-proof/challenge.html#state-diagram

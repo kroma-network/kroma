@@ -310,6 +310,32 @@ contract L2OutputOracle is Initializable, ISemver {
     }
 
     /**
+     * @notice Returns the latest finalized output.
+     *
+     * @return Latest finalized output
+     */
+    function getLatestFinalizeOutput() external view returns (Types.CheckpointOutput memory) {
+        if (nextFinalizeOutputIndex > 0) {
+            return l2Outputs[nextFinalizeOutputIndex - 1];
+        } else {
+            return l2Outputs[nextFinalizeOutputIndex];
+        }
+    }
+
+    /**
+     * @notice Returns the index of the latest finalized output.
+     *
+     * @return Latest finalized output index
+     */
+    function getLatestFinalizeOutputIndex() external view returns (uint256) {
+        if (nextFinalizeOutputIndex > 0) {
+            return nextFinalizeOutputIndex - 1;
+        } else {
+            return nextFinalizeOutputIndex;
+        }
+    }
+
+    /**
      * @notice Returns an output by index. Reverts if output is not found at the given index.
      *
      * @param _l2OutputIndex Index of the output to return.

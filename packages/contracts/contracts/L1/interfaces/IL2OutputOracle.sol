@@ -45,6 +45,10 @@ interface IL2OutputOracle {
 
     function getL2OutputIndexAfter(uint256 _l2BlockNumber) external view returns (uint256);
 
+    function getLatestFinalizeOutput() external view returns (Types.CheckpointOutput memory);
+
+    function getLatestFinalizeOutputIndex() external view returns (uint256);
+
     function getSubmitter(uint256 _outputIndex) external view returns (address);
 
     function initialize(uint256 _startingBlockNumber, uint256 _startingTimestamp) external;

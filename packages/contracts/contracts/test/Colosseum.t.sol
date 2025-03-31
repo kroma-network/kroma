@@ -59,11 +59,6 @@ contract ColosseumTest is Colosseum_Initializer {
     mapping(address => bool) internal isChallenger;
 
     event ReadyToProve(uint256 indexed outputIndex, address indexed challenger);
-    event AssertionCreated(
-        uint256 indexed outputIndex,
-        address indexed asserter,
-        uint256 timestamp
-    );
     event ChallengeCreated(
         uint256 indexed outputIndex,
         address indexed asserter,
@@ -206,13 +201,20 @@ contract ColosseumTest is Colosseum_Initializer {
         uint256 _targetOutputIndex = oracle.latestOutputIndex() + 1;
 
         // Expect a burn event.
-        vm.expectEmit(true, true, false, true);
-        emit AssertionCreated(_targetOutputIndex, submitter, block.timestamp);
+        vm.expectEmit(true, true, true, true);
+        emit OutputSubmitted(
+            bytes32(nextBlockNumber),
+            _targetOutputIndex,
+            nextBlockNumber,
+            block.timestamp
+        );
+
         vm.prank(submitter);
         oracle.submitL2Output(bytes32(nextBlockNumber), nextBlockNumber, 0, 0);
     }
 
     function _createChallenge(uint256 _outputIndex, address _challenger) private {
+        Types.CheckpointOutput memory latestFinalizedOutput = oracle.getLatestFinalizeOutput();
         Types.CheckpointOutput memory targetOutput = oracle.getL2Output(_outputIndex);
         uint256 end = targetOutput.l2BlockNumber;
         uint256 start = end - oracle.SUBMISSION_INTERVAL();
@@ -239,11 +241,11 @@ contract ColosseumTest is Colosseum_Initializer {
         );
         assertEq(challenge.asserterTimeLeft, colosseum.MAX_CLOCK_DURATION_SECONDS());
         assertEq(challenge.updatedAt, block.timestamp);
-        assertEq(challenge.segment.start, assertion.startL2BlockNumber);
+        assertEq(challenge.segment.start, latestFinalizedOutput.l2BlockNumber);
         assertEq(challenge.segment.end, targetOutput.l2BlockNumber);
         assertEq(
             challenge.segment.pos,
-            (targetOutput.l2BlockNumber + assertion.startL2BlockNumber) / 2
+            (targetOutput.l2BlockNumber + latestFinalizedOutput.l2BlockNumber) / 2
         );
         assertEq(challenge.l1Head, blockhash(block.number - 1));
     }
@@ -411,7 +413,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(block.timestamp + challenge.challengerTimeLeft);
         vm.prank(challenge.challenger);
-        vm.expectRevert(Colosseum.ChallengerTimeoutError.selector);
+        vm.expectRevert(Colosseum.ChallengerTimeout.selector);
         colosseum.bisect(outputIndex, challenge.challenger, position, output);
     }
 
@@ -429,7 +431,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(block.timestamp + challenge.asserterTimeLeft);
         vm.prank(challenge.asserter);
-        vm.expectRevert(Colosseum.AsserterTimeoutError.selector);
+        vm.expectRevert(Colosseum.AsserterTimeout.selector);
         colosseum.bisect(outputIndex, challenge.challenger, position, output);
     }
 
@@ -558,7 +560,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(block.timestamp + challenge.asserterTimeLeft + 1);
         vm.prank(challenge.asserter);
-        vm.expectRevert(Colosseum.AsserterTimeoutError.selector);
+        vm.expectRevert(Colosseum.AsserterTimeout.selector);
         colosseum.bisect(outputIndex, challenge.challenger, 0, 0);
 
         assertEq(
@@ -581,7 +583,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.warp(block.timestamp + challenge.challengerTimeLeft + 1);
         vm.prank(challenge.challenger);
-        vm.expectRevert(Colosseum.ChallengerTimeoutError.selector);
+        vm.expectRevert(Colosseum.ChallengerTimeout.selector);
         colosseum.bisect(outputIndex, challenge.challenger, 0, 0);
 
         assertEq(
