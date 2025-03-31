@@ -89,7 +89,8 @@ contract ColosseumTest is Colosseum_Initializer {
             submissionInterval,
             address(securityCouncil),
             guardianPeriod,
-            maxClockDuration
+            maxClockDuration,
+            challengeGracePeriod
         );
         vm.prank(multisig);
         Proxy(payable(address(colosseum))).upgradeTo(address(mockColosseumImpl));
@@ -450,6 +451,53 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.expectEmit(true, true, false, true);
         emit ChallengerTimedOut(outputIndex, challenge.challenger, block.timestamp);
         vm.prank(challenge.asserter);
+        colosseum.challengerTimeout(outputIndex, challenge.challenger);
+    }
+
+    function test_challengerTimeout_whenReadyToProve_succeeds() public {
+        uint256 outputIndex = targetOutputIndex;
+        _createChallenge(outputIndex, challenger);
+
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex, challenger);
+
+        while (mockColosseum.isAbleToBisect(outputIndex, challenge.challenger)) {
+            challenge = colosseum.getChallenge(outputIndex, challenge.challenger);
+            _bisect(outputIndex, challenge.challenger, nextSender(challenge));
+        }
+
+        assertEq(
+            uint256(colosseum.getStatus(outputIndex, challenger)),
+            uint256(Colosseum.ChallengeStatus.READY_TO_PROVE)
+        );
+
+        vm.warp(block.timestamp + challenge.challengerTimeLeft + challengeGracePeriod);
+
+        vm.expectEmit(true, true, false, true);
+        emit ChallengerTimedOut(outputIndex, challenge.challenger, block.timestamp);
+        vm.prank(challenge.asserter);
+        colosseum.challengerTimeout(outputIndex, challenge.challenger);
+    }
+
+    function test_challengerTimeout_whenReadyToProve_reverts() public {
+        uint256 outputIndex = targetOutputIndex;
+        _createChallenge(outputIndex, challenger);
+
+        Types.Challenge memory challenge = colosseum.getChallenge(outputIndex, challenger);
+
+        while (mockColosseum.isAbleToBisect(outputIndex, challenge.challenger)) {
+            challenge = colosseum.getChallenge(outputIndex, challenge.challenger);
+            _bisect(outputIndex, challenge.challenger, nextSender(challenge));
+        }
+
+        assertEq(
+            uint256(colosseum.getStatus(outputIndex, challenger)),
+            uint256(Colosseum.ChallengeStatus.READY_TO_PROVE)
+        );
+
+        vm.warp(block.timestamp + challenge.challengerTimeLeft + challengeGracePeriod - 1);
+
+        vm.prank(challenge.asserter);
+        vm.expectRevert(Colosseum.ImproperChallengeStatus.selector);
         colosseum.challengerTimeout(outputIndex, challenge.challenger);
     }
 

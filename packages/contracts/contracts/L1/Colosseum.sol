@@ -81,6 +81,12 @@ contract Colosseum is Initializable, ISemver {
     uint256 public immutable GUARDIAN_PERIOD;
 
     /**
+     * @notice The grace period that provides additional time for the challenger's timer
+     *         to allow for zk proof generation.
+     */
+    uint256 public immutable CHALLENGE_GRACE_PERIOD;
+
+    /**
      * @notice legacy space for the mapping of segmentsLengths.
      */
     uint256 private spacer_1_0_32;
@@ -369,6 +375,7 @@ contract Colosseum is Initializable, ISemver {
      * @param _securityCouncil         Address of security council.
      * @param _guardianPeriod          A period during which guardians verify whether the challenge result is correct.
      * @param _maxClockDurationSeconds A duration for asserter(or challenger) timeout.
+     * @param _challengeGracePeriod    The grace period that provides additional time for the challenger’s timer.
      */
     constructor(
         address _l2Oracle,
@@ -376,7 +383,8 @@ contract Colosseum is Initializable, ISemver {
         uint256 _submissionInterval,
         address _securityCouncil,
         uint256 _guardianPeriod,
-        uint256 _maxClockDurationSeconds
+        uint256 _maxClockDurationSeconds,
+        uint256 _challengeGracePeriod
     ) {
         L2_ORACLE = IL2OutputOracle(_l2Oracle);
         ZK_PROOF_VERIFIER = _zkProofVerifier;
@@ -384,6 +392,7 @@ contract Colosseum is Initializable, ISemver {
         SECURITY_COUNCIL = _securityCouncil;
         GUARDIAN_PERIOD = _guardianPeriod;
         MAX_CLOCK_DURATION_SECONDS = _maxClockDurationSeconds;
+        CHALLENGE_GRACE_PERIOD = _challengeGracePeriod;
     }
 
     /**
@@ -1014,7 +1023,13 @@ contract Colosseum is Initializable, ISemver {
         address _actor
     ) internal view returns (bool) {
         if (_actor == challenge.challenger) {
-            return block.timestamp - challenge.updatedAt >= challenge.challengerTimeLeft;
+            if (_isAbleToBisect(challenge)) {
+                return block.timestamp - challenge.updatedAt >= challenge.challengerTimeLeft;
+            } else {
+                return
+                    block.timestamp - challenge.updatedAt >=
+                    challenge.challengerTimeLeft + CHALLENGE_GRACE_PERIOD;
+            }
         } else if (_actor == challenge.asserter) {
             return block.timestamp - challenge.updatedAt >= challenge.asserterTimeLeft;
         } else {

@@ -12,7 +12,8 @@ contract MockColosseum is Colosseum {
         uint256 _submissionInterval,
         address _securityCouncil,
         uint256 _guardianPeriod,
-        uint256 _maxClockDuration
+        uint256 _maxClockDuration,
+        uint256 _challengeGracePeriod
     )
         Colosseum(
             _l2Oracle,
@@ -20,7 +21,8 @@ contract MockColosseum is Colosseum {
             _submissionInterval,
             _securityCouncil,
             _guardianPeriod,
-            _maxClockDuration
+            _maxClockDuration,
+            _challengeGracePeriod
         )
     {}
 

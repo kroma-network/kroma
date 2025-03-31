@@ -221,6 +221,7 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
     address internal guardian = 0x000000000000000000000000000000000000AaaD;
     uint256 guardianPeriod = 3.5 days;
     uint256 maxClockDuration = 3.5 days;
+    uint256 challengeGracePeriod = 4 hours;
 
     // ValidatorPool constructor arguments
     address internal trusted = 0x000000000000000000000000000000000000aaaa;
@@ -384,7 +385,8 @@ contract L2OutputOracle_Initializer is UpgradeGovernor_Initializer {
             submissionInterval,
             guardian,
             guardianPeriod,
-            maxClockDuration
+            maxClockDuration,
+            challengeGracePeriod
         );
         vm.prank(multisig);
         Proxy(payable(address(colosseum))).upgradeTo(address(colosseumImpl));
@@ -824,7 +826,8 @@ contract Colosseum_Initializer is Portal_Initializer {
             _submissionInterval: submissionInterval,
             _securityCouncil: address(securityCouncil),
             _guardianPeriod: guardianPeriod,
-            _maxClockDurationSeconds: maxClockDuration
+            _maxClockDurationSeconds: maxClockDuration,
+            _challengeGracePeriod: challengeGracePeriod
         });
         vm.prank(multisig);
         toProxy(address(colosseum)).upgradeTo(address(colosseumImpl));
