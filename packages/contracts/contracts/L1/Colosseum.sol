@@ -361,6 +361,11 @@ contract Colosseum is Initializable, ISemver {
     error AssertionNotAcceptable();
 
     /**
+     * @notice Reverts when an assertion doesn't exist.
+     */
+    error AssertionNotFound();
+
+    /**
      * @notice Semantic version.
      * @custom:semver 2.0.0
      */
@@ -415,7 +420,6 @@ contract Colosseum is Initializable, ISemver {
         assertion.latestFinalizedOutputIndex = latestFinalizedOutputIndex;
         assertion.asserter = asserter;
         assertion.assertedAt = block.timestamp;
-        assertion.status = Types.AssertionStatus.IN_PROGRESS;
     }
 
     /**
@@ -449,10 +453,10 @@ contract Colosseum is Initializable, ISemver {
         }
 
         Types.Assertion storage assertion = assertions[_outputIndex];
-
+        Types.AssertionStatus assertionStatus = _assertionStatus(assertion);
         if (
-            assertion.status == Types.AssertionStatus.REJECTED ||
-            assertion.status == Types.AssertionStatus.RESTORED
+            assertionStatus == Types.AssertionStatus.REJECTED ||
+            assertionStatus == Types.AssertionStatus.ENFORCED
         ) {
             revert NotChallengeable();
         }
@@ -534,7 +538,11 @@ contract Colosseum is Initializable, ISemver {
             return;
         }
 
-        if (assertion.status != Types.AssertionStatus.IN_PROGRESS) {
+        Types.AssertionStatus assertionStatus = _assertionStatus(assertion);
+        if (
+            assertionStatus == Types.AssertionStatus.REJECTED ||
+            assertionStatus == Types.AssertionStatus.ENFORCED
+        ) {
             revert NotChallengeable();
         }
 
@@ -634,16 +642,17 @@ contract Colosseum is Initializable, ISemver {
      */
     function acceptAssertion(uint256 _outputIndex) external {
         Types.Assertion storage assertion = assertions[_outputIndex];
+        Types.AssertionStatus assertionStatus = _assertionStatus(assertion);
+
         if (
             assertion.numberOfChallenges > 0 ||
-            assertion.status != Types.AssertionStatus.IN_PROGRESS ||
+            assertionStatus != Types.AssertionStatus.IN_PROGRESS ||
             block.timestamp - assertion.assertedAt < MAX_CLOCK_DURATION_SECONDS
         ) {
             revert AssertionNotAcceptable();
         }
 
         assertion.acceptedAt = block.timestamp;
-        assertion.status = Types.AssertionStatus.ACCEPTED;
     }
 
     /**
@@ -700,7 +709,7 @@ contract Colosseum is Initializable, ISemver {
         L2_ORACLE.replaceL2Output(_outputIndex, _outputRoot, _asserter);
 
         Types.Assertion storage assertion = assertions[_outputIndex];
-        assertion.status = Types.AssertionStatus.RESTORED;
+        assertion.isEnforced = true;
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
@@ -730,7 +739,7 @@ contract Colosseum is Initializable, ISemver {
         // Delete output root.
         L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, SECURITY_COUNCIL);
         Types.Assertion storage assertion = assertions[_outputIndex];
-        assertion.status = Types.AssertionStatus.REJECTED;
+        assertion.isEnforced = true;
 
         // Switch validator system after validator pool contract terminated.
         if (L2_ORACLE.VALIDATOR_POOL().isTerminated(_outputIndex)) {
@@ -773,7 +782,11 @@ contract Colosseum is Initializable, ISemver {
         }
 
         Types.Assertion storage assertion = assertions[_outputIndex];
-        if (assertion.status != Types.AssertionStatus.IN_PROGRESS) {
+        Types.AssertionStatus assertionStatus = _assertionStatus(assertion);
+        if (
+            assertionStatus == Types.AssertionStatus.REJECTED ||
+            assertionStatus == Types.AssertionStatus.ENFORCED
+        ) {
             revert NotChallengeable();
         }
 
@@ -839,7 +852,6 @@ contract Colosseum is Initializable, ISemver {
         delete challenges[_outputIndex][msg.sender];
 
         assertion.rejectedAt = block.timestamp;
-        assertion.status = Types.AssertionStatus.REJECTED;
 
         // Delete output root.
         L2_ORACLE.replaceL2Output(_outputIndex, DELETED_OUTPUT_ROOT, msg.sender);
@@ -862,14 +874,17 @@ contract Colosseum is Initializable, ISemver {
         ChallengeStatus _status
     ) private returns (bool) {
         Types.Assertion storage assertion = assertions[_outputIndex];
+
         // If assertion doesn't exist
         if (assertion.assertedAt == 0) {
             revert InvalidOutputGiven();
         }
 
+        Types.AssertionStatus assertionStatus = _assertionStatus(assertion);
+
         if (
-            assertion.status == Types.AssertionStatus.IN_PROGRESS ||
-            assertion.status == Types.AssertionStatus.ACCEPTED
+            assertionStatus == Types.AssertionStatus.IN_PROGRESS ||
+            assertionStatus == Types.AssertionStatus.ACCEPTED
         ) {
             return false;
         }
@@ -941,6 +956,30 @@ contract Colosseum is Initializable, ISemver {
     }
 
     /**
+     * @notice Returns status of a given assertion.
+     *
+     * @param _assertion The assertion data.
+     *
+     * @return The status of the assertion.
+     */
+    function _assertionStatus(
+        Types.Assertion storage _assertion
+    ) internal view returns (Types.AssertionStatus) {
+        if (_assertion.assertedAt == 0) {
+            revert AssertionNotFound();
+        }
+        if (_assertion.isEnforced) {
+            return Types.AssertionStatus.ENFORCED;
+        } else if (_assertion.acceptedAt != 0) {
+            return Types.AssertionStatus.ACCEPTED;
+        } else if (_assertion.rejectedAt != 0) {
+            return Types.AssertionStatus.REJECTED;
+        } else {
+            return Types.AssertionStatus.IN_PROGRESS;
+        }
+    }
+
+    /**
      * @notice Returns status of a given challenge.
      *
      * @param _challenge The challenge data.
@@ -1009,6 +1048,19 @@ contract Colosseum is Initializable, ISemver {
         address _challenger
     ) external view returns (ChallengeStatus) {
         return _challengeStatus(challenges[_outputIndex][_challenger]);
+    }
+
+    /**
+     * @notice Returns the assertion status corresponding to the given L2 output index.
+     *
+     * @param _outputIndex Index of the L2 checkpoint output.
+     *
+     * @return The status of the assertion.
+     */
+    function getAssertionStatus(
+        uint256 _outputIndex
+    ) external view returns (Types.AssertionStatus) {
+        return _assertionStatus(assertions[_outputIndex]);
     }
 
     /**

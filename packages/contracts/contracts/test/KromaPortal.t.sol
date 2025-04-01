@@ -321,6 +321,12 @@ contract KromaPortal_Test is Portal_Initializer {
             abi.encode(assertion)
         );
 
+        vm.mockCall(
+            portal.L2_ORACLE().COLOSSEUM(),
+            abi.encodeWithSelector(IColosseum.getAssertionStatus.selector),
+            abi.encode(assertion)
+        );
+
         // zero index's output is always finalized output
         assertEq(portal.isOutputFinalized(0), true);
 

@@ -130,6 +130,8 @@ interface IColosseum {
 
     function getAssertion(uint256 _outputIndex) external view returns (Types.Assertion memory);
 
+    function getAssertionStatus(uint256 _outputIndex) external view returns (Types.AssertionStatus);
+
     function initialize() external;
 
     function proveFaultWithZkVm(

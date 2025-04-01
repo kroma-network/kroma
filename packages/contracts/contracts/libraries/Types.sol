@@ -198,6 +198,7 @@ library Types {
      * @custom:field rejectedAt                 Timestamp when the assertion was rejected.
      * @custom:field status                     Current status of the assertion.
      * @custom:field numberOfChallenges         Number of challenges raised against the assertion.
+     * @custom:field isEnforced                 Indicates that the Assertion has been adjusted due to the intervention of the Security Council.
      */
     struct Assertion {
         uint256 latestFinalizedOutputIndex;
@@ -205,8 +206,8 @@ library Types {
         uint256 assertedAt;
         uint256 acceptedAt;
         uint256 rejectedAt;
-        AssertionStatus status;
         uint256 numberOfChallenges;
+        bool isEnforced;
     }
 
     /**
@@ -221,13 +222,13 @@ library Types {
      *  1) IN_PROGRESS      → createAssertion()
      *  2) ACCEPTED      → when challenger's timer has expired
      *  3) REJECTED      → when proveFault() succeeds or asserter timeout
-     *  4) RESTORED    → when deleted output is restored by SC
+     *  4) ENFORCED    → when a assertion is enforced by SC
      */
     enum AssertionStatus {
         IN_PROGRESS,
         ACCEPTED,
         REJECTED,
-        RESTORED
+        ENFORCED
     }
 
     /**

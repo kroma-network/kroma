@@ -493,13 +493,17 @@ contract L2OutputOracle is Initializable, ISemver {
             return false;
         }
 
-        if (assertion.status == Types.AssertionStatus.RESTORED) {
-            return true; // RESTORED assertions are considered finalized due to social resolution (guardian mechanism).
-        } else if (assertion.status == Types.AssertionStatus.ACCEPTED) {
+        Types.AssertionStatus assertionStatus = colosseum.getAssertionStatus(_outputIndex);
+
+        if (assertionStatus == Types.AssertionStatus.ENFORCED) {
+            if (l2Outputs[_outputIndex].outputRoot == bytes32(0)) {
+                return false;
+            }
+        } else if (assertionStatus == Types.AssertionStatus.ACCEPTED) {
             if (block.timestamp <= assertion.acceptedAt + colosseum.GUARDIAN_PERIOD()) {
                 return false;
             }
-        } else if (assertion.status == Types.AssertionStatus.IN_PROGRESS) {
+        } else if (assertionStatus == Types.AssertionStatus.IN_PROGRESS) {
             if (assertion.numberOfChallenges > 0) {
                 return false;
             }
