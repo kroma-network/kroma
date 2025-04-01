@@ -477,7 +477,7 @@ contract Colosseum is Initializable, ISemver {
         challenge.turn = TURN_INIT;
 
         uint256 elapsed = block.timestamp - assertion.assertedAt;
-        if (elapsed >= MAX_CLOCK_DURATION_SECONDS) {
+        if (elapsed > MAX_CLOCK_DURATION_SECONDS) {
             revert ChallengerTimeout();
         }
 
@@ -588,18 +588,8 @@ contract Colosseum is Initializable, ISemver {
         challenge.updatedAt = block.timestamp;
         challenge.segment.pos = _pos;
 
-        ChallengeStatus newStatus = _challengeStatus(challenge);
-        if (status != newStatus) {
-            if (newStatus == ChallengeStatus.READY_TO_PROVE) {
-                emit ReadyToProve(_outputIndex, _challenger);
-            }
-            emit ChallengeStatusChanged(
-                _outputIndex,
-                _challenger,
-                status,
-                newStatus,
-                block.timestamp
-            );
+        if (_challengeStatus(challenge) == ChallengeStatus.READY_TO_PROVE) {
+            emit ReadyToProve(_outputIndex, _challenger);
         }
 
         emit Bisected(_outputIndex, _challenger, newTurn, block.timestamp);
