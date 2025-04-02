@@ -149,24 +149,109 @@ library Types {
     /**
      * @notice Struct representing a challenge.
      *
-     * @custom:field turn       The current turn.
-     * @custom:field timeoutAt  Timeout timestamp of the next turn.
-     * @custom:field asserter   Address of the asserter.
-     * @custom:field challenger Address of the challenger.
-     * @custom:field segments   Array of the segment.
-     * @custom:field segStart   The L2 block number of the first segment.
-     * @custom:field segSize    The number of L2 blocks.
-     * @custom:field l1Head     Parent L1 block hash at the challenge creation time.
+     * @custom:field turn               The current turn.
+     * @custom:field asserterTimeLeft   Total remaining time for the asserter in the challenge, based on the chess clock model.
+     * @custom:field challengerTimeLeft Total remaining time for the challenger in the challenge, based on the chess clock model.
+     * @custom:field updatedAt          Timestamp of the last update to the challenge.
+     * @custom:field asserter           Address of the asserter.
+     * @custom:field challenger         Address of the challenger.
+     * @custom:field segment            The segment being disputed in the challenge.
+     * @custom:field l1Head             The L1 head at the time of challenge creation.
      */
     struct Challenge {
-        uint8 turn;
-        uint64 timeoutAt;
+        uint256 turn;
+        uint256 asserterTimeLeft;
+        uint256 challengerTimeLeft;
+        uint256 updatedAt;
         address asserter;
         address challenger;
-        bytes32[] segments;
-        uint256 segSize;
-        uint256 segStart;
+        Segment segment;
         bytes32 l1Head;
+    }
+
+    /**
+     * @notice A struct grouping output-related values to avoid stack too deep errors.
+     *
+     * @custom:field output      The output value at the specified position.
+     * @custom:field pos         The mid-point position within the current start and end range.
+     * @custom:field start       The starting position of the current segment.
+     * @custom:field end         The ending position of the current segment.
+     * @custom:field startOutput The output value at the start position.
+     * @custom:field endOutput   The output value at the end position.
+     */
+    struct Segment {
+        bytes32 output;
+        uint256 pos;
+        uint256 start;
+        uint256 end;
+        bytes32 startOutput;
+        bytes32 endOutput;
+    }
+
+    /**
+     * @notice Struct representing a assertion.
+     *
+     * @custom:field latestFinalizedOutputIndex Starting point for bisection.
+     * @custom:field asserter                   Address of the asserter.
+     * @custom:field assertedAt                 Timestamp when the assertion was created
+     * @custom:field acceptedAt                 Timestamp when the assertion was accepted.
+     * @custom:field rejectedAt                 Timestamp when the assertion was rejected.
+     * @custom:field status                     Current status of the assertion.
+     * @custom:field challenges                 Challenges related to the assertion. The key of the mapping is the challenger's address.
+     * @custom:field numberOfChallenges         Number of challenges raised against the assertion.
+     * @custom:field isEnforced                 Indicates that the Assertion has been adjusted due to the intervention of the Security Council.
+     */
+    struct Assertion {
+        uint256 latestFinalizedOutputIndex;
+        uint256 assertedAt;
+        uint256 acceptedAt;
+        uint256 rejectedAt;
+        uint256 numberOfChallenges;
+        mapping(address => Types.Challenge) challenges;
+        address asserter;
+        bool isEnforced;
+    }
+
+    /**
+     * @notice View struct for the Assertion, excluding the challenges mapping.
+     *
+     * @custom:field latestFinalizedOutputIndex Starting point for bisection.
+     * @custom:field asserter                   Address of the asserter.
+     * @custom:field assertedAt                 Timestamp when the assertion was created
+     * @custom:field acceptedAt                 Timestamp when the assertion was accepted.
+     * @custom:field rejectedAt                 Timestamp when the assertion was rejected.
+     * @custom:field status                     Current status of the assertion.
+     * @custom:field isEnforced                 Indicates that the Assertion has been adjusted due to the intervention of the Security Council.
+     */
+    struct AssertionView {
+        uint256 latestFinalizedOutputIndex;
+        uint256 assertedAt;
+        uint256 acceptedAt;
+        uint256 rejectedAt;
+        uint256 numberOfChallenges;
+        address asserter;
+        bool isEnforced;
+    }
+
+    /**
+     * @notice Enum of the Assertion status.
+     *
+     // TODO fix the url
+     * See the https://specs.kroma.network/fault-proof/challenge.html#state-diagram
+     * for more details.
+     *
+     * Belows are possible state transitions at current implementation.
+     *
+     *  1) IN_PROGRESS → createAssertion()
+     *  2) ACCEPTED    → when challenger's timer has expired
+     *  3) REJECTED    → when proveFault() succeeds or asserter timeout
+     *  4) ENFORCED    → when a assertion is enforced by SC
+     */
+    enum AssertionStatus {
+        IN_PROGRESS,
+        ACCEPTED,
+        REJECTED,
+        ENFORCED
     }
 
     /**

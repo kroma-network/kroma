@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import { Constants } from "../libraries/Constants.sol";
-import { Types } from "../libraries/Types.sol";
-import { Proxy } from "../universal/Proxy.sol";
-import { IAssetManager } from "../L1/interfaces/IAssetManager.sol";
-import { IValidatorManager } from "../L1/interfaces/IValidatorManager.sol";
-import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
-import { ValidatorManager } from "../L1/ValidatorManager.sol";
-import { ValidatorPool } from "../L1/ValidatorPool.sol";
-import { ValidatorSystemUpgrade_Initializer } from "./CommonTest.t.sol";
+import {Constants} from "../libraries/Constants.sol";
+import {Types} from "../libraries/Types.sol";
+import {Proxy} from "../universal/Proxy.sol";
+import {IAssetManager} from "../L1/interfaces/IAssetManager.sol";
+import {IValidatorManager} from "../L1/interfaces/IValidatorManager.sol";
+import {L2OutputOracle} from "../L1/L2OutputOracle.sol";
+import {ValidatorManager} from "../L1/ValidatorManager.sol";
+import {ValidatorPool} from "../L1/ValidatorPool.sol";
+import {ValidatorSystemUpgrade_Initializer} from "./CommonTest.t.sol";
 
 contract MockL2OutputOracle is L2OutputOracle {
     constructor(
-        ValidatorPool _validatorPool,
-        ValidatorManager _validatorManager,
+        address _validatorPool,
+        address _validatorManager,
         address _colosseum,
         uint256 _submissionInterval,
         uint256 _l2BlockTime,
@@ -22,16 +22,16 @@ contract MockL2OutputOracle is L2OutputOracle {
         uint256 _startingTimestamp,
         uint256 _finalizationPeriodSeconds
     )
-        L2OutputOracle(
-            _validatorPool,
-            _validatorManager,
-            _colosseum,
-            _submissionInterval,
-            _l2BlockTime,
-            _startingBlockNumber,
-            _startingTimestamp,
-            _finalizationPeriodSeconds
-        )
+    L2OutputOracle(
+    _validatorPool,
+    _validatorManager,
+    _colosseum,
+    _submissionInterval,
+    _l2BlockTime,
+    _startingBlockNumber,
+    _startingTimestamp,
+    _finalizationPeriodSeconds
+    )
     {}
 
     function addOutput(uint256 l2BlockNumber) external {
@@ -145,8 +145,8 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         address oracleAddress = address(oracle);
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
-            pool,
-            valMgr,
+            address(pool),
+            address(valMgr),
             address(colosseum),
             submissionInterval,
             l2BlockTime,
@@ -166,11 +166,18 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         // Submit until terminateOutputIndex and set next output index to be finalized after it
         vm.prank(trusted);
-        pool.deposit{ value: trusted.balance }();
+        pool.deposit{value: trusted.balance}();
         for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitL2OutputV1();
         }
-        vm.warp(oracle.finalizedAt(terminateOutputIndex));
+
+        vm.mockCall(
+            address(oracle),
+            abi.encodeWithSelector(oracle.isFinalized.selector, terminateOutputIndex),
+            abi.encode(true)
+        );
+
+        vm.warp(oracle.nextOutputMinL2Timestamp());
         mockOracle.mockSetNextFinalizeOutputIndex(terminateOutputIndex + 1);
     }
 
@@ -390,8 +397,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         // check KRO bonded
         assertEq(assetMgr.totalValidatorKroBonded(trusted), bondAmount);
 
-        // Jump to the finalization time of the first output of ValidatorManager
-        vm.warp(oracle.finalizedAt(terminateOutputIndex + 1));
+
+        vm.mockCall(
+            address(oracle),
+            abi.encodeWithSelector(oracle.isFinalized.selector, terminateOutputIndex + 1),
+            abi.encode(true)
+        );
+        vm.warp(oracle.nextOutputMinL2Timestamp());
 
         vm.startPrank(trusted);
         _submitL2OutputV2(true); // distribute reward 1 time
@@ -428,8 +440,12 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         uint256 firstOutputIndex = terminateOutputIndex + 1;
         mockOracle.replaceOutput(assetMgr.SECURITY_COUNCIL(), firstOutputIndex);
 
-        // Jump to the finalization time of the first output of ValidatorManager
-        vm.warp(oracle.finalizedAt(firstOutputIndex));
+        vm.mockCall(
+            address(oracle),
+            abi.encodeWithSelector(oracle.isFinalized.selector, firstOutputIndex),
+            abi.encode(true)
+        );
+        vm.warp(oracle.nextOutputMinL2Timestamp());
 
         vm.startPrank(trusted);
         _submitL2OutputV2(true); // distribute reward 1 time
@@ -446,7 +462,6 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         // Check if next priority validator is not set in ValidatorManager
         assertTrue(mockValMgr.nextPriorityValidator() == address(0));
         assertEq(valMgr.nextValidator(), trusted);
-
         // Submit the first output which interacts with ValidatorManager
         _submitL2OutputV2(false);
 
@@ -457,15 +472,18 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         assertTrue(nextValidator != address(0));
         assertTrue(valMgr.nextValidator() == nextValidator);
 
-        // Jump to the finalization time of the first output of ValidatorManager
-        vm.warp(oracle.finalizedAt(terminateOutputIndex + 1));
+        vm.mockCall(
+            address(oracle),
+            abi.encodeWithSelector(oracle.isFinalized.selector, terminateOutputIndex + 1),
+            abi.encode(true)
+        );
+        vm.warp(oracle.nextOutputMinL2Timestamp());
         vm.startPrank(nextValidator);
         _submitL2OutputV2(true);
         vm.stopPrank();
 
         // Check if next finalize output is updated
         assertEq(oracle.nextFinalizeOutputIndex(), terminateOutputIndex + 2);
-
         // Submit 10 outputs
         uint256 tries = 10;
         bool changed = false;
@@ -473,9 +491,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         for (uint256 i; i < tries; i++) {
             // Submit next output and finalize prev output
+            vm.mockCall(
+                address(oracle),
+                abi.encodeWithSelector(oracle.isFinalized.selector, oracle.nextFinalizeOutputIndex()),
+                abi.encode(true)
+            );
             warpToSubmitTime();
             _submitL2OutputV2(false);
-
             // Check the next validator has changed
             address newValidator = valMgr.nextValidator();
             if (nextValidator != newValidator) {
@@ -790,8 +812,13 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
         vm.prank(challenger);
         mockOracle.replaceOutput(challenger, challengedOutputIndex);
 
-        // Jump to the finalization time of the challenged output
-        vm.warp(oracle.finalizedAt(challengedOutputIndex));
+        vm.mockCall(
+            address(oracle),
+            abi.encodeWithSelector(oracle.isFinalized.selector, challengedOutputIndex),
+            abi.encode(true)
+        );
+        vm.warp(oracle.nextOutputMinL2Timestamp() + roundDuration + 1);
+
         vm.startPrank(challenger);
         // Submit one more output to distribute reward
         _submitL2OutputV2(true);
@@ -810,7 +837,7 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 
         // Security council balance of asset token increased by tax
         uint128 taxAmount = (slashingAmount * assetMgr.TAX_NUMERATOR()) /
-            assetMgr.TAX_DENOMINATOR();
+                            assetMgr.TAX_DENOMINATOR();
         assertEq(assetToken.balanceOf(assetMgr.SECURITY_COUNCIL()), taxAmount);
 
         // Challenger asset increased by output reward and challenge reward
@@ -1043,13 +1070,14 @@ contract ValidatorManagerTest is ValidatorSystemUpgrade_Initializer {
 contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializer {
     MockL2OutputOracle mockOracle;
     MockValidatorManager mockValMgr;
+
     function setUp() public override {
         super.setUp();
 
         address oracleAddress = address(oracle);
         MockL2OutputOracle mockOracleImpl = new MockL2OutputOracle(
-            pool,
-            valMgr,
+            address(pool),
+            address(valMgr),
             address(colosseum),
             submissionInterval,
             l2BlockTime,
@@ -1072,7 +1100,7 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
 
         // Submit until terminateOutputIndex and set next output index to be finalized after it
         vm.prank(trusted);
-        pool.deposit{ value: trusted.balance }();
+        pool.deposit{value: trusted.balance}();
         for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitL2OutputV1();
         }
@@ -1086,7 +1114,13 @@ contract ValidatorManager_MptTransition_Test is ValidatorSystemUpgrade_Initializ
             warpToSubmitTime();
             _submitL2OutputV2(false);
         }
-        vm.warp(oracle.finalizedAt(mptFirstOutputIndex - 1));
+
+        vm.mockCall(
+            address(oracle),
+            abi.encodeWithSelector(oracle.isFinalized.selector, mptFirstOutputIndex - 1),
+            abi.encode(true)
+        );
+        vm.warp(oracle.nextOutputMinL2Timestamp());
         mockOracle.mockSetNextFinalizeOutputIndex(mptFirstOutputIndex);
     }
 

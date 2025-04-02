@@ -7,7 +7,8 @@ import { Constants } from "../libraries/Constants.sol";
 import { Types } from "../libraries/Types.sol";
 import { ISemver } from "../universal/ISemver.sol";
 import { IValidatorManager } from "./interfaces/IValidatorManager.sol";
-import { ValidatorPool } from "./ValidatorPool.sol";
+import { IValidatorPool } from "./interfaces/IValidatorPool.sol";
+import { IColosseum } from "./interfaces/IColosseum.sol";
 
 /**
  * @custom:proxied
@@ -18,12 +19,12 @@ import { ValidatorPool } from "./ValidatorPool.sol";
  */
 contract L2OutputOracle is Initializable, ISemver {
     /**
-     * @notice The address of the validator pool contract. Can be updated via upgrade.
+     * @notice The validator pool contract. Can be updated via upgrade.
      */
-    ValidatorPool public immutable VALIDATOR_POOL;
+    IValidatorPool public immutable VALIDATOR_POOL;
 
     /**
-     * @notice The address of the validator manager contract. Can be updated via upgrade.
+     * @notice Validator manager contract. Can be updated via upgrade.
      */
     IValidatorManager public immutable VALIDATOR_MANAGER;
 
@@ -116,8 +117,8 @@ contract L2OutputOracle is Initializable, ISemver {
      * @param _finalizationPeriodSeconds Output finalization time in seconds.
      */
     constructor(
-        ValidatorPool _validatorPool,
-        IValidatorManager _validatorManager,
+        address _validatorPool,
+        address _validatorManager,
         address _colosseum,
         uint256 _submissionInterval,
         uint256 _l2BlockTime,
@@ -131,8 +132,8 @@ contract L2OutputOracle is Initializable, ISemver {
             "L2OutputOracle: submission interval must be greater than 0"
         );
 
-        VALIDATOR_POOL = _validatorPool;
-        VALIDATOR_MANAGER = _validatorManager;
+        VALIDATOR_POOL = IValidatorPool(_validatorPool);
+        VALIDATOR_MANAGER = IValidatorManager(_validatorManager);
         COLOSSEUM = _colosseum;
         SUBMISSION_INTERVAL = _submissionInterval;
         L2_BLOCK_TIME = _l2BlockTime;
@@ -225,7 +226,6 @@ contract L2OutputOracle is Initializable, ISemver {
         } else {
             nextValidator = VALIDATOR_POOL.nextValidator();
         }
-
         // If it's not a public round, only selected validators can submit output.
         if (
             !isValidatorPoolTerminated && nextValidator != Constants.VALIDATOR_PUBLIC_ROUND_ADDRESS
@@ -270,6 +270,9 @@ contract L2OutputOracle is Initializable, ISemver {
                 l2BlockNumber: uint128(_l2BlockNumber)
             })
         );
+        if (outputIndex > 0) {
+            IColosseum(COLOSSEUM).createAssertion(outputIndex, msg.sender);
+        }
 
         emit OutputSubmitted(_outputRoot, outputIndex, _l2BlockNumber, block.timestamp);
 
@@ -304,6 +307,32 @@ contract L2OutputOracle is Initializable, ISemver {
         }
 
         nextFinalizeOutputIndex = _outputIndex;
+    }
+
+    /**
+     * @notice Returns the latest finalized output.
+     *
+     * @return Latest finalized output
+     */
+    function getLatestFinalizeOutput() external view returns (Types.CheckpointOutput memory) {
+        if (nextFinalizeOutputIndex > 0) {
+            return l2Outputs[nextFinalizeOutputIndex - 1];
+        } else {
+            return l2Outputs[nextFinalizeOutputIndex];
+        }
+    }
+
+    /**
+     * @notice Returns the index of the latest finalized output.
+     *
+     * @return Latest finalized output index
+     */
+    function getLatestFinalizeOutputIndex() external view returns (uint256) {
+        if (nextFinalizeOutputIndex > 0) {
+            return nextFinalizeOutputIndex - 1;
+        } else {
+            return nextFinalizeOutputIndex;
+        }
     }
 
     /**
@@ -453,17 +482,6 @@ contract L2OutputOracle is Initializable, ISemver {
      * @return If the given output is finalized or not.
      */
     function isFinalized(uint256 _outputIndex) external view returns (bool) {
-        return finalizedAt(_outputIndex) <= block.timestamp;
-    }
-
-    /**
-     * @notice Returns the finalization time of given output index.
-     *
-     * @param _outputIndex Index of an output.
-     *
-     * @return The finalization time of given output index.
-     */
-    function finalizedAt(uint256 _outputIndex) public view returns (uint256) {
-        return l2Outputs[_outputIndex].timestamp + FINALIZATION_PERIOD_SECONDS;
+        return IColosseum(COLOSSEUM).isFinalized(_outputIndex);
     }
 }

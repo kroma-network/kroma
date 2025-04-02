@@ -5,6 +5,8 @@ import { stdError } from "forge-std/Test.sol";
 
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
+import { IColosseum } from "../L1/interfaces/IColosseum.sol";
+import { IL2OutputOracle } from "../L1/interfaces/IL2OutputOracle.sol";
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { Types } from "../libraries/Types.sol";
@@ -15,6 +17,10 @@ import { Portal_Initializer, CommonTest, NextImpl } from "./CommonTest.t.sol";
 contract KromaPortal_Test is Portal_Initializer {
     event Paused(address);
     event Unpaused(address);
+
+    function setUp() public virtual override {
+        super.setUp();
+    }
 
     function test_constructor_succeeds() external {
         assertEq(address(portal.L2_ORACLE()), address(oracle));
@@ -304,54 +310,35 @@ contract KromaPortal_Test is Portal_Initializer {
         assertEq(address(portal).balance, NON_ZERO_VALUE);
     }
 
-    function test_simple_isOutputFinalized_succeeds() external {
-        uint256 ts = block.timestamp;
-        vm.mockCall(
-            address(portal.L2_ORACLE()),
-            abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
-            abi.encode(
-                Types.CheckpointOutput(
-                    trusted,
-                    bytes32(uint256(1)),
-                    uint128(ts),
-                    uint128(startingBlockNumber)
-                )
-            )
-        );
-
-        // warp to the finalization period
-        vm.warp(ts + oracle.FINALIZATION_PERIOD_SECONDS());
-        assertEq(portal.isOutputFinalized(0), false);
-
-        // warp past the finalization period
-        vm.warp(ts + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
-        assertEq(portal.isOutputFinalized(0), true);
-    }
-
     function test_isOutputFinalized_succeeds() external {
         uint256 checkpoint = oracle.nextBlockNumber();
         uint256 nextOutputIndex = oracle.nextOutputIndex();
         vm.roll(checkpoint);
         warpToSubmitTime();
+
+        vm.prank(trusted);
+        oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0);
+
+        // Since the output at index 0 is always finalized, the following process is repeated.
+        checkpoint = oracle.nextBlockNumber();
+        nextOutputIndex = oracle.nextOutputIndex();
+
+        vm.roll(checkpoint);
+        warpToSubmitTime();
+
         vm.prank(trusted);
         oracle.submitL2Output(keccak256(abi.encode(2)), checkpoint, 0, 0);
 
         // warp to the final second of the finalization period
-        uint256 finalizationHorizon = block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS();
+        uint256 finalizationHorizon = block.timestamp + finalizationPeriod;
         vm.warp(finalizationHorizon);
         // The checkpointed block should not be finalized until 1 second from now.
         assertEq(portal.isOutputFinalized(nextOutputIndex), false);
-        // Nor should a block after it
-        vm.expectRevert(stdError.indexOOBError);
-        assertEq(portal.isOutputFinalized(nextOutputIndex + 1), false);
 
         // warp past the finalization period
         vm.warp(finalizationHorizon + 1);
         // It should now be finalized.
         assertEq(portal.isOutputFinalized(nextOutputIndex), true);
-        // But not the block after it.
-        vm.expectRevert(stdError.indexOOBError);
-        assertEq(portal.isOutputFinalized(nextOutputIndex + 1), false);
     }
 }
 
@@ -402,12 +389,23 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         vm.prank(trusted);
         oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
 
+        // Since the output at index 0 is always finalized, the following process is repeated.
+        _submittedBlockNumber = oracle.nextBlockNumber();
+        _submittedOutputIndex = oracle.nextOutputIndex();
+
+        vm.roll(_submittedBlockNumber);
+        warpToSubmitTime();
+
+        vm.prank(trusted);
+        oracle.submitL2Output(_outputRoot, _submittedBlockNumber, 0, 0);
+
         // Warp beyond the finalization period for the block we've submitted.
         vm.warp(
             oracle.getL2Output(_submittedOutputIndex).timestamp +
                 oracle.FINALIZATION_PERIOD_SECONDS() +
                 1
         );
+
         // Fund the portal so that we can withdraw ETH.
         vm.deal(address(portal), 0xFFFFFFFF);
     }
@@ -776,11 +774,9 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         assertEq(bobBalanceBefore, address(bob).balance);
     }
 
-    // Test: finalizeWithdrawalTransaction reverts if the checkpoint output's timestamp has
-    // not passed the finalization period.
-    function test_finalizeWithdrawalTransaction_ifOutputTimestampIsNotFinalized_reverts() external {
+    // Test: finalizeWithdrawalTransaction reverts if the checkpoint output is not finalized.
+    function test_finalizeWithdrawalTransaction_ifOutputIsNotFinalized_reverts() external {
         uint256 bobBalanceBefore = address(bob).balance;
-
         // Prove our withdrawal
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
@@ -794,21 +790,12 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         // Warp to after the finalization period
         vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
 
-        // Mock a timestamp change on the checkpoint output that has not passed the
-        // finalization period.
+        // Mock a timestamp change on the checkpoint output that has not finalized.
         vm.mockCall(
             address(portal.L2_ORACLE()),
-            abi.encodeWithSelector(L2OutputOracle.getL2Output.selector),
-            abi.encode(
-                Types.CheckpointOutput(
-                    trusted,
-                    _outputRoot,
-                    uint128(block.timestamp + 1),
-                    uint128(_submittedBlockNumber)
-                )
-            )
+            abi.encodeWithSelector(IL2OutputOracle.isFinalized.selector),
+            abi.encode(false)
         );
-
         // Attempt to finalize the withdrawal
         vm.expectRevert("KromaPortal: checkpoint output finalization period has not elapsed");
         portal.finalizeWithdrawalTransaction(_defaultTx);
@@ -978,6 +965,11 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
                 )
             )
         );
+        vm.mockCall(
+            address(oracle),
+            abi.encodeWithSelector(oracle.isFinalized.selector),
+            abi.encode(true)
+        );
 
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(withdrawalHash, alice, address(this));
@@ -987,13 +979,11 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             outputRootProof,
             withdrawalProof
         );
-
         vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
         vm.expectCall(address(this), _testTx.data);
         vm.expectEmit(true, true, true, true);
         emit WithdrawalFinalized(withdrawalHash, true);
         portal.finalizeWithdrawalTransaction(_testTx);
-
         // Ensure that bob's balance was not changed by the reentrant call.
         assert(address(bob).balance == bobBalanceBefore);
     }
@@ -1054,6 +1044,11 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
             address(oracle),
             abi.encodeWithSelector(oracle.getL2Output.selector),
             abi.encode(address(0), outputRoot, block.timestamp, 100)
+        );
+        vm.mockCall(
+            address(oracle),
+            abi.encodeWithSelector(oracle.isFinalized.selector),
+            abi.encode(true)
         );
 
         // Prove the withdrawal transaction

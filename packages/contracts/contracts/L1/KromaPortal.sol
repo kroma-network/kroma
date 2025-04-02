@@ -14,6 +14,7 @@ import { L2OutputOracle } from "./L2OutputOracle.sol";
 import { ResourceMetering } from "./ResourceMetering.sol";
 import { SystemConfig } from "./SystemConfig.sol";
 import { ZKMerkleTrie } from "./ZKMerkleTrie.sol";
+import { Types } from "../libraries/Types.sol";
 
 /**
  * @custom:proxied
@@ -267,13 +268,11 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
         // Get the output root and load onto the stack to prevent multiple mloads. This will
         // revert if there is no output root for the given block number.
         bytes32 outputRoot = L2_ORACLE.getL2Output(_l2OutputIndex).outputRoot;
-
         // Verify that the output root can be generated with the elements in the proof.
         require(
             outputRoot == Hashing.hashOutputRootProof(_outputRootProof),
             "KromaPortal: invalid output root proof"
         );
-
         // Load the ProvenWithdrawal into memory, using the withdrawal hash as a unique identifier.
         bytes32 withdrawalHash = Hashing.hashWithdrawal(_tx);
         ProvenWithdrawal memory provenWithdrawal = provenWithdrawals[withdrawalHash];
@@ -300,7 +299,6 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
                 uint256(0) // The withdrawals mapping is at the first slot in the layout.
             )
         );
-
         // Verify that the hash of this withdrawal was stored in the L2toL1MessagePasser contract
         // on L2. If this is true, under the assumption that the MerkleTrie does not have
         // bugs, then we know that this withdrawal was actually triggered on L2 and can therefore
@@ -337,7 +335,6 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
             timestamp: uint128(block.timestamp),
             l2OutputIndex: uint128(_l2OutputIndex)
         });
-
         // Emit a `WithdrawalProven` event.
         emit WithdrawalProven(withdrawalHash, _tx.sender, _tx.target);
     }
@@ -397,13 +394,11 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
             checkpointOutput.outputRoot == provenWithdrawal.outputRoot,
             "KromaPortal: output root proven is not the same as current output root"
         );
-
         // Check that the checkpoint output has also been finalized.
         require(
-            _isFinalizationPeriodElapsed(checkpointOutput.timestamp),
+            _isOutputFinalized(provenWithdrawal.l2OutputIndex),
             "KromaPortal: checkpoint output finalization period has not elapsed"
         );
-
         // Check that this withdrawal has not already been finalized, this is replay protection.
         require(
             finalizedWithdrawals[withdrawalHash] == false,
@@ -532,7 +527,11 @@ contract KromaPortal is Initializable, ResourceMetering, ISemver {
      * @return Whether or not the output is finalized.
      */
     function isOutputFinalized(uint256 _l2OutputIndex) external view returns (bool) {
-        return _isFinalizationPeriodElapsed(L2_ORACLE.getL2Output(_l2OutputIndex).timestamp);
+        return _isOutputFinalized(_l2OutputIndex);
+    }
+
+    function _isOutputFinalized(uint256 _l2OutputIndex) internal view returns (bool) {
+        return L2_ORACLE.isFinalized(_l2OutputIndex);
     }
 
     /**

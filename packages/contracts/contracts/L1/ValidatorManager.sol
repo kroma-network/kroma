@@ -249,7 +249,6 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function afterSubmitL2Output(uint256 outputIndex) external onlyL2OutputOracle {
         _distributeReward();
-
         // Bond validator KRO to reserve slashing amount.
         address submitter = L2_ORACLE.getSubmitter(outputIndex);
         ASSET_MANAGER.bondValidatorKro(submitter);
@@ -695,12 +694,10 @@ contract ValidatorManager is ISemver, IValidatorManager {
      */
     function _updatePriorityValidator() private {
         uint120 weightSum = activatedValidatorTotalWeight();
-        uint256 nextFinalizeOutputIndex = L2_ORACLE.nextFinalizeOutputIndex();
+        uint256 latestFinalizeOutputIndex = L2_ORACLE.getLatestFinalizeOutputIndex();
 
-        if (weightSum > 0 && nextFinalizeOutputIndex > 0) {
-            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(
-                nextFinalizeOutputIndex - 1
-            );
+        if (weightSum > 0 && latestFinalizeOutputIndex > 0) {
+            Types.CheckpointOutput memory output = L2_ORACLE.getL2Output(latestFinalizeOutputIndex);
 
             uint120 weight = uint120(
                 uint256(

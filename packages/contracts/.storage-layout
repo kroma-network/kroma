@@ -10,10 +10,12 @@
 |----------------------|----------------------------------------------------------------|------|--------|-------|--------------------------------------|
 | _initialized         | uint8                                                          | 0    | 0      | 1     | contracts/L1/Colosseum.sol:Colosseum |
 | _initializing        | bool                                                           | 0    | 1      | 1     | contracts/L1/Colosseum.sol:Colosseum |
-| segmentsLengths      | mapping(uint256 => uint256)                                    | 1    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
-| challenges           | mapping(uint256 => mapping(address => struct Types.Challenge)) | 2    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| spacer_1_0_32        | uint256                                                        | 1    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| spacer_2_0_32        | uint256                                                        | 2    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 | verifiedPublicInputs | mapping(bytes32 => bool)                                       | 3    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 | deletedOutputs       | mapping(uint256 => struct Types.CheckpointOutput)              | 4    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| assertions           | mapping(uint256 => struct Types.Assertion)                     | 5    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
+| challenges           | mapping(uint256 => mapping(address => struct Types.Challenge)) | 6    | 0      | 32    | contracts/L1/Colosseum.sol:Colosseum |
 
 =======================
 ➡ contracts/L1/SecurityCouncil.sol:SecurityCouncil

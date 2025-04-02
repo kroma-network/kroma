@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 import { stdError } from "forge-std/Test.sol";
-
+import { ZKProofVerifier } from "../L1/ZKProofVerifier.sol";
 import { Types } from "../libraries/Types.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { ValidatorPool } from "../L1/ValidatorPool.sol";
@@ -19,7 +19,6 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
 
     function setUp() public override {
         super.setUp();
-
         vm.prank(trusted);
         pool.deposit{ value: trusted.balance }();
     }
@@ -39,8 +38,8 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_constructor_badTimestamp_reverts() external {
         vm.expectRevert("L2OutputOracle: starting L2 timestamp must be less than current time");
         new L2OutputOracle({
-            _validatorPool: pool,
-            _validatorManager: valMgr,
+            _validatorPool: address(pool),
+            _validatorManager: address(valMgr),
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: l2BlockTime,
@@ -53,8 +52,8 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_constructor_l2BlockTimeZero_reverts() external {
         vm.expectRevert("L2OutputOracle: L2 block time must be greater than 0");
         new L2OutputOracle({
-            _validatorPool: pool,
-            _validatorManager: valMgr,
+            _validatorPool: address(pool),
+            _validatorManager: address(valMgr),
             _colosseum: address(colosseum),
             _submissionInterval: submissionInterval,
             _l2BlockTime: 0,
@@ -67,8 +66,8 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
     function test_constructor_submissionInterval_reverts() external {
         vm.expectRevert("L2OutputOracle: submission interval must be greater than 0");
         new L2OutputOracle({
-            _validatorPool: pool,
-            _validatorManager: valMgr,
+            _validatorPool: address(pool),
+            _validatorManager: address(valMgr),
             _colosseum: address(colosseum),
             _submissionInterval: 0,
             _l2BlockTime: l2BlockTime,
@@ -148,6 +147,7 @@ contract L2OutputOracleTest is L2OutputOracle_Initializer {
         uint256 nextBlockNumber2 = oracle.nextBlockNumber();
         warpToSubmitTime();
         vm.prank(trusted);
+
         oracle.submitL2Output(output2, nextBlockNumber2, 0, 0);
 
         bytes32 output3 = keccak256(abi.encode(3));

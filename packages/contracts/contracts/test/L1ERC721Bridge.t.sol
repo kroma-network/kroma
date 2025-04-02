@@ -42,12 +42,10 @@ contract L1ERC721Bridge_Test is Messenger_Initializer {
 
     function setUp() public override {
         super.setUp();
-
         // Create necessary contracts.
         bridge = new L1ERC721Bridge(address(L1Messenger), otherBridge);
         localToken = new TestERC721();
         remoteToken = new TestERC721();
-
         // Label the bridge so we get nice traces.
         vm.label(address(bridge), "L1ERC721Bridge");
 
