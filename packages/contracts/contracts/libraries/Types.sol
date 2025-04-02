@@ -197,10 +197,33 @@ library Types {
      * @custom:field acceptedAt                 Timestamp when the assertion was accepted.
      * @custom:field rejectedAt                 Timestamp when the assertion was rejected.
      * @custom:field status                     Current status of the assertion.
+     * @custom:field challenges                 Challenges related to the assertion. The key of the mapping is the challenger's address.
      * @custom:field numberOfChallenges         Number of challenges raised against the assertion.
      * @custom:field isEnforced                 Indicates that the Assertion has been adjusted due to the intervention of the Security Council.
      */
     struct Assertion {
+        uint256 latestFinalizedOutputIndex;
+        uint256 assertedAt;
+        uint256 acceptedAt;
+        uint256 rejectedAt;
+        uint256 numberOfChallenges;
+        mapping(address => Types.Challenge) challenges;
+        address asserter;
+        bool isEnforced;
+    }
+
+    /**
+     * @notice View struct for the Assertion, excluding the challenges mapping.
+     *
+     * @custom:field latestFinalizedOutputIndex Starting point for bisection.
+     * @custom:field asserter                   Address of the asserter.
+     * @custom:field assertedAt                 Timestamp when the assertion was created
+     * @custom:field acceptedAt                 Timestamp when the assertion was accepted.
+     * @custom:field rejectedAt                 Timestamp when the assertion was rejected.
+     * @custom:field status                     Current status of the assertion.
+     * @custom:field isEnforced                 Indicates that the Assertion has been adjusted due to the intervention of the Security Council.
+     */
+    struct AssertionView {
         uint256 latestFinalizedOutputIndex;
         uint256 assertedAt;
         uint256 acceptedAt;

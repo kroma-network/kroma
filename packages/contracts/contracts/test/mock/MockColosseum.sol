@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 import { Colosseum } from "contracts/L1/Colosseum.sol";
 import { L2OutputOracle } from "contracts/L1/L2OutputOracle.sol";
 import { ZKProofVerifier } from "contracts/L1/ZKProofVerifier.sol";
+import { Types } from "../../libraries/Types.sol";
 
 contract MockColosseum is Colosseum {
     constructor(
@@ -30,10 +31,12 @@ contract MockColosseum is Colosseum {
         uint256 _outputIndex,
         address _challenger
     ) external view returns (bool) {
-        return _isAbleToBisect(challenges[_outputIndex][_challenger]);
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        return _isAbleToBisect(assertion.challenges[_challenger]);
     }
 
     function setL1Head(uint256 _outputIndex, address _challenger, bytes32 _l1Head) external {
-        challenges[_outputIndex][_challenger].l1Head = _l1Head;
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        assertion.challenges[_challenger].l1Head = _l1Head;
     }
 }

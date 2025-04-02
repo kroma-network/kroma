@@ -482,43 +482,6 @@ contract L2OutputOracle is Initializable, ISemver {
      * @return If the given output is finalized or not.
      */
     function isFinalized(uint256 _outputIndex) external view returns (bool) {
-        // The genesis output is treated as a finalized output.
-        if (_outputIndex == 0) {
-            return true;
-        }
-
-        IColosseum colosseum = IColosseum(COLOSSEUM);
-        Types.Assertion memory assertion = colosseum.getAssertion(_outputIndex);
-        if (assertion.assertedAt == 0) {
-            return false;
-        }
-
-        Types.AssertionStatus assertionStatus = colosseum.getAssertionStatus(_outputIndex);
-
-        if (assertionStatus == Types.AssertionStatus.ENFORCED) {
-            if (l2Outputs[_outputIndex].outputRoot == bytes32(0)) {
-                return false;
-            }
-        } else if (assertionStatus == Types.AssertionStatus.ACCEPTED) {
-            if (block.timestamp <= assertion.acceptedAt + colosseum.GUARDIAN_PERIOD()) {
-                return false;
-            }
-        } else if (assertionStatus == Types.AssertionStatus.IN_PROGRESS) {
-            if (assertion.numberOfChallenges > 0) {
-                return false;
-            }
-            if (
-                block.timestamp <=
-                assertion.assertedAt +
-                    colosseum.GUARDIAN_PERIOD() +
-                    colosseum.MAX_CLOCK_DURATION_SECONDS()
-            ) {
-                return false;
-            }
-        } else {
-            return false;
-        }
-
-        return true;
+        return IColosseum(COLOSSEUM).isFinalized(_outputIndex);
     }
 }

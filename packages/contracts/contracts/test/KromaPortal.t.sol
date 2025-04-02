@@ -6,6 +6,7 @@ import { stdError } from "forge-std/Test.sol";
 import { KromaPortal } from "../L1/KromaPortal.sol";
 import { L2OutputOracle } from "../L1/L2OutputOracle.sol";
 import { IColosseum } from "../L1/interfaces/IColosseum.sol";
+import { IL2OutputOracle } from "../L1/interfaces/IL2OutputOracle.sol";
 import { ResourceMetering } from "../L1/ResourceMetering.sol";
 import { Hashing } from "../libraries/Hashing.sol";
 import { Types } from "../libraries/Types.sol";
@@ -307,36 +308,6 @@ contract KromaPortal_Test is Portal_Initializer {
             NON_ZERO_DATA
         );
         assertEq(address(portal).balance, NON_ZERO_VALUE);
-    }
-
-    function test_simple_isOutputFinalized_succeeds() external {
-        uint256 ts = block.timestamp;
-
-        Types.Assertion memory assertion;
-        assertion.assertedAt = ts;
-
-        vm.mockCall(
-            portal.L2_ORACLE().COLOSSEUM(),
-            abi.encodeWithSelector(IColosseum.getAssertion.selector),
-            abi.encode(assertion)
-        );
-
-        vm.mockCall(
-            portal.L2_ORACLE().COLOSSEUM(),
-            abi.encodeWithSelector(IColosseum.getAssertionStatus.selector),
-            abi.encode(assertion)
-        );
-
-        // zero index's output is always finalized output
-        assertEq(portal.isOutputFinalized(0), true);
-
-        // warp to the finalization period
-        vm.warp(ts + finalizationPeriod);
-        assertEq(portal.isOutputFinalized(1), false);
-
-        // warp past the finalization period
-        vm.warp(ts + finalizationPeriod + 1);
-        assertEq(portal.isOutputFinalized(1), true);
     }
 
     function test_isOutputFinalized_succeeds() external {
@@ -819,16 +790,12 @@ contract KromaPortal_FinalizeWithdrawal_Test is Portal_Initializer {
         // Warp to after the finalization period
         vm.warp(block.timestamp + oracle.FINALIZATION_PERIOD_SECONDS() + 1);
 
-        // Mock a timestamp change on the checkpoint output that has not passed the
-        // finalization period.
-        Types.Assertion memory assertion;
-        assertion.assertedAt = block.timestamp;
+        // Mock a timestamp change on the checkpoint output that has not finalized.
         vm.mockCall(
-            portal.L2_ORACLE().COLOSSEUM(),
-            abi.encodeWithSelector(IColosseum.getAssertion.selector),
-            abi.encode(assertion)
+            address(portal.L2_ORACLE()),
+            abi.encodeWithSelector(IL2OutputOracle.isFinalized.selector),
+            abi.encode(false)
         );
-
         // Attempt to finalize the withdrawal
         vm.expectRevert("KromaPortal: checkpoint output finalization period has not elapsed");
         portal.finalizeWithdrawalTransaction(_defaultTx);

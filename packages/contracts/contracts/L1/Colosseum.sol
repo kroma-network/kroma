@@ -112,11 +112,6 @@ contract Colosseum is Initializable, ISemver {
     mapping(uint256 => Types.Assertion) public assertions;
 
     /**
-     * @notice A mapping of the challenge.
-     */
-    mapping(uint256 => mapping(address => Types.Challenge)) public challenges;
-
-    /**
      * @notice A modifier that only allows L2OutputOracle contract to call.
      */
     modifier onlyL2OutputOracle() {
@@ -443,7 +438,8 @@ contract Colosseum is Initializable, ISemver {
                 revert ImproperValidatorStatus();
         }
 
-        Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        Types.Challenge storage challenge = assertion.challenges[msg.sender];
 
         if (challenge.turn >= TURN_INIT) {
             if (_challengeStatus(challenge) != ChallengeStatus.CHALLENGER_TIMEOUT) {
@@ -452,7 +448,6 @@ contract Colosseum is Initializable, ISemver {
             _challengerTimeout(_outputIndex, msg.sender);
         }
 
-        Types.Assertion storage assertion = assertions[_outputIndex];
         Types.AssertionStatus assertionStatus = _assertionStatus(assertion);
         if (
             assertionStatus == Types.AssertionStatus.REJECTED ||
@@ -532,7 +527,7 @@ contract Colosseum is Initializable, ISemver {
             revert InvalidOutputGiven();
         }
 
-        Types.Challenge storage challenge = challenges[_outputIndex][_challenger];
+        Types.Challenge storage challenge = assertion.challenges[_challenger];
         ChallengeStatus status = _challengeStatus(challenge);
         if (_cancelIfChallengeImpossible(_outputIndex, challenge.challenger, status)) {
             return;
@@ -617,8 +612,9 @@ contract Colosseum is Initializable, ISemver {
      * @param _challenger  Address of the challenger.
      */
     function challengerTimeout(uint256 _outputIndex, address _challenger) external {
+        Types.Assertion storage assertion = assertions[_outputIndex];
         if (
-            _challengeStatus(challenges[_outputIndex][_challenger]) !=
+            _challengeStatus(assertion.challenges[_challenger]) !=
             ChallengeStatus.CHALLENGER_TIMEOUT
         ) revert ImproperChallengeStatus();
 
@@ -652,7 +648,8 @@ contract Colosseum is Initializable, ISemver {
      * @param _outputIndex Index of the L2 checkpoint output.
      */
     function cancelChallenge(uint256 _outputIndex) external {
-        Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        Types.Challenge storage challenge = assertion.challenges[msg.sender];
 
         if (
             !_cancelIfChallengeImpossible(
@@ -764,14 +761,14 @@ contract Colosseum is Initializable, ISemver {
      * @param _zkVmProof   The public input and proof using zkVM.
      */
     function _proveFault(uint256 _outputIndex, Types.ZkVmProof calldata _zkVmProof) private {
-        Types.Challenge storage challenge = challenges[_outputIndex][msg.sender];
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        Types.Challenge storage challenge = assertion.challenges[msg.sender];
         ChallengeStatus status = _challengeStatus(challenge);
 
         if (_cancelIfChallengeImpossible(_outputIndex, challenge.challenger, status)) {
             return;
         }
 
-        Types.Assertion storage assertion = assertions[_outputIndex];
         Types.AssertionStatus assertionStatus = _assertionStatus(assertion);
         if (
             assertionStatus == Types.AssertionStatus.REJECTED ||
@@ -839,7 +836,7 @@ contract Colosseum is Initializable, ISemver {
         }
 
         verifiedPublicInputs[publicInputHash] = true;
-        delete challenges[_outputIndex][msg.sender];
+        delete assertion.challenges[msg.sender];
 
         assertion.rejectedAt = block.timestamp;
 
@@ -885,7 +882,7 @@ contract Colosseum is Initializable, ISemver {
         if (_status == ChallengeStatus.NONE || _status == ChallengeStatus.CHALLENGER_TIMEOUT)
             revert ImproperChallengeStatusToCancel();
 
-        delete challenges[_outputIndex][msg.sender];
+        delete assertion.challenges[msg.sender];
         emit ChallengeCanceled(_outputIndex, msg.sender, block.timestamp);
 
         // Switch validator system after validator pool contract terminated.
@@ -906,8 +903,8 @@ contract Colosseum is Initializable, ISemver {
      * @param _challenger  Address of the challenger.
      */
     function _challengerTimeout(uint256 _outputIndex, address _challenger) private {
-        delete challenges[_outputIndex][_challenger];
         Types.Assertion storage assertion = assertions[_outputIndex];
+        delete assertion.challenges[_challenger];
         assertion.numberOfChallenges--;
         emit ChallengerTimedOut(_outputIndex, _challenger, block.timestamp);
 
@@ -1018,11 +1015,23 @@ contract Colosseum is Initializable, ISemver {
         uint256 _outputIndex,
         address _challenger
     ) external view returns (Types.Challenge memory) {
-        return challenges[_outputIndex][_challenger];
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        return assertion.challenges[_challenger];
     }
 
-    function getAssertion(uint256 _outputIndex) external view returns (Types.Assertion memory) {
-        return assertions[_outputIndex];
+    function getAssertion(uint256 _outputIndex) external view returns (Types.AssertionView memory) {
+        Types.Assertion storage assertion = assertions[_outputIndex];
+
+        return
+            Types.AssertionView({
+                latestFinalizedOutputIndex: assertion.latestFinalizedOutputIndex,
+                assertedAt: assertion.assertedAt,
+                acceptedAt: assertion.acceptedAt,
+                rejectedAt: assertion.rejectedAt,
+                numberOfChallenges: assertion.numberOfChallenges,
+                asserter: assertion.asserter,
+                isEnforced: assertion.isEnforced
+            });
     }
 
     /**
@@ -1037,7 +1046,9 @@ contract Colosseum is Initializable, ISemver {
         uint256 _outputIndex,
         address _challenger
     ) external view returns (ChallengeStatus) {
-        return _challengeStatus(challenges[_outputIndex][_challenger]);
+        Types.Assertion storage assertion = assertions[_outputIndex];
+        Types.Challenge storage challenge = assertion.challenges[_challenger];
+        return _challengeStatus(challenge);
     }
 
     /**
@@ -1077,5 +1088,51 @@ contract Colosseum is Initializable, ISemver {
         } else {
             revert InvalidAddressGiven();
         }
+    }
+
+    /**
+     * @notice Returns if the output of given index is finalized.
+     *
+     * @param _outputIndex Index of an output.
+     *
+     * @return If the given output is finalized or not.
+     */
+    function isFinalized(uint256 _outputIndex) external view returns (bool) {
+        // The genesis output is treated as a finalized output.
+        if (_outputIndex == 0) {
+            return true;
+        }
+
+        Types.Assertion storage assertion = assertions[_outputIndex];
+
+        if (assertion.assertedAt == 0) {
+            return false;
+        }
+
+        Types.AssertionStatus assertionStatus = _assertionStatus(assertion);
+
+        if (assertionStatus == Types.AssertionStatus.ENFORCED) {
+            if (L2_ORACLE.getL2Output(_outputIndex).outputRoot == bytes32(0)) {
+                return false;
+            }
+        } else if (assertionStatus == Types.AssertionStatus.ACCEPTED) {
+            if (block.timestamp <= assertion.acceptedAt + GUARDIAN_PERIOD) {
+                return false;
+            }
+        } else if (assertionStatus == Types.AssertionStatus.IN_PROGRESS) { 
+            if (assertion.numberOfChallenges > 0) {
+                return false;
+            }
+            if (
+                block.timestamp <=
+                assertion.assertedAt + GUARDIAN_PERIOD + MAX_CLOCK_DURATION_SECONDS
+            ) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        return true;
     }
 }

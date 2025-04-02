@@ -225,7 +225,7 @@ contract ColosseumTest is Colosseum_Initializer {
             "not an invalid output"
         );
 
-        Types.Assertion memory assertion = colosseum.getAssertion(_outputIndex);
+        Types.AssertionView memory assertion = colosseum.getAssertion(_outputIndex);
         // Expect a ChallengeCreated event.
         vm.expectEmit(true, true, true, true);
         emit ChallengeCreated(_outputIndex, assertion.asserter, _challenger, block.timestamp);

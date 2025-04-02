@@ -128,7 +128,9 @@ interface IColosseum {
         address _challenger
     ) external view returns (Types.Challenge memory);
 
-    function getAssertion(uint256 _outputIndex) external view returns (Types.Assertion memory);
+    function getAssertion(uint256 _outputIndex) external view returns (Types.AssertionView memory);
+
+    function isFinalized(uint256 _outputIndex) external view returns (bool);
 
     function getAssertionStatus(uint256 _outputIndex) external view returns (Types.AssertionStatus);
 
