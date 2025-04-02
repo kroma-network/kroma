@@ -100,7 +100,7 @@ contract AssetManagerTest is ValidatorSystemUpgrade_Initializer {
         for (uint256 i = oracle.nextOutputIndex(); i <= terminateOutputIndex; i++) {
             _submitOutputRoot(pool.nextValidator());
         }
-        //        vm.warp(oracle.finalizedAt(terminateOutputIndex));
+
         mockOracle.mockSetNextFinalizeOutputIndex(terminateOutputIndex + 1);
     }
 
