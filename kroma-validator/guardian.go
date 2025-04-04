@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -37,10 +36,11 @@ type Guardian struct {
 	colosseumContract       *bindings.Colosseum
 	colosseumABI            *abi.ABI
 
-	l1BlockTime               *big.Int
-	l2BlockTime               *big.Int
-	finalizationPeriodSeconds *big.Int
-	creationPeriodSeconds     *big.Int
+	l1BlockTime             *big.Int
+	l2BlockTime             *big.Int
+	guardianPeriod          *big.Int
+	maxClockDurationSeconds *big.Int
+	challengeGracePeriod    *big.Int
 
 	validationRequestedSub ethereum.Subscription
 	deletionRequestedSub   ethereum.Subscription
@@ -98,14 +98,6 @@ func (g *Guardian) InitConfig(ctx context.Context) error {
 		}
 		g.l2BlockTime = l2BlockTime
 
-		cCtx, cCancel = context.WithTimeout(ctx, g.cfg.NetworkTimeout)
-		defer cCancel()
-		finalizationPeriodSeconds, err := g.l2ooContract.FINALIZATIONPERIODSECONDS(optsutils.NewSimpleCallOpts(cCtx))
-		if err != nil {
-			return fmt.Errorf("failed to get finalization period seconds: %w", err)
-		}
-		g.finalizationPeriodSeconds = finalizationPeriodSeconds
-
 		return nil
 	})
 	if err != nil {
@@ -115,11 +107,27 @@ func (g *Guardian) InitConfig(ctx context.Context) error {
 	err = contractWatcher.WatchUpgraded(g.cfg.ColosseumAddr, func() error {
 		cCtx, cCancel := context.WithTimeout(ctx, g.cfg.NetworkTimeout)
 		defer cCancel()
-		creationPeriodSeconds, err := g.colosseumContract.CREATIONPERIODSECONDS(optsutils.NewSimpleCallOpts(cCtx))
+		guardianPeriod, err := g.colosseumContract.GUARDIANPERIOD(optsutils.NewSimpleCallOpts(cCtx))
 		if err != nil {
 			return fmt.Errorf("failed to get creation period seconds: %w", err)
 		}
-		g.creationPeriodSeconds = creationPeriodSeconds
+		g.guardianPeriod = guardianPeriod
+
+		cCtx, cCancel = context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+		defer cCancel()
+		maxClockDurationSeconds, err := g.colosseumContract.MAXCLOCKDURATIONSECONDS(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get creation period seconds: %w", err)
+		}
+		g.maxClockDurationSeconds = maxClockDurationSeconds
+
+		cCtx, cCancel = context.WithTimeout(ctx, g.cfg.NetworkTimeout)
+		defer cCancel()
+		challengeGracePeriod, err := g.colosseumContract.CHALLENGEGRACEPERIOD(optsutils.NewSimpleCallOpts(cCtx))
+		if err != nil {
+			return fmt.Errorf("failed to get creation period seconds: %w", err)
+		}
+		g.challengeGracePeriod = challengeGracePeriod
 
 		return nil
 	})
@@ -213,9 +221,21 @@ func (g *Guardian) scanPrevChallenges() {
 			}
 
 			toBlock := new(big.Int).SetUint64(status.HeadL1.Number)
-			finalizationStartL1Block := new(big.Int).Sub(toBlock, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
-			// The fromBlock is the maximum value of either genesis block(1) or the first block of the finalization window
-			fromBlock := math.BigMax(common.Big1, finalizationStartL1Block)
+
+			latestFinalizeOutput, err := g.l2ooContract.GetLatestFinalizeOutput(optsutils.NewSimpleCallOpts(g.ctx))
+			if err != nil {
+				g.log.Error("failed to get latest finalize output", "err", err)
+				continue
+			}
+
+			output, err := g.cfg.RollupClient.OutputAtBlock(g.ctx, latestFinalizeOutput.L2BlockNumber.Uint64()+1)
+			if err != nil {
+				g.log.Error("failed to get local output", "err", err)
+				continue
+			}
+
+			l1OriginNumber := output.BlockRef.L1Origin.Number
+			fromBlock := new(big.Int).SetUint64(l1OriginNumber)
 
 			challengeCreatedEvent := g.colosseumABI.Events[KeyEventChallengeCreated]
 
@@ -263,76 +283,44 @@ func (g *Guardian) inspectorLoop() {
 		case <-g.ctx.Done():
 			return
 		default:
-			status, err := g.cfg.RollupClient.SyncStatus(g.ctx)
-			if err != nil {
-				g.log.Error("failed to get sync status", "err", err)
-				continue
-			}
-
-			var currentL2 *big.Int
-			if g.cfg.AllowNonFinalized {
-				currentL2 = new(big.Int).SetUint64(status.SafeL2.Number)
-			} else {
-				currentL2 = new(big.Int).SetUint64(status.FinalizedL2.Number)
-			}
-
-			// headL1 and finalizedL1 are used for searching events of ReadyToProve in L1 blocks
-			headL1 := new(big.Int).SetUint64(status.HeadL1.Number)
-			finalizedL1 := new(big.Int).Sub(headL1, new(big.Int).Div(g.finalizationPeriodSeconds, g.l1BlockTime))
-			finalizedL1 = math.BigMax(common.Big1, finalizedL1)
-
-			creationPeriodL2 := new(big.Int).Div(g.creationPeriodSeconds, g.l2BlockTime)
-			if currentL2.Cmp(creationPeriodL2) != 1 {
-				g.log.Warn("there is no output when the creation period is over yet", "headL1", headL1, "currentL2", currentL2, "creationPeriodL2", creationPeriodL2)
-				continue
-			}
-
-			// finalizedL2 and creationEndedL2 is used to get outputIndex whose creation period is ended but not finalized
-			finalizedL2 := new(big.Int).Sub(currentL2, new(big.Int).Div(g.finalizationPeriodSeconds, g.l2BlockTime))
-			finalizedL2 = math.BigMax(common.Big1, finalizedL2)
-			creationEndedL2 := new(big.Int).Sub(currentL2, creationPeriodL2)
-
-			// if g.checkpoint is nil, scan all the outputs whose creation period is ended but not finalized
 			if g.checkpoint == nil {
 				func() {
 					cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 					defer cCancel()
-					startOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(optsutils.NewSimpleCallOpts(cCtx), finalizedL2)
+					startOutputIndex, err := g.l2ooContract.GetLatestFinalizeOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
 					if err != nil {
-						g.log.Error("failed to get output index after", "err", err, "afterL2Block", finalizedL2.Uint64())
+						g.log.Error("failed to get output index after", "err", err)
 						return
 					}
 
 					cCtx, cCancel = context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 					defer cCancel()
-					endOutputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(optsutils.NewSimpleCallOpts(cCtx), creationEndedL2)
+					endOutputIndex, err := g.l2ooContract.LatestOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
 					if err != nil {
-						g.log.Error("failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
+						g.log.Error("failed to get output index after", "err", err)
 						return
 					}
 
-					for i := startOutputIndex; i.Cmp(endOutputIndex) < 0; i.Add(i, common.Big1) {
+					for i := new(big.Int).Add(startOutputIndex, common.Big1); i.Cmp(endOutputIndex) <= 0; i.Add(i, common.Big1) {
 						g.wg.Add(1)
-						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(headL1))
+						go g.inspectOutput(new(big.Int).Set(i))
 					}
-
-					g.checkpoint = endOutputIndex.Sub(endOutputIndex, common.Big1)
+					g.checkpoint = endOutputIndex
 				}()
 			} else {
 				func() {
 					cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 					defer cCancel()
-					outputIndex, err := g.l2ooContract.GetL2OutputIndexAfter(optsutils.NewSimpleCallOpts(cCtx), creationEndedL2)
+					outputIndex, err := g.l2ooContract.LatestOutputIndex(optsutils.NewSimpleCallOpts(cCtx))
 					if err != nil {
-						g.log.Error("failed to get output index after", "err", err, "afterL2Block", creationEndedL2.Uint64())
+						g.log.Error("failed to get output index after", "err", err)
 						return
 					}
 
 					for i := new(big.Int).Add(g.checkpoint, common.Big1); i.Cmp(outputIndex) < 0; i.Add(i, common.Big1) {
 						g.wg.Add(1)
-						go g.inspectOutput(new(big.Int).Set(i), new(big.Int).Set(finalizedL1), new(big.Int).Set(headL1))
+						go g.inspectOutput(new(big.Int).Set(i))
 					}
-
 					g.checkpoint = outputIndex.Sub(outputIndex, common.Big1)
 				}()
 			}
@@ -341,7 +329,7 @@ func (g *Guardian) inspectorLoop() {
 }
 
 // inspectOutput inspects if the output fails zk fault proof due to an undeniable bug.
-func (g *Guardian) inspectOutput(outputIndex, fromBlock, toBlock *big.Int) {
+func (g *Guardian) inspectOutput(outputIndex *big.Int) {
 	g.log.Info("inspect output if there is an undeniable bug", "outputIndex", outputIndex)
 	defer g.wg.Done()
 
@@ -366,7 +354,7 @@ func (g *Guardian) inspectOutput(outputIndex, fromBlock, toBlock *big.Int) {
 				}
 			}
 
-			shouldBeDeleted, err := g.shouldBeDeleted(outputIndex, fromBlock, toBlock)
+			shouldBeDeleted, err := g.shouldBeDeleted(outputIndex)
 			if err != nil {
 				g.log.Error("unable to inspect the output for force deletion", "err", err, "outputIndex", outputIndex)
 				continue
@@ -626,13 +614,29 @@ func (g *Guardian) isInGuardianPeriod(outputIndex *big.Int) (inGuardianPeriod bo
 
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
-	isInCreationPeriod, err := g.colosseumContract.IsInCreationPeriod(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
+
+	assertion, err := g.colosseumContract.GetAssertion(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
+
 	if err != nil {
 		return false, true, fmt.Errorf("unable to check if the output is in challenge creation period or not: %w", err)
 	}
-	if isInCreationPeriod {
-		g.log.Info("the creation period of output is not passed. try again", "outputIndex", outputIndex)
-		return false, true, nil
+
+	if assertion.IsEnforced {
+		g.log.Info("the output has enforced, no need to handle", "outputIndex", outputIndex)
+		return false, false, nil
+	}
+
+	if assertion.AssertedAt.Cmp(common.Big0) == 0 {
+		assertionStatus, err := g.colosseumContract.GetAssertionStatus(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
+		if err != nil {
+			return false, true, fmt.Errorf("unable to check if the output is in challenge creation period or not: %w", err)
+		}
+
+		if assertionStatus != challenge.StatusChallengerTimeout {
+			g.log.Info("guardian period has not started yet", "outputIndex", outputIndex)
+			return false, true, nil
+		}
+
 	}
 
 	return true, false, nil
@@ -665,31 +669,10 @@ func (g *Guardian) tryChallengerTimeoutTx(outputIndex *big.Int, challenger commo
 	}
 }
 
-// shouldBeDeleted checks the output should have been deleted or not.
-// It finds the output of the challenge that triggered the ReadyToProve event
-// and compares it to the local output of the guardian.
-func (g *Guardian) shouldBeDeleted(outputIndex, fromBlock, toBlock *big.Int) (bool, error) {
-	readyToProveEvent := g.colosseumABI.Events[KeyEventReadyToProve]
-	addresses := []common.Address{g.cfg.ColosseumAddr}
-	eventIDTopic := []common.Hash{readyToProveEvent.ID}
-	outputIndexTopic := []common.Hash{common.BigToHash(outputIndex)}
-
-	query := ethereum.FilterQuery{
-		FromBlock: fromBlock,
-		ToBlock:   toBlock,
-		Addresses: addresses,
-		Topics:    [][]common.Hash{eventIDTopic, outputIndexTopic},
-	}
-
-	logs, err := g.cfg.L1Client.FilterLogs(g.ctx, query)
-	if err != nil {
-		return false, fmt.Errorf("failed to get event logs related to outputs: %w", err)
-	}
-
-	if len(logs) == 0 {
-		return false, nil
-	}
-
+// shouldBeDeleted checks whether the output should have been deleted.
+// This function should only be called during the guardian period,
+// and it compares the target output to the local output of the guardian.
+func (g *Guardian) shouldBeDeleted(outputIndex *big.Int) (bool, error) {
 	cCtx, cCancel := context.WithTimeout(g.ctx, g.cfg.NetworkTimeout)
 	defer cCancel()
 	output, err := g.l2ooContract.GetL2Output(optsutils.NewSimpleCallOpts(cCtx), outputIndex)
