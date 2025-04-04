@@ -787,13 +787,22 @@ contract Colosseum is Initializable, ISemver {
         // Each bytes32 value occupies 32 bytes, so this range corresponds to the first public input.
         bytes32 srcOutput = bytes32(_zkVmProof.publicValues[8:40]);
         bytes32 dstOutput;
-        if (srcOutput == challenge.segment.output) {
-            dstOutput = challenge.segment.endOutput;
-        } else if (srcOutput == challenge.segment.startOutput) {
-            dstOutput = challenge.segment.output;
+
+        // When ASSERTER_TIMEOUT
+        if (_isAbleToBisect(challenge)) {
+            if (srcOutput != challenge.segment.output) {
+                revert InvalidPublicInput();
+            }
         } else {
-            revert InvalidPublicInput();
+            if (srcOutput == challenge.segment.output) {
+                dstOutput = challenge.segment.endOutput;
+            } else if (srcOutput == challenge.segment.startOutput) {
+                dstOutput = challenge.segment.output;
+            } else {
+                revert InvalidPublicInput();
+            }
         }
+
         bytes32 publicInputHash = ZK_PROOF_VERIFIER.verifyZkVmProof(
             _zkVmProof,
             srcOutput,

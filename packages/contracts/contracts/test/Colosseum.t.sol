@@ -169,14 +169,6 @@ contract ColosseumTest is Colosseum_Initializer {
             end = _challenge.segment.pos;
         }
 
-        if (start + 1 == end) {
-            if (_challenge.segment.output == _getOutputRoot(_sender, start)) {
-                return start - 1;
-            } else {
-                return start;
-            }
-        }
-
         uint256 pos = (start + end) / 2;
         return pos;
     }
@@ -296,8 +288,6 @@ contract ColosseumTest is Colosseum_Initializer {
         Types.CheckpointOutput memory prevOutput = oracle.getL2Output(_outputIndex);
 
         Types.Challenge memory challenge = colosseum.getChallenge(_outputIndex, _challenger);
-
-        _detectFault(challenge, challenge.challenger);
 
         publicInputHash = _doProveFault(challenge.challenger, _outputIndex);
 
