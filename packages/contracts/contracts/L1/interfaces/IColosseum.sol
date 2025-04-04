@@ -103,7 +103,8 @@ interface IColosseum {
     function createChallenge(
         uint256 _outputIndex,
         bytes32 _l1BlockHash,
-        uint256 _l1BlockNumber
+        uint256 _l1BlockNumber,
+        bytes32 _output
     ) external;
 
     function deletedOutputs(

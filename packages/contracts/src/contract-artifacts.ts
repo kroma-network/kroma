@@ -96,9 +96,27 @@
         } catch {}
         
 
+        let IColosseum
+        try {
+          IColosseum = require('../artifacts/contracts/L1/interfaces/IColosseum.sol/IColosseum.json')
+        } catch {}
+        
+
+        let IL2OutputOracle
+        try {
+          IL2OutputOracle = require('../artifacts/contracts/L1/interfaces/IL2OutputOracle.sol/IL2OutputOracle.json')
+        } catch {}
+        
+
         let IValidatorManager
         try {
           IValidatorManager = require('../artifacts/contracts/L1/interfaces/IValidatorManager.sol/IValidatorManager.json')
+        } catch {}
+        
+
+        let IValidatorPool
+        try {
+          IValidatorPool = require('../artifacts/contracts/L1/interfaces/IValidatorPool.sol/IValidatorPool.json')
         } catch {}
         
 
@@ -539,7 +557,10 @@ UpgradeGovernor,
 AssetManager,
 Colosseum,
 IAssetManager,
+IColosseum,
+IL2OutputOracle,
 IValidatorManager,
+IValidatorPool,
 IZKMerkleTrie,
 KromaPortal,
 L1CrossDomainMessenger,

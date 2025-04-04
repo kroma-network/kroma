@@ -423,11 +423,13 @@ contract Colosseum is Initializable, ISemver {
      * @param _outputIndex   Index of the invalid L2 checkpoint output.
      * @param _l1BlockHash   The block hash of L1 at the time the output L2 block was created.
      * @param _l1BlockNumber The block number of L1 with the specified L1 block hash.
+     * @param _output The output value located at the midpoint between the current start and end outputs.
      */
     function createChallenge(
         uint256 _outputIndex,
         bytes32 _l1BlockHash,
-        uint256 _l1BlockNumber
+        uint256 _l1BlockNumber,
+        bytes32 _output
     ) external {
         if (_outputIndex == 0) revert NotAllowedGenesisOutput();
         // Switch validator system after validator pool contract terminated.
@@ -1119,7 +1121,7 @@ contract Colosseum is Initializable, ISemver {
             if (block.timestamp <= assertion.acceptedAt + GUARDIAN_PERIOD) {
                 return false;
             }
-        } else if (assertionStatus == Types.AssertionStatus.IN_PROGRESS) { 
+        } else if (assertionStatus == Types.AssertionStatus.IN_PROGRESS) {
             if (assertion.numberOfChallenges > 0) {
                 return false;
             }

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-bindings/solc"
 )
 
-const MintManagerStorageLayoutJSON = "{\"storage\":[{\"astId\":1000,\"contract\":\"contracts/governance/MintManager.sol:MintManager\",\"label\":\"_owner\",\"offset\":0,\"slot\":\"0\",\"type\":\"t_address\"},{\"astId\":1001,\"contract\":\"contracts/governance/MintManager.sol:MintManager\",\"label\":\"_pendingOwner\",\"offset\":0,\"slot\":\"1\",\"type\":\"t_address\"},{\"astId\":1002,\"contract\":\"contracts/governance/MintManager.sol:MintManager\",\"label\":\"minted\",\"offset\":20,\"slot\":\"1\",\"type\":\"t_bool\"},{\"astId\":1003,\"contract\":\"contracts/governance/MintManager.sol:MintManager\",\"label\":\"recipients\",\"offset\":0,\"slot\":\"2\",\"type\":\"t_array(t_address)dyn_storage\"},{\"astId\":1004,\"contract\":\"contracts/governance/MintManager.sol:MintManager\",\"label\":\"shareOf\",\"offset\":0,\"slot\":\"3\",\"type\":\"t_mapping(t_address,t_uint256)\"}],\"types\":{\"t_address\":{\"encoding\":\"inplace\",\"label\":\"address\",\"numberOfBytes\":\"20\"},\"t_array(t_address)dyn_storage\":{\"encoding\":\"dynamic_array\",\"label\":\"address[]\",\"numberOfBytes\":\"32\",\"base\":\"t_address\"},\"t_bool\":{\"encoding\":\"inplace\",\"label\":\"bool\",\"numberOfBytes\":\"1\"},\"t_mapping(t_address,t_uint256)\":{\"encoding\":\"mapping\",\"label\":\"mapping(address =\u003e uint256)\",\"numberOfBytes\":\"32\",\"key\":\"t_address\",\"value\":\"t_uint256\"},\"t_uint256\":{\"encoding\":\"inplace\",\"label\":\"uint256\",\"numberOfBytes\":\"32\"}}}"
+const MintManagerStorageLayoutJSON = "{\"storage\":null,\"types\":{}}"
 
 var MintManagerStorageLayout = new(solc.StorageLayout)
 

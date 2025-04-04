@@ -218,7 +218,9 @@ contract ColosseumTest is Colosseum_Initializer {
         Types.CheckpointOutput memory latestFinalizedOutput = oracle.getLatestFinalizeOutput();
         Types.CheckpointOutput memory targetOutput = oracle.getL2Output(_outputIndex);
         uint256 end = targetOutput.l2BlockNumber;
-        uint256 start = end - oracle.SUBMISSION_INTERVAL();
+        uint256 start = latestFinalizedOutput.l2BlockNumber;
+
+        bytes32 output = _getOutputRoot(_challenger, (end + start) / 2);
 
         assertTrue(
             _getOutputRoot(targetOutput.submitter, end) != targetOutput.outputRoot,
@@ -230,7 +232,7 @@ contract ColosseumTest is Colosseum_Initializer {
         vm.expectEmit(true, true, true, true);
         emit ChallengeCreated(_outputIndex, assertion.asserter, _challenger, block.timestamp);
         vm.prank(_challenger);
-        colosseum.createChallenge(_outputIndex, bytes32(0), 0);
+        colosseum.createChallenge(_outputIndex, bytes32(0), 0, output);
 
         Types.Challenge memory challenge = colosseum.getChallenge(_outputIndex, _challenger);
         assertEq(challenge.challenger, _challenger);
@@ -376,7 +378,7 @@ contract ColosseumTest is Colosseum_Initializer {
     function test_createChallenge_genesisOutput_reverts() external {
         vm.prank(challenger);
         vm.expectRevert(Colosseum.NotAllowedGenesisOutput.selector);
-        colosseum.createChallenge(0, bytes32(0), 0);
+        colosseum.createChallenge(0, bytes32(0), 0, bytes32(0));
     }
 
     function test_createChallenge_asAsserter_reverts() external {
@@ -385,7 +387,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(targetOutput.submitter);
         vm.expectRevert(Colosseum.NotAllowedCaller.selector);
-        colosseum.createChallenge(outputIndex, bytes32(0), 0);
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, bytes32(0));
     }
 
     function test_createChallenge_existedChallenge_reverts() external {
@@ -399,7 +401,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(challenger);
         vm.expectRevert(Colosseum.ImproperChallengeStatus.selector);
-        colosseum.createChallenge(outputIndex, bytes32(0), 0);
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, bytes32(0));
     }
 
     function test_bisect_afterChallengerTimedOut_reverts() external {
@@ -506,7 +508,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(challenger);
         vm.expectRevert();
-        colosseum.createChallenge(outputIndex + 1, bytes32(0), 0);
+        colosseum.createChallenge(outputIndex + 1, bytes32(0), 0, bytes32(0));
     }
 
     function test_createChallenge_afterChallengeProven_reverts() external {
@@ -520,7 +522,7 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(challenger);
         vm.expectRevert(Colosseum.NotChallengeable.selector);
-        colosseum.createChallenge(outputIndex, bytes32(0), 0);
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, bytes32(0));
     }
 
     function test_challengerTimeout_reverts() public {
@@ -546,7 +548,7 @@ contract ColosseumTest is Colosseum_Initializer {
         test_dismissChallenge_succeeds();
 
         vm.expectRevert(Colosseum.NotChallengeable.selector);
-        colosseum.createChallenge(outputIndex, bytes32(0), 0);
+        colosseum.createChallenge(outputIndex, bytes32(0), 0, bytes32(0));
     }
 
     function test_createChallenge_wrongFork_reverts() external {
@@ -554,7 +556,12 @@ contract ColosseumTest is Colosseum_Initializer {
 
         vm.prank(challenger);
         vm.expectRevert(Colosseum.L1Reorged.selector);
-        colosseum.createChallenge(outputIndex, bytes32(uint256(0x01)), block.number - 1);
+        colosseum.createChallenge(
+            outputIndex,
+            bytes32(uint256(0x01)),
+            block.number - 1,
+            bytes32(0)
+        );
     }
 
     function test_bisect_succeeds() external {

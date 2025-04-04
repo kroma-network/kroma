@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-bindings/solc"
 )
 
-const ProxyAdminStorageLayoutJSON = "{\"storage\":[{\"astId\":1000,\"contract\":\"contracts/universal/ProxyAdmin.sol:ProxyAdmin\",\"label\":\"_owner\",\"offset\":0,\"slot\":\"0\",\"type\":\"t_address\"}],\"types\":{\"t_address\":{\"encoding\":\"inplace\",\"label\":\"address\",\"numberOfBytes\":\"20\"}}}"
+const ProxyAdminStorageLayoutJSON = "{\"storage\":null,\"types\":{}}"
 
 var ProxyAdminStorageLayout = new(solc.StorageLayout)
 

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-bindings/solc"
 )
 
-const ValidatorRewardVaultStorageLayoutJSON = "{\"storage\":[{\"astId\":1000,\"contract\":\"contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault\",\"label\":\"totalProcessed\",\"offset\":0,\"slot\":\"0\",\"type\":\"t_uint256\"},{\"astId\":1001,\"contract\":\"contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault\",\"label\":\"rewards\",\"offset\":0,\"slot\":\"1\",\"type\":\"t_mapping(t_address,t_uint256)\"},{\"astId\":1002,\"contract\":\"contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault\",\"label\":\"isPaid\",\"offset\":0,\"slot\":\"2\",\"type\":\"t_mapping(t_uint256,t_bool)\"},{\"astId\":1003,\"contract\":\"contracts/L2/ValidatorRewardVault.sol:ValidatorRewardVault\",\"label\":\"totalReserved\",\"offset\":0,\"slot\":\"3\",\"type\":\"t_uint256\"}],\"types\":{\"t_address\":{\"encoding\":\"inplace\",\"label\":\"address\",\"numberOfBytes\":\"20\"},\"t_bool\":{\"encoding\":\"inplace\",\"label\":\"bool\",\"numberOfBytes\":\"1\"},\"t_mapping(t_address,t_uint256)\":{\"encoding\":\"mapping\",\"label\":\"mapping(address =\u003e uint256)\",\"numberOfBytes\":\"32\",\"key\":\"t_address\",\"value\":\"t_uint256\"},\"t_mapping(t_uint256,t_bool)\":{\"encoding\":\"mapping\",\"label\":\"mapping(uint256 =\u003e bool)\",\"numberOfBytes\":\"32\",\"key\":\"t_uint256\",\"value\":\"t_bool\"},\"t_uint256\":{\"encoding\":\"inplace\",\"label\":\"uint256\",\"numberOfBytes\":\"32\"}}}"
+const ValidatorRewardVaultStorageLayoutJSON = "{\"storage\":null,\"types\":{}}"
 
 var ValidatorRewardVaultStorageLayout = new(solc.StorageLayout)
 

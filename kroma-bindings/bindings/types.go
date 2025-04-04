@@ -24,14 +24,14 @@ type TypesBlockHeaderRLP struct {
 
 // TypesChallenge is an auto generated low-level Go binding around an user-defined struct.
 type TypesChallenge struct {
-	Turn       uint8
-	TimeoutAt  uint64
-	Asserter   common.Address
-	Challenger common.Address
-	Segments   [][32]byte
-	SegSize    *big.Int
-	SegStart   *big.Int
-	L1Head     [32]byte
+	Turn               *big.Int
+	AsserterTimeLeft   *big.Int
+	ChallengerTimeLeft *big.Int
+	UpdatedAt          *big.Int
+	Asserter           common.Address
+	Challenger         common.Address
+	Segment            TypesSegment
+	L1Head             [32]byte
 }
 
 // TypesOutputRootProof is an auto generated low-level Go binding around an user-defined struct.
@@ -108,3 +108,24 @@ type TypesZkVmProof struct {
 	PublicValues    []byte
 	ProofBytes      []byte
 }
+// TypesAssertionView is an auto generated low-level Go binding around an user-defined struct.
+type TypesAssertionView struct {
+	LatestFinalizedOutputIndex *big.Int
+	AssertedAt                 *big.Int
+	AcceptedAt                 *big.Int
+	RejectedAt                 *big.Int
+	NumberOfChallenges         *big.Int
+	Asserter                   common.Address
+	IsEnforced                 bool
+}
+
+// TypesSegment is an auto generated low-level Go binding around an user-defined struct.
+type TypesSegment struct {
+	Output      [32]byte
+	Pos         *big.Int
+	Start       *big.Int
+	End         *big.Int
+	StartOutput [32]byte
+	EndOutput   [32]byte
+}
+
