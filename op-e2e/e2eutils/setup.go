@@ -344,11 +344,9 @@ func ReplaceWithMockColosseum(
 		return
 	}
 
-	segmentsLengths, err := parseSegLenToBigInts(deployConfig.ColosseumSegmentsLengths)
-	if err != nil {
-		return
-	}
-
+	// auth *bind.TransactOpts, backend bind.ContractBackend,
+	// _l2Oracle common.Address, _zkProofVerifier common.Address, _submissionInterval *big.Int, _securityCouncil common.Address,
+	// _guardianPeriod *big.Int, _maxClockDuration *big.Int, _challengeGracePeriod *big.Int
 	// Deploy a MockColosseum implementation
 	implAddr, deployTx, _, err := bindings.DeployMockColosseum(
 		txOpts,
@@ -356,11 +354,10 @@ func ReplaceWithMockColosseum(
 		l1Deployments.L2OutputOracleProxy,
 		l1Deployments.ZKProofVerifierProxy,
 		new(big.Int).SetUint64(deployConfig.L2OutputOracleSubmissionInterval),
-		new(big.Int).SetUint64(deployConfig.ColosseumCreationPeriodSeconds),
-		new(big.Int).SetUint64(deployConfig.ColosseumBisectionTimeout),
-		new(big.Int).SetUint64(deployConfig.ColosseumProvingTimeout),
-		segmentsLengths,
 		l1Deployments.SecurityCouncilProxy,
+		new(big.Int).SetUint64(deployConfig.ColosseumGuardianPeriodSeconds),
+		new(big.Int).SetUint64(deployConfig.ColosseumMaxClockDurationSeconds),
+		new(big.Int).SetUint64(deployConfig.ColosseumChallengeGracePeriodSeconds),
 	)
 	if err != nil {
 		return

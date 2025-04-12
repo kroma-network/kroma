@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -36,6 +37,10 @@ type data struct {
 	HasImmutableReferences bool
 }
 
+func prettyPrint(i interface{}) {
+	s, _ := json.MarshalIndent(i, "", "\t")
+	fmt.Println(string(s))
+}
 func main() {
 	var f flags
 	flag.StringVar(&f.ForgeArtifacts, "forge-artifacts", "", "Forge artifacts directory, to load sourcemaps from, if available")
@@ -45,6 +50,7 @@ func main() {
 	flag.StringVar(&f.Package, "package", "artifacts", "Go package name")
 	flag.StringVar(&f.MonorepoBase, "monorepo-base", "", "Base of the monorepo")
 	flag.Parse()
+	log.SetOutput(os.Stdout)
 
 	if f.MonorepoBase == "" {
 		log.Fatal("must provide -monorepo-base")
@@ -129,6 +135,8 @@ func main() {
 		if err := json.Unmarshal(forgeArtifactData, &artifact); err != nil {
 			log.Fatalf("failed to parse forge artifact of %q: %v\n", name, err)
 		}
+
+		prettyPrint(artifact)
 
 		rawAbi := artifact.Abi
 		if err != nil {

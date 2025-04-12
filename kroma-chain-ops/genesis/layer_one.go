@@ -223,6 +223,7 @@ func PostProcessL1DeveloperGenesis(stateDB *state.MemoryStateDB, deployments *L1
 
 func getStorageSlot(contractName, entryName string) (common.Hash, error) {
 	layout, err := bindings.GetStorageLayout(contractName)
+
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to get storage layout for %s", contractName)
 	}

@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -314,12 +313,11 @@ type DeployConfig struct {
 	// AssetManagerBondAmount is the bond amount.
 	AssetManagerBondAmount *hexutil.Big `json:"assetManagerBondAmount"`
 
-	ColosseumCreationPeriodSeconds uint64      `json:"colosseumCreationPeriodSeconds"`
-	ColosseumBisectionTimeout      uint64      `json:"colosseumBisectionTimeout"`
-	ColosseumProvingTimeout        uint64      `json:"colosseumProvingTimeout"`
-	ColosseumSegmentsLengths       string      `json:"colosseumSegmentsLengths"`
-	ColosseumDummyHash             common.Hash `json:"colosseumDummyHash"`
-	ColosseumMaxTxs                uint64      `json:"colosseumMaxTxs"`
+	ColosseumGuardianPeriodSeconds       uint64      `json:"colosseumGuardianPeriodSeconds"`
+	ColosseumMaxClockDurationSeconds     uint64      `json:"colosseumMaxClockDurationSeconds"`
+	ColosseumChallengeGracePeriodSeconds uint64      `json:"colosseumChallengeGracePeriodSeconds"`
+	ColosseumDummyHash                   common.Hash `json:"colosseumDummyHash"`
+	ColosseumMaxTxs                      uint64      `json:"colosseumMaxTxs"`
 
 	// Owner of the SecurityCouncil
 	SecurityCouncilOwners []common.Address `json:"securityCouncilOwners"`
@@ -605,14 +603,14 @@ func (d *DeployConfig) Check() error {
 	if d.L2OutputOracleSubmissionInterval*d.L2BlockTime != d.ValidatorPoolRoundDuration*2 {
 		return fmt.Errorf("%w: double of ValidatorPoolRoundDuration must equal to L2OutputOracleSubmissionInterval", ErrInvalidDeployConfig)
 	}
-	if d.ColosseumCreationPeriodSeconds == 0 {
-		return fmt.Errorf("%w: ColosseumCreationPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
+	if d.ColosseumGuardianPeriodSeconds == 0 {
+		return fmt.Errorf("%w: ColosseumGuardianPeriodSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.ColosseumBisectionTimeout == 0 {
-		return fmt.Errorf("%w: ColosseumBisectionTimeout cannot be 0", ErrInvalidDeployConfig)
+	if d.ColosseumMaxClockDurationSeconds == 0 {
+		return fmt.Errorf("%w: ColosseumMaxClockDurationSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
-	if d.ColosseumProvingTimeout == 0 {
-		return fmt.Errorf("%w: ColosseumProvingTimeout cannot be 0", ErrInvalidDeployConfig)
+	if d.ColosseumChallengeGracePeriodSeconds == 0 {
+		return fmt.Errorf("%w: ColosseumChallengeGracePeriodSeconds cannot be 0", ErrInvalidDeployConfig)
 	}
 	if d.ColosseumDummyHash == (common.Hash{}) {
 		return fmt.Errorf("%w: ColosseumDummyHash cannot be 0", ErrInvalidDeployConfig)
@@ -620,9 +618,7 @@ func (d *DeployConfig) Check() error {
 	if d.ColosseumMaxTxs == 0 {
 		return fmt.Errorf("%w: ColosseumMaxTxs cannot be 0", ErrInvalidDeployConfig)
 	}
-	if len(strings.Split(d.ColosseumSegmentsLengths, ","))%2 > 0 {
-		return fmt.Errorf("%w: ColosseumSegmentsLengths length cannot be an odd number", ErrInvalidDeployConfig)
-	}
+
 	if d.GovernorVotingPeriodBlocks == 0 {
 		return fmt.Errorf("%w: GovernorVotingPeriodBlocks cannot be 0", ErrInvalidDeployConfig)
 	}

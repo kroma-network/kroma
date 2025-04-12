@@ -393,7 +393,13 @@ contract Colosseum is Initializable, ISemver {
         GUARDIAN_PERIOD = _guardianPeriod;
         MAX_CLOCK_DURATION_SECONDS = _maxClockDurationSeconds;
         CHALLENGE_GRACE_PERIOD = _challengeGracePeriod;
+        initialize();
     }
+
+    /**
+     * @notice Initializer.
+     */
+    function initialize() public initializer {}
 
     /**
      * @notice Allows an asserter to claim that a specific output is correct.

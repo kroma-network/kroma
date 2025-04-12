@@ -664,30 +664,38 @@ func (c *Challenger) CanCreateChallenge(ctx context.Context, outputIndex *big.In
 
 	var balance, requiredBondAmount *big.Int
 
-	if isInJail, err := c.isInJail(ctx); err != nil {
-		return false, err
-	} else if isInJail {
-		c.log.Warn("validator is in jail")
-		return false, nil
-	}
+	if c.IsValPoolTerminated(outputIndex) {
+		if isInJail, err := c.isInJail(ctx); err != nil {
+			return false, err
+		} else if isInJail {
+			c.log.Warn("validator is in jail")
+			return false, nil
+		}
 
-	validatorStatus, err := c.valMgrContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), from)
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch the validator status: %w", err)
-	}
-	c.metr.RecordValidatorStatus(validatorStatus)
+		validatorStatus, err := c.valMgrContract.GetStatus(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch the validator status: %w", err)
+		}
+		c.metr.RecordValidatorStatus(validatorStatus)
 
-	if validatorStatus != StatusActive {
-		c.log.Warn("validator is not in the status that can create a challenge", "status", validatorStatus)
-		return false, nil
-	}
+		if validatorStatus != StatusActive {
+			c.log.Warn("validator is not in the status that can create a challenge", "status", validatorStatus)
+			return false, nil
+		}
 
-	balance, err = c.assetMgrContract.TotalValidatorKroNotBonded(optsutils.NewSimpleCallOpts(cCtx), from)
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch balance: %w", err)
+		balance, err = c.assetMgrContract.TotalValidatorKroNotBonded(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch balance: %w", err)
+		}
+		requiredBondAmount = c.requiredBondAmountV2
+	} else {
+		var err error
+		balance, err = c.valPoolContract.BalanceOf(optsutils.NewSimpleCallOpts(cCtx), from)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch deposit amount: %w", err)
+		}
+		requiredBondAmount = c.requiredBondAmountV1
 	}
-	requiredBondAmount = c.requiredBondAmountV2
-
 	c.metr.RecordUnbondedDepositAmount(balance)
 
 	// Check if the unbonded deposit amount is less than the required bond amount
@@ -716,6 +724,10 @@ func (c *Challenger) isInJail(ctx context.Context) (bool, error) {
 	}
 
 	return isInJail, nil
+}
+
+func (c *Challenger) IsValPoolTerminated(outputIndex *big.Int) bool {
+	return c.valPoolTerminationIndex.Cmp(outputIndex) < 0
 }
 
 func (c *Challenger) IsOutputFinalized(ctx context.Context, outputIndex *big.Int) (bool, error) {

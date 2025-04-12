@@ -1,6 +1,9 @@
 package actions
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,14 +14,12 @@ import (
 )
 
 func (v *L2Validator) ActCreateChallenge(t Testing, outputIndex *big.Int) common.Hash {
-	inChallengeCreationPeriod, err := v.challenger.IsInChallengeCreationPeriod(t.Ctx(), outputIndex)
-	require.NoError(t, err, "unable to check challenge creation period")
-	require.True(t, inChallengeCreationPeriod, "challenge creation period is past")
 
 	outputs, err := v.challenger.OutputsAtIndex(t.Ctx(), outputIndex)
 	require.NoError(t, err, "unable to fetch outputs")
 
-	outputRange := v.challenger.ValidateOutput(outputIndex, outputs)
+	outputRange, err := v.challenger.ValidateOutput(t.Ctx(), outputIndex, outputs)
+	require.NoError(t, err, "unable to validate outputs")
 	require.NotNil(t, outputRange, "output is valid")
 
 	outputDeleted := val.IsOutputDeleted(outputs.RemoteOutput.OutputRoot)
@@ -59,6 +60,13 @@ func (v *L2Validator) ActBisect(t Testing, outputIndex *big.Int, challenger comm
 	challenge, err := v.challenger.GetChallenge(t.Ctx(), outputIndex, challenger)
 	require.NoError(t, err, "unable to get challenge")
 
+	// BEN
+	jsonBytes, err := json.MarshalIndent(challenge, "", "  ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(jsonBytes))
+	// BEN
 	tx, err := v.challenger.Bisect(t.Ctx(), &challenge, outputIndex)
 	require.NoError(t, err, "unable to create bisect tx")
 

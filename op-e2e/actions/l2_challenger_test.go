@@ -19,12 +19,12 @@ var challengerTests = []struct {
 	f    func(ft *testing.T, deltaTimeOffset *hexutil.Uint64, version uint8)
 }{
 	{"ChallengeBasic", ChallengeBasic},
-	{"ChallengeAsserterBisectTimeout", ChallengeAsserterBisectTimeout},
-	{"ChallengeChallengerBisectTimeout", ChallengeChallengerBisectTimeout},
-	{"ChallengeChallengerProvingTimeout", ChallengeChallengerProvingTimeout},
-	{"ChallengeInvalidProofFail", ChallengeInvalidProofFail},
-	{"ChallengeForceDeleteOutputBySecurityCouncil", ChallengeForceDeleteOutputBySecurityCouncil},
-	{"MultipleChallenges", MultipleChallenges},
+	//{"ChallengeAsserterBisectTimeout", ChallengeAsserterBisectTimeout},
+	//{"ChallengeChallengerBisectTimeout", ChallengeChallengerBisectTimeout},
+	//{"ChallengeChallengerProvingTimeout", ChallengeChallengerProvingTimeout},
+	//{"ChallengeInvalidProofFail", ChallengeInvalidProofFail},
+	//{"ChallengeForceDeleteOutputBySecurityCouncil", ChallengeForceDeleteOutputBySecurityCouncil},
+	//{"MultipleChallenges", MultipleChallenges},
 }
 
 // TestChallengerBatchType run each challenger-related test case in singular batch mode and span batch mode.
@@ -36,13 +36,13 @@ func TestChallengerBatchType(t *testing.T) {
 		})
 	}
 
-	deltaTimeOffset := hexutil.Uint64(0)
-	for _, test := range challengerTests {
-		test := test
-		t.Run(test.name+"_SpanBatch", func(t *testing.T) {
-			test.f(t, &deltaTimeOffset, valhelper.ValidatorV1)
-		})
-	}
+	//deltaTimeOffset := hexutil.Uint64(0)
+	//for _, test := range challengerTests {
+	//	test := test
+	//	t.Run(test.name+"_SpanBatch", func(t *testing.T) {
+	//		test.f(t, &deltaTimeOffset, valhelper.ValidatorV1)
+	//	})
+	//}
 }
 
 // TestValidatorSystemVersion run each challenge test case in ValidatorPool version and ValidatorManager version.

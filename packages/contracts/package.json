@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "bindings": "cd ../../bindings && make",
-    "build:forge": "forge build",
+    "build:forge": "forge build --extra-output storageLayout",
     "build:with-metadata": "FOUNDRY_PROFILE=echidna pnpm build:forge",
     "prebuild": "pnpm ts-node scripts/verify-foundry-install.ts",
     "build": "hardhat compile && pnpm autogen:artifacts && pnpm build:ts && pnpm typechain",

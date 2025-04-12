@@ -189,14 +189,9 @@ interface RequiredDeployConfig {
   l2OutputOracleStartingTimestamp?: number
 
   /**
-   * Output finalization period in seconds.
+   * A period during which guardians verify whether the challenge result is correct.
    */
-  finalizationPeriodSeconds: number
-
-  /**
-   * The period seconds for which challenges can be created per each output.
-   */
-  colosseumCreationPeriodSeconds: number
+  colosseumGuardianPeriodSeconds: number
 
   /**
    * Dummy hash to be used to compute zkEVM proof as a padding if
@@ -208,12 +203,6 @@ interface RequiredDeployConfig {
    * Maximum the number of transaction are allowed in a block when computing zkEVM proof.
    */
   colosseumMaxTxs: number
-
-  /**
-   * List of segments length that must be submitted for each turn of the challenge.
-   * A value represented by a comma-separated string like `9,6,5,6`
-   */
-  colosseumSegmentsLengths: string
 
   /**
    * Owner of the ProxyAdmin contract.
@@ -231,14 +220,14 @@ interface RequiredDeployConfig {
   l1FeeVaultRecipient: string
 
   /**
-   * Timeout seconds of bisection in the Colosseum.
+   * A duration for asserter(or challenger) timeout.
    */
-  colosseumBisectionTimeout: number
+  colosseumMaxClockDurationSeconds: number
 
   /**
-   * Timeout seconds of proving in the Colosseum.
+   * The grace period that provides additional time for the challenger’s timer.
    */
-  colosseumProvingTimeout: number
+  colosseumChallengeGracePeriodSeconds: number
 
   /**
    * The value used by line 459 of the ZK verifier contract.
@@ -473,10 +462,6 @@ export const deployConfigSpec: {
   l2OutputOracleStartingTimestamp: {
     type: 'number',
   },
-  finalizationPeriodSeconds: {
-    type: 'number',
-    default: 2,
-  },
   proxyAdminOwner: {
     type: 'address',
   },
@@ -574,16 +559,17 @@ export const deployConfigSpec: {
     type: 'number',
     default: 0,
   },
-  colosseumCreationPeriodSeconds: {
+  colosseumGuardianPeriodSeconds: {
     type: 'number',
+    default: 302400,
   },
-  colosseumBisectionTimeout: {
+  colosseumMaxClockDurationSeconds: {
     type: 'number',
-    default: 3600,
+    default: 302400,
   },
-  colosseumProvingTimeout: {
+  colosseumChallengeGracePeriodSeconds: {
     type: 'number',
-    default: 3600,
+    default: 14400,
   },
   colosseumDummyHash: {
     type: 'string', // bytes32
@@ -592,9 +578,6 @@ export const deployConfigSpec: {
   colosseumMaxTxs: {
     type: 'number',
     default: 0,
-  },
-  colosseumSegmentsLengths: {
-    type: 'string', // comma-separated segments lengths
   },
   zkVerifierHashScalar: {
     type: 'string', // uint256

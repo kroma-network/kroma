@@ -36,6 +36,7 @@ func init() {
 // GetStorageLayout returns the storage layout of a contract by name.
 func GetStorageLayout(name string) (*solc.StorageLayout, error) {
 	layout := layouts[name]
+
 	if layout == nil {
 		return nil, fmt.Errorf("%s: storage layout not found", name)
 	}

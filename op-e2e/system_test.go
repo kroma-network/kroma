@@ -2051,13 +2051,14 @@ func TestChallengerTimeoutByGuardian(t *testing.T) {
 				sys.Validator = nil
 			}
 
-			inCreationPeriod, err := colosseum.IsInCreationPeriod(&bind.CallOpts{}, targetOutputOracleIndex)
-			require.NoError(t, err)
-
-			// wait until creation period is ended
-			if inCreationPeriod {
-				continue
-			}
+			// TODO(Ben): to be removed completely
+			//inCreationPeriod, err := colosseum.IsInCreationPeriod(&bind.CallOpts{}, targetOutputOracleIndex)
+			//require.NoError(t, err)
+			//
+			//// wait until creation period is ended
+			//if inCreationPeriod {
+			//	continue
+			//}
 
 			challengeStatus, err = colosseum.GetStatus(&bind.CallOpts{}, targetOutputOracleIndex, challengerAddr)
 			require.NoError(t, err)

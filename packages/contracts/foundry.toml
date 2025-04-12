@@ -9,9 +9,9 @@ src = 'contracts'
 out = 'forge-artifacts'
 script = 'scripts'
 optimizer = true
-# [Kroma: START]
 optimizer_runs = 10_000
 remappings = [
+# [Kroma: START]
   '@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/',
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
   '@rari-capital/solmate/=node_modules/@rari-capital/solmate',
